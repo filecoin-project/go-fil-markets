@@ -1,6 +1,7 @@
 package pieceio
 
 import (
+	"github.com/filecoin-project/go-fil-components/filestore"
 	"io"
 
 	blocks "github.com/ipfs/go-block-format"
@@ -18,7 +19,7 @@ type ReadStore interface {
 
 // PieceIO converts between payloads and pieces
 type PieceIO interface {
-	GeneratePieceCommitment(bs ReadStore, payloadCid cid.Cid, selector ipld.Node) ([]byte, error)
+	GeneratePieceCommitment(bs ReadStore, payloadCid cid.Cid, selector ipld.Node) ([]byte, filestore.Path, error)
 	WritePayload(bs ReadStore, payloadCid cid.Cid, selector ipld.Node, w io.Writer) ([]byte, error)
 	ReadPiece(r io.Reader, bs WriteStore) (cid.Cid, error)
 }
