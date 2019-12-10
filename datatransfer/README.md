@@ -5,9 +5,9 @@ A go module to perform data transfers over [ipfs/go-graphsync](https://github.co
 [![](https://img.shields.io/badge/made%20by-Protocol%20Labs-blue.svg?style=flat-square)](http://ipn.io)
 
 ## Table of Contents
-* [Background]((https://github.com/filecoin-project/go-fil-components#background))
-* [Usage]((https://github.com/filecoin-project/go-fil-components#usage))
-    * [Initialize a data transfer module]((https://github.com/filecoin-project/go-fil-components#initialize-a-data-transfer-module))
+* [Background](https://github.com/filecoin-project/go-fil-components#background)
+* [Usage](https://github.com/filecoin-project/go-fil-components#usage)\
+    * [Initialize a data transfer module](https://github.com/filecoin-project/go-fil-components#initialize-a-data-transfer-module)
     * [Register a validator](https://github.com/filecoin-project/go-fil-components#register-a-validator)
     * [Open a Push or Pull Request](https://github.com/filecoin-project/go-fil-components#open-a-push-or-pull-request)
     * [Subscribe to Events](https://github.com/filecoin-project/go-fil-components#subscribe-to-events)
