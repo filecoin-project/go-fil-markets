@@ -1,16 +1,39 @@
-# How To Use go-fil-components/datatransfer
+# go-fil-components/datatransfer
 
-Please see the [design documentation](https://github.com/filecoin-project/go-fil-components/tree/master/datatransfer)
+A go module to perform data transfers over [ipfs/go-graphsync](https://github.com/ipfs/go-graphsync)
+
+[![](https://img.shields.io/badge/made%20by-Protocol%20Labs-blue.svg?style=flat-square)](http://ipn.io)
+
+## Table of Contents
+* [Background]((https://github.com/filecoin-project/go-fil-components#background))
+* [Usage]((https://github.com/filecoin-project/go-fil-components#usage))
+    * [Initialize a data transfer module]((https://github.com/filecoin-project/go-fil-components#initialize-a-data-transfer-module))
+    * [Register a validator](https://github.com/filecoin-project/go-fil-components#register-a-validator)
+    * [Open a Push or Pull Request](https://github.com/filecoin-project/go-fil-components#open-a-push-or-pull-request)
+    * [Subscribe to Events](https://github.com/filecoin-project/go-fil-components#subscribe-to-events)
+* [Contribute](https://github.com/filecoin-project/go-fil-components#contribute)
+* [License (Apache 2.0, MIT)](https://github.com/filecoin-project/go-fil-components#license) 
+
+## Background
+
+Please see the [design documentation](https://github.com/filecoin-project/go-fil-components/tree/master/datatransfer/docs/DESIGNDOC)
 for this module for a high-level overview and and explanation of the terms and concepts.
 
-## Initialize a data transfer module
+## Usage
+
+**Requires go 1.13**
+
+Install the module in your package or app with `go get "github.com/filecoin-project/go-fil-components/datatransfer"`
+
+
+### Initialize a data transfer module
 1. Set up imports. You need, minimally, the following imports:
     ```go
     package mypackage
 
     import (
         gsimpl "github.com/ipfs/go-graphsync/impl"
-        dtgs "github.com/filecoin-project/go-fil-components/datatransfer"
+        "github.com/filecoin-project/go-fil-components/datatransfer"
         "github.com/libp2p/go-libp2p-core/host"
     )
             
@@ -20,7 +43,7 @@ for this module for a high-level overview and and explanation of the terms and c
 1. Create a new instance of GraphsyncDataTransfer
     ```go
     func NewGraphsyncDatatransfer(h host.Host, gs graphsync.GraphExchange) {
-        dt := dtgs.NewGraphSyncDataTransfer(h, gs)
+        dt := datatransfer.NewGraphSyncDataTransfer(h, gs)
     }
     ```
 
@@ -94,13 +117,13 @@ Please see
 for more detail.
 
 
-## Register a validator
+### Register a validator
 Before sending push or pull requests, you must register a `datatransfer.Voucher` 
 by its `reflect.Type` and `dataTransfer.RequestValidator` for vouchers that
 must be sent with the request.  Using the trivial examples above:
 ```go
     func NewGraphsyncDatatransfer(h host.Host, gs graphsync.GraphExchange) {
-        dt := dtgs.NewGraphSyncDataTransfer(h, gs)
+        dt := datatransfer.NewGraphSyncDataTransfer(h, gs)
         vouch := &myVoucher{}
         mv := &myValidator{} 
         dt.RegisterVoucherType(reflect.TypeOf(&vouch), &mv)
@@ -109,14 +132,25 @@ must be sent with the request.  Using the trivial examples above:
     
 For more detail, please see the [unit tests](https://github.com/filecoin-project/go-fil-components/blob/master/datatransfer/impl/graphsync/graphsync_impl_test.go).
 
-## Open a push/pull request
+### Open a Push or Pull Request
 For a push or pull request you need a context, a `datatransfer.Voucher`, a host `peer.ID`, a base `cid.CID`
 and a selector.
 ```go
     func NewGraphsyncDatatransfer(ctx context.Context, h host.Host, gs graphsync.GraphExchange) {
-        dt := dtgs.NewGraphSyncDataTransfer(h, gs)
+        dt := datatransfer.NewGraphSyncDataTransfer(h, gs)
         channelID, err := dt.OpenPullDataChannel(ctx, host2.ID(), &voucher, baseCid, selector)
     }
 ```
 
-## Subscribe to events
+### Subscribe to Events
+
+
+## Contribute
+PRs are welcome!  Please first read the design docs and look over the current code.  PRs against 
+master require approval of at least two maintainers.  For the rest, please see our 
+[CONTRIBUTING](https://github.com/filecoin-project/go-fil-components/CONTRIBUTING.md) guide.
+
+## License
+This library is dual-licensed under Apache 2.0 and MIT terms.
+
+Copyright 2019. Protocol Labs, Inc.
