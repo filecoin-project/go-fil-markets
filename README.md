@@ -14,6 +14,9 @@ PRs are welcome!  Please first read the design docs and look over the current co
 master require approval of at least two maintainers.  For the rest, please see our 
 [CONTRIBUTING](https://github.com/filecoin-project/go-fil-components/CONTRIBUTING.md) guide.
 
+## Project-level documentation
+The filecoin-project has a [community repo](https://github.com/filecoin-project/community) that documents in more detail our policies and guidelines, such as discussion forums and chat rooms and  [Code of Conduct](https://github.com/filecoin-project/community/blob/master/CODE_OF_CONDUCT.md).
+
 ## License
 This repository is dual-licensed under Apache 2.0 and MIT terms.
 
