@@ -137,10 +137,13 @@ must be sent with the request.  Using the trivial examples above:
 For more detail, please see the [unit tests](https://github.com/filecoin-project/go-fil-components/blob/master/datatransfer/impl/graphsync/graphsync_impl_test.go).
 
 ### Open a Push or Pull Request
-For a push or pull request, provide a context, a `datatransfer.Voucher`, a host `peer.ID`, a base `cid.CID`
-and an `ipld.Node`.
+For a push or pull request, provide a context, a `datatransfer.Voucher`, a host recipient `peer.ID`, a baseCID `cid.CID` and a selector `ipld.Node`.  These
+calls return a `datatransfer.ChannelID` and any error:
 ```go
-    channelID, err := dtm.OpenPullDataChannel(ctx, host2.ID(), voucher, baseCid, selector)
+    channelID, err := dtm.OpenPullDataChannel(ctx, recipient, voucher, baseCid, selector)
+    // OR
+    channelID, err := dtm.OpenPushDataChannel(ctx, recipient, voucher, baseCid, selector)
+
 ```
 
 ### Subscribe to Events
@@ -163,7 +166,7 @@ The module allows the consumer to be notified when a graphsync Request is sent o
     unsubFunc := dtm.SubscribeToEvents(ToySubscriberFunc)
 
     // . . . later, when you don't need to know about events any more:
-    unsub()
+    unsubFunc()
 ```
 
 ## Contributing
