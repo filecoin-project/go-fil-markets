@@ -19,9 +19,6 @@ type SectorCalculator interface {
 type PadReader interface {
 	// PaddedSize returns the expected size of a piece after it's been padded
 	PaddedSize(size uint64) uint64
-	// NewPaddedReader takes an io.Reader and an unpadded size and returns a reader
-	// with padded zeros
-	NewPaddedReader(r io.Reader, size uint64) (io.Reader, uint64)
 }
 
 type CarIO interface {
@@ -61,7 +58,7 @@ func (pio *pieceIO) GeneratePieceCommitment(bs ReadStore, payloadCid cid.Cid, se
 	paddedSize := pio.padReader.PaddedSize(pieceSize)
 	remaining := paddedSize - pieceSize
 	padbuf := make([]byte, remaining)
-	padded, err :=f.Write(padbuf)
+	padded, err := f.Write(padbuf)
 	if err != nil {
 		os.Remove(f.Name())
 		return nil, "", err

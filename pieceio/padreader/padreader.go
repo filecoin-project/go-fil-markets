@@ -3,7 +3,6 @@ package padreader
 import (
     ffi "github.com/filecoin-project/filecoin-ffi"
     "github.com/filecoin-project/go-fil-components/pieceio"
-    "io"
     "math/bits"
 )
 
@@ -25,13 +24,4 @@ func (p padReader) PaddedSize(size uint64) uint64 {
     }
 
     return ffi.GetMaxUserBytesPerStagedSector(1 << (logv + 1))
-}
-
-func (p padReader) NewPaddedReader(r io.Reader, size uint64) (io.Reader, uint64) {
-    padSize := p.PaddedSize(size)
-    reader := io.MultiReader(
-        io.LimitReader(r, int64(size)),
-        io.LimitReader(r, int64(padSize - size)),
-    )
-    return reader, padSize
 }

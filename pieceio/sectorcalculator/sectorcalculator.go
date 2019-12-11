@@ -18,18 +18,28 @@ func NewSectorCalculator(tempDir filestore.Path) pieceio.SectorCalculator {
 }
 
 func (s sectorCalculator) GeneratePieceCommitment(piece io.Reader, pieceSize uint64) ([]byte, error) {
-    f := piece.(*os.File) // try to avoid yet another temp file
-    if f == nil {
-        f, err := ioutil.TempFile(string(s.tempDir), "")
+    f, ok := piece.(*os.File) // try to avoid yet another temp file
+    var err error
+    if !ok {
+        f, err = ioutil.TempFile(string(s.tempDir), "")
         if err != nil {
             return nil, err
         }
+        defer func () { // cleanup
+            f.Close()
+            os.Remove(f.Name())
+        }()
         _, err = io.Copy(f, io.LimitReader(piece, int64(pieceSize)))
         if err != nil {
             return nil, err
         }
+        _, err = f.Seek(0, io.SeekStart)
+        if err != nil {
+            return nil, err
+        }
+    } else {
+        defer f.Close()
     }
     commP, err := ffi.GeneratePieceCommitmentFromFile(f, pieceSize)
-    f.Close()
     return commP[:], err
 }
