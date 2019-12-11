@@ -4,15 +4,18 @@ A go module to perform data transfers over [ipfs/go-graphsync](https://github.co
 
 [![](https://img.shields.io/badge/made%20by-Protocol%20Labs-blue.svg?style=flat-square)](http://ipn.io)
 
+## Description
+This module encapsulates protocols for exchanging piece data between storage clients and miners, both when consummating a storage deal and when retrieving the piece later. 
+
+
 ## Table of Contents
 * [Background](https://github.com/filecoin-project/go-fil-components#background)
-* [Usage](https://github.com/filecoin-project/go-fil-components#usage)\
+* [Usage](https://github.com/filecoin-project/go-fil-components#usage)
     * [Initialize a data transfer module](https://github.com/filecoin-project/go-fil-components#initialize-a-data-transfer-module)
     * [Register a validator](https://github.com/filecoin-project/go-fil-components#register-a-validator)
     * [Open a Push or Pull Request](https://github.com/filecoin-project/go-fil-components#open-a-push-or-pull-request)
     * [Subscribe to Events](https://github.com/filecoin-project/go-fil-components#subscribe-to-events)
 * [Contribute](https://github.com/filecoin-project/go-fil-components#contribute)
-* [License (Apache 2.0, MIT)](https://github.com/filecoin-project/go-fil-components#license) 
 
 ## Background
 
@@ -124,28 +127,40 @@ must be sent with the request.  Using the trivial examples above:
 ```go
     func NewGraphsyncDatatransfer(h host.Host, gs graphsync.GraphExchange) {
         dt := datatransfer.NewGraphSyncDataTransfer(h, gs)
+
         vouch := &myVoucher{}
         mv := &myValidator{} 
-        dt.RegisterVoucherType(reflect.TypeOf(&vouch), &mv)
+        dt.RegisterVoucherType(reflect.TypeOf(vouch), mv)
     }
 ```
     
 For more detail, please see the [unit tests](https://github.com/filecoin-project/go-fil-components/blob/master/datatransfer/impl/graphsync/graphsync_impl_test.go).
 
 ### Open a Push or Pull Request
-For a push or pull request you need a context, a `datatransfer.Voucher`, a host `peer.ID`, a base `cid.CID`
-and a selector.
+For a push or pull request, provide a context, a `datatransfer.Voucher`, a host `peer.ID`, a base `cid.CID`
+and an `ipld.Node`.
 ```go
-    func NewGraphsyncDatatransfer(ctx context.Context, h host.Host, gs graphsync.GraphExchange) {
-        dt := datatransfer.NewGraphSyncDataTransfer(h, gs)
-        channelID, err := dt.OpenPullDataChannel(ctx, host2.ID(), &voucher, baseCid, selector)
+    func NewGraphsyncDatatransfer(ctx context.Context, h host.Host, gs graphsync.GraphExchange,  
+          baseCid cid.Cid, selector ipld.Node) datatransfer.Manager {
+        dtm := datatransfer.NewGraphSyncDataTransfer(h, gs)
+        vouch := &myVoucher{}
+        mv := &myValidator{} 
+        dt.RegisterVoucherType(reflect.TypeOf(vouch), mv)
+
+        channelID, err := dt.OpenPullDataChannel(ctx, host2.ID(), voucher, baseCid, selector)
+        return dtm
     }
 ```
 
 ### Subscribe to Events
+```go
+    func MySubscriberFunc (event Event, channelState ChannelState)
 
+    dtm := SetupDataTransferManager(ctx, h, gs, baseCid, snode)
+    unsubFunc := dtm.SubscribeToEvents(subscriber datatransfer.Subscriber)
+```
 
-## Contribute
+## Contributing
 PRs are welcome!  Please first read the design docs and look over the current code.  PRs against 
 master require approval of at least two maintainers.  For the rest, please see our 
 [CONTRIBUTING](https://github.com/filecoin-project/go-fil-components/CONTRIBUTING.md) guide.
