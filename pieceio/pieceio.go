@@ -76,9 +76,6 @@ func (pio *pieceIO) GeneratePieceCommitment(bs ReadStore, payloadCid cid.Cid, se
 	return commitment, filestore.Path(f.Name()), nil
 }
 
-func (pio *pieceIO) WritePayload(bs ReadStore, payloadCid cid.Cid, selector ipld.Node, w io.Writer) ([]byte, error) {
-	return nil, pio.carIO.WriteCar(context.Background(), bs, payloadCid, selector, w)
-}
 func (pio *pieceIO) ReadPiece(r io.Reader, bs WriteStore) (cid.Cid, error) {
 	return pio.carIO.LoadCar(bs, r)
 }
