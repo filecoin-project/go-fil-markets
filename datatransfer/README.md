@@ -140,32 +140,35 @@ For more detail, please see the [unit tests](https://github.com/filecoin-project
 For a push or pull request, provide a context, a `datatransfer.Voucher`, a host `peer.ID`, a base `cid.CID`
 and an `ipld.Node`.
 ```go
-    func NewGraphsyncDatatransfer(ctx context.Context, h host.Host, gs graphsync.GraphExchange,  
-          baseCid cid.Cid, selector ipld.Node) datatransfer.Manager {
-        dtm := datatransfer.NewGraphSyncDataTransfer(h, gs)
-        vouch := &myVoucher{}
-        mv := &myValidator{} 
-        dt.RegisterVoucherType(reflect.TypeOf(vouch), mv)
-
-        channelID, err := dt.OpenPullDataChannel(ctx, host2.ID(), voucher, baseCid, selector)
-        return dtm
-    }
+    channelID, err := dtm.OpenPullDataChannel(ctx, host2.ID(), voucher, baseCid, selector)
 ```
 
 ### Subscribe to Events
+
+The module allows the consumer to be notified when a graphsync Request is sent or a datatransfer push or pull request response is received:
+
 ```go
-    func MySubscriberFunc (event Event, channelState ChannelState)
+    func ToySubscriberFunc (event Event, channelState ChannelState) {
+        if event.Code == datatransfer.Error {
+            // log error, flail about helplessly
+            return
+        }
+        // 
+        if channelState.Recipient() == our.PeerID && channelState.Received() > 0 {
+            // log some stuff, update some state somewhere, send data to a channel, etc.
+        }
+    }
 
     dtm := SetupDataTransferManager(ctx, h, gs, baseCid, snode)
-    unsubFunc := dtm.SubscribeToEvents(subscriber datatransfer.Subscriber)
+    unsubFunc := dtm.SubscribeToEvents(ToySubscriberFunc)
+
+    // . . . later, when you don't need to know about events any more:
+    unsub()
 ```
 
 ## Contributing
 PRs are welcome!  Please first read the design docs and look over the current code.  PRs against 
 master require approval of at least two maintainers.  For the rest, please see our 
 [CONTRIBUTING](https://github.com/filecoin-project/go-fil-components/CONTRIBUTING.md) guide.
-
-## License
-This library is dual-licensed under Apache 2.0 and MIT terms.
 
 Copyright 2019. Protocol Labs, Inc.
