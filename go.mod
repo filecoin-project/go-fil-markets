@@ -3,6 +3,7 @@ module github.com/filecoin-project/go-fil-components
 go 1.13
 
 require (
+	github.com/filecoin-project/filecoin-ffi v0.0.0-20191210104338-2383ce072e95
 	github.com/filecoin-project/go-fil-filestore v0.0.0-20191202230242-40c6a5a2306c
 	github.com/gogo/protobuf v1.3.1 // indirect
 	github.com/google/go-cmp v0.3.1 // indirect
@@ -11,6 +12,7 @@ require (
 	github.com/ipfs/go-bitswap v0.1.8 // indirect
 	github.com/ipfs/go-block-format v0.0.2
 	github.com/ipfs/go-blockservice v0.1.3-0.20190908200855-f22eea50656c
+	github.com/ipfs/go-car v0.0.3-0.20191203022317-23b0a85fd1b1
 	github.com/ipfs/go-cid v0.0.4-0.20191112011718-79e75dffeb10
 	github.com/ipfs/go-datastore v0.1.0
 	github.com/ipfs/go-graphsync v0.0.4
@@ -40,6 +42,6 @@ require (
 	github.com/whyrusleeping/cbor-gen v0.0.0-20191116002219-891f55cd449d
 	golang.org/x/sys v0.0.0-20190826190057-c7b8b68b1456 // indirect
 	golang.org/x/xerrors v0.0.0-20191011141410-1b5146add898
-	gopkg.in/check.v1 v1.0.0-20190902080502-41f04d3bba15 // indirect
-	gopkg.in/yaml.v2 v2.2.4 // indirect
 )
+
+replace github.com/filecoin-project/filecoin-ffi => ./extern/filecoin-ffi
