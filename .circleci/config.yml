@@ -19,10 +19,6 @@ commands:
         default: true
         description: is a linux build environment?
         type: boolean
-      darwin:
-        default: false
-        description: is a darwin build environment?
-        type: boolean
     steps:
       - checkout
       - when:
@@ -30,6 +26,8 @@ commands:
           steps:
             - run: sudo apt-get update
             - run: sudo apt-get install ocl-icd-opencl-dev
+      - run: git submodule sync
+      - run: git submodule update --init
 
 jobs:
   mod-tidy-check:
