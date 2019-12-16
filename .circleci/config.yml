@@ -179,7 +179,3 @@ workflows:
       - test
       - mod-tidy-check
       - build-all
-      - build_macos:
-          filters:
-            branches:
-              only: master
