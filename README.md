@@ -1,5 +1,8 @@
 # go-fil-components
 [![](https://img.shields.io/badge/made%20by-Protocol%20Labs-blue.svg?style=flat-square)](http://ipn.io)
+[![CircleCI](https://circleci.com/gh/filecoin-project/go-fil-components.svg?style=svg)](https://circleci.com/gh/filecoin-project/go-http-api)
+[![codecov](https://codecov.io/gh/filecoin-project/go-fil-components/branch/master/graph/badge.svg)](https://codecov.io/gh/filecoin-project/go-http-api)
+This repo houses modules for use by implementations of filecoin in go.
 
 This repository contains modular implementations of several Filecoin subsystems. These modules are guided by the [v1.0 and 1.1 Filecoin specification updates](https://filecoin-project.github.io/specs/#intro__changelog), which separate core blockchain consensus functionality from the storage mining, storage market, and piece data transfer subsystems. 
 
