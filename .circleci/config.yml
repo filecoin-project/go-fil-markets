@@ -158,6 +158,8 @@ jobs:
     steps:
       - install-deps
       - prepare
+      - run:
+          command: make build
       - go/install-golangci-lint:
           gobin: $HOME/.local/bin
           version: << parameters.golangci-lint-version >>
