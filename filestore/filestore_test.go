@@ -6,7 +6,7 @@ import (
 	"os"
 	"testing"
 
-	filestore "github.com/filecoin-project/go-fil-filestore"
+	filestore "github.com/filecoin-project/go-fil-components/filestore"
 	"github.com/stretchr/testify/require"
 )
 
@@ -107,7 +107,10 @@ func Test_CreateFile(t *testing.T) {
 	path := fmt.Sprintf("%s%c%s", baseDir, os.PathSeparator, name)
 	file, err := store.Create(name)
 	require.NoError(t, err)
-	defer func () { store.Delete(name) } ()
+	defer func() { 
+		err := store.Delete(name)
+		require.NoError(t, err) 
+	}()
 	require.Equal(t, filestore.Path(path), file.Path())
 	bytesToWrite := 32
 	written, err := file.Write(randBytes(bytesToWrite))
@@ -127,10 +130,10 @@ func Test_OpenAndReadFile(t *testing.T) {
 	offset, err := file.Seek(pos, 0)
 	require.NoError(t, err)
 	require.Equal(t, pos, offset)
-	buffer := make([]byte, size / 2)
+	buffer := make([]byte, size/2)
 	read, err := file.Read(buffer)
 	require.NoError(t, err)
-	require.Equal(t, int(size / 2), read)
+	require.Equal(t, int(size/2), read)
 	err = file.Close()
 	require.NoError(t, err)
 }

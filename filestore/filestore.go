@@ -18,7 +18,7 @@ func NewLocalFileStore(basedirectory string) (FileStore, error) {
 			break
 		}
 	}
-	base := basedirectory[0:i + 1]
+	base := basedirectory[0 : i+1]
 	info, err := os.Stat(base)
 	if err != nil {
 		return nil, fmt.Errorf("error getting %s info: %s", base, err.Error())
@@ -64,5 +64,3 @@ func (fs fileStore) Store(p Path, src File) error {
 func (fs fileStore) Delete(p Path) error {
 	return os.Remove(fs.filename(p))
 }
-
-
