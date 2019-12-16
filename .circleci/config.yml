@@ -28,6 +28,8 @@ commands:
             - run: sudo apt-get install ocl-icd-opencl-dev
       - run: git submodule sync
       - run: git submodule update --init
+  build-all:
+
 
 jobs:
   mod-tidy-check:
@@ -96,6 +98,8 @@ jobs:
       - restore_cache:
           name: restore go mod cache
           key: v1-go-deps-{{ arch }}-{{ checksum "/home/circleci/project/go.mod" }}
+      - run:
+          command: make build
       - go/install-gotestsum:
           gobin: $HOME/.local/bin
       - run:
