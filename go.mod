@@ -5,7 +5,11 @@ go 1.13
 require (
 	github.com/filecoin-project/filecoin-ffi v0.0.0-20191210104338-2383ce072e95
 	github.com/gogo/protobuf v1.3.1 // indirect
+	github.com/google/go-cmp v0.3.1 // indirect
+	github.com/gopherjs/gopherjs v0.0.0-20190812055157-5d271430af9f // indirect
 	github.com/hannahhoward/cbor-gen-for v0.0.0-20191216214420-3e450425c40c
+	github.com/hashicorp/golang-lru v0.5.3 // indirect
+	github.com/ipfs/go-bitswap v0.1.8 // indirect
 	github.com/ipfs/go-block-format v0.0.2
 	github.com/ipfs/go-blockservice v0.1.3-0.20190908200855-f22eea50656c
 	github.com/ipfs/go-car v0.0.3-0.20191203022317-23b0a85fd1b1
@@ -15,6 +19,7 @@ require (
 	github.com/ipfs/go-ipfs-blockstore v0.1.0
 	github.com/ipfs/go-ipfs-blocksutil v0.0.1
 	github.com/ipfs/go-ipfs-chunker v0.0.1
+	github.com/ipfs/go-ipfs-ds-help v0.0.1
 	github.com/ipfs/go-ipfs-exchange-offline v0.0.1
 	github.com/ipfs/go-ipfs-files v0.0.4
 	github.com/ipfs/go-ipld-cbor v0.0.3
@@ -33,9 +38,14 @@ require (
 	github.com/minio/blake2b-simd v0.0.0-20160723061019-3f5f724cb5b1
 	github.com/multiformats/go-multiaddr-dns v0.2.0 // indirect
 	github.com/multiformats/go-varint v0.0.1
+	github.com/onsi/ginkgo v1.9.0 // indirect
+	github.com/onsi/gomega v1.6.0 // indirect
 	github.com/polydawn/refmt v0.0.0-20190809202753-05966cbd336a
+	github.com/smartystreets/assertions v1.0.1 // indirect
+	github.com/smartystreets/goconvey v0.0.0-20190731233626-505e41936337 // indirect
 	github.com/stretchr/testify v1.4.0
 	github.com/whyrusleeping/cbor-gen v0.0.0-20191212224538-d370462a7e8a
+	golang.org/x/sys v0.0.0-20190826190057-c7b8b68b1456 // indirect
 	golang.org/x/xerrors v0.0.0-20191011141410-1b5146add898
 )
 
