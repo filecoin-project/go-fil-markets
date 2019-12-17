@@ -17,7 +17,6 @@ import (
 	"golang.org/x/xerrors"
 
 	"github.com/filecoin-project/lotus/chain/address"
-	"github.com/filecoin-project/lotus/node/modules/dtypes"
 	"github.com/filecoin-project/lotus/types"
 )
 
@@ -55,7 +54,7 @@ type WorkerCfg struct {
 }
 
 type SectorBuilder struct {
-	ds   dtypes.MetadataDS
+	ds   datastore.Batching
 	idLk sync.Mutex
 
 	ssize  uint64
@@ -136,7 +135,7 @@ type Config struct {
 	_   struct{} // guard against nameless init
 }
 
-func New(cfg *Config, ds dtypes.MetadataDS) (*SectorBuilder, error) {
+func New(cfg *Config, ds datastore.Batching) (*SectorBuilder, error) {
 	if cfg.WorkerThreads < PoStReservedWorkers {
 		return nil, xerrors.Errorf("minimum worker threads is %d, specified %d", PoStReservedWorkers, cfg.WorkerThreads)
 	}

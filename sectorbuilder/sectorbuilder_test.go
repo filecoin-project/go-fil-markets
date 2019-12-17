@@ -18,7 +18,6 @@ import (
 	"github.com/stretchr/testify/require"
 
 	ffi "github.com/filecoin-project/filecoin-ffi"
-	"github.com/filecoin-project/lotus/build"
 	"github.com/filecoin-project/lotus/lib/sectorbuilder"
 )
 
