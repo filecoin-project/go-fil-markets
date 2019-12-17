@@ -167,6 +167,7 @@ jobs:
           name: Lint
           command: |
             $HOME/.local/bin/golangci-lint run -v \
+              --exclude cbor_gen.go \
               --concurrency << parameters.concurrency >> << parameters.args >>
   lint-changes:
     <<: *lint
