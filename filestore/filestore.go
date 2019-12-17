@@ -64,7 +64,11 @@ func (fs fileStore) Store(p Path, src File) error {
 }
 
 func (fs fileStore) Delete(p Path) error {
-	return os.Remove(string(p))
+	err := os.Remove(string(p))
+	if err != nil {
+		return os.Remove(fs.filename(p))
+	}
+	return nil
 }
 
 func (fs fileStore) CreateTemp() (File, error) {

@@ -42,23 +42,23 @@ func Test_ThereAndBackAgain(t *testing.T) {
 	c := dag.NewRawNode([]byte("cccc"))
 
 	nd1 := &dag.ProtoNode{}
-	nd1.AddNodeLink("cat", a)
+	_ = nd1.AddNodeLink("cat", a)
 
 	nd2 := &dag.ProtoNode{}
-	nd2.AddNodeLink("first", nd1)
-	nd2.AddNodeLink("dog", b)
+	_ = nd2.AddNodeLink("first", nd1)
+	_ = nd2.AddNodeLink("dog", b)
 
 	nd3 := &dag.ProtoNode{}
-	nd3.AddNodeLink("second", nd2)
-	nd3.AddNodeLink("bear", c)
+	_ = nd3.AddNodeLink("second", nd2)
+	_ = nd3.AddNodeLink("bear", c)
 
 	ctx := context.Background()
-	dserv.Add(ctx, a)
-	dserv.Add(ctx, b)
-	dserv.Add(ctx, c)
-	dserv.Add(ctx, nd1)
-	dserv.Add(ctx, nd2)
-	dserv.Add(ctx, nd3)
+	_ = dserv.Add(ctx, a)
+	_ = dserv.Add(ctx, b)
+	_ = dserv.Add(ctx, c)
+	_ = dserv.Add(ctx, nd1)
+	_ = dserv.Add(ctx, nd2)
+	_ = dserv.Add(ctx, nd3)
 
 	ssb := builder.NewSelectorSpecBuilder(ipldfree.NodeBuilder())
 	node := ssb.ExploreFields(func(efsb builder.ExploreFieldsSpecBuilder) {
@@ -96,7 +96,9 @@ func Test_ThereAndBackAgain(t *testing.T) {
 			}
 		}
 	}
-	f.Seek(0, io.SeekStart)
+	_, err = f.Seek(0, io.SeekStart)
+	require.NoError(t, err)
+
 	var reader io.Reader
 	if padStart != -1 {
 		reader = io.LimitReader(f, padStart)
@@ -128,23 +130,23 @@ func Test_StoreRestoreMemoryBuffer(t *testing.T) {
 	c := dag.NewRawNode([]byte("cccc"))
 
 	nd1 := &dag.ProtoNode{}
-	nd1.AddNodeLink("cat", a)
+	_ = nd1.AddNodeLink("cat", a)
 
 	nd2 := &dag.ProtoNode{}
-	nd2.AddNodeLink("first", nd1)
-	nd2.AddNodeLink("dog", b)
+	_ = nd2.AddNodeLink("first", nd1)
+	_ = nd2.AddNodeLink("dog", b)
 
 	nd3 := &dag.ProtoNode{}
-	nd3.AddNodeLink("second", nd2)
-	nd3.AddNodeLink("bear", c)
+	_ = nd3.AddNodeLink("second", nd2)
+	_ = nd3.AddNodeLink("bear", c)
 
 	ctx := context.Background()
-	dserv.Add(ctx, a)
-	dserv.Add(ctx, b)
-	dserv.Add(ctx, c)
-	dserv.Add(ctx, nd1)
-	dserv.Add(ctx, nd2)
-	dserv.Add(ctx, nd3)
+	_ = dserv.Add(ctx, a)
+	_ = dserv.Add(ctx, b)
+	_ = dserv.Add(ctx, c)
+	_ = dserv.Add(ctx, nd1)
+	_ = dserv.Add(ctx, nd2)
+	_ = dserv.Add(ctx, nd3)
 
 	ssb := builder.NewSelectorSpecBuilder(ipldfree.NodeBuilder())
 	node := ssb.ExploreFields(func(efsb builder.ExploreFieldsSpecBuilder) {
@@ -164,8 +166,10 @@ func Test_StoreRestoreMemoryBuffer(t *testing.T) {
 		os.Remove(f.Name())
 	}()
 	info, err := os.Stat(string(filename))
+	require.NoError(t, err)
 	buf := make([]byte, info.Size())
-	f.Read(buf)
+	_, err = f.Read(buf)
+	require.NoError(t, err)
 	buffer := bytes.NewBuffer(buf)
 	secondCommitment, err := sc.GeneratePieceCommitment(buffer, uint64(info.Size()))
 	require.NoError(t, err)
@@ -181,23 +185,23 @@ func Test_Failures(t *testing.T) {
 	c := dag.NewRawNode([]byte("cccc"))
 
 	nd1 := &dag.ProtoNode{}
-	nd1.AddNodeLink("cat", a)
+	_ = nd1.AddNodeLink("cat", a)
 
 	nd2 := &dag.ProtoNode{}
-	nd2.AddNodeLink("first", nd1)
-	nd2.AddNodeLink("dog", b)
+	_ = nd2.AddNodeLink("first", nd1)
+	_ = nd2.AddNodeLink("dog", b)
 
 	nd3 := &dag.ProtoNode{}
-	nd3.AddNodeLink("second", nd2)
-	nd3.AddNodeLink("bear", c)
+	_ = nd3.AddNodeLink("second", nd2)
+	_ = nd3.AddNodeLink("bear", c)
 
 	ctx := context.Background()
-	dserv.Add(ctx, a)
-	dserv.Add(ctx, b)
-	dserv.Add(ctx, c)
-	dserv.Add(ctx, nd1)
-	dserv.Add(ctx, nd2)
-	dserv.Add(ctx, nd3)
+	_ = dserv.Add(ctx, a)
+	_ = dserv.Add(ctx, b)
+	_ = dserv.Add(ctx, c)
+	_ = dserv.Add(ctx, nd1)
+	_ = dserv.Add(ctx, nd2)
+	_ = dserv.Add(ctx, nd3)
 
 	ssb := builder.NewSelectorSpecBuilder(ipldfree.NodeBuilder())
 	node := ssb.ExploreFields(func(efsb builder.ExploreFieldsSpecBuilder) {

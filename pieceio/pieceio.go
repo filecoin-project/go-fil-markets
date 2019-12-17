@@ -44,7 +44,7 @@ func (pio *pieceIO) GeneratePieceCommitment(bs ReadStore, payloadCid cid.Cid, se
 	}
 	cleanup := func() {
 		f.Close()
-		pio.store.Delete(f.Path())
+		_ = pio.store.Delete(f.Path())
 	}
 	err = pio.carIO.WriteCar(context.Background(), bs, payloadCid, selector, f)
 	if err != nil {

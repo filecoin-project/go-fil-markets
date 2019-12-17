@@ -36,7 +36,7 @@ func Test_SizeFails(t *testing.T) {
 	name := Path("newFile.txt")
 	file, err := store.Create(name)
 	require.NoError(t, err)
-	err = store.Delete(name)
+	err = store.Delete(file.Path())
 	require.NoError(t, err)
 	require.Equal(t, int64(-1), file.Size())
 }
@@ -108,7 +108,7 @@ func Test_CreateFile(t *testing.T) {
 	file, err := store.Create(name)
 	require.NoError(t, err)
 	defer func() {
-		err := store.Delete(name)
+		err := store.Delete(file.Path())
 		require.NoError(t, err)
 	}()
 	require.Equal(t, Path(path), file.Path())
