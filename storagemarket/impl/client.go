@@ -228,6 +228,7 @@ func (c *Client) Start(ctx context.Context, p ClientDealProposal) (cid.Cid, erro
 			State:       storagemarket.DealUnknown,
 			Miner:       p.MinerID,
 			MinerWorker: p.MinerWorker,
+			PayloadCid:  p.Data,
 		},
 
 		s: s,
