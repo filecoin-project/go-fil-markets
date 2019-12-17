@@ -19,7 +19,6 @@ import (
 	"testing"
 )
 
-
 func Test_ThereAndBackAgain(t *testing.T) {
 	tempDir := filestore.Path("./tempDir")
 	sc := sectorcalculator.NewSectorCalculator(tempDir)
@@ -83,7 +82,7 @@ func Test_ThereAndBackAgain(t *testing.T) {
 		for idx := int64(0); idx < int64(read); idx++ {
 			if buf[idx] == 0 {
 				if padStart == -1 {
-					padStart = skipped + loops * bufSize + idx
+					padStart = skipped + loops*bufSize + idx
 				}
 			} else {
 				padStart = -1
@@ -151,7 +150,7 @@ func Test_StoreRestoreMemoryBuffer(t *testing.T) {
 	}
 	f, err := os.Open(string(filename))
 	require.NoError(t, err)
-	defer func () {
+	defer func() {
 		f.Close()
 		os.Remove(f.Name())
 	}()
