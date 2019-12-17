@@ -65,7 +65,11 @@ func (pio *pieceIO) GeneratePieceCommitment(bs ReadStore, payloadCid cid.Cid, se
 		cleanup()
 		return nil, "", fmt.Errorf("wrote %d byte of padding while expecting %d to be written", padded, remaining)
 	}
-	f.Seek(0, io.SeekStart)
+	_, err = f.Seek(0, io.SeekStart)
+	if err != nil {
+		cleanup()
+		return nil, "", err
+	}
 	commitment, err := pio.sectorCalculator.GeneratePieceCommitment(f, paddedSize)
 	if err != nil {
 		cleanup()

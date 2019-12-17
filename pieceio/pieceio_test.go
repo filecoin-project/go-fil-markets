@@ -230,7 +230,106 @@ func Test_Failures(t *testing.T) {
 		_, _, err = pio.GeneratePieceCommitment(sourceBs, nd3.Cid(), node)
 		require.Error(t, err)
 	})
-	t.Run("padding fails", func(t *testing.T) {})
-	t.Run("incorrect padding", func(t *testing.T) {})
-	t.Run("generate piece commitment fails", func(t *testing.T) {})
+	t.Run("padding fails", func(t *testing.T) {
+		tempDir := filestore.Path("./tempDir")
+		sc := sectorcalculator.NewSectorCalculator(tempDir)
+		pr := padreader.NewPadReader()
+		cio := cario.NewCarIO()
+
+		fsmock := fsmocks.FileStore{}
+		mockfile := fsmocks.File{}
+
+		fsmock.On("CreateTemp").Return(&mockfile, nil).Once()
+		fsmock.On("Delete", mock.Anything).Return(nil).Once()
+
+		counter := 0
+		size := 0
+		mockfile.On("Write", mock.Anything).Run(func (args mock.Arguments) {
+			arg := args[0]
+			buf := arg.([]byte)
+			size := len(buf)
+			counter += size
+		}).Return(size, nil).Times(17)
+		mockfile.On("Size").Return(int64(484))
+		mockfile.On("Write", mock.Anything).Return(0, fmt.Errorf("write failed")).Once()
+		mockfile.On("Close").Return(nil).Once()
+		mockfile.On("Path").Return(filestore.Path("mock")).Once()
+
+		pio := pieceio.NewPieceIO(pr, cio, sc, &fsmock)
+		_, _, err := pio.GeneratePieceCommitment(sourceBs, nd3.Cid(), node)
+		require.Error(t, err)
+	})
+	t.Run("incorrect padding", func(t *testing.T) {
+		tempDir := filestore.Path("./tempDir")
+		sc := sectorcalculator.NewSectorCalculator(tempDir)
+		pr := padreader.NewPadReader()
+		cio := cario.NewCarIO()
+
+		fsmock := fsmocks.FileStore{}
+		mockfile := fsmocks.File{}
+
+		fsmock.On("CreateTemp").Return(&mockfile, nil).Once()
+		fsmock.On("Delete", mock.Anything).Return(nil).Once()
+
+		counter := 0
+		size := 0
+		mockfile.On("Write", mock.Anything).Run(func (args mock.Arguments) {
+			arg := args[0]
+			buf := arg.([]byte)
+			size := len(buf)
+			counter += size
+		}).Return(size, nil).Times(17)
+		mockfile.On("Size").Return(int64(484))
+		mockfile.On("Write", mock.Anything).Return(16, nil).Once()
+		mockfile.On("Close").Return(nil).Once()
+		mockfile.On("Path").Return(filestore.Path("mock")).Once()
+
+		pio := pieceio.NewPieceIO(pr, cio, sc, &fsmock)
+		_, _, err := pio.GeneratePieceCommitment(sourceBs, nd3.Cid(), node)
+		require.Error(t, err)
+	})
+	t.Run("seek fails", func(t *testing.T) {
+		tempDir := filestore.Path("./tempDir")
+		sc := sectorcalculator.NewSectorCalculator(tempDir)
+		pr := padreader.NewPadReader()
+		cio := cario.NewCarIO()
+
+		fsmock := fsmocks.FileStore{}
+		mockfile := fsmocks.File{}
+
+		fsmock.On("CreateTemp").Return(&mockfile, nil).Once()
+		fsmock.On("Delete", mock.Anything).Return(nil).Once()
+
+		counter := 0
+		size := 0
+		mockfile.On("Write", mock.Anything).Run(func (args mock.Arguments) {
+			arg := args[0]
+			buf := arg.([]byte)
+			size := len(buf)
+			counter += size
+		}).Return(size, nil).Times(17)
+		mockfile.On("Size").Return(int64(484))
+		mockfile.On("Write", mock.Anything).Return(24, nil).Once()
+		mockfile.On("Close").Return(nil).Once()
+		mockfile.On("Path").Return(filestore.Path("mock")).Once()
+		mockfile.On("Seek", mock.Anything, mock.Anything).Return(int64(0), fmt.Errorf("seek failed"))
+
+		pio := pieceio.NewPieceIO(pr, cio, sc, &fsmock)
+		_, _, err := pio.GeneratePieceCommitment(sourceBs, nd3.Cid(), node)
+		require.Error(t, err)
+	})
+	t.Run("generate piece commitment fails", func(t *testing.T) {
+		tempDir := filestore.Path("./tempDir")
+		sc := pmocks.SectorCalculator{}
+		pr := padreader.NewPadReader()
+		cio := cario.NewCarIO()
+
+		sc.On("GeneratePieceCommitment", mock.Anything, mock.Anything, mock.Anything).Return([]byte{}, fmt.Errorf("commitment failed"))
+
+		store, err := filestore.NewLocalFileStore(tempDir)
+		require.NoError(t, err)
+		pio := pieceio.NewPieceIO(pr, cio, &sc, store)
+		_, _, err = pio.GeneratePieceCommitment(sourceBs, nd3.Cid(), node)
+		require.Error(t, err)
+	})
 }
