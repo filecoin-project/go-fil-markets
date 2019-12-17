@@ -3,7 +3,6 @@ package sectorbuilder_test
 import (
 	"context"
 	"fmt"
-	"github.com/filecoin-project/lotus/build"
 	"io"
 	"io/ioutil"
 	"math/rand"
@@ -20,6 +19,7 @@ import (
 
 	ffi "github.com/filecoin-project/filecoin-ffi"
 	"github.com/filecoin-project/lotus/lib/sectorbuilder"
+	"github.com/filecoin-project/lotus/build"
 )
 
 func init() {
