@@ -3,6 +3,7 @@ package sectorbuilder_test
 import (
 	"context"
 	"fmt"
+	"github.com/filecoin-project/lotus/build"
 	"io"
 	"io/ioutil"
 	"math/rand"
@@ -131,9 +132,7 @@ func TestSealAndVerify(t *testing.T) {
 	}
 	_ = os.Setenv("RUST_LOG", "info")
 
-	xbuild.SectorSizes = []uint64{sectorSize}
-
-	if err := xbuild.GetParams(sectorSize); err != nil {
+	if err := build.GetParams(sectorSize); err != nil {
 		t.Fatalf("%+v", err)
 	}
 
@@ -203,9 +202,7 @@ func TestSealPoStNoCommit(t *testing.T) {
 	}
 	_ = os.Setenv("RUST_LOG", "info")
 
-	xbuild.SectorSizes = []uint64{sectorSize}
-
-	if err := xbuild.GetParams(sectorSize); err != nil {
+	if err := build.GetParams(sectorSize); err != nil {
 		t.Fatalf("%+v", err)
 	}
 
@@ -272,9 +269,7 @@ func TestSealAndVerify2(t *testing.T) {
 	}
 	_ = os.Setenv("RUST_LOG", "info")
 
-	xbuild.SectorSizes = []uint64{sectorSize}
-
-	if err := xbuild.GetParams(sectorSize); err != nil {
+	if err := build.GetParams(sectorSize); err != nil {
 		t.Fatalf("%+v", err)
 	}
 
