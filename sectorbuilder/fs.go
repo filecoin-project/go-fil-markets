@@ -1,7 +1,7 @@
 package sectorbuilder
 
 import (
-	"github.com/filecoin-project/lotus/chain/types"
+	"github.com/filecoin-project/lotus/types"
 	"golang.org/x/xerrors"
 	"os"
 	"path/filepath"

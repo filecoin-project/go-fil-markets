@@ -16,10 +16,9 @@ import (
 	dcopy "github.com/otiai10/copy"
 	"golang.org/x/xerrors"
 
-	"github.com/filecoin-project/lotus/build"
 	"github.com/filecoin-project/lotus/chain/address"
-	"github.com/filecoin-project/lotus/chain/types"
 	"github.com/filecoin-project/lotus/node/modules/dtypes"
+	"github.com/filecoin-project/lotus/types"
 )
 
 const PoStReservedWorkers = 1
@@ -692,8 +691,8 @@ func (sb *SectorBuilder) Stop() {
 
 func fallbackPostChallengeCount(sectors uint64) uint64 {
 	challengeCount := types.ElectionPostChallengeCount(sectors)
-	if challengeCount > build.MaxFallbackPostChallengeCount {
-		return build.MaxFallbackPostChallengeCount
+	if challengeCount > types.MaxFallbackPostChallengeCount {
+		return types.MaxFallbackPostChallengeCount
 	}
 	return challengeCount
 }

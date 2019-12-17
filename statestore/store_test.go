@@ -5,7 +5,7 @@ import (
 
 	"github.com/ipfs/go-datastore"
 
-	"github.com/filecoin-project/lotus/chain/types"
+	"github.com/filecoin-project/lotus/types"
 	"github.com/filecoin-project/lotus/lib/cborutil"
 )
 
