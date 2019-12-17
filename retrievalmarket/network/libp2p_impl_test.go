@@ -1,8 +1,6 @@
 package network_test
 
-import (
-	"testing"
-)
+import "testing"
 
 func TestQueryStreamSendReceiveQuery(t *testing.T) {
 	// send query, read in handler
