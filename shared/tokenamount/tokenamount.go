@@ -15,9 +15,12 @@ import (
 	"golang.org/x/xerrors"
 )
 
+// BigIntMaxSerializedLen is the maximum number of bytes a big int can use when
+// serialized to CBOR
 const BigIntMaxSerializedLen = 128 // is this big enough? or too big?
 
-var TotalFilecoinInt = FromFil(params.TotalFilecoin)
+// TotalFilecoinAmount is all filecoin in the system, as a token amount
+var TotalFilecoinAmount = FromFil(params.TotalFilecoin)
 
 func init() {
 	cbor.RegisterCborType(atlas.BuildEntry(TokenAmount{}).Transform().
@@ -32,26 +35,32 @@ func init() {
 		Complete())
 }
 
-var EmptyInt = TokenAmount{}
+// Empty is an empty token
+var Empty = TokenAmount{}
 
+// TokenAmount is an amount of filecoin, represented as a big int
 type TokenAmount struct {
 	*big.Int
 }
 
-func NewInt(i uint64) TokenAmount {
+// FromInt creates a token amount from an integer
+func FromInt(i uint64) TokenAmount {
 	return TokenAmount{big.NewInt(0).SetUint64(i)}
 }
 
+// FromFil creates a token amount from a whole amount of filecoin
 func FromFil(i uint64) TokenAmount {
-	return BigMul(NewInt(i), NewInt(params.FilecoinPrecision))
+	return Mul(FromInt(i), FromInt(params.FilecoinPrecision))
 }
 
-func BigFromBytes(b []byte) TokenAmount {
+// FromBytes creates a token amount from a byte string
+func FromBytes(b []byte) TokenAmount {
 	i := big.NewInt(0).SetBytes(b)
 	return TokenAmount{i}
 }
 
-func BigFromString(s string) (TokenAmount, error) {
+// FromString creates a token amount from a string representation of a big int
+func FromString(s string) (TokenAmount, error) {
 	v, ok := big.NewInt(0).SetString(s, 10)
 	if !ok {
 		return TokenAmount{}, fmt.Errorf("failed to parse string as a big int")
@@ -60,54 +69,63 @@ func BigFromString(s string) (TokenAmount, error) {
 	return TokenAmount{v}, nil
 }
 
-func BigMul(a, b TokenAmount) TokenAmount {
+// Mul multiples two token amounts
+func Mul(a, b TokenAmount) TokenAmount {
 	return TokenAmount{big.NewInt(0).Mul(a.Int, b.Int)}
 }
 
-func BigDiv(a, b TokenAmount) TokenAmount {
+// Div divides two token amounts
+func Div(a, b TokenAmount) TokenAmount {
 	return TokenAmount{big.NewInt(0).Div(a.Int, b.Int)}
 }
 
-func BigMod(a, b TokenAmount) TokenAmount {
+// Mod computes the remainder of two token amounts
+func Mod(a, b TokenAmount) TokenAmount {
 	return TokenAmount{big.NewInt(0).Mod(a.Int, b.Int)}
 }
 
-func BigAdd(a, b TokenAmount) TokenAmount {
+// Add adds two token amounts together
+func Add(a, b TokenAmount) TokenAmount {
 	return TokenAmount{big.NewInt(0).Add(a.Int, b.Int)}
 }
 
-func BigSub(a, b TokenAmount) TokenAmount {
+// Sub subtracts the second token amount from the first
+func Sub(a, b TokenAmount) TokenAmount {
 	return TokenAmount{big.NewInt(0).Sub(a.Int, b.Int)}
 }
 
-func BigCmp(a, b TokenAmount) int {
+// Cmp compares two token amounts (for sorting)
+func Cmp(a, b TokenAmount) int {
 	return a.Int.Cmp(b.Int)
 }
 
-func (bi TokenAmount) Nil() bool {
-	return bi.Int == nil
+// Nil is true if there is no underlying token amount
+func (ta TokenAmount) Nil() bool {
+	return ta.Int == nil
 }
 
-// LessThan returns true if bi < o
-func (bi TokenAmount) LessThan(o TokenAmount) bool {
-	return BigCmp(bi, o) < 0
+// LessThan returns true if ta < o
+func (ta TokenAmount) LessThan(o TokenAmount) bool {
+	return Cmp(ta, o) < 0
 }
 
-// GreaterThan returns true if bi > o
-func (bi TokenAmount) GreaterThan(o TokenAmount) bool {
-	return BigCmp(bi, o) > 0
+// GreaterThan returns true if ta > o
+func (ta TokenAmount) GreaterThan(o TokenAmount) bool {
+	return Cmp(ta, o) > 0
 }
 
-// Equals returns true if bi == o
-func (bi TokenAmount) Equals(o TokenAmount) bool {
-	return BigCmp(bi, o) == 0
+// Equals returns true if ta == o
+func (ta TokenAmount) Equals(o TokenAmount) bool {
+	return Cmp(ta, o) == 0
 }
 
-func (bi *TokenAmount) MarshalJSON() ([]byte, error) {
-	return json.Marshal(bi.String())
+// MarshalJSON converts a token amount to a json string
+func (ta *TokenAmount) MarshalJSON() ([]byte, error) {
+	return json.Marshal(ta.String())
 }
 
-func (bi *TokenAmount) UnmarshalJSON(b []byte) error {
+// UnmarshalJSON decodes a token amount from json
+func (ta *TokenAmount) UnmarshalJSON(b []byte) error {
 	var s string
 	if err := json.Unmarshal(b, &s); err != nil {
 		return err
@@ -121,11 +139,12 @@ func (bi *TokenAmount) UnmarshalJSON(b []byte) error {
 		return xerrors.Errorf("failed to parse bigint string: '%s'", string(b))
 	}
 
-	bi.Int = i
+	ta.Int = i
 	return nil
 }
 
-func (bi *TokenAmount) Scan(value interface{}) error {
+// Scan sets a token amount value from any type
+func (ta *TokenAmount) Scan(value interface{}) error {
 	switch value := value.(type) {
 	case string:
 		i, ok := big.NewInt(0).SetString(value, 10)
@@ -136,35 +155,35 @@ func (bi *TokenAmount) Scan(value interface{}) error {
 			return xerrors.Errorf("failed to parse bigint string: '%s'", value)
 		}
 
-		bi.Int = i
+		ta.Int = i
 
 		return nil
 	case int64:
-		bi.Int = big.NewInt(value)
+		ta.Int = big.NewInt(value)
 		return nil
 	default:
 		return xerrors.Errorf("non-string types unsupported: %T", value)
 	}
 }
 
-func (bi *TokenAmount) cborBytes() []byte {
-	if bi.Int == nil {
+func (ta *TokenAmount) cborBytes() []byte {
+	if ta.Int == nil {
 		return []byte{}
 	}
 
 	switch {
-	case bi.Sign() > 0:
-		return append([]byte{0}, bi.Bytes()...)
-	case bi.Sign() < 0:
-		return append([]byte{1}, bi.Bytes()...)
-	default: //  bi.Sign() == 0:
+	case ta.Sign() > 0:
+		return append([]byte{0}, ta.Bytes()...)
+	case ta.Sign() < 0:
+		return append([]byte{1}, ta.Bytes()...)
+	default: //  ta.Sign() == 0:
 		return []byte{}
 	}
 }
 
 func fromCborBytes(buf []byte) (TokenAmount, error) {
 	if len(buf) == 0 {
-		return NewInt(0), nil
+		return FromInt(0), nil
 	}
 
 	var negative bool
@@ -174,7 +193,7 @@ func fromCborBytes(buf []byte) (TokenAmount, error) {
 	case 1:
 		negative = true
 	default:
-		return EmptyInt, fmt.Errorf("big int prefix should be either 0 or 1, got %d", buf[0])
+		return Empty, fmt.Errorf("big int prefix should be either 0 or 1, got %d", buf[0])
 	}
 
 	i := big.NewInt(0).SetBytes(buf[1:])
@@ -185,13 +204,14 @@ func fromCborBytes(buf []byte) (TokenAmount, error) {
 	return TokenAmount{i}, nil
 }
 
-func (bi *TokenAmount) MarshalCBOR(w io.Writer) error {
-	if bi.Int == nil {
-		zero := NewInt(0)
+// MarshalCBOR encodes a TokenAmount to a CBOR byte array
+func (ta *TokenAmount) MarshalCBOR(w io.Writer) error {
+	if ta.Int == nil {
+		zero := FromInt(0)
 		return zero.MarshalCBOR(w)
 	}
 
-	enc := bi.cborBytes()
+	enc := ta.cborBytes()
 
 	header := cbg.CborEncodeMajorType(cbg.MajByteString, uint64(len(enc)))
 	if _, err := w.Write(header); err != nil {
@@ -205,7 +225,8 @@ func (bi *TokenAmount) MarshalCBOR(w io.Writer) error {
 	return nil
 }
 
-func (bi *TokenAmount) UnmarshalCBOR(br io.Reader) error {
+// UnmarshalCBOR decodes a TokenAmount from a CBOR byte array
+func (ta *TokenAmount) UnmarshalCBOR(br io.Reader) error {
 	maj, extra, err := cbg.CborReadHeader(br)
 	if err != nil {
 		return err
@@ -216,7 +237,7 @@ func (bi *TokenAmount) UnmarshalCBOR(br io.Reader) error {
 	}
 
 	if extra == 0 {
-		bi.Int = big.NewInt(0)
+		ta.Int = big.NewInt(0)
 		return nil
 	}
 
@@ -234,28 +255,32 @@ func (bi *TokenAmount) UnmarshalCBOR(br io.Reader) error {
 		return err
 	}
 
-	*bi = i
+	*ta = i
 
 	return nil
 }
 
-func (f TokenAmount) String() string {
-	r := new(big.Rat).SetFrac(f.Int, big.NewInt(params.FilecoinPrecision))
+// String outputs the token amount as a readable string
+func (ta TokenAmount) String() string {
+	r := new(big.Rat).SetFrac(ta.Int, big.NewInt(params.FilecoinPrecision))
 	if r.Sign() == 0 {
 		return "0"
 	}
 	return strings.TrimRight(strings.TrimRight(r.FloatString(18), "0"), ".")
 }
 
-func (f TokenAmount) Format(s fmt.State, ch rune) {
+// Format converts a token amount to a string and then formats according to the
+// given format
+func (ta TokenAmount) Format(s fmt.State, ch rune) {
 	switch ch {
 	case 's', 'v':
-		fmt.Fprint(s, f.String())
+		fmt.Fprint(s, ta.String())
 	default:
-		f.Int.Format(s, ch)
+		ta.Int.Format(s, ch)
 	}
 }
 
+// ParseTokenAmount parses a token amount from a formatted string
 func ParseTokenAmount(s string) (TokenAmount, error) {
 	r, ok := new(big.Rat).SetString(s)
 	if !ok {
