@@ -217,7 +217,7 @@ func (c *Client) Start(ctx context.Context, p ClientDealProposal) (cid.Cid, erro
 	}
 
 	if err := cborutil.WriteCborRPC(s, proposal); err != nil {
-		s.Reset()
+		_ = s.Reset()
 		return cid.Undef, xerrors.Errorf("sending proposal to storage provider failed: %w", err)
 	}
 
