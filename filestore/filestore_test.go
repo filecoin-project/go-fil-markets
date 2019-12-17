@@ -1,12 +1,12 @@
-package filestore_test
+package filestore
 
 import (
 	"crypto/rand"
 	"fmt"
 	"os"
+	"path"
 	"testing"
 
-	filestore "github.com/filecoin-project/go-fil-components/filestore"
 	"github.com/stretchr/testify/require"
 )
 
@@ -21,7 +21,7 @@ const existingFile = "existing.txt"
 
 func init() {
 	os.MkdirAll(baseDir, 0755)
-	filename := fmt.Sprintf("%s%c%s", baseDir, os.PathSeparator, existingFile)
+	filename := path.Join(baseDir, existingFile)
 	file, err := os.Create(filename)
 	if err != nil {
 		return
@@ -31,9 +31,9 @@ func init() {
 }
 
 func Test_SizeFails(t *testing.T) {
-	store, err := filestore.NewLocalFileStore(baseDir)
+	store, err := NewLocalFileStore(baseDir)
 	require.NoError(t, err)
-	name := filestore.Path("newFile.txt")
+	name := Path("newFile.txt")
 	file, err := store.Create(name)
 	require.NoError(t, err)
 	err = store.Delete(name)
@@ -45,7 +45,7 @@ func Test_OpenFileFails(t *testing.T) {
 	base := "_test/a/b/c/d/e"
 	err := os.MkdirAll(base, 0755)
 	require.NoError(t, err)
-	store, err := filestore.NewLocalFileStore(base)
+	store, err := NewLocalFileStore(Path(base))
 	require.NoError(t, err)
 	err = os.Remove(base)
 	require.NoError(t, err)
@@ -54,9 +54,9 @@ func Test_OpenFileFails(t *testing.T) {
 }
 
 func Test_RemoveSeparators(t *testing.T) {
-	first, err := filestore.NewLocalFileStore(baseDir)
+	first, err := NewLocalFileStore(baseDir)
 	require.NoError(t, err)
-	second, err := filestore.NewLocalFileStore(fmt.Sprintf("%s%c%c", baseDir, os.PathSeparator, os.PathSeparator))
+	second, err := NewLocalFileStore(Path(fmt.Sprintf("%s%c%c", baseDir, os.PathSeparator, os.PathSeparator)))
 	require.NoError(t, err)
 	f1, err := first.Open(existingFile)
 	require.NoError(t, err)
@@ -67,51 +67,52 @@ func Test_RemoveSeparators(t *testing.T) {
 
 func Test_BaseDirIsFileFails(t *testing.T) {
 	base := fmt.Sprintf("%s%c%s", baseDir, os.PathSeparator, existingFile)
-	_, err := filestore.NewLocalFileStore(base)
+	_, err := NewLocalFileStore(Path(base))
 	require.Error(t, err)
 }
 
 func Test_CreateExistingFileFails(t *testing.T) {
-	store, err := filestore.NewLocalFileStore(baseDir)
+	store, err := NewLocalFileStore(baseDir)
 	require.NoError(t, err)
-	_, err = store.Create(filestore.Path(existingFile))
+	_, err = store.Create(Path(existingFile))
 	require.Error(t, err)
 }
 
 func Test_StoreFails(t *testing.T) {
-	store, err := filestore.NewLocalFileStore(baseDir)
+	store, err := NewLocalFileStore(baseDir)
 	require.NoError(t, err)
-	file, err := store.Open(filestore.Path(existingFile))
+	file, err := store.Open(Path(existingFile))
 	require.NoError(t, err)
-	err = store.Store(filestore.Path(existingFile), file)
+	err = store.Store(Path(existingFile), file)
 	require.Error(t, err)
 }
 
 func Test_OpenFails(t *testing.T) {
-	store, err := filestore.NewLocalFileStore(baseDir)
+	store, err := NewLocalFileStore(baseDir)
 	require.NoError(t, err)
-	name := filestore.Path("newFile.txt")
+	name := Path("newFile.txt")
 	_, err = store.Open(name)
 	require.Error(t, err)
 }
 
 func Test_InvalidBaseDirectory(t *testing.T) {
-	_, err := filestore.NewLocalFileStore("NoSuchDirectory")
+	_, err := NewLocalFileStore("NoSuchDirectory")
 	require.Error(t, err)
 }
 
 func Test_CreateFile(t *testing.T) {
-	store, err := filestore.NewLocalFileStore(baseDir)
+	store, err := NewLocalFileStore(baseDir)
 	require.NoError(t, err)
-	name := filestore.Path("newFile.txt")
+	name := Path("newFile.txt")
 	path := fmt.Sprintf("%s%c%s", baseDir, os.PathSeparator, name)
 	file, err := store.Create(name)
 	require.NoError(t, err)
-	defer func() { 
+	defer func() {
 		err := store.Delete(name)
-		require.NoError(t, err) 
+		require.NoError(t, err)
 	}()
-	require.Equal(t, filestore.Path(path), file.Path())
+	require.Equal(t, Path(path), file.Path())
+	require.Equal(t, Path(path), file.Path())
 	bytesToWrite := 32
 	written, err := file.Write(randBytes(bytesToWrite))
 	require.NoError(t, err)
@@ -120,9 +121,9 @@ func Test_CreateFile(t *testing.T) {
 }
 
 func Test_OpenAndReadFile(t *testing.T) {
-	store, err := filestore.NewLocalFileStore(baseDir)
+	store, err := NewLocalFileStore(baseDir)
 	require.NoError(t, err)
-	file, err := store.Open(filestore.Path(existingFile))
+	file, err := store.Open(Path(existingFile))
 	require.NoError(t, err)
 	size := file.Size()
 	require.NotEqual(t, -1, size)
@@ -139,11 +140,11 @@ func Test_OpenAndReadFile(t *testing.T) {
 }
 
 func Test_CopyFile(t *testing.T) {
-	store, err := filestore.NewLocalFileStore(baseDir)
+	store, err := NewLocalFileStore(baseDir)
 	require.NoError(t, err)
-	file, err := store.Open(filestore.Path(existingFile))
+	file, err := store.Open(Path(existingFile))
 	require.NoError(t, err)
-	newFile := filestore.Path("newFile.txt")
+	newFile := Path("newFile.txt")
 	err = store.Store(newFile, file)
 	require.NoError(t, err)
 	err = store.Delete(newFile)

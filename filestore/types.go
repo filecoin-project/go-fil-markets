@@ -27,6 +27,5 @@ type FileStore interface {
 	Store(p Path, f File) error
 	Delete(p Path) error
 
-	// maybe add:
-	// Copy(SrcPath, DstPath)
+	CreateTemp() (File, error)
 }

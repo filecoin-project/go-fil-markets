@@ -3,7 +3,9 @@ package filestore
 import (
 	"fmt"
 	"io"
+	"io/ioutil"
 	"os"
+	"path/filepath"
 )
 
 type fileStore struct {
@@ -11,7 +13,7 @@ type fileStore struct {
 }
 
 // NewLocalFileStore creates a filestore mounted on a given local directory path
-func NewLocalFileStore(basedirectory string) (FileStore, error) {
+func NewLocalFileStore(basedirectory Path) (FileStore, error) {
 	i := len(basedirectory) - 1
 	for ; i >= 0; i-- {
 		if basedirectory[i] != os.PathSeparator {
@@ -19,18 +21,18 @@ func NewLocalFileStore(basedirectory string) (FileStore, error) {
 		}
 	}
 	base := basedirectory[0 : i+1]
-	info, err := os.Stat(base)
+	info, err := os.Stat(string(base))
 	if err != nil {
 		return nil, fmt.Errorf("error getting %s info: %s", base, err.Error())
 	}
 	if false == info.IsDir() {
 		return nil, fmt.Errorf("%s is not a directory", base)
 	}
-	return &fileStore{base}, nil
+	return &fileStore{string(base)}, nil
 }
 
 func (fs fileStore) filename(p Path) string {
-	return fmt.Sprintf("%s%c%s", fs.base, os.PathSeparator, p)
+	return filepath.Join(fs.base, string(p))
 }
 
 func (fs fileStore) Open(p Path) (File, error) {
@@ -62,5 +64,13 @@ func (fs fileStore) Store(p Path, src File) error {
 }
 
 func (fs fileStore) Delete(p Path) error {
-	return os.Remove(fs.filename(p))
+	return os.Remove(string(p))
+}
+
+func (fs fileStore) CreateTemp() (File, error) {
+	f, err := ioutil.TempFile(fs.base, "fstmp")
+	if err != nil {
+		return nil, err
+	}
+	return &fd{File: f, filename: f.Name(),}, nil
 }

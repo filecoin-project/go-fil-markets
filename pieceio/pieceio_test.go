@@ -3,9 +3,12 @@ package pieceio_test
 import (
 	"bytes"
 	"context"
+	"fmt"
 	"github.com/filecoin-project/go-fil-components/filestore"
+	fsmocks "github.com/filecoin-project/go-fil-components/filestore/mocks"
 	"github.com/filecoin-project/go-fil-components/pieceio"
 	"github.com/filecoin-project/go-fil-components/pieceio/cario"
+	pmocks "github.com/filecoin-project/go-fil-components/pieceio/mocks"
 	"github.com/filecoin-project/go-fil-components/pieceio/padreader"
 	"github.com/filecoin-project/go-fil-components/pieceio/sectorcalculator"
 	dag "github.com/ipfs/go-merkledag"
@@ -13,6 +16,7 @@ import (
 	ipldfree "github.com/ipld/go-ipld-prime/impl/free"
 	"github.com/ipld/go-ipld-prime/traversal/selector"
 	"github.com/ipld/go-ipld-prime/traversal/selector/builder"
+	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 	"io"
 	"os"
@@ -25,7 +29,10 @@ func Test_ThereAndBackAgain(t *testing.T) {
 	pr := padreader.NewPadReader()
 	cio := cario.NewCarIO()
 
-	pio := pieceio.NewPieceIO(pr, cio, sc, tempDir)
+	store, err := filestore.NewLocalFileStore(tempDir)
+	require.NoError(t, err)
+	pio := pieceio.NewPieceIO(pr, cio, sc, store)
+	require.NoError(t, err)
 
 	sourceBserv := dstest.Bserv()
 	sourceBs := sourceBserv.Blockstore()
@@ -109,7 +116,9 @@ func Test_StoreRestoreMemoryBuffer(t *testing.T) {
 	pr := padreader.NewPadReader()
 	cio := cario.NewCarIO()
 
-	pio := pieceio.NewPieceIO(pr, cio, sc, tempDir)
+	store, err := filestore.NewLocalFileStore(tempDir)
+	require.NoError(t, err)
+	pio := pieceio.NewPieceIO(pr, cio, sc, store)
 
 	sourceBserv := dstest.Bserv()
 	sourceBs := sourceBserv.Blockstore()
@@ -161,4 +170,63 @@ func Test_StoreRestoreMemoryBuffer(t *testing.T) {
 	secondCommitment, err := sc.GeneratePieceCommitment(buffer, uint64(info.Size()))
 	require.NoError(t, err)
 	require.Equal(t, commitment, secondCommitment)
+}
+
+func Test_Failures(t *testing.T) {
+	sourceBserv := dstest.Bserv()
+	sourceBs := sourceBserv.Blockstore()
+	dserv := dag.NewDAGService(sourceBserv)
+	a := dag.NewRawNode([]byte("aaaa"))
+	b := dag.NewRawNode([]byte("bbbb"))
+	c := dag.NewRawNode([]byte("cccc"))
+
+	nd1 := &dag.ProtoNode{}
+	nd1.AddNodeLink("cat", a)
+
+	nd2 := &dag.ProtoNode{}
+	nd2.AddNodeLink("first", nd1)
+	nd2.AddNodeLink("dog", b)
+
+	nd3 := &dag.ProtoNode{}
+	nd3.AddNodeLink("second", nd2)
+	nd3.AddNodeLink("bear", c)
+
+	ctx := context.Background()
+	dserv.Add(ctx, a)
+	dserv.Add(ctx, b)
+	dserv.Add(ctx, c)
+	dserv.Add(ctx, nd1)
+	dserv.Add(ctx, nd2)
+	dserv.Add(ctx, nd3)
+
+	ssb := builder.NewSelectorSpecBuilder(ipldfree.NodeBuilder())
+	node := ssb.ExploreFields(func(efsb builder.ExploreFieldsSpecBuilder) {
+		efsb.Insert("Links",
+			ssb.ExploreIndex(1, ssb.ExploreRecursive(selector.RecursionLimitNone(), ssb.ExploreAll(ssb.ExploreRecursiveEdge()))))
+	}).Node()
+
+	t.Run("create temp file fails", func(t *testing.T) {
+		fsmock := fsmocks.FileStore{}
+		fsmock.On("CreateTemp").Return(nil, fmt.Errorf("Failed"))
+		pio := pieceio.NewPieceIO(nil, nil, nil, &fsmock)
+		_, _, err := pio.GeneratePieceCommitment(sourceBs, nd3.Cid(), node)
+		require.Error(t, err)
+	})
+	t.Run("write CAR fails", func(t *testing.T) {
+		tempDir := filestore.Path("./tempDir")
+		sc := sectorcalculator.NewSectorCalculator(tempDir)
+		pr := padreader.NewPadReader()
+		store, err := filestore.NewLocalFileStore(tempDir)
+		require.NoError(t, err)
+
+		ciomock := pmocks.CarIO{}
+		any := mock.Anything
+		ciomock.On("WriteCar", any, any, any, any, any).Return(fmt.Errorf("failed to write car"))
+		pio := pieceio.NewPieceIO(pr, &ciomock, sc, store)
+		_, _, err = pio.GeneratePieceCommitment(sourceBs, nd3.Cid(), node)
+		require.Error(t, err)
+	})
+	t.Run("padding fails", func(t *testing.T) {})
+	t.Run("incorrect padding", func(t *testing.T) {})
+	t.Run("generate piece commitment fails", func(t *testing.T) {})
 }
