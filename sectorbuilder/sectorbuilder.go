@@ -16,8 +16,8 @@ import (
 	dcopy "github.com/otiai10/copy"
 	"golang.org/x/xerrors"
 
-	"github.com/filecoin-project/lotus/extractabletypes"
 	"github.com/filecoin-project/go-shared-types/pkg/address"
+	"github.com/filecoin-project/go-shared-types/pkg/params"
 )
 
 const PoStReservedWorkers = 1
@@ -637,7 +637,7 @@ func (sb *SectorBuilder) GenerateEPostCandidates(sectorInfo SortedPublicSectorIn
 		return nil, err
 	}
 
-	challengeCount := extractabletypes.ElectionPostChallengeCount(uint64(len(sectorInfo.Values())))
+	challengeCount := params.ElectionPostChallengeCount(uint64(len(sectorInfo.Values())))
 
 	proverID := addressToProverID(sb.Miner)
 	return sectorbuilder.GenerateCandidates(sb.ssize, proverID, challengeSeed, challengeCount, privsectors)
@@ -689,9 +689,9 @@ func (sb *SectorBuilder) Stop() {
 }
 
 func fallbackPostChallengeCount(sectors uint64) uint64 {
-	challengeCount := extractabletypes.ElectionPostChallengeCount(sectors)
-	if challengeCount > extractabletypes.MaxFallbackPostChallengeCount {
-		return extractabletypes.MaxFallbackPostChallengeCount
+	challengeCount := params.ElectionPostChallengeCount(sectors)
+	if challengeCount > params.MaxFallbackPostChallengeCount {
+		return params.MaxFallbackPostChallengeCount
 	}
 	return challengeCount
 }

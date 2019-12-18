@@ -1,18 +1,18 @@
 package statestore
 
 import (
-	"github.com/filecoin-project/lotus/extractabletypes/bigint"
 	"testing"
 
+	"github.com/acruikshank/go-storage-mining/lib/cborutil"
 	"github.com/ipfs/go-datastore"
 
-	"github.com/filecoin-project/lotus/lib/cborutil"
+	"github.com/filecoin-project/go-shared-types/pkg/types"
 )
 
 func TestList(t *testing.T) {
 	ds := datastore.NewMapDatastore()
 
-	e, err := cborutil.Dump(bigint.NewInt(7))
+	e, err := cborutil.Dump(types.NewInt(7))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -23,7 +23,7 @@ func TestList(t *testing.T) {
 
 	st := &StateStore{ds: ds}
 
-	var out []bigint.BigInt
+	var out []types.BigInt
 	if err := st.List(&out); err != nil {
 		t.Fatal(err)
 	}
