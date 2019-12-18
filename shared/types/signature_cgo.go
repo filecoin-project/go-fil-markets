@@ -6,8 +6,8 @@ import (
 	"fmt"
 
 	bls "github.com/filecoin-project/filecoin-ffi"
-	"github.com/filecoin-project/go-fil-components/shared/address"
-	"github.com/filecoin-project/go-fil-components/shared/crypto"
+	"github.com/filecoin-project/go-shared-types/pkg/address"
+	"github.com/filecoin-project/go-shared-types/pkg/crypto"
 	"github.com/minio/blake2b-simd"
 )
 

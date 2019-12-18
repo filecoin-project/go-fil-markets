@@ -7,12 +7,11 @@ import (
 	"math/big"
 	"strings"
 
-	"github.com/filecoin-project/go-fil-components/shared/params"
+	"golang.org/x/xerrors"
+	params "github.com/filecoin-project/go-shared-types/pkg/params"
 	cbor "github.com/ipfs/go-ipld-cbor"
 	"github.com/polydawn/refmt/obj/atlas"
-
 	cbg "github.com/whyrusleeping/cbor-gen"
-	"golang.org/x/xerrors"
 )
 
 // BigIntMaxSerializedLen is the maximum number of bytes a big int can use when

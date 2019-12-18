@@ -4,7 +4,7 @@ import (
 	"bytes"
 	"encoding/base64"
 
-	"github.com/filecoin-project/go-fil-components/shared/address"
+	"github.com/filecoin-project/go-shared-types/pkg/address"
 	cborrpc "github.com/filecoin-project/go-fil-components/shared/cborutil"
 	"github.com/filecoin-project/go-fil-components/shared/tokenamount"
 	cbor "github.com/ipfs/go-ipld-cbor"
