@@ -1,7 +1,7 @@
 package sectorbuilder
 
 import (
-	"github.com/filecoin-project/lotus/types"
+	"github.com/filecoin-project/lotus/types/bigint"
 	"golang.org/x/xerrors"
 	"os"
 	"path/filepath"
@@ -93,7 +93,7 @@ func (f *fs) reserve(typ dataType, size uint64) error {
 	need := overheadMul[typ] * size
 
 	if int64(need) > avail {
-		return xerrors.Errorf("not enough space in '%s', need %s, available %s", f.path, types.NewInt(need).SizeStr(), types.NewInt(uint64(avail)).SizeStr())
+		return xerrors.Errorf("not enough space in '%s', need %s, available %s", f.path, bigint.NewInt(need).SizeStr(), bigint.NewInt(uint64(avail)).SizeStr())
 	}
 
 	f.reserved[typ] += need

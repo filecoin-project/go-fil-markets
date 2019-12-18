@@ -1,7 +1,7 @@
 package sectorbuilder
 
 import (
-	"github.com/filecoin-project/lotus/chain/address"
+	"github.com/filecoin-project/lotus/types/address"
 	"github.com/ipfs/go-datastore"
 )
 

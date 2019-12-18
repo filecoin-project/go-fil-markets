@@ -1,18 +1,18 @@
 package statestore
 
 import (
+	"github.com/filecoin-project/lotus/types/bigint"
 	"testing"
 
 	"github.com/ipfs/go-datastore"
 
-	"github.com/filecoin-project/lotus/types"
 	"github.com/filecoin-project/lotus/lib/cborutil"
 )
 
 func TestList(t *testing.T) {
 	ds := datastore.NewMapDatastore()
 
-	e, err := cborutil.Dump(types.NewInt(7))
+	e, err := cborutil.Dump(bigint.NewInt(7))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -23,7 +23,7 @@ func TestList(t *testing.T) {
 
 	st := &StateStore{ds: ds}
 
-	var out []types.BigInt
+	var out []bigint.BigInt
 	if err := st.List(&out); err != nil {
 		t.Fatal(err)
 	}

@@ -7,8 +7,8 @@ import (
 	sectorbuilder "github.com/filecoin-project/filecoin-ffi"
 	"go.opencensus.io/trace"
 
-	"github.com/filecoin-project/lotus/chain/address"
 	"github.com/filecoin-project/lotus/types"
+	"github.com/filecoin-project/lotus/types/address"
 )
 
 func (sb *SectorBuilder) SectorSize() uint64 {
