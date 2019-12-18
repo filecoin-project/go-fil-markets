@@ -1,6 +1,21 @@
 package network_test
 
-import "testing"
+import (
+	"github.com/filecoin-project/go-fil-components/datatransfer/testutil"
+	net "github.com/filecoin-project/go-fil-components/retrievalmarket/network"
+	"testing"
+)
+
+type testNetwork struct {
+	qs net.RetrievalQueryStream
+	ds net.RetrievalDealStream
+	rcv net.RetrievalReceiver
+	mn net.RetrievalMarketNetwork
+}
+
+func setupTestRetrievalNetwork() *testNetwork {
+	pieceCid := testutil.GenerateCids(1)[0]
+}
 
 func TestQueryStreamSendReceiveQuery(t *testing.T) {
 	// send query, read in handler
