@@ -12,12 +12,12 @@ import (
 	"testing"
 	"time"
 
-	"github.com/acruikshank/go-storage-mining/lib/sectorbuilder"
 	ffi "github.com/filecoin-project/filecoin-ffi"
 	"github.com/ipfs/go-datastore"
 	logging "github.com/ipfs/go-log"
 
-	build "github.com/acruikshank/go-storage-mining/build"
+	"github.com/acruikshank/go-storage-mining/lib/paramfetch"
+	"github.com/acruikshank/go-storage-mining/lib/sectorbuilder"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -133,7 +133,7 @@ func TestSealAndVerify(t *testing.T) {
 	}
 	_ = os.Setenv("RUST_LOG", "info")
 
-	if err := build.GetParams(sectorSize); err != nil {
+	if err := paramfetch.GetParams(sectorSize); err != nil {
 		t.Fatalf("%+v", err)
 	}
 
@@ -203,7 +203,7 @@ func TestSealPoStNoCommit(t *testing.T) {
 	}
 	_ = os.Setenv("RUST_LOG", "info")
 
-	if err := build.GetParams(sectorSize); err != nil {
+	if err := paramfetch.GetParams(sectorSize); err != nil {
 		t.Fatalf("%+v", err)
 	}
 
@@ -270,7 +270,7 @@ func TestSealAndVerify2(t *testing.T) {
 	}
 	_ = os.Setenv("RUST_LOG", "info")
 
-	if err := build.GetParams(sectorSize); err != nil {
+	if err := paramfetch.GetParams(sectorSize); err != nil {
 		t.Fatalf("%+v", err)
 	}
 
