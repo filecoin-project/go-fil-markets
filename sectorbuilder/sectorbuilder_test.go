@@ -12,14 +12,15 @@ import (
 	"testing"
 	"time"
 
-	"github.com/ipfs/go-datastore"
-	logging "github.com/ipfs/go-log"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
-
-	build "github.com/acruikshank/go-storage-mining/build"
 	"github.com/acruikshank/go-storage-mining/lib/sectorbuilder"
 	ffi "github.com/filecoin-project/filecoin-ffi"
+	"github.com/ipfs/go-datastore"
+	logging "github.com/ipfs/go-log"
+
+	build "github.com/acruikshank/go-storage-mining/build"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func init() {

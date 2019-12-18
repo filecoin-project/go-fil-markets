@@ -3,10 +3,10 @@ package statestore
 import (
 	"testing"
 
-	"github.com/acruikshank/go-storage-mining/lib/cborutil"
+	"github.com/filecoin-project/go-shared-types/pkg/types"
 	"github.com/ipfs/go-datastore"
 
-	"github.com/filecoin-project/go-shared-types/pkg/types"
+	"github.com/acruikshank/go-storage-mining/lib/cborutil"
 )
 
 func TestList(t *testing.T) {
