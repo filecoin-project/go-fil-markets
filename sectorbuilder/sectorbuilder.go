@@ -17,7 +17,7 @@ import (
 	"golang.org/x/xerrors"
 
 	"github.com/filecoin-project/lotus/extractabletypes"
-	"github.com/filecoin-project/lotus/extractabletypes/address"
+	"github.com/filecoin-project/go-shared-types/pkg/address"
 )
 
 const PoStReservedWorkers = 1

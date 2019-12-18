@@ -8,7 +8,7 @@ import (
 	"go.opencensus.io/trace"
 
 	"github.com/filecoin-project/lotus/extractabletypes"
-	"github.com/filecoin-project/lotus/extractabletypes/address"
+	"github.com/filecoin-project/go-shared-types/pkg/address"
 )
 
 func (sb *SectorBuilder) SectorSize() uint64 {
