@@ -16,8 +16,8 @@ import (
 	dcopy "github.com/otiai10/copy"
 	"golang.org/x/xerrors"
 
-	"github.com/filecoin-project/lotus/types"
-	"github.com/filecoin-project/lotus/types/address"
+	"github.com/filecoin-project/lotus/extractabletypes"
+	"github.com/filecoin-project/lotus/extractabletypes/address"
 )
 
 const PoStReservedWorkers = 1
@@ -637,7 +637,7 @@ func (sb *SectorBuilder) GenerateEPostCandidates(sectorInfo SortedPublicSectorIn
 		return nil, err
 	}
 
-	challengeCount := types.ElectionPostChallengeCount(uint64(len(sectorInfo.Values())))
+	challengeCount := extractabletypes.ElectionPostChallengeCount(uint64(len(sectorInfo.Values())))
 
 	proverID := addressToProverID(sb.Miner)
 	return sectorbuilder.GenerateCandidates(sb.ssize, proverID, challengeSeed, challengeCount, privsectors)
@@ -689,9 +689,9 @@ func (sb *SectorBuilder) Stop() {
 }
 
 func fallbackPostChallengeCount(sectors uint64) uint64 {
-	challengeCount := types.ElectionPostChallengeCount(sectors)
-	if challengeCount > types.MaxFallbackPostChallengeCount {
-		return types.MaxFallbackPostChallengeCount
+	challengeCount := extractabletypes.ElectionPostChallengeCount(sectors)
+	if challengeCount > extractabletypes.MaxFallbackPostChallengeCount {
+		return extractabletypes.MaxFallbackPostChallengeCount
 	}
 	return challengeCount
 }

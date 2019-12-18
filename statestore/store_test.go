@@ -1,7 +1,7 @@
 package statestore
 
 import (
-	"github.com/filecoin-project/lotus/types/bigint"
+	"github.com/filecoin-project/lotus/extractabletypes/bigint"
 	"testing"
 
 	"github.com/ipfs/go-datastore"

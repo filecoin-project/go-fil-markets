@@ -1,7 +1,7 @@
 package sectorbuilder
 
 import (
-	"github.com/filecoin-project/lotus/types/bigint"
+	"github.com/filecoin-project/lotus/extractabletypes/bigint"
 	"golang.org/x/xerrors"
 	"os"
 	"path/filepath"
