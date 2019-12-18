@@ -17,9 +17,9 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	build "github.com/acruikshank/go-storage-mining/build"
+	"github.com/acruikshank/go-storage-mining/lib/sectorbuilder"
 	ffi "github.com/filecoin-project/filecoin-ffi"
-	"github.com/filecoin-project/lotus/lib/sectorbuilder"
-	"github.com/filecoin-project/lotus/build"
 )
 
 func init() {
