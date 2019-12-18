@@ -107,6 +107,4 @@ func (f *fs) free(typ dataType, sectorSize uint64) {
 	defer f.lk.Unlock()
 
 	f.reserved[typ] -= overheadMul[typ] * sectorSize
-
-	return
 }

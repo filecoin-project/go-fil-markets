@@ -24,7 +24,7 @@ import (
 )
 
 func init() {
-	logging.SetLogLevel("*", "INFO")
+	logging.SetLogLevel("*", "INFO") // nolint: errcheck
 }
 
 const sectorSize = 1024
@@ -308,14 +308,14 @@ func TestSealAndVerify2(t *testing.T) {
 	s2 := seal{sid: si2}
 
 	wg.Add(2)
-	go s1.precommit(t, sb, 1, wg.Done)
+	go s1.precommit(t, sb, 1, wg.Done) // nolint: staticcheck
 	time.Sleep(100 * time.Millisecond)
-	go s2.precommit(t, sb, 2, wg.Done)
+	go s2.precommit(t, sb, 2, wg.Done) // nolint: staticcheck
 	wg.Wait()
 
 	wg.Add(2)
-	go s1.commit(t, sb, wg.Done)
-	go s2.commit(t, sb, wg.Done)
+	go s1.commit(t, sb, wg.Done) // nolint: staticcheck
+	go s2.commit(t, sb, wg.Done) // nolint: staticcheck
 	wg.Wait()
 
 	post(t, sb, s1, s2)
