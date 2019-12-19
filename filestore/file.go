@@ -1,16 +1,23 @@
 package filestore
 
-import "os"
+import (
+	"fmt"
+	"os"
+	"path"
+	"path/filepath"
+)
 
 type fd struct {
 	*os.File
 	filename string
+	basepath string
 }
 
-func newFile(filename Path) (File, error) {
+func newFile(basepath, filename Path) (File, error) {
 	var err error
-	result := fd{filename: string(filename)}
-	result.File, err = os.OpenFile(result.filename, os.O_APPEND|os.O_CREATE|os.O_RDWR, 0644)
+	result := fd{filename: string(filename), basepath: string(basepath)}
+	full := path.Join(string(basepath), string(filename))
+	result.File, err = os.OpenFile(full, os.O_APPEND|os.O_CREATE|os.O_RDWR, 0644)
 	if err != nil {
 		return nil, err
 	}
@@ -18,11 +25,11 @@ func newFile(filename Path) (File, error) {
 }
 
 func (f fd) Path() Path {
-	return Path(f.filename)
+	return Path(f.Name())
 }
 
 func (f fd) Size() int64 {
-	info, err := os.Stat(f.filename)
+	info, err := os.Stat(fmt.Sprintf("%s%c%s", f.basepath, filepath.Separator, f.filename))
 	if err != nil {
 		return -1
 	}

@@ -24,7 +24,7 @@ type File interface {
 type FileStore interface {
 	Open(p Path) (File, error)
 	Create(p Path) (File, error)
-	Store(p Path, f File) error
+	Store(p Path, f File) (Path, error)
 	Delete(p Path) error
 
 	CreateTemp() (File, error)

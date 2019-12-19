@@ -94,15 +94,22 @@ func (_m *FileStore) Open(p filestore.Path) (filestore.File, error) {
 }
 
 // Store provides a mock function with given fields: p, f
-func (_m *FileStore) Store(p filestore.Path, f filestore.File) error {
+func (_m *FileStore) Store(p filestore.Path, f filestore.File) (filestore.Path, error) {
 	ret := _m.Called(p, f)
 
-	var r0 error
-	if rf, ok := ret.Get(0).(func(filestore.Path, filestore.File) error); ok {
+	var r0 filestore.Path
+	if rf, ok := ret.Get(0).(func(filestore.Path, filestore.File) filestore.Path); ok {
 		r0 = rf(p, f)
 	} else {
-		r0 = ret.Error(0)
+		r0 = ret.Get(0).(filestore.Path)
 	}
 
-	return r0
+	var r1 error
+	if rf, ok := ret.Get(1).(func(filestore.Path, filestore.File) error); ok {
+		r1 = rf(p, f)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
 }

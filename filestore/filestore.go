@@ -41,7 +41,7 @@ func (fs fileStore) Open(p Path) (File, error) {
 	if err != nil {
 		return nil, fmt.Errorf("error trying to open %s: %s", name, err.Error())
 	}
-	return newFile(Path(name))
+	return newFile(Path(fs.base), p)
 }
 
 func (fs fileStore) Create(p Path) (File, error) {
@@ -50,25 +50,29 @@ func (fs fileStore) Create(p Path) (File, error) {
 	if err == nil {
 		return nil, fmt.Errorf("file %s already exists", name)
 	}
-	return newFile(Path(name))
+	return newFile(Path(fs.base), p)
 }
 
-func (fs fileStore) Store(p Path, src File) error {
+func (fs fileStore) Store(p Path, src File) (Path, error) {
 	dest, err := fs.Create(p)
 	if err != nil {
-		return err
+		return Path(""), err
 	}
 	defer dest.Close()
 	_, err = io.Copy(dest, src)
-	return err
+	if err != nil {
+		return Path(""), err
+	}
+	return Path(fs.filename(p)), nil
 }
 
 func (fs fileStore) Delete(p Path) error {
-	err := os.Remove(string(p))
-	if err != nil {
-		return os.Remove(fs.filename(p))
+	for idx, _ := range fs.base {
+		if p[idx] != fs.base[idx] {
+			return fmt.Errorf("invalid base path for '%s' (expecting '%s')", string(p), fs.base)
+		}
 	}
-	return nil
+	return os.Remove(string(p))
 }
 
 func (fs fileStore) CreateTemp() (File, error) {
@@ -76,5 +80,6 @@ func (fs fileStore) CreateTemp() (File, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &fd{File: f, filename: f.Name(),}, nil
+	filename := filepath.Base(f.Name())
+	return &fd{File: f, basepath: fs.base, filename: filename,}, nil
 }
