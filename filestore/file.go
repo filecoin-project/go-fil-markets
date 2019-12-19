@@ -1,10 +1,8 @@
 package filestore
 
 import (
-	"fmt"
 	"os"
 	"path"
-	"path/filepath"
 )
 
 type fd struct {
@@ -29,7 +27,7 @@ func (f fd) Path() Path {
 }
 
 func (f fd) Size() int64 {
-	info, err := os.Stat(fmt.Sprintf("%s%c%s", f.basepath, filepath.Separator, f.filename))
+	info, err := os.Stat(f.Name())
 	if err != nil {
 		return -1
 	}

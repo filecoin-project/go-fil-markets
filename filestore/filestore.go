@@ -6,6 +6,7 @@ import (
 	"io/ioutil"
 	"os"
 	"path/filepath"
+	"strings"
 )
 
 type fileStore struct {
@@ -61,12 +62,11 @@ func (fs fileStore) Store(p Path, src File) (Path, error) {
 }
 
 func (fs fileStore) Delete(p Path) error {
-	for idx := range fs.base {
-		if p[idx] != fs.base[idx] {
-			return fmt.Errorf("invalid base path for '%s' (expecting '%s')", string(p), fs.base)
-		}
+	filename := string(p)
+	if strings.HasPrefix(filename, fs.base) {
+		return os.Remove(filename)
 	}
-	return os.Remove(string(p))
+	return fmt.Errorf("invalid base path for '%s' (expecting '%s')", string(p), fs.base)
 }
 
 func (fs fileStore) CreateTemp() (File, error) {
