@@ -41,9 +41,25 @@ type client struct {
 	subscribers []retrievalmarket.ClientSubscriber
 }
 
+type NewClientParams struct {
+	Host       host.Host
+	Blockstore blockstore.Blockstore
+	RCNode     retrievalmarket.RetrievalClientNode
+	RMNet      rmnet.RetrievalMarketNetwork
+}
+
 // NewClient creates a new retrieval client
-func NewClient(h host.Host, bs blockstore.Blockstore, node retrievalmarket.RetrievalClientNode) retrievalmarket.RetrievalClient {
-	return &client{h: h, bs: bs, node: node, rmnet: rmnet.NewFromLibp2pHost(h)}
+func NewClient(clientParams NewClientParams) retrievalmarket.RetrievalClient {
+	client := &client{
+		h:     clientParams.Host,
+		bs:    clientParams.Blockstore,
+		node:  clientParams.RCNode,
+		rmnet: rmnet.NewFromLibp2pHost(h),
+	}
+	if clientParams.RMNet != nil {
+		client.rmnet = clientParams.RMNet
+	}
+	return client
 }
 
 // V0
@@ -64,7 +80,7 @@ func (c *client) Query(ctx context.Context, p retrievalmarket.RetrievalPeer, pie
 	}
 	defer s.Close()
 
-	err = s.WriteQuery(retrievalmarket.Query{PieceCID:pieceCID})
+	err = s.WriteQuery(retrievalmarket.Query{PieceCID: pieceCID})
 	if err != nil {
 		log.Warn(err)
 		return retrievalmarket.QueryResponseUndefined, err

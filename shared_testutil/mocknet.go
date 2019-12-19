@@ -27,8 +27,8 @@ import (
 
 type Libp2pTestData struct {
 	Ctx         context.Context
-	bs1         bstore.Blockstore
-	bs2         bstore.Blockstore
+	Bs1         bstore.Blockstore
+	Bs2         bstore.Blockstore
 	DagService1 ipldformat.DAGService
 	DagService2 ipldformat.DAGService
 	Loader1     ipld.Loader

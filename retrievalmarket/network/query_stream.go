@@ -15,6 +15,8 @@ type queryStream struct {
 	s p2pnet.Stream
 }
 
+var _ RetrievalQueryStream = (*queryStream)(nil)
+
 func (qs queryStream) ReadQuery() (retrievalmarket.Query, error) {
 	panic("implement me")
 }
@@ -46,8 +48,6 @@ func (qs queryStream) ReadQueryResponse() (retrievalmarket.QueryResponse, error)
 func (qs queryStream) WriteQueryResponse(retrievalmarket.QueryResponse) error {
 	panic("implement me")
 }
-
-var _ RetrievalQueryStream = (*queryStream)(nil)
 
 func (qs queryStream) Close() error {
 	return qs.s.Close()

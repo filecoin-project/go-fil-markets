@@ -101,7 +101,7 @@ type RetrievalClient interface {
 	ListDeals() map[DealID]ClientDealState
 }
 
-// RetrievalClientNode are the node depedencies for a RetrevalClient
+// RetrievalClientNode are the node dependencies for a RetrievalClient
 type RetrievalClientNode interface {
 
 	// GetOrCreatePaymentChannel sets up a new payment channel if one does not exist
