@@ -20,8 +20,6 @@ import (
 	"github.com/filecoin-project/go-address"
 	"github.com/filecoin-project/go-fil-components/retrievalmarket"
 	rmnet "github.com/filecoin-project/go-fil-components/retrievalmarket/network"
-	"github.com/filecoin-project/go-fil-components/shared/address"
-	"github.com/filecoin-project/go-fil-components/shared/cborutil"
 	"github.com/filecoin-project/go-fil-components/shared/params"
 	"github.com/filecoin-project/go-fil-components/shared/tokenamount"
 	"github.com/filecoin-project/go-fil-components/shared/types"

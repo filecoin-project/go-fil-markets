@@ -3,7 +3,6 @@ package network
 import (
 	"github.com/filecoin-project/go-fil-components/retrievalmarket"
 	retrievalimpl "github.com/filecoin-project/go-fil-components/retrievalmarket/impl"
-	"github.com/filecoin-project/go-fil-components/shared/cborutil"
 	"github.com/filecoin-project/go-fil-components/shared/tokenamount"
 	"github.com/ipfs/go-cid"
 	p2pnet "github.com/libp2p/go-libp2p-core/network"

@@ -5,13 +5,12 @@ import (
 	"fmt"
 	"reflect"
 
+	cborutil "github.com/filecoin-project/go-cbor-util"
 	"github.com/ipfs/go-datastore"
 	"github.com/ipfs/go-datastore/query"
 	cbg "github.com/whyrusleeping/cbor-gen"
 	"go.uber.org/multierr"
 	"golang.org/x/xerrors"
-
-	"github.com/filecoin-project/go-fil-components/shared/cborutil"
 )
 
 type StateStore struct {
