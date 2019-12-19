@@ -1,11 +1,8 @@
 package testutil
 
 import (
-	"context"
 	"errors"
-	"github.com/filecoin-project/go-address"
-	"github.com/filecoin-project/go-fil-components/shared/tokenamount"
-	"github.com/filecoin-project/go-fil-components/shared/types"
+
 	"github.com/libp2p/go-libp2p-core/host"
 	p2pnet "github.com/libp2p/go-libp2p-core/network"
 	"github.com/libp2p/go-libp2p-core/peer"
@@ -14,45 +11,38 @@ import (
 	rmnet "github.com/filecoin-project/go-fil-components/retrievalmarket/network"
 )
 
-type TestRetrievalQueryStream struct {
-	p                   peer.ID
-	s                   p2pnet.Stream
+type TestRetrievalQueryStream struct{
+	p peer.ID
+	s p2pnet.Stream
 	failRead, failWrite bool
 }
 
-func (trqs TestRetrievalQueryStream) NewTestRetrievalQueryStream(p peer.ID, failRead, failWrite bool) *TestRetrievalQueryStream {
-	return &TestRetrievalQueryStream{
-		p:         p,
-		failRead:  failRead,
-		failWrite: failWrite,
-	}
+func (trqs TestRetrievalQueryStream) NewTestRetrievalQueryStream(p peer.ID, failRead, failWrite bool) {
 }
 
-func (trqs TestRetrievalQueryStream) SetStream(s p2pnet.Stream) {
-	trqs.s = s
-}
-
-func (trqs TestRetrievalQueryStream) ReadQuery() (rm.Query, error) {
+func (trqs TestRetrievalQueryStream)ReadQuery() (rm.Query, error){
 	if trqs.failRead {
 		return rm.Query{}, errors.New("fail ReadQuery")
 	}
 
 	return rm.Query{}, nil
 }
-func (trqs TestRetrievalQueryStream) WriteQuery(newQuery rm.Query) error {
+func (trqs TestRetrievalQueryStream)WriteQuery(newQuery rm.Query) error{
 	if trqs.failWrite {
 		return errors.New("fail WriteQuery")
 	}
 	return nil
 }
-func (trqs TestRetrievalQueryStream) ReadQueryResponse() (rm.QueryResponse, error) {
+func (trqs TestRetrievalQueryStream)ReadQueryResponse() (rm.QueryResponse, error){
 	if trqs.failRead {
 		return rm.QueryResponse{}, errors.New("fail ReadQueryResponse")
 	}
 
+
+
 	return rm.QueryResponse{}, nil
 }
-func (trqs TestRetrievalQueryStream) WriteQueryResponse(newResp rm.QueryResponse) error {
+func (trqs TestRetrievalQueryStream)WriteQueryResponse(newResp rm.QueryResponse) error{
 	if trqs.failWrite {
 		return errors.New("fail WriteQueryResponse")
 	}
@@ -60,6 +50,7 @@ func (trqs TestRetrievalQueryStream) WriteQueryResponse(newResp rm.QueryResponse
 }
 
 func (trqs TestRetrievalQueryStream) Close() error { return nil }
+
 
 //type TestRetrievalDealStream struct{
 //	dprop rm.DealProposal
@@ -135,41 +126,23 @@ func (trqs TestRetrievalQueryStream) Close() error { return nil }
 //	}
 //}
 
-type TestRetrievalMarketNetwork struct {
-	netHost  host.Host
+type TestRetrievalMarketNetwork struct{
+	netHost host.Host
 	receiver rmnet.RetrievalReceiver
-	peers    []peer.ID
+	peers []peer.ID
 }
 
 func NewTestRetrievalMarketNetwork(netHost host.Host, peers []peer.ID) *TestRetrievalMarketNetwork {
-	return &TestRetrievalMarketNetwork{netHost: netHost, peers: peers}
+	return &TestRetrievalMarketNetwork{ netHost:netHost, peers:peers}
 }
 
-func (trmn TestRetrievalMarketNetwork) NewQueryStream(id peer.ID) (rmnet.RetrievalQueryStream, error) {
+func (trmn TestRetrievalMarketNetwork)NewQueryStream(id peer.ID) (rmnet.RetrievalQueryStream, error){
 	return TestRetrievalQueryStream{}, nil
 }
-func (trmn TestRetrievalMarketNetwork) NewDealStream(id peer.ID) (rmnet.RetrievalDealStream, error) {
+func (trmn TestRetrievalMarketNetwork)NewDealStream(id peer.ID) (rmnet.RetrievalDealStream, error){
 	return nil, nil
 }
-func (trmn TestRetrievalMarketNetwork) SetDelegate(r rmnet.RetrievalReceiver) error {
+func (trmn TestRetrievalMarketNetwork)SetDelegate(r rmnet.RetrievalReceiver) error {
 	trmn.receiver = r
 	return nil
-}
-
-type TestRetrievalNode struct {
-	NAddr, PAddr address.Address
-}
-
-var _ rm.RetrievalClientNode = (*TestRetrievalNode)(nil)
-
-func (t TestRetrievalNode) GetOrCreatePaymentChannel(ctx context.Context, clientAddress address.Address, minerAddress address.Address, clientFundsAvailable tokenamount.TokenAmount) (address.Address, error) {
-	return address.Address{}, nil
-}
-
-func (t TestRetrievalNode) AllocateLane(paymentChannel address.Address) (uint64, error) {
-	return 0, nil
-}
-
-func (t TestRetrievalNode) CreatePaymentVoucher(ctx context.Context, paymentChannel address.Address, amount tokenamount.TokenAmount, lane uint64) (*types.SignedVoucher, error) {
-	return nil, nil
 }
