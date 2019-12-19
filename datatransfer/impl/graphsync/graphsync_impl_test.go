@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"context"
 	"errors"
-	"github.com/filecoin-project/go-fil-components/datatransfer/testutil"
 	"io"
 	"io/ioutil"
 	"math/rand"
@@ -40,6 +39,7 @@ import (
 	. "github.com/filecoin-project/go-fil-components/datatransfer/impl/graphsync"
 	"github.com/filecoin-project/go-fil-components/datatransfer/message"
 	"github.com/filecoin-project/go-fil-components/datatransfer/network"
+	"github.com/filecoin-project/go-fil-components/datatransfer/testutil"
 	"github.com/filecoin-project/go-fil-components/shared_testutil"
 )
 

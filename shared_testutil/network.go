@@ -6,9 +6,9 @@ import (
 	blocks "github.com/ipfs/go-block-format"
 	"github.com/ipfs/go-blockservice"
 	"github.com/ipfs/go-datastore"
-	"github.com/ipfs/go-datastore/sync"
+	dss "github.com/ipfs/go-datastore/sync"
 	"github.com/ipfs/go-graphsync/ipldbridge"
-	blockstore "github.com/ipfs/go-ipfs-blockstore"
+	bstore "github.com/ipfs/go-ipfs-blockstore"
 	offline "github.com/ipfs/go-ipfs-exchange-offline"
 	ipldformat "github.com/ipfs/go-ipld-format"
 	"github.com/ipfs/go-merkledag"
@@ -27,8 +27,8 @@ import (
 
 type Libp2pTestData struct {
 	Ctx         context.Context
-	bs1         blockstore.Blockstore
-	bs2         blockstore.Blockstore
+	bs1         bstore.Blockstore
+	bs2         bstore.Blockstore
 	DagService1 ipldformat.DAGService
 	DagService2 ipldformat.DAGService
 	Loader1     ipld.Loader
@@ -44,10 +44,9 @@ type Libp2pTestData struct {
 }
 
 func NewLibp2pTestData(ctx context.Context, t *testing.T) *Libp2pTestData {
-
 	testData := &Libp2pTestData{}
 	testData.Ctx = ctx
-	makeLoader := func(bs blockstore.Blockstore) ipld.Loader {
+	makeLoader := func(bs bstore.Blockstore) ipld.Loader {
 		return func(lnk ipld.Link, lnkCtx ipld.LinkContext) (io.Reader, error) {
 			c, ok := lnk.(cidlink.Link)
 			if !ok {
@@ -62,7 +61,7 @@ func NewLibp2pTestData(ctx context.Context, t *testing.T) *Libp2pTestData {
 		}
 	}
 
-	makeStorer := func(bs blockstore.Blockstore) ipld.Storer {
+	makeStorer := func(bs bstore.Blockstore) ipld.Storer {
 		return func(lnkCtx ipld.LinkContext) (io.Writer, ipld.StoreCommitter, error) {
 			var buf bytes.Buffer
 			var committer ipld.StoreCommitter = func(lnk ipld.Link) error {
@@ -79,18 +78,18 @@ func NewLibp2pTestData(ctx context.Context, t *testing.T) *Libp2pTestData {
 			return &buf, committer, nil
 		}
 	}
-	// make a blockstore and dag service
-	testData.bs1 = blockstore.NewBlockstore(sync.MutexWrap(datastore.NewMapDatastore()))
-	testData.bs2 = blockstore.NewBlockstore(sync.MutexWrap(datastore.NewMapDatastore()))
+	// make a bstore and dag service
+	testData.bs1 = bstore.NewBlockstore(dss.MutexWrap(datastore.NewMapDatastore()))
+	testData.bs2 = bstore.NewBlockstore(dss.MutexWrap(datastore.NewMapDatastore()))
 
 	testData.DagService1 = merkledag.NewDAGService(blockservice.New(testData.bs1, offline.Exchange(testData.bs1)))
 	testData.DagService2 = merkledag.NewDAGService(blockservice.New(testData.bs2, offline.Exchange(testData.bs2)))
 
-	// setup an IPLD loader/storer for blockstore 1
+	// setup an IPLD loader/storer for bstore 1
 	testData.Loader1 = makeLoader(testData.bs1)
 	testData.Storer1 = makeStorer(testData.bs1)
 
-	// setup an IPLD loader/storer for blockstore 2
+	// setup an IPLD loader/storer for bstore 2
 	testData.Loader2 = makeLoader(testData.bs2)
 	testData.Storer2 = makeStorer(testData.bs2)
 
