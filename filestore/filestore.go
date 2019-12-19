@@ -14,13 +14,7 @@ type fileStore struct {
 
 // NewLocalFileStore creates a filestore mounted on a given local directory path
 func NewLocalFileStore(basedirectory Path) (FileStore, error) {
-	i := len(basedirectory) - 1
-	for ; i >= 0; i-- {
-		if basedirectory[i] != os.PathSeparator {
-			break
-		}
-	}
-	base := basedirectory[0 : i+1]
+	base := filepath.Clean(string(basedirectory))
 	info, err := os.Stat(string(base))
 	if err != nil {
 		return nil, fmt.Errorf("error getting %s info: %s", base, err.Error())
@@ -67,7 +61,7 @@ func (fs fileStore) Store(p Path, src File) (Path, error) {
 }
 
 func (fs fileStore) Delete(p Path) error {
-	for idx, _ := range fs.base {
+	for idx := range fs.base {
 		if p[idx] != fs.base[idx] {
 			return fmt.Errorf("invalid base path for '%s' (expecting '%s')", string(p), fs.base)
 		}
