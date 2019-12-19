@@ -19,6 +19,9 @@ import (
 
 	"github.com/filecoin-project/go-address"
 	"github.com/filecoin-project/go-fil-components/retrievalmarket"
+	rmnet "github.com/filecoin-project/go-fil-components/retrievalmarket/network"
+	"github.com/filecoin-project/go-fil-components/shared/address"
+	"github.com/filecoin-project/go-fil-components/shared/cborutil"
 	"github.com/filecoin-project/go-fil-components/shared/params"
 	"github.com/filecoin-project/go-fil-components/shared/tokenamount"
 	"github.com/filecoin-project/go-fil-components/shared/types"
@@ -34,12 +37,13 @@ type client struct {
 
 	nextDealLk  sync.Mutex
 	nextDealID  retrievalmarket.DealID
+	rmnet       rmnet.RetrievalMarketNetwork
 	subscribers []retrievalmarket.ClientSubscriber
 }
 
 // NewClient creates a new retrieval client
 func NewClient(h host.Host, bs blockstore.Blockstore, node retrievalmarket.RetrievalClientNode) retrievalmarket.RetrievalClient {
-	return &client{h: h, bs: bs, node: node}
+	return &client{h: h, bs: bs, node: node, rmnet: rmnet.NewFromLibp2pHost(h)}
 }
 
 // V0
@@ -53,37 +57,23 @@ func (c *client) FindProviders(pieceCID []byte) []retrievalmarket.RetrievalPeer 
 // TODO: Update to match spec for V0 epic
 // https://github.com/filecoin-project/go-retrieval-market-project/issues/8
 func (c *client) Query(ctx context.Context, p retrievalmarket.RetrievalPeer, pieceCID []byte, params retrievalmarket.QueryParams) (retrievalmarket.QueryResponse, error) {
-	cid, err := cid.Cast(pieceCID)
-	if err != nil {
-		log.Warn(err)
-		return retrievalmarket.QueryResponseUndefined, err
-	}
-
-	s, err := c.h.NewStream(ctx, p.ID, retrievalmarket.QueryProtocolID)
+	s, err := c.rmnet.NewQueryStream(p.ID)
 	if err != nil {
 		log.Warn(err)
 		return retrievalmarket.QueryResponseUndefined, err
 	}
 	defer s.Close()
 
-	err = cborutil.WriteCborRPC(s, &OldQuery{
-		Piece: cid,
-	})
+	err = s.WriteQuery(retrievalmarket.Query{PieceCID:pieceCID})
 	if err != nil {
 		log.Warn(err)
 		return retrievalmarket.QueryResponseUndefined, err
 	}
 
-	var oldResp OldQueryResponse
-	if err := oldResp.UnmarshalCBOR(s); err != nil {
+	var resp retrievalmarket.QueryResponse
+	if resp, err = s.ReadQueryResponse(); err != nil {
 		log.Warn(err)
 		return retrievalmarket.QueryResponseUndefined, err
-	}
-
-	resp := retrievalmarket.QueryResponse{
-		Status:          retrievalmarket.QueryResponseStatus(oldResp.Status),
-		Size:            oldResp.Size,
-		MinPricePerByte: tokenamount.Div(oldResp.MinPrice, tokenamount.FromInt(oldResp.Size)),
 	}
 	return resp, nil
 }
