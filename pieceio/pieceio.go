@@ -7,8 +7,6 @@ import (
 	"github.com/ipfs/go-cid"
 	"github.com/ipld/go-ipld-prime"
 	"io"
-	"io/ioutil"
-	"os"
 )
 
 type SectorCalculator interface {
@@ -32,48 +30,52 @@ type pieceIO struct {
 	padReader        PadReader
 	carIO            CarIO
 	sectorCalculator SectorCalculator
-	tempDir          filestore.Path
+	store            filestore.FileStore
 }
 
-func NewPieceIO(padReader PadReader, carIO CarIO, sectorCalculator SectorCalculator, tempDir filestore.Path) PieceIO {
-	return &pieceIO{padReader, carIO, sectorCalculator, tempDir}
+func NewPieceIO(padReader PadReader, carIO CarIO, sectorCalculator SectorCalculator, store filestore.FileStore) PieceIO {
+	return &pieceIO{padReader, carIO, sectorCalculator, store}
 }
 
 func (pio *pieceIO) GeneratePieceCommitment(bs ReadStore, payloadCid cid.Cid, selector ipld.Node) ([]byte, filestore.Path, error) {
-	f, err := ioutil.TempFile(string(pio.tempDir), "")
+	f, err := pio.store.CreateTemp()
 	if err != nil {
 		return nil, "", err
+	}
+	cleanup := func() {
+		f.Close()
+		_ = pio.store.Delete(f.Path())
 	}
 	err = pio.carIO.WriteCar(context.Background(), bs, payloadCid, selector, f)
 	if err != nil {
-		os.Remove(f.Name())
+		cleanup()
 		return nil, "", err
 	}
-	fi, err := f.Stat()
-	if err != nil {
-		os.Remove(f.Name())
-		return nil, "", err
-	}
-	pieceSize := uint64(fi.Size())
+	size := f.Size()
+	pieceSize := uint64(size)
 	paddedSize := pio.padReader.PaddedSize(pieceSize)
 	remaining := paddedSize - pieceSize
 	padbuf := make([]byte, remaining)
 	padded, err := f.Write(padbuf)
 	if err != nil {
-		os.Remove(f.Name())
+		cleanup()
 		return nil, "", err
 	}
 	if uint64(padded) != remaining {
-		os.Remove(f.Name())
+		cleanup()
 		return nil, "", fmt.Errorf("wrote %d byte of padding while expecting %d to be written", padded, remaining)
 	}
-	f.Seek(0, io.SeekStart)
-	commitment, err := pio.sectorCalculator.GeneratePieceCommitment(f, paddedSize)
+	_, err = f.Seek(0, io.SeekStart)
 	if err != nil {
-		os.Remove(f.Name())
+		cleanup()
 		return nil, "", err
 	}
-	return commitment, filestore.Path(f.Name()), nil
+	commitment, err := pio.sectorCalculator.GeneratePieceCommitment(f, paddedSize)
+	if err != nil {
+		cleanup()
+		return nil, "", err
+	}
+	return commitment, f.Path(), nil
 }
 
 func (pio *pieceIO) ReadPiece(r io.Reader, bs WriteStore) (cid.Cid, error) {
