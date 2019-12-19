@@ -13,12 +13,12 @@ import (
 	"github.com/libp2p/go-libp2p-core/peer"
 	"golang.org/x/xerrors"
 
+	"github.com/filecoin-project/go-cbor-util"
 	"github.com/filecoin-project/go-fil-components/datatransfer"
 	"github.com/filecoin-project/go-fil-components/filestore"
 	"github.com/filecoin-project/go-fil-components/pieceio/padreader"
 	"github.com/filecoin-project/go-fil-components/pieceio/sectorcalculator"
-	"github.com/filecoin-project/go-fil-components/shared/cborutil"
-	"github.com/filecoin-project/go-fil-components/shared/statestore"
+	"github.com/filecoin-project/go-statestore"
 )
 
 func (c *Client) failDeal(id cid.Cid, cerr error) {

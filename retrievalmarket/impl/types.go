@@ -3,7 +3,7 @@ package retrievalimpl
 import (
 	"github.com/ipfs/go-cid"
 
-	"github.com/filecoin-project/go-fil-components/shared/address"
+	"github.com/filecoin-project/go-address"
 	"github.com/filecoin-project/go-fil-components/shared/tokenamount"
 	"github.com/filecoin-project/go-fil-components/shared/types"
 )

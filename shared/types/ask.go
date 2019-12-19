@@ -1,7 +1,7 @@
 package types
 
 import (
-	"github.com/filecoin-project/go-fil-components/shared/address"
+	"github.com/filecoin-project/go-address"
 	"github.com/filecoin-project/go-fil-components/shared/tokenamount"
 	cbor "github.com/ipfs/go-ipld-cbor"
 )
