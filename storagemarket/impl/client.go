@@ -3,7 +3,7 @@ package storageimpl
 import (
 	"context"
 
-	"github.com/filecoin-project/go-fil-components/datatransfer"
+	"github.com/filecoin-project/go-data-transfer"
 	"github.com/filecoin-project/go-fil-components/shared/tokenamount"
 
 	"github.com/ipfs/go-cid"

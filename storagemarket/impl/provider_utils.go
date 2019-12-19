@@ -6,7 +6,7 @@ import (
 
 	"github.com/ipld/go-ipld-prime"
 
-	"github.com/filecoin-project/go-fil-components/datatransfer"
+	"github.com/filecoin-project/go-data-transfer"
 	"github.com/filecoin-project/go-fil-components/storagemarket"
 
 	"github.com/filecoin-project/go-cbor-util"

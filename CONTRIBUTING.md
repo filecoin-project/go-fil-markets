@@ -56,7 +56,6 @@ import (
 	ipld "github.com/ipfs/go-ipld-format"
 	"github.com/stretchr/testify/assert"
 
-	"github.com/filecoin-project/go-fil-components/datatransfer/impl"
 	"github.com/filecoin-project/go-fil-components/filestore/file"
 )
 ```
