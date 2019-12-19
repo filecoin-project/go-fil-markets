@@ -14,7 +14,7 @@ import (
 	"golang.org/x/xerrors"
 
 	"github.com/filecoin-project/go-cbor-util"
-	"github.com/filecoin-project/go-fil-components/datatransfer"
+	"github.com/filecoin-project/go-data-transfer"
 	"github.com/filecoin-project/go-fil-components/filestore"
 	"github.com/filecoin-project/go-fil-components/pieceio/padreader"
 	"github.com/filecoin-project/go-fil-components/pieceio/sectorcalculator"
