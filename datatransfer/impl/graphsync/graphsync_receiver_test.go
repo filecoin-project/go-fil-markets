@@ -26,8 +26,8 @@ func TestSendResponseToIncomingRequest(t *testing.T) {
 	defer cancel()
 
 	gsData := newGraphsyncTestingData(ctx, t)
-	host1 := gsData.host1
-	host2 := gsData.host2
+	host1 := gsData.Td.Host1
+	host2 := gsData.Td.Host2
 
 	// setup receiving peer to just record message coming in
 	dtnet1 := network.NewFromLibp2pHost(host1)
@@ -43,7 +43,7 @@ func TestSendResponseToIncomingRequest(t *testing.T) {
 	voucher := fakeDTType{"applesauce"}
 	baseCid := testutil.GenerateCids(1)[0]
 	var buffer bytes.Buffer
-	err := dagcbor.Encoder(gsData.allSelector, &buffer)
+	err := dagcbor.Encoder(gsData.Td.AllSelector, &buffer)
 	require.NoError(t, err)
 
 	t.Run("Response to push with successful validation", func(t *testing.T) {
