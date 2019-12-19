@@ -13,13 +13,13 @@ import (
 	inet "github.com/libp2p/go-libp2p-core/network"
 	"golang.org/x/xerrors"
 
+	"github.com/filecoin-project/go-address"
+	"github.com/filecoin-project/go-cbor-util"
 	"github.com/filecoin-project/go-fil-components/datatransfer"
-	"github.com/filecoin-project/go-fil-components/shared/address"
-	"github.com/filecoin-project/go-fil-components/shared/cborutil"
-	"github.com/filecoin-project/go-fil-components/shared/statestore"
 	"github.com/filecoin-project/go-fil-components/shared/tokenamount"
 	"github.com/filecoin-project/go-fil-components/shared/types"
 	"github.com/filecoin-project/go-fil-components/storagemarket"
+	"github.com/filecoin-project/go-statestore"
 )
 
 var ProviderDsPrefix = "/deals/provider"

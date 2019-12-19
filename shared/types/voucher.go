@@ -4,8 +4,9 @@ import (
 	"bytes"
 	"encoding/base64"
 
-	"github.com/filecoin-project/go-fil-components/shared/address"
-	cborrpc "github.com/filecoin-project/go-fil-components/shared/cborutil"
+	"github.com/filecoin-project/go-cbor-util"
+
+	"github.com/filecoin-project/go-address"
 	"github.com/filecoin-project/go-fil-components/shared/tokenamount"
 	cbor "github.com/ipfs/go-ipld-cbor"
 )
@@ -50,13 +51,13 @@ func (sv *SignedVoucher) EncodedString() (string, error) {
 func (sv *SignedVoucher) Equals(other *SignedVoucher) bool {
 	// TODO: make this less bad
 
-	selfB, err := cborrpc.Dump(sv)
+	selfB, err := cborutil.Dump(sv)
 	if err != nil {
 		log.Errorf("SignedVoucher.Equals: dump self: %s", err)
 		return false
 	}
 
-	otherB, err := cborrpc.Dump(other)
+	otherB, err := cborutil.Dump(other)
 	if err != nil {
 		log.Errorf("SignedVoucher.Equals: dump other: %s", err)
 		return false

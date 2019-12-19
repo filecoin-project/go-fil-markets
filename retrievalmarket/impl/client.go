@@ -15,9 +15,10 @@ import (
 	cbg "github.com/whyrusleeping/cbor-gen"
 	"golang.org/x/xerrors"
 
+	"github.com/filecoin-project/go-cbor-util"
+
+	"github.com/filecoin-project/go-address"
 	"github.com/filecoin-project/go-fil-components/retrievalmarket"
-	"github.com/filecoin-project/go-fil-components/shared/address"
-	"github.com/filecoin-project/go-fil-components/shared/cborutil"
 	"github.com/filecoin-project/go-fil-components/shared/params"
 	"github.com/filecoin-project/go-fil-components/shared/tokenamount"
 	"github.com/filecoin-project/go-fil-components/shared/types"

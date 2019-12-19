@@ -13,12 +13,12 @@ import (
 	"github.com/libp2p/go-libp2p-core/peer"
 	xerrors "golang.org/x/xerrors"
 
-	"github.com/filecoin-project/go-fil-components/shared/address"
-	"github.com/filecoin-project/go-fil-components/shared/cborutil"
-	"github.com/filecoin-project/go-fil-components/shared/statestore"
+	"github.com/filecoin-project/go-address"
+	"github.com/filecoin-project/go-cbor-util"
 	"github.com/filecoin-project/go-fil-components/shared/types"
 	"github.com/filecoin-project/go-fil-components/storagemarket"
 	deals "github.com/filecoin-project/go-fil-components/storagemarket/impl"
+	"github.com/filecoin-project/go-statestore"
 )
 
 var blockGenerator = blocksutil.NewBlockGenerator()

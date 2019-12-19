@@ -15,8 +15,8 @@ import (
 	"github.com/libp2p/go-libp2p-core/network"
 	"golang.org/x/xerrors"
 
+	"github.com/filecoin-project/go-cbor-util"
 	"github.com/filecoin-project/go-fil-components/retrievalmarket"
-	"github.com/filecoin-project/go-fil-components/shared/cborutil"
 	"github.com/filecoin-project/go-fil-components/shared/params"
 	"github.com/filecoin-project/go-fil-components/shared/tokenamount"
 )

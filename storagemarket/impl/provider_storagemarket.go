@@ -5,7 +5,7 @@ package storageimpl
 import (
 	"context"
 
-	"github.com/filecoin-project/go-fil-components/shared/address"
+	"github.com/filecoin-project/go-address"
 	"github.com/filecoin-project/go-fil-components/shared/tokenamount"
 	"github.com/filecoin-project/go-fil-components/shared/types"
 	"github.com/filecoin-project/go-fil-components/storagemarket"
