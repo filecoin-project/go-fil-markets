@@ -7,7 +7,6 @@ require (
 	github.com/gogo/protobuf v1.3.1 // indirect
 	github.com/google/go-cmp v0.3.1 // indirect
 	github.com/gopherjs/gopherjs v0.0.0-20190812055157-5d271430af9f // indirect
-	github.com/hannahhoward/cbor-gen-for v0.0.0-20191216214420-3e450425c40c
 	github.com/hashicorp/golang-lru v0.5.3 // indirect
 	github.com/ipfs/go-bitswap v0.1.8 // indirect
 	github.com/ipfs/go-block-format v0.0.2
@@ -45,6 +44,7 @@ require (
 	github.com/smartystreets/goconvey v0.0.0-20190731233626-505e41936337 // indirect
 	github.com/stretchr/testify v1.4.0
 	github.com/whyrusleeping/cbor-gen v0.0.0-20191212224538-d370462a7e8a
+	golang.org/x/net v0.0.0-20190724013045-ca1201d0de80
 	golang.org/x/sys v0.0.0-20190826190057-c7b8b68b1456 // indirect
 	golang.org/x/xerrors v0.0.0-20191011141410-1b5146add898
 )

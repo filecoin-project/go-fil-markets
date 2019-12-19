@@ -254,6 +254,15 @@ func (impl *graphsyncImpl) TransferChannelStatus(x datatransfer.ChannelID) datat
 	return datatransfer.ChannelNotFoundError
 }
 
+// Subscribers returns a copy of the list of subscribers.
+func (impl *graphsyncImpl) Subscribers() []datatransfer.Subscriber {
+	subscribersCopy := make([]datatransfer.Subscriber, len(impl.subscribers))
+	for i,el := range impl.subscribers {
+		subscribersCopy[i] = el
+	}
+	return subscribersCopy
+}
+
 // get notified when certain types of events happen
 func (impl *graphsyncImpl) SubscribeToEvents(subscriber datatransfer.Subscriber) datatransfer.Unsubscribe {
 	impl.subscribers = append(impl.subscribers, subscriber)
@@ -277,7 +286,7 @@ func (impl *graphsyncImpl) unsubscribeAt(sub datatransfer.Subscriber) datatransf
 }
 
 func (impl *graphsyncImpl) notifySubscribers(evt datatransfer.Event, cs datatransfer.ChannelState) {
-	for _, cb := range impl.subscribers {
+	for _, cb := range impl.Subscribers() {
 		cb(evt, cs)
 	}
 }

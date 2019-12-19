@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"errors"
+	"github.com/filecoin-project/go-fil-components/datatransfer/testutil"
 	"io"
 	"io/ioutil"
 	"math/rand"
@@ -13,22 +14,14 @@ import (
 	"testing"
 	"time"
 
-	blocks "github.com/ipfs/go-block-format"
-	"github.com/ipfs/go-blockservice"
 	"github.com/ipfs/go-cid"
-	"github.com/ipfs/go-datastore"
-	dss "github.com/ipfs/go-datastore/sync"
 	"github.com/ipfs/go-graphsync"
 	gsimpl "github.com/ipfs/go-graphsync/impl"
-	"github.com/ipfs/go-graphsync/ipldbridge"
 	gsmsg "github.com/ipfs/go-graphsync/message"
 	gsnet "github.com/ipfs/go-graphsync/network"
-	bstore "github.com/ipfs/go-ipfs-blockstore"
 	chunker "github.com/ipfs/go-ipfs-chunker"
-	offline "github.com/ipfs/go-ipfs-exchange-offline"
 	files "github.com/ipfs/go-ipfs-files"
 	ipldformat "github.com/ipfs/go-ipld-format"
-	"github.com/ipfs/go-merkledag"
 	unixfile "github.com/ipfs/go-unixfs/file"
 	"github.com/ipfs/go-unixfs/importer/balanced"
 	ihelper "github.com/ipfs/go-unixfs/importer/helpers"
@@ -38,7 +31,6 @@ import (
 	cidlink "github.com/ipld/go-ipld-prime/linking/cid"
 	"github.com/ipld/go-ipld-prime/traversal/selector"
 	"github.com/ipld/go-ipld-prime/traversal/selector/builder"
-	"github.com/libp2p/go-libp2p-core/host"
 	"github.com/libp2p/go-libp2p-core/peer"
 	mocknet "github.com/libp2p/go-libp2p/p2p/net/mock"
 	"github.com/stretchr/testify/assert"
@@ -48,7 +40,7 @@ import (
 	. "github.com/filecoin-project/go-fil-components/datatransfer/impl/graphsync"
 	"github.com/filecoin-project/go-fil-components/datatransfer/message"
 	"github.com/filecoin-project/go-fil-components/datatransfer/network"
-	"github.com/filecoin-project/go-fil-components/datatransfer/testutil"
+	"github.com/filecoin-project/go-fil-components/shared_testutil"
 )
 
 type receivedMessage struct {
@@ -109,8 +101,8 @@ func TestDataTransferOneWay(t *testing.T) {
 	ctx, cancel := context.WithTimeout(ctx, 10*time.Second)
 	defer cancel()
 	gsData := newGraphsyncTestingData(ctx, t)
-	host1 := gsData.host1
-	host2 := gsData.host2
+	host1 := gsData.Td.Host1
+	host2 := gsData.Td.Host2
 	// setup receiving peer to just record message coming in
 	dtnet2 := network.NewFromLibp2pHost(host2)
 	r := &receiver{
@@ -257,8 +249,8 @@ func TestDataTransferValidation(t *testing.T) {
 	ctx, cancel := context.WithTimeout(ctx, 10*time.Second)
 	defer cancel()
 	gsData := newGraphsyncTestingData(ctx, t)
-	host1 := gsData.host1
-	host2 := gsData.host2
+	host1 := gsData.Td.Host1
+	host2 := gsData.Td.Host2
 	dtnet1 := network.NewFromLibp2pHost(host1)
 	r := &receiver{
 		messageReceived: make(chan receivedMessage),
@@ -273,7 +265,7 @@ func TestDataTransferValidation(t *testing.T) {
 
 	id := datatransfer.TransferID(rand.Int31())
 	var buffer bytes.Buffer
-	require.NoError(t, dagcbor.Encoder(gsData.allSelector, &buffer))
+	require.NoError(t, dagcbor.Encoder(gsData.Td.AllSelector, &buffer))
 
 	t.Run("ValidatePush", func(t *testing.T) {
 		dt2 := NewGraphSyncDataTransfer(host2, gs2)
@@ -302,7 +294,7 @@ func TestDataTransferValidation(t *testing.T) {
 		assert.Equal(t, host1.ID(), validation.other)
 		assert.Equal(t, &voucher, validation.voucher)
 		assert.Equal(t, baseCid, validation.baseCid)
-		assert.Equal(t, gsData.allSelector, validation.selector)
+		assert.Equal(t, gsData.Td.AllSelector, validation.selector)
 	})
 
 	t.Run("ValidatePull", func(t *testing.T) {
@@ -326,7 +318,7 @@ func TestDataTransferValidation(t *testing.T) {
 		assert.Equal(t, validation.other, host1.ID())
 		assert.Equal(t, &voucher, validation.voucher)
 		assert.Equal(t, baseCid, validation.baseCid)
-		assert.Equal(t, gsData.allSelector, validation.selector)
+		assert.Equal(t, gsData.Td.AllSelector, validation.selector)
 	})
 }
 
@@ -447,8 +439,8 @@ func TestDataTransferSubscribing(t *testing.T) {
 	ctx, cancel := context.WithTimeout(ctx, 10*time.Second)
 	defer cancel()
 	gsData := newGraphsyncTestingData(ctx, t)
-	host1 := gsData.host1
-	host2 := gsData.host2
+	host1 := gsData.Td.Host1
+	host2 := gsData.Td.Host2
 
 	gs1 := &fakeGraphSync{
 		requests: make(chan receivedGraphSyncRequest, 1),
@@ -480,7 +472,7 @@ func TestDataTransferSubscribing(t *testing.T) {
 	}
 	unsub1 := dt1.SubscribeToEvents(subscribe1)
 	unsub2 := dt1.SubscribeToEvents(subscribe2)
-	_, err := dt1.OpenPushDataChannel(ctx, host2.ID(), &voucher, baseCid, gsData.allSelector)
+	_, err := dt1.OpenPushDataChannel(ctx, host2.ID(), &voucher, baseCid, gsData.Td.AllSelector)
 	require.NoError(t, err)
 	select {
 	case <-ctx.Done():
@@ -509,7 +501,7 @@ func TestDataTransferSubscribing(t *testing.T) {
 	}
 	unsub3 := dt1.SubscribeToEvents(subscribe3)
 	unsub4 := dt1.SubscribeToEvents(subscribe4)
-	_, err = dt1.OpenPullDataChannel(ctx, host2.ID(), &voucher, baseCid, gsData.allSelector)
+	_, err = dt1.OpenPullDataChannel(ctx, host2.ID(), &voucher, baseCid, gsData.Td.AllSelector)
 	require.NoError(t, err)
 	select {
 	case <-ctx.Done():
@@ -539,8 +531,8 @@ func TestDataTransferInitiatingPushGraphsyncRequests(t *testing.T) {
 	ctx, cancel := context.WithTimeout(ctx, 10*time.Second)
 	defer cancel()
 	gsData := newGraphsyncTestingData(ctx, t)
-	host1 := gsData.host1
-	host2 := gsData.host2
+	host1 := gsData.Td.Host1
+	host2 := gsData.Td.Host2
 
 	gs2 := &fakeGraphSync{
 		requests: make(chan receivedGraphSyncRequest, 1),
@@ -556,7 +548,7 @@ func TestDataTransferInitiatingPushGraphsyncRequests(t *testing.T) {
 	id := datatransfer.TransferID(rand.Int31())
 	var buffer bytes.Buffer
 
-	err := dagcbor.Encoder(gsData.allSelector, &buffer)
+	err := dagcbor.Encoder(gsData.Td.AllSelector, &buffer)
 	require.NoError(t, err)
 
 	_, baseCid, request := createDTRequest(t, false, id, buffer.Bytes())
@@ -592,7 +584,7 @@ func TestDataTransferInitiatingPushGraphsyncRequests(t *testing.T) {
 		require.True(t, ok)
 		require.Equal(t, baseCid, cl.Cid)
 
-		require.Equal(t, gsData.allSelector, requestReceived.selector)
+		require.Equal(t, gsData.Td.AllSelector, requestReceived.selector)
 
 	})
 
@@ -621,8 +613,8 @@ func TestDataTransferInitiatingPushGraphsyncRequests(t *testing.T) {
 func TestDataTransferInitiatingPullGraphsyncRequests(t *testing.T) {
 	ctx := context.Background()
 	gsData := newGraphsyncTestingData(ctx, t)
-	host1 := gsData.host1 // initiates the pull request
-	host2 := gsData.host2 // sends the data
+	host1 := gsData.Td.Host1 // initiates the pull request
+	host2 := gsData.Td.Host2 // sends the data
 
 	voucher := fakeDTType{"applesauce"}
 	baseCid := testutil.GenerateCids(1)[0]
@@ -646,7 +638,7 @@ func TestDataTransferInitiatingPullGraphsyncRequests(t *testing.T) {
 		err := dtSender.RegisterVoucherType(reflect.TypeOf(&fakeDTType{}), sv)
 		require.NoError(t, err)
 
-		_, err = dtInit.OpenPullDataChannel(ctx, host2.ID(), &voucher, baseCid, gsData.allSelector)
+		_, err = dtInit.OpenPullDataChannel(ctx, host2.ID(), &voucher, baseCid, gsData.Td.AllSelector)
 		require.NoError(t, err)
 
 		var requestReceived receivedGraphSyncRequest
@@ -664,7 +656,7 @@ func TestDataTransferInitiatingPullGraphsyncRequests(t *testing.T) {
 		require.True(t, ok)
 		require.Equal(t, baseCid.String(), cl.Cid.String())
 
-		require.Equal(t, gsData.allSelector, requestReceived.selector)
+		require.Equal(t, gsData.Td.AllSelector, requestReceived.selector)
 	})
 
 	t.Run("with error validation", func(t *testing.T) {
@@ -690,7 +682,7 @@ func TestDataTransferInitiatingPullGraphsyncRequests(t *testing.T) {
 			}
 		}
 		unsub := dt1.SubscribeToEvents(subscribe)
-		_, err = dt1.OpenPullDataChannel(ctx, host2.ID(), &voucher, baseCid, gsData.allSelector)
+		_, err = dt1.OpenPullDataChannel(ctx, host2.ID(), &voucher, baseCid, gsData.Td.AllSelector)
 		require.NoError(t, err)
 
 		select {
@@ -732,7 +724,7 @@ func TestDataTransferInitiatingPullGraphsyncRequests(t *testing.T) {
 			}
 		}
 		unsub := dt1.SubscribeToEvents(subscribe)
-		_, err = dt1.OpenPushDataChannel(ctx, host2.ID(), &voucher, baseCid, gsData.allSelector)
+		_, err = dt1.OpenPushDataChannel(ctx, host2.ID(), &voucher, baseCid, gsData.Td.AllSelector)
 		require.NoError(t, err)
 
 		select {
@@ -792,8 +784,8 @@ func TestRespondingToPushGraphsyncRequests(t *testing.T) {
 	ctx, cancel := context.WithTimeout(ctx, 10*time.Second)
 	defer cancel()
 	gsData := newGraphsyncTestingData(ctx, t)
-	host1 := gsData.host1 // initiator and data sender
-	host2 := gsData.host2 // data recipient, makes graphsync request for data
+	host1 := gsData.Td.Host1 // initiator and data sender
+	host2 := gsData.Td.Host2 // data recipient, makes graphsync request for data
 	voucher := fakeDTType{"applesauce"}
 	link := gsData.loadUnixFSFile(t, false)
 
@@ -807,13 +799,13 @@ func TestRespondingToPushGraphsyncRequests(t *testing.T) {
 	gsr := &fakeGraphSyncReceiver{
 		receivedMessages: make(chan receivedGraphSyncMessage),
 	}
-	gsData.gsNet2.SetDelegate(gsr)
+	gsData.GsNet2.SetDelegate(gsr)
 
 	gs1 := gsData.setupGraphsyncHost1()
 	dt1 := NewGraphSyncDataTransfer(host1, gs1)
 
 	t.Run("when request is initiated", func(t *testing.T) {
-		_, err := dt1.OpenPushDataChannel(ctx, host2.ID(), &voucher, link.(cidlink.Link).Cid, gsData.allSelector)
+		_, err := dt1.OpenPushDataChannel(ctx, host2.ID(), &voucher, link.(cidlink.Link).Cid, gsData.Td.AllSelector)
 		require.NoError(t, err)
 
 		var messageReceived receivedMessage
@@ -831,7 +823,7 @@ func TestRespondingToPushGraphsyncRequests(t *testing.T) {
 		extData := buf.Bytes()
 
 		var selBuf bytes.Buffer
-		err = dagcbor.Encoder(gsData.allSelector, &selBuf)
+		err = dagcbor.Encoder(gsData.Td.AllSelector, &selBuf)
 		require.NoError(t, err)
 		selectorBytes := selBuf.Bytes()
 
@@ -841,7 +833,7 @@ func TestRespondingToPushGraphsyncRequests(t *testing.T) {
 		})
 		gsmessage := gsmsg.New()
 		gsmessage.AddRequest(request)
-		require.NoError(t, gsData.gsNet2.SendMessage(ctx, host1.ID(), gsmessage))
+		require.NoError(t, gsData.GsNet2.SendMessage(ctx, host1.ID(), gsmessage))
 
 		status := gsr.consumeResponses(ctx, t)
 		require.False(t, gsmsg.IsTerminalFailureCode(status))
@@ -855,7 +847,7 @@ func TestRespondingToPushGraphsyncRequests(t *testing.T) {
 		extData := buf.Bytes()
 
 		var selBuf bytes.Buffer
-		err = dagcbor.Encoder(gsData.allSelector, &selBuf)
+		err = dagcbor.Encoder(gsData.Td.AllSelector, &selBuf)
 		require.NoError(t, err)
 		selectorBytes := selBuf.Bytes()
 		request := gsmsg.NewRequest(graphsync.RequestID(rand.Int31()), link.(cidlink.Link).Cid, selectorBytes, graphsync.Priority(rand.Int31()), graphsync.ExtensionData{
@@ -864,7 +856,7 @@ func TestRespondingToPushGraphsyncRequests(t *testing.T) {
 		})
 		gsmessage := gsmsg.New()
 		gsmessage.AddRequest(request)
-		require.NoError(t, gsData.gsNet2.SendMessage(ctx, host1.ID(), gsmessage))
+		require.NoError(t, gsData.GsNet2.SendMessage(ctx, host1.ID(), gsmessage))
 
 		status := gsr.consumeResponses(ctx, t)
 		require.True(t, gsmsg.IsTerminalFailureCode(status))
@@ -877,8 +869,8 @@ func TestResponseHookWhenExtensionNotFound(t *testing.T) {
 	ctx, cancel := context.WithTimeout(ctx, 10*time.Second)
 	defer cancel()
 	gsData := newGraphsyncTestingData(ctx, t)
-	host1 := gsData.host1 // initiator and data sender
-	host2 := gsData.host2 // data recipient, makes graphsync request for data
+	host1 := gsData.Td.Host1 // initiator and data sender
+	host2 := gsData.Td.Host2 // data recipient, makes graphsync request for data
 	voucher := fakeDTType{"applesauce"}
 	link := gsData.loadUnixFSFile(t, false)
 
@@ -892,7 +884,7 @@ func TestResponseHookWhenExtensionNotFound(t *testing.T) {
 	gsr := &fakeGraphSyncReceiver{
 		receivedMessages: make(chan receivedGraphSyncMessage),
 	}
-	gsData.gsNet2.SetDelegate(gsr)
+	gsData.GsNet2.SetDelegate(gsr)
 
 	gs1 := gsData.setupGraphsyncHost1()
 	dt1 := NewGraphSyncDataTransfer(host1, gs1)
@@ -905,7 +897,7 @@ func TestResponseHookWhenExtensionNotFound(t *testing.T) {
 		}
 		require.NoError(t, gs1.RegisterRequestReceivedHook(validateHook))
 
-		_, err := dt1.OpenPushDataChannel(ctx, host2.ID(), &voucher, link.(cidlink.Link).Cid, gsData.allSelector)
+		_, err := dt1.OpenPushDataChannel(ctx, host2.ID(), &voucher, link.(cidlink.Link).Cid, gsData.Td.AllSelector)
 		require.NoError(t, err)
 
 		select {
@@ -915,14 +907,14 @@ func TestResponseHookWhenExtensionNotFound(t *testing.T) {
 		}
 
 		var selBuf bytes.Buffer
-		err = dagcbor.Encoder(gsData.allSelector, &selBuf)
+		err = dagcbor.Encoder(gsData.Td.AllSelector, &selBuf)
 		require.NoError(t, err)
 		selectorBytes := selBuf.Bytes()
 
 		request := gsmsg.NewRequest(graphsync.RequestID(rand.Int31()), link.(cidlink.Link).Cid, selectorBytes, graphsync.Priority(rand.Int31()))
 		gsmessage := gsmsg.New()
 		gsmessage.AddRequest(request)
-		require.NoError(t, gsData.gsNet2.SendMessage(ctx, host1.ID(), gsmessage))
+		require.NoError(t, gsData.GsNet2.SendMessage(ctx, host1.ID(), gsmessage))
 
 		status := gsr.consumeResponses(ctx, t)
 		assert.False(t, gsmsg.IsTerminalFailureCode(status))
@@ -936,8 +928,8 @@ func TestRespondingToPullGraphsyncRequests(t *testing.T) {
 	defer cancel()
 
 	gsData := newGraphsyncTestingData(ctx, t)
-	host1 := gsData.host1 // initiator, and recipient, makes graphync request
-	host2 := gsData.host2 // data sender
+	host1 := gsData.Td.Host1 // initiator, and recipient, makes graphync request
+	host2 := gsData.Td.Host2 // data sender
 
 	// setup receiving peer to just record message coming in
 	dtnet1 := network.NewFromLibp2pHost(host1)
@@ -949,7 +941,7 @@ func TestRespondingToPullGraphsyncRequests(t *testing.T) {
 	gsr := &fakeGraphSyncReceiver{
 		receivedMessages: make(chan receivedGraphSyncMessage),
 	}
-	gsData.gsNet1.SetDelegate(gsr)
+	gsData.GsNet1.SetDelegate(gsr)
 
 	gs2 := gsData.setupGraphsyncHost2()
 
@@ -957,7 +949,7 @@ func TestRespondingToPullGraphsyncRequests(t *testing.T) {
 
 	id := datatransfer.TransferID(rand.Int31())
 	var buf bytes.Buffer
-	err := dagcbor.Encoder(gsData.allSelector, &buf)
+	err := dagcbor.Encoder(gsData.Td.AllSelector, &buf)
 	require.NoError(t, err)
 	selectorBytes := buf.Bytes()
 
@@ -999,7 +991,7 @@ func TestRespondingToPullGraphsyncRequests(t *testing.T) {
 		// initiator requests data over graphsync network
 		gsmessage := gsmsg.New()
 		gsmessage.AddRequest(gsRequest)
-		require.NoError(t, gsData.gsNet1.SendMessage(ctx, host2.ID(), gsmessage))
+		require.NoError(t, gsData.GsNet1.SendMessage(ctx, host2.ID(), gsmessage))
 		status := gsr.consumeResponses(ctx, t)
 		require.False(t, gsmsg.IsTerminalFailureCode(status))
 	})
@@ -1021,7 +1013,7 @@ func TestRespondingToPullGraphsyncRequests(t *testing.T) {
 
 		// non-initiator requests data over graphsync network, but should not get it
 		// because there was no previous request
-		require.NoError(t, gsData.gsNet1.SendMessage(ctx, host2.ID(), gsmessage))
+		require.NoError(t, gsData.GsNet1.SendMessage(ctx, host2.ID(), gsmessage))
 		status := gsr.consumeResponses(ctx, t)
 		require.True(t, gsmsg.IsTerminalFailureCode(status))
 	})
@@ -1033,8 +1025,8 @@ func TestDataTransferPushRoundTrip(t *testing.T) {
 	defer cancel()
 
 	gsData := newGraphsyncTestingData(ctx, t)
-	host1 := gsData.host1 // initiator, data sender
-	host2 := gsData.host2 // data recipient
+	host1 := gsData.Td.Host1 // initiator, data sender
+	host2 := gsData.Td.Host2 // data recipient
 
 	root := gsData.loadUnixFSFile(t, false)
 	rootCid := root.(cidlink.Link).Cid
@@ -1056,7 +1048,7 @@ func TestDataTransferPushRoundTrip(t *testing.T) {
 	sv.expectSuccessPull()
 	require.NoError(t, dt2.RegisterVoucherType(reflect.TypeOf(&fakeDTType{}), sv))
 
-	chid, err := dt1.OpenPushDataChannel(ctx, host2.ID(), &voucher, rootCid, gsData.allSelector)
+	chid, err := dt1.OpenPushDataChannel(ctx, host2.ID(), &voucher, rootCid, gsData.Td.AllSelector)
 	require.NoError(t, err)
 	select {
 	case <-ctx.Done():
@@ -1074,8 +1066,8 @@ func TestDataTransferPullRoundTrip(t *testing.T) {
 	defer cancel()
 
 	gsData := newGraphsyncTestingData(ctx, t)
-	host1 := gsData.host1
-	host2 := gsData.host2
+	host1 := gsData.Td.Host1
+	host2 := gsData.Td.Host2
 
 	root := gsData.loadUnixFSFile(t, false)
 	rootCid := root.(cidlink.Link).Cid
@@ -1097,7 +1089,7 @@ func TestDataTransferPullRoundTrip(t *testing.T) {
 	sv.expectSuccessPull()
 	require.NoError(t, dt1.RegisterVoucherType(reflect.TypeOf(&fakeDTType{}), sv))
 
-	_, err := dt2.OpenPullDataChannel(ctx, host1.ID(), &voucher, rootCid, gsData.allSelector)
+	_, err := dt2.OpenPullDataChannel(ctx, host1.ID(), &voucher, rootCid, gsData.Td.AllSelector)
 	require.NoError(t, err)
 	select {
 	case <-ctx.Done():
@@ -1110,116 +1102,34 @@ func TestDataTransferPullRoundTrip(t *testing.T) {
 const unixfsChunkSize uint64 = 1 << 10
 const unixfsLinksPerLevel = 1024
 
-type graphsyncTestingData struct {
-	ctx         context.Context
-	bs1         bstore.Blockstore
-	bs2         bstore.Blockstore
-	dagService1 ipldformat.DAGService
-	dagService2 ipldformat.DAGService
-	loader1     ipld.Loader
-	loader2     ipld.Loader
-	storer1     ipld.Storer
-	storer2     ipld.Storer
-	host1       host.Host
-	host2       host.Host
-	gsNet1      gsnet.GraphSyncNetwork
-	gsNet2      gsnet.GraphSyncNetwork
-	bridge1     ipldbridge.IPLDBridge
-	bridge2     ipldbridge.IPLDBridge
-	allSelector ipld.Node
-	origBytes   []byte
+type GraphsyncTestingData struct {
+	Td     *shared_testutil.Libp2pTestData
+	GsNet1 gsnet.GraphSyncNetwork
+	GsNet2 gsnet.GraphSyncNetwork
 }
 
-func newGraphsyncTestingData(ctx context.Context, t *testing.T) *graphsyncTestingData {
+func newGraphsyncTestingData(ctx context.Context, t *testing.T) *GraphsyncTestingData {
 
-	gsData := &graphsyncTestingData{}
-	gsData.ctx = ctx
-	makeLoader := func(bs bstore.Blockstore) ipld.Loader {
-		return func(lnk ipld.Link, lnkCtx ipld.LinkContext) (io.Reader, error) {
-			c, ok := lnk.(cidlink.Link)
-			if !ok {
-				return nil, errors.New("Incorrect Link Type")
-			}
-			// read block from one store
-			block, err := bs.Get(c.Cid)
-			if err != nil {
-				return nil, err
-			}
-			return bytes.NewReader(block.RawData()), nil
-		}
-	}
+	testData := shared_testutil.NewLibp2pTestData(context.Background(), t)
 
-	makeStorer := func(bs bstore.Blockstore) ipld.Storer {
-		return func(lnkCtx ipld.LinkContext) (io.Writer, ipld.StoreCommitter, error) {
-			var buf bytes.Buffer
-			var committer ipld.StoreCommitter = func(lnk ipld.Link) error {
-				c, ok := lnk.(cidlink.Link)
-				if !ok {
-					return errors.New("Incorrect Link Type")
-				}
-				block, err := blocks.NewBlockWithCid(buf.Bytes(), c.Cid)
-				if err != nil {
-					return err
-				}
-				return bs.Put(block)
-			}
-			return &buf, committer, nil
-		}
-	}
-	// make a blockstore and dag service
-	gsData.bs1 = bstore.NewBlockstore(dss.MutexWrap(datastore.NewMapDatastore()))
-	gsData.bs2 = bstore.NewBlockstore(dss.MutexWrap(datastore.NewMapDatastore()))
-
-	gsData.dagService1 = merkledag.NewDAGService(blockservice.New(gsData.bs1, offline.Exchange(gsData.bs1)))
-	gsData.dagService2 = merkledag.NewDAGService(blockservice.New(gsData.bs2, offline.Exchange(gsData.bs2)))
-
-	// setup an IPLD loader/storer for blockstore 1
-	gsData.loader1 = makeLoader(gsData.bs1)
-	gsData.storer1 = makeStorer(gsData.bs1)
-
-	// setup an IPLD loader/storer for blockstore 2
-	gsData.loader2 = makeLoader(gsData.bs2)
-	gsData.storer2 = makeStorer(gsData.bs2)
-
-	mn := mocknet.New(ctx)
-
-	// setup network
-	var err error
-	gsData.host1, err = mn.GenPeer()
-	require.NoError(t, err)
-
-	gsData.host2, err = mn.GenPeer()
-	require.NoError(t, err)
-
-	err = mn.LinkAll()
-	require.NoError(t, err)
-
-	gsData.gsNet1 = gsnet.NewFromLibp2pHost(gsData.host1)
-	gsData.gsNet2 = gsnet.NewFromLibp2pHost(gsData.host2)
-
-	gsData.bridge1 = ipldbridge.NewIPLDBridge()
-	gsData.bridge2 = ipldbridge.NewIPLDBridge()
-
-	// create a selector for the whole UnixFS dag
-	ssb := builder.NewSelectorSpecBuilder(ipldfree.NodeBuilder())
-
-	gsData.allSelector = ssb.ExploreRecursive(selector.RecursionLimitNone(),
-		ssb.ExploreAll(ssb.ExploreRecursiveEdge())).Node()
+	gsData := &GraphsyncTestingData{Td: testData}
+	gsData.GsNet1 = gsnet.NewFromLibp2pHost(gsData.Td.Host1)
+	gsData.GsNet2 = gsnet.NewFromLibp2pHost(gsData.Td.Host2)
 
 	return gsData
 }
 
-func (gsData *graphsyncTestingData) setupGraphsyncHost1() graphsync.GraphExchange {
+func (gsData *GraphsyncTestingData) setupGraphsyncHost1() graphsync.GraphExchange {
 	// setup graphsync
-	return gsimpl.New(gsData.ctx, gsData.gsNet1, gsData.bridge1, gsData.loader1, gsData.storer1)
+	return gsimpl.New(gsData.Td.Ctx, gsData.GsNet1, gsData.Td.Bridge1, gsData.Td.Loader1, gsData.Td.Storer1)
 }
 
-func (gsData *graphsyncTestingData) setupGraphsyncHost2() graphsync.GraphExchange {
+func (gsData *GraphsyncTestingData) setupGraphsyncHost2() graphsync.GraphExchange {
 	// setup graphsync
-	return gsimpl.New(gsData.ctx, gsData.gsNet2, gsData.bridge2, gsData.loader2, gsData.storer2)
+	return gsimpl.New(gsData.Td.Ctx, gsData.GsNet2, gsData.Td.Bridge2, gsData.Td.Loader2, gsData.Td.Storer2)
 }
 
-func (gsData *graphsyncTestingData) loadUnixFSFile(t *testing.T, useSecondNode bool) ipld.Link {
+func (gsData *GraphsyncTestingData) loadUnixFSFile(t *testing.T, useSecondNode bool) ipld.Link {
 
 	// read in a fixture file
 	path, err := filepath.Abs(filepath.Join("fixtures", "lorem.txt"))
@@ -1235,11 +1145,11 @@ func (gsData *graphsyncTestingData) loadUnixFSFile(t *testing.T, useSecondNode b
 	// import to UnixFS
 	var dagService ipldformat.DAGService
 	if useSecondNode {
-		dagService = gsData.dagService2
+		dagService = gsData.Td.DagService2
 	} else {
-		dagService = gsData.dagService1
+		dagService = gsData.Td.DagService1
 	}
-	bufferedDS := ipldformat.NewBufferedDAG(gsData.ctx, dagService)
+	bufferedDS := ipldformat.NewBufferedDAG(gsData.Td.Ctx, dagService)
 
 	params := ihelper.DagBuilderParams{
 		Maxlinks:   unixfsLinksPerLevel,
@@ -1258,27 +1168,27 @@ func (gsData *graphsyncTestingData) loadUnixFSFile(t *testing.T, useSecondNode b
 	require.NoError(t, err)
 
 	// save the original files bytes
-	gsData.origBytes = buf.Bytes()
+	gsData.Td.OrigBytes = buf.Bytes()
 
 	return cidlink.Link{Cid: nd.Cid()}
 }
 
-func (gsData *graphsyncTestingData) verifyFileTransferred(t *testing.T, link ipld.Link, useSecondNode bool) {
+func (gsData *GraphsyncTestingData) verifyFileTransferred(t *testing.T, link ipld.Link, useSecondNode bool) {
 	var dagService ipldformat.DAGService
 	if useSecondNode {
-		dagService = gsData.dagService2
+		dagService = gsData.Td.DagService2
 	} else {
-		dagService = gsData.dagService1
+		dagService = gsData.Td.DagService1
 	}
 
 	c := link.(cidlink.Link).Cid
 
 	// load the root of the UnixFS DAG from the new blockstore
-	otherNode, err := dagService.Get(gsData.ctx, c)
+	otherNode, err := dagService.Get(gsData.Td.Ctx, c)
 	require.NoError(t, err)
 
 	// Setup a UnixFS file reader
-	n, err := unixfile.NewUnixfsFile(gsData.ctx, dagService, otherNode)
+	n, err := unixfile.NewUnixfsFile(gsData.Td.Ctx, dagService, otherNode)
 	require.NoError(t, err)
 
 	fn, ok := n.(files.File)
@@ -1289,7 +1199,7 @@ func (gsData *graphsyncTestingData) verifyFileTransferred(t *testing.T, link ipl
 	require.NoError(t, err)
 
 	// verify original bytes match final bytes!
-	require.EqualValues(t, gsData.origBytes, finalBytes)
+	require.EqualValues(t, gsData.Td.OrigBytes, finalBytes)
 }
 
 type receivedGraphSyncRequest struct {
@@ -1322,4 +1232,52 @@ func (fgs *fakeGraphSync) RegisterRequestReceivedHook(hook graphsync.OnRequestRe
 // RegisterResponseReceivedHook adds a hook that runs when a response is received
 func (fgs *fakeGraphSync) RegisterResponseReceivedHook(graphsync.OnResponseReceivedHook) error {
 	return nil
+}
+
+
+type subscriptionProvider interface {
+	Subscribers() []datatransfer.Subscriber
+	SubscribeToEvents(subscriber datatransfer.Subscriber) datatransfer.Unsubscribe
+}
+func TestGraphsyncImpl_SubscribeToEvents(t *testing.T) {
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	gsData := newGraphsyncTestingData(ctx, t)
+	host1 := gsData.Td.Host1
+	gs1 := &fakeGraphSync{
+		requests: make(chan receivedGraphSyncRequest, 1),
+	}
+	dt1 := NewGraphSyncDataTransfer(host1, gs1)
+
+	subscribe1Calls := make(chan struct{}, 1)
+	subscriber := func(event datatransfer.Event, channelState datatransfer.ChannelState) {
+		if event.Code == datatransfer.Error {
+			subscribe1Calls <- struct{}{}
+		}
+	}
+
+	subscribe2Calls := make(chan struct{}, 1)
+	subscriber2 := func(event datatransfer.Event, cst datatransfer.ChannelState) {
+		if event.Code != datatransfer.Error {
+			subscribe2Calls <- struct{}{}
+		}
+	}
+
+	unsubFunc := dt1.SubscribeToEvents(subscriber)
+	impl := dt1.(subscriptionProvider)
+	assert.Equal(t, 1, len(impl.Subscribers()))
+
+	unsubFunc2 := impl.SubscribeToEvents(subscriber2)
+	assert.Equal(t, 2, len(impl.Subscribers()))
+
+	//  ensure subsequent calls don't cause errors, and also check that the right item
+	// is removed, i.e. no false positives.
+	unsubFunc()
+	unsubFunc()
+	assert.Equal(t, 1, len(impl.Subscribers()))
+
+	// ensure it can delete all elems
+	unsubFunc2()
+	assert.Equal(t, 0, len(impl.Subscribers()))
 }
