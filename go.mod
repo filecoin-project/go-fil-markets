@@ -46,6 +46,7 @@ require (
 	github.com/stretchr/testify v1.4.0
 	github.com/whyrusleeping/cbor-gen v0.0.0-20191212224538-d370462a7e8a
 	go.uber.org/multierr v1.1.0
+	golang.org/x/net v0.0.0-20190724013045-ca1201d0de80
 	golang.org/x/sys v0.0.0-20190826190057-c7b8b68b1456 // indirect
 	golang.org/x/xerrors v0.0.0-20191011141410-1b5146add898
 )
