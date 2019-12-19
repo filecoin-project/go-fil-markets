@@ -1,12 +1,11 @@
 package testutil
 
 import (
+	"context"
 	"errors"
-	"github.com/filecoin-project/go-fil-components/shared/address"
+	"github.com/filecoin-project/go-address"
 	"github.com/filecoin-project/go-fil-components/shared/tokenamount"
 	"github.com/filecoin-project/go-fil-components/shared/types"
-	"github.com/ipld/go-ipld-prime"
-
 	"github.com/libp2p/go-libp2p-core/host"
 	p2pnet "github.com/libp2p/go-libp2p-core/network"
 	"github.com/libp2p/go-libp2p-core/peer"
@@ -155,7 +154,7 @@ type TestRetrievalNode struct {
 var _ rm.RetrievalClientNode = (*TestRetrievalNode)(nil)
 
 func (t TestRetrievalNode) GetOrCreatePaymentChannel(ctx context.Context, clientAddress address.Address, minerAddress address.Address, clientFundsAvailable tokenamount.TokenAmount) (address.Address, error) {
-	return t.PAddr
+	return address.Address{}, nil
 }
 
 func (t TestRetrievalNode) AllocateLane(paymentChannel address.Address) (uint64, error) {
