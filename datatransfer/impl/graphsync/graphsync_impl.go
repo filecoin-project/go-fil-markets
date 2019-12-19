@@ -255,11 +255,8 @@ func (impl *graphsyncImpl) TransferChannelStatus(x datatransfer.ChannelID) datat
 }
 
 // Subscribers returns a copy of the list of subscribers.
-func (impl *graphsyncImpl) Subscribers() []datatransfer.Subscriber {
-	subscribersCopy := make([]datatransfer.Subscriber, len(impl.subscribers))
-	for i,el := range impl.subscribers {
-		subscribersCopy[i] = el
-	}
+func (impl *graphsyncImpl) Subscribers() (subscribersCopy []datatransfer.Subscriber) {
+	copy(subscribersCopy, impl.subscribers)
 	return subscribersCopy
 }
 

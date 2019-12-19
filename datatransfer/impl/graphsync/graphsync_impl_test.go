@@ -287,7 +287,7 @@ func TestDataTransferValidation(t *testing.T) {
 		select {
 		case <-ctx.Done():
 			t.Fatal("did not receive message sent")
-		case _ = <-r.messageReceived:
+		case <-r.messageReceived:
 		}
 
 		assert.False(t, validation.isPull)
@@ -311,7 +311,7 @@ func TestDataTransferValidation(t *testing.T) {
 		select {
 		case <-ctx.Done():
 			t.Fatal("did not receive message sent")
-		case _ = <-r.messageReceived:
+		case <-r.messageReceived:
 		}
 
 		assert.True(t, validation.isPull)
@@ -1234,11 +1234,11 @@ func (fgs *fakeGraphSync) RegisterResponseReceivedHook(graphsync.OnResponseRecei
 	return nil
 }
 
-
 type subscriptionProvider interface {
 	Subscribers() []datatransfer.Subscriber
 	SubscribeToEvents(subscriber datatransfer.Subscriber) datatransfer.Unsubscribe
 }
+
 func TestGraphsyncImpl_SubscribeToEvents(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()

@@ -7,6 +7,7 @@ require (
 	github.com/gogo/protobuf v1.3.1 // indirect
 	github.com/google/go-cmp v0.3.1 // indirect
 	github.com/gopherjs/gopherjs v0.0.0-20190812055157-5d271430af9f // indirect
+	github.com/hannahhoward/cbor-gen-for v0.0.0-20191218204337-9ab7b1bcc099
 	github.com/hashicorp/golang-lru v0.5.3 // indirect
 	github.com/ipfs/go-bitswap v0.1.8 // indirect
 	github.com/ipfs/go-block-format v0.0.2
