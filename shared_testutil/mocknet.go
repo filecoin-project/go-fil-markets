@@ -79,19 +79,19 @@ func NewLibp2pTestData(ctx context.Context, t *testing.T) *Libp2pTestData {
 		}
 	}
 	// make a bstore and dag service
-	testData.bs1 = bstore.NewBlockstore(dss.MutexWrap(datastore.NewMapDatastore()))
-	testData.bs2 = bstore.NewBlockstore(dss.MutexWrap(datastore.NewMapDatastore()))
+	testData.Bs1 = bstore.NewBlockstore(dss.MutexWrap(datastore.NewMapDatastore()))
+	testData.Bs2 = bstore.NewBlockstore(dss.MutexWrap(datastore.NewMapDatastore()))
 
-	testData.DagService1 = merkledag.NewDAGService(blockservice.New(testData.bs1, offline.Exchange(testData.bs1)))
-	testData.DagService2 = merkledag.NewDAGService(blockservice.New(testData.bs2, offline.Exchange(testData.bs2)))
+	testData.DagService1 = merkledag.NewDAGService(blockservice.New(testData.Bs1, offline.Exchange(testData.Bs1)))
+	testData.DagService2 = merkledag.NewDAGService(blockservice.New(testData.Bs2, offline.Exchange(testData.Bs2)))
 
 	// setup an IPLD loader/storer for bstore 1
-	testData.Loader1 = makeLoader(testData.bs1)
-	testData.Storer1 = makeStorer(testData.bs1)
+	testData.Loader1 = makeLoader(testData.Bs1)
+	testData.Storer1 = makeStorer(testData.Bs1)
 
 	// setup an IPLD loader/storer for bstore 2
-	testData.Loader2 = makeLoader(testData.bs2)
-	testData.Storer2 = makeStorer(testData.bs2)
+	testData.Loader2 = makeLoader(testData.Bs2)
+	testData.Storer2 = makeStorer(testData.Bs2)
 
 	mn := mocknet.New(ctx)
 

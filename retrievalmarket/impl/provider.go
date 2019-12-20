@@ -2,6 +2,7 @@ package retrievalimpl
 
 import (
 	"context"
+	"github.com/filecoin-project/go-fil-components/retrievalmarket/impl/impl_types"
 	"io"
 	"reflect"
 
@@ -109,8 +110,8 @@ func (p *provider) ListDeals() map[retrievalmarket.ProviderDealID]retrievalmarke
 
 func writeErr(stream network.Stream, err error) {
 	log.Errorf("Retrieval deal error: %+v", err)
-	_ = cborutil.WriteCborRPC(stream, &OldDealResponse{
-		Status:  Error,
+	_ = cborutil.WriteCborRPC(stream, &impl_types.OldDealResponse{
+		Status:  impl_types.Error,
 		Message: err.Error(),
 	})
 }
@@ -119,7 +120,7 @@ func writeErr(stream network.Stream, err error) {
 func (p *provider) handleQueryStream(stream network.Stream) {
 	defer stream.Close()
 
-	var query OldQuery
+	var query impl_types.OldQuery
 	if err := cborutil.ReadCborRPC(stream, &query); err != nil {
 		writeErr(stream, err)
 		return
@@ -131,11 +132,11 @@ func (p *provider) handleQueryStream(stream network.Stream) {
 		return
 	}
 
-	answer := &OldQueryResponse{
-		Status: Unavailable,
+	answer := &impl_types.OldQueryResponse{
+		Status: impl_types.Unavailable,
 	}
 	if err == nil {
-		answer.Status = Available
+		answer.Status = impl_types.Available
 
 		// TODO: get price, look for already unsealed ref to reduce work
 		answer.MinPrice = tokenamount.Mul(tokenamount.FromInt(uint64(size)), p.pricePerByte)
@@ -182,7 +183,7 @@ func (p *provider) handleDealStream(stream network.Stream) {
 }
 
 func (hnd *handlerDeal) handleNext() (bool, error) {
-	var deal OldDealProposal
+	var deal impl_types.OldDealProposal
 	if err := cborutil.ReadCborRPC(hnd.stream, &deal); err != nil {
 		if err == io.EOF { // client sent all deals
 			err = nil
@@ -225,7 +226,7 @@ func (hnd *handlerDeal) handleNext() (bool, error) {
 	return true, nil
 }
 
-func (hnd *handlerDeal) openFile(deal OldDealProposal) error {
+func (hnd *handlerDeal) openFile(deal impl_types.OldDealProposal) error {
 	unixfs0 := deal.Params.Unixfs0
 
 	if unixfs0.Offset != 0 {
@@ -266,11 +267,11 @@ func (hnd *handlerDeal) openFile(deal OldDealProposal) error {
 	return nil
 }
 
-func (hnd *handlerDeal) accept(deal OldDealProposal) error {
+func (hnd *handlerDeal) accept(deal impl_types.OldDealProposal) error {
 	unixfs0 := deal.Params.Unixfs0
 
-	resp := &OldDealResponse{
-		Status: Accepted,
+	resp := &impl_types.OldDealResponse{
+		Status: impl_types.Accepted,
 	}
 	if err := cborutil.WriteCborRPC(hnd.stream, resp); err != nil {
 		log.Errorf("Retrieval query: Write Accepted resp: %s", err)
@@ -295,7 +296,7 @@ func (hnd *handlerDeal) accept(deal OldDealProposal) error {
 			return
 		}*/
 
-		block := &Block{
+		block := &impl_types.Block{
 			Prefix: nd.Cid().Prefix().Bytes(),
 			Data:   nd.RawData(),
 		}

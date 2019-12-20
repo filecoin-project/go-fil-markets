@@ -2,10 +2,10 @@ package retrievalimpl_test
 
 import (
 	"context"
+	"github.com/filecoin-project/go-address"
 	"github.com/filecoin-project/go-fil-components/retrievalmarket"
 	retrievalimpl "github.com/filecoin-project/go-fil-components/retrievalmarket/impl"
 	tut "github.com/filecoin-project/go-fil-components/retrievalmarket/network/testutil"
-	"github.com/filecoin-project/go-fil-components/shared/address"
 	"github.com/filecoin-project/go-fil-components/shared_testutil"
 	"github.com/libp2p/go-libp2p-core/peer"
 	"github.com/stretchr/testify/assert"

@@ -2,6 +2,7 @@ package retrievalimpl
 
 import (
 	"context"
+	"github.com/filecoin-project/go-fil-components/retrievalmarket/impl/impl_types"
 	"reflect"
 	"sync"
 
@@ -52,7 +53,7 @@ func NewClient(clientParams NewClientParams) retrievalmarket.RetrievalClient {
 		h:     clientParams.Host,
 		bs:    clientParams.Blockstore,
 		node:  clientParams.RCNode,
-		rmnet: rmnet.NewFromLibp2pHost(h),
+		rmnet: rmnet.NewFromLibp2pHost(clientParams.Host),
 	}
 	if clientParams.RMNet != nil {
 		client.rmnet = clientParams.RMNet
@@ -271,11 +272,11 @@ func (cst *clientStream) doOneExchange(ctx context.Context, toFetch uint64) erro
 		return xerrors.Errorf("setting up retrieval payment: %w", err)
 	}
 
-	deal := &OldDealProposal{
+	deal := &impl_types.OldDealProposal{
 		Payment: payment,
 		Ref:     cst.root,
-		Params: RetParams{
-			Unixfs0: &Unixfs0Offer{
+		Params: impl_types.RetParams{
+			Unixfs0: &impl_types.Unixfs0Offer{
 				Offset: cst.offset,
 				Size:   toFetch,
 			},
@@ -286,19 +287,19 @@ func (cst *clientStream) doOneExchange(ctx context.Context, toFetch uint64) erro
 		return xerrors.Errorf("sending incremental retrieval request: %w", err)
 	}
 
-	var resp OldDealResponse
+	var resp impl_types.OldDealResponse
 	if err := cborutil.ReadCborRPC(cst.peeker, &resp); err != nil {
 		return xerrors.Errorf("reading retrieval response: %w", err)
 	}
 
-	if resp.Status != Accepted {
+	if resp.Status != impl_types.Accepted {
 		cst.windowSize = params.UnixfsChunkSize
 		// TODO: apply some 'penalty' to miner 'reputation' (needs to be the same in both cases)
 
-		if resp.Status == Error {
+		if resp.Status == impl_types.Error {
 			return xerrors.Errorf("storage deal error: %s", resp.Message)
 		}
-		if resp.Status == Rejected {
+		if resp.Status == impl_types.Rejected {
 			return xerrors.Errorf("storage deal rejected: %s", resp.Message)
 		}
 		return xerrors.New("storage deal response had no Accepted section")
@@ -317,7 +318,7 @@ func (cst *clientStream) fetchBlocks(toFetch uint64) error {
 	for i := uint64(0); i < blocksToFetch; {
 		log.Infof("block %d of %d", i+1, blocksToFetch)
 
-		var block Block
+		var block impl_types.Block
 		if err := cborutil.ReadCborRPC(cst.peeker, &block); err != nil {
 			return xerrors.Errorf("reading fetchBlock response: %w", err)
 		}
@@ -333,7 +334,7 @@ func (cst *clientStream) fetchBlocks(toFetch uint64) error {
 	return nil
 }
 
-func (cst *clientStream) consumeBlockMessage(block Block) (uint64, error) {
+func (cst *clientStream) consumeBlockMessage(block impl_types.Block) (uint64, error) {
 	prefix, err := cid.PrefixFromBytes(block.Prefix)
 	if err != nil {
 		return 0, err
@@ -370,17 +371,17 @@ func (cst *clientStream) consumeBlockMessage(block Block) (uint64, error) {
 	return 1, nil
 }
 
-func (cst *clientStream) setupPayment(ctx context.Context, toSend tokenamount.TokenAmount) (OldPaymentInfo, error) {
+func (cst *clientStream) setupPayment(ctx context.Context, toSend tokenamount.TokenAmount) (impl_types.OldPaymentInfo, error) {
 	amount := tokenamount.Add(cst.transferred, toSend)
 
 	sv, err := cst.node.CreatePaymentVoucher(ctx, cst.paych, amount, cst.lane)
 	if err != nil {
-		return OldPaymentInfo{}, err
+		return impl_types.OldPaymentInfo{}, err
 	}
 
 	cst.transferred = amount
 
-	return OldPaymentInfo{
+	return impl_types.OldPaymentInfo{
 		Channel:        cst.paych,
 		ChannelMessage: nil,
 		Vouchers:       []*types.SignedVoucher{sv},
