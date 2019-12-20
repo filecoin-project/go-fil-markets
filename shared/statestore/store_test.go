@@ -1,6 +1,7 @@
 package statestore
 
 import (
+	cborutil "github.com/filecoin-project/go-cbor-util"
 	"testing"
 
 	cborutil "github.com/filecoin-project/go-cbor-util"
