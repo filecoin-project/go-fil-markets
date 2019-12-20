@@ -40,7 +40,7 @@ func (impl libp2pRetrievalMarketNetwork) SetDelegate(r RetrievalReceiver) error 
 	return nil
 }
 
-func debugLog(msg string) {
-	log.Debugf("retrievalmarket net handleNewStream -- %s", msg)
-
-}
+//func debugLog(msg string) {
+//	log.Debugf("retrievalmarket net handleNewStream -- %s", msg)
+//
+//}
