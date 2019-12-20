@@ -2,7 +2,6 @@ package retrievalimpl
 
 import (
 	"context"
-	"github.com/filecoin-project/go-fil-components/retrievalmarket/impl/impl_types"
 	"reflect"
 	"sync"
 
@@ -20,6 +19,7 @@ import (
 
 	"github.com/filecoin-project/go-address"
 	"github.com/filecoin-project/go-fil-components/retrievalmarket"
+	"github.com/filecoin-project/go-fil-components/retrievalmarket/impl/impl_types"
 	rmnet "github.com/filecoin-project/go-fil-components/retrievalmarket/network"
 	"github.com/filecoin-project/go-fil-components/shared/params"
 	"github.com/filecoin-project/go-fil-components/shared/tokenamount"
