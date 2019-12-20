@@ -13,6 +13,7 @@ var log = logging.Logger("retrieval_network")
 func NewFromLibp2pHost(h host.Host) RetrievalMarketNetwork {
 	return libp2pRetrievalMarketNetwork{host: h}
 }
+
 // libp2pRetrievalMarketNetwork transforms the libp2p host interface, which sends and receives
 // NetMessage objects, into the graphsync network interface.
 type libp2pRetrievalMarketNetwork struct {
@@ -22,11 +23,11 @@ type libp2pRetrievalMarketNetwork struct {
 }
 
 func (impl libp2pRetrievalMarketNetwork) NewQueryStream(id peer.ID) (RetrievalQueryStream, error) {
-	s, err :=  impl.host.NewStream(context.Background(), id, retrievalmarket.QueryProtocolID)
+	s, err := impl.host.NewStream(context.Background(), id, retrievalmarket.QueryProtocolID)
 	if err != nil {
 		return nil, err
 	}
-	return
+	return queryStream{p: id, s: s}, nil
 }
 
 func (impl libp2pRetrievalMarketNetwork) NewDealStream(id peer.ID) (RetrievalDealStream, error) {
@@ -35,11 +36,11 @@ func (impl libp2pRetrievalMarketNetwork) NewDealStream(id peer.ID) (RetrievalDea
 
 func (impl libp2pRetrievalMarketNetwork) SetDelegate(r RetrievalReceiver) error {
 	impl.receiver = r
-	impl.host.SetStreamHandler(retrievalmarket.ProtocolID, impl.handleNewStream)
+	//impl.host.SetStreamHandler(retrievalmarket.ProtocolID, impl.handleNewStream)
+	return nil
 }
 
-
 func debugLog(msg string) {
-	log.Debugf("retrievalmarket net handleNewStream -- %s", ms)
+	log.Debugf("retrievalmarket net handleNewStream -- %s", msg)
 
 }
