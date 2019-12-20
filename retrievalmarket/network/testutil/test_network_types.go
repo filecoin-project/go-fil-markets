@@ -20,7 +20,16 @@ type TestRetrievalQueryStream struct {
 	failRead, failWrite bool
 }
 
-func (trqs TestRetrievalQueryStream) NewTestRetrievalQueryStream(p peer.ID, failRead, failWrite bool) {
+func (trqs TestRetrievalQueryStream) NewTestRetrievalQueryStream(p peer.ID, failRead, failWrite bool) *TestRetrievalQueryStream {
+	return &TestRetrievalQueryStream{
+		p:         p,
+		failRead:  failRead,
+		failWrite: failWrite,
+	}
+}
+
+func (trqs TestRetrievalQueryStream) SetStream(s p2pnet.Stream) {
+	trqs.s = s
 }
 
 func (trqs TestRetrievalQueryStream) ReadQuery() (rm.Query, error) {
