@@ -2,13 +2,14 @@ package storageimpl
 
 import (
 	"context"
-	"io/ioutil"
-	"os"
+	"github.com/filecoin-project/go-fil-components/pieceio"
+	"github.com/filecoin-project/go-fil-components/pieceio/cario"
+	blocks "github.com/ipfs/go-block-format"
 	"runtime"
 
+	ipldfmt "github.com/ipfs/go-ipld-format"
+
 	"github.com/ipfs/go-cid"
-	files "github.com/ipfs/go-ipfs-files"
-	unixfile "github.com/ipfs/go-unixfs/file"
 	"github.com/ipld/go-ipld-prime"
 	"github.com/libp2p/go-libp2p-core/peer"
 	"golang.org/x/xerrors"
@@ -37,6 +38,14 @@ func (c *Client) failDeal(id cid.Cid, cerr error) {
 	log.Errorf("deal %s failed: %+v", id, cerr)
 }
 
+type readStoreAdapter struct {
+	nodeGetter ipldfmt.NodeGetter
+}
+
+func (adapter readStoreAdapter) Get(id cid.Cid) (blocks.Block, error) {
+	return adapter.nodeGetter.Get(context.Background(), id)
+}
+
 func (c *Client) commP(ctx context.Context, data cid.Cid) ([]byte, uint64, error) {
 	root, err := c.dag.Get(ctx, data)
 	if err != nil {
@@ -44,37 +53,25 @@ func (c *Client) commP(ctx context.Context, data cid.Cid) ([]byte, uint64, error
 		return nil, 0, err
 	}
 
-	n, err := unixfile.NewUnixfsFile(ctx, c.dag, root)
-	if err != nil {
-		log.Errorf("cannot open unixfs file: %s", err)
-		return nil, 0, err
-	}
-
-	uf, ok := n.(files.File)
-	if !ok {
-		// TODO: we probably got directory, how should we handle this in unixfs mode?
-		return nil, 0, xerrors.New("unsupported unixfs type")
-	}
-
-	s, err := uf.Size()
+	pr := padreader.NewPadReader()
+	carIO := cario.NewCarIO()
+	sectorCalculator := sectorcalculator.NewSectorCalculator("")
+	fs, err := filestore.NewLocalFileStore("")
 	if err != nil {
 		return nil, 0, err
 	}
-
-	pr, psize := padreader.NewPaddedReader(uf, uint64(s))
-
-	dir, err := ioutil.TempDir("", "sector")
-	if err != nil {
-		return nil, 0, err
-	}
-	defer os.RemoveAll(dir)
-	calculator := sectorcalculator.NewSectorCalculator(filestore.Path(dir))
-	commp, err := calculator.GeneratePieceCommitment(pr, psize)
+	pio := pieceio.NewPieceIO(pr, carIO, sectorCalculator, fs)
+	adapter := new(readStoreAdapter)
+	adapter.nodeGetter = c.dag
+	commp, tmpFile, err := pio.GeneratePieceCommitment(adapter, data, root)
 	if err != nil {
 		return nil, 0, xerrors.Errorf("generating CommP: %w", err)
 	}
-
-	return commp[:], psize, nil
+	defer func () {
+		tmpFile.Close()
+		fs.Delete(tmpFile.Path())
+	}()
+	return commp[:], uint64(tmpFile.Size()), nil
 }
 
 func (c *Client) readStorageDealResp(deal ClientDeal) (*Response, error) {

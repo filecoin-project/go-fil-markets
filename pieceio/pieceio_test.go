@@ -19,7 +19,6 @@ import (
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 	"io"
-	"os"
 	"testing"
 )
 
@@ -66,26 +65,28 @@ func Test_ThereAndBackAgain(t *testing.T) {
 			ssb.ExploreIndex(1, ssb.ExploreRecursive(selector.RecursionLimitNone(), ssb.ExploreAll(ssb.ExploreRecursiveEdge()))))
 	}).Node()
 
-	bytes, filename, err := pio.GeneratePieceCommitment(sourceBs, nd3.Cid(), node)
+	bytes, tmpFile, err := pio.GeneratePieceCommitment(sourceBs, nd3.Cid(), node)
 	require.NoError(t, err)
+	defer func() {
+		deferErr := tmpFile.Close()
+		require.NoError(t, deferErr)
+		deferErr = store.Delete(tmpFile.Path())
+		require.NoError(t, deferErr )
+	}()
 	for _, b := range bytes {
 		require.NotEqual(t, 0, b)
 	}
-	f, err := os.Open(string(filename))
-	require.NoError(t, err)
-	info, err := os.Stat(string(filename))
-	require.NoError(t, err)
 	bufSize := int64(16) // small buffer to illustrate the logic
 	buf := make([]byte, bufSize)
 	var readErr error
 	padStart := int64(-1)
 	loops := int64(-1)
 	read := 0
-	skipped, err := f.Seek(info.Size()/2, io.SeekStart)
+	skipped, err := tmpFile.Seek(tmpFile.Size()/2, io.SeekStart)
 	require.NoError(t, err)
 	for readErr == nil {
 		loops++
-		read, readErr = f.Read(buf)
+		read, readErr = tmpFile.Read(buf)
 		for idx := int64(0); idx < int64(read); idx++ {
 			if buf[idx] == 0 {
 				if padStart == -1 {
@@ -96,18 +97,17 @@ func Test_ThereAndBackAgain(t *testing.T) {
 			}
 		}
 	}
-	_, err = f.Seek(0, io.SeekStart)
+	_, err = tmpFile.Seek(0, io.SeekStart)
 	require.NoError(t, err)
 
 	var reader io.Reader
 	if padStart != -1 {
-		reader = io.LimitReader(f, padStart)
+		reader = io.LimitReader(tmpFile, padStart)
 	} else {
-		reader = f
+		reader = tmpFile
 	}
 
 	id, err := pio.ReadPiece(reader, sourceBs)
-	os.Remove(string(filename))
 	require.NoError(t, err)
 	require.Equal(t, nd3.Cid(), id)
 }
@@ -154,24 +154,23 @@ func Test_StoreRestoreMemoryBuffer(t *testing.T) {
 			ssb.ExploreIndex(1, ssb.ExploreRecursive(selector.RecursionLimitNone(), ssb.ExploreAll(ssb.ExploreRecursiveEdge()))))
 	}).Node()
 
-	commitment, filename, err := pio.GeneratePieceCommitment(sourceBs, nd3.Cid(), node)
+	commitment, tmpFile, err := pio.GeneratePieceCommitment(sourceBs, nd3.Cid(), node)
 	require.NoError(t, err)
+	defer func() {
+		deferErr := tmpFile.Close()
+		require.NoError(t, deferErr)
+		deferErr = store.Delete(tmpFile.Path())
+		require.NoError(t, deferErr )
+	}()
+	_, err = tmpFile.Seek(0, io.SeekStart)
 	for _, b := range commitment {
 		require.NotEqual(t, 0, b)
 	}
-	f, err := os.Open(string(filename))
-	require.NoError(t, err)
-	defer func() {
-		f.Close()
-		os.Remove(f.Name())
-	}()
-	info, err := os.Stat(string(filename))
-	require.NoError(t, err)
-	buf := make([]byte, info.Size())
-	_, err = f.Read(buf)
+	buf := make([]byte, tmpFile.Size())
+	_, err = tmpFile.Read(buf)
 	require.NoError(t, err)
 	buffer := bytes.NewBuffer(buf)
-	secondCommitment, err := sc.GeneratePieceCommitment(buffer, uint64(info.Size()))
+	secondCommitment, err := sc.GeneratePieceCommitment(buffer, uint64(tmpFile.Size()))
 	require.NoError(t, err)
 	require.Equal(t, commitment, secondCommitment)
 }

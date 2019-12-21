@@ -15,7 +15,7 @@ type PieceIO struct {
 }
 
 // GeneratePieceCommitment provides a mock function with given fields: bs, payloadCid, selector
-func (_m *PieceIO) GeneratePieceCommitment(bs pieceio.ReadStore, payloadCid cid.Cid, selector ipld.Node) ([]byte, filestore.Path, error) {
+func (_m *PieceIO) GeneratePieceCommitment(bs pieceio.ReadStore, payloadCid cid.Cid, selector ipld.Node) ([]byte, filestore.File, error) {
 	ret := _m.Called(bs, payloadCid, selector)
 
 	var r0 []byte
@@ -27,11 +27,13 @@ func (_m *PieceIO) GeneratePieceCommitment(bs pieceio.ReadStore, payloadCid cid.
 		}
 	}
 
-	var r1 filestore.Path
-	if rf, ok := ret.Get(1).(func(pieceio.ReadStore, cid.Cid, ipld.Node) filestore.Path); ok {
+	var r1 filestore.File
+	if rf, ok := ret.Get(1).(func(pieceio.ReadStore, cid.Cid, ipld.Node) filestore.File); ok {
 		r1 = rf(bs, payloadCid, selector)
 	} else {
-		r1 = ret.Get(1).(filestore.Path)
+		if ret.Get(1) != nil {
+			r1 = ret.Get(1).(filestore.File)
+		}
 	}
 
 	var r2 error

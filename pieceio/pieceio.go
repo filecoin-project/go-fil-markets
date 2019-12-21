@@ -37,10 +37,10 @@ func NewPieceIO(padReader PadReader, carIO CarIO, sectorCalculator SectorCalcula
 	return &pieceIO{padReader, carIO, sectorCalculator, store}
 }
 
-func (pio *pieceIO) GeneratePieceCommitment(bs ReadStore, payloadCid cid.Cid, selector ipld.Node) ([]byte, filestore.Path, error) {
+func (pio *pieceIO) GeneratePieceCommitment(bs ReadStore, payloadCid cid.Cid, selector ipld.Node) ([]byte, filestore.File, error) {
 	f, err := pio.store.CreateTemp()
 	if err != nil {
-		return nil, "", err
+		return nil, nil, err
 	}
 	cleanup := func() {
 		f.Close()
@@ -49,7 +49,7 @@ func (pio *pieceIO) GeneratePieceCommitment(bs ReadStore, payloadCid cid.Cid, se
 	err = pio.carIO.WriteCar(context.Background(), bs, payloadCid, selector, f)
 	if err != nil {
 		cleanup()
-		return nil, "", err
+		return nil, nil, err
 	}
 	size := f.Size()
 	pieceSize := uint64(size)
@@ -59,23 +59,23 @@ func (pio *pieceIO) GeneratePieceCommitment(bs ReadStore, payloadCid cid.Cid, se
 	padded, err := f.Write(padbuf)
 	if err != nil {
 		cleanup()
-		return nil, "", err
+		return nil, nil, err
 	}
 	if uint64(padded) != remaining {
 		cleanup()
-		return nil, "", fmt.Errorf("wrote %d byte of padding while expecting %d to be written", padded, remaining)
+		return nil, nil, fmt.Errorf("wrote %d byte of padding while expecting %d to be written", padded, remaining)
 	}
 	_, err = f.Seek(0, io.SeekStart)
 	if err != nil {
 		cleanup()
-		return nil, "", err
+		return nil, nil, err
 	}
 	commitment, err := pio.sectorCalculator.GeneratePieceCommitment(f, paddedSize)
 	if err != nil {
 		cleanup()
-		return nil, "", err
+		return nil, nil, err
 	}
-	return commitment, f.Path(), nil
+	return commitment, f, nil
 }
 
 func (pio *pieceIO) ReadPiece(r io.Reader, bs WriteStore) (cid.Cid, error) {
