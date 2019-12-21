@@ -91,4 +91,37 @@ func TestClient_Query(t *testing.T) {
 		assert.EqualError(t, err, "write query failed")
 		assert.Equal(t, retrievalmarket.QueryResponseUndefined, statusCode)
 	})
+
+	t.Run("when ReadQueryResponse fails, returns error", func(t *testing.T) {
+		qsbuilder := func(p peer.ID) (network.RetrievalQueryStream, error) {
+			newStream := tut.NewTestRetrievalQueryStream(tut.TestQueryStreamParams{
+				PeerID:     p,
+				RespReader: tut.FailResponseReader,
+			})
+			return newStream, nil
+		}
+		net := tut.NewTestRetrievalMarketNetwork(tut.TestNetworkParams{
+			Host:               td.Host2,
+			Peers:              []peer.ID{td.Host1.ID()},
+			QueryStreamBuilder: qsbuilder,
+		})
+		c := retrievalimpl.NewClient(
+			retrievalimpl.NewClientParams{
+				Host:       td.Host1,
+				Blockstore: td.Bs1,
+				RCNode:     &tut.TestRetrievalNode{},
+				RMNet:      net,
+			})
+
+		statusCode, err := c.Query(ctx, rpeer, pcid, retrievalmarket.QueryParams{})
+		assert.EqualError(t, err, "query response failed")
+		assert.Equal(t, retrievalmarket.QueryResponseUndefined, statusCode)
+	})
+
+	t.Run("use the mocknet", func(t *testing.T) {
+
+	})
+}
+
+func TestClient_Retrieve(t *testing.T) {
 }

@@ -139,9 +139,9 @@ type TestRetrievalMarketNetwork struct {
 
 	dsbuilder func(peer.ID) (rmnet.RetrievalDealStream, error)
 
-	qsbuilder   func(peer.ID) (rmnet.RetrievalQueryStream, error)
-	qrespReader func() (rm.QueryResponse, error)
-	qwriter     func(rm.Query) error
+	qsbuilder func(peer.ID) (rmnet.RetrievalQueryStream, error)
+	//qrespReader func() (rm.QueryResponse, error)
+	//qwriter     func(rm.Query) error
 }
 
 type TestNetworkParams struct {
@@ -219,6 +219,10 @@ func FailNewDealStream(peer.ID) (rmnet.RetrievalDealStream, error) {
 }
 func FailQueryWriter(rm.Query) error {
 	return errors.New("write query failed")
+}
+
+func FailResponseReader() (rm.QueryResponse, error) {
+	return rm.QueryResponse{}, errors.New("query response failed")
 }
 
 // TrivialNewQueryStream succeeds trivially, returning an empty query stream.
