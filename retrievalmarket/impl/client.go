@@ -19,8 +19,6 @@ import (
 
 	"github.com/filecoin-project/go-address"
 	"github.com/filecoin-project/go-fil-components/retrievalmarket"
-	"github.com/filecoin-project/go-fil-components/retrievalmarket/impl/impl_types"
-	rmnet "github.com/filecoin-project/go-fil-components/retrievalmarket/network"
 	"github.com/filecoin-project/go-fil-components/shared/params"
 	"github.com/filecoin-project/go-fil-components/shared/tokenamount"
 	"github.com/filecoin-project/go-fil-components/shared/types"
@@ -36,29 +34,12 @@ type client struct {
 
 	nextDealLk  sync.Mutex
 	nextDealID  retrievalmarket.DealID
-	rmnet       rmnet.RetrievalMarketNetwork
 	subscribers []retrievalmarket.ClientSubscriber
 }
 
-type NewClientParams struct {
-	Host       host.Host
-	Blockstore blockstore.Blockstore
-	RCNode     retrievalmarket.RetrievalClientNode
-	RMNet      rmnet.RetrievalMarketNetwork
-}
-
 // NewClient creates a new retrieval client
-func NewClient(clientParams NewClientParams) retrievalmarket.RetrievalClient {
-	client := &client{
-		h:     clientParams.Host,
-		bs:    clientParams.Blockstore,
-		node:  clientParams.RCNode,
-		rmnet: rmnet.NewFromLibp2pHost(clientParams.Host),
-	}
-	if clientParams.RMNet != nil {
-		client.rmnet = clientParams.RMNet
-	}
-	return client
+func NewClient(h host.Host, bs blockstore.Blockstore, node retrievalmarket.RetrievalClientNode) retrievalmarket.RetrievalClient {
+	return &client{h: h, bs: bs, node: node}
 }
 
 // V0
@@ -72,23 +53,37 @@ func (c *client) FindProviders(pieceCID []byte) []retrievalmarket.RetrievalPeer 
 // TODO: Update to match spec for V0 epic
 // https://github.com/filecoin-project/go-retrieval-market-project/issues/8
 func (c *client) Query(ctx context.Context, p retrievalmarket.RetrievalPeer, pieceCID []byte, params retrievalmarket.QueryParams) (retrievalmarket.QueryResponse, error) {
-	s, err := c.rmnet.NewQueryStream(p.ID)
+	cid, err := cid.Cast(pieceCID)
+	if err != nil {
+		log.Warn(err)
+		return retrievalmarket.QueryResponseUndefined, err
+	}
+
+	s, err := c.h.NewStream(ctx, p.ID, retrievalmarket.QueryProtocolID)
 	if err != nil {
 		log.Warn(err)
 		return retrievalmarket.QueryResponseUndefined, err
 	}
 	defer s.Close()
 
-	err = s.WriteQuery(retrievalmarket.Query{PieceCID: pieceCID})
+	err = cborutil.WriteCborRPC(s, &OldQuery{
+		Piece: cid,
+	})
 	if err != nil {
 		log.Warn(err)
 		return retrievalmarket.QueryResponseUndefined, err
 	}
 
-	var resp retrievalmarket.QueryResponse
-	if resp, err = s.ReadQueryResponse(); err != nil {
+	var oldResp OldQueryResponse
+	if err := oldResp.UnmarshalCBOR(s); err != nil {
 		log.Warn(err)
 		return retrievalmarket.QueryResponseUndefined, err
+	}
+
+	resp := retrievalmarket.QueryResponse{
+		Status:          retrievalmarket.QueryResponseStatus(oldResp.Status),
+		Size:            oldResp.Size,
+		MinPricePerByte: tokenamount.Div(oldResp.MinPrice, tokenamount.FromInt(oldResp.Size)),
 	}
 	return resp, nil
 }
@@ -272,11 +267,11 @@ func (cst *clientStream) doOneExchange(ctx context.Context, toFetch uint64) erro
 		return xerrors.Errorf("setting up retrieval payment: %w", err)
 	}
 
-	deal := &impl_types.OldDealProposal{
+	deal := &OldDealProposal{
 		Payment: payment,
 		Ref:     cst.root,
-		Params: impl_types.RetParams{
-			Unixfs0: &impl_types.Unixfs0Offer{
+		Params: RetParams{
+			Unixfs0: &Unixfs0Offer{
 				Offset: cst.offset,
 				Size:   toFetch,
 			},
@@ -287,19 +282,19 @@ func (cst *clientStream) doOneExchange(ctx context.Context, toFetch uint64) erro
 		return xerrors.Errorf("sending incremental retrieval request: %w", err)
 	}
 
-	var resp impl_types.OldDealResponse
+	var resp OldDealResponse
 	if err := cborutil.ReadCborRPC(cst.peeker, &resp); err != nil {
 		return xerrors.Errorf("reading retrieval response: %w", err)
 	}
 
-	if resp.Status != impl_types.Accepted {
+	if resp.Status != Accepted {
 		cst.windowSize = params.UnixfsChunkSize
 		// TODO: apply some 'penalty' to miner 'reputation' (needs to be the same in both cases)
 
-		if resp.Status == impl_types.Error {
+		if resp.Status == Error {
 			return xerrors.Errorf("storage deal error: %s", resp.Message)
 		}
-		if resp.Status == impl_types.Rejected {
+		if resp.Status == Rejected {
 			return xerrors.Errorf("storage deal rejected: %s", resp.Message)
 		}
 		return xerrors.New("storage deal response had no Accepted section")
@@ -318,7 +313,7 @@ func (cst *clientStream) fetchBlocks(toFetch uint64) error {
 	for i := uint64(0); i < blocksToFetch; {
 		log.Infof("block %d of %d", i+1, blocksToFetch)
 
-		var block impl_types.Block
+		var block Block
 		if err := cborutil.ReadCborRPC(cst.peeker, &block); err != nil {
 			return xerrors.Errorf("reading fetchBlock response: %w", err)
 		}
@@ -334,7 +329,7 @@ func (cst *clientStream) fetchBlocks(toFetch uint64) error {
 	return nil
 }
 
-func (cst *clientStream) consumeBlockMessage(block impl_types.Block) (uint64, error) {
+func (cst *clientStream) consumeBlockMessage(block Block) (uint64, error) {
 	prefix, err := cid.PrefixFromBytes(block.Prefix)
 	if err != nil {
 		return 0, err
@@ -371,17 +366,17 @@ func (cst *clientStream) consumeBlockMessage(block impl_types.Block) (uint64, er
 	return 1, nil
 }
 
-func (cst *clientStream) setupPayment(ctx context.Context, toSend tokenamount.TokenAmount) (impl_types.OldPaymentInfo, error) {
+func (cst *clientStream) setupPayment(ctx context.Context, toSend tokenamount.TokenAmount) (OldPaymentInfo, error) {
 	amount := tokenamount.Add(cst.transferred, toSend)
 
 	sv, err := cst.node.CreatePaymentVoucher(ctx, cst.paych, amount, cst.lane)
 	if err != nil {
-		return impl_types.OldPaymentInfo{}, err
+		return OldPaymentInfo{}, err
 	}
 
 	cst.transferred = amount
 
-	return impl_types.OldPaymentInfo{
+	return OldPaymentInfo{
 		Channel:        cst.paych,
 		ChannelMessage: nil,
 		Vouchers:       []*types.SignedVoucher{sv},

@@ -1,4 +1,4 @@
-package impl_types
+package retrievalimpl
 
 import (
 	"fmt"

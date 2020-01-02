@@ -3,7 +3,7 @@ package network
 import (
 	cborutil "github.com/filecoin-project/go-cbor-util"
 	"github.com/filecoin-project/go-fil-components/retrievalmarket"
-	"github.com/filecoin-project/go-fil-components/retrievalmarket/impl/impl_types"
+	"github.com/filecoin-project/go-fil-components/retrievalmarket/impl"
 	"github.com/filecoin-project/go-fil-components/shared/tokenamount"
 	"github.com/ipfs/go-cid"
 	p2pnet "github.com/libp2p/go-libp2p-core/network"
@@ -27,11 +27,11 @@ func (qs queryStream) WriteQuery(q retrievalmarket.Query) error {
 		return err
 	}
 
-	return cborutil.WriteCborRPC(qs.s, &impl_types.OldQuery{Piece: cid})
+	return cborutil.WriteCborRPC(qs.s, &retrievalimpl.OldQuery{Piece: cid})
 }
 
 func (qs queryStream) ReadQueryResponse() (retrievalmarket.QueryResponse, error) {
-	var oldResp impl_types.OldQueryResponse
+	var oldResp retrievalimpl.OldQueryResponse
 	if err := oldResp.UnmarshalCBOR(qs.s); err != nil {
 		log.Warn(err)
 		return retrievalmarket.QueryResponseUndefined, err
