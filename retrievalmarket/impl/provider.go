@@ -31,6 +31,7 @@ type UnixfsReader interface {
 }
 
 type provider struct {
+
 	// TODO: Replace with RetrievalProviderNode for
 	// https://github.com/filecoin-project/go-retrieval-market-project/issues/4
 	node retrievalmarket.RetrievalProviderNode
