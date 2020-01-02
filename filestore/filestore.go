@@ -20,7 +20,7 @@ func NewLocalFileStore(basedirectory Path) (FileStore, error) {
 	if err != nil {
 		return nil, fmt.Errorf("error getting %s info: %s", base, err.Error())
 	}
-	if false == info.IsDir() {
+	if !info.IsDir() {
 		return nil, fmt.Errorf("%s is not a directory", base)
 	}
 	return &fileStore{string(base)}, nil
@@ -32,8 +32,7 @@ func (fs fileStore) filename(p Path) string {
 
 func (fs fileStore) Open(p Path) (File, error) {
 	name := fs.filename(p)
-	_, err := os.Stat(name)
-	if err != nil {
+	if _, err := os.Stat(name); err != nil {
 		return nil, fmt.Errorf("error trying to open %s: %s", name, err.Error())
 	}
 	return newFile(Path(fs.base), p)
@@ -41,8 +40,7 @@ func (fs fileStore) Open(p Path) (File, error) {
 
 func (fs fileStore) Create(p Path) (File, error) {
 	name := fs.filename(p)
-	_, err := os.Stat(name)
-	if err == nil {
+	if _, err := os.Stat(name); err == nil {
 		return nil, fmt.Errorf("file %s already exists", name)
 	}
 	return newFile(Path(fs.base), p)
@@ -53,12 +51,12 @@ func (fs fileStore) Store(p Path, src File) (Path, error) {
 	if err != nil {
 		return Path(""), err
 	}
-	defer dest.Close()
-	_, err = io.Copy(dest, src)
-	if err != nil {
+
+	if _, err = io.Copy(dest, src); err != nil {
+		dest.Close()
 		return Path(""), err
 	}
-	return Path(fs.filename(p)), nil
+	return Path(fs.filename(p)), dest.Close()
 }
 
 func (fs fileStore) Delete(p Path) error {
@@ -75,5 +73,5 @@ func (fs fileStore) CreateTemp() (File, error) {
 		return nil, err
 	}
 	filename := filepath.Base(f.Name())
-	return &fd{File: f, basepath: fs.base, filename: filename,}, nil
+	return &fd{File: f, basepath: fs.base, filename: filename}, nil
 }
