@@ -3,52 +3,48 @@ package network
 import (
 	cborutil "github.com/filecoin-project/go-cbor-util"
 	"github.com/filecoin-project/go-fil-components/retrievalmarket"
-	"github.com/filecoin-project/go-fil-components/retrievalmarket/impl"
-	"github.com/filecoin-project/go-fil-components/shared/tokenamount"
-	"github.com/ipfs/go-cid"
-	p2pnet "github.com/libp2p/go-libp2p-core/network"
 	"github.com/libp2p/go-libp2p-core/peer"
+	"io"
 )
 
-type queryStream struct {
-	p peer.ID
-	s p2pnet.Stream
+type QueryStream struct {
+	p  peer.ID
+	rw io.ReadWriter
 }
 
-var _ RetrievalQueryStream = (*queryStream)(nil)
+var _ RetrievalQueryStream = (*QueryStream)(nil)
 
-func (qs queryStream) ReadQuery() (retrievalmarket.Query, error) {
-	panic("implement me")
+func NewQueryStream(p peer.ID, rw io.ReadWriter) *QueryStream {
+	return &QueryStream{p, rw}
 }
 
-func (qs queryStream) WriteQuery(q retrievalmarket.Query) error {
-	cid, err := cid.Cast(q.PieceCID)
-	if err != nil {
-		return err
+func (qs *QueryStream) ReadQuery() (retrievalmarket.Query, error) {
+	var q retrievalmarket.Query
+
+	if err := q.UnmarshalCBOR(qs.rw); err != nil {
+		log.Warn(err)
+		return retrievalmarket.QueryUndefined, err
+
 	}
 
-	return cborutil.WriteCborRPC(qs.s, &retrievalimpl.OldQuery{Piece: cid})
+	return q, nil
 }
 
-func (qs queryStream) ReadQueryResponse() (retrievalmarket.QueryResponse, error) {
-	var oldResp retrievalimpl.OldQueryResponse
-	if err := oldResp.UnmarshalCBOR(qs.s); err != nil {
+func (qs *QueryStream) WriteQuery(q retrievalmarket.Query) error {
+	return cborutil.WriteCborRPC(qs.rw, q)
+}
+
+func (qs *QueryStream) ReadQueryResponse() (retrievalmarket.QueryResponse, error) {
+	var resp retrievalmarket.QueryResponse
+
+	if err := resp.UnmarshalCBOR(qs.rw); err != nil {
 		log.Warn(err)
 		return retrievalmarket.QueryResponseUndefined, err
 	}
 
-	resp := retrievalmarket.QueryResponse{
-		Status:          retrievalmarket.QueryResponseStatus(oldResp.Status),
-		Size:            oldResp.Size,
-		MinPricePerByte: tokenamount.Div(oldResp.MinPrice, tokenamount.FromInt(oldResp.Size)),
-	}
 	return resp, nil
 }
 
-func (qs queryStream) WriteQueryResponse(retrievalmarket.QueryResponse) error {
-	panic("implement me")
-}
-
-func (qs queryStream) Close() error {
-	return qs.s.Close()
+func (qs *QueryStream) WriteQueryResponse(qr retrievalmarket.QueryResponse) error {
+	return cborutil.WriteCborRPC(qs.rw, qr)
 }

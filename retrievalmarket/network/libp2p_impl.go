@@ -27,11 +27,15 @@ func (impl libp2pRetrievalMarketNetwork) NewQueryStream(id peer.ID) (RetrievalQu
 	if err != nil {
 		return nil, err
 	}
-	return queryStream{p: id, s: s}, nil
+	return &QueryStream{p: id, rw: s}, nil
 }
 
 func (impl libp2pRetrievalMarketNetwork) NewDealStream(id peer.ID) (RetrievalDealStream, error) {
-	panic("implement me")
+	s, err := impl.host.NewStream(context.Background(), id, retrievalmarket.ProtocolID)
+	if err != nil {
+		return nil, err
+	}
+	return &DealStream{p: id, rw: s}, nil
 }
 
 func (impl libp2pRetrievalMarketNetwork) SetDelegate(r RetrievalReceiver) error {
@@ -41,6 +45,6 @@ func (impl libp2pRetrievalMarketNetwork) SetDelegate(r RetrievalReceiver) error 
 }
 
 //func debugLog(msg string) {
-//	log.Debugf("retrievalmarket net handleNewStream -- %s", msg)
+//	log.Debugf("retrievalmarket net handleNewStream -- %rw", msg)
 //
 //}
