@@ -11,7 +11,7 @@ type RetrievalQueryStream interface {
 	WriteQuery(retrievalmarket.Query) error
 	ReadQueryResponse() (retrievalmarket.QueryResponse, error)
 	WriteQueryResponse(retrievalmarket.QueryResponse) error
-	Close()
+	Close() error
 }
 
 type RetrievalDealStream interface {
@@ -21,7 +21,7 @@ type RetrievalDealStream interface {
 	WriteDealResponse(retrievalmarket.DealResponse) error
 	ReadDealPayment() (retrievalmarket.DealPayment, error)
 	WriteDealPayment(retrievalmarket.DealPayment) error
-	Close()
+	Close() error
 }
 
 type RetrievalReceiver interface {
