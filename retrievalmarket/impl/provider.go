@@ -6,13 +6,14 @@ import (
 	"reflect"
 	"sync"
 
+	"github.com/filecoin-project/go-address"
+	cborutil "github.com/filecoin-project/go-cbor-util"
 	"github.com/ipfs/go-blockservice"
 	"github.com/ipfs/go-cid"
 	files "github.com/ipfs/go-ipfs-files"
 	ipld "github.com/ipfs/go-ipld-format"
 	"github.com/ipfs/go-merkledag"
 	unixfile "github.com/ipfs/go-unixfs/file"
-	"github.com/libp2p/go-libp2p-core/host"
 	"github.com/libp2p/go-libp2p-core/network"
 	"golang.org/x/xerrors"
 
@@ -40,21 +41,28 @@ type provider struct {
 	pricePerByte tokenamount.TokenAmount
 
 	subscribersLk sync.RWMutex
-	subscribers   []retrievalmarket.ProviderSubscriber
+	node                    retrievalmarket.RetrievalProviderNode
+	network                 rmnet.RetrievalMarketNetwork
+	paymentInterval         uint64
+	paymentIntervalIncrease uint64
+	paymentAddress          address.Address
+	pricePerByte            tokenamount.TokenAmount
+	subscribers             []retrievalmarket.ProviderSubscriber
 }
 
 // NewProvider returns a new retrieval provider
-func NewProvider(node retrievalmarket.RetrievalProviderNode) retrievalmarket.RetrievalProvider {
+func NewProvider(paymentAddress address.Address, node retrievalmarket.RetrievalProviderNode, network rmnet.RetrievalMarketNetwork) retrievalmarket.RetrievalProvider {
 	return &provider{
-		node:         node,
-		pricePerByte: tokenamount.FromInt(2), // TODO: allow setting
+		node:           node,
+		network:        network,
+		paymentAddress: paymentAddress,
+		pricePerByte:   tokenamount.FromInt(2), // TODO: allow setting
 	}
 }
 
 // Start begins listening for deals on the given host
-func (p *provider) Start(host host.Host) {
-	host.SetStreamHandler(retrievalmarket.QueryProtocolID, p.handleQueryStream)
-	host.SetStreamHandler(retrievalmarket.ProtocolID, p.handleDealStream)
+func (p *provider) Start() {
+	p.network.SetDelegate(p)
 }
 
 // V0
@@ -67,7 +75,8 @@ func (p *provider) SetPricePerByte(price tokenamount.TokenAmount) {
 // requesting further payment, and the rate at which that value increases
 // TODO: Implement for https://github.com/filecoin-project/go-retrieval-market-project/issues/7
 func (p *provider) SetPaymentInterval(paymentInterval uint64, paymentIntervalIncrease uint64) {
-	panic("not implemented")
+	p.paymentInterval = paymentInterval
+	p.paymentIntervalIncrease = paymentIntervalIncrease
 }
 
 // unsubscribeAt returns a function that removes an item from the subscribers list by comparing
@@ -124,33 +133,36 @@ func writeErr(stream network.Stream, err error) {
 }
 
 // TODO: Update for https://github.com/filecoin-project/go-retrieval-market-project/issues/8
-func (p *provider) handleQueryStream(stream network.Stream) {
+func (p *provider) HandleQueryStream(stream rmnet.RetrievalQueryStream) {
 	defer stream.Close()
-
-	var query OldQuery
-	if err := cborutil.ReadCborRPC(stream, &query); err != nil {
-		writeErr(stream, err)
+	query, err := stream.ReadQuery()
+	if err != nil {
 		return
 	}
 
-	size, err := p.node.GetPieceSize(query.Piece.Bytes())
-	if err != nil && err != retrievalmarket.ErrNotFound {
-		log.Errorf("Retrieval query: GetRefs: %s", err)
-		return
+	answer := retrievalmarket.QueryResponse{
+		Status:                     retrievalmarket.QueryResponseUnavailable,
+		PaymentAddress:             p.paymentAddress,
+		MinPricePerByte:            p.pricePerByte,
+		MaxPaymentInterval:         p.paymentInterval,
+		MaxPaymentIntervalIncrease: p.paymentIntervalIncrease,
 	}
 
-	answer := &OldQueryResponse{
-		Status: Unavailable,
-	}
+	size, err := p.node.GetPieceSize(query.PieceCID)
+
 	if err == nil {
-		answer.Status = Available
-
+		answer.Status = retrievalmarket.QueryResponseAvailable
 		// TODO: get price, look for already unsealed ref to reduce work
-		answer.MinPrice = tokenamount.Mul(tokenamount.FromInt(uint64(size)), p.pricePerByte)
 		answer.Size = uint64(size) // TODO: verify on intermediate
 	}
 
-	if err := cborutil.WriteCborRPC(stream, answer); err != nil {
+	if err != nil && err != retrievalmarket.ErrNotFound {
+		log.Errorf("Retrieval query: GetRefs: %s", err)
+		answer.Status = retrievalmarket.QueryResponseError
+		answer.Message = err.Error()
+	}
+
+	if err := stream.WriteQueryResponse(answer); err != nil {
 		log.Errorf("Retrieval query: WriteCborRPC: %s", err)
 		return
 	}
@@ -167,26 +179,26 @@ type handlerDeal struct {
 }
 
 // TODO: Update for https://github.com/filecoin-project/go-retrieval-market-project/issues/7
-func (p *provider) handleDealStream(stream network.Stream) {
+func (p *provider) HandleDealStream(stream rmnet.RetrievalDealStream) {
 	defer stream.Close()
+	/*
+		hnd := &handlerDeal{
+			p: p,
 
-	hnd := &handlerDeal{
-		p: p,
-
-		stream: stream,
-	}
-
-	var err error
-	more := true
-
-	for more {
-		more, err = hnd.handleNext() // TODO: 'more' bool
-		if err != nil {
-			writeErr(stream, err)
-			return
+			stream: stream,
 		}
-	}
 
+		var err error
+		more := true
+
+		for more {
+			more, err = hnd.handleNext() // TODO: 'more' bool
+			if err != nil {
+				writeErr(stream, err)
+				return
+			}
+		}
+	*/
 }
 
 func (hnd *handlerDeal) handleNext() (bool, error) {
