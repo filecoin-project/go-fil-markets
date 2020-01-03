@@ -5,6 +5,7 @@ import (
 	"github.com/filecoin-project/go-fil-components/retrievalmarket"
 	logging "github.com/ipfs/go-log"
 	"github.com/libp2p/go-libp2p-core/host"
+	"github.com/libp2p/go-libp2p-core/network"
 	"github.com/libp2p/go-libp2p-core/peer"
 )
 
@@ -40,11 +41,22 @@ func (impl libp2pRetrievalMarketNetwork) NewDealStream(id peer.ID) (RetrievalDea
 
 func (impl libp2pRetrievalMarketNetwork) SetDelegate(r RetrievalReceiver) error {
 	impl.receiver = r
-	//impl.host.SetStreamHandler(retrievalmarket.ProtocolID, impl.handleNewStream)
+	impl.host.SetStreamHandler(retrievalmarket.ProtocolID, impl.handleNewStream)
+	impl.host.SetStreamHandler(retrievalmarket.QueryProtocolID, impl.handleNewStream)
 	return nil
 }
 
-//func debugLog(msg string) {
-//	log.Debugf("retrievalmarket net handleNewStream -- %rw", msg)
-//
-//}
+func (impl libp2pRetrievalMarketNetwork) handleNewStream(s network.Stream) {
+	if impl.receiver == nil {
+		return
+	}
+	remotePID := s.Conn().RemotePeer()
+	if s.Protocol() ==  retrievalmarket.QueryProtocolID {
+		qs := &QueryStream{remotePID, s}
+		impl.receiver.HandleQueryStream(qs)
+	} else if s.Protocol() == retrievalmarket.ProtocolID {
+		ds := &DealStream{remotePID, s}
+		impl.receiver.HandleDealStream(ds)
+	}
+}
+
