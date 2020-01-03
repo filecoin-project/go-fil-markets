@@ -31,7 +31,7 @@ func (qs *QueryStream) ReadQuery() (retrievalmarket.Query, error) {
 }
 
 func (qs *QueryStream) WriteQuery(q retrievalmarket.Query) error {
-	return cborutil.WriteCborRPC(qs.rw, q)
+	return cborutil.WriteCborRPC(qs.rw, &q)
 }
 
 func (qs *QueryStream) ReadQueryResponse() (retrievalmarket.QueryResponse, error) {
@@ -46,5 +46,5 @@ func (qs *QueryStream) ReadQueryResponse() (retrievalmarket.QueryResponse, error
 }
 
 func (qs *QueryStream) WriteQueryResponse(qr retrievalmarket.QueryResponse) error {
-	return cborutil.WriteCborRPC(qs.rw, qr)
+	return cborutil.WriteCborRPC(qs.rw, &qr)
 }

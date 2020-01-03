@@ -1,22 +1,25 @@
 package network_test
 
 import (
+	"bytes"
+	"github.com/filecoin-project/go-address"
 	"github.com/filecoin-project/go-data-transfer/testutil"
 	"github.com/filecoin-project/go-fil-components/retrievalmarket"
 	"github.com/filecoin-project/go-fil-components/retrievalmarket/network"
-	"github.com/ipfs/go-cid"
+	"github.com/filecoin-project/go-fil-components/shared/tokenamount"
 	"github.com/libp2p/go-libp2p-core/peer"
 	"github.com/libp2p/go-libp2p-core/test"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"math/big"
 	"testing"
 )
 
-func TestQueryStreamSendReceiveQuery(t *testing.T) {
-	// send query, read in handler
-	rw := make(chan []byte)
 
-	qs := network.NewQueryStream(requireTestPeerID(t), rw)
+func TestQueryStreamSendReceiveQuery(t *testing.T) {
+	buf := bytes.NewBuffer([]byte{})
+
+	qs := network.NewQueryStream(requireTestPeerID(t), buf)
 
 	cid := testutil.GenerateCids(1)[0]
 	q := retrievalmarket.NewQueryV0(cid.Bytes())
@@ -26,11 +29,29 @@ func TestQueryStreamSendReceiveQuery(t *testing.T) {
 	res, err := qs.ReadQuery()
 	require.NoError(t, err)
 	require.NotNil(t, res)
-	assert.Equal(t, cid, res.PieceCID)
+	assert.Equal(t, cid.Bytes(), res.PieceCID)
 }
 
 func TestQueryStreamSendReceiveQueryResponse(t *testing.T) {
-	// send response, read in handler
+	buf := bytes.NewBuffer([]byte{})
+
+	qs := network.NewQueryStream(requireTestPeerID(t), buf)
+
+	qr := retrievalmarket.QueryResponse{
+		Status:                     retrievalmarket.QueryResponseUnavailable,
+		Size:                       999,
+		PaymentAddress:             address.TestAddress2,
+		MinPricePerByte:            tokenamount.TokenAmount{ big.NewInt(999)},
+		MaxPaymentInterval:         888,
+		MaxPaymentIntervalIncrease: 8,
+	}
+
+	assert.NoError(t, qs.WriteQueryResponse(qr))
+
+	res, err := qs.ReadQueryResponse()
+	require.NoError(t, err)
+	require.NotNil(t, res)
+	assert.Equal(t, qr, res)
 }
 
 func TestQueryStreamSendReceiveMultipleSuccessful(t *testing.T) {
