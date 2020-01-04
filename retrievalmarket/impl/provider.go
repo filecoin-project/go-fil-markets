@@ -61,8 +61,8 @@ func NewProvider(paymentAddress address.Address, node retrievalmarket.RetrievalP
 }
 
 // Start begins listening for deals on the given host
-func (p *provider) Start() {
-	p.network.SetDelegate(p)
+func (p *provider) Start() error {
+	return p.network.SetDelegate(p)
 }
 
 // V0
