@@ -45,15 +45,16 @@ func TestHandleQueryStream(t *testing.T) {
 		c := retrievalimpl.NewProvider(expectedAddress, node, net)
 		c.SetPricePerByte(expectedPricePerByte)
 		c.SetPaymentInterval(expectedPaymentInterval, expectedPaymentIntervalIncrease)
-		c.Start()
+		_ = c.Start()
 		net.ReceiveQueryStream(qs)
 	}
 
 	t.Run("it works", func(t *testing.T) {
 		qs := readWriteQueryStream()
-		qs.WriteQuery(retrievalmarket.Query{
+		err := qs.WriteQuery(retrievalmarket.Query{
 			PieceCID: pcid,
 		})
+		require.NoError(t, err)
 		node := newTestRetrievalProviderNode()
 		node.expectPiece(pcid, expectedSize)
 
@@ -72,9 +73,10 @@ func TestHandleQueryStream(t *testing.T) {
 
 	t.Run("piece not found", func(t *testing.T) {
 		qs := readWriteQueryStream()
-		qs.WriteQuery(retrievalmarket.Query{
+		err := qs.WriteQuery(retrievalmarket.Query{
 			PieceCID: pcid,
 		})
+		require.NoError(t, err)
 		node := newTestRetrievalProviderNode()
 		node.expectMissingPiece(pcid)
 
@@ -92,9 +94,10 @@ func TestHandleQueryStream(t *testing.T) {
 
 	t.Run("error reading piece", func(t *testing.T) {
 		qs := readWriteQueryStream()
-		qs.WriteQuery(retrievalmarket.Query{
+		err := qs.WriteQuery(retrievalmarket.Query{
 			PieceCID: pcid,
 		})
+		require.NoError(t, err)
 		node := newTestRetrievalProviderNode()
 
 		receiveStreamOnProvider(qs, node)
@@ -125,10 +128,10 @@ func TestHandleQueryStream(t *testing.T) {
 			Writer:     qWrite,
 			RespWriter: tut.FailResponseWriter,
 		})
-		qs.WriteQuery(retrievalmarket.Query{
+		err := qs.WriteQuery(retrievalmarket.Query{
 			PieceCID: pcid,
 		})
-
+		require.NoError(t, err)
 		node := newTestRetrievalProviderNode()
 		node.expectPiece(pcid, expectedSize)
 
