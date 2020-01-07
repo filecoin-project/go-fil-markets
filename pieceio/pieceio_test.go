@@ -30,11 +30,13 @@ func Test_ThereAndBackAgain(t *testing.T) {
 
 	store, err := filestore.NewLocalFileStore(tempDir)
 	require.NoError(t, err)
-	pio := pieceio.NewPieceIO(pr, cio, sc, store)
-	require.NoError(t, err)
 
 	sourceBserv := dstest.Bserv()
 	sourceBs := sourceBserv.Blockstore()
+
+	pio := pieceio.NewPieceIO(pr, cio, sc, store, sourceBs)
+	require.NoError(t, err)
+
 	dserv := dag.NewDAGService(sourceBserv)
 	a := dag.NewRawNode([]byte("aaaa"))
 	b := dag.NewRawNode([]byte("bbbb"))
@@ -65,7 +67,7 @@ func Test_ThereAndBackAgain(t *testing.T) {
 			ssb.ExploreIndex(1, ssb.ExploreRecursive(selector.RecursionLimitNone(), ssb.ExploreAll(ssb.ExploreRecursiveEdge()))))
 	}).Node()
 
-	bytes, tmpFile, err := pio.GeneratePieceCommitment(sourceBs, nd3.Cid(), node)
+	bytes, tmpFile, err := pio.GeneratePieceCommitment(nd3.Cid(), node)
 	require.NoError(t, err)
 	defer func() {
 		deferErr := tmpFile.Close()
@@ -107,7 +109,7 @@ func Test_ThereAndBackAgain(t *testing.T) {
 		reader = tmpFile
 	}
 
-	id, err := pio.ReadPiece(reader, sourceBs)
+	id, err := pio.ReadPiece(reader)
 	require.NoError(t, err)
 	require.Equal(t, nd3.Cid(), id)
 }
@@ -120,10 +122,11 @@ func Test_StoreRestoreMemoryBuffer(t *testing.T) {
 
 	store, err := filestore.NewLocalFileStore(tempDir)
 	require.NoError(t, err)
-	pio := pieceio.NewPieceIO(pr, cio, sc, store)
 
 	sourceBserv := dstest.Bserv()
 	sourceBs := sourceBserv.Blockstore()
+	pio := pieceio.NewPieceIO(pr, cio, sc, store, sourceBs)
+
 	dserv := dag.NewDAGService(sourceBserv)
 	a := dag.NewRawNode([]byte("aaaa"))
 	b := dag.NewRawNode([]byte("bbbb"))
@@ -154,7 +157,7 @@ func Test_StoreRestoreMemoryBuffer(t *testing.T) {
 			ssb.ExploreIndex(1, ssb.ExploreRecursive(selector.RecursionLimitNone(), ssb.ExploreAll(ssb.ExploreRecursiveEdge()))))
 	}).Node()
 
-	commitment, tmpFile, err := pio.GeneratePieceCommitment(sourceBs, nd3.Cid(), node)
+	commitment, tmpFile, err := pio.GeneratePieceCommitment(nd3.Cid(), node)
 	require.NoError(t, err)
 	defer func() {
 		deferErr := tmpFile.Close()
@@ -213,8 +216,8 @@ func Test_Failures(t *testing.T) {
 	t.Run("create temp file fails", func(t *testing.T) {
 		fsmock := fsmocks.FileStore{}
 		fsmock.On("CreateTemp").Return(nil, fmt.Errorf("Failed"))
-		pio := pieceio.NewPieceIO(nil, nil, nil, &fsmock)
-		_, _, err := pio.GeneratePieceCommitment(sourceBs, nd3.Cid(), node)
+		pio := pieceio.NewPieceIO(nil, nil, nil, &fsmock, sourceBs)
+		_, _, err := pio.GeneratePieceCommitment(nd3.Cid(), node)
 		require.Error(t, err)
 	})
 	t.Run("write CAR fails", func(t *testing.T) {
@@ -227,8 +230,8 @@ func Test_Failures(t *testing.T) {
 		ciomock := pmocks.CarIO{}
 		any := mock.Anything
 		ciomock.On("WriteCar", any, any, any, any, any).Return(fmt.Errorf("failed to write car"))
-		pio := pieceio.NewPieceIO(pr, &ciomock, sc, store)
-		_, _, err = pio.GeneratePieceCommitment(sourceBs, nd3.Cid(), node)
+		pio := pieceio.NewPieceIO(pr, &ciomock, sc, store, sourceBs)
+		_, _, err = pio.GeneratePieceCommitment(nd3.Cid(), node)
 		require.Error(t, err)
 	})
 	t.Run("padding fails", func(t *testing.T) {
@@ -256,8 +259,8 @@ func Test_Failures(t *testing.T) {
 		mockfile.On("Close").Return(nil).Once()
 		mockfile.On("Path").Return(filestore.Path("mock")).Once()
 
-		pio := pieceio.NewPieceIO(pr, cio, sc, &fsmock)
-		_, _, err := pio.GeneratePieceCommitment(sourceBs, nd3.Cid(), node)
+		pio := pieceio.NewPieceIO(pr, cio, sc, &fsmock, sourceBs)
+		_, _, err := pio.GeneratePieceCommitment(nd3.Cid(), node)
 		require.Error(t, err)
 	})
 	t.Run("incorrect padding", func(t *testing.T) {
@@ -285,8 +288,8 @@ func Test_Failures(t *testing.T) {
 		mockfile.On("Close").Return(nil).Once()
 		mockfile.On("Path").Return(filestore.Path("mock")).Once()
 
-		pio := pieceio.NewPieceIO(pr, cio, sc, &fsmock)
-		_, _, err := pio.GeneratePieceCommitment(sourceBs, nd3.Cid(), node)
+		pio := pieceio.NewPieceIO(pr, cio, sc, &fsmock, sourceBs)
+		_, _, err := pio.GeneratePieceCommitment(nd3.Cid(), node)
 		require.Error(t, err)
 	})
 	t.Run("seek fails", func(t *testing.T) {
@@ -315,8 +318,8 @@ func Test_Failures(t *testing.T) {
 		mockfile.On("Path").Return(filestore.Path("mock")).Once()
 		mockfile.On("Seek", mock.Anything, mock.Anything).Return(int64(0), fmt.Errorf("seek failed"))
 
-		pio := pieceio.NewPieceIO(pr, cio, sc, &fsmock)
-		_, _, err := pio.GeneratePieceCommitment(sourceBs, nd3.Cid(), node)
+		pio := pieceio.NewPieceIO(pr, cio, sc, &fsmock, sourceBs)
+		_, _, err := pio.GeneratePieceCommitment(nd3.Cid(), node)
 		require.Error(t, err)
 	})
 	t.Run("generate piece commitment fails", func(t *testing.T) {
@@ -329,8 +332,8 @@ func Test_Failures(t *testing.T) {
 
 		store, err := filestore.NewLocalFileStore(tempDir)
 		require.NoError(t, err)
-		pio := pieceio.NewPieceIO(pr, cio, &sc, store)
-		_, _, err = pio.GeneratePieceCommitment(sourceBs, nd3.Cid(), node)
+		pio := pieceio.NewPieceIO(pr, cio, &sc, store, sourceBs)
+		_, _, err = pio.GeneratePieceCommitment(nd3.Cid(), node)
 		require.Error(t, err)
 	})
 }
