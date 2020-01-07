@@ -4,10 +4,16 @@ import (
 	"context"
 
 	"github.com/filecoin-project/go-data-transfer"
+	blockstore "github.com/ipfs/go-ipfs-blockstore"
+
+	"github.com/filecoin-project/go-fil-components/filestore"
+	"github.com/filecoin-project/go-fil-components/pieceio"
+	"github.com/filecoin-project/go-fil-components/pieceio/cario"
+	"github.com/filecoin-project/go-fil-components/pieceio/padreader"
+	"github.com/filecoin-project/go-fil-components/pieceio/sectorcalculator"
 	"github.com/filecoin-project/go-fil-components/shared/tokenamount"
 
 	"github.com/ipfs/go-cid"
-	ipld "github.com/ipfs/go-ipld-format"
 	logging "github.com/ipfs/go-log"
 	"github.com/libp2p/go-libp2p-core/host"
 	inet "github.com/libp2p/go-libp2p-core/network"
@@ -15,13 +21,15 @@ import (
 	"golang.org/x/xerrors"
 
 	"github.com/filecoin-project/go-cbor-util"
+
 	"github.com/filecoin-project/go-fil-components/retrievalmarket"
 	"github.com/filecoin-project/go-fil-components/retrievalmarket/discovery"
 
 	"github.com/filecoin-project/go-address"
+	"github.com/filecoin-project/go-statestore"
+
 	"github.com/filecoin-project/go-fil-components/shared/types"
 	"github.com/filecoin-project/go-fil-components/storagemarket"
-	"github.com/filecoin-project/go-statestore"
 )
 
 //go:generate cbor-gen-for ClientDeal ClientDealProposal
@@ -43,7 +51,9 @@ type Client struct {
 	// Because we are using only a fake DAGService
 	// implementation, there's no validation or events on the client side
 	dataTransfer datatransfer.Manager
-	dag          ipld.DAGService
+	bs           blockstore.Blockstore
+	fs           filestore.FileStore
+	pio          pieceio.PieceIO
 	discovery    *discovery.Local
 
 	node storagemarket.StorageClientNode
@@ -65,11 +75,22 @@ type clientDealUpdate struct {
 	mut      func(*ClientDeal)
 }
 
-func NewClient(h host.Host, dag ipld.DAGService, dataTransfer datatransfer.Manager, discovery *discovery.Local, deals *statestore.StateStore, scn storagemarket.StorageClientNode) *Client {
+func NewClient(h host.Host, bs blockstore.Blockstore, dataTransfer datatransfer.Manager, discovery *discovery.Local, deals *statestore.StateStore, scn storagemarket.StorageClientNode) (*Client, error) {
+	pr := padreader.NewPadReader()
+	carIO := cario.NewCarIO()
+	sectorCalculator := sectorcalculator.NewSectorCalculator("")
+	fs, err := filestore.NewLocalFileStore("")
+	if err != nil {
+		return nil, err
+	}
+	pio := pieceio.NewPieceIO(pr, carIO, sectorCalculator, fs)
+
 	c := &Client{
 		h:            h,
 		dataTransfer: dataTransfer,
-		dag:          dag,
+		bs:           bs,
+		fs:           fs,
+		pio:          pio,
 		discovery:    discovery,
 		node:         scn,
 
@@ -83,7 +104,7 @@ func NewClient(h host.Host, dag ipld.DAGService, dataTransfer datatransfer.Manag
 		stopped: make(chan struct{}),
 	}
 
-	return c
+	return c, nil
 }
 
 func (c *Client) Run(ctx context.Context) {

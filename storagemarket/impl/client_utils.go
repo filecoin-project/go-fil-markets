@@ -2,12 +2,11 @@ package storageimpl
 
 import (
 	"context"
-	"github.com/filecoin-project/go-fil-components/pieceio"
-	"github.com/filecoin-project/go-fil-components/pieceio/cario"
-	blocks "github.com/ipfs/go-block-format"
 	"runtime"
 
-	ipldfmt "github.com/ipfs/go-ipld-format"
+	ipldfree "github.com/ipld/go-ipld-prime/impl/free"
+	"github.com/ipld/go-ipld-prime/traversal/selector"
+	"github.com/ipld/go-ipld-prime/traversal/selector/builder"
 
 	"github.com/ipfs/go-cid"
 	"github.com/ipld/go-ipld-prime"
@@ -16,9 +15,6 @@ import (
 
 	"github.com/filecoin-project/go-cbor-util"
 	"github.com/filecoin-project/go-data-transfer"
-	"github.com/filecoin-project/go-fil-components/filestore"
-	"github.com/filecoin-project/go-fil-components/pieceio/padreader"
-	"github.com/filecoin-project/go-fil-components/pieceio/sectorcalculator"
 	"github.com/filecoin-project/go-statestore"
 )
 
@@ -38,38 +34,20 @@ func (c *Client) failDeal(id cid.Cid, cerr error) {
 	log.Errorf("deal %s failed: %+v", id, cerr)
 }
 
-type readStoreAdapter struct {
-	nodeGetter ipldfmt.NodeGetter
-}
+func (c *Client) commP(ctx context.Context, root cid.Cid) ([]byte, uint64, error) {
+	ssb := builder.NewSelectorSpecBuilder(ipldfree.NodeBuilder())
 
-func (adapter readStoreAdapter) Get(id cid.Cid) (blocks.Block, error) {
-	return adapter.nodeGetter.Get(context.Background(), id)
-}
+	// entire DAG selector
+	allSelector := ssb.ExploreRecursive(selector.RecursionLimitNone(),
+		ssb.ExploreAll(ssb.ExploreRecursiveEdge())).Node()
 
-func (c *Client) commP(ctx context.Context, data cid.Cid) ([]byte, uint64, error) {
-	root, err := c.dag.Get(ctx, data)
-	if err != nil {
-		log.Errorf("failed to get file root for deal: %s", err)
-		return nil, 0, err
-	}
-
-	pr := padreader.NewPadReader()
-	carIO := cario.NewCarIO()
-	sectorCalculator := sectorcalculator.NewSectorCalculator("")
-	fs, err := filestore.NewLocalFileStore("")
-	if err != nil {
-		return nil, 0, err
-	}
-	pio := pieceio.NewPieceIO(pr, carIO, sectorCalculator, fs)
-	adapter := new(readStoreAdapter)
-	adapter.nodeGetter = c.dag
-	commp, tmpFile, err := pio.GeneratePieceCommitment(adapter, data, root)
+	commp, tmpFile, err := c.pio.GeneratePieceCommitment(c.bs, root, allSelector)
 	if err != nil {
 		return nil, 0, xerrors.Errorf("generating CommP: %w", err)
 	}
-	defer func () {
+	defer func() {
 		tmpFile.Close()
-		fs.Delete(tmpFile.Path())
+		c.fs.Delete(tmpFile.Path())
 	}()
 	return commp[:], uint64(tmpFile.Size()), nil
 }
