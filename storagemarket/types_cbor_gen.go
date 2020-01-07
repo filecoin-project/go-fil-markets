@@ -40,6 +40,10 @@ func (t *ClientDeal) MarshalCBOR(w io.Writer) error {
 	}
 
 	// t.Miner (peer.ID) (string)
+	if len(t.Miner) > cbg.MaxLength {
+		return xerrors.Errorf("Value in field t.Miner was too long")
+	}
+
 	if _, err := w.Write(cbg.CborEncodeMajorType(cbg.MajTextString, uint64(len(t.Miner)))); err != nil {
 		return err
 	}
@@ -213,6 +217,10 @@ func (t *MinerDeal) MarshalCBOR(w io.Writer) error {
 	}
 
 	// t.Miner (peer.ID) (string)
+	if len(t.Miner) > cbg.MaxLength {
+		return xerrors.Errorf("Value in field t.Miner was too long")
+	}
+
 	if _, err := w.Write(cbg.CborEncodeMajorType(cbg.MajTextString, uint64(len(t.Miner)))); err != nil {
 		return err
 	}
@@ -221,6 +229,10 @@ func (t *MinerDeal) MarshalCBOR(w io.Writer) error {
 	}
 
 	// t.Client (peer.ID) (string)
+	if len(t.Client) > cbg.MaxLength {
+		return xerrors.Errorf("Value in field t.Client was too long")
+	}
+
 	if _, err := w.Write(cbg.CborEncodeMajorType(cbg.MajTextString, uint64(len(t.Client)))); err != nil {
 		return err
 	}
@@ -362,6 +374,10 @@ func (t *StorageDeal) MarshalCBOR(w io.Writer) error {
 	}
 
 	// t.PieceRef ([]uint8) (slice)
+	if len(t.PieceRef) > cbg.ByteArrayMaxLen {
+		return xerrors.Errorf("Byte array in field t.PieceRef was too long")
+	}
+
 	if _, err := w.Write(cbg.CborEncodeMajorType(cbg.MajByteString, uint64(len(t.PieceRef)))); err != nil {
 		return err
 	}
@@ -589,6 +605,10 @@ func (t *StorageDealProposal) MarshalCBOR(w io.Writer) error {
 	}
 
 	// t.PieceRef ([]uint8) (slice)
+	if len(t.PieceRef) > cbg.ByteArrayMaxLen {
+		return xerrors.Errorf("Byte array in field t.PieceRef was too long")
+	}
+
 	if _, err := w.Write(cbg.CborEncodeMajorType(cbg.MajByteString, uint64(len(t.PieceRef)))); err != nil {
 		return err
 	}

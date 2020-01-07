@@ -14,7 +14,7 @@ import (
 )
 
 type BlockVerifier interface {
-	Verify(context.Context, blocks.Block) (internal bool, err error)
+	Verify(context.Context, blocks.Block) (done bool, err error)
 }
 
 type OptimisticVerifier struct {
@@ -132,8 +132,8 @@ func (b *UnixFs0Verifier) Verify(ctx context.Context, blk blocks.Block) (bool, e
 		return links != 0, nil
 	}
 
-	_, internal, err := b.verify(ctx, blk)
-	return internal, err
+	done, _, err := b.verify(ctx, blk)
+	return done, err
 }
 
 var _ BlockVerifier = &OptimisticVerifier{}

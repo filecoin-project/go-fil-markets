@@ -201,6 +201,10 @@ func (t *Response) MarshalCBOR(w io.Writer) error {
 	}
 
 	// t.Message (string) (string)
+	if len(t.Message) > cbg.MaxLength {
+		return xerrors.Errorf("Value in field t.Message was too long")
+	}
+
 	if _, err := w.Write(cbg.CborEncodeMajorType(cbg.MajTextString, uint64(len(t.Message)))); err != nil {
 		return err
 	}
