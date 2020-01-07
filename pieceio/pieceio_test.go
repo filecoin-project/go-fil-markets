@@ -71,7 +71,7 @@ func Test_ThereAndBackAgain(t *testing.T) {
 		deferErr := tmpFile.Close()
 		require.NoError(t, deferErr)
 		deferErr = store.Delete(tmpFile.Path())
-		require.NoError(t, deferErr )
+		require.NoError(t, deferErr)
 	}()
 	for _, b := range bytes {
 		require.NotEqual(t, 0, b)
@@ -160,9 +160,11 @@ func Test_StoreRestoreMemoryBuffer(t *testing.T) {
 		deferErr := tmpFile.Close()
 		require.NoError(t, deferErr)
 		deferErr = store.Delete(tmpFile.Path())
-		require.NoError(t, deferErr )
+		require.NoError(t, deferErr)
 	}()
 	_, err = tmpFile.Seek(0, io.SeekStart)
+	require.NoError(t, err)
+
 	for _, b := range commitment {
 		require.NotEqual(t, 0, b)
 	}
@@ -243,7 +245,7 @@ func Test_Failures(t *testing.T) {
 
 		counter := 0
 		size := 0
-		mockfile.On("Write", mock.Anything).Run(func (args mock.Arguments) {
+		mockfile.On("Write", mock.Anything).Run(func(args mock.Arguments) {
 			arg := args[0]
 			buf := arg.([]byte)
 			size := len(buf)
@@ -272,7 +274,7 @@ func Test_Failures(t *testing.T) {
 
 		counter := 0
 		size := 0
-		mockfile.On("Write", mock.Anything).Run(func (args mock.Arguments) {
+		mockfile.On("Write", mock.Anything).Run(func(args mock.Arguments) {
 			arg := args[0]
 			buf := arg.([]byte)
 			size := len(buf)
@@ -301,7 +303,7 @@ func Test_Failures(t *testing.T) {
 
 		counter := 0
 		size := 0
-		mockfile.On("Write", mock.Anything).Run(func (args mock.Arguments) {
+		mockfile.On("Write", mock.Anything).Run(func(args mock.Arguments) {
 			arg := args[0]
 			buf := arg.([]byte)
 			size := len(buf)

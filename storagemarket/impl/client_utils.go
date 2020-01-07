@@ -45,11 +45,19 @@ func (c *Client) commP(ctx context.Context, root cid.Cid) ([]byte, uint64, error
 	if err != nil {
 		return nil, 0, xerrors.Errorf("generating CommP: %w", err)
 	}
-	defer func() {
-		tmpFile.Close()
-		c.fs.Delete(tmpFile.Path())
-	}()
-	return commp[:], uint64(tmpFile.Size()), nil
+	size := tmpFile.Size()
+
+	err = tmpFile.Close()
+	if err != nil {
+		return nil, 0, xerrors.Errorf("error closing temp file: %w", err)
+	}
+
+	err = c.fs.Delete(tmpFile.Path())
+	if err != nil {
+		return nil, 0, xerrors.Errorf("error deleting temp file from filestore: %w", err)
+	}
+
+	return commp[:], uint64(size), nil
 }
 
 func (c *Client) readStorageDealResp(deal ClientDeal) (*Response, error) {
