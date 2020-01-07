@@ -104,21 +104,15 @@ func (sdp *StorageDealProposal) Cid() (cid.Cid, error) {
 	return nd.Cid(), nil
 }
 
-func (sdp *StorageDealProposal) Verify(worker address.Address) error {
-	if sdp.Client != worker || worker == address.Undef {
-		unsigned := *sdp
-		unsigned.ProposerSignature = nil
-		var buf bytes.Buffer
-		if err := unsigned.MarshalCBOR(&buf); err != nil {
-			return err
-		}
-
-		if err := sdp.ProposerSignature.Verify(sdp.Client, buf.Bytes()); err != nil {
-			return err
-		}
+func (sdp *StorageDealProposal) Verify() error {
+	unsigned := *sdp
+	unsigned.ProposerSignature = nil
+	var buf bytes.Buffer
+	if err := unsigned.MarshalCBOR(&buf); err != nil {
+		return err
 	}
 
-	return nil
+	return sdp.ProposerSignature.Verify(sdp.Client, buf.Bytes())
 }
 
 type StorageDeal struct {

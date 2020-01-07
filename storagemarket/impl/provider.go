@@ -8,7 +8,6 @@ import (
 	"github.com/ipfs/go-cid"
 	"github.com/ipfs/go-datastore"
 	"github.com/ipfs/go-datastore/namespace"
-	ipld "github.com/ipfs/go-ipld-format"
 	"github.com/libp2p/go-libp2p-core/host"
 	inet "github.com/libp2p/go-libp2p-core/network"
 	"golang.org/x/xerrors"
@@ -40,9 +39,7 @@ type Provider struct {
 
 	spn storagemarket.StorageProviderNode
 
-	// TODO: This will go away once storage market module + CAR
-	// is implemented
-	dag ipld.DAGService
+	pio pieceio.PieceIO
 
 	// dataTransfer is the manager of data transfers used by this storage provider
 	dataTransfer datatransfer.Manager
@@ -72,7 +69,7 @@ var (
 	ErrDataTransferFailed = errors.New("deal data transfer failed")
 )
 
-func NewProvider(ds datastore.Batching, dag ipld.DAGService, dataTransfer datatransfer.Manager, spn storagemarket.StorageProviderNode) (storagemarket.StorageProvider, error) {
+func NewProvider(ds datastore.Batching, pio pieceio.PieceIO, dataTransfer datatransfer.Manager, spn storagemarket.StorageProviderNode) (storagemarket.StorageProvider, error) {
 	addr, err := ds.Get(datastore.NewKey("miner-address"))
 	if err != nil {
 		return nil, err
@@ -83,7 +80,7 @@ func NewProvider(ds datastore.Batching, dag ipld.DAGService, dataTransfer datatr
 	}
 
 	h := &Provider{
-		dag:          dag,
+		pio:          pio,
 		dataTransfer: dataTransfer,
 		spn:          spn,
 
