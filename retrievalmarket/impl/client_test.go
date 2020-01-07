@@ -14,6 +14,7 @@ import (
 
 	"github.com/filecoin-project/go-fil-markets/retrievalmarket"
 	retrievalimpl "github.com/filecoin-project/go-fil-markets/retrievalmarket/impl"
+	"github.com/filecoin-project/go-fil-components/retrievalmarket/impl/testnodes"
 	"github.com/filecoin-project/go-fil-markets/retrievalmarket/network"
 	rmnet "github.com/filecoin-project/go-fil-markets/retrievalmarket/network"
 	"github.com/filecoin-project/go-fil-markets/shared/tokenamount"
@@ -56,7 +57,7 @@ func TestClient_Query(t *testing.T) {
 		net := tut.NewTestRetrievalMarketNetwork(tut.TestNetworkParams{
 			QueryStreamBuilder: tut.ExpectPeerOnQueryStreamBuilder(t, expectedPeer, qsb, "Peers should match"),
 		})
-		c := retrievalimpl.NewClient(net, bs, &testRetrievalNode{})
+		c := retrievalimpl.NewClient(net, bs, testnodes.NewTestRetrievalClientNode(testnodes.TestRetrievalClientNodeParams{}))
 
 		resp, err := c.Query(ctx, rpeer, pcid, retrievalmarket.QueryParams{})
 		require.NoError(t, err)
@@ -68,7 +69,7 @@ func TestClient_Query(t *testing.T) {
 		net := tut.NewTestRetrievalMarketNetwork(tut.TestNetworkParams{
 			QueryStreamBuilder: tut.FailNewQueryStream,
 		})
-		c := retrievalimpl.NewClient(net, bs, &testRetrievalNode{})
+		c := retrievalimpl.NewClient(net, bs, testnodes.NewTestRetrievalClientNode(testnodes.TestRetrievalClientNodeParams{}))
 
 		_, err := c.Query(ctx, rpeer, pcid, retrievalmarket.QueryParams{})
 		assert.EqualError(t, err, "new query stream failed")
@@ -87,7 +88,7 @@ func TestClient_Query(t *testing.T) {
 		net := tut.NewTestRetrievalMarketNetwork(tut.TestNetworkParams{
 			QueryStreamBuilder: qsbuilder,
 		})
-		c := retrievalimpl.NewClient(net, bs, &testRetrievalNode{})
+		c := retrievalimpl.NewClient(net, bs, testnodes.NewTestRetrievalClientNode(testnodes.TestRetrievalClientNodeParams{}))
 
 		statusCode, err := c.Query(ctx, rpeer, pcid, retrievalmarket.QueryParams{})
 		assert.EqualError(t, err, "write query failed")
@@ -105,25 +106,10 @@ func TestClient_Query(t *testing.T) {
 		net := tut.NewTestRetrievalMarketNetwork(tut.TestNetworkParams{
 			QueryStreamBuilder: qsbuilder,
 		})
-		c := retrievalimpl.NewClient(net, bs, &testRetrievalNode{})
+		c := retrievalimpl.NewClient(net, bs, testnodes.NewTestRetrievalClientNode(testnodes.TestRetrievalClientNodeParams{}))
 
 		statusCode, err := c.Query(ctx, rpeer, pcid, retrievalmarket.QueryParams{})
 		assert.EqualError(t, err, "query response failed")
 		assert.Equal(t, retrievalmarket.QueryResponseUndefined, statusCode)
 	})
-}
-
-type testRetrievalNode struct {
-}
-
-func (t *testRetrievalNode) GetOrCreatePaymentChannel(ctx context.Context, clientAddress address.Address, minerAddress address.Address, clientFundsAvailable tokenamount.TokenAmount) (address.Address, error) {
-	return address.Address{}, nil
-}
-
-func (t *testRetrievalNode) AllocateLane(paymentChannel address.Address) (uint64, error) {
-	return 0, nil
-}
-
-func (t *testRetrievalNode) CreatePaymentVoucher(ctx context.Context, paymentChannel address.Address, amount tokenamount.TokenAmount, lane uint64) (*types.SignedVoucher, error) {
-	return nil, nil
 }
