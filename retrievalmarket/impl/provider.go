@@ -2,24 +2,17 @@ package retrievalimpl
 
 import (
 	"context"
-	"io"
 	"reflect"
 	"sync"
 
 	"github.com/filecoin-project/go-address"
-	cborutil "github.com/filecoin-project/go-cbor-util"
-	"github.com/ipfs/go-blockservice"
 	"github.com/ipfs/go-cid"
 	files "github.com/ipfs/go-ipfs-files"
 	ipld "github.com/ipfs/go-ipld-format"
-	"github.com/ipfs/go-merkledag"
-	unixfile "github.com/ipfs/go-unixfs/file"
 	"github.com/libp2p/go-libp2p-core/network"
-	"golang.org/x/xerrors"
 
 	"github.com/filecoin-project/go-fil-markets/retrievalmarket"
 	rmnet "github.com/filecoin-project/go-fil-markets/retrievalmarket/network"
-	"github.com/filecoin-project/go-fil-markets/shared/params"
 	"github.com/filecoin-project/go-fil-markets/shared/tokenamount"
 )
 
@@ -189,6 +182,7 @@ func (p *provider) HandleDealStream(stream rmnet.RetrievalDealStream) {
 	*/
 }
 
+/*
 func (hnd *handlerDeal) handleNext() (bool, error) {
 	var deal OldDealProposal
 	if err := cborutil.ReadCborRPC(hnd.stream, &deal); err != nil {
@@ -298,10 +292,10 @@ func (hnd *handlerDeal) accept(deal OldDealProposal) error {
 			return xerrors.Errorf("ReadBlock on wrong offset: want %d, got %d", unixfs0.Offset, offset)
 		}
 
-		/*if uint64(len(data)) != deal.Unixfs0.Size { // TODO: Fix for internal nodes (and any other node too)
+		if uint64(len(data)) != deal.Unixfs0.Size { // TODO: Fix for internal nodes (and any other node too)
 			writeErr(stream, xerrors.Errorf("ReadBlock data with wrong size: want %d, got %d", deal.Unixfs0.Size, len(data)))
 			return
-		}*/
+		}
 
 		block := &Block{
 			Prefix: nd.Cid().Prefix().Bytes(),
@@ -320,3 +314,4 @@ func (hnd *handlerDeal) accept(deal OldDealProposal) error {
 
 	return nil
 }
+*/
