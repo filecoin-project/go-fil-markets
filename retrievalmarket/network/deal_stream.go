@@ -2,14 +2,15 @@ package network
 
 import (
 	cborutil "github.com/filecoin-project/go-cbor-util"
-	"github.com/filecoin-project/go-fil-components/retrievalmarket"
+	"github.com/libp2p/go-libp2p-core/mux"
 	"github.com/libp2p/go-libp2p-core/peer"
-	"io"
+
+	"github.com/filecoin-project/go-fil-components/retrievalmarket"
 )
 
 type DealStream struct {
 	p  peer.ID
-	rw io.ReadWriter
+	rw mux.MuxedStream
 }
 
 var _ RetrievalDealStream = (*DealStream)(nil)

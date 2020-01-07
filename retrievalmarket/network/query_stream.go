@@ -2,19 +2,20 @@ package network
 
 import (
 	cborutil "github.com/filecoin-project/go-cbor-util"
-	"github.com/filecoin-project/go-fil-components/retrievalmarket"
+	"github.com/libp2p/go-libp2p-core/mux"
 	"github.com/libp2p/go-libp2p-core/peer"
-	"io"
+
+	"github.com/filecoin-project/go-fil-components/retrievalmarket"
 )
 
 type QueryStream struct {
 	p  peer.ID
-	rw io.ReadWriter
+	rw mux.MuxedStream
 }
 
 var _ RetrievalQueryStream = (*QueryStream)(nil)
 
-func NewQueryStream(p peer.ID, rw io.ReadWriter) *QueryStream {
+func NewQueryStream(p peer.ID, rw mux.MuxedStream) *QueryStream {
 	return &QueryStream{p, rw}
 }
 
@@ -47,4 +48,8 @@ func (qs *QueryStream) ReadQueryResponse() (retrievalmarket.QueryResponse, error
 
 func (qs *QueryStream) WriteQueryResponse(qr retrievalmarket.QueryResponse) error {
 	return cborutil.WriteCborRPC(qs.rw, &qr)
+}
+
+func (qs *QueryStream) Close() {
+	qs.rw.Close()
 }

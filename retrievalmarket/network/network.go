@@ -10,6 +10,7 @@ type RetrievalQueryStream interface {
 	WriteQuery(retrievalmarket.Query) error
 	ReadQueryResponse() (retrievalmarket.QueryResponse, error)
 	WriteQueryResponse(retrievalmarket.QueryResponse) error
+	Close()
 }
 
 type RetrievalDealStream interface {
