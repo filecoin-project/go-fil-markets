@@ -143,6 +143,7 @@ type MinerDeal struct {
 	Miner       peer.ID
 	Client      peer.ID
 	State       DealState
+	PiecePath   filestore.Path
 
 	Ref cid.Cid
 

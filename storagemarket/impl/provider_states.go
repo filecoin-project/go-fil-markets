@@ -140,7 +140,7 @@ func (p *Provider) staged(ctx context.Context, deal MinerDeal) (func(*MinerDeal)
 	allSelector := ssb.ExploreRecursive(selector.RecursionLimitNone(),
 		ssb.ExploreAll(ssb.ExploreRecursiveEdge())).Node()
 
-	commp, path, err := p.pio.GeneratePieceCommitment(deal.Ref, allSelector)
+	commp, file, err := p.pio.GeneratePieceCommitment(deal.Ref, allSelector)
 	if err != nil {
 		return nil, err
 	}
@@ -169,7 +169,7 @@ func (p *Provider) staged(ctx context.Context, deal MinerDeal) (func(*MinerDeal)
 
 	return func(deal *MinerDeal) {
 		deal.SectorID = sectorID
-		deal.Path = path
+		deal.PiecePath = file.Path()
 	}, nil
 }
 

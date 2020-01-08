@@ -83,7 +83,7 @@ func NewClient(h host.Host, bs blockstore.Blockstore, dataTransfer datatransfer.
 	if err != nil {
 		return nil, err
 	}
-	pio := pieceio.NewPieceIO(pr, carIO, sectorCalculator, fs)
+	pio := pieceio.NewPieceIO(pr, carIO, sectorCalculator, fs, bs)
 
 	c := &Client{
 		h:            h,
