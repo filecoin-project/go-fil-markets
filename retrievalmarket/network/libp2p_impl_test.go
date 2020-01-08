@@ -140,17 +140,12 @@ func TestQueryStreamSendReceiveOutOfOrderFails(t *testing.T) {
 	tr := &testReceiver{t: t}
 	require.NoError(t, nw1.SetDelegate(tr))
 
-	var errs []string
+	var receivedErr string
 	doneChan := make(chan bool)
 	tr2 := &testReceiver{t: t, queryStreamHandler: func(s network.RetrievalQueryStream) {
-		_, err := s.ReadQueryResponse()
+		_, err := s.ReadQuery()
 		if err != nil {
-			errs = append(errs, "response")
-		}
-
-		_, err = s.ReadQuery()
-		if err != nil {
-			errs = append(errs, "query")
+			receivedErr = "query"
 		}
 		doneChan <- true
 	}}
@@ -159,14 +154,8 @@ func TestQueryStreamSendReceiveOutOfOrderFails(t *testing.T) {
 	qs1, err := nw1.NewQueryStream(td.Host2.ID())
 	require.NoError(t, err)
 
-	cid := testutil.GenerateCids(1)[0]
-	q := retrievalmarket.NewQueryV0(cid.Bytes())
-
-	go func() {
-		require.NoError(t, qs1.WriteQuery(q))
-		qr := shared_testutil.MakeTestQueryResponse()
-		require.NoError(t, qs1.WriteQueryResponse(qr))
-	}()
+	qr := shared_testutil.MakeTestQueryResponse()
+	require.NoError(t, qs1.WriteQueryResponse(qr))
 
 	ctx, cancel := context.WithTimeout(ctxBg, 10*time.Second)
 	defer cancel()
@@ -177,7 +166,7 @@ func TestQueryStreamSendReceiveOutOfOrderFails(t *testing.T) {
 	case <-doneChan:
 	}
 
-	assert.Equal(t, []string{"response", "query"}, errs)
+	assert.Equal(t, "query", receivedErr)
 }
 
 func TestDealStreamSendReceiveDealProposal(t *testing.T) {
@@ -327,35 +316,12 @@ func TestQueryStreamSendReceiveMultipleOutOfOrderFails(t *testing.T) {
 	tr := &testReceiver{t: t}
 	require.NoError(t, nw1.SetDelegate(tr))
 
-	var errMsgs []string
+	var errMsg string
 	done := make(chan bool)
 	tr2 := &testReceiver{t: t, dealStreamHandler: func(s network.RetrievalDealStream) {
 		_, err := s.ReadDealResponse()
 		if err != nil {
-			errMsgs = append(errMsgs, "response")
-		}
-		_, err = s.ReadDealPayment()
-		if err != nil {
-			errMsgs = append(errMsgs, "payment")
-		}
-
-		_, err = s.ReadDealProposal()
-		if err != nil {
-			errMsgs = append(errMsgs, "proposal")
-		}
-
-		_, err = s.ReadDealPayment()
-		if err != nil {
-			errMsgs = append(errMsgs, "payment2")
-		}
-		_, err = s.ReadDealProposal()
-		if err != nil {
-			errMsgs = append(errMsgs, "proposal2")
-		}
-
-		_, err = s.ReadDealResponse()
-		if err != nil {
-			errMsgs = append(errMsgs, "response2")
+			errMsg = "response"
 		}
 		done <- true
 	}}
@@ -364,14 +330,7 @@ func TestQueryStreamSendReceiveMultipleOutOfOrderFails(t *testing.T) {
 	qs1, err := nw1.NewDealStream(td.Host2.ID())
 	require.NoError(t, err)
 
-	go func(){
-		require.NoError(t, qs1.WriteDealProposal(shared_testutil.MakeTestDealProposal()))
-		require.NoError(t, qs1.WriteDealProposal(shared_testutil.MakeTestDealProposal()))
-		require.NoError(t, qs1.WriteDealResponse(shared_testutil.MakeTestDealResponse()))
-		require.NoError(t, qs1.WriteDealResponse(shared_testutil.MakeTestDealResponse()))
-		require.NoError(t, qs1.WriteDealPayment(shared_testutil.MakeTestDealPayment()))
-		require.NoError(t, qs1.WriteDealPayment(shared_testutil.MakeTestDealPayment()))
-	}()
+	require.NoError(t, qs1.WriteDealProposal(shared_testutil.MakeTestDealProposal()))
 
 	ctx, cancel := context.WithTimeout(ctxBg, 10*time.Second)
 	defer cancel()
@@ -381,8 +340,7 @@ func TestQueryStreamSendReceiveMultipleOutOfOrderFails(t *testing.T) {
 	case <-done:
 	}
 
-	expected := []string{"response", "payment", "proposal", "payment2", "proposal2", "response2"}
-	assert.Equal(t, expected, errMsgs)
+	assert.Equal(t, "response", errMsg)
 }
 
 // assertDealProposalReceived performs the verification that a deal proposal is received
