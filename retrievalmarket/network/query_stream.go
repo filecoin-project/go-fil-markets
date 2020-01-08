@@ -46,6 +46,6 @@ func (qs *QueryStream) WriteQueryResponse(qr retrievalmarket.QueryResponse) erro
 	return cborutil.WriteCborRPC(qs.rw, &qr)
 }
 
-func (qs *QueryStream) Close() {
-	qs.rw.Close()
+func (qs *QueryStream) Close() error {
+	return qs.rw.Close()
 }

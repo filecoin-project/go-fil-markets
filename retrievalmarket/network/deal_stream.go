@@ -55,6 +55,6 @@ func (d *DealStream) WriteDealPayment(dpy retrievalmarket.DealPayment) error {
 	return cborutil.WriteCborRPC(d.rw, &dpy)
 }
 
-func (d *DealStream) Close() {
-	d.rw.Close()
+func (d *DealStream) Close() error {
+	return d.rw.Close()
 }
