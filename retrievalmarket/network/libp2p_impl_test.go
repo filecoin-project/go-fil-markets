@@ -96,87 +96,87 @@ func TestQueryStreamSendReceiveMultipleSuccessful(t *testing.T) {
 	nw2 := network.NewFromLibp2pHost(td.Host2)
 	require.NoError(t, td.Host1.Connect(ctxBg, peer.AddrInfo{ID: td.Host2.ID()}))
 
-	ctx, cancel := context.WithTimeout(ctxBg, 10*time.Second)
-	defer cancel()
-
-	// host1 will be getting a query response
-	qrchan := make(chan retrievalmarket.QueryResponse)
-	tr1 := &testReceiver{t: t, queryStreamHandler: func(s network.RetrievalQueryStream) {
-		q, err := s.ReadQueryResponse()
-		require.NoError(t, err)
-		qrchan <- q
-	}}
-	require.NoError(t, nw1.SetDelegate(tr1))
-
-	// host2 will be getting a query
-	qchan := make(chan retrievalmarket.Query)
+	// host2 gets a query and sends a response
+	qr := shared_testutil.MakeTestQueryResponse()
+	responseSent := make(chan struct{})
 	tr2 := &testReceiver{t: t, queryStreamHandler: func(s network.RetrievalQueryStream) {
-		q, err := s.ReadQuery()
+		_, err := s.ReadQuery()
 		require.NoError(t, err)
-		qchan <- q
+
+		require.NoError(t, s.WriteQueryResponse(qr))
+		responseSent <- struct{}{}
 	}}
 	require.NoError(t, nw2.SetDelegate(tr2))
 
-	// FIXME
-	assertQueryReceived(ctx, t, nw1, td.Host2.ID(), qchan)
-	assertQueryResponseReceived(ctx, t, nw2, td.Host1.ID(), qrchan)
+	ctx, cancel := context.WithTimeout(ctxBg, 10*time.Second)
+	defer cancel()
+
+	qs, err := nw1.NewQueryStream(td.Host2.ID())
+	require.NoError(t, err)
+
+	testCid := testutil.GenerateCids(1)[0]
+	require.NoError(t, qs.WriteQuery(retrievalmarket.Query{PieceCID: testCid.Bytes()}))
+
+	resp, err := qs.ReadQueryResponse()
+	require.NoError(t, err)
+
+	select {
+	case <-ctx.Done():
+		t.Error("response not received")
+	case <-responseSent:
+		cancel()
+	}
+
+	assert.Equal(t, qr, resp)
 }
 
 func TestQueryStreamSendReceiveOutOfOrderFails(t *testing.T) {
 	// send query, read response in handler - fails
-	t.Run("sending a query and reading a response in handler fails", func(t *testing.T) {
-		ctxBg := context.Background()
-		td := shared_testutil.NewLibp2pTestData(ctxBg, t)
-		nw1 := network.NewFromLibp2pHost(td.Host1)
-		nw2 := network.NewFromLibp2pHost(td.Host2)
+	ctxBg := context.Background()
+	td := shared_testutil.NewLibp2pTestData(ctxBg, t)
+	nw1 := network.NewFromLibp2pHost(td.Host1)
+	nw2 := network.NewFromLibp2pHost(td.Host2)
 
-		tr := &testReceiver{t: t}
-		require.NoError(t, nw1.SetDelegate(tr))
-		errChan := make(chan error)
-		tr2 := &testReceiver{t: t, queryStreamHandler: func(s network.RetrievalQueryStream) {
-			_, err := s.ReadQueryResponse()
-			if err != nil {
-				errChan <- err
-			}
-		}}
-		require.NoError(t, nw2.SetDelegate(tr2))
-		qs1, err := nw1.NewQueryStream(td.Host2.ID())
-		require.NoError(t, err)
+	tr := &testReceiver{t: t}
+	require.NoError(t, nw1.SetDelegate(tr))
 
-		// send Query to host2, which tries to read a QueryResponse
-		cid := testutil.GenerateCids(1)[0]
-		q := retrievalmarket.NewQueryV0(cid.Bytes())
-		require.NoError(t, qs1.WriteQuery(q))
+	errs := []string{}
+	doneChan := make(chan struct{})
+	tr2 := &testReceiver{t: t, queryStreamHandler: func(s network.RetrievalQueryStream) {
+		_, err := s.ReadQueryResponse()
+		if err != nil {
+			errs = append(errs, "response")
+		}
 
-		assertErrInChan(ctxBg, t, errChan, "cbor input had wrong number of fields")
-	})
+		_, err = s.ReadQuery()
+		if err != nil {
+			errs = append(errs, "query")
+		}
+		doneChan <- struct{}{}
+	}}
+	require.NoError(t, nw2.SetDelegate(tr2))
 
-	// send response, read query in handler - fails
-	t.Run("sending a QueryResponse and trying to read a Query in a handler fails", func(t *testing.T) {
-		ctxBg := context.Background()
-		td := shared_testutil.NewLibp2pTestData(ctxBg, t)
-		nw1 := network.NewFromLibp2pHost(td.Host1)
-		nw2 := network.NewFromLibp2pHost(td.Host2)
+	qs1, err := nw1.NewQueryStream(td.Host2.ID())
+	require.NoError(t, err)
 
-		tr := &testReceiver{t: t}
-		require.NoError(t, nw1.SetDelegate(tr))
+	cid := testutil.GenerateCids(1)[0]
+	q := retrievalmarket.NewQueryV0(cid.Bytes())
+	require.NoError(t, qs1.WriteQuery(q))
 
-		errChan := make(chan error)
-		tr2 := &testReceiver{t: t, queryStreamHandler: func(s network.RetrievalQueryStream) {
-			_, err := s.ReadQuery()
-			if err != nil {
-				errChan <- err
-			}
-		}}
-		require.NoError(t, nw2.SetDelegate(tr2))
+	qr := shared_testutil.MakeTestQueryResponse()
+	require.NoError(t, qs1.WriteQueryResponse(qr))
 
-		qs1, err := nw1.NewQueryStream(td.Host2.ID())
-		require.NoError(t, err)
+	ctx, cancel := context.WithTimeout(ctxBg, 10*time.Second)
+	defer cancel()
 
-		require.NoError(t, qs1.WriteQueryResponse(shared_testutil.MakeTestQueryResponse()))
-		assertErrInChan(ctxBg, t, errChan, "cbor input had wrong number of fields")
-	})
+	select {
+	case <-ctx.Done():
+		t.Error("never finished")
+	case <-doneChan:
+		cancel()
+	}
 
+	assert.Equal(t, []string{"response", "query"}, errs)
 }
 
 func TestDealStreamSendReceiveDealProposal(t *testing.T) {
@@ -314,7 +314,6 @@ func TestDealStreamSendReceiveMultipleSuccessful(t *testing.T) {
 	select {
 	case <-ctx.Done():
 		t.Errorf("failed to receive messages")
-		t.Fail()
 	case receivedPayment = <-dpyChan:
 		cancel()
 	}
@@ -328,7 +327,73 @@ func TestQueryStreamSendReceiveMultipleOutOfOrderFails(t *testing.T) {
 	// send response, read proposal in handler - fails
 	// send response, read payment in handler - fails
 	// send payment, read proposal in handler - fails
-	// send payment, read deal in handler - fails
+	// send payment, read response in handler - fails
+
+	// ctxBg := context.Background()
+	// td := shared_testutil.NewLibp2pTestData(ctxBg, t)
+	// nw1 := network.NewFromLibp2pHost(td.Host1)
+	// nw2 := network.NewFromLibp2pHost(td.Host2)
+	//
+	// tr := &testReceiver{t: t}
+	// require.NoError(t, nw1.SetDelegate(tr))
+	//
+	// errMsgs := []string{}
+	// doneChan := make(chan struct{})
+	// tr2 := &testReceiver{t: t, dealStreamHandler: func(s network.RetrievalDealStream) {
+	// 	_, err := s.ReadDealResponse()
+	// 	if err != nil {
+	// 		errMsgs = append(errMsgs, "response")
+	// 	}
+	//
+	// 	_, err = s.ReadDealPayment()
+	// 	if err != nil {
+	// 		errMsgs = append(errMsgs, "payment")
+	// 	}
+	//
+	// 	_, err = s.ReadDealProposal()
+	// 	if err != nil {
+	// 		errMsgs = append(errMsgs, "proposal")
+	// 	}
+	//
+	// 	_, err = s.ReadDealPayment()
+	// 	if err != nil {
+	// 		errMsgs = append(errMsgs, "payment2")
+	// 	}
+	// 	_, err = s.ReadDealProposal()
+	// 	if err != nil {
+	// 		errMsgs = append(errMsgs, "proposal2")
+	// 	}
+	//
+	// 	_, err = s.ReadDealResponse()
+	// 	if err != nil {
+	// 		errMsgs = append(errMsgs, "response2")
+	// 	}
+	// 	doneChan <- struct{}{}
+	// }}
+	// require.NoError(t, nw2.SetDelegate(tr2))
+	//
+	// qs1, err := nw1.NewDealStream(td.Host2.ID())
+	// require.NoError(t, err)
+	//
+	// require.NoError(t, qs1.WriteDealProposal(shared_testutil.MakeTestDealProposal()))
+	// require.NoError(t, qs1.WriteDealProposal(shared_testutil.MakeTestDealProposal()))
+	//
+	// require.NoError(t, qs1.WriteDealResponse(shared_testutil.MakeTestDealResponse()))
+	// require.NoError(t, qs1.WriteDealResponse(shared_testutil.MakeTestDealResponse()))
+	//
+	// require.NoError(t, qs1.WriteDealPayment(shared_testutil.MakeTestDealPayment()))
+	// require.NoError(t, qs1.WriteDealPayment(shared_testutil.MakeTestDealPayment()))
+	//
+	// ctx, cancel := context.WithTimeout(ctxBg, 10*time.Second)
+	// defer cancel()
+	// select {
+	// case <- ctx.Done():
+	// 	t.Error("did not finish reading")
+	// case <-doneChan:
+	// }
+	//
+	// expected := []string{"response", "payment", "proposal", "payment2", "proposal2", "response2"}
+	// assert.Equal(t, expected, errMsgs)
 }
 
 // assertDealProposalReceived performs the verification that a deal proposal is received
@@ -346,7 +411,7 @@ func assertDealProposalReceived(inCtx context.Context, t *testing.T, fromNetwork
 	var dealReceived retrievalmarket.DealProposal
 	select {
 	case <-ctx.Done():
-		t.Fatal("deal proposal not received")
+		t.Error("deal proposal not received")
 	case dealReceived = <-inChan:
 		cancel()
 	}
@@ -378,7 +443,7 @@ func assertDealResponseReceived(parentCtx context.Context, t *testing.T, fromNet
 	var responseReceived retrievalmarket.DealResponse
 	select {
 	case <-ctx.Done():
-		t.Fatalf("response not received")
+		t.Error("response not received")
 	case responseReceived = <-inChan:
 		cancel()
 	}
@@ -403,7 +468,7 @@ func assertDealPaymentReceived(parentCtx context.Context, t *testing.T, fromNetw
 	var responseReceived retrievalmarket.DealPayment
 	select {
 	case <-ctx.Done():
-		t.Fatalf("response not received")
+		t.Error("response not received")
 	case responseReceived = <-inChan:
 		cancel()
 	}
@@ -429,7 +494,7 @@ func assertQueryReceived(inCtx context.Context, t *testing.T, fromNetwork networ
 	var inq retrievalmarket.Query
 	select {
 	case <-ctx.Done():
-		t.Fatal("msg not received")
+		t.Error("msg not received")
 	case inq = <-qchan:
 		cancel()
 	}
@@ -457,26 +522,11 @@ func assertQueryResponseReceived(inCtx context.Context, t *testing.T,
 	var inqr retrievalmarket.QueryResponse
 	select {
 	case <-ctx.Done():
-		t.Fatal("msg not received")
+		t.Error("msg not received")
 	case inqr = <-qchan:
 		cancel()
 	}
 
 	require.NotNil(t, inqr)
 	assert.Equal(t, qr, inqr)
-}
-
-// assertErrInChan verifies an expected error message in errChan using the given context
-func assertErrInChan(parentCtx context.Context, t *testing.T, errChan chan error, errTxt string) {
-	// wait for error to occur
-	ctx, cancel := context.WithTimeout(parentCtx, 10*time.Second)
-	var readErr error
-	defer cancel()
-	select {
-	case <-ctx.Done():
-		t.Fatalf("expected error but got nothing")
-	case readErr = <-errChan:
-		cancel()
-	}
-	assert.EqualError(t, readErr, errTxt)
 }

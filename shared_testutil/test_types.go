@@ -98,3 +98,11 @@ func MakeTestDealResponse() retrievalmarket.DealResponse {
 		Blocks:      []retrievalmarket.Block{fakeBlk},
 	}
 }
+
+func MakeTestDealPayment() retrievalmarket.DealPayment {
+	return retrievalmarket.DealPayment{
+		ID:             retrievalmarket.DealID(rand.Uint64()),
+		PaymentChannel: address.TestAddress,
+		PaymentVoucher: MakeTestSignedVoucher(),
+	}
+}
