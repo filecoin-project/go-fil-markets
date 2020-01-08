@@ -3,6 +3,7 @@ package filestore
 import (
 	"crypto/rand"
 	"fmt"
+	"log"
 	"os"
 	"path"
 	"testing"
@@ -12,7 +13,10 @@ import (
 
 func randBytes(n int) []byte {
 	arr := make([]byte, n)
-	rand.Read(arr)
+	_, err := rand.Read(arr)
+	if err != nil {
+		log.Fatal(err)
+	}
 	return arr
 }
 
@@ -20,14 +24,23 @@ const baseDir = "_test/a/b/c/d"
 const existingFile = "existing.txt"
 
 func init() {
-	os.MkdirAll(baseDir, 0755)
+	err := os.MkdirAll(baseDir, 0755)
+	if err != nil {
+		log.Print(err.Error())
+		return
+	}
 	filename := path.Join(baseDir, existingFile)
 	file, err := os.Create(filename)
 	if err != nil {
+		log.Print(err.Error())
 		return
 	}
 	defer file.Close()
-	file.Write(randBytes(64))
+	_, err = file.Write(randBytes(64))
+	if err != nil {
+		log.Print(err.Error())
+		return
+	}
 }
 
 func Test_SizeFails(t *testing.T) {

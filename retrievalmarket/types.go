@@ -23,7 +23,7 @@ import (
 // ProtocolID is the protocol for proposing / responding to retrieval deals
 const ProtocolID = "/fil/retrieval/0.0.1"
 
-// QueryProtocolID is the protocol for querying infromation about retrieval
+// QueryProtocolID is the protocol for querying information about retrieval
 // deal parameters
 const QueryProtocolID = "/fil/retrieval/qry/0.0.1" // TODO: spec
 
@@ -101,7 +101,7 @@ type RetrievalClient interface {
 	ListDeals() map[DealID]ClientDealState
 }
 
-// RetrievalClientNode are the node depedencies for a RetrevalClient
+// RetrievalClientNode are the node dependencies for a RetrievalClient
 type RetrievalClientNode interface {
 
 	// GetOrCreatePaymentChannel sets up a new payment channel if one does not exist
@@ -249,6 +249,8 @@ type Query struct {
 	// QueryParams        // V1
 }
 
+var QueryUndefined = Query{}
+
 // NewQueryV0 creates a V0 query (which only specifies a piece)
 func NewQueryV0(pieceCID []byte) Query {
 	return Query{PieceCID: pieceCID}
@@ -350,6 +352,8 @@ type DealProposal struct {
 	Params
 }
 
+var DealProposalUndefined = DealProposal{}
+
 // Block is an IPLD block in bitswap format
 type Block struct {
 	Prefix []byte
@@ -368,12 +372,16 @@ type DealResponse struct {
 	Blocks  []Block // V0 only
 }
 
+var DealResponseUndefined = DealResponse{}
+
 // DealPayment is a payment for an in progress retrieval deal
 type DealPayment struct {
 	ID             DealID
 	PaymentChannel address.Address
 	PaymentVoucher *types.SignedVoucher
 }
+
+var DealPaymentUndefined = DealPayment{}
 
 var (
 	// ErrNotFound means a piece was not found during retrieval
