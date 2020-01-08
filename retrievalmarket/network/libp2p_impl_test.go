@@ -141,7 +141,7 @@ func TestQueryStreamSendReceiveOutOfOrderFails(t *testing.T) {
 	require.NoError(t, nw1.SetDelegate(tr))
 
 	errs := []string{}
-	doneChan := make(chan struct{})
+	doneChan := make(chan bool)
 	tr2 := &testReceiver{t: t, queryStreamHandler: func(s network.RetrievalQueryStream) {
 		_, err := s.ReadQueryResponse()
 		if err != nil {
@@ -152,7 +152,7 @@ func TestQueryStreamSendReceiveOutOfOrderFails(t *testing.T) {
 		if err != nil {
 			errs = append(errs, "query")
 		}
-		doneChan <- struct{}{}
+		doneChan <- true
 	}}
 	require.NoError(t, nw2.SetDelegate(tr2))
 
@@ -265,15 +265,11 @@ func TestDealStreamSendReceiveMultipleSuccessful(t *testing.T) {
 	// set up stream handler, channels, and response
 	// dpChan := make(chan retrievalmarket.DealProposal)
 	dpyChan := make(chan retrievalmarket.DealPayment)
-	tr2 := &testReceiver{t: t, dealStreamHandler: func(s network.RetrievalDealStream) {
-		readDP, err := s.ReadDealProposal()
-		require.NoError(t, err)
-		// dpChan <- readDP
+	dr := shared_testutil.MakeTestDealResponse()
 
-		dr := shared_testutil.MakeTestDealResponse()
-		dr.ID = readDP.ID
-		dr.Status = retrievalmarket.DealStatusAccepted
-		dr.PaymentOwed = readDP.PricePerByte
+	tr2 := &testReceiver{t: t, dealStreamHandler: func(s network.RetrievalDealStream) {
+		_, err := s.ReadDealProposal()
+		require.NoError(t, err)
 
 		require.NoError(t, s.WriteDealResponse(dr))
 
@@ -288,11 +284,7 @@ func TestDealStreamSendReceiveMultipleSuccessful(t *testing.T) {
 	require.NoError(t, err)
 
 	dp := shared_testutil.MakeTestDealProposal()
-	dpy := retrievalmarket.DealPayment{
-		ID:             dp.ID,
-		PaymentChannel: address.TestAddress,
-		PaymentVoucher: shared_testutil.MakeTestSignedVoucher(),
-	}
+
 	var receivedPayment retrievalmarket.DealPayment
 
 	ctx, cancel := context.WithTimeout(bgCtx, 10*time.Second)
@@ -304,11 +296,16 @@ func TestDealStreamSendReceiveMultipleSuccessful(t *testing.T) {
 	// read response and verify it's the one we told toNetwork to send
 	responseReceived, err := ds1.ReadDealResponse()
 	require.NoError(t, err)
-	assert.Equal(t, dp.ID, responseReceived.ID)
-	assert.Equal(t, dp.PricePerByte, responseReceived.PaymentOwed)
-	assert.Equal(t, retrievalmarket.DealStatusAccepted, responseReceived.Status)
+	assert.Equal(t, dr.ID, responseReceived.ID)
+	assert.Equal(t, dr.Message, responseReceived.Message)
+	assert.Equal(t, dr.Status, responseReceived.Status)
 
 	// send payment
+	dpy := retrievalmarket.DealPayment{
+		ID:             dp.ID,
+		PaymentChannel: address.TestAddress,
+		PaymentVoucher: shared_testutil.MakeTestSignedVoucher(),
+	}
 	require.NoError(t, ds1.WriteDealPayment(dpy))
 
 	select {
@@ -329,71 +326,73 @@ func TestQueryStreamSendReceiveMultipleOutOfOrderFails(t *testing.T) {
 	// send payment, read proposal in handler - fails
 	// send payment, read response in handler - fails
 
-	// ctxBg := context.Background()
-	// td := shared_testutil.NewLibp2pTestData(ctxBg, t)
-	// nw1 := network.NewFromLibp2pHost(td.Host1)
-	// nw2 := network.NewFromLibp2pHost(td.Host2)
-	//
-	// tr := &testReceiver{t: t}
-	// require.NoError(t, nw1.SetDelegate(tr))
-	//
-	// errMsgs := []string{}
-	// doneChan := make(chan struct{})
-	// tr2 := &testReceiver{t: t, dealStreamHandler: func(s network.RetrievalDealStream) {
-	// 	_, err := s.ReadDealResponse()
-	// 	if err != nil {
-	// 		errMsgs = append(errMsgs, "response")
-	// 	}
-	//
-	// 	_, err = s.ReadDealPayment()
-	// 	if err != nil {
-	// 		errMsgs = append(errMsgs, "payment")
-	// 	}
-	//
-	// 	_, err = s.ReadDealProposal()
-	// 	if err != nil {
-	// 		errMsgs = append(errMsgs, "proposal")
-	// 	}
-	//
-	// 	_, err = s.ReadDealPayment()
-	// 	if err != nil {
-	// 		errMsgs = append(errMsgs, "payment2")
-	// 	}
-	// 	_, err = s.ReadDealProposal()
-	// 	if err != nil {
-	// 		errMsgs = append(errMsgs, "proposal2")
-	// 	}
-	//
-	// 	_, err = s.ReadDealResponse()
-	// 	if err != nil {
-	// 		errMsgs = append(errMsgs, "response2")
-	// 	}
-	// 	doneChan <- struct{}{}
-	// }}
-	// require.NoError(t, nw2.SetDelegate(tr2))
-	//
-	// qs1, err := nw1.NewDealStream(td.Host2.ID())
-	// require.NoError(t, err)
-	//
-	// require.NoError(t, qs1.WriteDealProposal(shared_testutil.MakeTestDealProposal()))
-	// require.NoError(t, qs1.WriteDealProposal(shared_testutil.MakeTestDealProposal()))
-	//
-	// require.NoError(t, qs1.WriteDealResponse(shared_testutil.MakeTestDealResponse()))
-	// require.NoError(t, qs1.WriteDealResponse(shared_testutil.MakeTestDealResponse()))
-	//
-	// require.NoError(t, qs1.WriteDealPayment(shared_testutil.MakeTestDealPayment()))
-	// require.NoError(t, qs1.WriteDealPayment(shared_testutil.MakeTestDealPayment()))
-	//
-	// ctx, cancel := context.WithTimeout(ctxBg, 10*time.Second)
-	// defer cancel()
-	// select {
-	// case <- ctx.Done():
-	// 	t.Error("did not finish reading")
-	// case <-doneChan:
-	// }
-	//
-	// expected := []string{"response", "payment", "proposal", "payment2", "proposal2", "response2"}
-	// assert.Equal(t, expected, errMsgs)
+	ctxBg := context.Background()
+	td := shared_testutil.NewLibp2pTestData(ctxBg, t)
+	nw1 := network.NewFromLibp2pHost(td.Host1)
+	nw2 := network.NewFromLibp2pHost(td.Host2)
+
+	tr := &testReceiver{t: t}
+	require.NoError(t, nw1.SetDelegate(tr))
+
+	errMsgs := []string{}
+	doneChan := make(chan bool)
+	tr2 := &testReceiver{t: t, dealStreamHandler: func(s network.RetrievalDealStream) {
+		_, err := s.ReadDealResponse()
+		if err != nil {
+			t.Log("response")
+			errMsgs = append(errMsgs, "response")
+		}
+
+		_, err = s.ReadDealPayment()
+		if err != nil {
+			errMsgs = append(errMsgs, "payment")
+		}
+
+		_, err = s.ReadDealProposal()
+		if err != nil {
+			errMsgs = append(errMsgs, "proposal")
+		}
+
+		_, err = s.ReadDealPayment()
+		if err != nil {
+			errMsgs = append(errMsgs, "payment2")
+		}
+		_, err = s.ReadDealProposal()
+		if err != nil {
+			errMsgs = append(errMsgs, "proposal2")
+		}
+
+		_, err = s.ReadDealResponse()
+		if err != nil {
+			errMsgs = append(errMsgs, "response2")
+		}
+		doneChan <- true
+	}}
+	require.NoError(t, nw2.SetDelegate(tr2))
+
+	qs1, err := nw1.NewDealStream(td.Host2.ID())
+	require.NoError(t, err)
+
+	require.NoError(t, qs1.WriteDealProposal(shared_testutil.MakeTestDealProposal()))
+	require.NoError(t, qs1.WriteDealProposal(shared_testutil.MakeTestDealProposal()))
+
+	require.NoError(t, qs1.WriteDealResponse(shared_testutil.MakeTestDealResponse()))
+	require.NoError(t, qs1.WriteDealResponse(shared_testutil.MakeTestDealResponse()))
+
+	require.NoError(t, qs1.WriteDealPayment(shared_testutil.MakeTestDealPayment()))
+	require.NoError(t, qs1.WriteDealPayment(shared_testutil.MakeTestDealPayment()))
+
+	ctx, cancel := context.WithTimeout(ctxBg, 10*time.Second)
+	defer cancel()
+	select {
+	case <-ctx.Done():
+		t.Error("did not finish reading")
+	case <-doneChan:
+		cancel()
+	}
+
+	expected := []string{"response", "payment", "proposal", "payment2", "proposal2", "response2"}
+	assert.Equal(t, expected, errMsgs)
 }
 
 // assertDealProposalReceived performs the verification that a deal proposal is received
