@@ -98,13 +98,13 @@ func TestQueryStreamSendReceiveMultipleSuccessful(t *testing.T) {
 
 	// host2 gets a query and sends a response
 	qr := shared_testutil.MakeTestQueryResponse()
-	responseSent := make(chan struct{})
+	done := make(chan bool)
 	tr2 := &testReceiver{t: t, queryStreamHandler: func(s network.RetrievalQueryStream) {
 		_, err := s.ReadQuery()
 		require.NoError(t, err)
 
 		require.NoError(t, s.WriteQueryResponse(qr))
-		responseSent <- struct{}{}
+		done <- true
 	}}
 	require.NoError(t, nw2.SetDelegate(tr2))
 
@@ -115,16 +115,16 @@ func TestQueryStreamSendReceiveMultipleSuccessful(t *testing.T) {
 	require.NoError(t, err)
 
 	testCid := testutil.GenerateCids(1)[0]
-	require.NoError(t, qs.WriteQuery(retrievalmarket.Query{PieceCID: testCid.Bytes()}))
 
-	resp, err := qs.ReadQueryResponse()
+	var resp retrievalmarket.QueryResponse
+	go require.NoError(t, qs.WriteQuery(retrievalmarket.Query{PieceCID: testCid.Bytes()}))
+	resp, err = qs.ReadQueryResponse()
 	require.NoError(t, err)
 
 	select {
 	case <-ctx.Done():
 		t.Error("response not received")
-	case <-responseSent:
-		cancel()
+	case <-done:
 	}
 
 	assert.Equal(t, qr, resp)
@@ -161,10 +161,12 @@ func TestQueryStreamSendReceiveOutOfOrderFails(t *testing.T) {
 
 	cid := testutil.GenerateCids(1)[0]
 	q := retrievalmarket.NewQueryV0(cid.Bytes())
-	require.NoError(t, qs1.WriteQuery(q))
 
-	qr := shared_testutil.MakeTestQueryResponse()
-	require.NoError(t, qs1.WriteQueryResponse(qr))
+	go func() {
+		require.NoError(t, qs1.WriteQuery(q))
+		qr := shared_testutil.MakeTestQueryResponse()
+		require.NoError(t, qs1.WriteQueryResponse(qr))
+	}()
 
 	ctx, cancel := context.WithTimeout(ctxBg, 10*time.Second)
 	defer cancel()
@@ -173,7 +175,6 @@ func TestQueryStreamSendReceiveOutOfOrderFails(t *testing.T) {
 	case <-ctx.Done():
 		t.Error("never finished")
 	case <-doneChan:
-		cancel()
 	}
 
 	assert.Equal(t, []string{"response", "query"}, errs)
@@ -312,20 +313,12 @@ func TestDealStreamSendReceiveMultipleSuccessful(t *testing.T) {
 	case <-ctx.Done():
 		t.Errorf("failed to receive messages")
 	case receivedPayment = <-dpyChan:
-		cancel()
 	}
 
 	assert.Equal(t, dpy, receivedPayment)
 }
 
 func TestQueryStreamSendReceiveMultipleOutOfOrderFails(t *testing.T) {
-	// send proposal, read response in handler - fails
-	// send proposal, read payment in handler - fails
-	// send response, read proposal in handler - fails
-	// send response, read payment in handler - fails
-	// send payment, read proposal in handler - fails
-	// send payment, read response in handler - fails
-
 	ctxBg := context.Background()
 	td := shared_testutil.NewLibp2pTestData(ctxBg, t)
 	nw1 := network.NewFromLibp2pHost(td.Host1)
@@ -335,14 +328,12 @@ func TestQueryStreamSendReceiveMultipleOutOfOrderFails(t *testing.T) {
 	require.NoError(t, nw1.SetDelegate(tr))
 
 	errMsgs := []string{}
-	doneChan := make(chan bool)
+	done := make(chan bool)
 	tr2 := &testReceiver{t: t, dealStreamHandler: func(s network.RetrievalDealStream) {
 		_, err := s.ReadDealResponse()
 		if err != nil {
-			t.Log("response")
 			errMsgs = append(errMsgs, "response")
 		}
-
 		_, err = s.ReadDealPayment()
 		if err != nil {
 			errMsgs = append(errMsgs, "payment")
@@ -366,29 +357,28 @@ func TestQueryStreamSendReceiveMultipleOutOfOrderFails(t *testing.T) {
 		if err != nil {
 			errMsgs = append(errMsgs, "response2")
 		}
-		doneChan <- true
+		done <- true
 	}}
 	require.NoError(t, nw2.SetDelegate(tr2))
 
 	qs1, err := nw1.NewDealStream(td.Host2.ID())
 	require.NoError(t, err)
 
-	require.NoError(t, qs1.WriteDealProposal(shared_testutil.MakeTestDealProposal()))
-	require.NoError(t, qs1.WriteDealProposal(shared_testutil.MakeTestDealProposal()))
-
-	require.NoError(t, qs1.WriteDealResponse(shared_testutil.MakeTestDealResponse()))
-	require.NoError(t, qs1.WriteDealResponse(shared_testutil.MakeTestDealResponse()))
-
-	require.NoError(t, qs1.WriteDealPayment(shared_testutil.MakeTestDealPayment()))
-	require.NoError(t, qs1.WriteDealPayment(shared_testutil.MakeTestDealPayment()))
+	go func(){
+		require.NoError(t, qs1.WriteDealProposal(shared_testutil.MakeTestDealProposal()))
+		require.NoError(t, qs1.WriteDealProposal(shared_testutil.MakeTestDealProposal()))
+		require.NoError(t, qs1.WriteDealResponse(shared_testutil.MakeTestDealResponse()))
+		require.NoError(t, qs1.WriteDealResponse(shared_testutil.MakeTestDealResponse()))
+		require.NoError(t, qs1.WriteDealPayment(shared_testutil.MakeTestDealPayment()))
+		require.NoError(t, qs1.WriteDealPayment(shared_testutil.MakeTestDealPayment()))
+	}()
 
 	ctx, cancel := context.WithTimeout(ctxBg, 10*time.Second)
 	defer cancel()
 	select {
 	case <-ctx.Done():
 		t.Error("did not finish reading")
-	case <-doneChan:
-		cancel()
+	case <-done:
 	}
 
 	expected := []string{"response", "payment", "proposal", "payment2", "proposal2", "response2"}
@@ -412,7 +402,6 @@ func assertDealProposalReceived(inCtx context.Context, t *testing.T, fromNetwork
 	case <-ctx.Done():
 		t.Error("deal proposal not received")
 	case dealReceived = <-inChan:
-		cancel()
 	}
 	require.NotNil(t, dealReceived)
 	assert.Equal(t, dp, dealReceived)
@@ -444,7 +433,6 @@ func assertDealResponseReceived(parentCtx context.Context, t *testing.T, fromNet
 	case <-ctx.Done():
 		t.Error("response not received")
 	case responseReceived = <-inChan:
-		cancel()
 	}
 	require.NotNil(t, responseReceived)
 	assert.Equal(t, dr, responseReceived)
@@ -469,7 +457,6 @@ func assertDealPaymentReceived(parentCtx context.Context, t *testing.T, fromNetw
 	case <-ctx.Done():
 		t.Error("response not received")
 	case responseReceived = <-inChan:
-		cancel()
 	}
 	require.NotNil(t, responseReceived)
 	assert.Equal(t, dp.ID, responseReceived.ID)
@@ -495,7 +482,6 @@ func assertQueryReceived(inCtx context.Context, t *testing.T, fromNetwork networ
 	case <-ctx.Done():
 		t.Error("msg not received")
 	case inq = <-qchan:
-		cancel()
 	}
 	require.NotNil(t, inq)
 	assert.Equal(t, q.PieceCID, inq.PieceCID)
@@ -523,7 +509,6 @@ func assertQueryResponseReceived(inCtx context.Context, t *testing.T,
 	case <-ctx.Done():
 		t.Error("msg not received")
 	case inqr = <-qchan:
-		cancel()
 	}
 
 	require.NotNil(t, inqr)
