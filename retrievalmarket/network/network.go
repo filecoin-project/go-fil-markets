@@ -20,6 +20,7 @@ type RetrievalDealStream interface {
 	WriteDealResponse(retrievalmarket.DealResponse) error
 	ReadDealPayment() (retrievalmarket.DealPayment, error)
 	WriteDealPayment(retrievalmarket.DealPayment) error
+	Close()
 }
 
 type RetrievalReceiver interface {

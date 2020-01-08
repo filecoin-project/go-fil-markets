@@ -15,10 +15,6 @@ type QueryStream struct {
 
 var _ RetrievalQueryStream = (*QueryStream)(nil)
 
-func NewQueryStream(p peer.ID, rw mux.MuxedStream) *QueryStream {
-	return &QueryStream{p, rw}
-}
-
 func (qs *QueryStream) ReadQuery() (retrievalmarket.Query, error) {
 	var q retrievalmarket.Query
 

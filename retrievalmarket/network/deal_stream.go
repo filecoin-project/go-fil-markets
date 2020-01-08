@@ -19,13 +19,14 @@ func (d *DealStream) ReadDealProposal() (retrievalmarket.DealProposal, error) {
 	var ds retrievalmarket.DealProposal
 
 	if err := ds.UnmarshalCBOR(d.rw); err != nil {
+		log.Warn(err)
 		return retrievalmarket.DealProposalUndefined, err
 	}
 	return ds, nil
 }
 
 func (d *DealStream) WriteDealProposal(dp retrievalmarket.DealProposal) error {
-	return cborutil.WriteCborRPC(d.rw, dp)
+	return cborutil.WriteCborRPC(d.rw, &dp)
 }
 
 func (d *DealStream) ReadDealResponse() (retrievalmarket.DealResponse, error) {
@@ -38,7 +39,7 @@ func (d *DealStream) ReadDealResponse() (retrievalmarket.DealResponse, error) {
 }
 
 func (d *DealStream) WriteDealResponse(dr retrievalmarket.DealResponse) error {
-	return cborutil.WriteCborRPC(d.rw, dr)
+	return cborutil.WriteCborRPC(d.rw, &dr)
 }
 
 func (d *DealStream) ReadDealPayment() (retrievalmarket.DealPayment, error) {
@@ -50,6 +51,10 @@ func (d *DealStream) ReadDealPayment() (retrievalmarket.DealPayment, error) {
 	return ds, nil
 }
 
-func (d *DealStream) WriteDealPayment(dp retrievalmarket.DealPayment) error {
-	return cborutil.WriteCborRPC(d.rw, dp)
+func (d *DealStream) WriteDealPayment(dpy retrievalmarket.DealPayment) error {
+	return cborutil.WriteCborRPC(d.rw, &dpy)
+}
+
+func (d *DealStream) Close() {
+	d.rw.Close()
 }
