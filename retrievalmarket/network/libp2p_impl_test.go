@@ -140,7 +140,7 @@ func TestQueryStreamSendReceiveOutOfOrderFails(t *testing.T) {
 	tr := &testReceiver{t: t}
 	require.NoError(t, nw1.SetDelegate(tr))
 
-	errs := []string{}
+	var errs []string
 	doneChan := make(chan bool)
 	tr2 := &testReceiver{t: t, queryStreamHandler: func(s network.RetrievalQueryStream) {
 		_, err := s.ReadQueryResponse()
@@ -327,7 +327,7 @@ func TestQueryStreamSendReceiveMultipleOutOfOrderFails(t *testing.T) {
 	tr := &testReceiver{t: t}
 	require.NoError(t, nw1.SetDelegate(tr))
 
-	errMsgs := []string{}
+	var errMsgs []string
 	done := make(chan bool)
 	tr2 := &testReceiver{t: t, dealStreamHandler: func(s network.RetrievalDealStream) {
 		_, err := s.ReadDealResponse()

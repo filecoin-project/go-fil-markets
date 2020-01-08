@@ -99,6 +99,7 @@ func MakeTestDealResponse() retrievalmarket.DealResponse {
 	}
 }
 
+// MakeTestDealPayment generates a valid, random DealPayment
 func MakeTestDealPayment() retrievalmarket.DealPayment {
 	return retrievalmarket.DealPayment{
 		ID:             retrievalmarket.DealID(rand.Uint64()),
