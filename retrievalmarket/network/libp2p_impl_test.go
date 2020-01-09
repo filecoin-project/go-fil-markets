@@ -141,33 +141,31 @@ func TestQueryStreamSendReceiveOutOfOrderFails(t *testing.T) {
 	tr := &testReceiver{t: t}
 	require.NoError(t, nw1.SetDelegate(tr))
 
-	var receivedErr string
-	doneChan := make(chan bool)
+	var errMsg string
+	done := make(chan bool)
 	tr2 := &testReceiver{t: t, queryStreamHandler: func(s network.RetrievalQueryStream) {
 		_, err := s.ReadQuery()
 		if err != nil {
-			receivedErr = "query"
+			errMsg = "query"
 		}
-		doneChan <- true
+		done <- true
 	}}
 	require.NoError(t, nw2.SetDelegate(tr2))
 
 	qs1, err := nw1.NewQueryStream(td.Host2.ID())
 	require.NoError(t, err)
 
-	qr := shared_testutil.MakeTestQueryResponse()
-	require.NoError(t, qs1.WriteQueryResponse(qr))
+	require.NoError(t, qs1.WriteQueryResponse(shared_testutil.MakeTestQueryResponse()))
 
 	ctx, cancel := context.WithTimeout(ctxBg, 10*time.Second)
 	defer cancel()
-
 	select {
 	case <-ctx.Done():
 		t.Error("never finished")
-	case <-doneChan:
+	case <-done:
 	}
 
-	assert.Equal(t, "query", receivedErr)
+	assert.Equal(t, "query", errMsg)
 }
 
 func TestDealStreamSendReceiveDealProposal(t *testing.T) {
@@ -331,7 +329,7 @@ func TestQueryStreamSendReceiveMultipleOutOfOrderFails(t *testing.T) {
 	qs1, err := nw1.NewDealStream(td.Host2.ID())
 	require.NoError(t, err)
 
-	require.NoError(t, qs1.WriteDealProposal(shared_testutil.MakeTestDealProposal()))
+	go require.NoError(t, qs1.WriteDealProposal(shared_testutil.MakeTestDealProposal()))
 
 	ctx, cancel := context.WithTimeout(ctxBg, 10*time.Second)
 	defer cancel()
