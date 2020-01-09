@@ -155,7 +155,7 @@ func TestQueryStreamSendReceiveOutOfOrderFails(t *testing.T) {
 	qs1, err := nw1.NewQueryStream(td.Host2.ID())
 	require.NoError(t, err)
 
-	require.NoError(t, qs1.WriteQueryResponse(shared_testutil.MakeTestQueryResponse()))
+	go require.NoError(t, qs1.WriteQueryResponse(shared_testutil.MakeTestQueryResponse()))
 
 	ctx, cancel := context.WithTimeout(ctxBg, 10*time.Second)
 	defer cancel()
