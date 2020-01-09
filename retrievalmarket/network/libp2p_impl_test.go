@@ -132,18 +132,18 @@ func TestQueryStreamSendReceiveMultipleSuccessful(t *testing.T) {
 
 func TestQueryStreamSendReceiveOutOfOrderFails(t *testing.T) {
 	// send query, read response in handler - fails
-	t.Skip("skipping due to flakiness")
 	ctxBg := context.Background()
 	td := shared_testutil.NewLibp2pTestData(ctxBg, t)
 	nw1 := network.NewFromLibp2pHost(td.Host1)
 	nw2 := network.NewFromLibp2pHost(td.Host2)
 
-	tr := &testReceiver{t: t}
+	tr := &testReceiver{t: t, hostID: td.Host1.ID() }
 	require.NoError(t, nw1.SetDelegate(tr))
 
 	var errMsg string
 	done := make(chan bool)
-	tr2 := &testReceiver{t: t, queryStreamHandler: func(s network.RetrievalQueryStream) {
+	tr2 := &testReceiver{t: t, hostID: td.Host2.ID(),
+		queryStreamHandler: func(s network.RetrievalQueryStream) {
 		_, err := s.ReadQuery()
 		if err != nil {
 			errMsg = "query"
@@ -329,7 +329,7 @@ func TestDealStreamSendReceiveOutOfOrderFails(t *testing.T) {
 	qs1, err := nw1.NewDealStream(td.Host2.ID())
 	require.NoError(t, err)
 
-	go require.NoError(t, qs1.WriteDealProposal(shared_testutil.MakeTestDealProposal()))
+	require.NoError(t, qs1.WriteDealProposal(shared_testutil.MakeTestDealProposal()))
 
 	ctx, cancel := context.WithTimeout(ctxBg, 10*time.Second)
 	defer cancel()
