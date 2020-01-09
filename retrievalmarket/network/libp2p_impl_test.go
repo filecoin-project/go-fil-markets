@@ -306,7 +306,7 @@ func TestDealStreamSendReceiveMultipleSuccessful(t *testing.T) {
 	assert.Equal(t, dpy, receivedPayment)
 }
 
-func TestQueryStreamSendReceiveMultipleOutOfOrderFails(t *testing.T) {
+func TestDealStreamSendReceiveOutOfOrderFails(t *testing.T) {
 	ctxBg := context.Background()
 	td := shared_testutil.NewLibp2pTestData(ctxBg, t)
 	nw1 := network.NewFromLibp2pHost(td.Host1)
