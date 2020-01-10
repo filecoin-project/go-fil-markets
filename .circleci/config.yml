@@ -50,13 +50,13 @@ jobs:
       - run: sudo apt-get update
       - restore_cache:
           name: restore go mod cache
-          key: v1-go-deps-{{ arch }}-{{ checksum "/home/circleci/project/go-fil-components/go.mod" }}
+          key: v1-go-deps-{{ arch }}-{{ checksum "/home/circleci/project/go-fil-markets/go.mod" }}
       - run:
           command: make build
       - store_artifacts:
-          path: go-fil-components
+          path: go-fil-markets
       - store_artifacts:
-          path: go-fil-components
+          path: go-fil-markets
 
   test: &test
     description: |

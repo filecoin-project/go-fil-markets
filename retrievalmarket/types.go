@@ -10,7 +10,6 @@ import (
 	"github.com/filecoin-project/go-fil-markets/shared/types"
 	"github.com/ipfs/go-cid"
 	blockstore "github.com/ipfs/go-ipfs-blockstore"
-	"github.com/libp2p/go-libp2p-core/host"
 	"github.com/libp2p/go-libp2p-core/peer"
 )
 
@@ -161,7 +160,7 @@ type ProviderSubscriber func(event ProviderEvent, state ProviderDealState)
 // retrieval operations and monitors deals received and process
 type RetrievalProvider interface {
 	// Start begins listening for deals on the given host
-	Start(host.Host)
+	Start() error
 
 	// V0
 
@@ -210,6 +209,9 @@ const (
 	// QueryResponseUnavailable indicates a provider either does not have or cannot
 	// serve the queried piece to the client
 	QueryResponseUnavailable
+
+	// QueryResponseError indicates something went wrong generating a query response
+	QueryResponseError
 )
 
 // QueryItemStatus (V1) indicates whether the requested part of a piece (payload or selector)
@@ -249,6 +251,7 @@ type Query struct {
 	// QueryParams        // V1
 }
 
+// QueryUndefined is a query with no values
 var QueryUndefined = Query{}
 
 // NewQueryV0 creates a V0 query (which only specifies a piece)
@@ -269,6 +272,7 @@ type QueryResponse struct {
 	MinPricePerByte            tokenamount.TokenAmount
 	MaxPaymentInterval         uint64
 	MaxPaymentIntervalIncrease uint64
+	Message                    string
 }
 
 // QueryResponseUndefined is an empty QueryResponse

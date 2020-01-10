@@ -5,31 +5,22 @@ import (
 	"reflect"
 	"sync"
 
-	blocks "github.com/ipfs/go-block-format"
-	"github.com/ipfs/go-cid"
+	"github.com/filecoin-project/go-address"
 	blockstore "github.com/ipfs/go-ipfs-blockstore"
 	logging "github.com/ipfs/go-log"
-	"github.com/libp2p/go-libp2p-core/host"
-	"github.com/libp2p/go-libp2p-core/network"
 	"github.com/libp2p/go-libp2p-core/peer"
-	cbg "github.com/whyrusleeping/cbor-gen"
-	"golang.org/x/xerrors"
 
-	"github.com/filecoin-project/go-cbor-util"
-
-	"github.com/filecoin-project/go-address"
 	"github.com/filecoin-project/go-fil-markets/retrievalmarket"
-	"github.com/filecoin-project/go-fil-markets/shared/params"
+	rmnet "github.com/filecoin-project/go-fil-markets/retrievalmarket/network"
 	"github.com/filecoin-project/go-fil-markets/shared/tokenamount"
-	"github.com/filecoin-project/go-fil-markets/shared/types"
 )
 
 var log = logging.Logger("retrieval")
 
 type client struct {
-	h    host.Host
-	bs   blockstore.Blockstore
-	node retrievalmarket.RetrievalClientNode
+	network rmnet.RetrievalMarketNetwork
+	bs      blockstore.Blockstore
+	node    retrievalmarket.RetrievalClientNode
 	// The parameters should be replaced by RetrievalClientNode
 
 	nextDealLk    sync.Mutex
@@ -39,8 +30,8 @@ type client struct {
 }
 
 // NewClient creates a new retrieval client
-func NewClient(h host.Host, bs blockstore.Blockstore, node retrievalmarket.RetrievalClientNode) retrievalmarket.RetrievalClient {
-	return &client{h: h, bs: bs, node: node}
+func NewClient(network rmnet.RetrievalMarketNetwork, bs blockstore.Blockstore, node retrievalmarket.RetrievalClientNode) retrievalmarket.RetrievalClient {
+	return &client{network: network, bs: bs, node: node}
 }
 
 // V0
@@ -54,39 +45,22 @@ func (c *client) FindProviders(pieceCID []byte) []retrievalmarket.RetrievalPeer 
 // TODO: Update to match spec for V0 epic
 // https://github.com/filecoin-project/go-retrieval-market-project/issues/8
 func (c *client) Query(ctx context.Context, p retrievalmarket.RetrievalPeer, pieceCID []byte, params retrievalmarket.QueryParams) (retrievalmarket.QueryResponse, error) {
-	cid, err := cid.Cast(pieceCID)
-	if err != nil {
-		log.Warn(err)
-		return retrievalmarket.QueryResponseUndefined, err
-	}
-
-	s, err := c.h.NewStream(ctx, p.ID, retrievalmarket.QueryProtocolID)
+	s, err := c.network.NewQueryStream(p.ID)
 	if err != nil {
 		log.Warn(err)
 		return retrievalmarket.QueryResponseUndefined, err
 	}
 	defer s.Close()
 
-	err = cborutil.WriteCborRPC(s, &OldQuery{
-		Piece: cid,
+	err = s.WriteQuery(retrievalmarket.Query{
+		PieceCID: pieceCID,
 	})
 	if err != nil {
 		log.Warn(err)
 		return retrievalmarket.QueryResponseUndefined, err
 	}
 
-	var oldResp OldQueryResponse
-	if err := oldResp.UnmarshalCBOR(s); err != nil {
-		log.Warn(err)
-		return retrievalmarket.QueryResponseUndefined, err
-	}
-
-	resp := retrievalmarket.QueryResponse{
-		Status:          retrievalmarket.QueryResponseStatus(oldResp.Status),
-		Size:            oldResp.Size,
-		MinPricePerByte: tokenamount.Div(oldResp.MinPrice, tokenamount.FromInt(oldResp.Size)),
-	}
-	return resp, nil
+	return s.ReadQueryResponse()
 }
 
 // TODO: Update to match spec for V0 Epic:
@@ -111,16 +85,6 @@ func (c *client) Retrieve(ctx context.Context, pieceCID []byte, params retrieval
 
 	go func() {
 		evt := retrievalmarket.ClientEventError
-		converted, err := cid.Cast(pieceCID)
-
-		if err == nil {
-			err = c.retrieveUnixfs(ctx, converted, tokenamount.Div(totalFunds, params.PricePerByte).Uint64(), totalFunds, miner, clientWallet, minerWallet)
-			if err == nil {
-				evt = retrievalmarket.ClientEventComplete
-				dealState.Status = retrievalmarket.DealStatusCompleted
-			}
-		}
-
 		c.notifySubscribers(evt, dealState)
 	}()
 
@@ -178,6 +142,7 @@ func (c *client) ListDeals() map[retrievalmarket.DealID]retrievalmarket.ClientDe
 	panic("not implemented")
 }
 
+/*
 type clientStream struct {
 	node   retrievalmarket.RetrievalClientNode
 	stream network.Stream
@@ -196,7 +161,7 @@ type clientStream struct {
 	verifier   BlockVerifier
 	bs         blockstore.Blockstore
 }
-
+*/
 /* This is the old retrieval code that is NOT spec compliant */
 
 // C > S
@@ -211,7 +176,7 @@ type clientStream struct {
 // < ..Blocks
 // > DealProposal(...)
 // < ...
-func (c *client) retrieveUnixfs(ctx context.Context, root cid.Cid, size uint64, total tokenamount.TokenAmount, miner peer.ID, client, minerAddr address.Address) error {
+/*func (c *client) retrieveUnixfs(ctx context.Context, root cid.Cid, size uint64, total tokenamount.TokenAmount, miner peer.ID, client, minerAddr address.Address) error {
 	s, err := c.h.NewStream(ctx, miner, retrievalmarket.ProtocolID)
 	if err != nil {
 		return xerrors.Errorf("failed to open stream to miner for retrieval query: %w", err)
@@ -390,3 +355,4 @@ func (cst *clientStream) setupPayment(ctx context.Context, toSend tokenamount.To
 		Vouchers:       []*types.SignedVoucher{sv},
 	}, nil
 }
+*/
