@@ -17,8 +17,8 @@ import (
 	"github.com/libp2p/go-libp2p-core/network"
 	"golang.org/x/xerrors"
 
-	cborutil "github.com/filecoin-project/go-cbor-util"
 	"github.com/filecoin-project/go-fil-markets/retrievalmarket"
+	rmnet "github.com/filecoin-project/go-fil-markets/retrievalmarket/network"
 	"github.com/filecoin-project/go-fil-markets/shared/params"
 	"github.com/filecoin-project/go-fil-markets/shared/tokenamount"
 )
@@ -36,11 +36,6 @@ type provider struct {
 
 	// TODO: Replace with RetrievalProviderNode for
 	// https://github.com/filecoin-project/go-retrieval-market-project/issues/4
-	node retrievalmarket.RetrievalProviderNode
-
-	pricePerByte tokenamount.TokenAmount
-
-	subscribersLk sync.RWMutex
 	node                    retrievalmarket.RetrievalProviderNode
 	network                 rmnet.RetrievalMarketNetwork
 	paymentInterval         uint64
@@ -48,6 +43,7 @@ type provider struct {
 	paymentAddress          address.Address
 	pricePerByte            tokenamount.TokenAmount
 	subscribers             []retrievalmarket.ProviderSubscriber
+	subscribersLk           sync.RWMutex
 }
 
 // NewProvider returns a new retrieval provider
@@ -160,7 +156,7 @@ func (p *provider) HandleQueryStream(stream rmnet.RetrievalQueryStream) {
 	}
 }
 
-type handlerDeal struct { //nolint: unused
+type handlerDeal struct { // nolint: unused
 	p      *provider
 	stream network.Stream
 

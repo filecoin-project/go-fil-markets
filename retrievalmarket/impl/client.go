@@ -5,23 +5,14 @@ import (
 	"reflect"
 	"sync"
 
-	blocks "github.com/ipfs/go-block-format"
-	"github.com/ipfs/go-cid"
+	"github.com/filecoin-project/go-address"
 	blockstore "github.com/ipfs/go-ipfs-blockstore"
 	logging "github.com/ipfs/go-log"
-	"github.com/libp2p/go-libp2p-core/host"
-	"github.com/libp2p/go-libp2p-core/network"
 	"github.com/libp2p/go-libp2p-core/peer"
-	cbg "github.com/whyrusleeping/cbor-gen"
-	"golang.org/x/xerrors"
 
-	"github.com/filecoin-project/go-cbor-util"
-
-	"github.com/filecoin-project/go-address"
 	"github.com/filecoin-project/go-fil-markets/retrievalmarket"
-	"github.com/filecoin-project/go-fil-markets/shared/params"
+	rmnet "github.com/filecoin-project/go-fil-markets/retrievalmarket/network"
 	"github.com/filecoin-project/go-fil-markets/shared/tokenamount"
-	"github.com/filecoin-project/go-fil-markets/shared/types"
 )
 
 var log = logging.Logger("retrieval")

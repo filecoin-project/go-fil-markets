@@ -10,12 +10,12 @@ import (
 	"github.com/libp2p/go-libp2p-core/peer"
 	"github.com/stretchr/testify/require"
 
-	"github.com/filecoin-project/go-fil-components/retrievalmarket"
-	retrievalimpl "github.com/filecoin-project/go-fil-components/retrievalmarket/impl"
-	"github.com/filecoin-project/go-fil-components/retrievalmarket/network"
-	"github.com/filecoin-project/go-fil-components/shared/tokenamount"
-	"github.com/filecoin-project/go-fil-components/shared/types"
-	tut "github.com/filecoin-project/go-fil-components/shared_testutil"
+	"github.com/filecoin-project/go-fil-markets/retrievalmarket"
+	retrievalimpl "github.com/filecoin-project/go-fil-markets/retrievalmarket/impl"
+	"github.com/filecoin-project/go-fil-markets/retrievalmarket/network"
+	"github.com/filecoin-project/go-fil-markets/shared/tokenamount"
+	"github.com/filecoin-project/go-fil-markets/shared/types"
+	tut "github.com/filecoin-project/go-fil-markets/shared_testutil"
 )
 
 func TestHandleQueryStream(t *testing.T) {
