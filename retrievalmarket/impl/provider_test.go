@@ -6,15 +6,16 @@ import (
 	"testing"
 
 	"github.com/filecoin-project/go-address"
-	"github.com/filecoin-project/go-fil-components/retrievalmarket"
-	retrievalimpl "github.com/filecoin-project/go-fil-components/retrievalmarket/impl"
-	"github.com/filecoin-project/go-fil-components/retrievalmarket/network"
-	tut "github.com/filecoin-project/go-fil-components/retrievalmarket/network/testutil"
-	"github.com/filecoin-project/go-fil-components/shared/tokenamount"
-	"github.com/filecoin-project/go-fil-components/shared/types"
 	blockstore "github.com/ipfs/go-ipfs-blockstore"
 	"github.com/libp2p/go-libp2p-core/peer"
 	"github.com/stretchr/testify/require"
+
+	"github.com/filecoin-project/go-fil-components/retrievalmarket"
+	retrievalimpl "github.com/filecoin-project/go-fil-components/retrievalmarket/impl"
+	"github.com/filecoin-project/go-fil-components/retrievalmarket/network"
+	"github.com/filecoin-project/go-fil-components/shared/tokenamount"
+	"github.com/filecoin-project/go-fil-components/shared/types"
+	tut "github.com/filecoin-project/go-fil-components/shared_testutil"
 )
 
 func TestHandleQueryStream(t *testing.T) {

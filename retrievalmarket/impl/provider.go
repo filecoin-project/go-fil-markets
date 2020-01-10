@@ -124,14 +124,6 @@ func (p *provider) ListDeals() map[retrievalmarket.ProviderDealID]retrievalmarke
 	panic("not implemented")
 }
 
-func writeErr(stream network.Stream, err error) {
-	log.Errorf("Retrieval deal error: %+v", err)
-	_ = cborutil.WriteCborRPC(stream, &OldDealResponse{
-		Status:  Error,
-		Message: err.Error(),
-	})
-}
-
 // TODO: Update for https://github.com/filecoin-project/go-retrieval-market-project/issues/8
 func (p *provider) HandleQueryStream(stream rmnet.RetrievalQueryStream) {
 	defer stream.Close()
@@ -168,7 +160,7 @@ func (p *provider) HandleQueryStream(stream rmnet.RetrievalQueryStream) {
 	}
 }
 
-type handlerDeal struct {
+/* type handlerDeal struct {
 	p      *provider
 	stream network.Stream
 
@@ -176,7 +168,7 @@ type handlerDeal struct {
 	open cid.Cid
 	at   uint64
 	size uint64
-}
+}*/
 
 // TODO: Update for https://github.com/filecoin-project/go-retrieval-market-project/issues/7
 func (p *provider) HandleDealStream(stream rmnet.RetrievalDealStream) {

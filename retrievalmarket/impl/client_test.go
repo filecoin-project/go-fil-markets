@@ -16,9 +16,9 @@ import (
 	retrievalimpl "github.com/filecoin-project/go-fil-components/retrievalmarket/impl"
 	"github.com/filecoin-project/go-fil-components/retrievalmarket/network"
 	rmnet "github.com/filecoin-project/go-fil-components/retrievalmarket/network"
-	tut "github.com/filecoin-project/go-fil-components/retrievalmarket/network/testutil"
 	"github.com/filecoin-project/go-fil-components/shared/tokenamount"
 	"github.com/filecoin-project/go-fil-components/shared/types"
+	tut "github.com/filecoin-project/go-fil-components/shared_testutil"
 )
 
 func TestClient_Query(t *testing.T) {

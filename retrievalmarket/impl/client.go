@@ -94,16 +94,6 @@ func (c *client) Retrieve(ctx context.Context, pieceCID []byte, params retrieval
 
 	go func() {
 		evt := retrievalmarket.ClientEventError
-		//converted, err := cid.Cast(pieceCID)
-
-		/*if err == nil {
-			err = c.retrieveUnixfs(ctx, converted, tokenamount.Div(totalFunds, params.PricePerByte).Uint64(), totalFunds, miner, clientWallet, minerWallet)
-			if err == nil {
-				evt = retrievalmarket.ClientEventComplete
-				dealState.Status = retrievalmarket.DealStatusCompleted
-			}
-		}*/
-
 		c.notifySubscribers(evt, dealState)
 	}()
 

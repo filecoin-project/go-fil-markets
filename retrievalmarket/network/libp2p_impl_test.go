@@ -29,14 +29,12 @@ func (tr *testReceiver) HandleDealStream(s network.RetrievalDealStream) {
 	defer s.Close()
 	if tr.dealStreamHandler != nil {
 		tr.dealStreamHandler(s)
-		return
 	}
 }
 func (tr *testReceiver) HandleQueryStream(s network.RetrievalQueryStream) {
 	defer s.Close()
 	if tr.queryStreamHandler != nil {
 		tr.queryStreamHandler(s)
-		return
 	}
 }
 
