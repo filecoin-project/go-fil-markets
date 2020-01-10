@@ -160,7 +160,7 @@ func (p *Provider) staged(ctx context.Context, deal MinerDeal) (func(*MinerDeal)
 			Ref:         deal.Ref,
 			DealID:      deal.DealID,
 		},
-		"",
+		string(deal.PiecePath),
 	)
 
 	if err != nil {

@@ -3,10 +3,13 @@ package pieceio
 import (
 	"context"
 	"fmt"
-	"github.com/filecoin-project/go-fil-markets/filestore"
+	"io"
+
 	"github.com/ipfs/go-cid"
 	blockstore "github.com/ipfs/go-ipfs-blockstore"
 	"github.com/ipld/go-ipld-prime"
+
+	"github.com/filecoin-project/go-fil-markets/filestore"
 )
 
 type SectorCalculator interface {
