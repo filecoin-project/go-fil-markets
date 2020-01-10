@@ -8,8 +8,8 @@ import (
 
 	"github.com/filecoin-project/go-address"
 	"github.com/filecoin-project/go-cbor-util"
-	"github.com/filecoin-project/go-fil-components/shared/types"
-	"github.com/filecoin-project/go-fil-components/storagemarket"
+	"github.com/filecoin-project/go-fil-markets/shared/types"
+	"github.com/filecoin-project/go-fil-markets/storagemarket"
 )
 
 //go:generate cbor-gen-for AskRequest AskResponse Proposal Response SignedResponse StorageDataTransferVoucher

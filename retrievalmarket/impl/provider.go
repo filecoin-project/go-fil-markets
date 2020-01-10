@@ -17,9 +17,9 @@ import (
 	"golang.org/x/xerrors"
 
 	cborutil "github.com/filecoin-project/go-cbor-util"
-	"github.com/filecoin-project/go-fil-components/retrievalmarket"
-	"github.com/filecoin-project/go-fil-components/shared/params"
-	"github.com/filecoin-project/go-fil-components/shared/tokenamount"
+	"github.com/filecoin-project/go-fil-markets/retrievalmarket"
+	"github.com/filecoin-project/go-fil-markets/shared/params"
+	"github.com/filecoin-project/go-fil-markets/shared/tokenamount"
 )
 
 // UnixfsReader is a unixfsfile that can read block by block

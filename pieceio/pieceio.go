@@ -3,7 +3,7 @@ package pieceio
 import (
 	"context"
 	"fmt"
-	"github.com/filecoin-project/go-fil-components/filestore"
+	"github.com/filecoin-project/go-fil-markets/filestore"
 	"github.com/ipfs/go-cid"
 	"github.com/ipld/go-ipld-prime"
 	"io"

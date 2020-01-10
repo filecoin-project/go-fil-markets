@@ -6,12 +6,12 @@ import (
 	"github.com/filecoin-project/go-data-transfer"
 	blockstore "github.com/ipfs/go-ipfs-blockstore"
 
-	"github.com/filecoin-project/go-fil-components/filestore"
-	"github.com/filecoin-project/go-fil-components/pieceio"
-	"github.com/filecoin-project/go-fil-components/pieceio/cario"
-	"github.com/filecoin-project/go-fil-components/pieceio/padreader"
-	"github.com/filecoin-project/go-fil-components/pieceio/sectorcalculator"
-	"github.com/filecoin-project/go-fil-components/shared/tokenamount"
+	"github.com/filecoin-project/go-fil-markets/filestore"
+	"github.com/filecoin-project/go-fil-markets/pieceio"
+	"github.com/filecoin-project/go-fil-markets/pieceio/cario"
+	"github.com/filecoin-project/go-fil-markets/pieceio/padreader"
+	"github.com/filecoin-project/go-fil-markets/pieceio/sectorcalculator"
+	"github.com/filecoin-project/go-fil-markets/shared/tokenamount"
 
 	"github.com/ipfs/go-cid"
 	logging "github.com/ipfs/go-log"
@@ -22,14 +22,14 @@ import (
 
 	"github.com/filecoin-project/go-cbor-util"
 
-	"github.com/filecoin-project/go-fil-components/retrievalmarket"
-	"github.com/filecoin-project/go-fil-components/retrievalmarket/discovery"
+	"github.com/filecoin-project/go-fil-markets/retrievalmarket"
+	"github.com/filecoin-project/go-fil-markets/retrievalmarket/discovery"
 
 	"github.com/filecoin-project/go-address"
 	"github.com/filecoin-project/go-statestore"
 
-	"github.com/filecoin-project/go-fil-components/shared/types"
-	"github.com/filecoin-project/go-fil-components/storagemarket"
+	"github.com/filecoin-project/go-fil-markets/shared/types"
+	"github.com/filecoin-project/go-fil-markets/storagemarket"
 )
 
 //go:generate cbor-gen-for ClientDeal ClientDealProposal

@@ -3,7 +3,7 @@ package cario
 import (
 	"context"
 	"fmt"
-	"github.com/filecoin-project/go-fil-components/pieceio"
+	"github.com/filecoin-project/go-fil-markets/pieceio"
 	"github.com/ipfs/go-car"
 	"github.com/ipfs/go-cid"
 	"github.com/ipld/go-ipld-prime"

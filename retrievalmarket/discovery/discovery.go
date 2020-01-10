@@ -1,7 +1,7 @@
 package discovery
 
 import (
-	"github.com/filecoin-project/go-fil-components/retrievalmarket"
+	"github.com/filecoin-project/go-fil-markets/retrievalmarket"
 	cbor "github.com/ipfs/go-ipld-cbor"
 )
 

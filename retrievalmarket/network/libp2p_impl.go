@@ -2,7 +2,7 @@ package network
 
 import (
 	"context"
-	"github.com/filecoin-project/go-fil-components/retrievalmarket"
+	"github.com/filecoin-project/go-fil-markets/retrievalmarket"
 	logging "github.com/ipfs/go-log"
 	"github.com/libp2p/go-libp2p-core/host"
 	"github.com/libp2p/go-libp2p-core/network"

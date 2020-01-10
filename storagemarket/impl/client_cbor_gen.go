@@ -102,6 +102,10 @@ func (t *ClientDealProposal) MarshalCBOR(w io.Writer) error {
 	}
 
 	// t.MinerID (peer.ID) (string)
+	if len(t.MinerID) > cbg.MaxLength {
+		return xerrors.Errorf("Value in field t.MinerID was too long")
+	}
+
 	if _, err := w.Write(cbg.CborEncodeMajorType(cbg.MajTextString, uint64(len(t.MinerID)))); err != nil {
 		return err
 	}
