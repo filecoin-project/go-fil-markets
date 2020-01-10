@@ -4,8 +4,8 @@ import (
 	"github.com/ipfs/go-cid"
 
 	"github.com/filecoin-project/go-address"
-	"github.com/filecoin-project/go-fil-components/shared/tokenamount"
-	"github.com/filecoin-project/go-fil-components/shared/types"
+	"github.com/filecoin-project/go-fil-markets/shared/tokenamount"
+	"github.com/filecoin-project/go-fil-markets/shared/types"
 )
 
 //go:generate cbor-gen-for RetParams Unixfs0Offer OldDealProposal OldDealResponse Block OldQueryResponse OldQuery OldPaymentInfo

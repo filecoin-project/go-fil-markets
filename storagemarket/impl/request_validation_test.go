@@ -15,9 +15,9 @@ import (
 
 	"github.com/filecoin-project/go-address"
 	"github.com/filecoin-project/go-cbor-util"
-	"github.com/filecoin-project/go-fil-components/shared/types"
-	"github.com/filecoin-project/go-fil-components/storagemarket"
-	deals "github.com/filecoin-project/go-fil-components/storagemarket/impl"
+	"github.com/filecoin-project/go-fil-markets/shared/types"
+	"github.com/filecoin-project/go-fil-markets/storagemarket"
+	deals "github.com/filecoin-project/go-fil-markets/storagemarket/impl"
 	"github.com/filecoin-project/go-statestore"
 )
 

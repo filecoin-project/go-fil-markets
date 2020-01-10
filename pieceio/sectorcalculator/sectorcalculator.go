@@ -2,8 +2,8 @@ package sectorcalculator
 
 import (
 	ffi "github.com/filecoin-project/filecoin-ffi"
-	"github.com/filecoin-project/go-fil-components/filestore"
-	"github.com/filecoin-project/go-fil-components/pieceio"
+	"github.com/filecoin-project/go-fil-markets/filestore"
+	"github.com/filecoin-project/go-fil-markets/pieceio"
 	"io"
 	"io/ioutil"
 	"os"

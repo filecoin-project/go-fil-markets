@@ -5,8 +5,8 @@ import (
 
 	"golang.org/x/xerrors"
 
-	"github.com/filecoin-project/go-fil-components/shared/types"
-	"github.com/filecoin-project/go-fil-components/storagemarket"
+	"github.com/filecoin-project/go-fil-markets/shared/types"
+	"github.com/filecoin-project/go-fil-markets/storagemarket"
 )
 
 type clientHandlerFunc func(ctx context.Context, deal ClientDeal) (func(*ClientDeal), error)

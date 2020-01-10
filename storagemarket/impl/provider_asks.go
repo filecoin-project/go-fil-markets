@@ -11,8 +11,8 @@ import (
 
 	"github.com/filecoin-project/go-address"
 	"github.com/filecoin-project/go-cbor-util"
-	"github.com/filecoin-project/go-fil-components/shared/tokenamount"
-	"github.com/filecoin-project/go-fil-components/shared/types"
+	"github.com/filecoin-project/go-fil-markets/shared/tokenamount"
+	"github.com/filecoin-project/go-fil-markets/shared/types"
 )
 
 func (p *Provider) SetPrice(price tokenamount.TokenAmount, ttlsecs int64) error {

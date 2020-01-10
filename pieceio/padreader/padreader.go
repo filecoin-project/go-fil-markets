@@ -5,7 +5,7 @@ import (
 	"math/bits"
 
 	ffi "github.com/filecoin-project/filecoin-ffi"
-	"github.com/filecoin-project/go-fil-components/pieceio"
+	"github.com/filecoin-project/go-fil-markets/pieceio"
 )
 
 type padReader struct {

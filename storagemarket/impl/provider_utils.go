@@ -6,8 +6,9 @@ import (
 
 	"github.com/ipld/go-ipld-prime"
 
+	"github.com/filecoin-project/go-address"
 	"github.com/filecoin-project/go-data-transfer"
-	"github.com/filecoin-project/go-fil-components/storagemarket"
+	"github.com/filecoin-project/go-fil-markets/storagemarket"
 
 	"github.com/filecoin-project/go-cbor-util"
 	"github.com/filecoin-project/go-statestore"
@@ -53,7 +54,11 @@ func (p *Provider) readProposal(s inet.Stream) (proposal Proposal, err error) {
 		return proposal, err
 	}
 
-	if err := proposal.DealProposal.Verify(); err != nil {
+	if proposal.DealProposal.ProposerSignature == nil {
+		return proposal, xerrors.Errorf("incoming deal proposal has no signature")
+	}
+
+	if err := proposal.DealProposal.Verify(address.Undef); err != nil {
 		return proposal, xerrors.Errorf("verifying StorageDealProposal: %w", err)
 	}
 

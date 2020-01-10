@@ -10,9 +10,9 @@ import (
 	xerrors "golang.org/x/xerrors"
 
 	"github.com/filecoin-project/go-address"
-	"github.com/filecoin-project/go-cbor-util"
-	"github.com/filecoin-project/go-fil-components/shared/tokenamount"
-	"github.com/filecoin-project/go-fil-components/shared/types"
+	cborutil "github.com/filecoin-project/go-cbor-util"
+	"github.com/filecoin-project/go-fil-markets/shared/tokenamount"
+	"github.com/filecoin-project/go-fil-markets/shared/types"
 )
 
 //go:generate cbor-gen-for ClientDeal MinerDeal StorageDeal Balance StorageDealProposal
@@ -104,15 +104,21 @@ func (sdp *StorageDealProposal) Cid() (cid.Cid, error) {
 	return nd.Cid(), nil
 }
 
-func (sdp *StorageDealProposal) Verify() error {
-	unsigned := *sdp
-	unsigned.ProposerSignature = nil
-	var buf bytes.Buffer
-	if err := unsigned.MarshalCBOR(&buf); err != nil {
-		return err
+func (sdp *StorageDealProposal) Verify(worker address.Address) error {
+	if sdp.Client != worker || worker == address.Undef {
+		unsigned := *sdp
+		unsigned.ProposerSignature = nil
+		var buf bytes.Buffer
+		if err := unsigned.MarshalCBOR(&buf); err != nil {
+			return err
+		}
+
+		if err := sdp.ProposerSignature.Verify(sdp.Client, buf.Bytes()); err != nil {
+			return err
+		}
 	}
 
-	return sdp.ProposerSignature.Verify(sdp.Client, buf.Bytes())
+	return nil
 }
 
 type StorageDeal struct {
