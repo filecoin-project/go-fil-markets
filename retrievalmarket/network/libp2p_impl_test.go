@@ -36,6 +36,7 @@ func (tr *testReceiver) HandleQueryStream(s network.RetrievalQueryStream) {
 	defer s.Close()
 	if tr.queryStreamHandler != nil {
 		tr.queryStreamHandler(s)
+		return
 	}
 }
 
@@ -128,46 +129,6 @@ func TestQueryStreamSendReceiveMultipleSuccessful(t *testing.T) {
 	}
 
 	assert.Equal(t, qr, resp)
-}
-
-func TestQueryStreamSendReceiveOutOfOrderFails(t *testing.T) {
-	// send query, read response in handler - fails
-	t.Skip("skipping due to flakiness")
-	ctxBg := context.Background()
-	td := shared_testutil.NewLibp2pTestData(ctxBg, t)
-	nw1 := network.NewFromLibp2pHost(td.Host1)
-	nw2 := network.NewFromLibp2pHost(td.Host2)
-
-	tr := &testReceiver{t: t}
-	require.NoError(t, nw1.SetDelegate(tr))
-
-	var receivedErr string
-	doneChan := make(chan bool)
-	tr2 := &testReceiver{t: t, queryStreamHandler: func(s network.RetrievalQueryStream) {
-		_, err := s.ReadQuery()
-		if err != nil {
-			receivedErr = "query"
-		}
-		doneChan <- true
-	}}
-	require.NoError(t, nw2.SetDelegate(tr2))
-
-	qs1, err := nw1.NewQueryStream(td.Host2.ID())
-	require.NoError(t, err)
-
-	qr := shared_testutil.MakeTestQueryResponse()
-	require.NoError(t, qs1.WriteQueryResponse(qr))
-
-	ctx, cancel := context.WithTimeout(ctxBg, 10*time.Second)
-	defer cancel()
-
-	select {
-	case <-ctx.Done():
-		t.Error("never finished")
-	case <-doneChan:
-	}
-
-	assert.Equal(t, "query", receivedErr)
 }
 
 func TestDealStreamSendReceiveDealProposal(t *testing.T) {
@@ -306,42 +267,6 @@ func TestDealStreamSendReceiveMultipleSuccessful(t *testing.T) {
 	}
 
 	assert.Equal(t, dpy, receivedPayment)
-}
-
-func TestQueryStreamSendReceiveMultipleOutOfOrderFails(t *testing.T) {
-	ctxBg := context.Background()
-	td := shared_testutil.NewLibp2pTestData(ctxBg, t)
-	nw1 := network.NewFromLibp2pHost(td.Host1)
-	nw2 := network.NewFromLibp2pHost(td.Host2)
-
-	tr := &testReceiver{t: t}
-	require.NoError(t, nw1.SetDelegate(tr))
-
-	var errMsg string
-	done := make(chan bool)
-	tr2 := &testReceiver{t: t, dealStreamHandler: func(s network.RetrievalDealStream) {
-		_, err := s.ReadDealResponse()
-		if err != nil {
-			errMsg = "response"
-		}
-		done <- true
-	}}
-	require.NoError(t, nw2.SetDelegate(tr2))
-
-	qs1, err := nw1.NewDealStream(td.Host2.ID())
-	require.NoError(t, err)
-
-	require.NoError(t, qs1.WriteDealProposal(shared_testutil.MakeTestDealProposal()))
-
-	ctx, cancel := context.WithTimeout(ctxBg, 10*time.Second)
-	defer cancel()
-	select {
-	case <-ctx.Done():
-		t.Error("did not finish reading")
-	case <-done:
-	}
-
-	assert.Equal(t, "response", errMsg)
 }
 
 // assertDealProposalReceived performs the verification that a deal proposal is received
