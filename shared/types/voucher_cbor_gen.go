@@ -27,6 +27,10 @@ func (t *SignedVoucher) MarshalCBOR(w io.Writer) error {
 	}
 
 	// t.SecretPreimage ([]uint8) (slice)
+	if len(t.SecretPreimage) > cbg.ByteArrayMaxLen {
+		return xerrors.Errorf("Byte array in field t.SecretPreimage was too long")
+	}
+
 	if _, err := w.Write(cbg.CborEncodeMajorType(cbg.MajByteString, uint64(len(t.SecretPreimage)))); err != nil {
 		return err
 	}
@@ -60,6 +64,10 @@ func (t *SignedVoucher) MarshalCBOR(w io.Writer) error {
 	}
 
 	// t.Merges ([]types.Merge) (slice)
+	if len(t.Merges) > cbg.MaxLength {
+		return xerrors.Errorf("Slice value in field t.Merges was too long")
+	}
+
 	if _, err := w.Write(cbg.CborEncodeMajorType(cbg.MajArray, uint64(len(t.Merges)))); err != nil {
 		return err
 	}
@@ -249,6 +257,10 @@ func (t *ModVerifyParams) MarshalCBOR(w io.Writer) error {
 	}
 
 	// t.Data ([]uint8) (slice)
+	if len(t.Data) > cbg.ByteArrayMaxLen {
+		return xerrors.Errorf("Byte array in field t.Data was too long")
+	}
+
 	if _, err := w.Write(cbg.CborEncodeMajorType(cbg.MajByteString, uint64(len(t.Data)))); err != nil {
 		return err
 	}

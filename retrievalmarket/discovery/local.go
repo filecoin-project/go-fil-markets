@@ -8,7 +8,7 @@ import (
 	cbor "github.com/ipfs/go-ipld-cbor"
 	logging "github.com/ipfs/go-log/v2"
 
-	"github.com/filecoin-project/go-fil-components/retrievalmarket"
+	"github.com/filecoin-project/go-fil-markets/retrievalmarket"
 )
 
 var log = logging.Logger("ret-discovery")

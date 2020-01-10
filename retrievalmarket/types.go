@@ -6,8 +6,8 @@ import (
 	"math/big"
 
 	"github.com/filecoin-project/go-address"
-	"github.com/filecoin-project/go-fil-components/shared/tokenamount"
-	"github.com/filecoin-project/go-fil-components/shared/types"
+	"github.com/filecoin-project/go-fil-markets/shared/tokenamount"
+	"github.com/filecoin-project/go-fil-markets/shared/types"
 	"github.com/ipfs/go-cid"
 	blockstore "github.com/ipfs/go-ipfs-blockstore"
 	"github.com/libp2p/go-libp2p-core/host"

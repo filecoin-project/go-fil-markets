@@ -1,7 +1,7 @@
 package pieceio
 
 import (
-	"github.com/filecoin-project/go-fil-components/filestore"
+	"github.com/filecoin-project/go-fil-markets/filestore"
 	"io"
 
 	blocks "github.com/ipfs/go-block-format"

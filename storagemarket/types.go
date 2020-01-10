@@ -11,8 +11,8 @@ import (
 
 	"github.com/filecoin-project/go-address"
 	cborutil "github.com/filecoin-project/go-cbor-util"
-	"github.com/filecoin-project/go-fil-components/shared/tokenamount"
-	"github.com/filecoin-project/go-fil-components/shared/types"
+	"github.com/filecoin-project/go-fil-markets/shared/tokenamount"
+	"github.com/filecoin-project/go-fil-markets/shared/types"
 )
 
 //go:generate cbor-gen-for ClientDeal MinerDeal StorageDeal Balance StorageDealProposal

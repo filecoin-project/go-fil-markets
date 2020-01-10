@@ -4,7 +4,7 @@ import (
 	"context"
 
 	"github.com/filecoin-project/go-data-transfer"
-	"github.com/filecoin-project/go-fil-components/shared/tokenamount"
+	"github.com/filecoin-project/go-fil-markets/shared/tokenamount"
 
 	"github.com/ipfs/go-cid"
 	ipld "github.com/ipfs/go-ipld-format"
@@ -15,12 +15,12 @@ import (
 	"golang.org/x/xerrors"
 
 	"github.com/filecoin-project/go-cbor-util"
-	"github.com/filecoin-project/go-fil-components/retrievalmarket"
-	"github.com/filecoin-project/go-fil-components/retrievalmarket/discovery"
+	"github.com/filecoin-project/go-fil-markets/retrievalmarket"
+	"github.com/filecoin-project/go-fil-markets/retrievalmarket/discovery"
 
 	"github.com/filecoin-project/go-address"
-	"github.com/filecoin-project/go-fil-components/shared/types"
-	"github.com/filecoin-project/go-fil-components/storagemarket"
+	"github.com/filecoin-project/go-fil-markets/shared/types"
+	"github.com/filecoin-project/go-fil-markets/storagemarket"
 	"github.com/filecoin-project/go-statestore"
 )
 

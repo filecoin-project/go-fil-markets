@@ -15,9 +15,9 @@ import (
 
 	"github.com/filecoin-project/go-cbor-util"
 	"github.com/filecoin-project/go-data-transfer"
-	"github.com/filecoin-project/go-fil-components/filestore"
-	"github.com/filecoin-project/go-fil-components/pieceio/padreader"
-	"github.com/filecoin-project/go-fil-components/pieceio/sectorcalculator"
+	"github.com/filecoin-project/go-fil-markets/filestore"
+	"github.com/filecoin-project/go-fil-markets/pieceio/padreader"
+	"github.com/filecoin-project/go-fil-markets/pieceio/sectorcalculator"
 	"github.com/filecoin-project/go-statestore"
 )
 

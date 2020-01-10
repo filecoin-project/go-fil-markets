@@ -3,7 +3,7 @@ package retrievalimpl
 import (
 	"context"
 
-	"github.com/filecoin-project/go-fil-components/shared/params"
+	"github.com/filecoin-project/go-fil-markets/shared/params"
 	blocks "github.com/ipfs/go-block-format"
 	"github.com/ipfs/go-cid"
 	ipld "github.com/ipfs/go-ipld-format"

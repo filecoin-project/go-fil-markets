@@ -7,7 +7,7 @@ import (
 	"math/big"
 	"strings"
 
-	"github.com/filecoin-project/go-fil-components/shared/params"
+	"github.com/filecoin-project/go-fil-markets/shared/params"
 	cbor "github.com/ipfs/go-ipld-cbor"
 	"github.com/polydawn/refmt/obj/atlas"
 

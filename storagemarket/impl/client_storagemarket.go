@@ -5,14 +5,14 @@ package storageimpl
 import (
 	"context"
 
-	"github.com/filecoin-project/go-fil-components/shared/tokenamount"
+	"github.com/filecoin-project/go-fil-markets/shared/tokenamount"
 
 	"github.com/ipfs/go-cid"
 	"golang.org/x/xerrors"
 
 	"github.com/filecoin-project/go-address"
-	"github.com/filecoin-project/go-fil-components/shared/types"
-	"github.com/filecoin-project/go-fil-components/storagemarket"
+	"github.com/filecoin-project/go-fil-markets/shared/types"
+	"github.com/filecoin-project/go-fil-markets/storagemarket"
 )
 
 func (c *Client) ListProviders(ctx context.Context) (<-chan storagemarket.StorageProviderInfo, error) {
