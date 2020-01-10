@@ -8,13 +8,13 @@ import (
 
 	"github.com/filecoin-project/go-fil-markets/retrievalmarket/impl/clientstates"
 
+	blocks "github.com/ipfs/go-block-format"
 	"github.com/ipfs/go-cid"
 	blockstore "github.com/ipfs/go-ipfs-blockstore"
 	logging "github.com/ipfs/go-log"
 	"github.com/libp2p/go-libp2p-core/peer"
 
 	"github.com/filecoin-project/go-address"
-	cborutil "github.com/filecoin-project/go-cbor-util"
 	"github.com/filecoin-project/go-fil-markets/retrievalmarket"
 	rmnet "github.com/filecoin-project/go-fil-markets/retrievalmarket/network"
 	"github.com/filecoin-project/go-fil-markets/shared/tokenamount"
@@ -33,9 +33,6 @@ type client struct {
 
 	subscribersLk sync.RWMutex
 	subscribers []retrievalmarket.ClientSubscriber
-
-	connsLk sync.RWMutex
-	conns   map[cid.Cid]rmnet.RetrievalDealStream
 }
 
 // NewClient creates a new retrieval client
@@ -44,7 +41,6 @@ func NewClient(network rmnet.RetrievalMarketNetwork, bs blockstore.Blockstore, n
 		network: network,
 		bs:      bs,
 		node:    node,
-		conns:   make(map[cid.Cid]rmnet.RetrievalDealStream),
 	}
 }
 
@@ -120,14 +116,6 @@ func (c *client) handleDeal(ctx context.Context, dealState retrievalmarket.Clien
 
 	c.notifySubscribers(retrievalmarket.ClientEventOpen, dealState)
 
-	proposalNd, err := cborutil.AsIpld(dealState.DealProposal)
-
-	if err != nil {
-		c.failDeal(&dealState, err)
-		return
-	}
-	dealState.ProposalCid = proposalNd.Cid()
-
 	s, err := c.network.NewDealStream(dealState.Sender)
 	if err != nil {
 		c.failDeal(&dealState, err)
@@ -135,11 +123,7 @@ func (c *client) handleDeal(ctx context.Context, dealState retrievalmarket.Clien
 	}
 	defer s.Close()
 
-	c.connsLk.Lock()
-	c.conns[dealState.ProposalCid] = s
-	c.connsLk.Unlock()
-
-	environment := clientDealEnvironment{proposalNd.Cid(), c}
+	environment := clientDealEnvironment{c.node, &UnixFs0Verifier{Root: dealState.DealProposal.PayloadCID}, c.bs, s}
 
 	for {
 		var handler clientstates.ClientHandlerFunc
@@ -438,20 +422,49 @@ func (cst *clientStream) setupPayment(ctx context.Context, toSend tokenamount.To
 */
 
 type clientDealEnvironment struct {
-	proposalCid cid.Cid
-	c           *client
+	node     retrievalmarket.RetrievalClientNode
+	verifier BlockVerifier
+	bs       blockstore.Blockstore
+	stream   rmnet.RetrievalDealStream
 }
 
 func (cde clientDealEnvironment) Node() retrievalmarket.RetrievalClientNode {
-	return cde.c.node
+	return cde.node
 }
 
 func (cde clientDealEnvironment) DealStream() rmnet.RetrievalDealStream {
-	cde.c.connsLk.RLock()
-	defer cde.c.connsLk.RUnlock()
-	return cde.c.conns[cde.proposalCid]
+	return cde.stream
 }
 
-func (cde clientDealEnvironment) Blockstore() blockstore.Blockstore {
-	return cde.c.bs
+func (cde clientDealEnvironment) ConsumeBlock(ctx context.Context, block retrievalmarket.Block) (uint64, bool, error) {
+	prefix, err := cid.PrefixFromBytes(block.Prefix)
+	if err != nil {
+		return 0, false, err
+	}
+
+	cid, err := prefix.Sum(block.Data)
+	if err != nil {
+		return 0, false, err
+	}
+
+	blk, err := blocks.NewBlockWithCid(block.Data, cid)
+	if err != nil {
+		return 0, false, err
+	}
+
+	done, err := cde.verifier.Verify(ctx, blk)
+	if err != nil {
+		log.Warnf("block verify failed: %s", err)
+		return 0, false, err
+	}
+
+	// TODO: Smarter out, maybe add to filestore automagically
+	//  (Also, persist intermediate nodes)
+	err = cde.bs.Put(blk)
+	if err != nil {
+		log.Warnf("block write failed: %s", err)
+		return 0, false, err
+	}
+
+	return uint64(len(block.Data)), done, nil
 }

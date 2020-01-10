@@ -31,6 +31,7 @@ require (
 	github.com/libp2p/go-libp2p v0.3.0
 	github.com/libp2p/go-libp2p-core v0.2.4
 	github.com/minio/blake2b-simd v0.0.0-20160723061019-3f5f724cb5b1
+	github.com/multiformats/go-multihash v0.0.9
 	github.com/polydawn/refmt v0.0.0-20190809202753-05966cbd336a
 	github.com/stretchr/testify v1.4.0
 	github.com/whyrusleeping/cbor-gen v0.0.0-20191216205031-b047b6acb3c0
