@@ -7,6 +7,7 @@ import (
 	"github.com/filecoin-project/go-address"
 	"github.com/filecoin-project/go-data-transfer/testutil"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 
 	"github.com/filecoin-project/go-fil-markets/retrievalmarket"
 	retrievalimpl "github.com/filecoin-project/go-fil-markets/retrievalmarket/impl"
@@ -43,7 +44,7 @@ func TestClientsCanTalkToEachOther(t *testing.T) {
 
 	rcProvider2.SetPaymentInterval(expectedQR.MaxPaymentInterval, expectedQR.MaxPaymentIntervalIncrease)
 	rcProvider2.SetPricePerByte(expectedQR.MinPricePerByte)
-	rcProvider2.Start()
+	require.NoError(t, rcProvider2.Start())
 
 	retrievalPeer := retrievalmarket.RetrievalPeer{
 		Address: paymentAddress,
