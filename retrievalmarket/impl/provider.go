@@ -9,7 +9,6 @@ import (
 	"github.com/filecoin-project/go-address"
 	cborutil "github.com/filecoin-project/go-cbor-util"
 	"github.com/ipfs/go-blockservice"
-	"github.com/ipfs/go-cid"
 	files "github.com/ipfs/go-ipfs-files"
 	ipld "github.com/ipfs/go-ipld-format"
 	"github.com/ipfs/go-merkledag"
@@ -160,7 +159,7 @@ func (p *provider) HandleQueryStream(stream rmnet.RetrievalQueryStream) {
 	}
 }
 
-/* type handlerDeal struct {
+type handlerDeal struct {
 	p      *provider
 	stream network.Stream
 
@@ -168,7 +167,7 @@ func (p *provider) HandleQueryStream(stream rmnet.RetrievalQueryStream) {
 	open cid.Cid
 	at   uint64
 	size uint64
-}*/
+}
 
 // TODO: Update for https://github.com/filecoin-project/go-retrieval-market-project/issues/7
 func (p *provider) HandleDealStream(stream rmnet.RetrievalDealStream) {
