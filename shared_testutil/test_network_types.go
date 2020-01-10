@@ -4,11 +4,10 @@ import (
 	"errors"
 	"testing"
 
+	rm "github.com/filecoin-project/go-fil-components/retrievalmarket"
+	rmnet "github.com/filecoin-project/go-fil-components/retrievalmarket/network"
 	"github.com/libp2p/go-libp2p-core/peer"
 	"github.com/stretchr/testify/require"
-
-	rm "github.com/filecoin-project/go-fil-markets/retrievalmarket"
-	rmnet "github.com/filecoin-project/go-fil-markets/retrievalmarket/network"
 )
 
 // QueryReader is a function to mock reading queries.
