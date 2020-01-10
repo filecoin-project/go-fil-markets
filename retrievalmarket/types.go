@@ -367,7 +367,7 @@ func IsTerminalStatus(status DealStatus) bool {
 
 // Params are the parameters requested for a retrieval deal proposal
 type Params struct {
-	//PayloadCID              cid.Cid   // V1
+	PayloadCID cid.Cid
 	//Selector                ipld.Node // V1
 	PricePerByte            tokenamount.TokenAmount
 	PaymentInterval         uint64
