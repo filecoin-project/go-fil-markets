@@ -1,6 +1,7 @@
 package storageimpl
 
 import (
+	"bytes"
 	"context"
 
 	ipldfree "github.com/ipld/go-ipld-prime/impl/free"
@@ -134,6 +135,21 @@ func (p *Provider) accept(ctx context.Context, deal MinerDeal) (func(*MinerDeal)
 // STAGED
 
 func (p *Provider) staged(ctx context.Context, deal MinerDeal) (func(*MinerDeal), error) {
+	// entire DAG selector
+	ssb := builder.NewSelectorSpecBuilder(ipldfree.NodeBuilder())
+	allSelector := ssb.ExploreRecursive(selector.RecursionLimitNone(),
+		ssb.ExploreAll(ssb.ExploreRecursiveEdge())).Node()
+
+	commp, file, err := p.pio.GeneratePieceCommitment(deal.Ref, allSelector)
+	if err != nil {
+		return nil, err
+	}
+
+	// Verify CommP matches
+	if !bytes.Equal(commp, deal.Proposal.PieceRef) {
+		return nil, xerrors.Errorf("proposal CommP doesn't match calculated CommP")
+	}
+
 	sectorID, err := p.spn.OnDealComplete(
 		ctx,
 		storagemarket.MinerDeal{
@@ -144,7 +160,7 @@ func (p *Provider) staged(ctx context.Context, deal MinerDeal) (func(*MinerDeal)
 			Ref:         deal.Ref,
 			DealID:      deal.DealID,
 		},
-		"",
+		string(deal.PiecePath),
 	)
 
 	if err != nil {
@@ -153,6 +169,7 @@ func (p *Provider) staged(ctx context.Context, deal MinerDeal) (func(*MinerDeal)
 
 	return func(deal *MinerDeal) {
 		deal.SectorID = sectorID
+		deal.PiecePath = file.Path()
 	}, nil
 }
 

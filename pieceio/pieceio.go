@@ -3,10 +3,13 @@ package pieceio
 import (
 	"context"
 	"fmt"
-	"github.com/filecoin-project/go-fil-markets/filestore"
-	"github.com/ipfs/go-cid"
-	"github.com/ipld/go-ipld-prime"
 	"io"
+
+	"github.com/ipfs/go-cid"
+	blockstore "github.com/ipfs/go-ipfs-blockstore"
+	"github.com/ipld/go-ipld-prime"
+
+	"github.com/filecoin-project/go-fil-markets/filestore"
 )
 
 type SectorCalculator interface {
@@ -31,13 +34,14 @@ type pieceIO struct {
 	carIO            CarIO
 	sectorCalculator SectorCalculator
 	store            filestore.FileStore
+	bs               blockstore.Blockstore
 }
 
-func NewPieceIO(padReader PadReader, carIO CarIO, sectorCalculator SectorCalculator, store filestore.FileStore) PieceIO {
-	return &pieceIO{padReader, carIO, sectorCalculator, store}
+func NewPieceIO(padReader PadReader, carIO CarIO, sectorCalculator SectorCalculator, store filestore.FileStore, bs blockstore.Blockstore) PieceIO {
+	return &pieceIO{padReader, carIO, sectorCalculator, store, bs}
 }
 
-func (pio *pieceIO) GeneratePieceCommitment(bs ReadStore, payloadCid cid.Cid, selector ipld.Node) ([]byte, filestore.File, error) {
+func (pio *pieceIO) GeneratePieceCommitment(payloadCid cid.Cid, selector ipld.Node) ([]byte, filestore.File, error) {
 	f, err := pio.store.CreateTemp()
 	if err != nil {
 		return nil, nil, err
@@ -46,7 +50,7 @@ func (pio *pieceIO) GeneratePieceCommitment(bs ReadStore, payloadCid cid.Cid, se
 		f.Close()
 		_ = pio.store.Delete(f.Path())
 	}
-	err = pio.carIO.WriteCar(context.Background(), bs, payloadCid, selector, f)
+	err = pio.carIO.WriteCar(context.Background(), pio.bs, payloadCid, selector, f)
 	if err != nil {
 		cleanup()
 		return nil, nil, err
@@ -78,6 +82,6 @@ func (pio *pieceIO) GeneratePieceCommitment(bs ReadStore, payloadCid cid.Cid, se
 	return commitment, f, nil
 }
 
-func (pio *pieceIO) ReadPiece(r io.Reader, bs WriteStore) (cid.Cid, error) {
-	return pio.carIO.LoadCar(bs, r)
+func (pio *pieceIO) ReadPiece(r io.Reader) (cid.Cid, error) {
+	return pio.carIO.LoadCar(pio.bs, r)
 }
