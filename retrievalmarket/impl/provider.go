@@ -9,6 +9,7 @@ import (
 	"github.com/filecoin-project/go-address"
 	cborutil "github.com/filecoin-project/go-cbor-util"
 	"github.com/ipfs/go-blockservice"
+	"github.com/ipfs/go-cid"
 	files "github.com/ipfs/go-ipfs-files"
 	ipld "github.com/ipfs/go-ipld-format"
 	"github.com/ipfs/go-merkledag"
@@ -159,7 +160,7 @@ func (p *provider) HandleQueryStream(stream rmnet.RetrievalQueryStream) {
 	}
 }
 
-type handlerDeal struct {
+type handlerDeal struct { //nolint: unused
 	p      *provider
 	stream network.Stream
 
