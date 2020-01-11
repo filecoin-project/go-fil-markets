@@ -2,10 +2,12 @@ package retrievalimpl_test
 
 import (
 	"context"
+	"math/big"
 	"testing"
 
 	"github.com/filecoin-project/go-address"
 	"github.com/filecoin-project/go-data-transfer/testutil"
+	"github.com/ipfs/go-cid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -17,39 +19,11 @@ import (
 	tut "github.com/filecoin-project/go-fil-markets/shared_testutil"
 )
 
-func TestClientsCanTalkToEachOther(t *testing.T) {
+func TestClientCanMakeQueryToProvider(t *testing.T) {
 	bgCtx := context.Background()
-	testData := tut.NewLibp2pTestData(bgCtx, t)
-
-	nw1 := rmnet.NewFromLibp2pHost(testData.Host1)
 	payChAddr := address.TestAddress
-	rcNode1 := testRetrievalClientNode{payChAddr: payChAddr}
-	client := retrievalimpl.NewClient(nw1, testData.Bs1, &rcNode1)
 
-	nw2 := rmnet.NewFromLibp2pHost(testData.Host2)
-	rcNode2 := newTestRetrievalProviderNode()
-
-	expectedCIDs := testutil.GenerateCids(3)
-	missingCID := testutil.GenerateCids(1)[0]
-	expectedQR := tut.MakeTestQueryResponse()
-
-	rcNode2.expectedMissingPieces[string(missingCID.Bytes())] = struct{}{}
-	for i, el := range expectedCIDs {
-		key := string(el.Bytes())
-		rcNode2.expectedPieces[key] = expectedQR.Size * uint64(i+1)
-	}
-
-	paymentAddress := address.TestAddress2
-	rcProvider2 := retrievalimpl.NewProvider(paymentAddress, rcNode2, nw2)
-
-	rcProvider2.SetPaymentInterval(expectedQR.MaxPaymentInterval, expectedQR.MaxPaymentIntervalIncrease)
-	rcProvider2.SetPricePerByte(expectedQR.MinPricePerByte)
-	require.NoError(t, rcProvider2.Start())
-
-	retrievalPeer := retrievalmarket.RetrievalPeer{
-		Address: paymentAddress,
-		ID:      testData.Host2.ID(),
-	}
+	client, expectedCIDs, missingCID, expectedQR, retrievalPeer, _ := requireSetupTestClientAndProvider(bgCtx, t, payChAddr)
 
 	t.Run("when piece is found, returns piece and price data", func(t *testing.T) {
 		expectedQR.Status = retrievalmarket.QueryResponseAvailable
@@ -77,26 +51,117 @@ func TestClientsCanTalkToEachOther(t *testing.T) {
 	})
 }
 
+
+
+func TestClientCanMakeDealWithProvider(t *testing.T) {
+	bgCtx := context.Background()
+	payChAddr := address.TestAddress
+
+	client, expectedCIDs, _, _, retrievalPeer, clientNode := requireSetupTestClientAndProvider(bgCtx, t, payChAddr)
+
+	newLane := make(chan address.Address)
+	clientNode.allocateLaneRecorder = func(paymentChannel address.Address) {
+		newLane <- paymentChannel
+	}
+
+	type voucher struct {
+		client address.Address
+		funds tokenamount.TokenAmount
+		lane uint64
+	}
+	seenVouchers := make(chan voucher)
+	clientNode.createPaymentVoucherRecorder = func(paymentCh address.Address, funds tokenamount.TokenAmount, lane uint64) {
+		seenVouchers <- voucher{ paymentCh, funds, lane }
+	}
+
+	type pmtChan struct {
+		client, miner address.Address
+		amt tokenamount.TokenAmount
+	}
+	createdChan := make(chan pmtChan)
+	clientNode.getCreatePaymentChannelRecorder = func(client, miner address.Address, amt tokenamount.TokenAmount) {
+		createdChan <- pmtChan{client, miner, amt}
+	}
+
+	fetchPieceID := expectedCIDs[0]
+	resp, err :=client.Query(bgCtx, retrievalPeer, fetchPieceID.Bytes(), retrievalmarket.QueryParams{})
+	require.NoError(t, err)
+
+	rmParams := retrievalmarket.Params{
+		PricePerByte:            resp.MinPricePerByte,
+		PaymentInterval:         resp.MaxPaymentInterval,
+		PaymentIntervalIncrease: resp.MaxPaymentIntervalIncrease,
+	}
+	total := tokenamount.TokenAmount{ Int: big.NewInt(9999)}
+	did := client.Retrieve(bgCtx, fetchPieceID.Bytes(), rmParams, total, retrievalPeer.ID, payChAddr, retrievalPeer.Address)
+	assert.NotEqual(t, did, 0)
+}
+
+func requireSetupTestClientAndProvider(bgCtx context.Context, t *testing.T, payChAddr address.Address) (retrievalmarket.RetrievalClient, []cid.Cid, cid.Cid, retrievalmarket.QueryResponse, retrievalmarket.RetrievalPeer, testRetrievalClientNode) {
+	testData := tut.NewLibp2pTestData(bgCtx, t)
+	nw1 := rmnet.NewFromLibp2pHost(testData.Host1)
+	rcNode1 := testRetrievalClientNode{payChAddr: payChAddr}
+	client := retrievalimpl.NewClient(nw1, testData.Bs1, &rcNode1)
+
+	nw2 := rmnet.NewFromLibp2pHost(testData.Host2)
+	rcNode2 := newTestRetrievalProviderNode()
+
+	expectedCIDs := testutil.GenerateCids(3)
+	missingCID := testutil.GenerateCids(1)[0]
+	expectedQR := tut.MakeTestQueryResponse()
+
+	rcNode2.expectedMissingPieces[string(missingCID.Bytes())] = struct{}{}
+	for i, el := range expectedCIDs {
+		key := string(el.Bytes())
+		rcNode2.expectedPieces[key] = expectedQR.Size * uint64(i+1)
+	}
+
+	paymentAddress := address.TestAddress2
+	provider := retrievalimpl.NewProvider(paymentAddress, rcNode2, nw2)
+
+	provider.SetPaymentInterval(expectedQR.MaxPaymentInterval, expectedQR.MaxPaymentIntervalIncrease)
+	provider.SetPricePerByte(expectedQR.MinPricePerByte)
+	require.NoError(t, provider.Start())
+
+	retrievalPeer := retrievalmarket.RetrievalPeer{
+		Address: paymentAddress,
+		ID:      testData.Host2.ID(),
+	}
+	return client, expectedCIDs, missingCID, expectedQR, retrievalPeer, rcNode1
+}
+
 type testRetrievalClientNode struct {
 	payChAddr address.Address
 	lanes     []bool
+	allocateLaneRecorder func(address.Address)
+	createPaymentVoucherRecorder func(address.Address, tokenamount.TokenAmount, uint64)
+	getCreatePaymentChannelRecorder func(address.Address, address.Address, tokenamount.TokenAmount)
 }
-
-func (trcn *testRetrievalClientNode) GetOrCreatePaymentChannel(ctx context.Context,
-	clientAddress address.Address,
-	minerAddress address.Address,
-	clientFundsAvailable tokenamount.TokenAmount) (address.Address, error) {
-	return trcn.payChAddr, nil
-}
-
 func (trcn *testRetrievalClientNode) AllocateLane(paymentChannel address.Address) (uint64, error) {
 	trcn.lanes = append(trcn.lanes, true)
+	if trcn.allocateLaneRecorder != nil {
+		trcn.allocateLaneRecorder(paymentChannel)
+	}
 	return uint64(len(trcn.lanes) - 1), nil
 }
+
 
 func (trcn *testRetrievalClientNode) CreatePaymentVoucher(ctx context.Context, paymentChannel address.Address, amount tokenamount.TokenAmount, lane uint64) (*types.SignedVoucher, error) {
 	sv := tut.MakeTestSignedVoucher()
 	sv.Amount = amount
 	sv.Lane = lane
+	if trcn.createPaymentVoucherRecorder != nil {
+		trcn.createPaymentVoucherRecorder(paymentChannel, amount, lane)
+	}
 	return sv, nil
+}
+
+func (trcn *testRetrievalClientNode) GetOrCreatePaymentChannel(_ context.Context,
+	clientAddress address.Address,
+	minerAddress address.Address,
+	clientFundsAvailable tokenamount.TokenAmount) (address.Address, error) {
+	if trcn.getCreatePaymentChannelRecorder != nil {
+		trcn.getCreatePaymentChannelRecorder(clientAddress, minerAddress, clientFundsAvailable)
+	}
+	return trcn.payChAddr, nil
 }
