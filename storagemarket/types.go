@@ -31,7 +31,7 @@ type DealState = uint64
 const (
 	DealUnknown  = DealState(iota)
 	DealRejected // Provider didn't like the proposal
-	DealAccepted // Proposal accepted, data moved
+	DealAccepted // Proposal accepted
 	DealStaged   // Data put into the sector
 	DealSealing  // Data in process of being sealed
 
@@ -40,7 +40,11 @@ const (
 
 	// Internal
 
-	DealError // deal failed with an unexpected error
+	DealValidating   // Verifying that deal parameters are good
+	DealTransferring // Moving data
+	DealVerifyData   // Verify transferred data - generate CAR / piece data
+	DealPublishing   // Publishing deal to chain
+	DealError        // deal failed with an unexpected error
 
 	DealNoUpdate = DealUnknown
 )
@@ -53,6 +57,11 @@ var DealStates = []string{
 	"DealSealing",
 	"DealFailed",
 	"DealComplete",
+
+	"DealValidating",
+	"DealTransferring",
+	"DealVerifyData",
+	"DealPublishing",
 	"DealError",
 }
 

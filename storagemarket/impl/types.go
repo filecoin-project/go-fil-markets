@@ -88,7 +88,7 @@ type AskResponse struct {
 // used by the storage market
 type StorageDataTransferVoucher struct {
 	Proposal cid.Cid
-	DealID   uint64
+	DealID   uint64 // TODO: Remove this
 }
 
 // ToBytes converts the StorageDataTransferVoucher to raw bytes

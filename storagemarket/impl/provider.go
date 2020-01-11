@@ -157,7 +157,7 @@ func (p *Provider) onIncoming(deal MinerDeal) {
 
 	go func() {
 		p.updated <- minerDealUpdate{
-			newState: storagemarket.DealAccepted,
+			newState: storagemarket.DealValidating,
 			id:       deal.ProposalCid,
 			err:      nil,
 		}
@@ -186,8 +186,14 @@ func (p *Provider) onUpdated(ctx context.Context, update minerDealUpdate) {
 	}
 
 	switch update.newState {
-	case storagemarket.DealAccepted:
-		p.handle(ctx, deal, p.accept, storagemarket.DealNoUpdate)
+	case storagemarket.DealValidating:
+		p.handle(ctx, deal, p.validating, storagemarket.DealTransferring)
+	case storagemarket.DealTransferring:
+		p.handle(ctx, deal, p.transferring, storagemarket.DealNoUpdate)
+	case storagemarket.DealVerifyData:
+		p.handle(ctx, deal, p.verifydata, storagemarket.DealPublishing)
+	case storagemarket.DealPublishing:
+		p.handle(ctx, deal, p.publishing, storagemarket.DealStaged)
 	case storagemarket.DealStaged:
 		p.handle(ctx, deal, p.staged, storagemarket.DealSealing)
 	case storagemarket.DealSealing:
@@ -215,10 +221,7 @@ func (p *Provider) onDataTransferEvent(event datatransfer.Event, channelState da
 	var mut func(*MinerDeal)
 	switch event.Code {
 	case datatransfer.Complete:
-		next = storagemarket.DealStaged
-		mut = func(deal *MinerDeal) {
-			deal.DealID = voucher.DealID
-		}
+		next = storagemarket.DealVerifyData
 	case datatransfer.Error:
 		next = storagemarket.DealFailed
 		err = ErrDataTransferFailed
