@@ -426,6 +426,14 @@ func ExpectQueryResponseWriter(t *testing.T, expectedQueryResponse rm.QueryRespo
 	}
 }
 
+// ExpectDealResponseWriter will fail if the written query and expected query don't match
+func ExpectDealResponseWriter(t *testing.T, expectedDealResponse rm.DealResponse, msgAndArgs ...interface{}) DealResponseWriter {
+	return func(dealResponse rm.DealResponse) error {
+		require.Equal(t, expectedDealResponse, dealResponse, msgAndArgs...)
+		return nil
+	}
+}
+
 // QueryReadWriter will read only if something is written, otherwise it errors
 func QueryReadWriter() (QueryReader, QueryWriter) {
 	var q rm.Query
@@ -473,5 +481,12 @@ func StubbedDealProposalReader(proposal rm.DealProposal) DealProposalReader {
 func StubbedDealResponseReader(response rm.DealResponse) DealResponseReader {
 	return func() (rm.DealResponse, error) {
 		return response, nil
+	}
+}
+
+// StubbedDealPaymentReader returns the given deal payment when called
+func StubbedDealPaymentReader(payment rm.DealPayment) DealPaymentReader {
+	return func() (rm.DealPayment, error) {
+		return payment, nil
 	}
 }
