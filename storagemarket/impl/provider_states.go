@@ -36,9 +36,8 @@ func (p *Provider) handle(ctx context.Context, deal MinerDeal, cb providerHandle
 	}()
 }
 
-// ACCEPTED
-func (p *Provider) accept(ctx context.Context, deal MinerDeal) (func(*MinerDeal), error) {
-
+// DealValidating
+func (p *Provider) validating(ctx context.Context, deal MinerDeal) (func(*MinerDeal), error) {
 	head, err := p.spn.MostRecentStateId(ctx)
 	if err != nil {
 		return nil, err
@@ -70,6 +69,61 @@ func (p *Provider) accept(ctx context.Context, deal MinerDeal) (func(*MinerDeal)
 		return nil, xerrors.New("clientMarketBalance.Available too small")
 	}
 
+	// TODO: Send intent to accept
+	return nil, nil
+}
+
+// State: DealTransferring
+func (p *Provider) transferring(ctx context.Context, deal MinerDeal) (func(*MinerDeal), error) {
+	ssb := builder.NewSelectorSpecBuilder(ipldfree.NodeBuilder())
+
+	// this is the selector for "get the whole DAG"
+	// TODO: support storage deals with custom payload selectors
+	allSelector := ssb.ExploreRecursive(selector.RecursionLimitNone(),
+		ssb.ExploreAll(ssb.ExploreRecursiveEdge())).Node()
+
+	log.Infof("fetching data for a deal %d", deal.ProposalCid)
+
+	// initiate a pull data transfer. This will complete asynchronously and the
+	// completion of the data transfer will trigger a change in deal state
+	// (see onDataTransferEvent)
+	_, err := p.dataTransfer.OpenPullDataChannel(ctx,
+		deal.Client,
+		&StorageDataTransferVoucher{Proposal: deal.ProposalCid},
+		deal.Ref,
+		allSelector,
+	)
+	if err != nil {
+		return nil, xerrors.Errorf("failed to open pull data channel: %w", err)
+	}
+
+	return nil, nil
+}
+
+// State: DealVerifyData
+func (p *Provider) verifydata(ctx context.Context, deal MinerDeal) (func(*MinerDeal), error) {
+	// entire DAG selector
+	ssb := builder.NewSelectorSpecBuilder(ipldfree.NodeBuilder())
+	allSelector := ssb.ExploreRecursive(selector.RecursionLimitNone(),
+		ssb.ExploreAll(ssb.ExploreRecursiveEdge())).Node()
+
+	commp, file, err := p.pio.GeneratePieceCommitment(deal.Ref, allSelector)
+	if err != nil {
+		return nil, err
+	}
+
+	// Verify CommP matches
+	if !bytes.Equal(commp, deal.Proposal.PieceRef) {
+		return nil, xerrors.Errorf("proposal CommP doesn't match calculated CommP")
+	}
+
+	return func(deal *MinerDeal) {
+		deal.PiecePath = file.Path()
+	}, nil
+}
+
+// State: DealPublishing
+func (p *Provider) publishing(ctx context.Context, deal MinerDeal) (func(*MinerDeal), error) {
 	waddr, err := p.spn.GetMinerWorker(ctx, deal.Proposal.Provider)
 	if err != nil {
 		return nil, err
@@ -94,7 +148,6 @@ func (p *Provider) accept(ctx context.Context, deal MinerDeal) (func(*MinerDeal)
 		return nil, err
 	}
 
-	log.Infof("fetching data for a deal %d", dealId)
 	err = p.sendSignedResponse(ctx, &Response{
 		State: storagemarket.DealAccepted,
 
@@ -109,47 +162,13 @@ func (p *Provider) accept(ctx context.Context, deal MinerDeal) (func(*MinerDeal)
 		log.Warnf("closing client connection: %+v", err)
 	}
 
-	ssb := builder.NewSelectorSpecBuilder(ipldfree.NodeBuilder())
-
-	// this is the selector for "get the whole DAG"
-	// TODO: support storage deals with custom payload selectors
-	allSelector := ssb.ExploreRecursive(selector.RecursionLimitNone(),
-		ssb.ExploreAll(ssb.ExploreRecursiveEdge())).Node()
-
-	// initiate a pull data transfer. This will complete asynchronously and the
-	// completion of the data transfer will trigger a change in deal state
-	// (see onDataTransferEvent)
-	_, err = p.dataTransfer.OpenPullDataChannel(ctx,
-		deal.Client,
-		&StorageDataTransferVoucher{Proposal: deal.ProposalCid, DealID: uint64(dealId)},
-		deal.Ref,
-		allSelector,
-	)
-	if err != nil {
-		return nil, xerrors.Errorf("failed to open pull data channel: %w", err)
-	}
-
-	return nil, nil
+	return func(deal *MinerDeal) {
+		deal.DealID = uint64(dealId)
+	}, nil
 }
 
 // STAGED
-
 func (p *Provider) staged(ctx context.Context, deal MinerDeal) (func(*MinerDeal), error) {
-	// entire DAG selector
-	ssb := builder.NewSelectorSpecBuilder(ipldfree.NodeBuilder())
-	allSelector := ssb.ExploreRecursive(selector.RecursionLimitNone(),
-		ssb.ExploreAll(ssb.ExploreRecursiveEdge())).Node()
-
-	commp, file, err := p.pio.GeneratePieceCommitment(deal.Ref, allSelector)
-	if err != nil {
-		return nil, err
-	}
-
-	// Verify CommP matches
-	if !bytes.Equal(commp, deal.Proposal.PieceRef) {
-		return nil, xerrors.Errorf("proposal CommP doesn't match calculated CommP")
-	}
-
 	sectorID, err := p.spn.OnDealComplete(
 		ctx,
 		storagemarket.MinerDeal{
@@ -169,7 +188,6 @@ func (p *Provider) staged(ctx context.Context, deal MinerDeal) (func(*MinerDeal)
 
 	return func(deal *MinerDeal) {
 		deal.SectorID = sectorID
-		deal.PiecePath = file.Path()
 	}, nil
 }
 

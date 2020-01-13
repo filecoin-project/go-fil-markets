@@ -131,7 +131,7 @@ func TestClientRequestValidation(t *testing.T) {
 		if err != nil {
 			t.Fatal("unable to construct piece cid")
 		}
-		if !xerrors.Is(crv.ValidatePull(minerID, &deals.StorageDataTransferVoucher{proposalNd.Cid(), 1}, pieceRef, nil), deals.ErrNoDeal) {
+		if !xerrors.Is(crv.ValidatePull(minerID, &deals.StorageDataTransferVoucher{proposalNd.Cid()}, pieceRef, nil), deals.ErrNoDeal) {
 			t.Fatal("Pull should fail if there is no deal stored")
 		}
 	})
@@ -145,7 +145,7 @@ func TestClientRequestValidation(t *testing.T) {
 			t.Fatal("deal tracking failed")
 		}
 		payloadCid := clientDeal.PayloadCid
-		if !xerrors.Is(crv.ValidatePull(minerID, &deals.StorageDataTransferVoucher{clientDeal.ProposalCid, 1}, payloadCid, nil), deals.ErrWrongPeer) {
+		if !xerrors.Is(crv.ValidatePull(minerID, &deals.StorageDataTransferVoucher{clientDeal.ProposalCid}, payloadCid, nil), deals.ErrWrongPeer) {
 			t.Fatal("Pull should fail if miner address is incorrect")
 		}
 	})
@@ -157,7 +157,7 @@ func TestClientRequestValidation(t *testing.T) {
 		if err := state.Begin(clientDeal.ProposalCid, &clientDeal); err != nil {
 			t.Fatal("deal tracking failed")
 		}
-		if !xerrors.Is(crv.ValidatePull(minerID, &deals.StorageDataTransferVoucher{clientDeal.ProposalCid, 1}, blockGenerator.Next().Cid(), nil), deals.ErrWrongPiece) {
+		if !xerrors.Is(crv.ValidatePull(minerID, &deals.StorageDataTransferVoucher{clientDeal.ProposalCid}, blockGenerator.Next().Cid(), nil), deals.ErrWrongPiece) {
 			t.Fatal("Pull should fail if piece ref is incorrect")
 		}
 	})
@@ -170,7 +170,7 @@ func TestClientRequestValidation(t *testing.T) {
 			t.Fatal("deal tracking failed")
 		}
 		payloadCid := clientDeal.PayloadCid
-		if !xerrors.Is(crv.ValidatePull(minerID, &deals.StorageDataTransferVoucher{clientDeal.ProposalCid, 1}, payloadCid, nil), deals.ErrInacceptableDealState) {
+		if !xerrors.Is(crv.ValidatePull(minerID, &deals.StorageDataTransferVoucher{clientDeal.ProposalCid}, payloadCid, nil), deals.ErrInacceptableDealState) {
 			t.Fatal("Pull should fail if deal is in a state that cannot be data transferred")
 		}
 	})
@@ -183,7 +183,7 @@ func TestClientRequestValidation(t *testing.T) {
 			t.Fatal("deal tracking failed")
 		}
 		payloadCid := clientDeal.PayloadCid
-		if crv.ValidatePull(minerID, &deals.StorageDataTransferVoucher{clientDeal.ProposalCid, 1}, payloadCid, nil) != nil {
+		if crv.ValidatePull(minerID, &deals.StorageDataTransferVoucher{clientDeal.ProposalCid}, payloadCid, nil) != nil {
 			t.Fatal("Pull should should succeed when all parameters are correct")
 		}
 	})
@@ -215,7 +215,7 @@ func TestProviderRequestValidation(t *testing.T) {
 		if err != nil {
 			t.Fatal("unable to construct piece cid")
 		}
-		if !xerrors.Is(mrv.ValidatePush(clientID, &deals.StorageDataTransferVoucher{proposalNd.Cid(), 1}, pieceRef, nil), deals.ErrNoDeal) {
+		if !xerrors.Is(mrv.ValidatePush(clientID, &deals.StorageDataTransferVoucher{proposalNd.Cid()}, pieceRef, nil), deals.ErrNoDeal) {
 			t.Fatal("Push should fail if there is no deal stored")
 		}
 	})
@@ -229,7 +229,7 @@ func TestProviderRequestValidation(t *testing.T) {
 			t.Fatal("deal tracking failed")
 		}
 		ref := minerDeal.Ref
-		if !xerrors.Is(mrv.ValidatePush(clientID, &deals.StorageDataTransferVoucher{minerDeal.ProposalCid, 1}, ref, nil), deals.ErrWrongPeer) {
+		if !xerrors.Is(mrv.ValidatePush(clientID, &deals.StorageDataTransferVoucher{minerDeal.ProposalCid}, ref, nil), deals.ErrWrongPeer) {
 			t.Fatal("Push should fail if miner address is incorrect")
 		}
 	})
@@ -241,7 +241,7 @@ func TestProviderRequestValidation(t *testing.T) {
 		if err := state.Begin(minerDeal.ProposalCid, &minerDeal); err != nil {
 			t.Fatal("deal tracking failed")
 		}
-		if !xerrors.Is(mrv.ValidatePush(clientID, &deals.StorageDataTransferVoucher{minerDeal.ProposalCid, 1}, blockGenerator.Next().Cid(), nil), deals.ErrWrongPiece) {
+		if !xerrors.Is(mrv.ValidatePush(clientID, &deals.StorageDataTransferVoucher{minerDeal.ProposalCid}, blockGenerator.Next().Cid(), nil), deals.ErrWrongPiece) {
 			t.Fatal("Push should fail if piece ref is incorrect")
 		}
 	})
@@ -254,7 +254,7 @@ func TestProviderRequestValidation(t *testing.T) {
 			t.Fatal("deal tracking failed")
 		}
 		ref := minerDeal.Ref
-		if !xerrors.Is(mrv.ValidatePush(clientID, &deals.StorageDataTransferVoucher{minerDeal.ProposalCid, 1}, ref, nil), deals.ErrInacceptableDealState) {
+		if !xerrors.Is(mrv.ValidatePush(clientID, &deals.StorageDataTransferVoucher{minerDeal.ProposalCid}, ref, nil), deals.ErrInacceptableDealState) {
 			t.Fatal("Push should fail if deal is in a state that cannot be data transferred")
 		}
 	})
@@ -267,7 +267,7 @@ func TestProviderRequestValidation(t *testing.T) {
 			t.Fatal("deal tracking failed")
 		}
 		ref := minerDeal.Ref
-		if mrv.ValidatePush(clientID, &deals.StorageDataTransferVoucher{minerDeal.ProposalCid, 1}, ref, nil) != nil {
+		if mrv.ValidatePush(clientID, &deals.StorageDataTransferVoucher{minerDeal.ProposalCid}, ref, nil) != nil {
 			t.Fatal("Push should should succeed when all parameters are correct")
 		}
 	})
