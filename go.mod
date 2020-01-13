@@ -8,7 +8,7 @@ require (
 	github.com/filecoin-project/go-cbor-util v0.0.0-20191219014500-08c40a1e63a2
 	github.com/filecoin-project/go-crypto v0.0.0-20191218222705-effae4ea9f03
 	github.com/filecoin-project/go-data-transfer v0.0.0-20191219005021-4accf56bd2ce
-	github.com/filecoin-project/go-statestore v0.0.0-20191219195854-7a95521e8f15
+	github.com/filecoin-project/go-statestore v0.1.0
 	github.com/hannahhoward/cbor-gen-for v0.0.0-20191216214420-3e450425c40c
 	github.com/ipfs/go-block-format v0.0.2
 	github.com/ipfs/go-blockservice v0.1.3-0.20190908200855-f22eea50656c
