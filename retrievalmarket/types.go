@@ -132,10 +132,12 @@ type RetrievalClientNode interface {
 // of a retrieval provider
 type ProviderDealState struct {
 	DealProposal
-	Status        DealStatus
-	Receiver      peer.ID
-	TotalSent     uint64
-	FundsReceived tokenamount.TokenAmount
+	Status          DealStatus
+	Receiver        peer.ID
+	TotalSent       uint64
+	FundsReceived   tokenamount.TokenAmount
+	Message         string
+	CurrentInterval uint64
 }
 
 // ProviderEvent is an event that occurs in a deal lifecycle on the provider
@@ -401,6 +403,9 @@ type Block struct {
 	Prefix []byte
 	Data   []byte
 }
+
+// EmptyBlock is just a block with no content
+var EmptyBlock = Block{}
 
 // DealResponse is a response to a retrieval deal proposal
 type DealResponse struct {
