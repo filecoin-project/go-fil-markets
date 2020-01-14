@@ -508,13 +508,13 @@ func generateBlocks(count uint64, blockSize uint64, completeOnLast bool, errorOn
 	var i uint64 = 0
 	for ; i < count; i++ {
 		data := make([]byte, blockSize)
-		rand.Read(data)
+		var err error
+		_, err = rand.Read(data)
 		blocks[i] = retrievalmarket.Block{
 			Prefix: cid.NewPrefixV1(cid.Raw, mh.SHA2_256).Bytes(),
 			Data:   data,
 		}
 		complete := false
-		var err error = nil
 		if i == 0 && errorOnFirst {
 			err = errors.New("something went wrong")
 		}
