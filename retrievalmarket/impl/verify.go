@@ -16,7 +16,7 @@ import (
 type BlockVerifier interface {
 	Verify(context.Context, blocks.Block) (done bool, err error)
 }
-
+sdfadfdsafdasfdasf
 type OptimisticVerifier struct {
 }
 
