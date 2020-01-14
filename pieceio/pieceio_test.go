@@ -10,7 +10,7 @@ import (
 	"github.com/filecoin-project/go-fil-markets/pieceio/cario"
 	pmocks "github.com/filecoin-project/go-fil-markets/pieceio/mocks"
 	"github.com/filecoin-project/go-fil-markets/pieceio/padreader"
-	"github.com/filecoin-project/go-fil-markets/pieceio/sectorcalculator"
+	"github.com/filecoin-project/go-sectorbuilder"
 	dag "github.com/ipfs/go-merkledag"
 	dstest "github.com/ipfs/go-merkledag/test"
 	ipldfree "github.com/ipld/go-ipld-prime/impl/free"
@@ -25,13 +25,12 @@ import (
 
 func Test_ThereAndBackAgain(t *testing.T) {
 	tempDir := filestore.Path("./tempDir")
-	sc := sectorcalculator.NewSectorCalculator(tempDir)
 	pr := padreader.NewPadReader()
 	cio := cario.NewCarIO()
 
 	store, err := filestore.NewLocalFileStore(tempDir)
 	require.NoError(t, err)
-	pio := pieceio.NewPieceIO(pr, cio, sc, store)
+	pio := pieceio.NewPieceIO(pr, cio, store)
 	require.NoError(t, err)
 
 	sourceBserv := dstest.Bserv()
@@ -114,13 +113,12 @@ func Test_ThereAndBackAgain(t *testing.T) {
 
 func Test_StoreRestoreMemoryBuffer(t *testing.T) {
 	tempDir := filestore.Path("./tempDir")
-	sc := sectorcalculator.NewSectorCalculator(tempDir)
 	pr := padreader.NewPadReader()
 	cio := cario.NewCarIO()
 
 	store, err := filestore.NewLocalFileStore(tempDir)
 	require.NoError(t, err)
-	pio := pieceio.NewPieceIO(pr, cio, sc, store)
+	pio := pieceio.NewPieceIO(pr, cio, store)
 
 	sourceBserv := dstest.Bserv()
 	sourceBs := sourceBserv.Blockstore()
@@ -171,9 +169,9 @@ func Test_StoreRestoreMemoryBuffer(t *testing.T) {
 	_, err = f.Read(buf)
 	require.NoError(t, err)
 	buffer := bytes.NewBuffer(buf)
-	secondCommitment, err := sc.GeneratePieceCommitment(buffer, uint64(info.Size()))
+	secondCommitment, err := sectorbuilder.GeneratePieceCommitment(buffer, uint64(info.Size()))
 	require.NoError(t, err)
-	require.Equal(t, commitment, secondCommitment)
+	require.Equal(t, commitment, secondCommitment[:])
 }
 
 func Test_Failures(t *testing.T) {
@@ -212,13 +210,12 @@ func Test_Failures(t *testing.T) {
 	t.Run("create temp file fails", func(t *testing.T) {
 		fsmock := fsmocks.FileStore{}
 		fsmock.On("CreateTemp").Return(nil, fmt.Errorf("Failed"))
-		pio := pieceio.NewPieceIO(nil, nil, nil, &fsmock)
+		pio := pieceio.NewPieceIO(nil, nil, &fsmock)
 		_, _, err := pio.GeneratePieceCommitment(sourceBs, nd3.Cid(), node)
 		require.Error(t, err)
 	})
 	t.Run("write CAR fails", func(t *testing.T) {
 		tempDir := filestore.Path("./tempDir")
-		sc := sectorcalculator.NewSectorCalculator(tempDir)
 		pr := padreader.NewPadReader()
 		store, err := filestore.NewLocalFileStore(tempDir)
 		require.NoError(t, err)
@@ -226,13 +223,11 @@ func Test_Failures(t *testing.T) {
 		ciomock := pmocks.CarIO{}
 		any := mock.Anything
 		ciomock.On("WriteCar", any, any, any, any, any).Return(fmt.Errorf("failed to write car"))
-		pio := pieceio.NewPieceIO(pr, &ciomock, sc, store)
+		pio := pieceio.NewPieceIO(pr, &ciomock, store)
 		_, _, err = pio.GeneratePieceCommitment(sourceBs, nd3.Cid(), node)
 		require.Error(t, err)
 	})
 	t.Run("padding fails", func(t *testing.T) {
-		tempDir := filestore.Path("./tempDir")
-		sc := sectorcalculator.NewSectorCalculator(tempDir)
 		pr := padreader.NewPadReader()
 		cio := cario.NewCarIO()
 
@@ -244,7 +239,7 @@ func Test_Failures(t *testing.T) {
 
 		counter := 0
 		size := 0
-		mockfile.On("Write", mock.Anything).Run(func (args mock.Arguments) {
+		mockfile.On("Write", mock.Anything).Run(func(args mock.Arguments) {
 			arg := args[0]
 			buf := arg.([]byte)
 			size := len(buf)
@@ -255,13 +250,11 @@ func Test_Failures(t *testing.T) {
 		mockfile.On("Close").Return(nil).Once()
 		mockfile.On("Path").Return(filestore.Path("mock")).Once()
 
-		pio := pieceio.NewPieceIO(pr, cio, sc, &fsmock)
+		pio := pieceio.NewPieceIO(pr, cio, &fsmock)
 		_, _, err := pio.GeneratePieceCommitment(sourceBs, nd3.Cid(), node)
 		require.Error(t, err)
 	})
 	t.Run("incorrect padding", func(t *testing.T) {
-		tempDir := filestore.Path("./tempDir")
-		sc := sectorcalculator.NewSectorCalculator(tempDir)
 		pr := padreader.NewPadReader()
 		cio := cario.NewCarIO()
 
@@ -273,7 +266,7 @@ func Test_Failures(t *testing.T) {
 
 		counter := 0
 		size := 0
-		mockfile.On("Write", mock.Anything).Run(func (args mock.Arguments) {
+		mockfile.On("Write", mock.Anything).Run(func(args mock.Arguments) {
 			arg := args[0]
 			buf := arg.([]byte)
 			size := len(buf)
@@ -284,13 +277,11 @@ func Test_Failures(t *testing.T) {
 		mockfile.On("Close").Return(nil).Once()
 		mockfile.On("Path").Return(filestore.Path("mock")).Once()
 
-		pio := pieceio.NewPieceIO(pr, cio, sc, &fsmock)
+		pio := pieceio.NewPieceIO(pr, cio, &fsmock)
 		_, _, err := pio.GeneratePieceCommitment(sourceBs, nd3.Cid(), node)
 		require.Error(t, err)
 	})
 	t.Run("seek fails", func(t *testing.T) {
-		tempDir := filestore.Path("./tempDir")
-		sc := sectorcalculator.NewSectorCalculator(tempDir)
 		pr := padreader.NewPadReader()
 		cio := cario.NewCarIO()
 
@@ -302,7 +293,7 @@ func Test_Failures(t *testing.T) {
 
 		counter := 0
 		size := 0
-		mockfile.On("Write", mock.Anything).Run(func (args mock.Arguments) {
+		mockfile.On("Write", mock.Anything).Run(func(args mock.Arguments) {
 			arg := args[0]
 			buf := arg.([]byte)
 			size := len(buf)
@@ -314,22 +305,8 @@ func Test_Failures(t *testing.T) {
 		mockfile.On("Path").Return(filestore.Path("mock")).Once()
 		mockfile.On("Seek", mock.Anything, mock.Anything).Return(int64(0), fmt.Errorf("seek failed"))
 
-		pio := pieceio.NewPieceIO(pr, cio, sc, &fsmock)
+		pio := pieceio.NewPieceIO(pr, cio, &fsmock)
 		_, _, err := pio.GeneratePieceCommitment(sourceBs, nd3.Cid(), node)
-		require.Error(t, err)
-	})
-	t.Run("generate piece commitment fails", func(t *testing.T) {
-		tempDir := filestore.Path("./tempDir")
-		sc := pmocks.SectorCalculator{}
-		pr := padreader.NewPadReader()
-		cio := cario.NewCarIO()
-
-		sc.On("GeneratePieceCommitment", mock.Anything, mock.Anything, mock.Anything).Return([]byte{}, fmt.Errorf("commitment failed"))
-
-		store, err := filestore.NewLocalFileStore(tempDir)
-		require.NoError(t, err)
-		pio := pieceio.NewPieceIO(pr, cio, &sc, store)
-		_, _, err = pio.GeneratePieceCommitment(sourceBs, nd3.Cid(), node)
 		require.Error(t, err)
 	})
 }

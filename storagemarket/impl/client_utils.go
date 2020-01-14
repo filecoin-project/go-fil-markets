@@ -2,8 +2,6 @@ package storageimpl
 
 import (
 	"context"
-	"io/ioutil"
-	"os"
 	"runtime"
 
 	"github.com/ipfs/go-cid"
@@ -15,9 +13,8 @@ import (
 
 	"github.com/filecoin-project/go-cbor-util"
 	"github.com/filecoin-project/go-data-transfer"
-	"github.com/filecoin-project/go-fil-markets/filestore"
 	"github.com/filecoin-project/go-fil-markets/pieceio/padreader"
-	"github.com/filecoin-project/go-fil-markets/pieceio/sectorcalculator"
+	"github.com/filecoin-project/go-sectorbuilder"
 	"github.com/filecoin-project/go-statestore"
 )
 
@@ -63,13 +60,7 @@ func (c *Client) commP(ctx context.Context, data cid.Cid) ([]byte, uint64, error
 
 	pr, psize := padreader.NewPaddedReader(uf, uint64(s))
 
-	dir, err := ioutil.TempDir("", "sector")
-	if err != nil {
-		return nil, 0, err
-	}
-	defer os.RemoveAll(dir)
-	calculator := sectorcalculator.NewSectorCalculator(filestore.Path(dir))
-	commp, err := calculator.GeneratePieceCommitment(pr, psize)
+	commp, err := sectorbuilder.GeneratePieceCommitment(pr, psize)
 	if err != nil {
 		return nil, 0, xerrors.Errorf("generating CommP: %w", err)
 	}
