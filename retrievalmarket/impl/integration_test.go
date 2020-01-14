@@ -125,14 +125,9 @@ func TestClientCanMakeDealWithProvider(t *testing.T) {
 		newLane <- paymentChannel
 	}
 
-	type voucher struct {
-		client address.Address
-		funds tokenamount.TokenAmount
-		lane uint64
-	}
-	seenVouchers := make(chan voucher)
-	clientNode.createPaymentVoucherRecorder = func(paymentCh address.Address, funds tokenamount.TokenAmount, lane uint64) {
-		seenVouchers <- voucher{ paymentCh, funds, lane }
+	seenVouchers := make(chan *types.SignedVoucher)
+	clientNode.createPaymentVoucherRecorder = func(v *types.SignedVoucher) {
+		seenVouchers <- v
 	}
 
 	type pmtChan struct {
@@ -157,8 +152,7 @@ func TestClientCanMakeDealWithProvider(t *testing.T) {
 	did := client.Retrieve(bgCtx, linkCidBytes, rmParams, total, retrievalPeer.ID, payChAddr, retrievalPeer.Address)
 	assert.Equal(t, did, retrievalmarket.DealID(1))
 
-
-	var sawVoucher voucher
+	var sawVoucher *types.SignedVoucher
 	newCtx, cancel := context.WithTimeout(bgCtx, 10*time.Second)
 	defer cancel()
 	select {
@@ -167,9 +161,31 @@ func TestClientCanMakeDealWithProvider(t *testing.T) {
 	case sawVoucher = <- seenVouchers:
 	}
 
-	assert.Equal(t, payChAddr, sawVoucher.client)
-	assert.Equal(t, paymentAddress, sawVoucher.lane)
-	assert.True(t, total.Equals(sawVoucher.funds))
+	// TODO make ctx or do some other way
+	// newChan := <- createdChan
+	// require.NotNil(t, newChan)
+	// TODO figure out the correct amount
+	// assert.True(t, total.Equals(newChan.amt)
+	// assert.Equal(t, paymentAddress, newChan.miner)
+	// assert.Equal(t, clientNode.payChAddr, newChan.client)
+
+	// verify that allocate lane was called
+	require.Len(t, clientNode.lanes, 1)
+	assert.Equal(t, clientNode.lanes[0], true)
+
+	// verify that payment channel was created
+
+	// verify that the voucher was saved/seen by the client with correct values
+	// verify that the provider saved the same voucher values
+	require.NotNil(t, sawVoucher)
+	assert.Equal(t, 0, sawVoucher.Lane)
+	assert.Len(t, providerNode.savedVouchers, 1)
+	// TODO figure out the right amount
+	assert.True(t, total.Equals(sawVoucher.Amount))
+
+	v, ok := providerNode.savedVouchers[payChAddr.String()]
+	require.True(t, ok)
+	assert.True(t, v.Equals(sawVoucher))
 
 	testData.VerifyFileTransferred(t, link, false)
 }
@@ -179,7 +195,7 @@ type testRetrievalClientNode struct {
 	payChAddr address.Address
 	lanes     []bool
 	allocateLaneRecorder func(address.Address)
-	createPaymentVoucherRecorder func(address.Address, tokenamount.TokenAmount, uint64)
+	createPaymentVoucherRecorder func(voucher *types.SignedVoucher)
 	getCreatePaymentChannelRecorder func(address.Address, address.Address, tokenamount.TokenAmount)
 }
 func (trcn *testRetrievalClientNode) AllocateLane(paymentChannel address.Address) (uint64, error) {
@@ -196,7 +212,7 @@ func (trcn *testRetrievalClientNode) CreatePaymentVoucher(ctx context.Context, p
 	sv.Amount = amount
 	sv.Lane = lane
 	if trcn.createPaymentVoucherRecorder != nil {
-		trcn.createPaymentVoucherRecorder(paymentChannel, amount, lane)
+		trcn.createPaymentVoucherRecorder(sv)
 	}
 	return sv, nil
 }

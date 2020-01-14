@@ -227,7 +227,7 @@ type clientStream struct {
 	offset uint64
 
 	paych       address.Address
-	lane        uint64
+	laneAddr        uint64
 	total       tokenamount.TokenAmount
 	transferred tokenamount.TokenAmount
 
@@ -265,9 +265,9 @@ type clientStream struct {
 	if err != nil {
 		return xerrors.Errorf("getting payment channel: %w", err)
 	}
-	lane, err := c.node.AllocateLane(paych)
+	laneAddr, err := c.node.AllocateLane(paych)
 	if err != nil {
-		return xerrors.Errorf("allocating payment lane: %w", err)
+		return xerrors.Errorf("allocating payment laneAddr: %w", err)
 	}
 
 	cst := clientStream{
@@ -280,7 +280,7 @@ type clientStream struct {
 		offset: initialOffset,
 
 		paych:       paych,
-		lane:        lane,
+		laneAddr:        laneAddr,
 		total:       total,
 		transferred: tokenamount.FromInt(0),
 
@@ -416,7 +416,7 @@ func (cst *clientStream) consumeBlockMessage(block Block) (uint64, error) {
 func (cst *clientStream) setupPayment(ctx context.Context, toSend tokenamount.TokenAmount) (OldPaymentInfo, error) {
 	amount := tokenamount.Add(cst.transferred, toSend)
 
-	sv, err := cst.node.CreatePaymentVoucher(ctx, cst.paych, amount, cst.lane)
+	sv, err := cst.node.CreatePaymentVoucher(ctx, cst.paych, amount, cst.laneAddr)
 	if err != nil {
 		return OldPaymentInfo{}, err
 	}
