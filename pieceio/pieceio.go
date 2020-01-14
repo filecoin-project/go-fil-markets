@@ -10,12 +10,8 @@ import (
 	"github.com/ipld/go-ipld-prime"
 
 	"github.com/filecoin-project/go-fil-markets/filestore"
+	"github.com/filecoin-project/go-sectorbuilder"
 )
-
-type SectorCalculator interface {
-	// GeneratePieceCommitment takes a PADDED io stream and a total size and generates a commP
-	GeneratePieceCommitment(piece io.Reader, pieceSize uint64) ([]byte, error)
-}
 
 type PadReader interface {
 	// PaddedSize returns the expected size of a piece after it's been padded
@@ -30,15 +26,14 @@ type CarIO interface {
 }
 
 type pieceIO struct {
-	padReader        PadReader
-	carIO            CarIO
-	sectorCalculator SectorCalculator
-	store            filestore.FileStore
-	bs               blockstore.Blockstore
+	padReader PadReader
+	carIO     CarIO
+	store     filestore.FileStore
+	bs        blockstore.Blockstore
 }
 
-func NewPieceIO(padReader PadReader, carIO CarIO, sectorCalculator SectorCalculator, store filestore.FileStore, bs blockstore.Blockstore) PieceIO {
-	return &pieceIO{padReader, carIO, sectorCalculator, store, bs}
+func NewPieceIO(padReader PadReader, carIO CarIO, store filestore.FileStore, bs blockstore.Blockstore) PieceIO {
+	return &pieceIO{padReader, carIO, store, bs}
 }
 
 func (pio *pieceIO) GeneratePieceCommitment(payloadCid cid.Cid, selector ipld.Node) ([]byte, filestore.File, error) {
@@ -74,12 +69,12 @@ func (pio *pieceIO) GeneratePieceCommitment(payloadCid cid.Cid, selector ipld.No
 		cleanup()
 		return nil, nil, err
 	}
-	commitment, err := pio.sectorCalculator.GeneratePieceCommitment(f, paddedSize)
+	commitment, err := sectorbuilder.GeneratePieceCommitment(f, paddedSize)
 	if err != nil {
 		cleanup()
 		return nil, nil, err
 	}
-	return commitment, f, nil
+	return commitment[:], f, nil
 }
 
 func (pio *pieceIO) ReadPiece(r io.Reader) (cid.Cid, error) {

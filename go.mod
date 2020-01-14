@@ -3,17 +3,18 @@ module github.com/filecoin-project/go-fil-markets
 go 1.13
 
 require (
-	github.com/filecoin-project/filecoin-ffi v0.0.0-20191213130254-f261762ff8ed
+	github.com/filecoin-project/filecoin-ffi v0.0.0-20191219131535-bb699517a590
 	github.com/filecoin-project/go-address v0.0.0-20191219011437-af739c490b4f
 	github.com/filecoin-project/go-cbor-util v0.0.0-20191219014500-08c40a1e63a2
 	github.com/filecoin-project/go-crypto v0.0.0-20191218222705-effae4ea9f03
 	github.com/filecoin-project/go-data-transfer v0.0.0-20191219005021-4accf56bd2ce
-	github.com/filecoin-project/go-statestore v0.0.0-20191219195854-7a95521e8f15
+	github.com/filecoin-project/go-sectorbuilder v0.0.1
+	github.com/filecoin-project/go-statestore v0.1.0
 	github.com/hannahhoward/cbor-gen-for v0.0.0-20191216214420-3e450425c40c
 	github.com/ipfs/go-block-format v0.0.2
 	github.com/ipfs/go-blockservice v0.1.3-0.20190908200855-f22eea50656c
 	github.com/ipfs/go-car v0.0.3-0.20191203022317-23b0a85fd1b1
-	github.com/ipfs/go-cid v0.0.4-0.20191112011718-79e75dffeb10
+	github.com/ipfs/go-cid v0.0.4
 	github.com/ipfs/go-datastore v0.1.1
 	github.com/ipfs/go-graphsync v0.0.4
 	github.com/ipfs/go-ipfs-blockstore v0.1.0

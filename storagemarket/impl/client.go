@@ -10,7 +10,6 @@ import (
 	"github.com/filecoin-project/go-fil-markets/pieceio"
 	"github.com/filecoin-project/go-fil-markets/pieceio/cario"
 	"github.com/filecoin-project/go-fil-markets/pieceio/padreader"
-	"github.com/filecoin-project/go-fil-markets/pieceio/sectorcalculator"
 	"github.com/filecoin-project/go-fil-markets/shared/tokenamount"
 
 	"github.com/ipfs/go-cid"
@@ -78,12 +77,11 @@ type clientDealUpdate struct {
 func NewClient(h host.Host, bs blockstore.Blockstore, dataTransfer datatransfer.Manager, discovery *discovery.Local, deals *statestore.StateStore, scn storagemarket.StorageClientNode) (*Client, error) {
 	pr := padreader.NewPadReader()
 	carIO := cario.NewCarIO()
-	sectorCalculator := sectorcalculator.NewSectorCalculator("")
 	fs, err := filestore.NewLocalFileStore("")
 	if err != nil {
 		return nil, err
 	}
-	pio := pieceio.NewPieceIO(pr, carIO, sectorCalculator, fs, bs)
+	pio := pieceio.NewPieceIO(pr, carIO, fs, bs)
 
 	c := &Client{
 		h:            h,
@@ -152,7 +150,7 @@ func (c *Client) onIncoming(deal *ClientDeal) {
 func (c *Client) onUpdated(ctx context.Context, update clientDealUpdate) {
 	log.Infof("Client deal %s updated state to %s", update.id, storagemarket.DealStates[update.newState])
 	var deal ClientDeal
-	err := c.deals.Mutate(update.id, func(d *ClientDeal) error {
+	err := c.deals.Get(update.id).Mutate(func(d *ClientDeal) error {
 		d.State = update.newState
 		if update.mut != nil {
 			update.mut(d)
@@ -306,7 +304,7 @@ func (c *Client) List() ([]ClientDeal, error) {
 
 func (c *Client) GetDeal(d cid.Cid) (*ClientDeal, error) {
 	var out ClientDeal
-	if err := c.deals.Get(d, &out); err != nil {
+	if err := c.deals.Get(d).Get(&out); err != nil {
 		return nil, err
 	}
 	return &out, nil
