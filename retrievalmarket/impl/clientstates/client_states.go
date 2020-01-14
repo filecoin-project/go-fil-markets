@@ -60,13 +60,13 @@ func ProposeDeal(ctx context.Context, environment ClientDealEnvironment, deal rm
 	if response.Status == rm.DealStatusRejected {
 		return func(deal *rm.ClientDealState) {
 			deal.Status = rm.DealStatusRejected
-			deal.Message = fmt.Sprintf("deal rejected: %w", response.Message)
+			deal.Message = fmt.Sprintf("deal rejected: %s", response.Message)
 		}
 	}
 	if response.Status == rm.DealStatusDealNotFound {
 		return func(deal *rm.ClientDealState) {
 			deal.Status = rm.DealStatusDealNotFound
-			deal.Message = fmt.Sprintf("deal not found: %w", response.Message)
+			deal.Message = fmt.Sprintf("deal not found: %s", response.Message)
 		}
 	}
 	if response.Status == rm.DealStatusAccepted {

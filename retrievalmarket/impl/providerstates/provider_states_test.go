@@ -233,7 +233,8 @@ func TestProcessPayment(t *testing.T) {
 	voucher := testnet.MakeTestSignedVoucher()
 	t.Run("it works", func(t *testing.T) {
 		node := testnodes.NewTestRetrievalProviderNode()
-		node.ExpectVoucher(payCh, voucher, nil, tokenamount.FromInt(500000), tokenamount.FromInt(500000), nil)
+		err := node.ExpectVoucher(payCh, voucher, nil, tokenamount.FromInt(500000), tokenamount.FromInt(500000), nil)
+		require.NoError(t, err)
 		dealState := makeDealState(retrievalmarket.DealStatusFundsNeeded)
 		dealState.TotalSent = uint64(6000)
 		dealPayment := retrievalmarket.DealPayment{
@@ -254,7 +255,8 @@ func TestProcessPayment(t *testing.T) {
 	})
 	t.Run("it completes", func(t *testing.T) {
 		node := testnodes.NewTestRetrievalProviderNode()
-		node.ExpectVoucher(payCh, voucher, nil, tokenamount.FromInt(500000), tokenamount.FromInt(500000), nil)
+		err := node.ExpectVoucher(payCh, voucher, nil, tokenamount.FromInt(500000), tokenamount.FromInt(500000), nil)
+		require.NoError(t, err)
 		dealState := makeDealState(retrievalmarket.DealStatusFundsNeededLastPayment)
 		dealState.TotalSent = uint64(6000)
 		dealPayment := retrievalmarket.DealPayment{
@@ -276,7 +278,8 @@ func TestProcessPayment(t *testing.T) {
 
 	t.Run("not enough funds sent", func(t *testing.T) {
 		node := testnodes.NewTestRetrievalProviderNode()
-		node.ExpectVoucher(payCh, voucher, nil, tokenamount.FromInt(500000), tokenamount.FromInt(400000), nil)
+		err := node.ExpectVoucher(payCh, voucher, nil, tokenamount.FromInt(500000), tokenamount.FromInt(400000), nil)
+		require.NoError(t, err)
 		dealState := makeDealState(retrievalmarket.DealStatusFundsNeeded)
 		dealState.TotalSent = uint64(6000)
 		dealPayment := retrievalmarket.DealPayment{
@@ -304,7 +307,8 @@ func TestProcessPayment(t *testing.T) {
 	t.Run("failure processing payment", func(t *testing.T) {
 		node := testnodes.NewTestRetrievalProviderNode()
 		message := "your money's no good here"
-		node.ExpectVoucher(payCh, voucher, nil, tokenamount.FromInt(500000), tokenamount.FromInt(0), errors.New(message))
+		err := node.ExpectVoucher(payCh, voucher, nil, tokenamount.FromInt(500000), tokenamount.FromInt(0), errors.New(message))
+		require.NoError(t, err)
 		dealState := makeDealState(retrievalmarket.DealStatusFundsNeeded)
 		dealState.TotalSent = uint64(6000)
 		dealPayment := retrievalmarket.DealPayment{
@@ -435,9 +439,9 @@ func generateResponses(count uint64, blockSize uint64, completeOnLast bool, erro
 	var i uint64 = 0
 	for ; i < count; i++ {
 		data := make([]byte, blockSize)
-		rand.Read(data)
+		var err error
+		_, err = rand.Read(data)
 		complete := false
-		var err error = nil
 		if i == 0 && errorOnFirst {
 			err = errors.New("something went wrong")
 		}
