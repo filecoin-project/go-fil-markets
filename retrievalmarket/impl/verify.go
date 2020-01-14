@@ -1,15 +1,26 @@
 package retrievalimpl
 
 import (
+	"bytes"
 	"context"
+	"errors"
+	"io"
 
+	"github.com/filecoin-project/go-fil-markets/retrievalmarket"
 	"github.com/filecoin-project/go-fil-markets/shared/params"
 	blocks "github.com/ipfs/go-block-format"
 	"github.com/ipfs/go-cid"
-	ipld "github.com/ipfs/go-ipld-format"
+	ipldformat "github.com/ipfs/go-ipld-format"
 	"github.com/ipfs/go-merkledag"
 	"github.com/ipfs/go-unixfs"
 	pb "github.com/ipfs/go-unixfs/pb"
+	"github.com/ipld/go-ipld-prime"
+	dagpb "github.com/ipld/go-ipld-prime-proto"
+	free "github.com/ipld/go-ipld-prime/impl/free"
+	cidlink "github.com/ipld/go-ipld-prime/linking/cid"
+	"github.com/ipld/go-ipld-prime/traversal"
+	"github.com/ipld/go-ipld-prime/traversal/selector"
+	"github.com/ipld/go-ipld-prime/traversal/selector/builder"
 	"golang.org/x/xerrors"
 )
 
@@ -23,6 +34,132 @@ type OptimisticVerifier struct {
 func (o *OptimisticVerifier) Verify(context.Context, blocks.Block) (bool, error) {
 	// It's probably fine
 	return false, nil
+}
+
+type blockResponse struct {
+	done bool
+	err  error
+}
+
+type SelectorVerifier struct {
+	root        ipld.Link
+	initiated   bool
+	inputBlocks chan blocks.Block
+	responses   chan blockResponse
+}
+
+func NewSelectorVerifier(root ipld.Link) BlockVerifier {
+	return &SelectorVerifier{root, false, nil, nil}
+}
+
+func (sv *SelectorVerifier) handleError(ctx context.Context, err error) {
+	_ = sv.writeBlockResponse(ctx, false, err)
+	close(sv.inputBlocks)
+	close(sv.responses)
+}
+
+func (sv *SelectorVerifier) writeBlockResponse(ctx context.Context, done bool, err error) error {
+	select {
+	case <-ctx.Done():
+		return errors.New("Context cancelled")
+	case sv.responses <- blockResponse{done, err}:
+	}
+	return nil
+}
+
+func (sv *SelectorVerifier) readBlockResponse(ctx context.Context) (bool, error) {
+	select {
+	case <-ctx.Done():
+		return false, errors.New("Context cancelled")
+	case br := <-sv.responses:
+		return br.done, br.err
+	}
+}
+
+func (sv *SelectorVerifier) writeBlock(ctx context.Context, blk blocks.Block) error {
+	select {
+	case <-ctx.Done():
+		return errors.New("Context cancelled")
+	case sv.inputBlocks <- blk:
+	}
+	return nil
+}
+
+func (sv *SelectorVerifier) readBlock(ctx context.Context) (blocks.Block, error) {
+	select {
+	case <-ctx.Done():
+		return nil, errors.New("Context cancelled")
+	case blk := <-sv.inputBlocks:
+		return blk, nil
+	}
+}
+
+func (sv *SelectorVerifier) runTraversal(ctx context.Context) {
+	subCtx, cancel := context.WithCancel(ctx)
+	defer cancel()
+	var chooser traversal.NodeBuilderChooser = dagpb.AddDagPBSupportToChooser(func(ipld.Link, ipld.LinkContext) ipld.NodeBuilder {
+		return free.NodeBuilder()
+	})
+	loader := func(lnk ipld.Link, lnkCtx ipld.LinkContext) (io.Reader, error) {
+		err := sv.writeBlockResponse(subCtx, false, nil)
+		if err != nil {
+			return nil, err
+		}
+		blk, err := sv.readBlock(subCtx)
+		if err != nil {
+			return nil, err
+		}
+		c := lnk.(cidlink.Link).Cid
+		if !c.Equals(blk.Cid()) {
+			return nil, retrievalmarket.ErrVerification
+		}
+		return bytes.NewBuffer(blk.RawData()), nil
+	}
+	nd, err := sv.root.Load(subCtx, ipld.LinkContext{}, chooser(sv.root, ipld.LinkContext{}), loader)
+	if err != nil {
+		sv.handleError(subCtx, err)
+		return
+	}
+	ssb := builder.NewSelectorSpecBuilder(free.NodeBuilder())
+
+	allSelector, err := ssb.ExploreRecursive(selector.RecursionLimitNone(),
+		ssb.ExploreAll(ssb.ExploreRecursiveEdge())).Selector()
+	if err != nil {
+		sv.handleError(subCtx, err)
+		return
+	}
+	err = traversal.Progress{
+		Cfg: &traversal.Config{
+			Ctx:                    subCtx,
+			LinkLoader:             loader,
+			LinkNodeBuilderChooser: chooser,
+		},
+	}.WalkAdv(nd, allSelector, func(traversal.Progress, ipld.Node, traversal.VisitReason) error { return nil })
+	if err != nil {
+		sv.handleError(subCtx, err)
+		return
+	}
+	_ = sv.writeBlockResponse(subCtx, true, nil)
+	close(sv.inputBlocks)
+	close(sv.responses)
+}
+
+func (sv *SelectorVerifier) Verify(ctx context.Context, blk blocks.Block) (done bool, err error) {
+	if !sv.initiated {
+		sv.initiated = true
+		sv.inputBlocks = make(chan blocks.Block, 1)
+		sv.responses = make(chan blockResponse, 1)
+		go sv.runTraversal(ctx)
+		done, err := sv.readBlockResponse(ctx)
+		if err != nil {
+			return done, err
+		}
+	}
+	err = sv.writeBlock(ctx, blk)
+	if err != nil {
+		return false, err
+	}
+	return sv.readBlockResponse(ctx)
 }
 
 type UnixFs0Verifier struct {
@@ -84,7 +221,7 @@ func (b *UnixFs0Verifier) verify(ctx context.Context, blk blocks.Block) (last bo
 }
 
 func (b *UnixFs0Verifier) checkInternal(blk blocks.Block) (int, error) {
-	nd, err := ipld.Decode(blk)
+	nd, err := ipldformat.Decode(blk)
 	if err != nil {
 		log.Warnf("IPLD Decode failed: %s", err)
 		return 0, err
