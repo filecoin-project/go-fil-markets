@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/filecoin-project/go-address"
+	"github.com/filecoin-project/go-data-transfer/testutil"
 	"github.com/ipfs/go-cid"
 	"github.com/ipfs/go-datastore"
 	dss "github.com/ipfs/go-datastore/sync"
@@ -121,6 +122,45 @@ func TestClient_Query(t *testing.T) {
 	})
 }
 
+func TestClient_FindProviders(t *testing.T) {
+	bs := bstore.NewBlockstore(dss.MutexWrap(datastore.NewMapDatastore()))
+	expectedPeer := peer.ID("somevalue")
+
+	var qsb tut.QueryStreamBuilder = func(p peer.ID) (rmnet.RetrievalQueryStream, error) {
+		return tut.NewTestRetrievalQueryStream(tut.TestQueryStreamParams{
+			Writer:     tut.TrivialQueryWriter,
+			RespReader: tut.TrivialQueryResponseReader,
+		}), nil
+	}
+	net := tut.NewTestRetrievalMarketNetwork(tut.TestNetworkParams{
+		QueryStreamBuilder: tut.ExpectPeerOnQueryStreamBuilder(t, expectedPeer, qsb, "Peers should match"),
+	})
+
+	t.Run("when providers are found, returns providers", func(t *testing.T) {
+		peers := tut.RequireGenerateRetrievalPeers(t, 3)
+		testResolver := testPeerResolver{peers: peers}
+
+		c := retrievalimpl.NewClient(net, bs, &testRetrievalNode{}, &testResolver)
+		testCid := testutil.GenerateCids(1)[0].Bytes()
+		assert.Len(t, c.FindProviders(testCid), 3)
+	})
+
+	t.Run("when there is an error, returns empty provider list", func(t *testing.T) {
+		peers := tut.RequireGenerateRetrievalPeers(t, 1)
+		testResolver := testPeerResolver{peers: peers}
+		c := retrievalimpl.NewClient(net, bs, &testRetrievalNode{}, &testResolver)
+		badCid := []byte("badcid")
+		assert.Len(t, c.FindProviders(badCid), 0)
+	})
+
+	t.Run("when there are no providers", func(t *testing.T) {
+		testResolver := testPeerResolver{peers: []retrievalmarket.RetrievalPeer{}}
+		c := retrievalimpl.NewClient(net, bs, &testRetrievalNode{}, &testResolver)
+		testCid := testutil.GenerateCids(1)[0].Bytes()
+		assert.Len(t, c.FindProviders(testCid), 0)
+	})
+}
+
 type testRetrievalNode struct {
 }
 
@@ -139,9 +179,9 @@ func (t *testRetrievalNode) CreatePaymentVoucher(ctx context.Context, paymentCha
 type testPeerResolver struct {
 	peers []retrievalmarket.RetrievalPeer
 }
+
 var _ retrievalmarket.PeerResolver = &testPeerResolver{}
 
 func (t testPeerResolver) GetPeers(data cid.Cid) ([]retrievalmarket.RetrievalPeer, error) {
 	return t.peers, nil
 }
-
