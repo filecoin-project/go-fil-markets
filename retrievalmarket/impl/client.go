@@ -8,13 +8,13 @@ import (
 
 	"github.com/filecoin-project/go-fil-markets/retrievalmarket/impl/clientstates"
 
+	"github.com/filecoin-project/go-address"
 	blocks "github.com/ipfs/go-block-format"
 	"github.com/ipfs/go-cid"
 	blockstore "github.com/ipfs/go-ipfs-blockstore"
 	logging "github.com/ipfs/go-log"
 	"github.com/libp2p/go-libp2p-core/peer"
 
-	"github.com/filecoin-project/go-address"
 	"github.com/filecoin-project/go-fil-markets/retrievalmarket"
 	rmnet "github.com/filecoin-project/go-fil-markets/retrievalmarket/network"
 	"github.com/filecoin-project/go-fil-markets/shared/tokenamount"
@@ -28,19 +28,21 @@ type client struct {
 	node    retrievalmarket.RetrievalClientNode
 	// The parameters should be replaced by RetrievalClientNode
 
-	nextDealLk  sync.RWMutex
-	nextDealID  retrievalmarket.DealID
+	nextDealLk sync.RWMutex
+	nextDealID retrievalmarket.DealID
 
 	subscribersLk sync.RWMutex
-	subscribers []retrievalmarket.ClientSubscriber
+	subscribers   []retrievalmarket.ClientSubscriber
+	resolver      retrievalmarket.PeerResolver
 }
 
 // NewClient creates a new retrieval client
-func NewClient(network rmnet.RetrievalMarketNetwork, bs blockstore.Blockstore, node retrievalmarket.RetrievalClientNode) retrievalmarket.RetrievalClient {
+func NewClient(network rmnet.RetrievalMarketNetwork, bs blockstore.Blockstore, node retrievalmarket.RetrievalClientNode, resolver retrievalmarket.PeerResolver) retrievalmarket.RetrievalClient {
 	return &client{
-		network: network,
-		bs:      bs,
-		node:    node,
+		network:  network,
+		bs:       bs,
+		node:     node,
+		resolver: resolver,
 	}
 }
 
@@ -48,8 +50,22 @@ func NewClient(network rmnet.RetrievalMarketNetwork, bs blockstore.Blockstore, n
 
 // TODO: Implement for retrieval provider V0 epic
 // https://github.com/filecoin-project/go-retrieval-market-project/issues/12
-func (c *client) FindProviders(pieceCID []byte) []retrievalmarket.RetrievalPeer {
-	panic("not implemented")
+func (c *client) FindProviders(pieceCIDBytes []byte) []retrievalmarket.RetrievalPeer {
+	cidLen, pieceCid, err := cid.CidFromBytes(pieceCIDBytes)
+	if err != nil {
+		log.Error(err)
+		return []retrievalmarket.RetrievalPeer{}
+	}
+	if cidLen == 0 {
+		log.Error(errors.New("zero-length CID"))
+		return []retrievalmarket.RetrievalPeer{}
+	}
+	peers, err := c.resolver.GetPeers(pieceCid)
+	if err != nil {
+		log.Error(err)
+		return []retrievalmarket.RetrievalPeer{}
+	}
+	return peers
 }
 
 // TODO: Update to match spec for V0 epic
