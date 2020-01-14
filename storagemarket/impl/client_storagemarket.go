@@ -24,13 +24,13 @@ func (c *Client) ListProviders(ctx context.Context) (<-chan storagemarket.Storag
 	out := make(chan storagemarket.StorageProviderInfo)
 
 	go func() {
+		defer close(out)
 		for _, p := range providers {
 			select {
 			case out <- *p:
 			case <-ctx.Done():
 				return
 			}
-
 		}
 	}()
 
