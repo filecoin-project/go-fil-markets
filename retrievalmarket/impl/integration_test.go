@@ -4,6 +4,7 @@ import (
 	"context"
 	"math/big"
 	"testing"
+	"time"
 
 	"github.com/filecoin-project/go-address"
 	"github.com/filecoin-project/go-data-transfer/testutil"
@@ -23,7 +24,7 @@ func TestClientCanMakeQueryToProvider(t *testing.T) {
 	bgCtx := context.Background()
 	payChAddr := address.TestAddress
 
-	client, expectedCIDs, missingCID, expectedQR, retrievalPeer, _ := requireSetupTestClientAndProvider(bgCtx, t, payChAddr)
+	client, expectedCIDs, missingCID, expectedQR, retrievalPeer := requireSetupTestClientAndProvider(bgCtx, t, payChAddr)
 
 	t.Run("when piece is found, returns piece and price data", func(t *testing.T) {
 		expectedQR.Status = retrievalmarket.QueryResponseAvailable
@@ -51,13 +52,73 @@ func TestClientCanMakeQueryToProvider(t *testing.T) {
 	})
 }
 
+func requireSetupTestClientAndProvider(bgCtx context.Context, t *testing.T, payChAddr address.Address) (retrievalmarket.RetrievalClient, []cid.Cid, cid.Cid, retrievalmarket.QueryResponse, retrievalmarket.RetrievalPeer) {
+	testData := tut.NewLibp2pTestData(bgCtx, t)
+	nw1 := rmnet.NewFromLibp2pHost(testData.Host1)
+	rcNode1 := testRetrievalClientNode{payChAddr: payChAddr}
+	client := retrievalimpl.NewClient(nw1, testData.Bs1, &rcNode1)
 
+	nw2 := rmnet.NewFromLibp2pHost(testData.Host2)
+	rcNode2 := newTestRetrievalProviderNode(&testData.Bs2)
+
+	expectedCIDs := testutil.GenerateCids(3)
+	missingCID := testutil.GenerateCids(1)[0]
+	expectedQR := tut.MakeTestQueryResponse()
+
+	rcNode2.expectedMissingPieces[string(missingCID.Bytes())] = struct{}{}
+	for i, el := range expectedCIDs {
+		key := string(el.Bytes())
+		rcNode2.expectedPieces[key] = expectedQR.Size * uint64(i+1)
+	}
+
+	paymentAddress := address.TestAddress2
+	provider := retrievalimpl.NewProvider(paymentAddress, rcNode2, nw2)
+
+	provider.SetPaymentInterval(expectedQR.MaxPaymentInterval, expectedQR.MaxPaymentIntervalIncrease)
+	provider.SetPricePerByte(expectedQR.MinPricePerByte)
+	require.NoError(t, provider.Start())
+
+	retrievalPeer := retrievalmarket.RetrievalPeer{
+		Address: paymentAddress,
+		ID:      testData.Host2.ID(),
+	}
+	return client, expectedCIDs, missingCID, expectedQR, retrievalPeer
+}
 
 func TestClientCanMakeDealWithProvider(t *testing.T) {
 	bgCtx := context.Background()
 	payChAddr := address.TestAddress
 
-	client, expectedCIDs, _, _, retrievalPeer, clientNode := requireSetupTestClientAndProvider(bgCtx, t, payChAddr)
+	testData := tut.NewLibp2pTestData(bgCtx, t)
+	nw1 := rmnet.NewFromLibp2pHost(testData.Host1)
+
+	link := testData.LoadUnixFSFile(t, true)
+	linkCidBytes := []byte(link.String()[:])
+
+	clientNode := testRetrievalClientNode{payChAddr: payChAddr}
+	client := retrievalimpl.NewClient(nw1, testData.Bs1, &clientNode)
+
+	// Inject a unixFS file on the provider side to its blockstore
+	nw2 := rmnet.NewFromLibp2pHost(testData.Host2)
+	providerNode := newTestRetrievalProviderNode(&testData.Bs2)
+
+	missingCID := testutil.GenerateCids(1)[0]
+	expectedQR := tut.MakeTestQueryResponse()
+
+	providerNode.expectedPieces[link.String()] = expectedQR.Size
+	providerNode.expectedMissingPieces[string(missingCID.Bytes())] = struct{}{}
+
+	paymentAddress := address.TestAddress2
+	provider := retrievalimpl.NewProvider(paymentAddress, providerNode, nw2)
+
+	provider.SetPaymentInterval(expectedQR.MaxPaymentInterval, expectedQR.MaxPaymentIntervalIncrease)
+	provider.SetPricePerByte(expectedQR.MinPricePerByte)
+	require.NoError(t, provider.Start())
+
+	retrievalPeer := retrievalmarket.RetrievalPeer{
+		Address: paymentAddress,
+		ID:      testData.Host2.ID(),
+	}
 
 	newLane := make(chan address.Address)
 	clientNode.allocateLaneRecorder = func(paymentChannel address.Address) {
@@ -83,9 +144,9 @@ func TestClientCanMakeDealWithProvider(t *testing.T) {
 		createdChan <- pmtChan{client, miner, amt}
 	}
 
-	fetchPieceID := expectedCIDs[0]
-	resp, err :=client.Query(bgCtx, retrievalPeer, fetchPieceID.Bytes(), retrievalmarket.QueryParams{})
+	resp, err :=client.Query(bgCtx, retrievalPeer, linkCidBytes, retrievalmarket.QueryParams{})
 	require.NoError(t, err)
+	require.Equal(t, retrievalmarket.QueryResponseAvailable, resp.Status)
 
 	rmParams := retrievalmarket.Params{
 		PricePerByte:            resp.MinPricePerByte,
@@ -93,42 +154,26 @@ func TestClientCanMakeDealWithProvider(t *testing.T) {
 		PaymentIntervalIncrease: resp.MaxPaymentIntervalIncrease,
 	}
 	total := tokenamount.TokenAmount{ Int: big.NewInt(9999)}
-	did := client.Retrieve(bgCtx, fetchPieceID.Bytes(), rmParams, total, retrievalPeer.ID, payChAddr, retrievalPeer.Address)
-	assert.NotEqual(t, did, 0)
-}
+	did := client.Retrieve(bgCtx, linkCidBytes, rmParams, total, retrievalPeer.ID, payChAddr, retrievalPeer.Address)
+	assert.Equal(t, did, retrievalmarket.DealID(1))
 
-func requireSetupTestClientAndProvider(bgCtx context.Context, t *testing.T, payChAddr address.Address) (retrievalmarket.RetrievalClient, []cid.Cid, cid.Cid, retrievalmarket.QueryResponse, retrievalmarket.RetrievalPeer, testRetrievalClientNode) {
-	testData := tut.NewLibp2pTestData(bgCtx, t)
-	nw1 := rmnet.NewFromLibp2pHost(testData.Host1)
-	rcNode1 := testRetrievalClientNode{payChAddr: payChAddr}
-	client := retrievalimpl.NewClient(nw1, testData.Bs1, &rcNode1)
 
-	nw2 := rmnet.NewFromLibp2pHost(testData.Host2)
-	rcNode2 := newTestRetrievalProviderNode()
-
-	expectedCIDs := testutil.GenerateCids(3)
-	missingCID := testutil.GenerateCids(1)[0]
-	expectedQR := tut.MakeTestQueryResponse()
-
-	rcNode2.expectedMissingPieces[string(missingCID.Bytes())] = struct{}{}
-	for i, el := range expectedCIDs {
-		key := string(el.Bytes())
-		rcNode2.expectedPieces[key] = expectedQR.Size * uint64(i+1)
+	var sawVoucher voucher
+	newCtx, cancel := context.WithTimeout(bgCtx, 10*time.Second)
+	defer cancel()
+	select {
+	case <- newCtx.Done():
+		t.Error("calls not made")
+	case sawVoucher = <- seenVouchers:
 	}
 
-	paymentAddress := address.TestAddress2
-	provider := retrievalimpl.NewProvider(paymentAddress, rcNode2, nw2)
+	assert.Equal(t, payChAddr, sawVoucher.client)
+	assert.Equal(t, paymentAddress, sawVoucher.lane)
+	assert.True(t, total.Equals(sawVoucher.funds))
 
-	provider.SetPaymentInterval(expectedQR.MaxPaymentInterval, expectedQR.MaxPaymentIntervalIncrease)
-	provider.SetPricePerByte(expectedQR.MinPricePerByte)
-	require.NoError(t, provider.Start())
-
-	retrievalPeer := retrievalmarket.RetrievalPeer{
-		Address: paymentAddress,
-		ID:      testData.Host2.ID(),
-	}
-	return client, expectedCIDs, missingCID, expectedQR, retrievalPeer, rcNode1
+	testData.VerifyFileTransferred(t, link, false)
 }
+
 
 type testRetrievalClientNode struct {
 	payChAddr address.Address
