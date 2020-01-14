@@ -11,7 +11,7 @@ import (
 
 type clientHandlerFunc func(ctx context.Context, deal ClientDeal) (func(*ClientDeal), error)
 
-func (c *Client) handle(ctx context.Context, deal ClientDeal, cb clientHandlerFunc, next storagemarket.DealState) {
+func (c *Client) handle(ctx context.Context, deal ClientDeal, cb clientHandlerFunc, next storagemarket.StorageDealStatus) {
 	go func() {
 		mut, err := cb(ctx, deal)
 		if err != nil {

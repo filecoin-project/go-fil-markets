@@ -62,7 +62,7 @@ type Client struct {
 }
 
 type clientDealUpdate struct {
-	newState storagemarket.DealState
+	newState storagemarket.StorageDealStatus
 	id       cid.Cid
 	err      error
 	mut      func(*ClientDeal)

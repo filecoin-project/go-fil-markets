@@ -27,10 +27,10 @@ type Balance struct {
 	Available tokenamount.TokenAmount
 }
 
-type DealState = uint64
+type StorageDealStatus = uint64
 
 const (
-	DealUnknown  = DealState(iota)
+	DealUnknown  = StorageDealStatus(iota)
 	DealRejected // Provider didn't like the proposal
 	DealAccepted // Proposal accepted
 	DealStaged   // Data put into the sector
@@ -153,7 +153,7 @@ type MinerDeal struct {
 	Proposal    StorageDealProposal
 	Miner       peer.ID
 	Client      peer.ID
-	State       DealState
+	State       StorageDealStatus
 	PiecePath   filestore.Path
 
 	Ref cid.Cid
@@ -165,7 +165,7 @@ type MinerDeal struct {
 type ClientDeal struct {
 	ProposalCid cid.Cid
 	Proposal    StorageDealProposal
-	State       DealState
+	State       StorageDealStatus
 	Miner       peer.ID
 	MinerWorker address.Address
 	DealID      uint64

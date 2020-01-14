@@ -58,7 +58,7 @@ func uniqueStorageDealProposal() (storagemarket.StorageDealProposal, error) {
 	}, nil
 }
 
-func newClientDeal(minerID peer.ID, state storagemarket.DealState) (deals.ClientDeal, error) {
+func newClientDeal(minerID peer.ID, state storagemarket.StorageDealStatus) (deals.ClientDeal, error) {
 	newProposal, err := uniqueStorageDealProposal()
 	if err != nil {
 		return deals.ClientDeal{}, err
@@ -84,7 +84,7 @@ func newClientDeal(minerID peer.ID, state storagemarket.DealState) (deals.Client
 	}, nil
 }
 
-func newMinerDeal(clientID peer.ID, state storagemarket.DealState) (deals.MinerDeal, error) {
+func newMinerDeal(clientID peer.ID, state storagemarket.StorageDealStatus) (deals.MinerDeal, error) {
 	newProposal, err := uniqueStorageDealProposal()
 	if err != nil {
 		return deals.MinerDeal{}, err

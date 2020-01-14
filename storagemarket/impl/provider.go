@@ -63,7 +63,7 @@ type Provider struct {
 }
 
 type minerDealUpdate struct {
-	newState storagemarket.DealState
+	newState storagemarket.StorageDealStatus
 	id       cid.Cid
 	err      error
 	mut      func(*MinerDeal)
@@ -223,7 +223,7 @@ func (p *Provider) onDataTransferEvent(event datatransfer.Event, channelState da
 	}
 
 	// data transfer events for opening and progress do not affect deal state
-	var next storagemarket.DealState
+	var next storagemarket.StorageDealStatus
 	var err error
 	var mut func(*MinerDeal)
 	switch event.Code {

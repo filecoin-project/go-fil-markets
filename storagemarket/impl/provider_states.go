@@ -17,7 +17,7 @@ import (
 
 type providerHandlerFunc func(ctx context.Context, deal MinerDeal) (func(*MinerDeal), error)
 
-func (p *Provider) handle(ctx context.Context, deal MinerDeal, cb providerHandlerFunc, next storagemarket.DealState) {
+func (p *Provider) handle(ctx context.Context, deal MinerDeal, cb providerHandlerFunc, next storagemarket.StorageDealStatus) {
 	go func() {
 		mut, err := cb(ctx, deal)
 
