@@ -13,7 +13,7 @@ import (
 	"github.com/libp2p/go-libp2p-core/peer"
 )
 
-//go:generate cbor-gen-for Query QueryResponse DealProposal DealResponse Params QueryParams DealPayment Block
+//go:generate cbor-gen-for Query QueryResponse DealProposal DealResponse Params QueryParams DealPayment Block ClientDealState
 
 // type aliases
 // TODO: Remove and use native types or extract for
@@ -33,11 +33,21 @@ type Unsubscribe func()
 // ClientDealState is the current state of a deal from the point of view
 // of a retrieval client
 type ClientDealState struct {
+	ProposalCid cid.Cid
 	DealProposal
-	Status        DealStatus
-	Sender        peer.ID
-	TotalReceived uint64
-	FundsSpent    tokenamount.TokenAmount
+	TotalFunds       tokenamount.TokenAmount
+	ClientWallet     address.Address
+	MinerWallet      address.Address
+	PayCh            address.Address
+	Lane             uint64
+	Status           DealStatus
+	Sender           peer.ID
+	TotalReceived    uint64
+	Message          string
+	BytesPaidFor     uint64
+	CurrentInterval  uint64
+	PaymentRequested tokenamount.TokenAmount
+	FundsSpent       tokenamount.TokenAmount
 }
 
 // ClientEvent is an event that occurs in a deal lifecycle on the client
@@ -122,10 +132,12 @@ type RetrievalClientNode interface {
 // of a retrieval provider
 type ProviderDealState struct {
 	DealProposal
-	Status        DealStatus
-	Receiver      peer.ID
-	TotalSent     uint64
-	FundsReceived tokenamount.TokenAmount
+	Status          DealStatus
+	Receiver        peer.ID
+	TotalSent       uint64
+	FundsReceived   tokenamount.TokenAmount
+	Message         string
+	CurrentInterval uint64
 }
 
 // ProviderEvent is an event that occurs in a deal lifecycle on the provider
@@ -294,9 +306,16 @@ func (qr QueryResponse) PieceRetrievalPrice() tokenamount.TokenAmount {
 type DealStatus uint64
 
 const (
+	// DealStatusNew is a deal that nothing has happened with yet
+	DealStatusNew DealStatus = iota
+
+	// DealStatusPaymentChannelCreated is a deal status that has a payment channel
+	// & lane setup
+	DealStatusPaymentChannelCreated
+
 	// DealStatusAccepted means a deal has been accepted by a provider
 	// and its is ready to proceed with retrieval
-	DealStatusAccepted DealStatus = iota
+	DealStatusAccepted
 
 	// DealStatusFailed indicates something went wrong during a retrieval
 	DealStatusFailed
@@ -328,9 +347,29 @@ const (
 	DealStatusDealNotFound
 )
 
+// IsTerminalError returns true if this status indicates processing of this deal
+// is complete with an error
+func IsTerminalError(status DealStatus) bool {
+	return status == DealStatusDealNotFound ||
+		status == DealStatusFailed ||
+		status == DealStatusRejected
+}
+
+// IsTerminalSuccess returns true if this status indicates processing of this deal
+// is complete with a success
+func IsTerminalSuccess(status DealStatus) bool {
+	return status == DealStatusCompleted
+}
+
+// IsTerminalStatus returns true if this status indicates processing of a deal is
+// complete (either success or error)
+func IsTerminalStatus(status DealStatus) bool {
+	return IsTerminalError(status) || IsTerminalSuccess(status)
+}
+
 // Params are the parameters requested for a retrieval deal proposal
 type Params struct {
-	//PayloadCID              cid.Cid   // V1
+	PayloadCID cid.Cid
 	//Selector                ipld.Node // V1
 	PricePerByte            tokenamount.TokenAmount
 	PaymentInterval         uint64
@@ -356,6 +395,7 @@ type DealProposal struct {
 	Params
 }
 
+// DealProposalUndefined is an undefined deal proposal
 var DealProposalUndefined = DealProposal{}
 
 // Block is an IPLD block in bitswap format
@@ -363,6 +403,9 @@ type Block struct {
 	Prefix []byte
 	Data   []byte
 }
+
+// EmptyBlock is just a block with no content
+var EmptyBlock = Block{}
 
 // DealResponse is a response to a retrieval deal proposal
 type DealResponse struct {
@@ -376,6 +419,7 @@ type DealResponse struct {
 	Blocks  []Block // V0 only
 }
 
+// DealResponseUndefined is an undefined deal response
 var DealResponseUndefined = DealResponse{}
 
 // DealPayment is a payment for an in progress retrieval deal
@@ -385,6 +429,7 @@ type DealPayment struct {
 	PaymentVoucher *types.SignedVoucher
 }
 
+// DealPaymentUndefined is an undefined deal payment
 var DealPaymentUndefined = DealPayment{}
 
 var (

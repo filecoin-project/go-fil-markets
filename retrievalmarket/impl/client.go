@@ -2,14 +2,19 @@ package retrievalimpl
 
 import (
 	"context"
+	"errors"
 	"reflect"
 	"sync"
 
-	"github.com/filecoin-project/go-address"
+	"github.com/filecoin-project/go-fil-markets/retrievalmarket/impl/clientstates"
+
+	blocks "github.com/ipfs/go-block-format"
+	"github.com/ipfs/go-cid"
 	blockstore "github.com/ipfs/go-ipfs-blockstore"
 	logging "github.com/ipfs/go-log"
 	"github.com/libp2p/go-libp2p-core/peer"
 
+	"github.com/filecoin-project/go-address"
 	"github.com/filecoin-project/go-fil-markets/retrievalmarket"
 	rmnet "github.com/filecoin-project/go-fil-markets/retrievalmarket/network"
 	"github.com/filecoin-project/go-fil-markets/shared/tokenamount"
@@ -23,15 +28,20 @@ type client struct {
 	node    retrievalmarket.RetrievalClientNode
 	// The parameters should be replaced by RetrievalClientNode
 
-	nextDealLk    sync.Mutex
-	nextDealID    retrievalmarket.DealID
+	nextDealLk  sync.RWMutex
+	nextDealID  retrievalmarket.DealID
+
 	subscribersLk sync.RWMutex
-	subscribers   []retrievalmarket.ClientSubscriber
+	subscribers []retrievalmarket.ClientSubscriber
 }
 
 // NewClient creates a new retrieval client
 func NewClient(network rmnet.RetrievalMarketNetwork, bs blockstore.Blockstore, node retrievalmarket.RetrievalClientNode) retrievalmarket.RetrievalClient {
-	return &client{network: network, bs: bs, node: node}
+	return &client{
+		network: network,
+		bs:      bs,
+		node:    node,
+	}
 }
 
 // V0
@@ -79,16 +89,70 @@ func (c *client) Retrieve(ctx context.Context, pieceCID []byte, params retrieval
 			ID:       dealID,
 			Params:   params,
 		},
-		Status: retrievalmarket.DealStatusFailed,
-		Sender: miner,
+		TotalFunds:       totalFunds,
+		ClientWallet:     clientWallet,
+		MinerWallet:      minerWallet,
+		TotalReceived:    0,
+		CurrentInterval:  params.PaymentInterval,
+		BytesPaidFor:     0,
+		PaymentRequested: tokenamount.FromInt(0),
+		FundsSpent:       tokenamount.FromInt(0),
+		Status:           retrievalmarket.DealStatusNew,
+		Sender:           miner,
 	}
 
-	go func() {
-		evt := retrievalmarket.ClientEventError
-		c.notifySubscribers(evt, dealState)
-	}()
+	go c.handleDeal(ctx, dealState)
 
 	return dealID
+}
+
+func (c *client) failDeal(dealState *retrievalmarket.ClientDealState, err error) {
+	dealState.Message = err.Error()
+	dealState.Status = retrievalmarket.DealStatusFailed
+	c.notifySubscribers(retrievalmarket.ClientEventError, *dealState)
+}
+
+func (c *client) handleDeal(ctx context.Context, dealState retrievalmarket.ClientDealState) {
+
+	c.notifySubscribers(retrievalmarket.ClientEventOpen, dealState)
+
+	s, err := c.network.NewDealStream(dealState.Sender)
+	if err != nil {
+		c.failDeal(&dealState, err)
+		return
+	}
+	defer s.Close()
+
+	environment := clientDealEnvironment{c.node, &UnixFs0Verifier{Root: dealState.DealProposal.PayloadCID}, c.bs, s}
+
+	for {
+		var handler clientstates.ClientHandlerFunc
+
+		switch dealState.Status {
+		case retrievalmarket.DealStatusNew:
+			handler = clientstates.ProposeDeal
+		case retrievalmarket.DealStatusAccepted:
+			handler = clientstates.SetupPaymentChannel
+		case retrievalmarket.DealStatusPaymentChannelCreated, retrievalmarket.DealStatusOngoing, retrievalmarket.DealStatusUnsealing:
+			handler = clientstates.ProcessNextResponse
+		case retrievalmarket.DealStatusFundsNeeded, retrievalmarket.DealStatusFundsNeededLastPayment:
+			handler = clientstates.ProcessNextResponse
+		default:
+			c.failDeal(&dealState, errors.New("unexpected deal state"))
+			return
+		}
+		dealModifier := handler(ctx, environment, dealState)
+		dealModifier(&dealState)
+		if retrievalmarket.IsTerminalStatus(dealState.Status) {
+			break
+		}
+		c.notifySubscribers(retrievalmarket.ClientEventProgress, dealState)
+	}
+	if retrievalmarket.IsTerminalSuccess(dealState.Status) {
+		c.notifySubscribers(retrievalmarket.ClientEventComplete, dealState)
+	} else {
+		c.notifySubscribers(retrievalmarket.ClientEventError, dealState)
+	}
 }
 
 // unsubscribeAt returns a function that removes an item from the subscribers list by comparing
@@ -356,3 +420,51 @@ func (cst *clientStream) setupPayment(ctx context.Context, toSend tokenamount.To
 	}, nil
 }
 */
+
+type clientDealEnvironment struct {
+	node     retrievalmarket.RetrievalClientNode
+	verifier BlockVerifier
+	bs       blockstore.Blockstore
+	stream   rmnet.RetrievalDealStream
+}
+
+func (cde clientDealEnvironment) Node() retrievalmarket.RetrievalClientNode {
+	return cde.node
+}
+
+func (cde clientDealEnvironment) DealStream() rmnet.RetrievalDealStream {
+	return cde.stream
+}
+
+func (cde clientDealEnvironment) ConsumeBlock(ctx context.Context, block retrievalmarket.Block) (uint64, bool, error) {
+	prefix, err := cid.PrefixFromBytes(block.Prefix)
+	if err != nil {
+		return 0, false, err
+	}
+
+	cid, err := prefix.Sum(block.Data)
+	if err != nil {
+		return 0, false, err
+	}
+
+	blk, err := blocks.NewBlockWithCid(block.Data, cid)
+	if err != nil {
+		return 0, false, err
+	}
+
+	done, err := cde.verifier.Verify(ctx, blk)
+	if err != nil {
+		log.Warnf("block verify failed: %s", err)
+		return 0, false, err
+	}
+
+	// TODO: Smarter out, maybe add to filestore automagically
+	//  (Also, persist intermediate nodes)
+	err = cde.bs.Put(blk)
+	if err != nil {
+		log.Warnf("block write failed: %s", err)
+		return 0, false, err
+	}
+
+	return uint64(len(block.Data)), done, nil
+}

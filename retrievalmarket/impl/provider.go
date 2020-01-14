@@ -2,24 +2,21 @@ package retrievalimpl
 
 import (
 	"context"
-	"io"
+	"errors"
 	"reflect"
 	"sync"
 
 	"github.com/filecoin-project/go-address"
-	cborutil "github.com/filecoin-project/go-cbor-util"
 	"github.com/ipfs/go-blockservice"
-	"github.com/ipfs/go-cid"
 	files "github.com/ipfs/go-ipfs-files"
 	ipld "github.com/ipfs/go-ipld-format"
 	"github.com/ipfs/go-merkledag"
 	unixfile "github.com/ipfs/go-unixfs/file"
-	"github.com/libp2p/go-libp2p-core/network"
 	"golang.org/x/xerrors"
 
 	"github.com/filecoin-project/go-fil-markets/retrievalmarket"
+	"github.com/filecoin-project/go-fil-markets/retrievalmarket/impl/providerstates"
 	rmnet "github.com/filecoin-project/go-fil-markets/retrievalmarket/network"
-	"github.com/filecoin-project/go-fil-markets/shared/params"
 	"github.com/filecoin-project/go-fil-markets/shared/tokenamount"
 )
 
@@ -156,167 +153,131 @@ func (p *provider) HandleQueryStream(stream rmnet.RetrievalQueryStream) {
 	}
 }
 
-type handlerDeal struct { // nolint: unused
-	p      *provider
-	stream network.Stream
-
-	ufsr UnixfsReader
-	open cid.Cid
-	at   uint64
-	size uint64
+func (p *provider) failDeal(dealState *retrievalmarket.ProviderDealState, err error) {
+	dealState.Message = err.Error()
+	dealState.Status = retrievalmarket.DealStatusFailed
+	p.notifySubscribers(retrievalmarket.ProviderEventError, *dealState)
 }
 
 // TODO: Update for https://github.com/filecoin-project/go-retrieval-market-project/issues/7
 func (p *provider) HandleDealStream(stream rmnet.RetrievalDealStream) {
 	defer stream.Close()
-	/*
-		hnd := &handlerDeal{
-			p: p,
-
-			stream: stream,
-		}
-
-		var err error
-		more := true
-
-		for more {
-			more, err = hnd.handleNext() // TODO: 'more' bool
-			if err != nil {
-				writeErr(stream, err)
-				return
-			}
-		}
-	*/
-}
-
-func (hnd *handlerDeal) handleNext() (bool, error) {
-	var deal OldDealProposal
-	if err := cborutil.ReadCborRPC(hnd.stream, &deal); err != nil {
-		if err == io.EOF { // client sent all deals
-			err = nil
-		}
-		return false, err
+	ctx, cancel := context.WithCancel(context.TODO())
+	defer cancel()
+	dealState := retrievalmarket.ProviderDealState{
+		Status:        retrievalmarket.DealStatusNew,
+		TotalSent:     0,
+		FundsReceived: tokenamount.FromInt(0),
 	}
+	p.notifySubscribers(retrievalmarket.ProviderEventOpen, dealState)
 
-	if deal.Params.Unixfs0 == nil {
-		return false, xerrors.New("unknown deal type")
-	}
-
-	unixfs0 := deal.Params.Unixfs0
-
-	if len(deal.Payment.Vouchers) != 1 {
-		return false, xerrors.Errorf("expected one signed voucher, got %d", len(deal.Payment.Vouchers))
-	}
-
-	expPayment := tokenamount.Mul(hnd.p.pricePerByte, tokenamount.FromInt(deal.Params.Unixfs0.Size))
-	if _, err := hnd.p.node.SavePaymentVoucher(context.TODO(), deal.Payment.Channel, deal.Payment.Vouchers[0], nil, expPayment); err != nil {
-		return false, xerrors.Errorf("processing retrieval payment: %w", err)
-	}
-
-	// If the file isn't open (new deal stream), isn't the right file, or isn't
-	// at the right offset, (re)open it
-	if hnd.open != deal.Ref || hnd.at != unixfs0.Offset {
-		log.Infof("opening file for sending (open '%s') (@%d, want %d)", deal.Ref, hnd.at, unixfs0.Offset)
-		if err := hnd.openFile(deal); err != nil {
-			return false, err
-		}
-	}
-
-	if unixfs0.Offset+unixfs0.Size > hnd.size {
-		return false, xerrors.Errorf("tried to read too much %d+%d > %d", unixfs0.Offset, unixfs0.Size, hnd.size)
-	}
-
-	err := hnd.accept(deal)
-	if err != nil {
-		return false, err
-	}
-	return true, nil
-}
-
-func (hnd *handlerDeal) openFile(deal OldDealProposal) error {
-	unixfs0 := deal.Params.Unixfs0
-
-	if unixfs0.Offset != 0 {
-		// TODO: Implement SeekBlock (like ReadBlock) in go-unixfs
-		return xerrors.New("sending merkle proofs for nonzero offset not supported yet")
-	}
-	hnd.at = unixfs0.Offset
-
-	bstore := hnd.p.node.SealedBlockstore(func() error {
+	bstore := p.node.SealedBlockstore(func() error {
 		return nil // TODO: approve unsealing based on amount paid
 	})
 
 	ds := merkledag.NewDAGService(blockservice.New(bstore, nil))
-	rootNd, err := ds.Get(context.TODO(), deal.Ref)
-	if err != nil {
-		return err
+
+	environment := providerDealEnvironment{p.node, 0, 0, nil, p.pricePerByte, p.paymentInterval, p.paymentIntervalIncrease, stream}
+
+	for {
+		var handler providerstates.ProviderHandlerFunc
+
+		switch dealState.Status {
+		case retrievalmarket.DealStatusNew:
+			handler = providerstates.ReceiveDeal
+		case retrievalmarket.DealStatusAccepted, retrievalmarket.DealStatusOngoing, retrievalmarket.DealStatusUnsealing:
+			handler = providerstates.SendBlocks
+		case retrievalmarket.DealStatusFundsNeeded, retrievalmarket.DealStatusFundsNeededLastPayment:
+			handler = providerstates.ProcessPayment
+		default:
+			p.failDeal(&dealState, errors.New("unexpected deal state"))
+			return
+		}
+		dealModifier := handler(ctx, environment, dealState)
+		dealModifier(&dealState)
+		if retrievalmarket.IsTerminalStatus(dealState.Status) {
+			break
+		}
+		if environment.ufsr == nil {
+			rootNd, err := ds.Get(context.TODO(), dealState.PayloadCID)
+			if err != nil {
+				p.failDeal(&dealState, err)
+				return
+			}
+
+			fsr, err := unixfile.NewUnixfsFile(context.TODO(), ds, rootNd)
+			if err != nil {
+				p.failDeal(&dealState, err)
+				return
+			}
+
+			var ok bool
+			environment.ufsr, ok = fsr.(UnixfsReader)
+			if !ok {
+				p.failDeal(&dealState, xerrors.Errorf("file %s didn't implement UnixfsReader", dealState.PayloadCID))
+				return
+			}
+			size, err := fsr.Size()
+			if err != nil {
+				p.failDeal(&dealState, xerrors.Errorf("file %s didn't implement UnixfsReader", dealState.PayloadCID))
+				return
+			}
+			environment.size = uint64(size)
+		}
+		p.notifySubscribers(retrievalmarket.ProviderEventProgress, dealState)
 	}
-
-	fsr, err := unixfile.NewUnixfsFile(context.TODO(), ds, rootNd)
-	if err != nil {
-		return err
+	if retrievalmarket.IsTerminalSuccess(dealState.Status) {
+		p.notifySubscribers(retrievalmarket.ProviderEventComplete, dealState)
+	} else {
+		p.notifySubscribers(retrievalmarket.ProviderEventError, dealState)
 	}
+}
 
-	var ok bool
-	hnd.ufsr, ok = fsr.(UnixfsReader)
-	if !ok {
-		return xerrors.Errorf("file %s didn't implement UnixfsReader", deal.Ref)
+type providerDealEnvironment struct {
+	node                       retrievalmarket.RetrievalProviderNode
+	read                       uint64
+	size                       uint64
+	ufsr                       UnixfsReader
+	minPricePerByte            tokenamount.TokenAmount
+	maxPaymentInterval         uint64
+	maxPaymentIntervalIncrease uint64
+	stream                     rmnet.RetrievalDealStream
+}
+
+func (pde providerDealEnvironment) Node() retrievalmarket.RetrievalProviderNode {
+	return pde.node
+}
+
+func (pde providerDealEnvironment) DealStream() rmnet.RetrievalDealStream {
+	return pde.stream
+}
+
+func (pde providerDealEnvironment) CheckDealParams(pricePerByte tokenamount.TokenAmount, paymentInterval uint64, paymentIntervalIncrease uint64) error {
+	if pricePerByte.LessThan(pde.minPricePerByte) {
+		return errors.New("Price per byte too low")
 	}
-
-	isize, err := hnd.ufsr.Size()
-	if err != nil {
-		return err
+	if paymentInterval > pde.maxPaymentInterval {
+		return errors.New("Payment interval too large")
 	}
-	hnd.size = uint64(isize)
-
-	hnd.open = deal.Ref
-
+	if paymentIntervalIncrease > pde.maxPaymentIntervalIncrease {
+		return errors.New("Payment interval increase too large")
+	}
 	return nil
 }
 
-func (hnd *handlerDeal) accept(deal OldDealProposal) error {
-	unixfs0 := deal.Params.Unixfs0
-
-	resp := &OldDealResponse{
-		Status: Accepted,
+func (pde providerDealEnvironment) NextBlock(ctx context.Context) (retrievalmarket.Block, bool, error) {
+	if pde.ufsr == nil {
+		return retrievalmarket.Block{}, false, errors.New("Could not read block")
 	}
-	if err := cborutil.WriteCborRPC(hnd.stream, resp); err != nil {
-		log.Errorf("Retrieval query: Write Accepted resp: %s", err)
-		return err
+	_, _, nd, err := pde.ufsr.ReadBlock(ctx)
+	if err != nil {
+		return retrievalmarket.Block{}, false, err
 	}
-
-	blocksToSend := (unixfs0.Size + params.UnixfsChunkSize - 1) / params.UnixfsChunkSize
-	for i := uint64(0); i < blocksToSend; {
-		data, offset, nd, err := hnd.ufsr.ReadBlock(context.TODO())
-		if err != nil {
-			return err
-		}
-
-		log.Infof("sending block for a deal: %s", nd.Cid())
-
-		if offset != unixfs0.Offset {
-			return xerrors.Errorf("ReadBlock on wrong offset: want %d, got %d", unixfs0.Offset, offset)
-		}
-
-		/*if uint64(len(data)) != deal.Unixfs0.Size { // TODO: Fix for internal nodes (and any other node too)
-			writeErr(stream, xerrors.Errorf("ReadBlock data with wrong size: want %d, got %d", deal.Unixfs0.Size, len(data)))
-			return
-		}*/
-
-		block := &Block{
-			Prefix: nd.Cid().Prefix().Bytes(),
-			Data:   nd.RawData(),
-		}
-
-		if err := cborutil.WriteCborRPC(hnd.stream, block); err != nil {
-			return err
-		}
-
-		if len(data) > 0 { // don't count internal nodes
-			hnd.at += uint64(len(data))
-			i++
-		}
+	block := retrievalmarket.Block{
+		Prefix: nd.Cid().Prefix().Bytes(),
+		Data:   nd.RawData(),
 	}
-
-	return nil
+	pde.read += uint64(len(nd.RawData()))
+	done := pde.read >= pde.size
+	return block, done, nil
 }

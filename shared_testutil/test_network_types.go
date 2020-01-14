@@ -298,6 +298,36 @@ func FailResponseWriter(rm.QueryResponse) error {
 	return errors.New("write query response failed")
 }
 
+// FailDealProposalWriter always fails
+func FailDealProposalWriter(rm.DealProposal) error {
+	return errors.New("write proposal failed")
+}
+
+// FailDealProposalReader always fails
+func FailDealProposalReader() (rm.DealProposal, error) {
+	return rm.DealProposalUndefined, errors.New("read proposal failed")
+}
+
+// FailDealResponseWriter always fails
+func FailDealResponseWriter(rm.DealResponse) error {
+	return errors.New("write proposal failed")
+}
+
+// FailDealResponseReader always fails
+func FailDealResponseReader() (rm.DealResponse, error) {
+	return rm.DealResponseUndefined, errors.New("write proposal failed")
+}
+
+// FailDealPaymentWriter always fails
+func FailDealPaymentWriter(rm.DealPayment) error {
+	return errors.New("write proposal failed")
+}
+
+// FailDealPaymentReader always fails
+func FailDealPaymentReader() (rm.DealPayment, error) {
+	return rm.DealPaymentUndefined, errors.New("write proposal failed")
+}
+
 // TrivialNewQueryStream succeeds trivially, returning an empty query stream.
 func TrivialNewQueryStream(p peer.ID) (rmnet.RetrievalQueryStream, error) {
 	return NewTestRetrievalQueryStream(TestQueryStreamParams{PeerID: p}), nil
@@ -396,6 +426,14 @@ func ExpectQueryResponseWriter(t *testing.T, expectedQueryResponse rm.QueryRespo
 	}
 }
 
+// ExpectDealResponseWriter will fail if the written query and expected query don't match
+func ExpectDealResponseWriter(t *testing.T, expectedDealResponse rm.DealResponse, msgAndArgs ...interface{}) DealResponseWriter {
+	return func(dealResponse rm.DealResponse) error {
+		require.Equal(t, expectedDealResponse, dealResponse, msgAndArgs...)
+		return nil
+	}
+}
+
 // QueryReadWriter will read only if something is written, otherwise it errors
 func QueryReadWriter() (QueryReader, QueryWriter) {
 	var q rm.Query
@@ -430,4 +468,25 @@ func QueryResponseReadWriter() (QueryResponseReader, QueryResponseWriter) {
 		return nil
 	}
 	return queryResponseRead, queryResponseWrite
+}
+
+// StubbedDealProposalReader returns the given proposal when called
+func StubbedDealProposalReader(proposal rm.DealProposal) DealProposalReader {
+	return func() (rm.DealProposal, error) {
+		return proposal, nil
+	}
+}
+
+// StubbedDealResponseReader returns the given deal response when called
+func StubbedDealResponseReader(response rm.DealResponse) DealResponseReader {
+	return func() (rm.DealResponse, error) {
+		return response, nil
+	}
+}
+
+// StubbedDealPaymentReader returns the given deal payment when called
+func StubbedDealPaymentReader(payment rm.DealPayment) DealPaymentReader {
+	return func() (rm.DealPayment, error) {
+		return payment, nil
+	}
 }
