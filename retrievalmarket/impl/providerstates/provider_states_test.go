@@ -158,7 +158,7 @@ func TestSendBlocks(t *testing.T) {
 		dealState := makeDealState(retrievalmarket.DealStatusAccepted)
 		expectedDealResponse := retrievalmarket.DealResponse{
 			Status:      retrievalmarket.DealStatusFundsNeeded,
-			PaymentOwed: tokenamount.FromInt(500000),
+			PaymentOwed: defaultPaymentPerInterval,
 			Blocks:      blocks,
 			ID:          dealState.ID,
 		}
@@ -168,7 +168,7 @@ func TestSendBlocks(t *testing.T) {
 		f := providerstates.SendBlocks(ctx, fe, *dealState)
 		f(dealState)
 		require.Equal(t, dealState.Status, retrievalmarket.DealStatusFundsNeeded)
-		require.Equal(t, dealState.TotalSent, uint64(6000))
+		require.Equal(t, dealState.TotalSent, defaultTotalSent+defaultCurrentInterval)
 		require.Empty(t, dealState.Message)
 	})
 
@@ -177,7 +177,7 @@ func TestSendBlocks(t *testing.T) {
 		dealState := makeDealState(retrievalmarket.DealStatusAccepted)
 		expectedDealResponse := retrievalmarket.DealResponse{
 			Status:      retrievalmarket.DealStatusFundsNeededLastPayment,
-			PaymentOwed: tokenamount.FromInt(500000),
+			PaymentOwed: defaultPaymentPerInterval,
 			Blocks:      blocks,
 			ID:          dealState.ID,
 		}
@@ -187,7 +187,7 @@ func TestSendBlocks(t *testing.T) {
 		f := providerstates.SendBlocks(ctx, fe, *dealState)
 		f(dealState)
 		require.Equal(t, dealState.Status, retrievalmarket.DealStatusFundsNeededLastPayment)
-		require.Equal(t, dealState.TotalSent, uint64(6000))
+		require.Equal(t, dealState.TotalSent, defaultTotalSent+defaultCurrentInterval)
 		require.Empty(t, dealState.Message)
 	})
 
@@ -233,10 +233,10 @@ func TestProcessPayment(t *testing.T) {
 	voucher := testnet.MakeTestSignedVoucher()
 	t.Run("it works", func(t *testing.T) {
 		node := testnodes.NewTestRetrievalProviderNode()
-		err := node.ExpectVoucher(payCh, voucher, nil, tokenamount.FromInt(500000), tokenamount.FromInt(500000), nil)
+		err := node.ExpectVoucher(payCh, voucher, nil, defaultPaymentPerInterval, defaultPaymentPerInterval, nil)
 		require.NoError(t, err)
 		dealState := makeDealState(retrievalmarket.DealStatusFundsNeeded)
-		dealState.TotalSent = uint64(6000)
+		dealState.TotalSent = defaultTotalSent + defaultCurrentInterval
 		dealPayment := retrievalmarket.DealPayment{
 			ID:             dealState.ID,
 			PaymentChannel: payCh,
@@ -249,16 +249,16 @@ func TestProcessPayment(t *testing.T) {
 		node.VerifyExpectations(t)
 		f(dealState)
 		require.Equal(t, dealState.Status, retrievalmarket.DealStatusOngoing)
-		require.Equal(t, dealState.FundsReceived, tokenamount.FromInt(3000000))
-		require.Equal(t, dealState.CurrentInterval, uint64(1500))
+		require.Equal(t, dealState.FundsReceived, tokenamount.Add(defaultFundsReceived, defaultPaymentPerInterval))
+		require.Equal(t, dealState.CurrentInterval, defaultCurrentInterval+defaultIntervalIncrease)
 		require.Empty(t, dealState.Message)
 	})
 	t.Run("it completes", func(t *testing.T) {
 		node := testnodes.NewTestRetrievalProviderNode()
-		err := node.ExpectVoucher(payCh, voucher, nil, tokenamount.FromInt(500000), tokenamount.FromInt(500000), nil)
+		err := node.ExpectVoucher(payCh, voucher, nil, defaultPaymentPerInterval, defaultPaymentPerInterval, nil)
 		require.NoError(t, err)
 		dealState := makeDealState(retrievalmarket.DealStatusFundsNeededLastPayment)
-		dealState.TotalSent = uint64(6000)
+		dealState.TotalSent = defaultTotalSent + defaultCurrentInterval
 		dealPayment := retrievalmarket.DealPayment{
 			ID:             dealState.ID,
 			PaymentChannel: payCh,
@@ -271,17 +271,18 @@ func TestProcessPayment(t *testing.T) {
 		node.VerifyExpectations(t)
 		f(dealState)
 		require.Equal(t, dealState.Status, retrievalmarket.DealStatusCompleted)
-		require.Equal(t, dealState.FundsReceived, tokenamount.FromInt(3000000))
-		require.Equal(t, dealState.CurrentInterval, uint64(1500))
+		require.Equal(t, dealState.FundsReceived, tokenamount.Add(defaultFundsReceived, defaultPaymentPerInterval))
+		require.Equal(t, dealState.CurrentInterval, defaultCurrentInterval+defaultIntervalIncrease)
 		require.Empty(t, dealState.Message)
 	})
 
 	t.Run("not enough funds sent", func(t *testing.T) {
 		node := testnodes.NewTestRetrievalProviderNode()
-		err := node.ExpectVoucher(payCh, voucher, nil, tokenamount.FromInt(500000), tokenamount.FromInt(400000), nil)
+		smallerPayment := tokenamount.FromInt(400000)
+		err := node.ExpectVoucher(payCh, voucher, nil, defaultPaymentPerInterval, smallerPayment, nil)
 		require.NoError(t, err)
 		dealState := makeDealState(retrievalmarket.DealStatusFundsNeeded)
-		dealState.TotalSent = uint64(6000)
+		dealState.TotalSent = defaultTotalSent + defaultCurrentInterval
 		dealPayment := retrievalmarket.DealPayment{
 			ID:             dealState.ID,
 			PaymentChannel: payCh,
@@ -292,25 +293,25 @@ func TestProcessPayment(t *testing.T) {
 			ResponseWriter: testnet.ExpectDealResponseWriter(t, rm.DealResponse{
 				ID:          dealState.ID,
 				Status:      retrievalmarket.DealStatusFundsNeeded,
-				PaymentOwed: tokenamount.FromInt(100000),
+				PaymentOwed: tokenamount.Sub(defaultPaymentPerInterval, smallerPayment),
 			}),
 		})
 		f := providerstates.ProcessPayment(ctx, fe, *dealState)
 		node.VerifyExpectations(t)
 		f(dealState)
 		require.Equal(t, dealState.Status, retrievalmarket.DealStatusFundsNeeded)
-		require.Equal(t, dealState.FundsReceived, tokenamount.FromInt(2900000))
-		require.Equal(t, dealState.CurrentInterval, uint64(1000))
+		require.Equal(t, dealState.FundsReceived, tokenamount.Add(defaultFundsReceived, smallerPayment))
+		require.Equal(t, dealState.CurrentInterval, defaultCurrentInterval)
 		require.Empty(t, dealState.Message)
 	})
 
 	t.Run("failure processing payment", func(t *testing.T) {
 		node := testnodes.NewTestRetrievalProviderNode()
 		message := "your money's no good here"
-		err := node.ExpectVoucher(payCh, voucher, nil, tokenamount.FromInt(500000), tokenamount.FromInt(0), errors.New(message))
+		err := node.ExpectVoucher(payCh, voucher, nil, defaultPaymentPerInterval, tokenamount.FromInt(0), errors.New(message))
 		require.NoError(t, err)
 		dealState := makeDealState(retrievalmarket.DealStatusFundsNeeded)
-		dealState.TotalSent = uint64(6000)
+		dealState.TotalSent = defaultTotalSent + defaultCurrentInterval
 		dealPayment := retrievalmarket.DealPayment{
 			ID:             dealState.ID,
 			PaymentChannel: payCh,
@@ -334,7 +335,7 @@ func TestProcessPayment(t *testing.T) {
 	t.Run("failure reading payment", func(t *testing.T) {
 		node := testnodes.NewTestRetrievalProviderNode()
 		dealState := makeDealState(retrievalmarket.DealStatusFundsNeeded)
-		dealState.TotalSent = uint64(6000)
+		dealState.TotalSent = defaultTotalSent + defaultCurrentInterval
 		fe := environment(node, testnet.TestDealStreamParams{
 			PaymentReader: testnet.FailDealPaymentReader,
 		})
@@ -413,6 +414,7 @@ func (te *testProviderDealEnvironment) NextBlock(_ context.Context) (rm.Block, b
 var defaultCurrentInterval = uint64(1000)
 var defaultIntervalIncrease = uint64(500)
 var defaultPricePerByte = tokenamount.FromInt(500)
+var defaultPaymentPerInterval = tokenamount.Mul(defaultPricePerByte, tokenamount.FromInt(defaultCurrentInterval))
 var defaultTotalSent = uint64(5000)
 var defaultFundsReceived = tokenamount.FromInt(2500000)
 

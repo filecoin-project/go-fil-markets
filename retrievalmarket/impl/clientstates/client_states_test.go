@@ -202,9 +202,9 @@ func TestProcessPaymentRequested(t *testing.T) {
 		f(dealState)
 		require.Empty(t, dealState.Message)
 		require.Equal(t, dealState.PaymentRequested, tokenamount.FromInt(0))
-		require.Equal(t, dealState.FundsSpent, tokenamount.FromInt(3000000))
-		require.Equal(t, dealState.BytesPaidFor, uint64(6000))
-		require.Equal(t, dealState.CurrentInterval, uint64(1500))
+		require.Equal(t, dealState.FundsSpent, tokenamount.Add(defaultFundsSpent, defaultPaymentRequested))
+		require.Equal(t, dealState.BytesPaidFor, defaultTotalReceived)
+		require.Equal(t, dealState.CurrentInterval, defaultCurrentInterval+defaultIntervalIncrease)
 		require.Equal(t, dealState.Status, retrievalmarket.DealStatusOngoing)
 	})
 
@@ -217,9 +217,9 @@ func TestProcessPaymentRequested(t *testing.T) {
 		f(dealState)
 		require.Empty(t, dealState.Message)
 		require.Equal(t, dealState.PaymentRequested, tokenamount.FromInt(0))
-		require.Equal(t, dealState.FundsSpent, tokenamount.FromInt(3000000))
-		require.Equal(t, dealState.BytesPaidFor, uint64(6000))
-		require.Equal(t, dealState.CurrentInterval, uint64(1500))
+		require.Equal(t, dealState.FundsSpent, tokenamount.Add(defaultFundsSpent, defaultPaymentRequested))
+		require.Equal(t, dealState.BytesPaidFor, defaultTotalReceived)
+		require.Equal(t, dealState.CurrentInterval, defaultCurrentInterval+defaultIntervalIncrease)
 		require.Equal(t, dealState.Status, retrievalmarket.DealStatusCompleted)
 	})
 
@@ -250,7 +250,8 @@ func TestProcessPaymentRequested(t *testing.T) {
 	t.Run("more bytes since last payment than interval works, can charge more", func(t *testing.T) {
 		dealState := makeDealState(retrievalmarket.DealStatusFundsNeeded)
 		dealState.BytesPaidFor = defaultBytesPaidFor - 500
-		dealState.PaymentRequested = tokenamount.FromInt(750000)
+		largerPaymentRequested := tokenamount.FromInt(750000)
+		dealState.PaymentRequested = largerPaymentRequested
 
 		fe := environment(testnet.TestDealStreamParams{}, testnodes.TestRetrievalClientNodeParams{
 			Voucher: testVoucher,
@@ -259,9 +260,9 @@ func TestProcessPaymentRequested(t *testing.T) {
 		f(dealState)
 		require.Empty(t, dealState.Message)
 		require.Equal(t, dealState.PaymentRequested, tokenamount.FromInt(0))
-		require.Equal(t, dealState.FundsSpent, tokenamount.FromInt(3250000))
-		require.Equal(t, dealState.BytesPaidFor, uint64(6000))
-		require.Equal(t, dealState.CurrentInterval, uint64(1500))
+		require.Equal(t, dealState.FundsSpent, tokenamount.Add(defaultFundsSpent, largerPaymentRequested))
+		require.Equal(t, dealState.BytesPaidFor, defaultTotalReceived)
+		require.Equal(t, dealState.CurrentInterval, defaultCurrentInterval+defaultIntervalIncrease)
 		require.Equal(t, dealState.Status, retrievalmarket.DealStatusOngoing)
 	})
 
@@ -279,7 +280,8 @@ func TestProcessPaymentRequested(t *testing.T) {
 
 	t.Run("too little payment requested works but records correctly", func(t *testing.T) {
 		dealState := makeDealState(retrievalmarket.DealStatusFundsNeeded)
-		dealState.PaymentRequested = tokenamount.FromInt(250000)
+		smallerPaymentRequested := tokenamount.FromInt(250000)
+		dealState.PaymentRequested = smallerPaymentRequested
 		fe := environment(testnet.TestDealStreamParams{}, testnodes.TestRetrievalClientNodeParams{
 			Voucher: testVoucher,
 		})
@@ -287,9 +289,11 @@ func TestProcessPaymentRequested(t *testing.T) {
 		f(dealState)
 		require.Empty(t, dealState.Message)
 		require.Equal(t, dealState.PaymentRequested, tokenamount.FromInt(0))
-		require.Equal(t, dealState.FundsSpent, tokenamount.FromInt(2750000))
-		require.Equal(t, dealState.BytesPaidFor, uint64(5500))
-		require.Equal(t, dealState.CurrentInterval, uint64(1000))
+		require.Equal(t, dealState.FundsSpent, tokenamount.Add(defaultFundsSpent, smallerPaymentRequested))
+		// only records change for those bytes paid for
+		require.Equal(t, dealState.BytesPaidFor, defaultBytesPaidFor+500)
+		// no interval increase
+		require.Equal(t, dealState.CurrentInterval, defaultCurrentInterval)
 		require.Equal(t, dealState.Status, retrievalmarket.DealStatusOngoing)
 	})
 
