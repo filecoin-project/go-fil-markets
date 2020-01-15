@@ -19,7 +19,6 @@ import (
 	"github.com/filecoin-project/go-fil-markets/retrievalmarket/network"
 	rmnet "github.com/filecoin-project/go-fil-markets/retrievalmarket/network"
 	"github.com/filecoin-project/go-fil-markets/shared/tokenamount"
-	"github.com/filecoin-project/go-fil-markets/shared/types"
 	tut "github.com/filecoin-project/go-fil-markets/shared_testutil"
 )
 
@@ -139,39 +138,24 @@ func TestClient_FindProviders(t *testing.T) {
 		peers := tut.RequireGenerateRetrievalPeers(t, 3)
 		testResolver := testPeerResolver{peers: peers}
 
-		c := retrievalimpl.NewClient(net, bs, &testRetrievalNode{}, &testResolver)
+		c := retrievalimpl.NewClient(net, bs, &testnodes.TestRetrievalClientNode{}, &testResolver)
 		testCid := []byte("somePieceCID")
 		assert.Len(t, c.FindProviders(testCid), 3)
 	})
 
 	t.Run("when there is an error, returns empty provider list", func(t *testing.T) {
 		testResolver := testPeerResolver{peers: []retrievalmarket.RetrievalPeer{}, resolverError: errors.New("boom")}
-		c := retrievalimpl.NewClient(net, bs, &testRetrievalNode{}, &testResolver)
+		c := retrievalimpl.NewClient(net, bs, &testnodes.TestRetrievalClientNode{}, &testResolver)
 		badCid := []byte("doesn't matter")
 		assert.Len(t, c.FindProviders(badCid), 0)
 	})
 
 	t.Run("when there are no providers", func(t *testing.T) {
 		testResolver := testPeerResolver{peers: []retrievalmarket.RetrievalPeer{}}
-		c := retrievalimpl.NewClient(net, bs, &testRetrievalNode{}, &testResolver)
+		c := retrievalimpl.NewClient(net, bs, &testnodes.TestRetrievalClientNode{}, &testResolver)
 		testCid := []byte("unimportant")
 		assert.Len(t, c.FindProviders(testCid), 0)
 	})
-}
-
-type testRetrievalNode struct {
-}
-
-func (t *testRetrievalNode) GetOrCreatePaymentChannel(ctx context.Context, clientAddress address.Address, minerAddress address.Address, clientFundsAvailable tokenamount.TokenAmount) (address.Address, error) {
-	return address.Address{}, nil
-}
-
-func (t *testRetrievalNode) AllocateLane(paymentChannel address.Address) (uint64, error) {
-	return 0, nil
-}
-
-func (t *testRetrievalNode) CreatePaymentVoucher(ctx context.Context, paymentChannel address.Address, amount tokenamount.TokenAmount, lane uint64) (*types.SignedVoucher, error) {
-	return nil, nil
 }
 
 type testPeerResolver struct {
