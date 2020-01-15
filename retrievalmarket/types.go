@@ -200,7 +200,7 @@ type RetrievalProviderNode interface {
 
 // PeerResolver is an interface for looking up providers that may have a piece
 type PeerResolver interface {
-	GetPeers(data cid.Cid) ([]RetrievalPeer, error) // TODO: channel
+	GetPeers(pieceCID []byte) ([]RetrievalPeer, error) // TODO: channel
 }
 
 // RetrievalPeer is a provider address/peer.ID pair (everything needed to make

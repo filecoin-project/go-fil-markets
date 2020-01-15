@@ -3,9 +3,12 @@ package shared_testutil
 import (
 	"math/big"
 	"math/rand"
+	"testing"
 
 	"github.com/filecoin-project/go-address"
 	"github.com/filecoin-project/go-data-transfer/testutil"
+	"github.com/libp2p/go-libp2p-core/test"
+	"github.com/stretchr/testify/require"
 
 	"github.com/filecoin-project/go-fil-markets/retrievalmarket"
 	"github.com/filecoin-project/go-fil-markets/shared/tokenamount"
@@ -106,4 +109,19 @@ func MakeTestDealPayment() retrievalmarket.DealPayment {
 		PaymentChannel: address.TestAddress,
 		PaymentVoucher: MakeTestSignedVoucher(),
 	}
+}
+
+func RequireGenerateRetrievalPeers(t *testing.T, numPeers int) []retrievalmarket.RetrievalPeer {
+	peers := make([]retrievalmarket.RetrievalPeer, numPeers)
+	for i := range peers {
+		pid, err := test.RandPeerID()
+		require.NoError(t, err)
+		addr, err := address.NewIDAddress(rand.Uint64())
+		require.NoError(t, err)
+		peers[i] = retrievalmarket.RetrievalPeer{
+			Address: addr,
+			ID:      pid,
+		}
+	}
+	return peers
 }

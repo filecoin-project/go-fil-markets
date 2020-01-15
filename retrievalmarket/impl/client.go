@@ -2,20 +2,19 @@ package retrievalimpl
 
 import (
 	"context"
-	"errors"
 	"reflect"
 	"sync"
 
-	"github.com/filecoin-project/go-fil-markets/retrievalmarket/impl/clientstates"
-
+	"github.com/filecoin-project/go-address"
 	blocks "github.com/ipfs/go-block-format"
 	"github.com/ipfs/go-cid"
 	blockstore "github.com/ipfs/go-ipfs-blockstore"
 	logging "github.com/ipfs/go-log"
 	"github.com/libp2p/go-libp2p-core/peer"
+	"golang.org/x/xerrors"
 
-	"github.com/filecoin-project/go-address"
 	"github.com/filecoin-project/go-fil-markets/retrievalmarket"
+	"github.com/filecoin-project/go-fil-markets/retrievalmarket/impl/clientstates"
 	rmnet "github.com/filecoin-project/go-fil-markets/retrievalmarket/network"
 	"github.com/filecoin-project/go-fil-markets/shared/tokenamount"
 )
@@ -28,19 +27,25 @@ type client struct {
 	node    retrievalmarket.RetrievalClientNode
 	// The parameters should be replaced by RetrievalClientNode
 
-	nextDealLk  sync.RWMutex
-	nextDealID  retrievalmarket.DealID
+	nextDealLk sync.RWMutex
+	nextDealID retrievalmarket.DealID
 
 	subscribersLk sync.RWMutex
-	subscribers []retrievalmarket.ClientSubscriber
+	subscribers   []retrievalmarket.ClientSubscriber
+	resolver      retrievalmarket.PeerResolver
 }
 
 // NewClient creates a new retrieval client
-func NewClient(network rmnet.RetrievalMarketNetwork, bs blockstore.Blockstore, node retrievalmarket.RetrievalClientNode) retrievalmarket.RetrievalClient {
+func NewClient(
+	network rmnet.RetrievalMarketNetwork,
+	bs blockstore.Blockstore,
+	node retrievalmarket.RetrievalClientNode,
+	resolver retrievalmarket.PeerResolver) retrievalmarket.RetrievalClient {
 	return &client{
-		network: network,
-		bs:      bs,
-		node:    node,
+		network:  network,
+		bs:       bs,
+		node:     node,
+		resolver: resolver,
 	}
 }
 
@@ -49,7 +54,12 @@ func NewClient(network rmnet.RetrievalMarketNetwork, bs blockstore.Blockstore, n
 // TODO: Implement for retrieval provider V0 epic
 // https://github.com/filecoin-project/go-retrieval-market-project/issues/12
 func (c *client) FindProviders(pieceCID []byte) []retrievalmarket.RetrievalPeer {
-	panic("not implemented")
+	peers, err := c.resolver.GetPeers(pieceCID)
+	if err != nil {
+		log.Error(err)
+		return []retrievalmarket.RetrievalPeer{}
+	}
+	return peers
 }
 
 // TODO: Update to match spec for V0 epic
@@ -138,7 +148,7 @@ func (c *client) handleDeal(ctx context.Context, dealState retrievalmarket.Clien
 		case retrievalmarket.DealStatusFundsNeeded, retrievalmarket.DealStatusFundsNeededLastPayment:
 			handler = clientstates.ProcessNextResponse
 		default:
-			c.failDeal(&dealState, errors.New("unexpected deal state"))
+			c.failDeal(&dealState, xerrors.New("unexpected deal state"))
 			return
 		}
 		dealModifier := handler(ctx, environment, dealState)

@@ -35,8 +35,9 @@ func (l *Local) AddPeer(cid cid.Cid, peer retrievalmarket.RetrievalPeer) error {
 	return l.ds.Put(dshelp.CidToDsKey(cid), entry)
 }
 
-func (l *Local) GetPeers(data cid.Cid) ([]retrievalmarket.RetrievalPeer, error) {
-	entry, err := l.ds.Get(dshelp.CidToDsKey(data))
+func (l *Local) GetPeers(pieceCID []byte) ([]retrievalmarket.RetrievalPeer, error) {
+	key := string(pieceCID[:])
+	entry, err := l.ds.Get(datastore.NewKey(key))
 	if err == datastore.ErrNotFound {
 		return []retrievalmarket.RetrievalPeer{}, nil
 	}
