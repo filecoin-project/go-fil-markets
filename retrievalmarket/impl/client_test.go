@@ -2,11 +2,10 @@ package retrievalimpl_test
 
 import (
 	"context"
+	"errors"
 	"testing"
 
 	"github.com/filecoin-project/go-address"
-	"github.com/filecoin-project/go-data-transfer/testutil"
-	"github.com/ipfs/go-cid"
 	"github.com/ipfs/go-datastore"
 	dss "github.com/ipfs/go-datastore/sync"
 	bstore "github.com/ipfs/go-ipfs-blockstore"
@@ -20,6 +19,7 @@ import (
 	"github.com/filecoin-project/go-fil-markets/retrievalmarket/network"
 	rmnet "github.com/filecoin-project/go-fil-markets/retrievalmarket/network"
 	"github.com/filecoin-project/go-fil-markets/shared/tokenamount"
+	"github.com/filecoin-project/go-fil-markets/shared/types"
 	tut "github.com/filecoin-project/go-fil-markets/shared_testutil"
 )
 
@@ -58,8 +58,7 @@ func TestClient_Query(t *testing.T) {
 		net := tut.NewTestRetrievalMarketNetwork(tut.TestNetworkParams{
 			QueryStreamBuilder: tut.ExpectPeerOnQueryStreamBuilder(t, expectedPeer, qsb, "Peers should match"),
 		})
-		c := retrievalimpl.NewClient(net, bs, testnodes.NewTestRetrievalClientNode(testnodes.TestRetrievalClientNodeParams{}))
-		c := retrievalimpl.NewClient(net, bs, &testRetrievalNode{}, &testPeerResolver{})
+		c := retrievalimpl.NewClient(net, bs, testnodes.NewTestRetrievalClientNode(testnodes.TestRetrievalClientNodeParams{}), &testPeerResolver{})
 
 		resp, err := c.Query(ctx, rpeer, pcid, retrievalmarket.QueryParams{})
 		require.NoError(t, err)
@@ -71,8 +70,8 @@ func TestClient_Query(t *testing.T) {
 		net := tut.NewTestRetrievalMarketNetwork(tut.TestNetworkParams{
 			QueryStreamBuilder: tut.FailNewQueryStream,
 		})
-		c := retrievalimpl.NewClient(net, bs, testnodes.NewTestRetrievalClientNode(testnodes.TestRetrievalClientNodeParams{}))
-		c := retrievalimpl.NewClient(net, bs, &testRetrievalNode{}, &testPeerResolver{})
+		c := retrievalimpl.NewClient(net, bs,
+			testnodes.NewTestRetrievalClientNode(testnodes.TestRetrievalClientNodeParams{}), &testPeerResolver{})
 
 		_, err := c.Query(ctx, rpeer, pcid, retrievalmarket.QueryParams{})
 		assert.EqualError(t, err, "new query stream failed")
@@ -91,8 +90,8 @@ func TestClient_Query(t *testing.T) {
 		net := tut.NewTestRetrievalMarketNetwork(tut.TestNetworkParams{
 			QueryStreamBuilder: qsbuilder,
 		})
-		c := retrievalimpl.NewClient(net, bs, testnodes.NewTestRetrievalClientNode(testnodes.TestRetrievalClientNodeParams{}))
-		c := retrievalimpl.NewClient(net, bs, &testRetrievalNode{}, &testPeerResolver{})
+		c := retrievalimpl.NewClient(net, bs,
+			testnodes.NewTestRetrievalClientNode(testnodes.TestRetrievalClientNodeParams{}), &testPeerResolver{})
 
 		statusCode, err := c.Query(ctx, rpeer, pcid, retrievalmarket.QueryParams{})
 		assert.EqualError(t, err, "write query failed")
@@ -141,22 +140,21 @@ func TestClient_FindProviders(t *testing.T) {
 		testResolver := testPeerResolver{peers: peers}
 
 		c := retrievalimpl.NewClient(net, bs, &testRetrievalNode{}, &testResolver)
-		testCid := testutil.GenerateCids(1)[0].Bytes()
+		testCid := []byte("somePieceCID")
 		assert.Len(t, c.FindProviders(testCid), 3)
 	})
 
 	t.Run("when there is an error, returns empty provider list", func(t *testing.T) {
-		peers := tut.RequireGenerateRetrievalPeers(t, 1)
-		testResolver := testPeerResolver{peers: peers}
+		testResolver := testPeerResolver{peers: []retrievalmarket.RetrievalPeer{}, resolverError: errors.New("boom")}
 		c := retrievalimpl.NewClient(net, bs, &testRetrievalNode{}, &testResolver)
-		badCid := []byte("badcid")
+		badCid := []byte("doesn't matter")
 		assert.Len(t, c.FindProviders(badCid), 0)
 	})
 
 	t.Run("when there are no providers", func(t *testing.T) {
 		testResolver := testPeerResolver{peers: []retrievalmarket.RetrievalPeer{}}
 		c := retrievalimpl.NewClient(net, bs, &testRetrievalNode{}, &testResolver)
-		testCid := testutil.GenerateCids(1)[0].Bytes()
+		testCid := []byte("unimportant")
 		assert.Len(t, c.FindProviders(testCid), 0)
 	})
 }
@@ -178,10 +176,11 @@ func (t *testRetrievalNode) CreatePaymentVoucher(ctx context.Context, paymentCha
 
 type testPeerResolver struct {
 	peers []retrievalmarket.RetrievalPeer
+	resolverError error
 }
 
 var _ retrievalmarket.PeerResolver = &testPeerResolver{}
 
-func (t testPeerResolver) GetPeers(data cid.Cid) ([]retrievalmarket.RetrievalPeer, error) {
-	return t.peers, nil
+func (tpr testPeerResolver) GetPeers( []byte) ([]retrievalmarket.RetrievalPeer, error) {
+	return tpr.peers, tpr.resolverError
 }

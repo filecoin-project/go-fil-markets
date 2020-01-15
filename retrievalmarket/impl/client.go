@@ -5,16 +5,16 @@ import (
 	"reflect"
 	"sync"
 
-	"github.com/filecoin-project/go-fil-markets/retrievalmarket/impl/clientstates"
-
 	"github.com/filecoin-project/go-address"
 	blocks "github.com/ipfs/go-block-format"
 	"github.com/ipfs/go-cid"
 	blockstore "github.com/ipfs/go-ipfs-blockstore"
 	logging "github.com/ipfs/go-log"
 	"github.com/libp2p/go-libp2p-core/peer"
+	"golang.org/x/xerrors"
 
 	"github.com/filecoin-project/go-fil-markets/retrievalmarket"
+	"github.com/filecoin-project/go-fil-markets/retrievalmarket/impl/clientstates"
 	rmnet "github.com/filecoin-project/go-fil-markets/retrievalmarket/network"
 	"github.com/filecoin-project/go-fil-markets/shared/tokenamount"
 )
@@ -53,13 +53,8 @@ func NewClient(
 
 // TODO: Implement for retrieval provider V0 epic
 // https://github.com/filecoin-project/go-retrieval-market-project/issues/12
-func (c *client) FindProviders(pieceCIDBytes []byte) []retrievalmarket.RetrievalPeer {
-	_, pieceCid, err := cid.CidFromBytes(pieceCIDBytes)
-	if err != nil {
-		log.Error(err)
-		return []retrievalmarket.RetrievalPeer{}
-	}
-	peers, err := c.resolver.GetPeers(pieceCid)
+func (c *client) FindProviders(pieceCID []byte) []retrievalmarket.RetrievalPeer {
+	peers, err := c.resolver.GetPeers(pieceCID)
 	if err != nil {
 		log.Error(err)
 		return []retrievalmarket.RetrievalPeer{}
@@ -153,7 +148,7 @@ func (c *client) handleDeal(ctx context.Context, dealState retrievalmarket.Clien
 		case retrievalmarket.DealStatusFundsNeeded, retrievalmarket.DealStatusFundsNeededLastPayment:
 			handler = clientstates.ProcessNextResponse
 		default:
-			c.failDeal(&dealState, errors.New("unexpected deal state"))
+			c.failDeal(&dealState, xerrors.New("unexpected deal state"))
 			return
 		}
 		dealModifier := handler(ctx, environment, dealState)

@@ -3,12 +3,14 @@ package cario
 import (
 	"context"
 	"fmt"
-	"github.com/filecoin-project/go-fil-markets/pieceio"
+	"io"
+
 	"github.com/ipfs/go-car"
 	"github.com/ipfs/go-cid"
 	"github.com/ipld/go-ipld-prime"
 	"github.com/ipld/go-ipld-prime/traversal/selector"
-	"io"
+
+	"github.com/filecoin-project/go-fil-markets/pieceio"
 )
 
 type carIO struct {
