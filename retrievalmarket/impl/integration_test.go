@@ -47,7 +47,7 @@ func TestClientCanMakeQueryToProvider(t *testing.T) {
 	t.Run("when there is some other error, returns error", func(t *testing.T) {
 		unknownPiece := testutil.GenerateCids(1)[0]
 		expectedQR.Status = retrievalmarket.QueryResponseError
-		expectedQR.Message = "Something went wrong"
+		expectedQR.Message = "GetPieceSize failed"
 		actualQR, err := client.Query(bgCtx, retrievalPeer, unknownPiece.Bytes(), retrievalmarket.QueryParams{})
 		assert.NoError(t, err)
 		assert.Equal(t, expectedQR, actualQR)
@@ -113,8 +113,7 @@ func TestClientCanMakeDealWithProvider(t *testing.T) {
 		PayloadCID:              c.Cid,
 	}
 
-	fixtureSizeBytes := uint64(410)
-	expectedTotal := tokenamount.Mul(rmParams.PricePerByte, tokenamount.FromInt(fixtureSizeBytes))
+	expectedTotal := tokenamount.Mul(rmParams.PricePerByte, tokenamount.FromInt(dealParams.fileSize))
 	expectedVoucher := tut.MakeTestSignedVoucher()
 	expectedVoucher.Amount = expectedTotal
 
@@ -201,6 +200,7 @@ type dealTestParams struct {
 	clientPaymentChannel address.Address
 	providerPaymentAddr  address.Address
 	testData             *tut.Libp2pTestData
+	fileSize			 uint64
 	pieceLink            ipld.Link
 	pieceCID             []byte
 	clientNode           *testRetrievalClientNode
@@ -216,7 +216,9 @@ func setupDealTest(bgCtx context.Context, t *testing.T) dealTestParams {
 	testData := tut.NewLibp2pTestData(bgCtx, t)
 	nw1 := rmnet.NewFromLibp2pHost(testData.Host1)
 
-	link := testData.LoadUnixFSFile(t, true)
+	link := testData.LoadUnixFSFile(t, "lorem_big.txt", true)
+	// ls -laf
+	fileSize := uint64(89359)
 	linkPiece := []byte(link.String()[:])
 
 	clientNode := &testRetrievalClientNode{payChAddr: payChAddr}
@@ -240,7 +242,7 @@ func setupDealTest(bgCtx context.Context, t *testing.T) dealTestParams {
 	require.NoError(t, provider.Start())
 
 	retrievalPeer := &retrievalmarket.RetrievalPeer{Address: paymentAddress, ID: testData.Host2.ID(),}
-	return dealTestParams{payChAddr, paymentAddress, testData, link, linkPiece, clientNode, client, providerNode, retrievalPeer}
+	return dealTestParams{payChAddr, paymentAddress, testData, fileSize, link, linkPiece, clientNode, client, providerNode, retrievalPeer}
 }
 
 type testRetrievalClientNode struct {

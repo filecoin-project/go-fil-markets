@@ -43,7 +43,7 @@ func (e *fakeEnvironment) DealStream() rmnet.RetrievalDealStream {
 
 func (e *fakeEnvironment) ConsumeBlock(context.Context, retrievalmarket.Block) (uint64, bool, error) {
 	if e.nextResponse >= len(e.responses) {
-		return 0, false, errors.New("Something went wrong")
+		return 0, false, errors.New("ConsumeBlock failed")
 	}
 	response := e.responses[e.nextResponse]
 	e.nextResponse += 1

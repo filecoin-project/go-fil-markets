@@ -396,7 +396,7 @@ func (te *testProviderDealEnvironment) CheckDealParams(pricePerByte tokenamount.
 	key := dealParamsKey{pricePerByte.String(), paymentInterval, paymentIntervalIncrease}
 	err, ok := te.expectedParams[key]
 	if !ok {
-		return errors.New("Something went wrong")
+		return errors.New("CheckDealParamsFailed")
 	}
 	te.receivedParams[key] = struct{}{}
 	return err

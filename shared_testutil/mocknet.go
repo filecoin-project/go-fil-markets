@@ -128,13 +128,13 @@ func NewLibp2pTestData(ctx context.Context, t *testing.T) *Libp2pTestData {
 
 const unixfsChunkSize uint64 = 1 << 10
 const unixfsLinksPerLevel = 1024
-// LoadUnixFSFile injects a fixture into the given blockstore.
-// If useSecondNode is true, fixture is injected to the second node; otherwise the first
-// node gets it
-func (ltd *Libp2pTestData) LoadUnixFSFile(t *testing.T, useSecondNode bool) ipld.Link {
+// LoadUnixFSFile injects the fixture `filename` into the given blockstore from the
+// fixtures directory. If useSecondNode is true, fixture is injected to the second node;
+// otherwise the first node gets it
+func (ltd *Libp2pTestData) LoadUnixFSFile(t *testing.T, filename string, useSecondNode bool) ipld.Link {
 
 	// read in a fixture file
-	path, err := filepath.Abs(filepath.Join("fixtures", "lorem.txt"))
+	path, err := filepath.Abs(filepath.Join("fixtures", filename))
 	require.NoError(t, err)
 
 	f, err := os.Open(path)

@@ -76,12 +76,13 @@ func MakeTestQueryResponse() retrievalmarket.QueryResponse {
 func MakeTestDealProposal() retrievalmarket.DealProposal {
 	cid := testutil.GenerateCids(1)[0]
 	return retrievalmarket.DealProposal{
-		PieceCID: cid.Bytes(),
+		PieceCID: []byte("applesauce"),
 		ID:       retrievalmarket.DealID(rand.Uint64()),
 		Params: retrievalmarket.Params{
 			PricePerByte:            MakeTestTokenAmount(),
 			PaymentInterval:         rand.Uint64(),
 			PaymentIntervalIncrease: rand.Uint64(),
+			PayloadCID:              cid,
 		},
 	}
 }

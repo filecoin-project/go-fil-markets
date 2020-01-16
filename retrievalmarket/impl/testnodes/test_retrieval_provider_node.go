@@ -80,7 +80,7 @@ func (trpn *TestRetrievalProviderNode) GetPieceSize(pieceCid []byte) (uint64, er
 		trpn.receivedMissingPieces[string(pieceCid)] = struct{}{}
 		return 0, retrievalmarket.ErrNotFound
 	}
-	return 0, errors.New("Something went wrong")
+	return 0, errors.New("GetPieceSize failed")
 }
 
 func (trpn *TestRetrievalProviderNode) SetBlockstore(bs blockstore.Blockstore) {
@@ -132,5 +132,5 @@ func (trpn *TestRetrievalProviderNode) SavePaymentVoucher(
 		trpn.receivedVouchers[key] = struct{}{}
 		return result.amount, result.err
 	}
-	return tokenamount.Empty, errors.New("Something went wrong")
+	return tokenamount.Empty, errors.New("SavePaymentVoucher failed")
 }
