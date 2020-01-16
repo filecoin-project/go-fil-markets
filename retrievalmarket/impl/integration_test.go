@@ -62,7 +62,7 @@ func requireSetupTestClientAndProvider(bgCtx context.Context, t *testing.T, payC
 	testData := tut.NewLibp2pTestData(bgCtx, t)
 	nw1 := rmnet.NewFromLibp2pHost(testData.Host1)
 	rcNode1 := testRetrievalClientNode{payChAddr: payChAddr}
-	client := retrievalimpl.NewClient(nw1, testData.Bs1, &rcNode1)
+	client := retrievalimpl.NewClient(nw1, testData.Bs1, &rcNode1, testPeerResolver{})
 
 	nw2 := rmnet.NewFromLibp2pHost(testData.Host2)
 	providerNode := testnodes.NewTestRetrievalProviderNode()
@@ -222,7 +222,7 @@ func setupDealTest(bgCtx context.Context, t *testing.T) dealTestParams {
 	linkPiece := []byte(link.String()[:])
 
 	clientNode := &testRetrievalClientNode{payChAddr: payChAddr}
-	client := retrievalimpl.NewClient(nw1, testData.Bs1, clientNode)
+	client := retrievalimpl.NewClient(nw1, testData.Bs1, clientNode, testPeerResolver{})
 
 	// Inject a unixFS file on the provider side to its blockstore
 	nw2 := rmnet.NewFromLibp2pHost(testData.Host2)

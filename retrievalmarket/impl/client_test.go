@@ -19,7 +19,6 @@ import (
 	"github.com/filecoin-project/go-fil-markets/retrievalmarket/network"
 	rmnet "github.com/filecoin-project/go-fil-markets/retrievalmarket/network"
 	"github.com/filecoin-project/go-fil-markets/shared/tokenamount"
-	"github.com/filecoin-project/go-fil-markets/shared/types"
 	tut "github.com/filecoin-project/go-fil-markets/shared_testutil"
 )
 
@@ -160,12 +159,12 @@ func TestClient_FindProviders(t *testing.T) {
 }
 
 type testPeerResolver struct {
-	peers []retrievalmarket.RetrievalPeer
+	peers         []retrievalmarket.RetrievalPeer
 	resolverError error
 }
 
 var _ retrievalmarket.PeerResolver = &testPeerResolver{}
 
-func (tpr testPeerResolver) GetPeers( []byte) ([]retrievalmarket.RetrievalPeer, error) {
+func (tpr testPeerResolver) GetPeers([]byte) ([]retrievalmarket.RetrievalPeer, error) {
 	return tpr.peers, tpr.resolverError
 }
