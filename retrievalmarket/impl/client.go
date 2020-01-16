@@ -5,15 +5,17 @@ import (
 	"reflect"
 	"sync"
 
-	"github.com/filecoin-project/go-address"
 	blocks "github.com/ipfs/go-block-format"
 	"github.com/ipfs/go-cid"
 	blockstore "github.com/ipfs/go-ipfs-blockstore"
-	logging "github.com/ipfs/go-log"
+	logging "github.com/ipfs/go-log/v2"
+	cidlink "github.com/ipld/go-ipld-prime/linking/cid"
 	"github.com/libp2p/go-libp2p-core/peer"
 	"golang.org/x/xerrors"
 
+	"github.com/filecoin-project/go-address"
 	"github.com/filecoin-project/go-fil-markets/retrievalmarket"
+	"github.com/filecoin-project/go-fil-markets/retrievalmarket/impl/blockio"
 	"github.com/filecoin-project/go-fil-markets/retrievalmarket/impl/clientstates"
 	rmnet "github.com/filecoin-project/go-fil-markets/retrievalmarket/network"
 	"github.com/filecoin-project/go-fil-markets/shared/tokenamount"
@@ -135,7 +137,7 @@ func (c *client) handleDeal(ctx context.Context, dealState retrievalmarket.Clien
 	}
 	defer s.Close()
 
-	environment := clientDealEnvironment{c.node, &UnixFs0Verifier{Root: dealState.DealProposal.PayloadCID}, c.bs, s}
+	environment := clientDealEnvironment{c.node, blockio.NewSelectorVerifier(cidlink.Link{Cid: dealState.DealProposal.PayloadCID}), c.bs, s}
 
 	for {
 		var handler clientstates.ClientHandlerFunc
@@ -220,7 +222,7 @@ func (c *client) ListDeals() map[retrievalmarket.DealID]retrievalmarket.ClientDe
 
 type clientDealEnvironment struct {
 	node     retrievalmarket.RetrievalClientNode
-	verifier BlockVerifier
+	verifier blockio.BlockVerifier
 	bs       blockstore.Blockstore
 	stream   rmnet.RetrievalDealStream
 }

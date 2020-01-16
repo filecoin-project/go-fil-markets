@@ -7,27 +7,15 @@ import (
 	"sync"
 
 	"github.com/filecoin-project/go-address"
-	"github.com/ipfs/go-blockservice"
-	files "github.com/ipfs/go-ipfs-files"
-	ipld "github.com/ipfs/go-ipld-format"
-	"github.com/ipfs/go-merkledag"
-	unixfile "github.com/ipfs/go-unixfs/file"
-	"golang.org/x/xerrors"
+	"github.com/ipfs/go-graphsync/storeutil"
+	cidlink "github.com/ipld/go-ipld-prime/linking/cid"
 
 	"github.com/filecoin-project/go-fil-markets/retrievalmarket"
+	"github.com/filecoin-project/go-fil-markets/retrievalmarket/impl/blockio"
 	"github.com/filecoin-project/go-fil-markets/retrievalmarket/impl/providerstates"
 	rmnet "github.com/filecoin-project/go-fil-markets/retrievalmarket/network"
 	"github.com/filecoin-project/go-fil-markets/shared/tokenamount"
 )
-
-// UnixfsReader is a unixfsfile that can read block by block
-type UnixfsReader interface {
-	files.File
-
-	// ReadBlock reads data from a single unixfs block. Data is nil
-	// for intermediate nodes
-	ReadBlock(context.Context) (data []byte, offset uint64, nd ipld.Node, err error)
-}
 
 type provider struct {
 
@@ -177,9 +165,9 @@ func (p *provider) HandleDealStream(stream rmnet.RetrievalDealStream) {
 		return nil // TODO: approve unsealing based on amount paid
 	})
 
-	ds := merkledag.NewDAGService(blockservice.New(bstore, nil))
+	loader := storeutil.LoaderForBlockstore(bstore)
 
-	environment := providerDealEnvironment{p.node, 0, 0, nil, p.pricePerByte, p.paymentInterval, p.paymentIntervalIncrease, stream}
+	environment := providerDealEnvironment{p.node, nil, p.pricePerByte, p.paymentInterval, p.paymentIntervalIncrease, stream}
 
 	for {
 		var handler providerstates.ProviderHandlerFunc
@@ -200,31 +188,8 @@ func (p *provider) HandleDealStream(stream rmnet.RetrievalDealStream) {
 		if retrievalmarket.IsTerminalStatus(dealState.Status) {
 			break
 		}
-		if environment.ufsr == nil {
-			rootNd, err := ds.Get(context.TODO(), dealState.PayloadCID)
-			if err != nil {
-				p.failDeal(&dealState, err)
-				return
-			}
-
-			fsr, err := unixfile.NewUnixfsFile(context.TODO(), ds, rootNd)
-			if err != nil {
-				p.failDeal(&dealState, err)
-				return
-			}
-
-			var ok bool
-			environment.ufsr, ok = fsr.(UnixfsReader)
-			if !ok {
-				p.failDeal(&dealState, xerrors.Errorf("file %s didn't implement UnixfsReader", dealState.PayloadCID))
-				return
-			}
-			size, err := fsr.Size()
-			if err != nil {
-				p.failDeal(&dealState, xerrors.Errorf("file %s didn't implement UnixfsReader", dealState.PayloadCID))
-				return
-			}
-			environment.size = uint64(size)
+		if environment.br == nil {
+			environment.br = blockio.NewSelectorBlockReader(cidlink.Link{Cid: dealState.PayloadCID}, loader)
 		}
 		p.notifySubscribers(retrievalmarket.ProviderEventProgress, dealState)
 	}
@@ -237,9 +202,7 @@ func (p *provider) HandleDealStream(stream rmnet.RetrievalDealStream) {
 
 type providerDealEnvironment struct {
 	node                       retrievalmarket.RetrievalProviderNode
-	read                       uint64
-	size                       uint64
-	ufsr                       UnixfsReader
+	br                         blockio.BlockReader
 	minPricePerByte            tokenamount.TokenAmount
 	maxPaymentInterval         uint64
 	maxPaymentIntervalIncrease uint64
@@ -268,18 +231,8 @@ func (pde *providerDealEnvironment) CheckDealParams(pricePerByte tokenamount.Tok
 }
 
 func (pde *providerDealEnvironment) NextBlock(ctx context.Context) (retrievalmarket.Block, bool, error) {
-	if pde.ufsr == nil {
+	if pde.br == nil {
 		return retrievalmarket.Block{}, false, errors.New("Could not read block")
 	}
-	data, _, nd, err := pde.ufsr.ReadBlock(ctx)
-	if err != nil {
-		return retrievalmarket.Block{}, false, err
-	}
-	block := retrievalmarket.Block{
-		Prefix: nd.Cid().Prefix().Bytes(),
-		Data:   nd.RawData(),
-	}
-	pde.read += uint64(len(data))
-	done := pde.read >= pde.size
-	return block, done, nil
+	return pde.br.ReadBlock(ctx)
 }

@@ -1,10 +1,10 @@
-package retrievalimpl_test
+package blockio_test
 
 import (
 	"context"
 	"testing"
 
-	retrievalimpl "github.com/filecoin-project/go-fil-markets/retrievalmarket/impl"
+	"github.com/filecoin-project/go-fil-markets/retrievalmarket/impl/blockio"
 	tut "github.com/filecoin-project/go-fil-markets/shared_testutil"
 	blocks "github.com/ipfs/go-block-format"
 	"github.com/stretchr/testify/require"
@@ -15,7 +15,7 @@ func TestSelectorVerifier(t *testing.T) {
 	testdata := tut.NewTestIPLDTree()
 
 	t.Run("verifies correctly", func(t *testing.T) {
-		verifier := retrievalimpl.NewSelectorVerifier(testdata.RootNodeLnk)
+		verifier := blockio.NewSelectorVerifier(testdata.RootNodeLnk)
 		checkVerifySequence(ctx, t, verifier, false, []blocks.Block{
 			testdata.RootBlock,
 			testdata.LeafAlphaBlock,
@@ -30,13 +30,13 @@ func TestSelectorVerifier(t *testing.T) {
 	})
 	t.Run("fed incorrect block", func(t *testing.T) {
 		t.Run("right away", func(t *testing.T) {
-			verifier := retrievalimpl.NewSelectorVerifier(testdata.RootNodeLnk)
+			verifier := blockio.NewSelectorVerifier(testdata.RootNodeLnk)
 			checkVerifySequence(ctx, t, verifier, true, []blocks.Block{
 				testdata.LeafAlphaBlock,
 			})
 		})
 		t.Run("in middle", func(t *testing.T) {
-			verifier := retrievalimpl.NewSelectorVerifier(testdata.RootNodeLnk)
+			verifier := blockio.NewSelectorVerifier(testdata.RootNodeLnk)
 			checkVerifySequence(ctx, t, verifier, true, []blocks.Block{
 				testdata.RootBlock,
 				testdata.LeafAlphaBlock,
@@ -45,7 +45,7 @@ func TestSelectorVerifier(t *testing.T) {
 			})
 		})
 		t.Run("at end", func(t *testing.T) {
-			verifier := retrievalimpl.NewSelectorVerifier(testdata.RootNodeLnk)
+			verifier := blockio.NewSelectorVerifier(testdata.RootNodeLnk)
 			checkVerifySequence(ctx, t, verifier, true, []blocks.Block{
 				testdata.RootBlock,
 				testdata.LeafAlphaBlock,
@@ -62,7 +62,7 @@ func TestSelectorVerifier(t *testing.T) {
 
 }
 
-func checkVerifySequence(ctx context.Context, t *testing.T, verifier retrievalimpl.BlockVerifier, errorOnLast bool, blks []blocks.Block) {
+func checkVerifySequence(ctx context.Context, t *testing.T, verifier blockio.BlockVerifier, errorOnLast bool, blks []blocks.Block) {
 	for i, b := range blks {
 		done, err := verifier.Verify(ctx, b)
 		if i < len(blks)-1 {
