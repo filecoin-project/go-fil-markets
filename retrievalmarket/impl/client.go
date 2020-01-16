@@ -146,7 +146,7 @@ func (c *client) handleDeal(ctx context.Context, dealState retrievalmarket.Clien
 		case retrievalmarket.DealStatusPaymentChannelCreated, retrievalmarket.DealStatusOngoing, retrievalmarket.DealStatusUnsealing:
 			handler = clientstates.ProcessNextResponse
 		case retrievalmarket.DealStatusFundsNeeded, retrievalmarket.DealStatusFundsNeededLastPayment:
-			handler = clientstates.ProcessNextResponse
+			handler = clientstates.ProcessPaymentRequested
 		default:
 			c.failDeal(&dealState, xerrors.New("unexpected deal state"))
 			return

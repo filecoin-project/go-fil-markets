@@ -10,7 +10,7 @@ require (
 	github.com/filecoin-project/go-data-transfer v0.0.0-20191219005021-4accf56bd2ce
 	github.com/filecoin-project/go-sectorbuilder v0.0.1
 	github.com/filecoin-project/go-statestore v0.1.0
-	github.com/hannahhoward/cbor-gen-for v0.0.0-20191216214420-3e450425c40c
+	github.com/hannahhoward/cbor-gen-for v0.0.0-20191218204337-9ab7b1bcc099
 	github.com/ipfs/go-block-format v0.0.2
 	github.com/ipfs/go-blockservice v0.1.3-0.20190908200855-f22eea50656c
 	github.com/ipfs/go-car v0.0.3-0.20191203022317-23b0a85fd1b1

@@ -102,7 +102,13 @@ func (trpn *TestRetrievalProviderNode) toExpectedVoucherKey(paymentChannel addre
 	return expectedVoucherKey{pcString, voucherString, proofString, expectedAmountString}, nil
 }
 
-func (trpn *TestRetrievalProviderNode) ExpectVoucher(paymentChannel address.Address, voucher *types.SignedVoucher, proof []byte, expectedAmount tokenamount.TokenAmount, actualAmount tokenamount.TokenAmount, expectedErr error) error {
+func (trpn *TestRetrievalProviderNode) ExpectVoucher(
+	paymentChannel address.Address,
+	voucher *types.SignedVoucher,
+	proof []byte,
+	expectedAmount tokenamount.TokenAmount,
+	actualAmount tokenamount.TokenAmount,
+	expectedErr error) error {
 	key, err := trpn.toExpectedVoucherKey(paymentChannel, voucher, proof, expectedAmount)
 	if err != nil {
 		return err
@@ -111,7 +117,12 @@ func (trpn *TestRetrievalProviderNode) ExpectVoucher(paymentChannel address.Addr
 	return nil
 }
 
-func (trpn *TestRetrievalProviderNode) SavePaymentVoucher(ctx context.Context, paymentChannel address.Address, voucher *types.SignedVoucher, proof []byte, expectedAmount tokenamount.TokenAmount) (tokenamount.TokenAmount, error) {
+func (trpn *TestRetrievalProviderNode) SavePaymentVoucher(
+	ctx context.Context,
+	paymentChannel address.Address,
+	voucher *types.SignedVoucher,
+	proof []byte,
+	expectedAmount tokenamount.TokenAmount) (tokenamount.TokenAmount, error) {
 	key, err := trpn.toExpectedVoucherKey(paymentChannel, voucher, proof, expectedAmount)
 	if err != nil {
 		return tokenamount.Empty, err
