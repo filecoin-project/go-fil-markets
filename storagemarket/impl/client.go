@@ -9,7 +9,6 @@ import (
 	"github.com/filecoin-project/go-fil-markets/filestore"
 	"github.com/filecoin-project/go-fil-markets/pieceio"
 	"github.com/filecoin-project/go-fil-markets/pieceio/cario"
-	"github.com/filecoin-project/go-fil-markets/pieceio/padreader"
 	"github.com/filecoin-project/go-fil-markets/shared/tokenamount"
 
 	"github.com/ipfs/go-cid"
@@ -75,13 +74,12 @@ type clientDealUpdate struct {
 }
 
 func NewClient(h host.Host, bs blockstore.Blockstore, dataTransfer datatransfer.Manager, discovery *discovery.Local, deals *statestore.StateStore, scn storagemarket.StorageClientNode) (*Client, error) {
-	pr := padreader.NewPadReader()
 	carIO := cario.NewCarIO()
 	fs, err := filestore.NewLocalFileStore("")
 	if err != nil {
 		return nil, err
 	}
-	pio := pieceio.NewPieceIO(pr, carIO, fs, bs)
+	pio := pieceio.NewPieceIO(carIO, fs, bs)
 
 	c := &Client{
 		h:            h,

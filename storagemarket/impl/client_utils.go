@@ -41,11 +41,10 @@ func (c *Client) commP(ctx context.Context, root cid.Cid) ([]byte, uint64, error
 	allSelector := ssb.ExploreRecursive(selector.RecursionLimitNone(),
 		ssb.ExploreAll(ssb.ExploreRecursiveEdge())).Node()
 
-	commp, tmpFile, err := c.pio.GeneratePieceCommitment(root, allSelector)
+	commp, tmpFile, paddedSize, err := c.pio.GeneratePieceCommitment(root, allSelector)
 	if err != nil {
 		return nil, 0, xerrors.Errorf("generating CommP: %w", err)
 	}
-	size := tmpFile.Size()
 
 	err = tmpFile.Close()
 	if err != nil {
@@ -57,7 +56,7 @@ func (c *Client) commP(ctx context.Context, root cid.Cid) ([]byte, uint64, error
 		return nil, 0, xerrors.Errorf("error deleting temp file from filestore: %w", err)
 	}
 
-	return commp[:], uint64(size), nil
+	return commp[:], paddedSize, nil
 }
 
 func (c *Client) readStorageDealResp(deal ClientDeal) (*Response, error) {
