@@ -193,7 +193,7 @@ func (p *provider) HandleDealStream(stream rmnet.RetrievalDealStream) {
 			p.failDeal(&dealState, errors.New("unexpected deal state"))
 			return
 		}
-		dealModifier := handler(ctx, environment, dealState)
+		dealModifier := handler(ctx, &environment, dealState)
 		dealModifier(&dealState)
 		if retrievalmarket.IsTerminalStatus(dealState.Status) {
 			break
@@ -244,15 +244,15 @@ type providerDealEnvironment struct {
 	stream                     rmnet.RetrievalDealStream
 }
 
-func (pde providerDealEnvironment) Node() retrievalmarket.RetrievalProviderNode {
+func (pde *providerDealEnvironment) Node() retrievalmarket.RetrievalProviderNode {
 	return pde.node
 }
 
-func (pde providerDealEnvironment) DealStream() rmnet.RetrievalDealStream {
+func (pde *providerDealEnvironment) DealStream() rmnet.RetrievalDealStream {
 	return pde.stream
 }
 
-func (pde providerDealEnvironment) CheckDealParams(pricePerByte tokenamount.TokenAmount, paymentInterval uint64, paymentIntervalIncrease uint64) error {
+func (pde *providerDealEnvironment) CheckDealParams(pricePerByte tokenamount.TokenAmount, paymentInterval uint64, paymentIntervalIncrease uint64) error {
 	if pricePerByte.LessThan(pde.minPricePerByte) {
 		return errors.New("Price per byte too low")
 	}
@@ -265,11 +265,11 @@ func (pde providerDealEnvironment) CheckDealParams(pricePerByte tokenamount.Toke
 	return nil
 }
 
-func (pde providerDealEnvironment) NextBlock(ctx context.Context) (retrievalmarket.Block, bool, error) {
+func (pde *providerDealEnvironment) NextBlock(ctx context.Context) (retrievalmarket.Block, bool, error) {
 	if pde.ufsr == nil {
 		return retrievalmarket.Block{}, false, errors.New("Could not read block")
 	}
-	_, _, nd, err := pde.ufsr.ReadBlock(ctx)
+	_, offset, nd, err := pde.ufsr.ReadBlock(ctx)
 	if err != nil {
 		return retrievalmarket.Block{}, false, err
 	}
@@ -278,6 +278,7 @@ func (pde providerDealEnvironment) NextBlock(ctx context.Context) (retrievalmark
 		Data:   nd.RawData(),
 	}
 	pde.read += uint64(len(nd.RawData()))
+	log.Debugf("offset %d vs read %d ", offset, pde.read)
 	done := pde.read >= pde.size
 	return block, done, nil
 }

@@ -8,7 +8,7 @@ import (
 
 	"github.com/filecoin-project/go-address"
 	"github.com/filecoin-project/go-data-transfer/testutil"
-	"github.com/ipld/go-ipld-prime"
+	"github.com/ipfs/go-log/v2"
 	cidlink "github.com/ipld/go-ipld-prime/linking/cid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -61,8 +61,8 @@ func requireSetupTestClientAndProvider(bgCtx context.Context, t *testing.T, payC
 	retrievalmarket.RetrievalPeer) {
 	testData := tut.NewLibp2pTestData(bgCtx, t)
 	nw1 := rmnet.NewFromLibp2pHost(testData.Host1)
-	rcNode1 := testRetrievalClientNode{payChAddr: payChAddr}
-	client := retrievalimpl.NewClient(nw1, testData.Bs1, &rcNode1, testPeerResolver{})
+	rcNode1 := testnodes.NewTestRetrievalClientNode(testnodes.TestRetrievalClientNodeParams{PayCh: payChAddr})
+	client := retrievalimpl.NewClient(nw1, testData.Bs1, rcNode1, &testPeerResolver{})
 
 	nw2 := rmnet.NewFromLibp2pHost(testData.Host2)
 	providerNode := testnodes.NewTestRetrievalProviderNode()
@@ -92,33 +92,93 @@ func requireSetupTestClientAndProvider(bgCtx context.Context, t *testing.T, payC
 }
 
 func TestClientCanMakeDealWithProvider(t *testing.T) {
+	log.SetDebugLogging()
 	bgCtx := context.Background()
-	dealParams := setupDealTest(bgCtx, t)
+	clientPaymentChannel, err := address.NewIDAddress(rand.Uint64())
+	require.NoError(t, err)
 
-	createdChan, newLaneAddrChan, createdVoucher := setupChannelsAndRecorders(dealParams)
+	testData := tut.NewLibp2pTestData(bgCtx, t)
+
+	// -------- SET UP PROVIDER
+
+	// Inject a unixFS file on the provider side to its blockstore
+	// obtained via `ls -laf` on this file
+
+	// pieceLink := testData.LoadUnixFSFile(t, "lorem_big.txt", true)
+	// fileSize := uint64(89359)
+	pieceLink := testData.LoadUnixFSFile(t, "lorem.txt", true)
+	fileSize := uint64(19473)
+
+	nw2 := rmnet.NewFromLibp2pHost(testData.Host2)
+
+	providerNode := testnodes.NewTestRetrievalProviderNode()
+	providerNode.SetBlockstore(testData.Bs2)
+
+	expectedQR := tut.MakeTestQueryResponse()
+
+	pieceCID := []byte("pieceCID")
+	providerNode.ExpectPiece(pieceCID, expectedQR.Size)
+
+	providerPaymentAddr, err := address.NewIDAddress(rand.Uint64())
+	require.NoError(t, err)
+	provider := retrievalimpl.NewProvider(providerPaymentAddr, providerNode, nw2)
+
+	provider.SetPaymentInterval(expectedQR.MaxPaymentInterval, expectedQR.MaxPaymentIntervalIncrease)
+	provider.SetPricePerByte(expectedQR.MinPricePerByte)
+	require.NoError(t, provider.Start())
+
+	retrievalPeer := &retrievalmarket.RetrievalPeer{Address: providerPaymentAddr, ID: testData.Host2.ID(),}
+
+	// ------- SET UP CLIENT
+	nw1 := rmnet.NewFromLibp2pHost(testData.Host1)
+
+	expectedVoucher := tut.MakeTestSignedVoucher()
+	expectedTotal := tokenamount.Mul(expectedQR.MinPricePerByte, tokenamount.FromInt(fileSize))
+	expectedVoucher.Amount = expectedTotal
+
+	createdChan := make(chan pmtChan)
+	paymentChannelRecorder := func(client, miner address.Address, amt tokenamount.TokenAmount) {
+		createdChan <- pmtChan{client, miner, amt}
+	}
+
+	newLaneAddrChan := make(chan address.Address)
+	laneRecorder := func(paymentChannel address.Address) {
+		newLaneAddrChan <- paymentChannel
+	}
+
+	createdVoucherChan := make(chan *types.SignedVoucher)
+	paymentVoucherRecorder := func(v *types.SignedVoucher) {
+		createdVoucherChan <- v
+	}
+	clientNode := testnodes.NewTestRetrievalClientNode(testnodes.TestRetrievalClientNodeParams{
+		PayCh:                  clientPaymentChannel,
+		Lane:                   3,
+		PaymentChannelRecorder: paymentChannelRecorder,
+		AllocateLaneRecorder:   laneRecorder,
+		PaymentVoucherRecorder: paymentVoucherRecorder,
+
+	})
+	client := retrievalimpl.NewClient(nw1, testData.Bs1, clientNode, &testPeerResolver{})
 
 	// **** Send the query for the Piece
-	resp, err := dealParams.client.Query(bgCtx, *dealParams.retrievalPeer, dealParams.pieceCID, retrievalmarket.QueryParams{})
+	// set up retrieval params
+	resp, err := client.Query(bgCtx, *retrievalPeer, pieceCID, retrievalmarket.QueryParams{})
 	require.NoError(t, err)
 	require.Equal(t, retrievalmarket.QueryResponseAvailable, resp.Status)
 
-	// set up retrieval params
-	c, ok := dealParams.pieceLink.(cidlink.Link)
+	c, ok := pieceLink.(cidlink.Link)
 	require.True(t, ok)
+	payloadCID := c.Cid
 
 	rmParams := retrievalmarket.Params{
 		PricePerByte:            resp.MinPricePerByte,
 		PaymentInterval:         resp.MaxPaymentInterval,
 		PaymentIntervalIncrease: resp.MaxPaymentIntervalIncrease,
-		PayloadCID:              c.Cid,
+		PayloadCID:              payloadCID,
 	}
 
-	expectedTotal := tokenamount.Mul(rmParams.PricePerByte, tokenamount.FromInt(dealParams.fileSize))
-	expectedVoucher := tut.MakeTestSignedVoucher()
-	expectedVoucher.Amount = expectedTotal
-
 	// *** Retrieve the piece
-	did := dealParams.client.Retrieve(bgCtx, dealParams.pieceCID, rmParams, expectedTotal, dealParams.retrievalPeer.ID, dealParams.clientPaymentChannel, dealParams.retrievalPeer.Address)
+	did := client.Retrieve(bgCtx, pieceCID, rmParams, expectedTotal, retrievalPeer.ID, clientPaymentChannel, retrievalPeer.Address)
 	assert.Equal(t, did, retrievalmarket.DealID(1))
 
 	var newChannel pmtChan
@@ -126,29 +186,34 @@ func TestClientCanMakeDealWithProvider(t *testing.T) {
 	defer cancel1()
 	select {
 	case <-newCtx1.Done():
-		t.Error("channel not created")
+		t.Log("channel not created")
+		t.FailNow()
 	case newChannel = <-createdChan:
 	}
+	t.Log("here1")
 	require.NotNil(t, newChannel)
 	require.Equal(t, expectedTotal, newChannel.amt)
 
 	var newLaneAddr address.Address
-	newctx2, cancel2 := context.WithTimeout(bgCtx, 10*time.Second)
+	newctx2, cancel2 := context.WithTimeout(bgCtx, 30*time.Second)
 	defer cancel2()
 	select {
 	case <-newctx2.Done():
-		t.Error("new lane not created")
+		t.Log("new lane not created")
+		t.FailNow()
 	case newLaneAddr = <-newLaneAddrChan:
 	}
-	require.Equal(t, newLaneAddr, dealParams.clientPaymentChannel)
+	t.Log("here2")
+	require.Equal(t, newLaneAddr, clientPaymentChannel)
 
 	var sawVoucher *types.SignedVoucher
-	newCtx, cancel := context.WithTimeout(bgCtx, 10*time.Second)
+	newCtx, cancel := context.WithTimeout(bgCtx, 30*time.Second)
 	defer cancel()
 	select {
 	case <-newCtx.Done():
-		t.Error("voucher not created")
-	case sawVoucher = <-createdVoucher:
+		t.Log("voucher not created")
+		t.FailNow()
+	case sawVoucher = <-createdVoucherChan:
 	}
 	require.NotNil(t, sawVoucher)
 	assert.Equal(t, sawVoucher.Amount, expectedVoucher.Amount)
@@ -156,127 +221,25 @@ func TestClientCanMakeDealWithProvider(t *testing.T) {
 	// verify that payment channel was created
 	// require.NotNil(t, createdChan)
 	// assert.True(t, createdChan.amt.Equals(expectedTotal))
-	// assert.Equal(t, createdChan.client, dealParams.clientPaymentChannel)
-	// assert.Equal(t, createdChan.miner, dealParams.providerPaymentAddr)
+	// assert.Equal(t, createdChan.client, clientPaymentChannel)
+	// assert.Equal(t, createdChan.miner, providerPaymentAddr)
 	// // verify that allocate lane was called
-	// require.Len(t, dealParams.clientNode.lanes, 1)
-	// assert.Equal(t, dealParams.clientNode.lanes[0], true)
+	// require.Len(t, clientNode.lanes, 1)
+	// assert.Equal(t, clientNode.lanes[0], true)
 	//
 	//
 	// // verify that the voucher was saved/seen by the client with correct values
 	// // verify that the provider saved the same voucher values
-	// dealParams.providerNode.VerifyExpectations(t)
+	// providerNode.VerifyExpectations(t)
 	//
 	// require.NotNil(t, sawVoucher)
 	// assert.Equal(t, 0, sawVoucher.Lane)
 	// assert.True(t, expectedTotal.Equals(sawVoucher.Amount))
 	//
-	// dealParams.testData.VerifyFileTransferred(t, dealParams.pieceLink, false)
+	// testData.VerifyFileTransferred(t, pieceLink, false)
 }
 
 type pmtChan struct {
 	client, miner address.Address
 	amt           tokenamount.TokenAmount
-}
-func setupChannelsAndRecorders(dealParams dealTestParams) (chan pmtChan, chan address.Address, chan *types.SignedVoucher) {
-	createdChan := make(chan pmtChan)
-	dealParams.clientNode.getCreatePaymentChannelRecorder = func(client, miner address.Address, amt tokenamount.TokenAmount) {
-		createdChan <- pmtChan{client, miner, amt}
-	}
-
-	newLaneAddrChan := make(chan address.Address)
-	dealParams.clientNode.allocateLaneRecorder = func(paymentChannel address.Address) {
-		newLaneAddrChan <- paymentChannel
-	}
-
-	createdVoucher := make(chan *types.SignedVoucher)
-	dealParams.clientNode.createPaymentVoucherRecorder = func(v *types.SignedVoucher) {
-		createdVoucher <- v
-	}
-	return createdChan, newLaneAddrChan, createdVoucher
-}
-
-type dealTestParams struct {
-	clientPaymentChannel address.Address
-	providerPaymentAddr  address.Address
-	testData             *tut.Libp2pTestData
-	fileSize			 uint64
-	pieceLink            ipld.Link
-	pieceCID             []byte
-	clientNode           *testRetrievalClientNode
-	client               retrievalmarket.RetrievalClient
-	providerNode         *testnodes.TestRetrievalProviderNode
-	retrievalPeer        *retrievalmarket.RetrievalPeer
-}
-
-func setupDealTest(bgCtx context.Context, t *testing.T) dealTestParams {
-	payChAddr, err := address.NewIDAddress(rand.Uint64())
-	require.NoError(t, err)
-
-	testData := tut.NewLibp2pTestData(bgCtx, t)
-	nw1 := rmnet.NewFromLibp2pHost(testData.Host1)
-
-	link := testData.LoadUnixFSFile(t, "lorem_big.txt", true)
-	// ls -laf
-	fileSize := uint64(89359)
-	linkPiece := []byte(link.String()[:])
-
-	clientNode := &testRetrievalClientNode{payChAddr: payChAddr}
-	client := retrievalimpl.NewClient(nw1, testData.Bs1, clientNode, testPeerResolver{})
-
-	// Inject a unixFS file on the provider side to its blockstore
-	nw2 := rmnet.NewFromLibp2pHost(testData.Host2)
-	providerNode := testnodes.NewTestRetrievalProviderNode()
-	providerNode.SetBlockstore(testData.Bs2)
-
-	expectedQR := tut.MakeTestQueryResponse()
-
-	providerNode.ExpectPiece(linkPiece, expectedQR.Size)
-
-	paymentAddress, err := address.NewIDAddress(rand.Uint64())
-	require.NoError(t, err)
-	provider := retrievalimpl.NewProvider(paymentAddress, providerNode, nw2)
-
-	provider.SetPaymentInterval(expectedQR.MaxPaymentInterval, expectedQR.MaxPaymentIntervalIncrease)
-	provider.SetPricePerByte(expectedQR.MinPricePerByte)
-	require.NoError(t, provider.Start())
-
-	retrievalPeer := &retrievalmarket.RetrievalPeer{Address: paymentAddress, ID: testData.Host2.ID(),}
-	return dealTestParams{payChAddr, paymentAddress, testData, fileSize, link, linkPiece, clientNode, client, providerNode, retrievalPeer}
-}
-
-type testRetrievalClientNode struct {
-	payChAddr                       address.Address
-	lanes                           []bool
-	allocateLaneRecorder            func(address.Address)
-	createPaymentVoucherRecorder    func(voucher *types.SignedVoucher)
-	getCreatePaymentChannelRecorder func(address.Address, address.Address, tokenamount.TokenAmount)
-}
-
-func (trcn *testRetrievalClientNode) GetOrCreatePaymentChannel(_ context.Context,
-	clientAddress address.Address,
-	minerAddress address.Address,
-	clientFundsAvailable tokenamount.TokenAmount) (address.Address, error) {
-	if trcn.getCreatePaymentChannelRecorder != nil {
-		trcn.getCreatePaymentChannelRecorder(clientAddress, minerAddress, clientFundsAvailable)
-	}
-	return trcn.payChAddr, nil
-}
-
-func (trcn *testRetrievalClientNode) AllocateLane(paymentChannel address.Address) (uint64, error) {
-	trcn.lanes = append(trcn.lanes, true)
-	if trcn.allocateLaneRecorder != nil {
-		trcn.allocateLaneRecorder(paymentChannel)
-	}
-	return uint64(len(trcn.lanes) - 1), nil
-}
-
-func (trcn *testRetrievalClientNode) CreatePaymentVoucher(ctx context.Context, paymentChannel address.Address, amount tokenamount.TokenAmount, lane uint64) (*types.SignedVoucher, error) {
-	sv := tut.MakeTestSignedVoucher()
-	sv.Amount = amount
-	sv.Lane = lane
-	if trcn.createPaymentVoucherRecorder != nil {
-		trcn.createPaymentVoucherRecorder(sv)
-	}
-	return sv, nil
 }

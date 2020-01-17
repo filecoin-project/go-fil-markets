@@ -151,7 +151,7 @@ func (c *client) handleDeal(ctx context.Context, dealState retrievalmarket.Clien
 			c.failDeal(&dealState, xerrors.New("unexpected deal state"))
 			return
 		}
-		dealModifier := handler(ctx, environment, dealState)
+		dealModifier := handler(ctx, &environment, dealState)
 		dealModifier(&dealState)
 		if retrievalmarket.IsTerminalStatus(dealState.Status) {
 			break
@@ -438,15 +438,15 @@ type clientDealEnvironment struct {
 	stream   rmnet.RetrievalDealStream
 }
 
-func (cde clientDealEnvironment) Node() retrievalmarket.RetrievalClientNode {
+func (cde *clientDealEnvironment) Node() retrievalmarket.RetrievalClientNode {
 	return cde.node
 }
 
-func (cde clientDealEnvironment) DealStream() rmnet.RetrievalDealStream {
+func (cde *clientDealEnvironment) DealStream() rmnet.RetrievalDealStream {
 	return cde.stream
 }
 
-func (cde clientDealEnvironment) ConsumeBlock(ctx context.Context, block retrievalmarket.Block) (uint64, bool, error) {
+func (cde *clientDealEnvironment) ConsumeBlock(ctx context.Context, block retrievalmarket.Block) (uint64, bool, error) {
 	prefix, err := cid.PrefixFromBytes(block.Prefix)
 	if err != nil {
 		return 0, false, err
