@@ -134,7 +134,11 @@ func TestClientCanMakeDealWithProvider(t *testing.T) {
 
 	expectedVoucher := tut.MakeTestSignedVoucher()
 	expectedTotal := tokenamount.Mul(expectedQR.MinPricePerByte, tokenamount.FromInt(fileSize))
+	expectedTotal = tokenamount.Add(expectedTotal, tokenamount.FromInt(11000))
 	expectedVoucher.Amount = expectedTotal
+
+	proof := []byte("applesauce?")
+	require.NoError(t, providerNode.ExpectVoucher(clientPaymentChannel, expectedVoucher, proof, expectedTotal, expectedTotal, nil))
 
 	createdChan := make(chan pmtChan)
 	paymentChannelRecorder := func(client, miner address.Address, amt tokenamount.TokenAmount) {

@@ -269,7 +269,7 @@ func (pde *providerDealEnvironment) NextBlock(ctx context.Context) (retrievalmar
 	if pde.ufsr == nil {
 		return retrievalmarket.Block{}, false, errors.New("Could not read block")
 	}
-	data, offset, nd, err := pde.ufsr.ReadBlock(ctx)
+	data, _, nd, err := pde.ufsr.ReadBlock(ctx)
 	if err != nil {
 		return retrievalmarket.Block{}, false, err
 	}
@@ -278,7 +278,6 @@ func (pde *providerDealEnvironment) NextBlock(ctx context.Context) (retrievalmar
 		Data:   nd.RawData(),
 	}
 	pde.read += uint64(len(data))
-	log.Debugf("offset %d vs read %d ", offset, pde.read)
 	done := pde.read >= pde.size
 	return block, done, nil
 }
