@@ -35,6 +35,8 @@ type client struct {
 	resolver      retrievalmarket.PeerResolver
 }
 
+var _ retrievalmarket.RetrievalClient = &client{}
+
 // NewClient creates a new retrieval client
 func NewClient(
 	network rmnet.RetrievalMarketNetwork,

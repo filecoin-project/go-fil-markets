@@ -190,7 +190,7 @@ func TestClientCanMakeDealWithProvider(t *testing.T) {
 	require.Equal(t, newLaneAddr, clientPaymentChannel)
 
 	var sawVoucher *types.SignedVoucher
-	newCtx, cancel := context.WithTimeout(bgCtx, 30*time.Second)
+	newCtx, cancel := context.WithTimeout(bgCtx, 10*time.Second)
 	defer cancel()
 	select {
 	case <-newCtx.Done():
@@ -204,7 +204,7 @@ func TestClientCanMakeDealWithProvider(t *testing.T) {
 
 	// // verify that the voucher was saved/seen by the client with correct values
 	// // verify that the provider saved the same voucher values
-	time.Sleep(10 * time.Second)
+	time.Sleep(1  * time.Second)
 	providerNode.VerifyExpectations(t)
 	testData.VerifyFileTransferred(t, pieceLink, false)
 }

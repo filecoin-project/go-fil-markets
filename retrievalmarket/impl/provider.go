@@ -43,6 +43,8 @@ type provider struct {
 	subscribersLk           sync.RWMutex
 }
 
+var _ retrievalmarket.RetrievalProvider = &provider{}
+
 // NewProvider returns a new retrieval provider
 func NewProvider(paymentAddress address.Address, node retrievalmarket.RetrievalProviderNode, network rmnet.RetrievalMarketNetwork) retrievalmarket.RetrievalProvider {
 	return &provider{

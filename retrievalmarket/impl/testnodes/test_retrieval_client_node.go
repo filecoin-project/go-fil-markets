@@ -5,6 +5,7 @@ import (
 
 	"github.com/filecoin-project/go-address"
 
+	"github.com/filecoin-project/go-fil-markets/retrievalmarket"
 	"github.com/filecoin-project/go-fil-markets/shared/tokenamount"
 	"github.com/filecoin-project/go-fil-markets/shared/types"
 )
@@ -33,6 +34,8 @@ type TestRetrievalClientNodeParams struct {
 	PaymentVoucherRecorder func(voucher *types.SignedVoucher)
 	PaymentChannelRecorder func(address.Address, address.Address, tokenamount.TokenAmount)
 }
+
+var _ retrievalmarket.RetrievalClientNode = &TestRetrievalClientNode{}
 
 func NewTestRetrievalClientNode(params TestRetrievalClientNodeParams) *TestRetrievalClientNode {
 	return &TestRetrievalClientNode{
