@@ -11,6 +11,7 @@ import (
 	"golang.org/x/xerrors"
 
 	"github.com/filecoin-project/go-fil-markets/pieceio/padreader"
+	"github.com/filecoin-project/go-fil-markets/piecestore"
 	"github.com/filecoin-project/go-fil-markets/shared/tokenamount"
 	"github.com/filecoin-project/go-fil-markets/storagemarket"
 )
@@ -221,5 +222,18 @@ func (p *Provider) sealing(ctx context.Context, deal MinerDeal) (func(*MinerDeal
 
 func (p *Provider) complete(ctx context.Context, deal MinerDeal) (func(*MinerDeal), error) {
 	// TODO: observe sector lifecycle, status, expiration..
-	return nil, p.fs.Delete(deal.PiecePath)
+        err := p.fs.Delete(deal.PiecePath)
+        if err != nil {
+                return nil, err
+        }
+	sectorID, offset, length, err := p.spn.LocatePieceForDealWithinSector(ctx, deal.DealID)
+	if err != nil {
+		return nil, err
+	}
+	return nil, p.pieceStore.AddDealForPiece(deal.Proposal.PieceRef, piecestore.DealInfo{
+		DealID:   deal.DealID,
+		SectorID: sectorID,
+		Offset:   offset,
+		Length:   length,
+	})
 }
