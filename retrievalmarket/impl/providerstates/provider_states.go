@@ -131,6 +131,7 @@ func ProcessPayment(ctx context.Context, environment ProviderDealEnvironment, de
 	}
 
 	// attempt to redeem voucher
+	// (totalSent * pricePerbyte) - fundsReceived
 	paymentOwed := tokenamount.Sub(tokenamount.Mul(tokenamount.FromInt(deal.TotalSent), deal.PricePerByte), deal.FundsReceived)
 	received, err := environment.Node().SavePaymentVoucher(ctx, payment.PaymentChannel, payment.PaymentVoucher, nil, paymentOwed)
 	if err != nil {

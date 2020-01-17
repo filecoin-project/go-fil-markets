@@ -373,8 +373,8 @@ type Params struct {
 	PayloadCID cid.Cid
 	//Selector                ipld.Node // V1
 	PricePerByte            tokenamount.TokenAmount
-	PaymentInterval         uint64
-	PaymentIntervalIncrease uint64
+	PaymentInterval         uint64 // when to request payment
+	PaymentIntervalIncrease uint64 //
 }
 
 // NewParamsV0 generates parameters for a retrieval deal, which is always a whole piece deal
