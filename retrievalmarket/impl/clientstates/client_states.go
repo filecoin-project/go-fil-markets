@@ -89,7 +89,7 @@ func ProcessPaymentRequested(ctx context.Context, environment ClientDealEnvironm
 	}
 
 	// check that totalReceived - bytesPaidFor >= currentInterval, or fail
-	if deal.TotalReceived-deal.BytesPaidFor < deal.CurrentInterval {
+	if (deal.TotalReceived-deal.BytesPaidFor < deal.CurrentInterval) && deal.Status !=  rm.DealStatusFundsNeededLastPayment{
 		return errorFunc(xerrors.New("not enough bytes received between payment request"))
 	}
 

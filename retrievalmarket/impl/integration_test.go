@@ -159,8 +159,6 @@ CurrentInterval: %d
 TotalFunds: %s
 `
 			t.Logf(msg, state.Status, state.TotalReceived, state.BytesPaidFor, state.CurrentInterval,state.TotalFunds.String(),)
-		default:
-			t.Logf("deal state: %d", event)
 		}
 	})
 
@@ -198,7 +196,7 @@ TotalFunds: %s
 	assert.Equal(t, dealState.Lane, expectedVoucher.Lane)
 	require.NotNil(t, createdChan)
 	require.Equal(t, expectedTotal, createdChan.amt)
-	require.Equal(t, newLaneAddr, clientPaymentChannel)
+	require.Equal(t, clientPaymentChannel, *newLaneAddr)
 	// verify that the voucher was saved/seen by the client with correct values
 	require.NotNil(t, createdVoucher)
 	assert.True(t, createdVoucher.Equals(expectedVoucher))
@@ -211,8 +209,8 @@ func setupClient(
 		clientPaymentChannel address.Address,
 		expectedVoucher *types.SignedVoucher,
 		nw1 rmnet.RetrievalMarketNetwork,
-		testData *tut.Libp2pTestData) (	pmtChan,
-										address.Address,
+		testData *tut.Libp2pTestData) (	*pmtChan,
+										*address.Address,
 										*types.SignedVoucher,
 										retrievalmarket.RetrievalClient) {
 	var createdChan  pmtChan
@@ -225,9 +223,9 @@ func setupClient(
 		newLaneAddr = paymentChannel
 	}
 
-	var createdVoucher *types.SignedVoucher
+	var createdVoucher types.SignedVoucher
 	paymentVoucherRecorder := func(v *types.SignedVoucher) {
-		createdVoucher = v
+		createdVoucher = *v
 	}
 	clientNode := testnodes.NewTestRetrievalClientNode(testnodes.TestRetrievalClientNodeParams{
 		PayCh:                  clientPaymentChannel,
@@ -238,7 +236,7 @@ func setupClient(
 		PaymentVoucherRecorder: paymentVoucherRecorder,
 	})
 	client := retrievalimpl.NewClient(nw1, testData.Bs1, clientNode, &testPeerResolver{})
-	return createdChan, newLaneAddr, createdVoucher, client
+	return &createdChan, &newLaneAddr, &createdVoucher, client
 }
 
 func setupProvider(t *testing.T, testData *tut.Libp2pTestData, pieceCID []byte, expectedQR retrievalmarket.QueryResponse, providerPaymentAddr address.Address) *testnodes.TestRetrievalProviderNode {
