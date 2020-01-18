@@ -11,7 +11,7 @@ type fd struct {
 	basepath string
 }
 
-func newFile(basepath, filename Path) (File, error) {
+func newFile(basepath OsPath, filename Path) (File, error) {
 	var err error
 	result := fd{filename: string(filename), basepath: string(basepath)}
 	full := path.Join(string(basepath), string(filename))
@@ -23,7 +23,11 @@ func newFile(basepath, filename Path) (File, error) {
 }
 
 func (f fd) Path() Path {
-	return Path(f.Name())
+	return Path(f.filename)
+}
+
+func (f fd) OsPath() OsPath {
+	return OsPath(f.Name())
 }
 
 func (f fd) Size() int64 {

@@ -5,9 +5,14 @@ import "io"
 // Path represents an abstract path to a file
 type Path string
 
+// OsPath represents a path that can be located on
+// the operating system with standard os.File operations
+type OsPath string
+
 // File is a wrapper around an os file
 type File interface {
 	Path() Path
+	OsPath() OsPath
 	Size() int64
 
 	io.Closer

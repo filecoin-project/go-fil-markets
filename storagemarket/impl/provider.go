@@ -8,14 +8,17 @@ import (
 	"github.com/ipfs/go-cid"
 	"github.com/ipfs/go-datastore"
 	"github.com/ipfs/go-datastore/namespace"
+	blockstore "github.com/ipfs/go-ipfs-blockstore"
 	"github.com/libp2p/go-libp2p-core/host"
 	inet "github.com/libp2p/go-libp2p-core/network"
 	"golang.org/x/xerrors"
 
 	"github.com/filecoin-project/go-address"
-	"github.com/filecoin-project/go-cbor-util"
+	cborutil "github.com/filecoin-project/go-cbor-util"
 	"github.com/filecoin-project/go-data-transfer"
+	"github.com/filecoin-project/go-fil-markets/filestore"
 	"github.com/filecoin-project/go-fil-markets/pieceio"
+	"github.com/filecoin-project/go-fil-markets/pieceio/cario"
 	"github.com/filecoin-project/go-fil-markets/shared/tokenamount"
 	"github.com/filecoin-project/go-fil-markets/shared/types"
 	"github.com/filecoin-project/go-fil-markets/storagemarket"
@@ -40,6 +43,7 @@ type Provider struct {
 
 	spn storagemarket.StorageProviderNode
 
+	fs  filestore.FileStore
 	pio pieceio.PieceIO
 
 	// dataTransfer is the manager of data transfers used by this storage provider
@@ -70,7 +74,7 @@ var (
 	ErrDataTransferFailed = errors.New("deal data transfer failed")
 )
 
-func NewProvider(ds datastore.Batching, pio pieceio.PieceIO, dataTransfer datatransfer.Manager, spn storagemarket.StorageProviderNode) (storagemarket.StorageProvider, error) {
+func NewProvider(ds datastore.Batching, bs blockstore.Blockstore, fs filestore.FileStore, dataTransfer datatransfer.Manager, spn storagemarket.StorageProviderNode) (storagemarket.StorageProvider, error) {
 	addr, err := ds.Get(datastore.NewKey("miner-address"))
 	if err != nil {
 		return nil, err
@@ -79,8 +83,11 @@ func NewProvider(ds datastore.Batching, pio pieceio.PieceIO, dataTransfer datatr
 	if err != nil {
 		return nil, err
 	}
+	carIO := cario.NewCarIO()
+	pio := pieceio.NewPieceIO(carIO, fs, bs)
 
 	h := &Provider{
+		fs:           fs,
 		pio:          pio,
 		dataTransfer: dataTransfer,
 		spn:          spn,

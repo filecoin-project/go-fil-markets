@@ -13,7 +13,7 @@ import (
 	"github.com/libp2p/go-libp2p-core/peer"
 	"golang.org/x/xerrors"
 
-	"github.com/filecoin-project/go-cbor-util"
+	cborutil "github.com/filecoin-project/go-cbor-util"
 	"github.com/filecoin-project/go-data-transfer"
 	"github.com/filecoin-project/go-statestore"
 )
@@ -41,23 +41,17 @@ func (c *Client) commP(ctx context.Context, root cid.Cid) ([]byte, uint64, error
 	allSelector := ssb.ExploreRecursive(selector.RecursionLimitNone(),
 		ssb.ExploreAll(ssb.ExploreRecursiveEdge())).Node()
 
-	commp, tmpFile, err := c.pio.GeneratePieceCommitment(root, allSelector)
+	commp, tmpPath, paddedSize, err := c.pio.GeneratePieceCommitment(root, allSelector)
 	if err != nil {
 		return nil, 0, xerrors.Errorf("generating CommP: %w", err)
 	}
-	size := tmpFile.Size()
 
-	err = tmpFile.Close()
-	if err != nil {
-		return nil, 0, xerrors.Errorf("error closing temp file: %w", err)
-	}
-
-	err = c.fs.Delete(tmpFile.Path())
+	err = c.fs.Delete(tmpPath)
 	if err != nil {
 		return nil, 0, xerrors.Errorf("error deleting temp file from filestore: %w", err)
 	}
 
-	return commp[:], uint64(size), nil
+	return commp[:], paddedSize, nil
 }
 
 func (c *Client) readStorageDealResp(deal ClientDeal) (*Response, error) {

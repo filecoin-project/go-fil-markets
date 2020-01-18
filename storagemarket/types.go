@@ -3,6 +3,7 @@ package storagemarket
 import (
 	"bytes"
 	"context"
+	"io"
 
 	"github.com/ipfs/go-cid"
 	"github.com/libp2p/go-libp2p-core/host"
@@ -218,13 +219,15 @@ type StorageProviderNode interface {
 
 	// Called when a deal is complete and on chain, and data has been transferred and is ready to be added to a sector
 	// returns sector id
-	OnDealComplete(ctx context.Context, deal MinerDeal, piecePath string) (uint64, error)
+	OnDealComplete(ctx context.Context, deal MinerDeal, pieceSize uint64, pieceReader io.Reader) (uint64, error)
 
 	// returns the worker address associated with a miner
 	GetMinerWorker(ctx context.Context, miner address.Address) (address.Address, error)
 
 	// Signs bytes
 	SignBytes(ctx context.Context, signer address.Address, b []byte) (*types.Signature, error)
+
+	OnDealSectorCommitted(ctx context.Context, provider address.Address, dealID uint64, cb DealSectorCommittedCallback) error
 }
 
 type DealSectorCommittedCallback func(error)

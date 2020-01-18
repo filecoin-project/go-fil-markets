@@ -10,6 +10,7 @@ import (
 
 	"golang.org/x/xerrors"
 
+	"github.com/filecoin-project/go-fil-markets/pieceio/padreader"
 	"github.com/filecoin-project/go-fil-markets/shared/tokenamount"
 	"github.com/filecoin-project/go-fil-markets/storagemarket"
 )
@@ -107,7 +108,7 @@ func (p *Provider) verifydata(ctx context.Context, deal MinerDeal) (func(*MinerD
 	allSelector := ssb.ExploreRecursive(selector.RecursionLimitNone(),
 		ssb.ExploreAll(ssb.ExploreRecursiveEdge())).Node()
 
-	commp, file, err := p.pio.GeneratePieceCommitment(deal.Ref, allSelector)
+	commp, path, _, err := p.pio.GeneratePieceCommitment(deal.Ref, allSelector)
 	if err != nil {
 		return nil, err
 	}
@@ -118,7 +119,7 @@ func (p *Provider) verifydata(ctx context.Context, deal MinerDeal) (func(*MinerD
 	}
 
 	return func(deal *MinerDeal) {
-		deal.PiecePath = file.Path()
+		deal.PiecePath = path
 	}, nil
 }
 
@@ -169,6 +170,11 @@ func (p *Provider) publishing(ctx context.Context, deal MinerDeal) (func(*MinerD
 
 // STAGED
 func (p *Provider) staged(ctx context.Context, deal MinerDeal) (func(*MinerDeal), error) {
+	file, err := p.fs.Open(deal.PiecePath)
+	if err != nil {
+		return nil, err
+	}
+	paddedReader, paddedSize := padreader.NewPaddedReader(file, uint64(file.Size()))
 	sectorID, err := p.spn.OnDealComplete(
 		ctx,
 		storagemarket.MinerDeal{
@@ -179,7 +185,8 @@ func (p *Provider) staged(ctx context.Context, deal MinerDeal) (func(*MinerDeal)
 			Ref:         deal.Ref,
 			DealID:      deal.DealID,
 		},
-		string(deal.PiecePath),
+		paddedSize,
+		paddedReader,
 	)
 
 	if err != nil {
@@ -195,12 +202,24 @@ func (p *Provider) staged(ctx context.Context, deal MinerDeal) (func(*MinerDeal)
 
 func (p *Provider) sealing(ctx context.Context, deal MinerDeal) (func(*MinerDeal), error) {
 	// TODO: consider waiting for seal to happen
+	cb := func(err error) {
+		select {
+		case p.updated <- minerDealUpdate{
+			newState: storagemarket.DealComplete,
+			id:       deal.ProposalCid,
+			err:      err,
+		}:
+		case <-p.stop:
+		}
+	}
 
-	return nil, nil
+	err := p.spn.OnDealSectorCommitted(ctx, deal.Proposal.Provider, deal.DealID, cb)
+
+	return nil, err
+
 }
 
 func (p *Provider) complete(ctx context.Context, deal MinerDeal) (func(*MinerDeal), error) {
 	// TODO: observe sector lifecycle, status, expiration..
-
-	return nil, nil
+	return nil, p.fs.Delete(deal.PiecePath)
 }

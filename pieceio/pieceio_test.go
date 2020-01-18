@@ -4,12 +4,12 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+
 	"github.com/filecoin-project/go-fil-markets/filestore"
 	fsmocks "github.com/filecoin-project/go-fil-markets/filestore/mocks"
 	"github.com/filecoin-project/go-fil-markets/pieceio"
 	"github.com/filecoin-project/go-fil-markets/pieceio/cario"
 	pmocks "github.com/filecoin-project/go-fil-markets/pieceio/mocks"
-	"github.com/filecoin-project/go-fil-markets/pieceio/padreader"
 	"github.com/filecoin-project/go-sectorbuilder"
 	dag "github.com/ipfs/go-merkledag"
 	dstest "github.com/ipfs/go-merkledag/test"
@@ -23,8 +23,7 @@ import (
 )
 
 func Test_ThereAndBackAgain(t *testing.T) {
-	tempDir := filestore.Path("./tempDir")
-	pr := padreader.NewPadReader()
+	tempDir := filestore.OsPath("./tempDir")
 	cio := cario.NewCarIO()
 
 	store, err := filestore.NewLocalFileStore(tempDir)
@@ -33,7 +32,7 @@ func Test_ThereAndBackAgain(t *testing.T) {
 	sourceBserv := dstest.Bserv()
 	sourceBs := sourceBserv.Blockstore()
 
-	pio := pieceio.NewPieceIO(pr, cio, store, sourceBs)
+	pio := pieceio.NewPieceIO(cio, store, sourceBs)
 	require.NoError(t, err)
 
 	dserv := dag.NewDAGService(sourceBserv)
@@ -66,7 +65,9 @@ func Test_ThereAndBackAgain(t *testing.T) {
 			ssb.ExploreIndex(1, ssb.ExploreRecursive(selector.RecursionLimitNone(), ssb.ExploreAll(ssb.ExploreRecursiveEdge()))))
 	}).Node()
 
-	bytes, tmpFile, err := pio.GeneratePieceCommitment(nd3.Cid(), node)
+	bytes, tmpPath, _, err := pio.GeneratePieceCommitment(nd3.Cid(), node)
+	require.NoError(t, err)
+	tmpFile, err := store.Open(tmpPath)
 	require.NoError(t, err)
 	defer func() {
 		deferErr := tmpFile.Close()
@@ -114,8 +115,7 @@ func Test_ThereAndBackAgain(t *testing.T) {
 }
 
 func Test_StoreRestoreMemoryBuffer(t *testing.T) {
-	tempDir := filestore.Path("./tempDir")
-	pr := padreader.NewPadReader()
+	tempDir := filestore.OsPath("./tempDir")
 	cio := cario.NewCarIO()
 
 	store, err := filestore.NewLocalFileStore(tempDir)
@@ -123,7 +123,7 @@ func Test_StoreRestoreMemoryBuffer(t *testing.T) {
 
 	sourceBserv := dstest.Bserv()
 	sourceBs := sourceBserv.Blockstore()
-	pio := pieceio.NewPieceIO(pr, cio, store, sourceBs)
+	pio := pieceio.NewPieceIO(cio, store, sourceBs)
 
 	dserv := dag.NewDAGService(sourceBserv)
 	a := dag.NewRawNode([]byte("aaaa"))
@@ -155,7 +155,9 @@ func Test_StoreRestoreMemoryBuffer(t *testing.T) {
 			ssb.ExploreIndex(1, ssb.ExploreRecursive(selector.RecursionLimitNone(), ssb.ExploreAll(ssb.ExploreRecursiveEdge()))))
 	}).Node()
 
-	commitment, tmpFile, err := pio.GeneratePieceCommitment(nd3.Cid(), node)
+	commitment, tmpPath, paddedSize, err := pio.GeneratePieceCommitment(nd3.Cid(), node)
+	require.NoError(t, err)
+	tmpFile, err := store.Open(tmpPath)
 	require.NoError(t, err)
 	defer func() {
 		deferErr := tmpFile.Close()
@@ -163,17 +165,18 @@ func Test_StoreRestoreMemoryBuffer(t *testing.T) {
 		deferErr = store.Delete(tmpFile.Path())
 		require.NoError(t, deferErr)
 	}()
+
 	_, err = tmpFile.Seek(0, io.SeekStart)
 	require.NoError(t, err)
 
 	for _, b := range commitment {
 		require.NotEqual(t, 0, b)
 	}
-	buf := make([]byte, tmpFile.Size())
+	buf := make([]byte, paddedSize)
 	_, err = tmpFile.Read(buf)
 	require.NoError(t, err)
 	buffer := bytes.NewBuffer(buf)
-	secondCommitment, err := sectorbuilder.GeneratePieceCommitment(buffer, uint64(tmpFile.Size()))
+	secondCommitment, err := sectorbuilder.GeneratePieceCommitment(buffer, paddedSize)
 	require.NoError(t, err)
 	require.Equal(t, commitment, secondCommitment[:])
 }
@@ -214,79 +217,23 @@ func Test_Failures(t *testing.T) {
 	t.Run("create temp file fails", func(t *testing.T) {
 		fsmock := fsmocks.FileStore{}
 		fsmock.On("CreateTemp").Return(nil, fmt.Errorf("Failed"))
-		pio := pieceio.NewPieceIO(nil, nil, &fsmock, sourceBs)
-		_, _, err := pio.GeneratePieceCommitment(nd3.Cid(), node)
+		pio := pieceio.NewPieceIO(nil, &fsmock, sourceBs)
+		_, _, _, err := pio.GeneratePieceCommitment(nd3.Cid(), node)
 		require.Error(t, err)
 	})
 	t.Run("write CAR fails", func(t *testing.T) {
-		tempDir := filestore.Path("./tempDir")
-		pr := padreader.NewPadReader()
+		tempDir := filestore.OsPath("./tempDir")
 		store, err := filestore.NewLocalFileStore(tempDir)
 		require.NoError(t, err)
 
 		ciomock := pmocks.CarIO{}
 		any := mock.Anything
 		ciomock.On("WriteCar", any, any, any, any, any).Return(fmt.Errorf("failed to write car"))
-		pio := pieceio.NewPieceIO(pr, &ciomock, store, sourceBs)
-		_, _, err = pio.GeneratePieceCommitment(nd3.Cid(), node)
-		require.Error(t, err)
-	})
-	t.Run("padding fails", func(t *testing.T) {
-		pr := padreader.NewPadReader()
-		cio := cario.NewCarIO()
-
-		fsmock := fsmocks.FileStore{}
-		mockfile := fsmocks.File{}
-
-		fsmock.On("CreateTemp").Return(&mockfile, nil).Once()
-		fsmock.On("Delete", mock.Anything).Return(nil).Once()
-
-		counter := 0
-		size := 0
-		mockfile.On("Write", mock.Anything).Run(func(args mock.Arguments) {
-			arg := args[0]
-			buf := arg.([]byte)
-			size := len(buf)
-			counter += size
-		}).Return(size, nil).Times(17)
-		mockfile.On("Size").Return(int64(484))
-		mockfile.On("Write", mock.Anything).Return(0, fmt.Errorf("write failed")).Once()
-		mockfile.On("Close").Return(nil).Once()
-		mockfile.On("Path").Return(filestore.Path("mock")).Once()
-
-		pio := pieceio.NewPieceIO(pr, cio, &fsmock, sourceBs)
-		_, _, err := pio.GeneratePieceCommitment(nd3.Cid(), node)
-		require.Error(t, err)
-	})
-	t.Run("incorrect padding", func(t *testing.T) {
-		pr := padreader.NewPadReader()
-		cio := cario.NewCarIO()
-
-		fsmock := fsmocks.FileStore{}
-		mockfile := fsmocks.File{}
-
-		fsmock.On("CreateTemp").Return(&mockfile, nil).Once()
-		fsmock.On("Delete", mock.Anything).Return(nil).Once()
-
-		counter := 0
-		size := 0
-		mockfile.On("Write", mock.Anything).Run(func(args mock.Arguments) {
-			arg := args[0]
-			buf := arg.([]byte)
-			size := len(buf)
-			counter += size
-		}).Return(size, nil).Times(17)
-		mockfile.On("Size").Return(int64(484))
-		mockfile.On("Write", mock.Anything).Return(16, nil).Once()
-		mockfile.On("Close").Return(nil).Once()
-		mockfile.On("Path").Return(filestore.Path("mock")).Once()
-
-		pio := pieceio.NewPieceIO(pr, cio, &fsmock, sourceBs)
-		_, _, err := pio.GeneratePieceCommitment(nd3.Cid(), node)
+		pio := pieceio.NewPieceIO(&ciomock, store, sourceBs)
+		_, _, _, err = pio.GeneratePieceCommitment(nd3.Cid(), node)
 		require.Error(t, err)
 	})
 	t.Run("seek fails", func(t *testing.T) {
-		pr := padreader.NewPadReader()
 		cio := cario.NewCarIO()
 
 		fsmock := fsmocks.FileStore{}
@@ -309,8 +256,8 @@ func Test_Failures(t *testing.T) {
 		mockfile.On("Path").Return(filestore.Path("mock")).Once()
 		mockfile.On("Seek", mock.Anything, mock.Anything).Return(int64(0), fmt.Errorf("seek failed"))
 
-		pio := pieceio.NewPieceIO(pr, cio, &fsmock, sourceBs)
-		_, _, err := pio.GeneratePieceCommitment(nd3.Cid(), node)
+		pio := pieceio.NewPieceIO(cio, &fsmock, sourceBs)
+		_, _, _, err := pio.GeneratePieceCommitment(nd3.Cid(), node)
 		require.Error(t, err)
 	})
 }
