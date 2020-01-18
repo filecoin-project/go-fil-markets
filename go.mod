@@ -25,11 +25,11 @@ require (
 	github.com/ipfs/go-ipfs-files v0.0.4
 	github.com/ipfs/go-ipld-cbor v0.0.3
 	github.com/ipfs/go-ipld-format v0.0.2
-	github.com/ipfs/go-log v1.0.0
 	github.com/ipfs/go-log/v2 v2.0.1
 	github.com/ipfs/go-merkledag v0.2.4
 	github.com/ipfs/go-unixfs v0.2.2-0.20190827150610-868af2e9e5cb
 	github.com/ipld/go-ipld-prime v0.0.2-0.20191108012745-28a82f04c785
+	github.com/ipld/go-ipld-prime-proto v0.0.0-20191113031812-e32bd156a1e5
 	github.com/libp2p/go-libp2p v0.3.0
 	github.com/libp2p/go-libp2p-core v0.2.4
 	github.com/minio/blake2b-simd v0.0.0-20160723061019-3f5f724cb5b1
