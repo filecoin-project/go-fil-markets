@@ -23,7 +23,7 @@ import (
 )
 
 func Test_ThereAndBackAgain(t *testing.T) {
-	tempDir := filestore.Path("./tempDir")
+	tempDir := filestore.OsPath("./tempDir")
 	cio := cario.NewCarIO()
 
 	store, err := filestore.NewLocalFileStore(tempDir)
@@ -65,7 +65,9 @@ func Test_ThereAndBackAgain(t *testing.T) {
 			ssb.ExploreIndex(1, ssb.ExploreRecursive(selector.RecursionLimitNone(), ssb.ExploreAll(ssb.ExploreRecursiveEdge()))))
 	}).Node()
 
-	bytes, tmpFile, _, err := pio.GeneratePieceCommitment(nd3.Cid(), node)
+	bytes, tmpPath, _, err := pio.GeneratePieceCommitment(nd3.Cid(), node)
+	require.NoError(t, err)
+	tmpFile, err := store.Open(tmpPath)
 	require.NoError(t, err)
 	defer func() {
 		deferErr := tmpFile.Close()
@@ -113,7 +115,7 @@ func Test_ThereAndBackAgain(t *testing.T) {
 }
 
 func Test_StoreRestoreMemoryBuffer(t *testing.T) {
-	tempDir := filestore.Path("./tempDir")
+	tempDir := filestore.OsPath("./tempDir")
 	cio := cario.NewCarIO()
 
 	store, err := filestore.NewLocalFileStore(tempDir)
@@ -153,7 +155,9 @@ func Test_StoreRestoreMemoryBuffer(t *testing.T) {
 			ssb.ExploreIndex(1, ssb.ExploreRecursive(selector.RecursionLimitNone(), ssb.ExploreAll(ssb.ExploreRecursiveEdge()))))
 	}).Node()
 
-	commitment, tmpFile, paddedSize, err := pio.GeneratePieceCommitment(nd3.Cid(), node)
+	commitment, tmpPath, paddedSize, err := pio.GeneratePieceCommitment(nd3.Cid(), node)
+	require.NoError(t, err)
+	tmpFile, err := store.Open(tmpPath)
 	require.NoError(t, err)
 	defer func() {
 		deferErr := tmpFile.Close()
@@ -161,6 +165,7 @@ func Test_StoreRestoreMemoryBuffer(t *testing.T) {
 		deferErr = store.Delete(tmpFile.Path())
 		require.NoError(t, deferErr)
 	}()
+
 	_, err = tmpFile.Seek(0, io.SeekStart)
 	require.NoError(t, err)
 
@@ -217,7 +222,7 @@ func Test_Failures(t *testing.T) {
 		require.Error(t, err)
 	})
 	t.Run("write CAR fails", func(t *testing.T) {
-		tempDir := filestore.Path("./tempDir")
+		tempDir := filestore.OsPath("./tempDir")
 		store, err := filestore.NewLocalFileStore(tempDir)
 		require.NoError(t, err)
 

@@ -38,6 +38,20 @@ func (_m *File) Path() filestore.Path {
 	return r0
 }
 
+// OsPath provides a mock function with given fields:
+func (_m *File) OsPath() filestore.OsPath {
+	ret := _m.Called()
+
+	var r0 filestore.OsPath
+	if rf, ok := ret.Get(0).(func() filestore.OsPath); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Get(0).(filestore.OsPath)
+	}
+
+	return r0
+}
+
 // Read provides a mock function with given fields: p
 func (_m *File) Read(p []byte) (int, error) {
 	ret := _m.Called(p)

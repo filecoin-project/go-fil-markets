@@ -30,10 +30,10 @@ func NewPieceIO(carIO CarIO, store filestore.FileStore, bs blockstore.Blockstore
 	return &pieceIO{carIO, store, bs}
 }
 
-func (pio *pieceIO) GeneratePieceCommitment(payloadCid cid.Cid, selector ipld.Node) ([]byte, filestore.File, uint64, error) {
+func (pio *pieceIO) GeneratePieceCommitment(payloadCid cid.Cid, selector ipld.Node) ([]byte, filestore.Path, uint64, error) {
 	f, err := pio.store.CreateTemp()
 	if err != nil {
-		return nil, nil, 0, err
+		return nil, "", 0, err
 	}
 	cleanup := func() {
 		f.Close()
@@ -42,20 +42,21 @@ func (pio *pieceIO) GeneratePieceCommitment(payloadCid cid.Cid, selector ipld.No
 	err = pio.carIO.WriteCar(context.Background(), pio.bs, payloadCid, selector, f)
 	if err != nil {
 		cleanup()
-		return nil, nil, 0, err
+		return nil, "", 0, err
 	}
 	pieceSize := uint64(f.Size())
 	_, err = f.Seek(0, io.SeekStart)
 	if err != nil {
 		cleanup()
-		return nil, nil, 0, err
+		return nil, "", 0, err
 	}
 	commitment, paddedSize, err := GeneratePieceCommitment(f, pieceSize)
 	if err != nil {
 		cleanup()
-		return nil, nil, 0, err
+		return nil, "", 0, err
 	}
-	return commitment, f, paddedSize, nil
+	_ = f.Close()
+	return commitment, f.Path(), paddedSize, nil
 }
 
 func GeneratePieceCommitment(rd io.Reader, pieceSize uint64) ([]byte, uint64, error) {

@@ -108,7 +108,7 @@ func (p *Provider) verifydata(ctx context.Context, deal MinerDeal) (func(*MinerD
 	allSelector := ssb.ExploreRecursive(selector.RecursionLimitNone(),
 		ssb.ExploreAll(ssb.ExploreRecursiveEdge())).Node()
 
-	commp, file, _, err := p.pio.GeneratePieceCommitment(deal.Ref, allSelector)
+	commp, path, _, err := p.pio.GeneratePieceCommitment(deal.Ref, allSelector)
 	if err != nil {
 		return nil, err
 	}
@@ -119,7 +119,7 @@ func (p *Provider) verifydata(ctx context.Context, deal MinerDeal) (func(*MinerD
 	}
 
 	return func(deal *MinerDeal) {
-		deal.PiecePath = file.Path()
+		deal.PiecePath = path
 	}, nil
 }
 
