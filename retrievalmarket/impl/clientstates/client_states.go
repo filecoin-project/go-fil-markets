@@ -82,11 +82,14 @@ func ProcessPaymentRequested(ctx context.Context, environment ClientDealEnvironm
 
 	// check that fundsSpent + paymentRequested <= totalFunds, or fail
 	if tokenamount.Add(deal.FundsSpent, deal.PaymentRequested).GreaterThan(deal.TotalFunds) {
-		return errorFunc(xerrors.New("not enough funds left"))
+		expectedTotal := deal.TotalFunds.String()
+		actualTotal := tokenamount.Add(deal.FundsSpent, deal.PaymentRequested).String()
+		errMsg := fmt.Sprintf("not enough funds left: expected amt = %s, actual amt = %s", expectedTotal, actualTotal)
+		return errorFunc(xerrors.New(errMsg))
 	}
 
 	// check that totalReceived - bytesPaidFor >= currentInterval, or fail
-	if deal.TotalReceived-deal.BytesPaidFor < deal.CurrentInterval {
+	if (deal.TotalReceived-deal.BytesPaidFor < deal.CurrentInterval) && deal.Status !=  rm.DealStatusFundsNeededLastPayment{
 		return errorFunc(xerrors.New("not enough bytes received between payment request"))
 	}
 

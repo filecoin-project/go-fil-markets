@@ -53,6 +53,7 @@ func TestHandleQueryStream(t *testing.T) {
 			PieceCID: pcid,
 		})
 		require.NoError(t, err)
+		// node := newTestRetrievalProviderNode(nil)
 		node := testnodes.NewTestRetrievalProviderNode()
 		node.ExpectPiece(pcid, expectedSize)
 

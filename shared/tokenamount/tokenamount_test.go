@@ -1,8 +1,13 @@
-package tokenamount
+package tokenamount_test
 
 import (
 	"bytes"
+	"math/big"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
+
+	. "github.com/filecoin-project/go-fil-markets/shared/tokenamount"
 )
 
 func TestBigIntSerializationRoundTrip(t *testing.T) {
@@ -49,3 +54,16 @@ func TestFilRoundTrip(t *testing.T) {
 		}
 	}
 }
+
+func TestFromInt(t *testing.T) {
+	a := uint64(999)
+	ta := FromInt(a)
+	b := big.NewInt(999)
+	tb := TokenAmount{Int: b}
+	assert.True(t, ta.Equals(tb))
+	assert.Equal(t, "0.000000000000000999", ta.String())
+}
+
+// func TestAdd(t *testing.T) {
+// 	a := token
+// }

@@ -6,11 +6,12 @@ import (
 	"math/big"
 
 	"github.com/filecoin-project/go-address"
-	"github.com/filecoin-project/go-fil-markets/shared/tokenamount"
-	"github.com/filecoin-project/go-fil-markets/shared/types"
 	"github.com/ipfs/go-cid"
 	blockstore "github.com/ipfs/go-ipfs-blockstore"
 	"github.com/libp2p/go-libp2p-core/peer"
+
+	"github.com/filecoin-project/go-fil-markets/shared/tokenamount"
+	"github.com/filecoin-project/go-fil-markets/shared/types"
 )
 
 //go:generate cbor-gen-for Query QueryResponse DealProposal DealResponse Params QueryParams DealPayment Block ClientDealState
@@ -372,8 +373,8 @@ type Params struct {
 	PayloadCID cid.Cid
 	//Selector                ipld.Node // V1
 	PricePerByte            tokenamount.TokenAmount
-	PaymentInterval         uint64
-	PaymentIntervalIncrease uint64
+	PaymentInterval         uint64 // when to request payment
+	PaymentIntervalIncrease uint64 //
 }
 
 // NewParamsV0 generates parameters for a retrieval deal, which is always a whole piece deal

@@ -129,7 +129,7 @@ func (b *UnixFs0Verifier) Verify(ctx context.Context, blk blocks.Block) (bool, e
 		}
 
 		b.expect = links
-		return links != 0, nil
+		return links == 0, nil
 	}
 
 	done, _, err := b.verify(ctx, blk)

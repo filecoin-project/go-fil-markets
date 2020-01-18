@@ -159,12 +159,12 @@ func TestClient_FindProviders(t *testing.T) {
 }
 
 type testPeerResolver struct {
-	peers []retrievalmarket.RetrievalPeer
+	peers         []retrievalmarket.RetrievalPeer
 	resolverError error
 }
 
 var _ retrievalmarket.PeerResolver = &testPeerResolver{}
 
-func (tpr testPeerResolver) GetPeers( []byte) ([]retrievalmarket.RetrievalPeer, error) {
+func (tpr testPeerResolver) GetPeers([]byte) ([]retrievalmarket.RetrievalPeer, error) {
 	return tpr.peers, tpr.resolverError
 }

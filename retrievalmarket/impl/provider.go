@@ -43,6 +43,8 @@ type provider struct {
 	subscribersLk           sync.RWMutex
 }
 
+var _ retrievalmarket.RetrievalProvider = &provider{}
+
 // NewProvider returns a new retrieval provider
 func NewProvider(paymentAddress address.Address, node retrievalmarket.RetrievalProviderNode, network rmnet.RetrievalMarketNetwork) retrievalmarket.RetrievalProvider {
 	return &provider{
@@ -193,7 +195,7 @@ func (p *provider) HandleDealStream(stream rmnet.RetrievalDealStream) {
 			p.failDeal(&dealState, errors.New("unexpected deal state"))
 			return
 		}
-		dealModifier := handler(ctx, environment, dealState)
+		dealModifier := handler(ctx, &environment, dealState)
 		dealModifier(&dealState)
 		if retrievalmarket.IsTerminalStatus(dealState.Status) {
 			break
@@ -244,15 +246,15 @@ type providerDealEnvironment struct {
 	stream                     rmnet.RetrievalDealStream
 }
 
-func (pde providerDealEnvironment) Node() retrievalmarket.RetrievalProviderNode {
+func (pde *providerDealEnvironment) Node() retrievalmarket.RetrievalProviderNode {
 	return pde.node
 }
 
-func (pde providerDealEnvironment) DealStream() rmnet.RetrievalDealStream {
+func (pde *providerDealEnvironment) DealStream() rmnet.RetrievalDealStream {
 	return pde.stream
 }
 
-func (pde providerDealEnvironment) CheckDealParams(pricePerByte tokenamount.TokenAmount, paymentInterval uint64, paymentIntervalIncrease uint64) error {
+func (pde *providerDealEnvironment) CheckDealParams(pricePerByte tokenamount.TokenAmount, paymentInterval uint64, paymentIntervalIncrease uint64) error {
 	if pricePerByte.LessThan(pde.minPricePerByte) {
 		return errors.New("Price per byte too low")
 	}
@@ -265,11 +267,11 @@ func (pde providerDealEnvironment) CheckDealParams(pricePerByte tokenamount.Toke
 	return nil
 }
 
-func (pde providerDealEnvironment) NextBlock(ctx context.Context) (retrievalmarket.Block, bool, error) {
+func (pde *providerDealEnvironment) NextBlock(ctx context.Context) (retrievalmarket.Block, bool, error) {
 	if pde.ufsr == nil {
 		return retrievalmarket.Block{}, false, errors.New("Could not read block")
 	}
-	_, _, nd, err := pde.ufsr.ReadBlock(ctx)
+	data, _, nd, err := pde.ufsr.ReadBlock(ctx)
 	if err != nil {
 		return retrievalmarket.Block{}, false, err
 	}
@@ -277,7 +279,7 @@ func (pde providerDealEnvironment) NextBlock(ctx context.Context) (retrievalmark
 		Prefix: nd.Cid().Prefix().Bytes(),
 		Data:   nd.RawData(),
 	}
-	pde.read += uint64(len(nd.RawData()))
+	pde.read += uint64(len(data))
 	done := pde.read >= pde.size
 	return block, done, nil
 }

@@ -35,6 +35,8 @@ type client struct {
 	resolver      retrievalmarket.PeerResolver
 }
 
+var _ retrievalmarket.RetrievalClient = &client{}
+
 // NewClient creates a new retrieval client
 func NewClient(
 	network rmnet.RetrievalMarketNetwork,
@@ -146,12 +148,12 @@ func (c *client) handleDeal(ctx context.Context, dealState retrievalmarket.Clien
 		case retrievalmarket.DealStatusPaymentChannelCreated, retrievalmarket.DealStatusOngoing, retrievalmarket.DealStatusUnsealing:
 			handler = clientstates.ProcessNextResponse
 		case retrievalmarket.DealStatusFundsNeeded, retrievalmarket.DealStatusFundsNeededLastPayment:
-			handler = clientstates.ProcessNextResponse
+			handler = clientstates.ProcessPaymentRequested
 		default:
 			c.failDeal(&dealState, xerrors.New("unexpected deal state"))
 			return
 		}
-		dealModifier := handler(ctx, environment, dealState)
+		dealModifier := handler(ctx, &environment, dealState)
 		dealModifier(&dealState)
 		if retrievalmarket.IsTerminalStatus(dealState.Status) {
 			break
@@ -227,7 +229,7 @@ type clientStream struct {
 	offset uint64
 
 	paych       address.Address
-	lane        uint64
+	laneAddr        uint64
 	total       tokenamount.TokenAmount
 	transferred tokenamount.TokenAmount
 
@@ -265,9 +267,9 @@ type clientStream struct {
 	if err != nil {
 		return xerrors.Errorf("getting payment channel: %w", err)
 	}
-	lane, err := c.node.AllocateLane(paych)
+	laneAddr, err := c.node.AllocateLane(paych)
 	if err != nil {
-		return xerrors.Errorf("allocating payment lane: %w", err)
+		return xerrors.Errorf("allocating payment laneAddr: %w", err)
 	}
 
 	cst := clientStream{
@@ -280,7 +282,7 @@ type clientStream struct {
 		offset: initialOffset,
 
 		paych:       paych,
-		lane:        lane,
+		laneAddr:        laneAddr,
 		total:       total,
 		transferred: tokenamount.FromInt(0),
 
@@ -416,7 +418,7 @@ func (cst *clientStream) consumeBlockMessage(block Block) (uint64, error) {
 func (cst *clientStream) setupPayment(ctx context.Context, toSend tokenamount.TokenAmount) (OldPaymentInfo, error) {
 	amount := tokenamount.Add(cst.transferred, toSend)
 
-	sv, err := cst.node.CreatePaymentVoucher(ctx, cst.paych, amount, cst.lane)
+	sv, err := cst.node.CreatePaymentVoucher(ctx, cst.paych, amount, cst.laneAddr)
 	if err != nil {
 		return OldPaymentInfo{}, err
 	}
@@ -438,15 +440,15 @@ type clientDealEnvironment struct {
 	stream   rmnet.RetrievalDealStream
 }
 
-func (cde clientDealEnvironment) Node() retrievalmarket.RetrievalClientNode {
+func (cde *clientDealEnvironment) Node() retrievalmarket.RetrievalClientNode {
 	return cde.node
 }
 
-func (cde clientDealEnvironment) DealStream() rmnet.RetrievalDealStream {
+func (cde *clientDealEnvironment) DealStream() rmnet.RetrievalDealStream {
 	return cde.stream
 }
 
-func (cde clientDealEnvironment) ConsumeBlock(ctx context.Context, block retrievalmarket.Block) (uint64, bool, error) {
+func (cde *clientDealEnvironment) ConsumeBlock(ctx context.Context, block retrievalmarket.Block) (uint64, bool, error) {
 	prefix, err := cid.PrefixFromBytes(block.Prefix)
 	if err != nil {
 		return 0, false, err
