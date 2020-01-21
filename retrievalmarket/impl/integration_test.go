@@ -111,13 +111,16 @@ func TestClientCanMakeDealWithProvider(t *testing.T) {
 		name     string
 		filename string
 		filesize uint64
+		voucherAmt tokenamount.TokenAmount
 	}{
 		{	name: "1 block file retrieval succeeds",
 			filename: "lorem_under_1_block.txt",
-			filesize: 410},
+			filesize: 410,
+			voucherAmt: tokenamount.FromInt(410000)},
 		{	name:     "multi-block file retrieval succeeds",
 			filename: "lorem.txt",
-			filesize: 19000},
+			filesize: 19000,
+			voucherAmt: tokenamount.FromInt(10136000)},
 	}
 	for _, testCase := range testCases {
 		t.Run(testCase.name, func(t *testing.T){
@@ -148,9 +151,8 @@ func TestClientCanMakeDealWithProvider(t *testing.T) {
 
 			// this is just pulled from the actual answer so the expected keys in the test node match up.
 			// later we compare the voucher values.
-			expectedVoucher.Amount = tokenamount.FromInt(10136000)
 			proof := []byte("")
-			require.NoError(t, providerNode.ExpectVoucher(clientPaymentChannel, expectedVoucher, proof, expectedVoucher.Amount, expectedVoucher.Amount, nil))
+			require.NoError(t, providerNode.ExpectVoucher(clientPaymentChannel, expectedVoucher, proof, testCase.voucherAmt, testCase.voucherAmt, nil))
 
 			// ------- SET UP CLIENT
 			nw1 := rmnet.NewFromLibp2pHost(testData.Host1)
