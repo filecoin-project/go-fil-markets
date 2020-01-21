@@ -17,11 +17,11 @@ import (
 
 type providerHandlerFunc func(ctx context.Context, deal MinerDeal) (func(*MinerDeal), error)
 
-func (p *Provider) handle(ctx context.Context, deal MinerDeal, cb providerHandlerFunc, next storagemarket.DealState) {
+func (p *Provider) handle(ctx context.Context, deal MinerDeal, cb providerHandlerFunc, next storagemarket.StorageDealStatus) {
 	go func() {
 		mut, err := cb(ctx, deal)
 
-		if err == nil && next == storagemarket.DealNoUpdate {
+		if err == nil && next == storagemarket.StorageDealNoUpdate {
 			return
 		}
 
@@ -37,7 +37,7 @@ func (p *Provider) handle(ctx context.Context, deal MinerDeal, cb providerHandle
 	}()
 }
 
-// DealValidating
+// StorageDealValidating
 func (p *Provider) validating(ctx context.Context, deal MinerDeal) (func(*MinerDeal), error) {
 	head, err := p.spn.MostRecentStateId(ctx)
 	if err != nil {
@@ -74,7 +74,7 @@ func (p *Provider) validating(ctx context.Context, deal MinerDeal) (func(*MinerD
 	return nil, nil
 }
 
-// State: DealTransferring
+// State: StorageDealTransferring
 func (p *Provider) transferring(ctx context.Context, deal MinerDeal) (func(*MinerDeal), error) {
 	ssb := builder.NewSelectorSpecBuilder(ipldfree.NodeBuilder())
 
@@ -101,7 +101,7 @@ func (p *Provider) transferring(ctx context.Context, deal MinerDeal) (func(*Mine
 	return nil, nil
 }
 
-// State: DealVerifyData
+// State: StorageDealVerifyData
 func (p *Provider) verifydata(ctx context.Context, deal MinerDeal) (func(*MinerDeal), error) {
 	// entire DAG selector
 	ssb := builder.NewSelectorSpecBuilder(ipldfree.NodeBuilder())
@@ -123,7 +123,7 @@ func (p *Provider) verifydata(ctx context.Context, deal MinerDeal) (func(*MinerD
 	}, nil
 }
 
-// State: DealPublishing
+// State: StorageDealPublishing
 func (p *Provider) publishing(ctx context.Context, deal MinerDeal) (func(*MinerDeal), error) {
 	waddr, err := p.spn.GetMinerWorker(ctx, deal.Proposal.Provider)
 	if err != nil {
@@ -150,7 +150,7 @@ func (p *Provider) publishing(ctx context.Context, deal MinerDeal) (func(*MinerD
 	}
 
 	err = p.sendSignedResponse(ctx, &Response{
-		State: storagemarket.DealAccepted,
+		State: storagemarket.StorageDealProposalAccepted,
 
 		Proposal:       deal.ProposalCid,
 		PublishMessage: &mcid,
@@ -205,7 +205,7 @@ func (p *Provider) sealing(ctx context.Context, deal MinerDeal) (func(*MinerDeal
 	cb := func(err error) {
 		select {
 		case p.updated <- minerDealUpdate{
-			newState: storagemarket.DealComplete,
+			newState: storagemarket.StorageDealActive,
 			id:       deal.ProposalCid,
 			err:      err,
 		}:

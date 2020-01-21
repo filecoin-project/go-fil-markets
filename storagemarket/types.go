@@ -27,43 +27,56 @@ type Balance struct {
 	Available tokenamount.TokenAmount
 }
 
-type DealState = uint64
+type StorageDealStatus = uint64
 
 const (
-	DealUnknown  = DealState(iota)
-	DealRejected // Provider didn't like the proposal
-	DealAccepted // Proposal accepted
-	DealStaged   // Data put into the sector
-	DealSealing  // Data in process of being sealed
-
-	DealFailed
-	DealComplete
+	StorageDealUnknown = StorageDealStatus(iota)
+	StorageDealProposalNotFound
+	StorageDealProposalRejected
+	StorageDealProposalAccepted
+	StorageDealStaged
+	StorageDealSealing
+	StorageDealProposalSigned
+	StorageDealPublished
+	StorageDealCommitted
+	StorageDealActive
+	StorageDealFailing
+	StorageDealRecovering
+	StorageDealExpired
+	StorageDealNotFound
 
 	// Internal
 
-	DealValidating   // Verifying that deal parameters are good
-	DealTransferring // Moving data
-	DealVerifyData   // Verify transferred data - generate CAR / piece data
-	DealPublishing   // Publishing deal to chain
-	DealError        // deal failed with an unexpected error
+	StorageDealValidating   // Verifying that deal parameters are good
+	StorageDealTransferring // Moving data
+	StorageDealVerifyData   // Verify transferred data - generate CAR / piece data
+	StorageDealPublishing   // Publishing deal to chain
+	StorageDealError        // deal failed with an unexpected error
 
-	DealNoUpdate = DealUnknown
+	StorageDealNoUpdate = StorageDealUnknown
 )
 
 var DealStates = []string{
-	"DealUnknown",
-	"DealRejected",
-	"DealAccepted",
-	"DealStaged",
-	"DealSealing",
-	"DealFailed",
-	"DealComplete",
+	"StorageDealUnknown",
+	"StorageDealProposalNotFound",
+	"StorageDealProposalRejected",
+	"StorageDealProposalAccepted",
+	"StorageDealStaged",
+	"StorageDealSealing",
+	"StorageDealProposalSigned",
+	"StorageDealPublished",
+	"StorageDealCommitted",
+	"StorageDealActive",
+	"StorageDealFailing",
+	"StorageDealRecovering",
+	"StorageDealExpired",
+	"StorageDealNotFound",
 
-	"DealValidating",
-	"DealTransferring",
-	"DealVerifyData",
-	"DealPublishing",
-	"DealError",
+	"StorageDealValidating",
+	"StorageDealTransferring",
+	"StorageDealVerifyData",
+	"StorageDealPublishing",
+	"StorageDealError",
 }
 
 type DealID uint64
@@ -153,19 +166,19 @@ type MinerDeal struct {
 	Proposal    StorageDealProposal
 	Miner       peer.ID
 	Client      peer.ID
-	State       DealState
+	State       StorageDealStatus
 	PiecePath   filestore.Path
 
 	Ref cid.Cid
 
 	DealID   uint64
-	SectorID uint64 // Set when sm >= DealStaged
+	SectorID uint64 // Set when sm >= StorageDealStaged
 }
 
 type ClientDeal struct {
 	ProposalCid cid.Cid
 	Proposal    StorageDealProposal
-	State       DealState
+	State       StorageDealStatus
 	Miner       peer.ID
 	MinerWorker address.Address
 	DealID      uint64

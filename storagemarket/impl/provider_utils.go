@@ -32,7 +32,7 @@ func (p *Provider) failDeal(ctx context.Context, id cid.Cid, cerr error) {
 	log.Warnf("deal %s failed: %s", id, cerr)
 
 	err := p.sendSignedResponse(ctx, &Response{
-		State:    storagemarket.DealFailed,
+		State:    storagemarket.StorageDealFailing,
 		Message:  cerr.Error(),
 		Proposal: id,
 	})

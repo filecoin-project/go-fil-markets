@@ -62,7 +62,7 @@ type Client struct {
 }
 
 type clientDealUpdate struct {
-	newState storagemarket.DealState
+	newState storagemarket.StorageDealStatus
 	id       cid.Cid
 	err      error
 	mut      func(*ClientDeal)
@@ -129,7 +129,7 @@ func (c *Client) onIncoming(deal *ClientDeal) {
 
 	go func() {
 		c.updated <- clientDealUpdate{
-			newState: storagemarket.DealUnknown,
+			newState: storagemarket.StorageDealUnknown,
 			id:       deal.ProposalCid,
 			err:      nil,
 		}
@@ -158,15 +158,15 @@ func (c *Client) onUpdated(ctx context.Context, update clientDealUpdate) {
 	}
 
 	switch update.newState {
-	case storagemarket.DealUnknown: // new
-		c.handle(ctx, deal, c.new, storagemarket.DealAccepted)
-	case storagemarket.DealAccepted:
-		c.handle(ctx, deal, c.accepted, storagemarket.DealStaged)
-	case storagemarket.DealStaged:
-		c.handle(ctx, deal, c.staged, storagemarket.DealSealing)
-	case storagemarket.DealSealing:
-		c.handle(ctx, deal, c.sealing, storagemarket.DealNoUpdate)
-		// TODO: DealComplete -> watch for faults, expiration, etc.
+	case storagemarket.StorageDealUnknown: // new
+		c.handle(ctx, deal, c.new, storagemarket.StorageDealProposalAccepted)
+	case storagemarket.StorageDealProposalAccepted:
+		c.handle(ctx, deal, c.accepted, storagemarket.StorageDealStaged)
+	case storagemarket.StorageDealStaged:
+		c.handle(ctx, deal, c.staged, storagemarket.StorageDealSealing)
+	case storagemarket.StorageDealSealing:
+		c.handle(ctx, deal, c.sealing, storagemarket.StorageDealNoUpdate)
+		// TODO: StorageDealActive -> watch for faults, expiration, etc.
 	}
 }
 
@@ -233,7 +233,7 @@ func (c *Client) Start(ctx context.Context, p ClientDealProposal) (cid.Cid, erro
 		ClientDeal: storagemarket.ClientDeal{
 			ProposalCid: proposalNd.Cid(),
 			Proposal:    *dealProposal,
-			State:       storagemarket.DealUnknown,
+			State:       storagemarket.StorageDealUnknown,
 			Miner:       p.MinerID,
 			MinerWorker: p.MinerWorker,
 			PayloadCid:  p.Data,
