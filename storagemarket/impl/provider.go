@@ -139,9 +139,9 @@ func (p *Provider) Run(ctx context.Context, host host.Host) {
 
 		for {
 			select {
-			case deal := <-p.incoming: // DealAccepted
+			case deal := <-p.incoming:
 				p.onIncoming(deal)
-			case update := <-p.updated: // DealStaged
+			case update := <-p.updated:
 				p.onUpdated(ctx, update)
 			case <-p.stop:
 				return
@@ -164,7 +164,7 @@ func (p *Provider) onIncoming(deal MinerDeal) {
 
 	go func() {
 		p.updated <- minerDealUpdate{
-			newState: storagemarket.DealValidating,
+			newState: storagemarket.StorageDealValidating,
 			id:       deal.ProposalCid,
 			err:      nil,
 		}
@@ -193,20 +193,20 @@ func (p *Provider) onUpdated(ctx context.Context, update minerDealUpdate) {
 	}
 
 	switch update.newState {
-	case storagemarket.DealValidating:
-		p.handle(ctx, deal, p.validating, storagemarket.DealTransferring)
-	case storagemarket.DealTransferring:
-		p.handle(ctx, deal, p.transferring, storagemarket.DealNoUpdate)
-	case storagemarket.DealVerifyData:
-		p.handle(ctx, deal, p.verifydata, storagemarket.DealPublishing)
-	case storagemarket.DealPublishing:
-		p.handle(ctx, deal, p.publishing, storagemarket.DealStaged)
-	case storagemarket.DealStaged:
-		p.handle(ctx, deal, p.staged, storagemarket.DealSealing)
-	case storagemarket.DealSealing:
-		p.handle(ctx, deal, p.sealing, storagemarket.DealComplete)
-	case storagemarket.DealComplete:
-		p.handle(ctx, deal, p.complete, storagemarket.DealNoUpdate)
+	case storagemarket.StorageDealValidating:
+		p.handle(ctx, deal, p.validating, storagemarket.StorageDealTransferring)
+	case storagemarket.StorageDealTransferring:
+		p.handle(ctx, deal, p.transferring, storagemarket.StorageDealNoUpdate)
+	case storagemarket.StorageDealVerifyData:
+		p.handle(ctx, deal, p.verifydata, storagemarket.StorageDealPublishing)
+	case storagemarket.StorageDealPublishing:
+		p.handle(ctx, deal, p.publishing, storagemarket.StorageDealStaged)
+	case storagemarket.StorageDealStaged:
+		p.handle(ctx, deal, p.staged, storagemarket.StorageDealSealing)
+	case storagemarket.StorageDealSealing:
+		p.handle(ctx, deal, p.sealing, storagemarket.StorageDealActive)
+	case storagemarket.StorageDealActive:
+		p.handle(ctx, deal, p.complete, storagemarket.StorageDealNoUpdate)
 	}
 }
 
@@ -228,9 +228,9 @@ func (p *Provider) onDataTransferEvent(event datatransfer.Event, channelState da
 	var mut func(*MinerDeal)
 	switch event.Code {
 	case datatransfer.Complete:
-		next = storagemarket.DealVerifyData
+		next = storagemarket.StorageDealVerifyData
 	case datatransfer.Error:
-		next = storagemarket.DealFailed
+		next = storagemarket.StorageDealFailing
 		err = ErrDataTransferFailed
 	default:
 		// the only events we care about are complete and error
@@ -259,7 +259,7 @@ func (p *Provider) newDeal(s inet.Stream, proposal Proposal) (MinerDeal, error) 
 			Client:      s.Conn().RemotePeer(),
 			Proposal:    *proposal.DealProposal,
 			ProposalCid: proposalNd.Cid(),
-			State:       storagemarket.DealUnknown,
+			State:       storagemarket.StorageDealUnknown,
 
 			Ref: proposal.Piece,
 		},

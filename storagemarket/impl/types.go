@@ -40,7 +40,7 @@ var (
 	ErrInacceptableDealState = errors.New("deal is not a in a state where deals are accepted.")
 
 	// DataTransferStates are the states in which it would make sense to actually start a data transfer
-	DataTransferStates = []storagemarket.StorageDealStatus{storagemarket.DealAccepted, storagemarket.DealUnknown}
+	DataTransferStates = []storagemarket.StorageDealStatus{storagemarket.StorageDealProposalAccepted, storagemarket.StorageDealUnknown}
 )
 
 type Proposal struct {
@@ -56,7 +56,7 @@ type Response struct {
 	Message  string
 	Proposal cid.Cid
 
-	// DealAccepted
+	// StorageDealProposalAccepted
 	PublishMessage *cid.Cid
 }
 

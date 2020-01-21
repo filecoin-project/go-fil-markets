@@ -15,10 +15,10 @@ func (c *Client) handle(ctx context.Context, deal ClientDeal, cb clientHandlerFu
 	go func() {
 		mut, err := cb(ctx, deal)
 		if err != nil {
-			next = storagemarket.DealError
+			next = storagemarket.StorageDealError
 		}
 
-		if err == nil && next == storagemarket.DealNoUpdate {
+		if err == nil && next == storagemarket.StorageDealNoUpdate {
 			return
 		}
 
@@ -47,7 +47,7 @@ func (c *Client) new(ctx context.Context, deal ClientDeal) (func(*ClientDeal), e
 	}
 
 	/* data transfer happens */
-	if resp.State != storagemarket.DealAccepted {
+	if resp.State != storagemarket.StorageDealProposalAccepted {
 		return nil, xerrors.Errorf("deal wasn't accepted (State=%d)", resp.State)
 	}
 
@@ -79,7 +79,7 @@ func (c *Client) sealing(ctx context.Context, deal ClientDeal) (func(*ClientDeal
 	cb := func(err error) {
 		select {
 		case c.updated <- clientDealUpdate{
-			newState: storagemarket.DealComplete,
+			newState: storagemarket.StorageDealActive,
 			id:       deal.ProposalCid,
 			err:      err,
 		}:
