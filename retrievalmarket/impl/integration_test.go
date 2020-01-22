@@ -8,7 +8,6 @@ import (
 
 	"github.com/filecoin-project/go-address"
 	"github.com/filecoin-project/go-data-transfer/testutil"
-	"github.com/ipfs/go-log/v2"
 	cidlink "github.com/ipld/go-ipld-prime/linking/cid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -92,7 +91,6 @@ func requireSetupTestClientAndProvider(bgCtx context.Context, t *testing.T, payC
 }
 
 func TestClientCanMakeDealWithProvider(t *testing.T) {
-	log.SetDebugLogging()
 	bgCtx := context.Background()
 	clientPaymentChannel, err := address.NewIDAddress(rand.Uint64())
 	require.NoError(t, err)
@@ -101,30 +99,27 @@ func TestClientCanMakeDealWithProvider(t *testing.T) {
 
 	// -------- SET UP PROVIDER
 
-	// Inject a unixFS file on the provider side to its blockstore
-	// obtained via `ls -laf` on this file
-
-	// pieceLink := testData.LoadUnixFSFile(t, "lorem_big.txt", true)
-	// fileSize := uint64(89359)
-
 	testCases := []struct {
-		name     string
-		filename string
-		filesize uint64
-		voucherAmt tokenamount.TokenAmount
+		name       string
+		filename   string
+		filesize   uint64
+		voucherAmts []tokenamount.TokenAmount
 	}{
-		{	name: "1 block file retrieval succeeds",
-			filename: "lorem_under_1_block.txt",
-			filesize: 410,
-			voucherAmt: tokenamount.FromInt(410000)},
-		{	name:     "multi-block file retrieval succeeds",
-			filename: "lorem.txt",
-			filesize: 19000,
-			voucherAmt: tokenamount.FromInt(10136000)},
+		{name: "1 block file retrieval succeeds",
+			filename:   "lorem_under_1_block.txt",
+			filesize:   410,
+			voucherAmts: []tokenamount.TokenAmount{tokenamount.FromInt(410000)}},
+		{name: "multi-block file retrieval succeeds",
+			filename:   "lorem.txt",
+			filesize:   19000,
+			voucherAmts: []tokenamount.TokenAmount{tokenamount.FromInt(10136000), tokenamount.FromInt(9784000)}},
 	}
 	for _, testCase := range testCases {
-		t.Run(testCase.name, func(t *testing.T){
+		t.Run(testCase.name, func(t *testing.T) {
+			// Inject a unixFS file on the provider side to its blockstore
+			// obtained via `ls -laf` on this file
 			pieceLink := testData.LoadUnixFSFile(t, testCase.filename, true)
+
 			pieceCID := []byte("pieceCID")
 			providerPaymentAddr, err := address.NewIDAddress(rand.Uint64())
 			require.NoError(t, err)
@@ -140,7 +135,7 @@ func TestClientCanMakeDealWithProvider(t *testing.T) {
 				MaxPaymentIntervalIncrease: paymentIntervalIncrease,
 			}
 
-			providerNode := setupProvider(t, testData, pieceCID, expectedQR, providerPaymentAddr)
+			providerNode, provider := setupProvider(t, testData, pieceCID, expectedQR, providerPaymentAddr)
 
 			retrievalPeer := &retrievalmarket.RetrievalPeer{Address: providerPaymentAddr, ID: testData.Host2.ID(),}
 
@@ -149,30 +144,49 @@ func TestClientCanMakeDealWithProvider(t *testing.T) {
 			// just make sure there is enough to cover the transfer
 			expectedTotal := tokenamount.Mul(pricePerByte, tokenamount.FromInt(testCase.filesize*2))
 
-			// this is just pulled from the actual answer so the expected keys in the test node match up.
-			// later we compare the voucher values.
+			// voucherAmts are pulled from the actual answer so the expected keys in the test node match up.
+			// later we compare the voucher values.  The last voucherAmt is a remainder
 			proof := []byte("")
-			require.NoError(t, providerNode.ExpectVoucher(clientPaymentChannel, expectedVoucher, proof, testCase.voucherAmt, testCase.voucherAmt, nil))
+			for _, voucherAmt := range testCase.voucherAmts {
+				require.NoError(t, providerNode.ExpectVoucher(clientPaymentChannel, expectedVoucher, proof, voucherAmt, voucherAmt, nil))
+			}
 
 			// ------- SET UP CLIENT
 			nw1 := rmnet.NewFromLibp2pHost(testData.Host1)
 
 			createdChan, newLaneAddr, createdVoucher, client := setupClient(clientPaymentChannel, expectedVoucher, nw1, testData)
 
-			dealStateChan := make(chan retrievalmarket.ClientDealState)
+			clientDealStateChan := make(chan retrievalmarket.ClientDealState)
 			client.SubscribeToEvents(func(event retrievalmarket.ClientEvent, state retrievalmarket.ClientDealState) {
 				switch event {
 				case retrievalmarket.ClientEventComplete:
-					dealStateChan <- state
+					clientDealStateChan <- state
 				case retrievalmarket.ClientEventError:
 					msg := `
-Status: %d
-TotalReceived: %d
-BytesPaidFor: %d
+Status:          %d
+TotalReceived:   %d
+BytesPaidFor:    %d
 CurrentInterval: %d
-TotalFunds: %s
+TotalFunds:      %s
 `
 					t.Logf(msg, state.Status, state.TotalReceived, state.BytesPaidFor, state.CurrentInterval, state.TotalFunds.String(), )
+				}
+			})
+
+			providerDealStateChan := make(chan retrievalmarket.ProviderDealState)
+			provider.SubscribeToEvents(func(event retrievalmarket.ProviderEvent, state retrievalmarket.ProviderDealState) {
+				switch event {
+				case retrievalmarket.ProviderEventComplete:
+					providerDealStateChan <- state
+				case retrievalmarket.ProviderEventError:
+					msg := `
+Status:          %d
+TotalSent:       %d
+FundsReceived:   %s
+Message:		 %s
+CurrentInterval: %d
+`
+					t.Logf(msg, state.Status, state.TotalSent, state.FundsReceived.String(), state.Message, state.CurrentInterval)
 				}
 			})
 
@@ -197,24 +211,38 @@ TotalFunds: %s
 			did := client.Retrieve(bgCtx, pieceCID, rmParams, expectedTotal, retrievalPeer.ID, clientPaymentChannel, retrievalPeer.Address)
 			assert.Equal(t, did, retrievalmarket.DealID(1))
 
-			ctx, cancel := context.WithTimeout(bgCtx, 20*time.Second)
+			ctx, cancel := context.WithTimeout(bgCtx, 10*time.Second)
 			defer cancel()
 
-			var dealState retrievalmarket.ClientDealState
+			// verify that client subscribers will be notified of state changes
+			var clientDealState retrievalmarket.ClientDealState
 			select {
 			case <-ctx.Done():
 				t.Error("deal never completed")
 				t.FailNow()
-			case dealState = <-dealStateChan:
+			case clientDealState = <-clientDealStateChan:
 			}
-			assert.Equal(t, dealState.Lane, expectedVoucher.Lane)
+			assert.Equal(t, clientDealState.Lane, expectedVoucher.Lane)
 			require.NotNil(t, createdChan)
 			require.Equal(t, expectedTotal, createdChan.amt)
 			require.Equal(t, clientPaymentChannel, *newLaneAddr)
 			// verify that the voucher was saved/seen by the client with correct values
 			require.NotNil(t, createdVoucher)
 			assert.True(t, createdVoucher.Equals(expectedVoucher))
-			// // verify that the provider saved the same voucher values
+
+			ctx, cancel = context.WithTimeout(bgCtx, 10*time.Second)
+			defer cancel()
+			var providerDealState retrievalmarket.ProviderDealState
+			select {
+			case <-ctx.Done():
+				t.Error("provider never saw completed deal")
+				t.FailNow()
+			case providerDealState = <- providerDealStateChan:
+			}
+
+			require.Equal(t, retrievalmarket.DealStatusCompleted, providerDealState.Status)
+
+			// verify that the provider saved the same voucher values
 			providerNode.VerifyExpectations(t)
 			testData.VerifyFileTransferred(t, pieceLink, false)
 		})
@@ -256,7 +284,7 @@ func setupClient(
 	return &createdChan, &newLaneAddr, &createdVoucher, client
 }
 
-func setupProvider(t *testing.T, testData *tut.Libp2pTestData, pieceCID []byte, expectedQR retrievalmarket.QueryResponse, providerPaymentAddr address.Address) *testnodes.TestRetrievalProviderNode {
+func setupProvider(t *testing.T, testData *tut.Libp2pTestData, pieceCID []byte, expectedQR retrievalmarket.QueryResponse, providerPaymentAddr address.Address) (*testnodes.TestRetrievalProviderNode, retrievalmarket.RetrievalProvider) {
 	nw2 := rmnet.NewFromLibp2pHost(testData.Host2)
 	providerNode := testnodes.NewTestRetrievalProviderNode()
 	providerNode.SetBlockstore(testData.Bs2)
@@ -265,7 +293,7 @@ func setupProvider(t *testing.T, testData *tut.Libp2pTestData, pieceCID []byte, 
 	provider.SetPaymentInterval(expectedQR.MaxPaymentInterval, expectedQR.MaxPaymentIntervalIncrease)
 	provider.SetPricePerByte(expectedQR.MinPricePerByte)
 	require.NoError(t, provider.Start())
-	return providerNode
+	return providerNode, provider
 }
 
 type pmtChan struct {

@@ -7,6 +7,7 @@ import (
 
 	"github.com/filecoin-project/go-address"
 	blockstore "github.com/ipfs/go-ipfs-blockstore"
+	logging "github.com/ipfs/go-log"
 	"github.com/stretchr/testify/require"
 
 	"github.com/filecoin-project/go-fil-markets/retrievalmarket"
@@ -14,6 +15,7 @@ import (
 	"github.com/filecoin-project/go-fil-markets/shared/types"
 )
 
+var log = logging.Logger("TestRetrievalProviderNode")
 type TestRetrievalProviderNodeParams struct {
 	/*	PayCh        address.Address
 		PayChErr     error
@@ -42,7 +44,7 @@ type TestRetrievalProviderNode struct {
 	receivedPiecesSizes   map[string]struct{}
 	receivedMissingPieces map[string]struct{}
 	expectedVouchers      map[expectedVoucherKey]voucherResult
-	receivedVouchers      map[expectedVoucherKey]struct{}
+	receivedVouchers      map[expectedVoucherKey]bool
 }
 
 var _ retrievalmarket.RetrievalProviderNode = &TestRetrievalProviderNode{}
@@ -54,7 +56,7 @@ func NewTestRetrievalProviderNode() *TestRetrievalProviderNode {
 		receivedPiecesSizes:   make(map[string]struct{}),
 		receivedMissingPieces: make(map[string]struct{}),
 		expectedVouchers:      make(map[expectedVoucherKey]voucherResult),
-		receivedVouchers:      make(map[expectedVoucherKey]struct{}),
+		receivedVouchers:      make(map[expectedVoucherKey]bool),
 	}
 }
 
@@ -100,13 +102,14 @@ func (trpn *TestRetrievalProviderNode) SavePaymentVoucher(
 	voucher *types.SignedVoucher,
 	proof []byte,
 	expectedAmount tokenamount.TokenAmount) (tokenamount.TokenAmount, error) {
+
 	key, err := trpn.toExpectedVoucherKey(paymentChannel, voucher, proof, expectedAmount)
 	if err != nil {
 		return tokenamount.Empty, err
 	}
 	result, ok := trpn.expectedVouchers[key]
 	if ok {
-		trpn.receivedVouchers[key] = struct{}{}
+		trpn.receivedVouchers[key] = true
 		return result.amount, result.err
 	}
 	return tokenamount.Empty, errors.New("SavePaymentVoucher failed")
