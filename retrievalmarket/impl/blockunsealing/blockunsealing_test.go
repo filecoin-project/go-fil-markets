@@ -66,6 +66,7 @@ func TestNewLoaderWithUnsealing(t *testing.T) {
 		readData, err := ioutil.ReadAll(read)
 		require.NoError(t, err)
 		c, err := lnk.(cidlink.Link).Prefix().Sum(readData)
+		require.NoError(t, err)
 		require.Equal(t, c.Bytes(), lnk.(cidlink.Link).Bytes())
 	}
 
@@ -128,10 +129,11 @@ func TestNewLoaderWithUnsealing(t *testing.T) {
 			loaderWithUnsealing := blockunsealing.NewLoaderWithUnsealing(ctx, bs, piece, cio, unsealer.UnsealSector)
 			checkSuccessLoad(t, loaderWithUnsealing, testdata.MiddleMapNodeLnk)
 			// clear out block store
-			bs.DeleteBlock(testdata.MiddleMapBlock.Cid())
+			err := bs.DeleteBlock(testdata.MiddleMapBlock.Cid())
+			require.NoError(t, err)
 
 			// attemp to load again, will not unseal, will fail
-			_, err := loaderWithUnsealing.Load(testdata.MiddleMapNodeLnk, ipld.LinkContext{})
+			_, err = loaderWithUnsealing.Load(testdata.MiddleMapNodeLnk, ipld.LinkContext{})
 			require.Error(t, err)
 
 			unsealer.VerifyExpectations(t)
