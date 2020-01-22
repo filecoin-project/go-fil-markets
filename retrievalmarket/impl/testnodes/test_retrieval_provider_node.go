@@ -42,7 +42,7 @@ type TestRetrievalProviderNode struct {
 	receivedPiecesSizes   map[string]struct{}
 	receivedMissingPieces map[string]struct{}
 	expectedVouchers      map[expectedVoucherKey]voucherResult
-	receivedVouchers      map[expectedVoucherKey]bool
+	receivedVouchers      map[expectedVoucherKey]struct{}
 }
 
 var _ retrievalmarket.RetrievalProviderNode = &TestRetrievalProviderNode{}
@@ -54,7 +54,7 @@ func NewTestRetrievalProviderNode() *TestRetrievalProviderNode {
 		receivedPiecesSizes:   make(map[string]struct{}),
 		receivedMissingPieces: make(map[string]struct{}),
 		expectedVouchers:      make(map[expectedVoucherKey]voucherResult),
-		receivedVouchers:      make(map[expectedVoucherKey]bool),
+		receivedVouchers:      make(map[expectedVoucherKey]struct{}),
 	}
 }
 
@@ -100,14 +100,13 @@ func (trpn *TestRetrievalProviderNode) SavePaymentVoucher(
 	voucher *types.SignedVoucher,
 	proof []byte,
 	expectedAmount tokenamount.TokenAmount) (tokenamount.TokenAmount, error) {
-
 	key, err := trpn.toExpectedVoucherKey(paymentChannel, voucher, proof, expectedAmount)
 	if err != nil {
 		return tokenamount.Empty, err
 	}
 	result, ok := trpn.expectedVouchers[key]
 	if ok {
-		trpn.receivedVouchers[key] = true
+		trpn.receivedVouchers[key] = struct{}{}
 		return result.amount, result.err
 	}
 	return tokenamount.Empty, errors.New("SavePaymentVoucher failed")
