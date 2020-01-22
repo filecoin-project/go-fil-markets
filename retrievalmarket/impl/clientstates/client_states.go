@@ -4,11 +4,11 @@ import (
 	"context"
 	"fmt"
 
+	"golang.org/x/xerrors"
+
 	rm "github.com/filecoin-project/go-fil-markets/retrievalmarket"
 	rmnet "github.com/filecoin-project/go-fil-markets/retrievalmarket/network"
 	"github.com/filecoin-project/go-fil-markets/shared/tokenamount"
-
-	"golang.org/x/xerrors"
 )
 
 // ClientDealEnvironment is a bridge to the environment a client deal is executing in
@@ -89,7 +89,7 @@ func ProcessPaymentRequested(ctx context.Context, environment ClientDealEnvironm
 	}
 
 	// check that totalReceived - bytesPaidFor >= currentInterval, or fail
-	if (deal.TotalReceived-deal.BytesPaidFor < deal.CurrentInterval) && deal.Status !=  rm.DealStatusFundsNeededLastPayment{
+	if (deal.TotalReceived-deal.BytesPaidFor < deal.CurrentInterval) && deal.Status != rm.DealStatusFundsNeededLastPayment {
 		return errorFunc(xerrors.New("not enough bytes received between payment request"))
 	}
 

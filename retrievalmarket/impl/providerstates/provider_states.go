@@ -3,10 +3,11 @@ package providerstates
 import (
 	"context"
 
+	"golang.org/x/xerrors"
+
 	rm "github.com/filecoin-project/go-fil-markets/retrievalmarket"
 	rmnet "github.com/filecoin-project/go-fil-markets/retrievalmarket/network"
 	"github.com/filecoin-project/go-fil-markets/shared/tokenamount"
-	"golang.org/x/xerrors"
 )
 
 // ProviderDealEnvironment is a bridge to the environment a provider deal is executing in
