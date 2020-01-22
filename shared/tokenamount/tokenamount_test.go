@@ -94,21 +94,21 @@ func TestTokenAmount_MarshalUnmarshalJSON(t *testing.T) {
 }
 
 func TestOperations(t *testing.T) {
-	testCases := []struct{
-		name string
-		f func(TokenAmount, TokenAmount) TokenAmount
+	testCases := []struct {
+		name     string
+		f        func(TokenAmount, TokenAmount) TokenAmount
 		expected TokenAmount
 	}{
-		{name: "Sum", f: Add, expected:FromInt(7000)},
-		{name: "Sub", f: Sub, expected:FromInt(3000)},
+		{name: "Sum", f: Add, expected: FromInt(7000)},
+		{name: "Sub", f: Sub, expected: FromInt(3000)},
 		{name: "Mul", f: Mul, expected: FromInt(10000000)},
 		{name: "Div", f: Div, expected: FromInt(2)},
 		{name: "Mod", f: Mod, expected: FromInt(1000)},
 	}
 	for _, testCase := range testCases {
 		t.Run(testCase.name, func(t *testing.T) {
-			ta := TokenAmount{ Int: big.NewInt(5000)}
-			tb := TokenAmount{ Int: big.NewInt(2000)}
+			ta := TokenAmount{Int: big.NewInt(5000)}
+			tb := TokenAmount{Int: big.NewInt(2000)}
 			assert.Equal(t, testCase.expected, testCase.f(ta, tb))
 		})
 	}
@@ -164,13 +164,13 @@ func TestParseTokenAmount(t *testing.T) {
 func TestTokenAmount_Format(t *testing.T) {
 	ta := FromInt(33333000000)
 
-	s := fmt.Sprintf("%s", ta)
+	s := fmt.Sprintf("%s", ta) // nolint: gosimple
 	assert.Equal(t, "0.000000033333", s)
 
-	s1 := fmt.Sprintf("%v", ta)
+	s1 := fmt.Sprintf("%v", ta) // nolint: gosimple
 	assert.Equal(t, "0.000000033333", s1)
 
-	s2 := fmt.Sprintf("%-15d", ta)
+	s2 := fmt.Sprintf("%-15d", ta) // nolint: gosimple
 	assert.Equal(t, "33333000000    ", s2)
 }
 
@@ -187,10 +187,10 @@ func TestFromBytes(t *testing.T) {
 }
 
 func TestFromString(t *testing.T) {
-	res, err := FromString("garbage")
+	_, err := FromString("garbage")
 	assert.EqualError(t, err, "failed to parse string as a big int")
 
-	res, err = FromString("12345")
+	res, err := FromString("12345")
 	require.NoError(t, err)
 	expected := TokenAmount{Int: big.NewInt(12345)}
 	assert.Equal(t, expected, res)
