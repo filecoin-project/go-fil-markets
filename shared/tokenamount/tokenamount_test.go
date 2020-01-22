@@ -131,9 +131,9 @@ func TestParseTokenAmount(t *testing.T) {
 	res, err = ParseTokenAmount("12345")
 	assert.Equal(t, FromFil(12345), res)
 
-	res, err = ParseTokenAmount("123badnum")
+	_, err = ParseTokenAmount("123badnum")
 	assert.EqualError(t, err, "failed to parse \"123badnum\" as a decimal number")
 
-	res, err = ParseTokenAmount("0.0000000000000000000000003")
+	_, err = ParseTokenAmount("0.0000000000000000000000003")
 	assert.EqualError(t, err, "invalid FIL value: \"0.0000000000000000000000003\"")
 }
