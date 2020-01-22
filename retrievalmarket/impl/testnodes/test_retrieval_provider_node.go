@@ -7,7 +7,6 @@ import (
 
 	"github.com/filecoin-project/go-address"
 	blockstore "github.com/ipfs/go-ipfs-blockstore"
-	logging "github.com/ipfs/go-log"
 	"github.com/stretchr/testify/require"
 
 	"github.com/filecoin-project/go-fil-markets/retrievalmarket"
@@ -15,7 +14,6 @@ import (
 	"github.com/filecoin-project/go-fil-markets/shared/types"
 )
 
-var log = logging.Logger("TestRetrievalProviderNode")
 type TestRetrievalProviderNodeParams struct {
 	/*	PayCh        address.Address
 		PayChErr     error

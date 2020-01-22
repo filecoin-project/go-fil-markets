@@ -4,15 +4,12 @@ import (
 	"context"
 	"fmt"
 
-	logging "github.com/ipfs/go-log"
 	"golang.org/x/xerrors"
 
 	rm "github.com/filecoin-project/go-fil-markets/retrievalmarket"
 	rmnet "github.com/filecoin-project/go-fil-markets/retrievalmarket/network"
 	"github.com/filecoin-project/go-fil-markets/shared/tokenamount"
 )
-
-var log = logging.Logger("ClientStates")
 
 // ClientDealEnvironment is a bridge to the environment a client deal is executing in
 type ClientDealEnvironment interface {

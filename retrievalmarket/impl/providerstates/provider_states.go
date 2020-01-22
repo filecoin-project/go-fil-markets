@@ -3,15 +3,12 @@ package providerstates
 import (
 	"context"
 
-	logging "github.com/ipfs/go-log"
 	"golang.org/x/xerrors"
 
 	rm "github.com/filecoin-project/go-fil-markets/retrievalmarket"
 	rmnet "github.com/filecoin-project/go-fil-markets/retrievalmarket/network"
 	"github.com/filecoin-project/go-fil-markets/shared/tokenamount"
 )
-
-var log = logging.Logger("ProviderStates")
 
 // ProviderDealEnvironment is a bridge to the environment a provider deal is executing in
 type ProviderDealEnvironment interface {
