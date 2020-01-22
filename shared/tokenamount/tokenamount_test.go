@@ -129,6 +129,7 @@ func TestParseTokenAmount(t *testing.T) {
 	assert.Equal(t, "123.45", res.String())
 
 	res, err = ParseTokenAmount("12345")
+	require.NoError(t, err)
 	assert.Equal(t, FromFil(12345), res)
 
 	_, err = ParseTokenAmount("123badnum")
