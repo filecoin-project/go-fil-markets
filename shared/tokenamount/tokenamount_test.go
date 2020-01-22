@@ -2,6 +2,7 @@ package tokenamount_test
 
 import (
 	"bytes"
+	"fmt"
 	"math/big"
 	"testing"
 
@@ -37,6 +38,14 @@ func TestBigIntSerializationRoundTrip(t *testing.T) {
 		}
 
 	}
+
+	// nil check
+	ta := TokenAmount{}
+	var buf bytes.Buffer
+	err := ta.MarshalCBOR(&buf)
+	require.NoError(t, err)
+
+	assert.Equal(t, "@", buf.String())
 }
 
 func TestFilRoundTrip(t *testing.T) {
@@ -75,6 +84,13 @@ func TestTokenAmount_MarshalUnmarshalJSON(t *testing.T) {
 
 	require.NoError(t, tb.UnmarshalJSON(res))
 	assert.Equal(t, ta, tb)
+
+	assert.EqualError(t, tb.UnmarshalJSON([]byte("123garbage"[:])), "invalid character 'g' after top-level value")
+
+	tnil := TokenAmount{}
+	s, err := tnil.MarshalJSON()
+	require.NoError(t, err)
+	assert.Equal(t, "\"0\"", string(s))
 }
 
 func TestOperations(t *testing.T) {
@@ -106,6 +122,9 @@ func TestOperations(t *testing.T) {
 	assert.True(t, ta.GreaterThan(tb))
 	assert.False(t, ta.LessThan(tb))
 	assert.True(t, tb.Equals(tc))
+
+	ta = TokenAmount{}
+	assert.True(t, ta.Nil())
 }
 
 func TestTokenAmount_Scan(t *testing.T) {
@@ -121,6 +140,9 @@ func TestTokenAmount_Scan(t *testing.T) {
 	err = ta.Scan("54321")
 	require.NoError(t, err)
 	assert.Equal(t, FromInt(54321), ta)
+
+	err = ta.Scan("garbage")
+	assert.EqualError(t, err, "failed to parse bigint string: 'garbage'")
 }
 
 func TestParseTokenAmount(t *testing.T) {
@@ -137,4 +159,39 @@ func TestParseTokenAmount(t *testing.T) {
 
 	_, err = ParseTokenAmount("0.0000000000000000000000003")
 	assert.EqualError(t, err, "invalid FIL value: \"0.0000000000000000000000003\"")
+}
+
+func TestTokenAmount_Format(t *testing.T) {
+	ta := FromInt(33333000000)
+
+	s := fmt.Sprintf("%s", ta)
+	assert.Equal(t, "0.000000033333", s)
+
+	s1 := fmt.Sprintf("%v", ta)
+	assert.Equal(t, "0.000000033333", s1)
+
+	s2 := fmt.Sprintf("%-15d", ta)
+	assert.Equal(t, "33333000000    ", s2)
+}
+
+func TestFromBytes(t *testing.T) {
+	res := FromBytes([]byte("garbage"[:]))
+	// garbage in, garbage out
+	expected := TokenAmount{Int: big.NewInt(29099066505914213)}
+	assert.Equal(t, expected, res)
+
+	expected2 := TokenAmount{Int: big.NewInt(12345)}
+	expectedRes := expected2.Bytes()
+	res = FromBytes(expectedRes)
+	assert.Equal(t, expected2, res)
+}
+
+func TestFromString(t *testing.T) {
+	res, err := FromString("garbage")
+	assert.EqualError(t, err, "failed to parse string as a big int")
+
+	res, err = FromString("12345")
+	require.NoError(t, err)
+	expected := TokenAmount{Int: big.NewInt(12345)}
+	assert.Equal(t, expected, res)
 }

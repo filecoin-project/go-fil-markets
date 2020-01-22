@@ -122,6 +122,11 @@ func (ta TokenAmount) Equals(o TokenAmount) bool {
 
 // MarshalJSON converts a token amount to a json string
 func (ta *TokenAmount) MarshalJSON() ([]byte, error) {
+	if ta.Int == nil {
+		zero := FromInt(0)
+		return json.Marshal(zero)
+	}
+
 	return json.Marshal(ta.String())
 }
 
