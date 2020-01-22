@@ -1,17 +1,13 @@
 package blockio_test
 
 import (
-	"bytes"
 	"context"
-	"errors"
-	"io"
 	"testing"
 
 	"github.com/filecoin-project/go-fil-markets/retrievalmarket/impl/blockio"
 	tut "github.com/filecoin-project/go-fil-markets/shared_testutil"
 	blocks "github.com/ipfs/go-block-format"
 	"github.com/ipfs/go-cid"
-	"github.com/ipld/go-ipld-prime"
 	"github.com/stretchr/testify/require"
 )
 
@@ -20,13 +16,7 @@ func TestSelectorReader(t *testing.T) {
 	testdata := tut.NewTestIPLDTree()
 
 	t.Run("reads correctly", func(t *testing.T) {
-		reader := blockio.NewSelectorBlockReader(testdata.RootNodeLnk, func(lnk ipld.Link, lnkCtx ipld.LinkContext) (io.Reader, error) {
-			data, ok := testdata.Storage[lnk]
-			if !ok {
-				return nil, errors.New("No block found")
-			}
-			return bytes.NewBuffer(data), nil
-		})
+		reader := blockio.NewSelectorBlockReader(testdata.RootNodeLnk, testdata.Loader)
 
 		checkReadSequence(ctx, t, reader, []blocks.Block{
 			testdata.RootBlock,

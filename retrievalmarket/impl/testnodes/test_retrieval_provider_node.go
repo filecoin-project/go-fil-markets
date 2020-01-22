@@ -1,27 +1,20 @@
 package testnodes
 
 import (
+	"bytes"
 	"context"
 	"errors"
+	"io"
+	"io/ioutil"
 	"testing"
 
 	"github.com/filecoin-project/go-address"
-	blockstore "github.com/ipfs/go-ipfs-blockstore"
 	"github.com/stretchr/testify/require"
 
 	"github.com/filecoin-project/go-fil-markets/retrievalmarket"
 	"github.com/filecoin-project/go-fil-markets/shared/tokenamount"
 	"github.com/filecoin-project/go-fil-markets/shared/types"
 )
-
-type TestRetrievalProviderNodeParams struct {
-	/*	PayCh        address.Address
-		PayChErr     error
-		Lane         uint64
-		LaneError    error
-		Voucher      *types.SignedVoucher
-		VoucherError error*/
-}
 
 type expectedVoucherKey struct {
 	paymentChannel string
@@ -30,70 +23,77 @@ type expectedVoucherKey struct {
 	expectedAmount string
 }
 
+type sectorKey struct {
+	sectorID uint64
+	offset   uint64
+	length   uint64
+}
+
 type voucherResult struct {
 	amount tokenamount.TokenAmount
 	err    error
 }
 
+// TestRetrievalProviderNode is a node adapter for a retrieval provider whose
+// responses are mocked
 type TestRetrievalProviderNode struct {
-	bs                    blockstore.Blockstore
-	expectedPieces        map[string]uint64
-	expectedMissingPieces map[string]struct{}
-	receivedPiecesSizes   map[string]struct{}
-	receivedMissingPieces map[string]struct{}
-	expectedVouchers      map[expectedVoucherKey]voucherResult
-	receivedVouchers      map[expectedVoucherKey]struct{}
+	sectorStubs      map[sectorKey][]byte
+	expectations     map[sectorKey]struct{}
+	received         map[sectorKey]struct{}
+	expectedVouchers map[expectedVoucherKey]voucherResult
+	receivedVouchers map[expectedVoucherKey]struct{}
 }
 
 var _ retrievalmarket.RetrievalProviderNode = &TestRetrievalProviderNode{}
 
+// NewTestRetrievalProviderNode instantiates a new TestRetrievalProviderNode
 func NewTestRetrievalProviderNode() *TestRetrievalProviderNode {
 	return &TestRetrievalProviderNode{
-		expectedPieces:        make(map[string]uint64),
-		expectedMissingPieces: make(map[string]struct{}),
-		receivedPiecesSizes:   make(map[string]struct{}),
-		receivedMissingPieces: make(map[string]struct{}),
-		expectedVouchers:      make(map[expectedVoucherKey]voucherResult),
-		receivedVouchers:      make(map[expectedVoucherKey]struct{}),
+		sectorStubs:      make(map[sectorKey][]byte),
+		expectations:     make(map[sectorKey]struct{}),
+		received:         make(map[sectorKey]struct{}),
+		expectedVouchers: make(map[expectedVoucherKey]voucherResult),
+		receivedVouchers: make(map[expectedVoucherKey]struct{}),
 	}
 }
 
-func (trpn *TestRetrievalProviderNode) ExpectPiece(pieceCid []byte, size uint64) {
-	trpn.expectedPieces[string(pieceCid)] = size
+// StubUnseal stubs a response to attempting to unseal a sector with the given paramters
+func (trpn *TestRetrievalProviderNode) StubUnseal(sectorID uint64, offset uint64, length uint64, data []byte) {
+	trpn.sectorStubs[sectorKey{sectorID, offset, length}] = data
 }
 
-func (trpn *TestRetrievalProviderNode) ExpectMissingPiece(pieceCid []byte) {
-	trpn.expectedMissingPieces[string(pieceCid)] = struct{}{}
+// ExpectFailedUnseal indicates an expectation that a call will be made to unseal
+// a sector with the given params and should fail
+func (trpn *TestRetrievalProviderNode) ExpectFailedUnseal(sectorID uint64, offset uint64, length uint64) {
+	trpn.expectations[sectorKey{sectorID, offset, length}] = struct{}{}
 }
 
+// ExpectUnseal indicates an expectation that a call will be made to unseal
+// a sector with the given params and should return the given data
+func (trpn *TestRetrievalProviderNode) ExpectUnseal(sectorID uint64, offset uint64, length uint64, data []byte) {
+	trpn.expectations[sectorKey{sectorID, offset, length}] = struct{}{}
+	trpn.StubUnseal(sectorID, offset, length, data)
+}
+
+// UnsealSector simulates unsealing a sector by returning a stubbed response
+// or erroring
+func (trpn *TestRetrievalProviderNode) UnsealSector(ctx context.Context, sectorID uint64, offset uint64, length uint64) (io.ReadCloser, error) {
+	trpn.received[sectorKey{sectorID, offset, length}] = struct{}{}
+	data, ok := trpn.sectorStubs[sectorKey{sectorID, offset, length}]
+	if !ok {
+		return nil, errors.New("Could not unseal")
+	}
+	return ioutil.NopCloser(bytes.NewReader(data)), nil
+}
+
+// VerifyExpectations verifies that all expected calls were made and no other calls
+// were made
 func (trpn *TestRetrievalProviderNode) VerifyExpectations(t *testing.T) {
-	require.Equal(t, len(trpn.expectedPieces), len(trpn.receivedPiecesSizes))
-	require.Equal(t, len(trpn.expectedMissingPieces), len(trpn.receivedMissingPieces))
 	require.Equal(t, len(trpn.expectedVouchers), len(trpn.receivedVouchers))
+	require.Equal(t, trpn.expectations, trpn.received)
 }
 
-func (trpn *TestRetrievalProviderNode) GetPieceSize(pieceCid []byte) (uint64, error) {
-	size, ok := trpn.expectedPieces[string(pieceCid)]
-	if ok {
-		trpn.receivedPiecesSizes[string(pieceCid)] = struct{}{}
-		return size, nil
-	}
-	_, ok = trpn.expectedMissingPieces[string(pieceCid)]
-	if ok {
-		trpn.receivedMissingPieces[string(pieceCid)] = struct{}{}
-		return 0, retrievalmarket.ErrNotFound
-	}
-	return 0, errors.New("GetPieceSize failed")
-}
-
-func (trpn *TestRetrievalProviderNode) SetBlockstore(bs blockstore.Blockstore) {
-	trpn.bs = bs
-}
-
-func (trpn *TestRetrievalProviderNode) SealedBlockstore(approveUnseal func() error) blockstore.Blockstore {
-	return trpn.bs
-}
-
+// SavePaymentVoucher simulates saving a payment voucher with a stubbed result
 func (trpn *TestRetrievalProviderNode) SavePaymentVoucher(
 	ctx context.Context,
 	paymentChannel address.Address,
@@ -138,7 +138,7 @@ func (trpn *TestRetrievalProviderNode) ExpectVoucher(
 	voucher *types.SignedVoucher,
 	proof []byte,
 	expectedAmount tokenamount.TokenAmount,
-	actualAmount tokenamount.TokenAmount,   // the actual amount it should have (same unless you want to trigger an error)
+	actualAmount tokenamount.TokenAmount, // the actual amount it should have (same unless you want to trigger an error)
 	expectedErr error) error {
 	key, err := trpn.toExpectedVoucherKey(paymentChannel, voucher, proof, expectedAmount)
 	if err != nil {

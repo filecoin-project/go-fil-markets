@@ -7,7 +7,7 @@ import (
 	"sync"
 
 	"github.com/filecoin-project/go-address"
-	"github.com/ipfs/go-graphsync/storeutil"
+	"github.com/filecoin-project/go-fil-markets/pieceio/cario"
 	blockstore "github.com/ipfs/go-ipfs-blockstore"
 	cidlink "github.com/ipld/go-ipld-prime/linking/cid"
 
@@ -168,7 +168,7 @@ func (p *provider) HandleDealStream(stream rmnet.RetrievalDealStream) {
 	}
 	p.notifySubscribers(retrievalmarket.ProviderEventOpen, dealState)
 
-	environment := providerDealEnvironment{p.pieceStore, piecestore.PieceInfo{}, p.node, nil, p.pricePerByte, p.paymentInterval, p.paymentIntervalIncrease, stream}
+	environment := providerDealEnvironment{p.pieceStore, piecestore.PieceInfoUndefined, p.node, nil, p.pricePerByte, p.paymentInterval, p.paymentIntervalIncrease, stream}
 
 	for {
 		var handler providerstates.ProviderHandlerFunc
@@ -190,10 +190,9 @@ func (p *provider) HandleDealStream(stream rmnet.RetrievalDealStream) {
 			break
 		}
 		if environment.br == nil {
-			bstore := blockunsealing.NewBlockstoreWithUnsealing(p.bs, environment.pieceInfo, p.node.UnsealSector)
-			loader := storeutil.LoaderForBlockstore(bstore)
+			loaderWithUnsealing := blockunsealing.NewLoaderWithUnsealing(ctx, p.bs, environment.pieceInfo, cario.NewCarIO(), p.node.UnsealSector)
 
-			environment.br = blockio.NewSelectorBlockReader(cidlink.Link{Cid: dealState.PayloadCID}, loader)
+			environment.br = blockio.NewSelectorBlockReader(cidlink.Link{Cid: dealState.PayloadCID}, loaderWithUnsealing.Load)
 		}
 		p.notifySubscribers(retrievalmarket.ProviderEventProgress, dealState)
 	}
@@ -243,7 +242,7 @@ func (pde *providerDealEnvironment) NextBlock(ctx context.Context) (retrievalmar
 	return pde.br.ReadBlock(ctx)
 }
 
-func (pde providerDealEnvironment) GetPieceSize(pieceCID []byte) (uint64, error) {
+func (pde *providerDealEnvironment) GetPieceSize(pieceCID []byte) (uint64, error) {
 	var err error
 	pde.pieceInfo, err = pde.pieceStore.GetPieceInfo(pieceCID)
 	if err != nil {

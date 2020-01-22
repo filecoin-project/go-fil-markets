@@ -28,6 +28,9 @@ type PieceInfo struct {
 	Blocks   []BlockInfo
 }
 
+// PieceInfoUndefined is piece info with no information
+var PieceInfoUndefined = PieceInfo{}
+
 // PieceStore is a saved database of piece info that can be modified and queried
 type PieceStore interface {
 	AddDealForPiece(pieceCID []byte, dealInfo DealInfo) error
