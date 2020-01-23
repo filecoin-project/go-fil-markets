@@ -6,6 +6,7 @@ import (
 
 	"github.com/filecoin-project/go-fil-markets/piecestore"
 	"github.com/filecoin-project/go-fil-markets/retrievalmarket"
+	"github.com/ipfs/go-cid"
 	"github.com/stretchr/testify/require"
 )
 
@@ -49,15 +50,7 @@ func (tps *TestPieceStore) AddDealForPiece(pieceCID []byte, dealInfo piecestore.
 	panic("not implemented")
 }
 
-func (tps *TestPieceStore) AddBlockInfosToPiece(pieceCID []byte, blockInfos []piecestore.BlockInfo) error {
-	panic("not implemented")
-}
-
-func (tps *TestPieceStore) HasBlockInfo(pieceCID []byte) (bool, error) {
-	panic("not implemented")
-}
-
-func (tps *TestPieceStore) HasDealInfo(pieceCID []byte) (bool, error) {
+func (tps *TestPieceStore) AddPieceBlockLocations(pieceCID []byte, blockLocations map[cid.Cid]piecestore.BlockLocation) error {
 	panic("not implemented")
 }
 
@@ -73,4 +66,8 @@ func (tps *TestPieceStore) GetPieceInfo(pieceCID []byte) (piecestore.PieceInfo, 
 		return piecestore.PieceInfoUndefined, retrievalmarket.ErrNotFound
 	}
 	return piecestore.PieceInfoUndefined, errors.New("GetPieceSize failed")
+}
+
+func (tps *TestPieceStore) GetCIDInfo(c cid.Cid) (piecestore.CIDInfo, error) {
+	panic("not implemented")
 }
