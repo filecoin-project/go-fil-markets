@@ -189,7 +189,7 @@ type ClientDeal struct {
 
 // The interface provided for storage providers
 type StorageProvider interface {
-	Start(ctx context.Context, host host.Host)
+	Run(ctx context.Context, host host.Host)
 
 	Stop()
 
