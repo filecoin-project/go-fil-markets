@@ -55,8 +55,6 @@ func NewClient(
 
 // V0
 
-// TODO: Implement for retrieval provider V0 epic
-// https://github.com/filecoin-project/go-retrieval-market-project/issues/12
 func (c *client) FindProviders(pieceCID []byte) []retrievalmarket.RetrievalPeer {
 	peers, err := c.resolver.GetPeers(pieceCID)
 	if err != nil {
@@ -66,8 +64,6 @@ func (c *client) FindProviders(pieceCID []byte) []retrievalmarket.RetrievalPeer 
 	return peers
 }
 
-// TODO: Update to match spec for V0 epic
-// https://github.com/filecoin-project/go-retrieval-market-project/issues/8
 func (c *client) Query(ctx context.Context, p retrievalmarket.RetrievalPeer, pieceCID []byte, params retrievalmarket.QueryParams) (retrievalmarket.QueryResponse, error) {
 	s, err := c.network.NewQueryStream(p.ID)
 	if err != nil {
@@ -87,8 +83,6 @@ func (c *client) Query(ctx context.Context, p retrievalmarket.RetrievalPeer, pie
 	return s.ReadQueryResponse()
 }
 
-// TODO: Update to match spec for V0 Epic:
-// https://github.com/filecoin-project/go-retrieval-market-project/issues/9
 func (c *client) Retrieve(ctx context.Context, pieceCID []byte, params retrievalmarket.Params, totalFunds tokenamount.TokenAmount, miner peer.ID, clientWallet address.Address, minerWallet address.Address) retrievalmarket.DealID {
 	/* The implementation of this function is just wrapper for the old code which retrieves UnixFS pieces
 	-- it will be replaced when we do the V0 implementation of the module */

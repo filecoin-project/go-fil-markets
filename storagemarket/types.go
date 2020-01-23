@@ -241,6 +241,8 @@ type StorageProviderNode interface {
 	SignBytes(ctx context.Context, signer address.Address, b []byte) (*types.Signature, error)
 
 	OnDealSectorCommitted(ctx context.Context, provider address.Address, dealID uint64, cb DealSectorCommittedCallback) error
+
+	LocatePieceForDealWithinSector(ctx context.Context, dealID uint64) (sectorID uint64, offset uint64, length uint64, err error)
 }
 
 type DealSectorCommittedCallback func(error)

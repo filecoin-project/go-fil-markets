@@ -4,9 +4,13 @@ import (
 	"testing"
 
 	"github.com/filecoin-project/go-address"
+	"github.com/ipfs/go-datastore"
+	dss "github.com/ipfs/go-datastore/sync"
+	bstore "github.com/ipfs/go-ipfs-blockstore"
 	"github.com/libp2p/go-libp2p-core/peer"
 	"github.com/stretchr/testify/require"
 
+	"github.com/filecoin-project/go-fil-markets/piecestore"
 	"github.com/filecoin-project/go-fil-markets/retrievalmarket"
 	retrievalimpl "github.com/filecoin-project/go-fil-markets/retrievalmarket/impl"
 	"github.com/filecoin-project/go-fil-markets/retrievalmarket/impl/testnodes"
@@ -20,6 +24,13 @@ func TestHandleQueryStream(t *testing.T) {
 	pcid := []byte(string("applesauce"))
 	expectedPeer := peer.ID("somepeer")
 	expectedSize := uint64(1234)
+	expectedPiece := piecestore.PieceInfo{
+		Deals: []piecestore.DealInfo{
+			piecestore.DealInfo{
+				Length: expectedSize,
+			},
+		},
+	}
 	expectedAddress := address.TestAddress2
 	expectedPricePerByte := tokenamount.FromInt(4321)
 	expectedPaymentInterval := uint64(4567)
@@ -38,9 +49,11 @@ func TestHandleQueryStream(t *testing.T) {
 		return qs
 	}
 
-	receiveStreamOnProvider := func(qs network.RetrievalQueryStream, node *testnodes.TestRetrievalProviderNode) {
+	receiveStreamOnProvider := func(qs network.RetrievalQueryStream, pieceStore piecestore.PieceStore) {
+		node := testnodes.NewTestRetrievalProviderNode()
+		bs := bstore.NewBlockstore(dss.MutexWrap(datastore.NewMapDatastore()))
 		net := tut.NewTestRetrievalMarketNetwork(tut.TestNetworkParams{})
-		c := retrievalimpl.NewProvider(expectedAddress, node, net)
+		c := retrievalimpl.NewProvider(expectedAddress, node, net, pieceStore, bs)
 		c.SetPricePerByte(expectedPricePerByte)
 		c.SetPaymentInterval(expectedPaymentInterval, expectedPaymentIntervalIncrease)
 		_ = c.Start()
@@ -53,14 +66,14 @@ func TestHandleQueryStream(t *testing.T) {
 			PieceCID: pcid,
 		})
 		require.NoError(t, err)
-		// node := newTestRetrievalProviderNode(nil)
-		node := testnodes.NewTestRetrievalProviderNode()
-		node.ExpectPiece(pcid, expectedSize)
+		pieceStore := tut.NewTestPieceStore()
 
-		receiveStreamOnProvider(qs, node)
+		pieceStore.ExpectPiece(pcid, expectedPiece)
+
+		receiveStreamOnProvider(qs, pieceStore)
 
 		response, err := qs.ReadQueryResponse()
-		node.VerifyExpectations(t)
+		pieceStore.VerifyExpectations(t)
 		require.NoError(t, err)
 		require.Equal(t, response.Status, retrievalmarket.QueryResponseAvailable)
 		require.Equal(t, response.Size, expectedSize)
@@ -76,13 +89,13 @@ func TestHandleQueryStream(t *testing.T) {
 			PieceCID: pcid,
 		})
 		require.NoError(t, err)
-		node := testnodes.NewTestRetrievalProviderNode()
-		node.ExpectMissingPiece(pcid)
+		pieceStore := tut.NewTestPieceStore()
+		pieceStore.ExpectMissingPiece(pcid)
 
-		receiveStreamOnProvider(qs, node)
+		receiveStreamOnProvider(qs, pieceStore)
 
 		response, err := qs.ReadQueryResponse()
-		node.VerifyExpectations(t)
+		pieceStore.VerifyExpectations(t)
 		require.NoError(t, err)
 		require.Equal(t, response.Status, retrievalmarket.QueryResponseUnavailable)
 		require.Equal(t, response.PaymentAddress, expectedAddress)
@@ -97,12 +110,12 @@ func TestHandleQueryStream(t *testing.T) {
 			PieceCID: pcid,
 		})
 		require.NoError(t, err)
-		node := testnodes.NewTestRetrievalProviderNode()
+		pieceStore := tut.NewTestPieceStore()
 
-		receiveStreamOnProvider(qs, node)
+		receiveStreamOnProvider(qs, pieceStore)
 
 		response, err := qs.ReadQueryResponse()
-		node.VerifyExpectations(t)
+		pieceStore.VerifyExpectations(t)
 		require.NoError(t, err)
 		require.Equal(t, response.Status, retrievalmarket.QueryResponseError)
 		require.NotEmpty(t, response.Message)
@@ -110,11 +123,12 @@ func TestHandleQueryStream(t *testing.T) {
 
 	t.Run("when ReadQuery fails", func(t *testing.T) {
 		qs := readWriteQueryStream()
-		node := testnodes.NewTestRetrievalProviderNode()
-		receiveStreamOnProvider(qs, node)
+		pieceStore := tut.NewTestPieceStore()
+
+		receiveStreamOnProvider(qs, pieceStore)
 
 		response, err := qs.ReadQueryResponse()
-		node.VerifyExpectations(t)
+		pieceStore.VerifyExpectations(t)
 		require.NotNil(t, err)
 		require.Equal(t, response, retrievalmarket.QueryResponseUndefined)
 	})
@@ -131,11 +145,11 @@ func TestHandleQueryStream(t *testing.T) {
 			PieceCID: pcid,
 		})
 		require.NoError(t, err)
-		node := testnodes.NewTestRetrievalProviderNode()
-		node.ExpectPiece(pcid, expectedSize)
+		pieceStore := tut.NewTestPieceStore()
+		pieceStore.ExpectPiece(pcid, expectedPiece)
 
-		receiveStreamOnProvider(qs, node)
+		receiveStreamOnProvider(qs, pieceStore)
 
-		node.VerifyExpectations(t)
+		pieceStore.VerifyExpectations(t)
 	})
 }

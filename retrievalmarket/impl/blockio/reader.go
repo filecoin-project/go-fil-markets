@@ -5,9 +5,10 @@ import (
 	"context"
 	"io"
 
-	"github.com/filecoin-project/go-fil-markets/retrievalmarket"
 	"github.com/ipld/go-ipld-prime"
 	cidlink "github.com/ipld/go-ipld-prime/linking/cid"
+
+	"github.com/filecoin-project/go-fil-markets/retrievalmarket"
 )
 
 // BlockReader is any data struct that can be read block by block

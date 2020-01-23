@@ -6,26 +6,28 @@ import (
 	"reflect"
 	"sync"
 
-	"github.com/filecoin-project/go-address"
-	"github.com/ipfs/go-graphsync/storeutil"
+	blockstore "github.com/ipfs/go-ipfs-blockstore"
 	cidlink "github.com/ipld/go-ipld-prime/linking/cid"
 
+	"github.com/filecoin-project/go-address"
+	"github.com/filecoin-project/go-fil-markets/pieceio/cario"
+	"github.com/filecoin-project/go-fil-markets/piecestore"
 	"github.com/filecoin-project/go-fil-markets/retrievalmarket"
 	"github.com/filecoin-project/go-fil-markets/retrievalmarket/impl/blockio"
+	"github.com/filecoin-project/go-fil-markets/retrievalmarket/impl/blockunsealing"
 	"github.com/filecoin-project/go-fil-markets/retrievalmarket/impl/providerstates"
 	rmnet "github.com/filecoin-project/go-fil-markets/retrievalmarket/network"
 	"github.com/filecoin-project/go-fil-markets/shared/tokenamount"
 )
 
 type provider struct {
-
-	// TODO: Replace with RetrievalProviderNode for
-	// https://github.com/filecoin-project/go-retrieval-market-project/issues/4
+	bs                      blockstore.Blockstore
 	node                    retrievalmarket.RetrievalProviderNode
 	network                 rmnet.RetrievalMarketNetwork
 	paymentInterval         uint64
 	paymentIntervalIncrease uint64
 	paymentAddress          address.Address
+	pieceStore              piecestore.PieceStore
 	pricePerByte            tokenamount.TokenAmount
 	subscribers             []retrievalmarket.ProviderSubscriber
 	subscribersLk           sync.RWMutex
@@ -34,11 +36,13 @@ type provider struct {
 var _ retrievalmarket.RetrievalProvider = &provider{}
 
 // NewProvider returns a new retrieval provider
-func NewProvider(paymentAddress address.Address, node retrievalmarket.RetrievalProviderNode, network rmnet.RetrievalMarketNetwork) retrievalmarket.RetrievalProvider {
+func NewProvider(paymentAddress address.Address, node retrievalmarket.RetrievalProviderNode, network rmnet.RetrievalMarketNetwork, pieceStore piecestore.PieceStore, bs blockstore.Blockstore) retrievalmarket.RetrievalProvider {
 	return &provider{
+		bs:             bs,
 		node:           node,
 		network:        network,
 		paymentAddress: paymentAddress,
+		pieceStore:     pieceStore,
 		pricePerByte:   tokenamount.FromInt(2), // TODO: allow setting
 	}
 }
@@ -56,7 +60,6 @@ func (p *provider) SetPricePerByte(price tokenamount.TokenAmount) {
 
 // SetPaymentInterval sets the maximum number of bytes a a provider will send before
 // requesting further payment, and the rate at which that value increases
-// TODO: Implement for https://github.com/filecoin-project/go-retrieval-market-project/issues/7
 func (p *provider) SetPaymentInterval(paymentInterval uint64, paymentIntervalIncrease uint64) {
 	p.paymentInterval = paymentInterval
 	p.paymentIntervalIncrease = paymentIntervalIncrease
@@ -89,7 +92,6 @@ func (p *provider) notifySubscribers(evt retrievalmarket.ProviderEvent, ds retri
 }
 
 // SubscribeToEvents listens for events that happen related to client retrievals
-// TODO: Implement updates as part of https://github.com/filecoin-project/go-retrieval-market-project/issues/7
 func (p *provider) SubscribeToEvents(subscriber retrievalmarket.ProviderSubscriber) retrievalmarket.Unsubscribe {
 	p.subscribersLk.Lock()
 	p.subscribers = append(p.subscribers, subscriber)
@@ -107,7 +109,6 @@ func (p *provider) ListDeals() map[retrievalmarket.ProviderDealID]retrievalmarke
 	panic("not implemented")
 }
 
-// TODO: Update for https://github.com/filecoin-project/go-retrieval-market-project/issues/8
 func (p *provider) HandleQueryStream(stream rmnet.RetrievalQueryStream) {
 	defer stream.Close()
 	query, err := stream.ReadQuery()
@@ -123,12 +124,12 @@ func (p *provider) HandleQueryStream(stream rmnet.RetrievalQueryStream) {
 		MaxPaymentIntervalIncrease: p.paymentIntervalIncrease,
 	}
 
-	size, err := p.node.GetPieceSize(query.PieceCID)
+	pieceInfo, err := p.pieceStore.GetPieceInfo(query.PieceCID)
 
-	if err == nil {
+	if err == nil && len(pieceInfo.Deals) > 0 {
 		answer.Status = retrievalmarket.QueryResponseAvailable
 		// TODO: get price, look for already unsealed ref to reduce work
-		answer.Size = uint64(size) // TODO: verify on intermediate
+		answer.Size = uint64(pieceInfo.Deals[0].Length) // TODO: verify on intermediate
 	}
 
 	if err != nil && err != retrievalmarket.ErrNotFound {
@@ -149,7 +150,6 @@ func (p *provider) failDeal(dealState *retrievalmarket.ProviderDealState, err er
 	p.notifySubscribers(retrievalmarket.ProviderEventError, *dealState)
 }
 
-// TODO: Update for https://github.com/filecoin-project/go-retrieval-market-project/issues/7
 func (p *provider) HandleDealStream(stream rmnet.RetrievalDealStream) {
 	defer stream.Close()
 	ctx, cancel := context.WithCancel(context.TODO())
@@ -161,13 +161,7 @@ func (p *provider) HandleDealStream(stream rmnet.RetrievalDealStream) {
 	}
 	p.notifySubscribers(retrievalmarket.ProviderEventOpen, dealState)
 
-	bstore := p.node.SealedBlockstore(func() error {
-		return nil // TODO: approve unsealing based on amount paid
-	})
-
-	loader := storeutil.LoaderForBlockstore(bstore)
-
-	environment := providerDealEnvironment{p.node, nil, p.pricePerByte, p.paymentInterval, p.paymentIntervalIncrease, stream}
+	environment := providerDealEnvironment{p.pieceStore, piecestore.PieceInfoUndefined, p.node, nil, p.pricePerByte, p.paymentInterval, p.paymentIntervalIncrease, stream}
 
 	for {
 		var handler providerstates.ProviderHandlerFunc
@@ -189,7 +183,9 @@ func (p *provider) HandleDealStream(stream rmnet.RetrievalDealStream) {
 			break
 		}
 		if environment.br == nil {
-			environment.br = blockio.NewSelectorBlockReader(cidlink.Link{Cid: dealState.PayloadCID}, loader)
+			loaderWithUnsealing := blockunsealing.NewLoaderWithUnsealing(ctx, p.bs, environment.pieceInfo, cario.NewCarIO(), p.node.UnsealSector)
+
+			environment.br = blockio.NewSelectorBlockReader(cidlink.Link{Cid: dealState.PayloadCID}, loaderWithUnsealing.Load)
 		}
 		p.notifySubscribers(retrievalmarket.ProviderEventProgress, dealState)
 	}
@@ -201,6 +197,8 @@ func (p *provider) HandleDealStream(stream rmnet.RetrievalDealStream) {
 }
 
 type providerDealEnvironment struct {
+	pieceStore                 piecestore.PieceStore
+	pieceInfo                  piecestore.PieceInfo
 	node                       retrievalmarket.RetrievalProviderNode
 	br                         blockio.BlockReader
 	minPricePerByte            tokenamount.TokenAmount
@@ -235,4 +233,16 @@ func (pde *providerDealEnvironment) NextBlock(ctx context.Context) (retrievalmar
 		return retrievalmarket.Block{}, false, errors.New("Could not read block")
 	}
 	return pde.br.ReadBlock(ctx)
+}
+
+func (pde *providerDealEnvironment) GetPieceSize(pieceCID []byte) (uint64, error) {
+	var err error
+	pde.pieceInfo, err = pde.pieceStore.GetPieceInfo(pieceCID)
+	if err != nil {
+		return 0, err
+	}
+	if len(pde.pieceInfo.Deals) == 0 {
+		return 0, errors.New("Not enough piece info")
+	}
+	return pde.pieceInfo.Deals[0].Length, nil
 }

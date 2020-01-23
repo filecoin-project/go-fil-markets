@@ -3,11 +3,13 @@ package shared_testutil
 import (
 	"bytes"
 	"context"
+	"errors"
 	"io"
 
 	blocks "github.com/ipfs/go-block-format"
 	"github.com/ipfs/go-cid"
 	"github.com/ipld/go-ipld-prime"
+
 	// to register multicodec
 	_ "github.com/ipld/go-ipld-prime/encoding/dagjson"
 	"github.com/ipld/go-ipld-prime/fluent"
@@ -109,4 +111,22 @@ func NewTestIPLDTree() TestIPLDTree {
 		RootNodeLnk:       rootNodeLnk,
 		RootBlock:         rootBlock,
 	}
+}
+
+// Loader is an IPLD comptabile loader for the "storage" part of the tree
+func (tt TestIPLDTree) Loader(lnk ipld.Link, lnkCtx ipld.LinkContext) (io.Reader, error) {
+	data, ok := tt.Storage[lnk]
+	if !ok {
+		return nil, errors.New("No block found")
+	}
+	return bytes.NewBuffer(data), nil
+}
+
+// Get makes a test tree behave like a block read store
+func (tt TestIPLDTree) Get(c cid.Cid) (blocks.Block, error) {
+	data, ok := tt.Storage[cidlink.Link{Cid: c}]
+	if !ok {
+		return nil, errors.New("No block found")
+	}
+	return blocks.NewBlockWithCid(data, c)
 }
