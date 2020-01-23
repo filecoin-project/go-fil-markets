@@ -266,6 +266,14 @@ func (trmn *TestRetrievalMarketNetwork) ReceiveDealStream(ds rmnet.RetrievalDeal
 	trmn.receiver.HandleDealStream(ds)
 }
 
+// StopHandlingRequests sets receiver to nil
+func (trmn *TestRetrievalMarketNetwork) StopHandlingRequests() error {
+	trmn.receiver = nil
+	return nil
+}
+
+var _ rmnet.RetrievalMarketNetwork = &TestRetrievalMarketNetwork{}
+
 // Some convenience builders
 
 // FailNewQueryStream always fails

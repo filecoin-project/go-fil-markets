@@ -171,6 +171,9 @@ type RetrievalProvider interface {
 	// Start begins listening for deals on the given host
 	Start() error
 
+	// Stop stops handling incoming requests
+	Stop() error
+
 	// V0
 
 	// SetPricePerByte sets the price per byte a miner charges for retrievals

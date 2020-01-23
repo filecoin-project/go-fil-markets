@@ -49,6 +49,13 @@ func (impl *libp2pRetrievalMarketNetwork) SetDelegate(r RetrievalReceiver) error
 	return nil
 }
 
+func (impl *libp2pRetrievalMarketNetwork) StopHandlingRequests() error {
+	impl.receiver = nil
+	impl.host.RemoveStreamHandler(retrievalmarket.ProtocolID)
+	impl.host.RemoveStreamHandler(retrievalmarket.QueryProtocolID)
+	return nil
+}
+
 func (impl *libp2pRetrievalMarketNetwork) handleNewQueryStream(s network.Stream) {
 	if impl.receiver == nil {
 		log.Warn("no receiver set")

@@ -130,7 +130,7 @@ func NewProvider(ds datastore.Batching, bs blockstore.Blockstore, fs filestore.F
 	return h, nil
 }
 
-func (p *Provider) Run(ctx context.Context, host host.Host) {
+func (p *Provider) Start(ctx context.Context, host host.Host) {
 	// TODO: restore state
 
 	host.SetStreamHandler(storagemarket.DealProtocolID, p.HandleStream)
