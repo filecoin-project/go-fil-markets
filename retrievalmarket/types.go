@@ -76,20 +76,20 @@ type RetrievalClient interface {
 	// V0
 
 	// Find Providers finds retrieval providers who may be storing a given piece
-	FindProviders(pieceCID []byte) []RetrievalPeer
+	FindProviders(payloadCID cid.Cid) []RetrievalPeer
 
 	// Query asks a provider for information about a piece it is storing
 	Query(
 		ctx context.Context,
 		p RetrievalPeer,
-		pieceCID []byte,
+		payloadCID cid.Cid,
 		params QueryParams,
 	) (QueryResponse, error)
 
 	// Retrieve retrieves all or part of a piece with the given retrieval parameters
 	Retrieve(
 		ctx context.Context,
-		pieceCID []byte,
+		payloadCID cid.Cid,
 		params Params,
 		totalFunds tokenamount.TokenAmount,
 		miner peer.ID,
@@ -196,7 +196,7 @@ type RetrievalProviderNode interface {
 
 // PeerResolver is an interface for looking up providers that may have a piece
 type PeerResolver interface {
-	GetPeers(pieceCID []byte) ([]RetrievalPeer, error) // TODO: channel
+	GetPeers(payloadCID cid.Cid) ([]RetrievalPeer, error) // TODO: channel
 }
 
 // RetrievalPeer is a provider address/peer.ID pair (everything needed to make
@@ -255,7 +255,7 @@ type QueryParams struct {
 // Query is a query to a given provider to determine information about a piece
 // they may have available for retrieval
 type Query struct {
-	PieceCID []byte // V0
+	PayloadCID cid.Cid // V0
 	// QueryParams        // V1
 }
 
@@ -263,8 +263,8 @@ type Query struct {
 var QueryUndefined = Query{}
 
 // NewQueryV0 creates a V0 query (which only specifies a piece)
-func NewQueryV0(pieceCID []byte) Query {
-	return Query{PieceCID: pieceCID}
+func NewQueryV0(payloadCID cid.Cid) Query {
+	return Query{PayloadCID: payloadCID}
 }
 
 // QueryResponse is a miners response to a given retrieval query
@@ -365,7 +365,6 @@ func IsTerminalStatus(status DealStatus) bool {
 
 // Params are the parameters requested for a retrieval deal proposal
 type Params struct {
-	PayloadCID cid.Cid
 	//Selector                ipld.Node // V1
 	PricePerByte            tokenamount.TokenAmount
 	PaymentInterval         uint64 // when to request payment
@@ -386,8 +385,8 @@ type DealID uint64
 
 // DealProposal is a proposal for a new retrieval deal
 type DealProposal struct {
-	PieceCID []byte
-	ID       DealID
+	PayloadCID cid.Cid
+	ID         DealID
 	Params
 }
 

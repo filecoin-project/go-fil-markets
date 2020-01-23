@@ -23,17 +23,12 @@ func (t *Query) MarshalCBOR(w io.Writer) error {
 		return err
 	}
 
-	// t.PieceCID ([]uint8) (slice)
-	if len(t.PieceCID) > cbg.ByteArrayMaxLen {
-		return xerrors.Errorf("Byte array in field t.PieceCID was too long")
+	// t.PayloadCID (cid.Cid) (struct)
+
+	if err := cbg.WriteCid(w, t.PayloadCID); err != nil {
+		return xerrors.Errorf("failed to write cid field t.PayloadCID: %w", err)
 	}
 
-	if _, err := w.Write(cbg.CborEncodeMajorType(cbg.MajByteString, uint64(len(t.PieceCID)))); err != nil {
-		return err
-	}
-	if _, err := w.Write(t.PieceCID); err != nil {
-		return err
-	}
 	return nil
 }
 
@@ -52,22 +47,17 @@ func (t *Query) UnmarshalCBOR(r io.Reader) error {
 		return fmt.Errorf("cbor input had wrong number of fields")
 	}
 
-	// t.PieceCID ([]uint8) (slice)
+	// t.PayloadCID (cid.Cid) (struct)
 
-	maj, extra, err = cbg.CborReadHeader(br)
-	if err != nil {
-		return err
-	}
+	{
 
-	if extra > cbg.ByteArrayMaxLen {
-		return fmt.Errorf("t.PieceCID: byte array too large (%d)", extra)
-	}
-	if maj != cbg.MajByteString {
-		return fmt.Errorf("expected byte array")
-	}
-	t.PieceCID = make([]byte, extra)
-	if _, err := io.ReadFull(br, t.PieceCID); err != nil {
-		return err
+		c, err := cbg.ReadCid(br)
+		if err != nil {
+			return xerrors.Errorf("failed to read cid field t.PayloadCID: %w", err)
+		}
+
+		t.PayloadCID = c
+
 	}
 	return nil
 }
@@ -220,16 +210,10 @@ func (t *DealProposal) MarshalCBOR(w io.Writer) error {
 		return err
 	}
 
-	// t.PieceCID ([]uint8) (slice)
-	if len(t.PieceCID) > cbg.ByteArrayMaxLen {
-		return xerrors.Errorf("Byte array in field t.PieceCID was too long")
-	}
+	// t.PayloadCID (cid.Cid) (struct)
 
-	if _, err := w.Write(cbg.CborEncodeMajorType(cbg.MajByteString, uint64(len(t.PieceCID)))); err != nil {
-		return err
-	}
-	if _, err := w.Write(t.PieceCID); err != nil {
-		return err
+	if err := cbg.WriteCid(w, t.PayloadCID); err != nil {
+		return xerrors.Errorf("failed to write cid field t.PayloadCID: %w", err)
 	}
 
 	// t.ID (retrievalmarket.DealID) (uint64)
@@ -259,22 +243,17 @@ func (t *DealProposal) UnmarshalCBOR(r io.Reader) error {
 		return fmt.Errorf("cbor input had wrong number of fields")
 	}
 
-	// t.PieceCID ([]uint8) (slice)
+	// t.PayloadCID (cid.Cid) (struct)
 
-	maj, extra, err = cbg.CborReadHeader(br)
-	if err != nil {
-		return err
-	}
+	{
 
-	if extra > cbg.ByteArrayMaxLen {
-		return fmt.Errorf("t.PieceCID: byte array too large (%d)", extra)
-	}
-	if maj != cbg.MajByteString {
-		return fmt.Errorf("expected byte array")
-	}
-	t.PieceCID = make([]byte, extra)
-	if _, err := io.ReadFull(br, t.PieceCID); err != nil {
-		return err
+		c, err := cbg.ReadCid(br)
+		if err != nil {
+			return xerrors.Errorf("failed to read cid field t.PayloadCID: %w", err)
+		}
+
+		t.PayloadCID = c
+
 	}
 	// t.ID (retrievalmarket.DealID) (uint64)
 
@@ -439,14 +418,8 @@ func (t *Params) MarshalCBOR(w io.Writer) error {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	if _, err := w.Write([]byte{132}); err != nil {
+	if _, err := w.Write([]byte{131}); err != nil {
 		return err
-	}
-
-	// t.PayloadCID (cid.Cid) (struct)
-
-	if err := cbg.WriteCid(w, t.PayloadCID); err != nil {
-		return xerrors.Errorf("failed to write cid field t.PayloadCID: %w", err)
 	}
 
 	// t.PricePerByte (tokenamount.TokenAmount) (struct)
@@ -477,22 +450,10 @@ func (t *Params) UnmarshalCBOR(r io.Reader) error {
 		return fmt.Errorf("cbor input should be of type array")
 	}
 
-	if extra != 4 {
+	if extra != 3 {
 		return fmt.Errorf("cbor input had wrong number of fields")
 	}
 
-	// t.PayloadCID (cid.Cid) (struct)
-
-	{
-
-		c, err := cbg.ReadCid(br)
-		if err != nil {
-			return xerrors.Errorf("failed to read cid field t.PayloadCID: %w", err)
-		}
-
-		t.PayloadCID = c
-
-	}
 	// t.PricePerByte (tokenamount.TokenAmount) (struct)
 
 	{

@@ -21,7 +21,7 @@ import (
 
 func TestHandleQueryStream(t *testing.T) {
 
-	pcid := []byte(string("applesauce"))
+	pcid := tut.GenerateCids(1)[0]
 	expectedPeer := peer.ID("somepeer")
 	expectedSize := uint64(1234)
 	expectedPiece := piecestore.PieceInfo{
@@ -63,12 +63,12 @@ func TestHandleQueryStream(t *testing.T) {
 	t.Run("it works", func(t *testing.T) {
 		qs := readWriteQueryStream()
 		err := qs.WriteQuery(retrievalmarket.Query{
-			PieceCID: pcid,
+			PayloadCID: pcid,
 		})
 		require.NoError(t, err)
 		pieceStore := tut.NewTestPieceStore()
 
-		pieceStore.ExpectPiece(pcid, expectedPiece)
+		pieceStore.ExpectPiece(pcid.Bytes(), expectedPiece)
 
 		receiveStreamOnProvider(qs, pieceStore)
 
@@ -86,11 +86,11 @@ func TestHandleQueryStream(t *testing.T) {
 	t.Run("piece not found", func(t *testing.T) {
 		qs := readWriteQueryStream()
 		err := qs.WriteQuery(retrievalmarket.Query{
-			PieceCID: pcid,
+			PayloadCID: pcid,
 		})
 		require.NoError(t, err)
 		pieceStore := tut.NewTestPieceStore()
-		pieceStore.ExpectMissingPiece(pcid)
+		pieceStore.ExpectMissingPiece(pcid.Bytes())
 
 		receiveStreamOnProvider(qs, pieceStore)
 
@@ -107,7 +107,7 @@ func TestHandleQueryStream(t *testing.T) {
 	t.Run("error reading piece", func(t *testing.T) {
 		qs := readWriteQueryStream()
 		err := qs.WriteQuery(retrievalmarket.Query{
-			PieceCID: pcid,
+			PayloadCID: pcid,
 		})
 		require.NoError(t, err)
 		pieceStore := tut.NewTestPieceStore()
@@ -142,11 +142,11 @@ func TestHandleQueryStream(t *testing.T) {
 			RespWriter: tut.FailResponseWriter,
 		})
 		err := qs.WriteQuery(retrievalmarket.Query{
-			PieceCID: pcid,
+			PayloadCID: pcid,
 		})
 		require.NoError(t, err)
 		pieceStore := tut.NewTestPieceStore()
-		pieceStore.ExpectPiece(pcid, expectedPiece)
+		pieceStore.ExpectPiece(pcid.Bytes(), expectedPiece)
 
 		receiveStreamOnProvider(qs, pieceStore)
 

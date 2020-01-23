@@ -12,7 +12,6 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/filecoin-project/go-address"
-	"github.com/filecoin-project/go-data-transfer/testutil"
 	"github.com/filecoin-project/go-fil-markets/retrievalmarket"
 	"github.com/filecoin-project/go-fil-markets/retrievalmarket/network"
 	"github.com/filecoin-project/go-fil-markets/shared/tokenamount"
@@ -113,10 +112,10 @@ func TestQueryStreamSendReceiveMultipleSuccessful(t *testing.T) {
 	qs, err := nw1.NewQueryStream(td.Host2.ID())
 	require.NoError(t, err)
 
-	testCid := testutil.GenerateCids(1)[0]
+	testCid := shared_testutil.GenerateCids(1)[0]
 
 	var resp retrievalmarket.QueryResponse
-	go require.NoError(t, qs.WriteQuery(retrievalmarket.Query{PieceCID: testCid.Bytes()}))
+	go require.NoError(t, qs.WriteQuery(retrievalmarket.Query{PayloadCID: testCid}))
 	resp, err = qs.ReadQueryResponse()
 	require.NoError(t, err)
 
@@ -355,8 +354,8 @@ func assertQueryReceived(inCtx context.Context, t *testing.T, fromNetwork networ
 	require.NoError(t, err)
 
 	// send query to host2
-	cid := testutil.GenerateCids(1)[0]
-	q := retrievalmarket.NewQueryV0(cid.Bytes())
+	cid := shared_testutil.GenerateCids(1)[0]
+	q := retrievalmarket.NewQueryV0(cid)
 	require.NoError(t, qs1.WriteQuery(q))
 
 	var inq retrievalmarket.Query
@@ -366,7 +365,7 @@ func assertQueryReceived(inCtx context.Context, t *testing.T, fromNetwork networ
 	case inq = <-qchan:
 	}
 	require.NotNil(t, inq)
-	assert.Equal(t, q.PieceCID, inq.PieceCID)
+	assert.Equal(t, q.PayloadCID, inq.PayloadCID)
 }
 
 // assertQueryResponseReceived performs the verification that a QueryResponse is received

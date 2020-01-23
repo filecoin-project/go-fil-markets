@@ -124,7 +124,7 @@ func (p *provider) HandleQueryStream(stream rmnet.RetrievalQueryStream) {
 		MaxPaymentIntervalIncrease: p.paymentIntervalIncrease,
 	}
 
-	pieceInfo, err := p.pieceStore.GetPieceInfo(query.PieceCID)
+	pieceInfo, err := p.pieceStore.GetPieceInfo(query.PayloadCID.Bytes())
 
 	if err == nil && len(pieceInfo.Deals) > 0 {
 		answer.Status = retrievalmarket.QueryResponseAvailable
