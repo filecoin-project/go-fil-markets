@@ -287,7 +287,7 @@ func TestLibp2pRetrievalMarketNetwork_StopHandlingRequests(t *testing.T) {
 	}}
 	require.NoError(t, toNetwork.SetDelegate(tr2))
 
-	toNetwork.StopHandlingRequests()
+	require.NoError(t, toNetwork.StopHandlingRequests())
 
 	_, err := fromNetwork.NewQueryStream(toHost)
 	require.Error(t, err, "protocol not supported")
