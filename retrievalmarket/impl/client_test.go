@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/filecoin-project/go-address"
+	"github.com/ipfs/go-cid"
 	"github.com/ipfs/go-datastore"
 	dss "github.com/ipfs/go-datastore/sync"
 	bstore "github.com/ipfs/go-ipfs-blockstore"
@@ -27,7 +28,7 @@ func TestClient_Query(t *testing.T) {
 
 	bs := bstore.NewBlockstore(dss.MutexWrap(datastore.NewMapDatastore()))
 
-	pcid := []byte(string("applesauce"))
+	pcid := tut.GenerateCids(1)[0]
 	expectedPeer := peer.ID("somevalue")
 	rpeer := retrievalmarket.RetrievalPeer{
 		Address: address.TestAddress2,
@@ -35,7 +36,7 @@ func TestClient_Query(t *testing.T) {
 	}
 
 	expectedQuery := retrievalmarket.Query{
-		PieceCID: pcid,
+		PayloadCID: pcid,
 	}
 
 	expectedQueryResponse := retrievalmarket.QueryResponse{
@@ -139,21 +140,21 @@ func TestClient_FindProviders(t *testing.T) {
 		testResolver := testPeerResolver{peers: peers}
 
 		c := retrievalimpl.NewClient(net, bs, &testnodes.TestRetrievalClientNode{}, &testResolver)
-		testCid := []byte("somePieceCID")
+		testCid := tut.GenerateCids(1)[0]
 		assert.Len(t, c.FindProviders(testCid), 3)
 	})
 
 	t.Run("when there is an error, returns empty provider list", func(t *testing.T) {
 		testResolver := testPeerResolver{peers: []retrievalmarket.RetrievalPeer{}, resolverError: errors.New("boom")}
 		c := retrievalimpl.NewClient(net, bs, &testnodes.TestRetrievalClientNode{}, &testResolver)
-		badCid := []byte("doesn't matter")
+		badCid := tut.GenerateCids(1)[0]
 		assert.Len(t, c.FindProviders(badCid), 0)
 	})
 
 	t.Run("when there are no providers", func(t *testing.T) {
 		testResolver := testPeerResolver{peers: []retrievalmarket.RetrievalPeer{}}
 		c := retrievalimpl.NewClient(net, bs, &testnodes.TestRetrievalClientNode{}, &testResolver)
-		testCid := []byte("unimportant")
+		testCid := tut.GenerateCids(1)[0]
 		assert.Len(t, c.FindProviders(testCid), 0)
 	})
 }
@@ -165,6 +166,6 @@ type testPeerResolver struct {
 
 var _ retrievalmarket.PeerResolver = &testPeerResolver{}
 
-func (tpr testPeerResolver) GetPeers([]byte) ([]retrievalmarket.RetrievalPeer, error) {
+func (tpr testPeerResolver) GetPeers(cid.Cid) ([]retrievalmarket.RetrievalPeer, error) {
 	return tpr.peers, tpr.resolverError
 }

@@ -7,12 +7,12 @@ import (
 	"testing"
 	"time"
 
+	"github.com/ipfs/go-cid"
 	cidlink "github.com/ipld/go-ipld-prime/linking/cid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	"github.com/filecoin-project/go-address"
-	"github.com/filecoin-project/go-data-transfer/testutil"
 	"github.com/filecoin-project/go-fil-markets/pieceio/cario"
 	"github.com/filecoin-project/go-fil-markets/piecestore"
 	"github.com/filecoin-project/go-fil-markets/retrievalmarket"
@@ -47,18 +47,18 @@ func TestClientCanMakeQueryToProvider(t *testing.T) {
 	})
 
 	t.Run("when there is some other error, returns error", func(t *testing.T) {
-		unknownPiece := testutil.GenerateCids(1)[0]
+		unknownPiece := tut.GenerateCids(1)[0]
 		expectedQR.Status = retrievalmarket.QueryResponseError
 		expectedQR.Message = "GetPieceSize failed"
-		actualQR, err := client.Query(bgCtx, retrievalPeer, unknownPiece.Bytes(), retrievalmarket.QueryParams{})
+		actualQR, err := client.Query(bgCtx, retrievalPeer, unknownPiece, retrievalmarket.QueryParams{})
 		assert.NoError(t, err)
 		assert.Equal(t, expectedQR, actualQR)
 	})
 }
 
 func requireSetupTestClientAndProvider(bgCtx context.Context, t *testing.T, payChAddr address.Address) (retrievalmarket.RetrievalClient,
-	[][]byte,
-	[]byte,
+	[]cid.Cid,
+	cid.Cid,
 	retrievalmarket.QueryResponse,
 	retrievalmarket.RetrievalPeer) {
 	testData := tut.NewLibp2pTestData(bgCtx, t)
@@ -69,13 +69,13 @@ func requireSetupTestClientAndProvider(bgCtx context.Context, t *testing.T, payC
 	nw2 := rmnet.NewFromLibp2pHost(testData.Host2)
 	providerNode := testnodes.NewTestRetrievalProviderNode()
 	pieceStore := tut.NewTestPieceStore()
-	expectedCIDs := [][]byte{[]byte("piece1"), []byte("piece2"), []byte("piece3")}
-	missingPiece := []byte("missingPiece")
+	expectedCIDs := tut.GenerateCids(3)
+	missingPiece := tut.GenerateCids(1)[0]
 	expectedQR := tut.MakeTestQueryResponse()
 
-	pieceStore.ExpectMissingPiece(missingPiece)
+	pieceStore.ExpectMissingPiece(missingPiece.Bytes())
 	for i, piece := range expectedCIDs {
-		pieceStore.ExpectPiece(piece, piecestore.PieceInfo{
+		pieceStore.ExpectPiece(piece.Bytes(), piecestore.PieceInfo{
 			Deals: []piecestore.DealInfo{
 				piecestore.DealInfo{
 					Length: expectedQR.Size * uint64(i+1),
@@ -144,8 +144,6 @@ func TestClientCanMakeDealWithProvider(t *testing.T) {
 			c, ok := pieceLink.(cidlink.Link)
 			require.True(t, ok)
 			payloadCID := c.Cid
-
-			pieceCID := []byte("pieceCID")
 			providerPaymentAddr, err := address.NewIDAddress(rand.Uint64())
 			require.NoError(t, err)
 			paymentInterval := uint64(10000)
@@ -197,7 +195,7 @@ func TestClientCanMakeDealWithProvider(t *testing.T) {
 				}
 			}
 
-			provider := setupProvider(t, testData, pieceCID, pieceInfo, expectedQR, providerPaymentAddr, providerNode)
+			provider := setupProvider(t, testData, payloadCID, pieceInfo, expectedQR, providerPaymentAddr, providerNode)
 
 			retrievalPeer := &retrievalmarket.RetrievalPeer{Address: providerPaymentAddr, ID: testData.Host2.ID()}
 
@@ -254,7 +252,7 @@ CurrentInterval: %d
 
 			// **** Send the query for the Piece
 			// set up retrieval params
-			resp, err := client.Query(bgCtx, *retrievalPeer, pieceCID, retrievalmarket.QueryParams{})
+			resp, err := client.Query(bgCtx, *retrievalPeer, payloadCID, retrievalmarket.QueryParams{})
 			require.NoError(t, err)
 			require.Equal(t, retrievalmarket.QueryResponseAvailable, resp.Status)
 
@@ -262,11 +260,10 @@ CurrentInterval: %d
 				PricePerByte:            pricePerByte,
 				PaymentInterval:         paymentInterval,
 				PaymentIntervalIncrease: paymentIntervalIncrease,
-				PayloadCID:              payloadCID,
 			}
 
 			// *** Retrieve the piece
-			did := client.Retrieve(bgCtx, pieceCID, rmParams, expectedTotal, retrievalPeer.ID, clientPaymentChannel, retrievalPeer.Address)
+			did := client.Retrieve(bgCtx, payloadCID, rmParams, expectedTotal, retrievalPeer.ID, clientPaymentChannel, retrievalPeer.Address)
 			assert.Equal(t, did, retrievalmarket.DealID(1))
 
 			ctx, cancel := context.WithTimeout(bgCtx, 10*time.Second)
@@ -342,10 +339,10 @@ func setupClient(
 	return &createdChan, &newLaneAddr, &createdVoucher, client
 }
 
-func setupProvider(t *testing.T, testData *tut.Libp2pTestData, pieceCID []byte, pieceInfo piecestore.PieceInfo, expectedQR retrievalmarket.QueryResponse, providerPaymentAddr address.Address, providerNode retrievalmarket.RetrievalProviderNode) retrievalmarket.RetrievalProvider {
+func setupProvider(t *testing.T, testData *tut.Libp2pTestData, payloadCID cid.Cid, pieceInfo piecestore.PieceInfo, expectedQR retrievalmarket.QueryResponse, providerPaymentAddr address.Address, providerNode retrievalmarket.RetrievalProviderNode) retrievalmarket.RetrievalProvider {
 	nw2 := rmnet.NewFromLibp2pHost(testData.Host2)
 	pieceStore := tut.NewTestPieceStore()
-	pieceStore.ExpectPiece(pieceCID, pieceInfo)
+	pieceStore.ExpectPiece(payloadCID.Bytes(), pieceInfo)
 	provider := retrievalimpl.NewProvider(providerPaymentAddr, providerNode, nw2, pieceStore, testData.Bs2)
 	provider.SetPaymentInterval(expectedQR.MaxPaymentInterval, expectedQR.MaxPaymentIntervalIncrease)
 	provider.SetPricePerByte(expectedQR.MinPricePerByte)

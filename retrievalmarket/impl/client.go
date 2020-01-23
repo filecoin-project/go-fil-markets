@@ -55,8 +55,8 @@ func NewClient(
 
 // V0
 
-func (c *client) FindProviders(pieceCID []byte) []retrievalmarket.RetrievalPeer {
-	peers, err := c.resolver.GetPeers(pieceCID)
+func (c *client) FindProviders(payloadCID cid.Cid) []retrievalmarket.RetrievalPeer {
+	peers, err := c.resolver.GetPeers(payloadCID)
 	if err != nil {
 		log.Error(err)
 		return []retrievalmarket.RetrievalPeer{}
@@ -64,7 +64,7 @@ func (c *client) FindProviders(pieceCID []byte) []retrievalmarket.RetrievalPeer 
 	return peers
 }
 
-func (c *client) Query(ctx context.Context, p retrievalmarket.RetrievalPeer, pieceCID []byte, params retrievalmarket.QueryParams) (retrievalmarket.QueryResponse, error) {
+func (c *client) Query(ctx context.Context, p retrievalmarket.RetrievalPeer, payloadCID cid.Cid, params retrievalmarket.QueryParams) (retrievalmarket.QueryResponse, error) {
 	s, err := c.network.NewQueryStream(p.ID)
 	if err != nil {
 		log.Warn(err)
@@ -73,7 +73,7 @@ func (c *client) Query(ctx context.Context, p retrievalmarket.RetrievalPeer, pie
 	defer s.Close()
 
 	err = s.WriteQuery(retrievalmarket.Query{
-		PieceCID: pieceCID,
+		PayloadCID: payloadCID,
 	})
 	if err != nil {
 		log.Warn(err)
@@ -83,7 +83,7 @@ func (c *client) Query(ctx context.Context, p retrievalmarket.RetrievalPeer, pie
 	return s.ReadQueryResponse()
 }
 
-func (c *client) Retrieve(ctx context.Context, pieceCID []byte, params retrievalmarket.Params, totalFunds tokenamount.TokenAmount, miner peer.ID, clientWallet address.Address, minerWallet address.Address) retrievalmarket.DealID {
+func (c *client) Retrieve(ctx context.Context, payloadCID cid.Cid, params retrievalmarket.Params, totalFunds tokenamount.TokenAmount, miner peer.ID, clientWallet address.Address, minerWallet address.Address) retrievalmarket.DealID {
 	/* The implementation of this function is just wrapper for the old code which retrieves UnixFS pieces
 	-- it will be replaced when we do the V0 implementation of the module */
 	c.nextDealLk.Lock()
@@ -93,9 +93,9 @@ func (c *client) Retrieve(ctx context.Context, pieceCID []byte, params retrieval
 
 	dealState := retrievalmarket.ClientDealState{
 		DealProposal: retrievalmarket.DealProposal{
-			PieceCID: pieceCID,
-			ID:       dealID,
-			Params:   params,
+			PayloadCID: payloadCID,
+			ID:         dealID,
+			Params:     params,
 		},
 		TotalFunds:       totalFunds,
 		ClientWallet:     clientWallet,

@@ -30,6 +30,7 @@ require (
 	github.com/ipfs/go-unixfs v0.2.2-0.20190827150610-868af2e9e5cb
 	github.com/ipld/go-ipld-prime v0.0.2-0.20191108012745-28a82f04c785
 	github.com/ipld/go-ipld-prime-proto v0.0.0-20191113031812-e32bd156a1e5
+	github.com/jbenet/go-random v0.0.0-20190219211222-123a90aedc0c
 	github.com/libp2p/go-libp2p v0.3.0
 	github.com/libp2p/go-libp2p-core v0.2.4
 	github.com/minio/blake2b-simd v0.0.0-20160723061019-3f5f724cb5b1

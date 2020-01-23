@@ -6,7 +6,6 @@ import (
 	"testing"
 
 	"github.com/filecoin-project/go-address"
-	"github.com/filecoin-project/go-data-transfer/testutil"
 	"github.com/libp2p/go-libp2p-core/test"
 	"github.com/stretchr/testify/require"
 
@@ -74,15 +73,14 @@ func MakeTestQueryResponse() retrievalmarket.QueryResponse {
 
 // MakeTestDealProposal generates a valid, random DealProposal
 func MakeTestDealProposal() retrievalmarket.DealProposal {
-	cid := testutil.GenerateCids(1)[0]
+	cid := GenerateCids(1)[0]
 	return retrievalmarket.DealProposal{
-		PieceCID: []byte("applesauce"),
-		ID:       retrievalmarket.DealID(rand.Uint64()),
+		PayloadCID: cid,
+		ID:         retrievalmarket.DealID(rand.Uint64()),
 		Params: retrievalmarket.Params{
 			PricePerByte:            MakeTestTokenAmount(),
 			PaymentInterval:         rand.Uint64(),
 			PaymentIntervalIncrease: rand.Uint64(),
-			PayloadCID:              cid,
 		},
 	}
 }

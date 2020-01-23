@@ -36,10 +36,10 @@ func TestReceiveDeal(t *testing.T) {
 		}
 	}
 
-	expectedPiece := []byte(string("applesauce"))
+	expectedPiece := testnet.GenerateCids(1)[0]
 	proposal := retrievalmarket.DealProposal{
-		ID:       retrievalmarket.DealID(10),
-		PieceCID: expectedPiece,
+		ID:         retrievalmarket.DealID(10),
+		PayloadCID: expectedPiece,
 		Params: retrievalmarket.Params{
 			PricePerByte:            defaultPricePerByte,
 			PaymentInterval:         defaultCurrentInterval,
@@ -58,7 +58,7 @@ func TestReceiveDeal(t *testing.T) {
 			ProposalReader: testnet.StubbedDealProposalReader(proposal),
 			ResponseWriter: testnet.ExpectDealResponseWriter(t, expectedDealResponse),
 		})
-		fe.ExpectPiece(expectedPiece, 10000)
+		fe.ExpectPiece(expectedPiece.Bytes(), 10000)
 		fe.ExpectParams(defaultPricePerByte, defaultCurrentInterval, defaultIntervalIncrease, nil)
 		f := providerstates.ReceiveDeal(ctx, fe, *dealState)
 		fe.VerifyExpectations(t)
@@ -82,7 +82,7 @@ func TestReceiveDeal(t *testing.T) {
 			ProposalReader: testnet.StubbedDealProposalReader(proposal),
 			ResponseWriter: testnet.ExpectDealResponseWriter(t, expectedDealResponse),
 		})
-		fe.ExpectMissingPiece(expectedPiece)
+		fe.ExpectMissingPiece(expectedPiece.Bytes())
 		f := providerstates.ReceiveDeal(ctx, fe, *dealState)
 		node.VerifyExpectations(t)
 		fe.VerifyExpectations(t)
@@ -104,7 +104,7 @@ func TestReceiveDeal(t *testing.T) {
 			ProposalReader: testnet.StubbedDealProposalReader(proposal),
 			ResponseWriter: testnet.ExpectDealResponseWriter(t, expectedDealResponse),
 		})
-		fe.ExpectPiece(expectedPiece, 10000)
+		fe.ExpectPiece(expectedPiece.Bytes(), 10000)
 		fe.ExpectParams(defaultPricePerByte, defaultCurrentInterval, defaultIntervalIncrease, errors.New(message))
 		f := providerstates.ReceiveDeal(ctx, fe, *dealState)
 		fe.VerifyExpectations(t)
@@ -133,7 +133,7 @@ func TestReceiveDeal(t *testing.T) {
 			ProposalReader: testnet.StubbedDealProposalReader(proposal),
 			ResponseWriter: testnet.FailDealResponseWriter,
 		})
-		fe.ExpectPiece(expectedPiece, 10000)
+		fe.ExpectPiece(expectedPiece.Bytes(), 10000)
 		fe.ExpectParams(defaultPricePerByte, defaultCurrentInterval, defaultIntervalIncrease, nil)
 		f := providerstates.ReceiveDeal(ctx, fe, *dealState)
 		fe.VerifyExpectations(t)

@@ -54,7 +54,7 @@ func ReceiveDeal(ctx context.Context, environment ProviderDealEnvironment, deal 
 	}
 
 	// verify we have the piece
-	_, err = environment.GetPieceSize(dealProposal.PieceCID)
+	_, err = environment.GetPieceSize(dealProposal.PayloadCID.Bytes())
 	if err != nil {
 		if err == rm.ErrNotFound {
 			return responseFailure(environment.DealStream(), rm.DealStatusDealNotFound, rm.ErrNotFound.Error(), dealProposal.ID)
