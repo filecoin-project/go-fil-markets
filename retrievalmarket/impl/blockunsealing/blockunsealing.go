@@ -5,12 +5,13 @@ import (
 	"context"
 	"io"
 
-	"github.com/filecoin-project/go-fil-markets/pieceio"
-	"github.com/filecoin-project/go-fil-markets/piecestore"
 	blockstore "github.com/ipfs/go-ipfs-blockstore"
 	"github.com/ipld/go-ipld-prime"
 	cidlink "github.com/ipld/go-ipld-prime/linking/cid"
 	"golang.org/x/xerrors"
+
+	"github.com/filecoin-project/go-fil-markets/pieceio"
+	"github.com/filecoin-project/go-fil-markets/piecestore"
 )
 
 // LoaderWithUnsealing is an ipld.Loader function that will also unseal pieces as needed
@@ -33,7 +34,6 @@ type UnsealingFunc func(ctx context.Context, sectorId uint64, offset uint64, len
 // NewLoaderWithUnsealing creates a loader that will attempt to read blocks from the blockstore but unseal the piece
 // as needed using the passed unsealing function
 func NewLoaderWithUnsealing(ctx context.Context, bs blockstore.Blockstore, pieceInfo piecestore.PieceInfo, carIO pieceio.CarIO, unsealer UnsealingFunc) LoaderWithUnsealing {
-	// TODO: Implement for real
 	return &loaderWithUnsealing{ctx, bs, pieceInfo, carIO, unsealer, false}
 }
 

@@ -6,11 +6,11 @@ import (
 	"reflect"
 	"sync"
 
-	"github.com/filecoin-project/go-address"
-	"github.com/filecoin-project/go-fil-markets/pieceio/cario"
 	blockstore "github.com/ipfs/go-ipfs-blockstore"
 	cidlink "github.com/ipld/go-ipld-prime/linking/cid"
 
+	"github.com/filecoin-project/go-address"
+	"github.com/filecoin-project/go-fil-markets/pieceio/cario"
 	"github.com/filecoin-project/go-fil-markets/piecestore"
 	"github.com/filecoin-project/go-fil-markets/retrievalmarket"
 	"github.com/filecoin-project/go-fil-markets/retrievalmarket/impl/blockio"
@@ -21,9 +21,6 @@ import (
 )
 
 type provider struct {
-
-	// TODO: Replace with RetrievalProviderNode for
-	// https://github.com/filecoin-project/go-retrieval-market-project/issues/4
 	bs                      blockstore.Blockstore
 	node                    retrievalmarket.RetrievalProviderNode
 	network                 rmnet.RetrievalMarketNetwork
@@ -63,7 +60,6 @@ func (p *provider) SetPricePerByte(price tokenamount.TokenAmount) {
 
 // SetPaymentInterval sets the maximum number of bytes a a provider will send before
 // requesting further payment, and the rate at which that value increases
-// TODO: Implement for https://github.com/filecoin-project/go-retrieval-market-project/issues/7
 func (p *provider) SetPaymentInterval(paymentInterval uint64, paymentIntervalIncrease uint64) {
 	p.paymentInterval = paymentInterval
 	p.paymentIntervalIncrease = paymentIntervalIncrease
@@ -96,7 +92,6 @@ func (p *provider) notifySubscribers(evt retrievalmarket.ProviderEvent, ds retri
 }
 
 // SubscribeToEvents listens for events that happen related to client retrievals
-// TODO: Implement updates as part of https://github.com/filecoin-project/go-retrieval-market-project/issues/7
 func (p *provider) SubscribeToEvents(subscriber retrievalmarket.ProviderSubscriber) retrievalmarket.Unsubscribe {
 	p.subscribersLk.Lock()
 	p.subscribers = append(p.subscribers, subscriber)
@@ -114,7 +109,6 @@ func (p *provider) ListDeals() map[retrievalmarket.ProviderDealID]retrievalmarke
 	panic("not implemented")
 }
 
-// TODO: Update for https://github.com/filecoin-project/go-retrieval-market-project/issues/8
 func (p *provider) HandleQueryStream(stream rmnet.RetrievalQueryStream) {
 	defer stream.Close()
 	query, err := stream.ReadQuery()
@@ -156,7 +150,6 @@ func (p *provider) failDeal(dealState *retrievalmarket.ProviderDealState, err er
 	p.notifySubscribers(retrievalmarket.ProviderEventError, *dealState)
 }
 
-// TODO: Update for https://github.com/filecoin-project/go-retrieval-market-project/issues/7
 func (p *provider) HandleDealStream(stream rmnet.RetrievalDealStream) {
 	defer stream.Close()
 	ctx, cancel := context.WithCancel(context.TODO())

@@ -7,11 +7,6 @@ import (
 	"math/rand"
 	"testing"
 
-	"github.com/filecoin-project/go-fil-markets/pieceio/cario"
-	"github.com/filecoin-project/go-fil-markets/piecestore"
-	"github.com/filecoin-project/go-fil-markets/retrievalmarket/impl/blockunsealing"
-	"github.com/filecoin-project/go-fil-markets/retrievalmarket/impl/testnodes"
-	tut "github.com/filecoin-project/go-fil-markets/shared_testutil"
 	"github.com/ipfs/go-datastore"
 	dss "github.com/ipfs/go-datastore/sync"
 	bstore "github.com/ipfs/go-ipfs-blockstore"
@@ -21,6 +16,12 @@ import (
 	"github.com/ipld/go-ipld-prime/traversal/selector"
 	"github.com/ipld/go-ipld-prime/traversal/selector/builder"
 	"github.com/stretchr/testify/require"
+
+	"github.com/filecoin-project/go-fil-markets/pieceio/cario"
+	"github.com/filecoin-project/go-fil-markets/piecestore"
+	"github.com/filecoin-project/go-fil-markets/retrievalmarket/impl/blockunsealing"
+	"github.com/filecoin-project/go-fil-markets/retrievalmarket/impl/testnodes"
+	tut "github.com/filecoin-project/go-fil-markets/shared_testutil"
 )
 
 func TestNewLoaderWithUnsealing(t *testing.T) {

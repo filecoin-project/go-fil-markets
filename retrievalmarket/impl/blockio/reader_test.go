@@ -4,11 +4,12 @@ import (
 	"context"
 	"testing"
 
-	"github.com/filecoin-project/go-fil-markets/retrievalmarket/impl/blockio"
-	tut "github.com/filecoin-project/go-fil-markets/shared_testutil"
 	blocks "github.com/ipfs/go-block-format"
 	"github.com/ipfs/go-cid"
 	"github.com/stretchr/testify/require"
+
+	"github.com/filecoin-project/go-fil-markets/retrievalmarket/impl/blockio"
+	tut "github.com/filecoin-project/go-fil-markets/shared_testutil"
 )
 
 func TestSelectorReader(t *testing.T) {

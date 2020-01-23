@@ -16,16 +16,12 @@ import (
 
 //go:generate cbor-gen-for Query QueryResponse DealProposal DealResponse Params QueryParams DealPayment Block ClientDealState
 
-// type aliases
-// TODO: Remove and use native types or extract for
-// https://github.com/filecoin-project/go-retrieval-market-project/issues/5
-
 // ProtocolID is the protocol for proposing / responding to retrieval deals
 const ProtocolID = "/fil/retrieval/0.0.1"
 
 // QueryProtocolID is the protocol for querying information about retrieval
 // deal parameters
-const QueryProtocolID = "/fil/retrieval/qry/0.0.1" // TODO: spec
+const QueryProtocolID = "/fil/retrieval/qry/0.0.1"
 
 // Unsubscribe is a function that unsubscribes a subscriber for either the
 // client or the provider

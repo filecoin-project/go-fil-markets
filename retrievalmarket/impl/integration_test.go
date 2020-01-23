@@ -7,13 +7,13 @@ import (
 	"testing"
 	"time"
 
-	"github.com/filecoin-project/go-address"
-	"github.com/filecoin-project/go-data-transfer/testutil"
-	"github.com/filecoin-project/go-fil-markets/pieceio/cario"
 	cidlink "github.com/ipld/go-ipld-prime/linking/cid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/filecoin-project/go-address"
+	"github.com/filecoin-project/go-data-transfer/testutil"
+	"github.com/filecoin-project/go-fil-markets/pieceio/cario"
 	"github.com/filecoin-project/go-fil-markets/piecestore"
 	"github.com/filecoin-project/go-fil-markets/retrievalmarket"
 	retrievalimpl "github.com/filecoin-project/go-fil-markets/retrievalmarket/impl"
@@ -172,7 +172,7 @@ func TestClientCanMakeDealWithProvider(t *testing.T) {
 				offset := uint64(1000)
 				pieceInfo = piecestore.PieceInfo{
 					Deals: []piecestore.DealInfo{
-						piecestore.DealInfo{
+						{
 							SectorID: sectorID,
 							Offset:   offset,
 							Length:   uint64(len(carData)),
@@ -190,7 +190,7 @@ func TestClientCanMakeDealWithProvider(t *testing.T) {
 			} else {
 				pieceInfo = piecestore.PieceInfo{
 					Deals: []piecestore.DealInfo{
-						piecestore.DealInfo{
+						{
 							Length: expectedQR.Size,
 						},
 					},
