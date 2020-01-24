@@ -18,6 +18,7 @@ import (
 	"github.com/filecoin-project/go-fil-markets/retrievalmarket/impl/blockunsealing"
 	"github.com/filecoin-project/go-fil-markets/retrievalmarket/impl/providerstates"
 	rmnet "github.com/filecoin-project/go-fil-markets/retrievalmarket/network"
+	"github.com/filecoin-project/go-fil-markets/shared/params"
 	"github.com/filecoin-project/go-fil-markets/shared/tokenamount"
 )
 
@@ -36,15 +37,29 @@ type provider struct {
 
 var _ retrievalmarket.RetrievalProvider = &provider{}
 
+// DefaultPricePerByte is the charge per byte retrieved if the miner does
+// not specifically set it
+var DefaultPricePerByte = tokenamount.FromInt(2)
+
+// DefaultPaymentInterval is the baseline interval, set to the unixfs chunk size
+// if the miner does not explicitly set it otherwise
+var DefaultPaymentInterval = uint64(params.UnixfsChunkSize)
+
+// DefaultPaymentIntervalIncrease is the amount interval increases on each payment, set to the unixfs chunk size
+// if the miner does not explicitly set it otherwise
+var DefaultPaymentIntervalIncrease = uint64(params.UnixfsChunkSize)
+
 // NewProvider returns a new retrieval provider
 func NewProvider(paymentAddress address.Address, node retrievalmarket.RetrievalProviderNode, network rmnet.RetrievalMarketNetwork, pieceStore piecestore.PieceStore, bs blockstore.Blockstore) retrievalmarket.RetrievalProvider {
 	return &provider{
-		bs:             bs,
-		node:           node,
-		network:        network,
-		paymentAddress: paymentAddress,
-		pieceStore:     pieceStore,
-		pricePerByte:   tokenamount.FromInt(2), // TODO: allow setting
+		bs:                      bs,
+		node:                    node,
+		network:                 network,
+		paymentAddress:          paymentAddress,
+		pieceStore:              pieceStore,
+		pricePerByte:            DefaultPricePerByte, // TODO: allow setting
+		paymentInterval:         DefaultPaymentInterval,
+		paymentIntervalIncrease: DefaultPaymentIntervalIncrease,
 	}
 }
 
