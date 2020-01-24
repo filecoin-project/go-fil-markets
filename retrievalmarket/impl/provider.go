@@ -47,6 +47,11 @@ func NewProvider(paymentAddress address.Address, node retrievalmarket.RetrievalP
 	}
 }
 
+// Stop stops handling incoming requests
+func (p *provider) Stop() error {
+	return p.network.StopHandlingRequests()
+}
+
 // Start begins listening for deals on the given host
 func (p *provider) Start() error {
 	return p.network.SetDelegate(p)

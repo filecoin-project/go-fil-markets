@@ -33,4 +33,5 @@ type RetrievalMarketNetwork interface {
 	NewQueryStream(peer.ID) (RetrievalQueryStream, error)
 	NewDealStream(peer.ID) (RetrievalDealStream, error)
 	SetDelegate(RetrievalReceiver) error
+	StopHandlingRequests() error
 }

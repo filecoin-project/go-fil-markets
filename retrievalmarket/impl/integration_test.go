@@ -13,6 +13,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/filecoin-project/go-address"
+
 	"github.com/filecoin-project/go-fil-markets/pieceio/cario"
 	"github.com/filecoin-project/go-fil-markets/piecestore"
 	"github.com/filecoin-project/go-fil-markets/retrievalmarket"
@@ -28,7 +29,7 @@ func TestClientCanMakeQueryToProvider(t *testing.T) {
 	bgCtx := context.Background()
 	payChAddr := address.TestAddress
 
-	client, expectedCIDs, missingPiece, expectedQR, retrievalPeer := requireSetupTestClientAndProvider(bgCtx, t, payChAddr)
+	client, expectedCIDs, missingPiece, expectedQR, retrievalPeer, _ := requireSetupTestClientAndProvider(bgCtx, t, payChAddr)
 
 	t.Run("when piece is found, returns piece and price data", func(t *testing.T) {
 		expectedQR.Status = retrievalmarket.QueryResponseAvailable
@@ -54,13 +55,24 @@ func TestClientCanMakeQueryToProvider(t *testing.T) {
 		assert.NoError(t, err)
 		assert.Equal(t, expectedQR, actualQR)
 	})
+
+}
+
+func TestProvider_Stop(t *testing.T) {
+	bgCtx := context.Background()
+	payChAddr := address.TestAddress
+	client, expectedCIDs, _, _, retrievalPeer, provider := requireSetupTestClientAndProvider(bgCtx, t, payChAddr)
+	require.NoError(t, provider.Stop())
+	_, err := client.Query(bgCtx, retrievalPeer, expectedCIDs[0], retrievalmarket.QueryParams{})
+	assert.EqualError(t, err, "protocol not supported")
 }
 
 func requireSetupTestClientAndProvider(bgCtx context.Context, t *testing.T, payChAddr address.Address) (retrievalmarket.RetrievalClient,
 	[]cid.Cid,
 	cid.Cid,
 	retrievalmarket.QueryResponse,
-	retrievalmarket.RetrievalPeer) {
+	retrievalmarket.RetrievalPeer,
+	retrievalmarket.RetrievalProvider) {
 	testData := tut.NewLibp2pTestData(bgCtx, t)
 	nw1 := rmnet.NewFromLibp2pHost(testData.Host1)
 	rcNode1 := testnodes.NewTestRetrievalClientNode(testnodes.TestRetrievalClientNodeParams{PayCh: payChAddr})
@@ -77,7 +89,7 @@ func requireSetupTestClientAndProvider(bgCtx context.Context, t *testing.T, payC
 	for i, piece := range expectedCIDs {
 		pieceStore.ExpectPiece(piece.Bytes(), piecestore.PieceInfo{
 			Deals: []piecestore.DealInfo{
-				piecestore.DealInfo{
+				{
 					Length: expectedQR.Size * uint64(i+1),
 				},
 			},
@@ -95,7 +107,7 @@ func requireSetupTestClientAndProvider(bgCtx context.Context, t *testing.T, payC
 		Address: paymentAddress,
 		ID:      testData.Host2.ID(),
 	}
-	return client, expectedCIDs, missingPiece, expectedQR, retrievalPeer
+	return client, expectedCIDs, missingPiece, expectedQR, retrievalPeer, provider
 }
 
 func TestClientCanMakeDealWithProvider(t *testing.T) {
@@ -223,6 +235,7 @@ func TestClientCanMakeDealWithProvider(t *testing.T) {
 					clientDealStateChan <- state
 				case retrievalmarket.ClientEventError:
 					msg := `
+Client:
 Status:          %d
 TotalReceived:   %d
 BytesPaidFor:    %d
@@ -240,6 +253,7 @@ TotalFunds:      %s
 					providerDealStateChan <- state
 				case retrievalmarket.ProviderEventError:
 					msg := `
+Provider:
 Status:          %d
 TotalSent:       %d
 FundsReceived:   %s
@@ -266,7 +280,7 @@ CurrentInterval: %d
 			did := client.Retrieve(bgCtx, payloadCID, rmParams, expectedTotal, retrievalPeer.ID, clientPaymentChannel, retrievalPeer.Address)
 			assert.Equal(t, did, retrievalmarket.DealID(1))
 
-			ctx, cancel := context.WithTimeout(bgCtx, 10*time.Second)
+			ctx, cancel := context.WithTimeout(bgCtx, 5*time.Second)
 			defer cancel()
 
 			// verify that client subscribers will be notified of state changes
@@ -285,7 +299,7 @@ CurrentInterval: %d
 			require.NotNil(t, createdVoucher)
 			assert.True(t, createdVoucher.Equals(expectedVoucher))
 
-			ctx, cancel = context.WithTimeout(bgCtx, 10*time.Second)
+			ctx, cancel = context.WithTimeout(bgCtx, 5*time.Second)
 			defer cancel()
 			var providerDealState retrievalmarket.ProviderDealState
 			select {

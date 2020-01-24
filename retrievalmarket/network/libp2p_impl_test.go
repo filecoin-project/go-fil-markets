@@ -266,6 +266,33 @@ func TestDealStreamSendReceiveMultipleSuccessful(t *testing.T) {
 	assert.Equal(t, dpy, receivedPayment)
 }
 
+func TestLibp2pRetrievalMarketNetwork_StopHandlingRequests(t *testing.T) {
+	bgCtx := context.Background()
+	td := shared_testutil.NewLibp2pTestData(bgCtx, t)
+
+	fromNetwork := network.NewFromLibp2pHost(td.Host1)
+	toNetwork := network.NewFromLibp2pHost(td.Host2)
+	toHost := td.Host2.ID()
+
+	// host1 gets no-op receiver
+	tr := &testReceiver{t: t}
+	require.NoError(t, fromNetwork.SetDelegate(tr))
+
+	// host2 gets receiver
+	qchan := make(chan retrievalmarket.Query)
+	tr2 := &testReceiver{t: t, queryStreamHandler: func(s network.RetrievalQueryStream) {
+		readq, err := s.ReadQuery()
+		require.NoError(t, err)
+		qchan <- readq
+	}}
+	require.NoError(t, toNetwork.SetDelegate(tr2))
+
+	require.NoError(t, toNetwork.StopHandlingRequests())
+
+	_, err := fromNetwork.NewQueryStream(toHost)
+	require.Error(t, err, "protocol not supported")
+}
+
 // assertDealProposalReceived performs the verification that a deal proposal is received
 func assertDealProposalReceived(inCtx context.Context, t *testing.T, fromNetwork network.RetrievalMarketNetwork, toPeer peer.ID, inChan chan retrievalmarket.DealProposal) {
 	ctx, cancel := context.WithTimeout(inCtx, 10*time.Second)
