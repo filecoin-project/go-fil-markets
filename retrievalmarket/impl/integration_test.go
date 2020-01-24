@@ -94,7 +94,7 @@ func requireSetupTestClientAndProvider(bgCtx context.Context, t *testing.T, payC
 	for i, piece := range expectedCIDs {
 		pieceStore.ExpectPiece(piece.Bytes(), piecestore.PieceInfo{
 			Deals: []piecestore.DealInfo{
-				piecestore.DealInfo{
+				{
 					Length: expectedQR.Size * uint64(i+1),
 				},
 			},
@@ -285,7 +285,7 @@ CurrentInterval: %d
 			did := client.Retrieve(bgCtx, payloadCID, rmParams, expectedTotal, retrievalPeer.ID, clientPaymentChannel, retrievalPeer.Address)
 			assert.Equal(t, did, retrievalmarket.DealID(1))
 
-			ctx, cancel := context.WithTimeout(bgCtx, 15*time.Second)
+			ctx, cancel := context.WithTimeout(bgCtx, 10*time.Second)
 			defer cancel()
 
 			// verify that client subscribers will be notified of state changes
@@ -304,7 +304,7 @@ CurrentInterval: %d
 			require.NotNil(t, createdVoucher)
 			assert.True(t, createdVoucher.Equals(expectedVoucher))
 
-			ctx, cancel = context.WithTimeout(bgCtx, 15*time.Second)
+			ctx, cancel = context.WithTimeout(bgCtx, 10*time.Second)
 			defer cancel()
 			var providerDealState retrievalmarket.ProviderDealState
 			select {
