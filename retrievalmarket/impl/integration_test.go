@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"math/rand"
+	"regexp"
 	"testing"
 	"time"
 
@@ -13,6 +14,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/filecoin-project/go-address"
+
 	"github.com/filecoin-project/go-fil-markets/pieceio/cario"
 	"github.com/filecoin-project/go-fil-markets/piecestore"
 	"github.com/filecoin-project/go-fil-markets/retrievalmarket"
@@ -69,7 +71,8 @@ func TestProvider_Stop(t *testing.T) {
 	require.NoError(t, provider.Stop())
 
 	_, err = client.Query(bgCtx, retrievalPeer, expectedCIDs[0], retrievalmarket.QueryParams{})
-	assert.EqualError(t, err, "protocol mismatch in lazy handshake ( na != /fil/retrieval/qry/0.0.1 )")
+	rgx := regexp.MustCompile("^protocol mismatch in lazy handshake")
+	assert.True(t, rgx.Match([]byte(err.Error())))
 }
 
 func requireSetupTestClientAndProvider(bgCtx context.Context, t *testing.T, payChAddr address.Address) (retrievalmarket.RetrievalClient,
