@@ -62,15 +62,9 @@ func TestClientCanMakeQueryToProvider(t *testing.T) {
 func TestProvider_Stop(t *testing.T) {
 	bgCtx := context.Background()
 	payChAddr := address.TestAddress
-
 	client, expectedCIDs, _, _, retrievalPeer, provider := requireSetupTestClientAndProvider(bgCtx, t, payChAddr)
-
-	_, err := client.Query(bgCtx, retrievalPeer, expectedCIDs[0], retrievalmarket.QueryParams{})
-	require.NoError(t, err)
-
 	require.NoError(t, provider.Stop())
-
-	_, err = client.Query(bgCtx, retrievalPeer, expectedCIDs[0], retrievalmarket.QueryParams{})
+	_, err := client.Query(bgCtx, retrievalPeer, expectedCIDs[0], retrievalmarket.QueryParams{})
 	rgx := regexp.MustCompile("^protocol mismatch in lazy handshake")
 	assert.True(t, rgx.Match([]byte(err.Error())))
 }
