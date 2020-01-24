@@ -3,6 +3,7 @@ package providerstates
 import (
 	"context"
 
+	"github.com/ipfs/go-cid"
 	"golang.org/x/xerrors"
 
 	rm "github.com/filecoin-project/go-fil-markets/retrievalmarket"
@@ -13,7 +14,7 @@ import (
 // ProviderDealEnvironment is a bridge to the environment a provider deal is executing in
 type ProviderDealEnvironment interface {
 	Node() rm.RetrievalProviderNode
-	GetPieceSize(pieceCID []byte) (uint64, error)
+	GetPieceSize(c cid.Cid) (uint64, error)
 	DealStream() rmnet.RetrievalDealStream
 	NextBlock(context.Context) (rm.Block, bool, error)
 	CheckDealParams(pricePerByte tokenamount.TokenAmount, paymentInterval uint64, paymentIntervalIncrease uint64) error
@@ -54,7 +55,7 @@ func ReceiveDeal(ctx context.Context, environment ProviderDealEnvironment, deal 
 	}
 
 	// verify we have the piece
-	_, err = environment.GetPieceSize(dealProposal.PayloadCID.Bytes())
+	_, err = environment.GetPieceSize(dealProposal.PayloadCID)
 	if err != nil {
 		if err == rm.ErrNotFound {
 			return responseFailure(environment.DealStream(), rm.DealStatusDealNotFound, rm.ErrNotFound.Error(), dealProposal.ID)

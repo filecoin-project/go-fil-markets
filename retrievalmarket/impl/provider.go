@@ -6,6 +6,7 @@ import (
 	"reflect"
 	"sync"
 
+	"github.com/ipfs/go-cid"
 	blockstore "github.com/ipfs/go-ipfs-blockstore"
 	cidlink "github.com/ipld/go-ipld-prime/linking/cid"
 
@@ -129,7 +130,7 @@ func (p *provider) HandleQueryStream(stream rmnet.RetrievalQueryStream) {
 		MaxPaymentIntervalIncrease: p.paymentIntervalIncrease,
 	}
 
-	pieceInfo, err := p.pieceStore.GetPieceInfo(query.PayloadCID.Bytes())
+	pieceInfo, err := getPieceInfoFromCid(p.pieceStore, query.PayloadCID)
 
 	if err == nil && len(pieceInfo.Deals) > 0 {
 		answer.Status = retrievalmarket.QueryResponseAvailable
@@ -166,7 +167,7 @@ func (p *provider) HandleDealStream(stream rmnet.RetrievalDealStream) {
 	}
 	p.notifySubscribers(retrievalmarket.ProviderEventOpen, dealState)
 
-	environment := providerDealEnvironment{p.pieceStore, piecestore.PieceInfoUndefined, p.node, nil, p.pricePerByte, p.paymentInterval, p.paymentIntervalIncrease, stream}
+	environment := providerDealEnvironment{p.pieceStore, p.node, nil, p.pricePerByte, p.paymentInterval, p.paymentIntervalIncrease, stream}
 
 	for {
 		var handler providerstates.ProviderHandlerFunc
@@ -188,7 +189,7 @@ func (p *provider) HandleDealStream(stream rmnet.RetrievalDealStream) {
 			break
 		}
 		if environment.br == nil {
-			loaderWithUnsealing := blockunsealing.NewLoaderWithUnsealing(ctx, p.bs, environment.pieceInfo, cario.NewCarIO(), p.node.UnsealSector)
+			loaderWithUnsealing := blockunsealing.NewLoaderWithUnsealing(ctx, p.bs, environment.pieceStore, cario.NewCarIO(), p.node.UnsealSector)
 
 			environment.br = blockio.NewSelectorBlockReader(cidlink.Link{Cid: dealState.PayloadCID}, loaderWithUnsealing.Load)
 		}
@@ -203,7 +204,6 @@ func (p *provider) HandleDealStream(stream rmnet.RetrievalDealStream) {
 
 type providerDealEnvironment struct {
 	pieceStore                 piecestore.PieceStore
-	pieceInfo                  piecestore.PieceInfo
 	node                       retrievalmarket.RetrievalProviderNode
 	br                         blockio.BlockReader
 	minPricePerByte            tokenamount.TokenAmount
@@ -240,14 +240,29 @@ func (pde *providerDealEnvironment) NextBlock(ctx context.Context) (retrievalmar
 	return pde.br.ReadBlock(ctx)
 }
 
-func (pde *providerDealEnvironment) GetPieceSize(pieceCID []byte) (uint64, error) {
-	var err error
-	pde.pieceInfo, err = pde.pieceStore.GetPieceInfo(pieceCID)
+func (pde *providerDealEnvironment) GetPieceSize(c cid.Cid) (uint64, error) {
+	pieceInfo, err := getPieceInfoFromCid(pde.pieceStore, c)
 	if err != nil {
 		return 0, err
 	}
-	if len(pde.pieceInfo.Deals) == 0 {
+	if len(pieceInfo.Deals) == 0 {
 		return 0, errors.New("Not enough piece info")
 	}
-	return pde.pieceInfo.Deals[0].Length, nil
+	return pieceInfo.Deals[0].Length, nil
+}
+
+func getPieceInfoFromCid(pieceStore piecestore.PieceStore, c cid.Cid) (piecestore.PieceInfo, error) {
+	cidInfo, err := pieceStore.GetCIDInfo(c)
+	if err != nil {
+		return piecestore.PieceInfoUndefined, err
+	}
+	var lastErr error
+	for _, pieceBlockLocation := range cidInfo.PieceBlockLocations {
+		pieceInfo, err := pieceStore.GetPieceInfo(pieceBlockLocation.PieceCID)
+		if err == nil {
+			return pieceInfo, nil
+		}
+		lastErr = err
+	}
+	return piecestore.PieceInfoUndefined, lastErr
 }

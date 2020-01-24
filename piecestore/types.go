@@ -14,21 +14,27 @@ type DealInfo struct {
 	Length   uint64
 }
 
-// BlockLocation is information about where a given block is within a piece
+// BlockLocation is information about where a given block is relative to the overall piece
 type BlockLocation struct {
 	RelOffset uint64
 	BlockSize uint64
 }
 
+// PieceBlockLocation is block information along with the pieceCID of the piece the block
+// is inside of
 type PieceBlockLocation struct {
 	BlockLocation
 	PieceCID []byte
 }
 
+// CIDInfo is information about where a given CID will live inside a piece
 type CIDInfo struct {
 	CID                 cid.Cid
 	PieceBlockLocations []PieceBlockLocation
 }
+
+// CIDInfoUndefined is cid info with no information
+var CIDInfoUndefined = CIDInfo{}
 
 // PieceInfo is metadata about a piece a provider may be storing based
 // on its PieceCID -- so that, given a pieceCID during retrieval, the miner

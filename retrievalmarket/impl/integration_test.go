@@ -50,7 +50,7 @@ func TestClientCanMakeQueryToProvider(t *testing.T) {
 	t.Run("when there is some other error, returns error", func(t *testing.T) {
 		unknownPiece := tut.GenerateCids(1)[0]
 		expectedQR.Status = retrievalmarket.QueryResponseError
-		expectedQR.Message = "GetPieceSize failed"
+		expectedQR.Message = "GetCIDInfo failed"
 		actualQR, err := client.Query(bgCtx, retrievalPeer, unknownPiece, retrievalmarket.QueryParams{})
 		assert.NoError(t, err)
 		assert.Equal(t, expectedQR, actualQR)
@@ -82,12 +82,22 @@ func requireSetupTestClientAndProvider(bgCtx context.Context, t *testing.T, payC
 	providerNode := testnodes.NewTestRetrievalProviderNode()
 	pieceStore := tut.NewTestPieceStore()
 	expectedCIDs := tut.GenerateCids(3)
-	missingPiece := tut.GenerateCids(1)[0]
+	expectedPieces := [][]byte{[]byte("applesuace"), []byte("jam"), []byte("apricot")}
+	missingCID := tut.GenerateCids(1)[0]
 	expectedQR := tut.MakeTestQueryResponse()
 
-	pieceStore.ExpectMissingPiece(missingPiece.Bytes())
-	for i, piece := range expectedCIDs {
-		pieceStore.ExpectPiece(piece.Bytes(), piecestore.PieceInfo{
+	pieceStore.ExpectMissingCID(missingCID)
+	for i, c := range expectedCIDs {
+		pieceStore.ExpectCID(c, piecestore.CIDInfo{
+			PieceBlockLocations: []piecestore.PieceBlockLocation{
+				{
+					PieceCID: expectedPieces[i],
+				},
+			},
+		})
+	}
+	for i, piece := range expectedPieces {
+		pieceStore.ExpectPiece(piece, piecestore.PieceInfo{
 			Deals: []piecestore.DealInfo{
 				{
 					Length: expectedQR.Size * uint64(i+1),
@@ -107,7 +117,7 @@ func requireSetupTestClientAndProvider(bgCtx context.Context, t *testing.T, payC
 		Address: paymentAddress,
 		ID:      testData.Host2.ID(),
 	}
-	return client, expectedCIDs, missingPiece, expectedQR, retrievalPeer, provider
+	return client, expectedCIDs, missingCID, expectedQR, retrievalPeer, provider
 }
 
 func TestClientCanMakeDealWithProvider(t *testing.T) {
@@ -356,7 +366,18 @@ func setupClient(
 func setupProvider(t *testing.T, testData *tut.Libp2pTestData, payloadCID cid.Cid, pieceInfo piecestore.PieceInfo, expectedQR retrievalmarket.QueryResponse, providerPaymentAddr address.Address, providerNode retrievalmarket.RetrievalProviderNode) retrievalmarket.RetrievalProvider {
 	nw2 := rmnet.NewFromLibp2pHost(testData.Host2)
 	pieceStore := tut.NewTestPieceStore()
-	pieceStore.ExpectPiece(payloadCID.Bytes(), pieceInfo)
+	expectedPiece := make([]byte, 32)
+	_, err := rand.Read(expectedPiece)
+	require.NoError(t, err)
+	cidInfo := piecestore.CIDInfo{
+		PieceBlockLocations: []piecestore.PieceBlockLocation{
+			{
+				PieceCID: expectedPiece,
+			},
+		},
+	}
+	pieceStore.ExpectCID(payloadCID, cidInfo)
+	pieceStore.ExpectPiece(expectedPiece, pieceInfo)
 	provider := retrievalimpl.NewProvider(providerPaymentAddr, providerNode, nw2, pieceStore, testData.Bs2)
 	provider.SetPaymentInterval(expectedQR.MaxPaymentInterval, expectedQR.MaxPaymentIntervalIncrease)
 	provider.SetPricePerByte(expectedQR.MinPricePerByte)
