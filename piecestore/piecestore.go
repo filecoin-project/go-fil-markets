@@ -30,7 +30,6 @@ type pieceStore struct {
 }
 
 func (ps *pieceStore) AddDealForPiece(pieceCID []byte, dealInfo DealInfo) error {
-	// Do we need to de-dupe or anything here?
 	return ps.mutatePieceInfo(pieceCID, func(pi *PieceInfo) error {
 		for _, di := range pi.Deals {
 			if di == dealInfo {
