@@ -24,6 +24,14 @@ func TestHandleQueryStream(t *testing.T) {
 	pcid := tut.GenerateCids(1)[0]
 	expectedPeer := peer.ID("somepeer")
 	expectedSize := uint64(1234)
+	expectedPieceCID := []byte("applesauce")
+	expectedCIDInfo := piecestore.CIDInfo{
+		PieceBlockLocations: []piecestore.PieceBlockLocation{
+			{
+				PieceCID: expectedPieceCID,
+			},
+		},
+	}
 	expectedPiece := piecestore.PieceInfo{
 		Deals: []piecestore.DealInfo{
 			piecestore.DealInfo{
@@ -68,7 +76,8 @@ func TestHandleQueryStream(t *testing.T) {
 		require.NoError(t, err)
 		pieceStore := tut.NewTestPieceStore()
 
-		pieceStore.ExpectPiece(pcid.Bytes(), expectedPiece)
+		pieceStore.ExpectCID(pcid, expectedCIDInfo)
+		pieceStore.ExpectPiece(expectedPieceCID, expectedPiece)
 
 		receiveStreamOnProvider(qs, pieceStore)
 
@@ -90,7 +99,29 @@ func TestHandleQueryStream(t *testing.T) {
 		})
 		require.NoError(t, err)
 		pieceStore := tut.NewTestPieceStore()
-		pieceStore.ExpectMissingPiece(pcid.Bytes())
+		pieceStore.ExpectCID(pcid, expectedCIDInfo)
+		pieceStore.ExpectMissingPiece(expectedPieceCID)
+
+		receiveStreamOnProvider(qs, pieceStore)
+
+		response, err := qs.ReadQueryResponse()
+		pieceStore.VerifyExpectations(t)
+		require.NoError(t, err)
+		require.Equal(t, response.Status, retrievalmarket.QueryResponseUnavailable)
+		require.Equal(t, response.PaymentAddress, expectedAddress)
+		require.Equal(t, response.MinPricePerByte, expectedPricePerByte)
+		require.Equal(t, response.MaxPaymentInterval, expectedPaymentInterval)
+		require.Equal(t, response.MaxPaymentIntervalIncrease, expectedPaymentIntervalIncrease)
+	})
+
+	t.Run("cid info not found", func(t *testing.T) {
+		qs := readWriteQueryStream()
+		err := qs.WriteQuery(retrievalmarket.Query{
+			PayloadCID: pcid,
+		})
+		require.NoError(t, err)
+		pieceStore := tut.NewTestPieceStore()
+		pieceStore.ExpectMissingCID(pcid)
 
 		receiveStreamOnProvider(qs, pieceStore)
 
@@ -115,7 +146,6 @@ func TestHandleQueryStream(t *testing.T) {
 		receiveStreamOnProvider(qs, pieceStore)
 
 		response, err := qs.ReadQueryResponse()
-		pieceStore.VerifyExpectations(t)
 		require.NoError(t, err)
 		require.Equal(t, response.Status, retrievalmarket.QueryResponseError)
 		require.NotEmpty(t, response.Message)
@@ -128,7 +158,6 @@ func TestHandleQueryStream(t *testing.T) {
 		receiveStreamOnProvider(qs, pieceStore)
 
 		response, err := qs.ReadQueryResponse()
-		pieceStore.VerifyExpectations(t)
 		require.NotNil(t, err)
 		require.Equal(t, response, retrievalmarket.QueryResponseUndefined)
 	})
@@ -146,7 +175,8 @@ func TestHandleQueryStream(t *testing.T) {
 		})
 		require.NoError(t, err)
 		pieceStore := tut.NewTestPieceStore()
-		pieceStore.ExpectPiece(pcid.Bytes(), expectedPiece)
+		pieceStore.ExpectCID(pcid, expectedCIDInfo)
+		pieceStore.ExpectPiece(expectedPieceCID, expectedPiece)
 
 		receiveStreamOnProvider(qs, pieceStore)
 

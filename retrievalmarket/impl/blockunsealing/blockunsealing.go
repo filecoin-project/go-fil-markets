@@ -5,6 +5,7 @@ import (
 	"context"
 	"io"
 
+	"github.com/ipfs/go-cid"
 	blockstore "github.com/ipfs/go-ipfs-blockstore"
 	"github.com/ipld/go-ipld-prime"
 	cidlink "github.com/ipld/go-ipld-prime/linking/cid"
@@ -22,7 +23,7 @@ type LoaderWithUnsealing interface {
 type loaderWithUnsealing struct {
 	ctx             context.Context
 	bs              blockstore.Blockstore
-	pieceInfo       piecestore.PieceInfo
+	pieceStore      piecestore.PieceStore
 	carIO           pieceio.CarIO
 	unsealer        UnsealingFunc
 	alreadyUnsealed bool
@@ -33,8 +34,8 @@ type UnsealingFunc func(ctx context.Context, sectorId uint64, offset uint64, len
 
 // NewLoaderWithUnsealing creates a loader that will attempt to read blocks from the blockstore but unseal the piece
 // as needed using the passed unsealing function
-func NewLoaderWithUnsealing(ctx context.Context, bs blockstore.Blockstore, pieceInfo piecestore.PieceInfo, carIO pieceio.CarIO, unsealer UnsealingFunc) LoaderWithUnsealing {
-	return &loaderWithUnsealing{ctx, bs, pieceInfo, carIO, unsealer, false}
+func NewLoaderWithUnsealing(ctx context.Context, bs blockstore.Blockstore, pieceStore piecestore.PieceStore, carIO pieceio.CarIO, unsealer UnsealingFunc) LoaderWithUnsealing {
+	return &loaderWithUnsealing{ctx, bs, pieceStore, carIO, unsealer, false}
 }
 
 func (lu *loaderWithUnsealing) Load(lnk ipld.Link, lnkCtx ipld.LinkContext) (io.Reader, error) {
@@ -50,8 +51,8 @@ func (lu *loaderWithUnsealing) Load(lnk ipld.Link, lnkCtx ipld.LinkContext) (io.
 	}
 
 	// attempt unseal if block is not in blockstore
-	if !has && !lu.alreadyUnsealed {
-		err = lu.attemptUnseal()
+	if !has {
+		err = lu.attemptUnseal(c)
 		if err != nil {
 			return nil, err
 		}
@@ -65,20 +66,14 @@ func (lu *loaderWithUnsealing) Load(lnk ipld.Link, lnkCtx ipld.LinkContext) (io.
 	return bytes.NewReader(blk.RawData()), nil
 }
 
-func (lu *loaderWithUnsealing) attemptUnseal() error {
+func (lu *loaderWithUnsealing) attemptUnseal(c cid.Cid) error {
 
-	lu.alreadyUnsealed = true
-
-	// try to unseal data from piece
-	var reader io.ReadCloser
-	var err error
-	for _, deal := range lu.pieceInfo.Deals {
-		reader, err = lu.unsealer(lu.ctx, deal.SectorID, deal.Offset, deal.Length)
-		if err == nil {
-			break
-		}
+	cidInfo, err := lu.pieceStore.GetCIDInfo(c)
+	if err != nil {
+		return xerrors.Errorf("error looking up information on CID: %w", err)
 	}
 
+	reader, err := lu.firstSuccessfulUnseal(cidInfo)
 	// no successful unseal
 	if err != nil {
 		return xerrors.Errorf("Unable to unseal piece: %w", err)
@@ -91,4 +86,23 @@ func (lu *loaderWithUnsealing) attemptUnseal() error {
 	}
 
 	return nil
+}
+
+func (lu *loaderWithUnsealing) firstSuccessfulUnseal(cidInfo piecestore.CIDInfo) (io.ReadCloser, error) {
+	// try to unseal data from all pieces
+	lastErr := xerrors.New("no sectors found to unseal from")
+	for _, pieceBlockLocation := range cidInfo.PieceBlockLocations {
+		pieceInfo, err := lu.pieceStore.GetPieceInfo(pieceBlockLocation.PieceCID)
+		if err != nil {
+			continue
+		}
+		for _, deal := range pieceInfo.Deals {
+			reader, err := lu.unsealer(lu.ctx, deal.SectorID, deal.Offset, deal.Length)
+			if err == nil {
+				return reader, nil
+			}
+			lastErr = err
+		}
+	}
+	return nil, lastErr
 }

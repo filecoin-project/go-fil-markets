@@ -58,7 +58,7 @@ func TestReceiveDeal(t *testing.T) {
 			ProposalReader: testnet.StubbedDealProposalReader(proposal),
 			ResponseWriter: testnet.ExpectDealResponseWriter(t, expectedDealResponse),
 		})
-		fe.ExpectPiece(expectedPiece.Bytes(), 10000)
+		fe.ExpectPiece(expectedPiece, 10000)
 		fe.ExpectParams(defaultPricePerByte, defaultCurrentInterval, defaultIntervalIncrease, nil)
 		f := providerstates.ReceiveDeal(ctx, fe, *dealState)
 		fe.VerifyExpectations(t)
@@ -82,7 +82,7 @@ func TestReceiveDeal(t *testing.T) {
 			ProposalReader: testnet.StubbedDealProposalReader(proposal),
 			ResponseWriter: testnet.ExpectDealResponseWriter(t, expectedDealResponse),
 		})
-		fe.ExpectMissingPiece(expectedPiece.Bytes())
+		fe.ExpectMissingPiece(expectedPiece)
 		f := providerstates.ReceiveDeal(ctx, fe, *dealState)
 		node.VerifyExpectations(t)
 		fe.VerifyExpectations(t)
@@ -104,7 +104,7 @@ func TestReceiveDeal(t *testing.T) {
 			ProposalReader: testnet.StubbedDealProposalReader(proposal),
 			ResponseWriter: testnet.ExpectDealResponseWriter(t, expectedDealResponse),
 		})
-		fe.ExpectPiece(expectedPiece.Bytes(), 10000)
+		fe.ExpectPiece(expectedPiece, 10000)
 		fe.ExpectParams(defaultPricePerByte, defaultCurrentInterval, defaultIntervalIncrease, errors.New(message))
 		f := providerstates.ReceiveDeal(ctx, fe, *dealState)
 		fe.VerifyExpectations(t)
@@ -133,7 +133,7 @@ func TestReceiveDeal(t *testing.T) {
 			ProposalReader: testnet.StubbedDealProposalReader(proposal),
 			ResponseWriter: testnet.FailDealResponseWriter,
 		})
-		fe.ExpectPiece(expectedPiece.Bytes(), 10000)
+		fe.ExpectPiece(expectedPiece, 10000)
 		fe.ExpectParams(defaultPricePerByte, defaultCurrentInterval, defaultIntervalIncrease, nil)
 		f := providerstates.ReceiveDeal(ctx, fe, *dealState)
 		fe.VerifyExpectations(t)
@@ -360,42 +360,42 @@ type dealParamsKey struct {
 }
 
 type testProviderDealEnvironment struct {
-	node                  retrievalmarket.RetrievalProviderNode
-	ds                    rmnet.RetrievalDealStream
-	nextResponse          int
-	responses             []readBlockResponse
-	expectedParams        map[dealParamsKey]error
-	receivedParams        map[dealParamsKey]struct{}
-	expectedPieces        map[string]uint64
-	expectedMissingPieces map[string]struct{}
-	receivedPieces        map[string]struct{}
-	receivedMissingPieces map[string]struct{}
+	node                retrievalmarket.RetrievalProviderNode
+	ds                  rmnet.RetrievalDealStream
+	nextResponse        int
+	responses           []readBlockResponse
+	expectedParams      map[dealParamsKey]error
+	receivedParams      map[dealParamsKey]struct{}
+	expectedCIDs        map[cid.Cid]uint64
+	expectedMissingCIDs map[cid.Cid]struct{}
+	receivedCIDs        map[cid.Cid]struct{}
+	receivedMissingCIDs map[cid.Cid]struct{}
 }
 
 func NewTestProviderDealEnvironment(node retrievalmarket.RetrievalProviderNode,
 	ds rmnet.RetrievalDealStream,
 	responses []readBlockResponse) *testProviderDealEnvironment {
 	return &testProviderDealEnvironment{
-		node:                  node,
-		ds:                    ds,
-		nextResponse:          0,
-		responses:             responses,
-		expectedParams:        make(map[dealParamsKey]error),
-		receivedParams:        make(map[dealParamsKey]struct{}),
-		expectedPieces:        make(map[string]uint64),
-		expectedMissingPieces: make(map[string]struct{}),
-		receivedPieces:        make(map[string]struct{}),
-		receivedMissingPieces: make(map[string]struct{})}
+		node:                node,
+		ds:                  ds,
+		nextResponse:        0,
+		responses:           responses,
+		expectedParams:      make(map[dealParamsKey]error),
+		receivedParams:      make(map[dealParamsKey]struct{}),
+		expectedCIDs:        make(map[cid.Cid]uint64),
+		expectedMissingCIDs: make(map[cid.Cid]struct{}),
+		receivedCIDs:        make(map[cid.Cid]struct{}),
+		receivedMissingCIDs: make(map[cid.Cid]struct{})}
 }
 
 // ExpectPiece records a piece being expected to be queried and return the given piece info
-func (te *testProviderDealEnvironment) ExpectPiece(pieceCid []byte, size uint64) {
-	te.expectedPieces[string(pieceCid)] = size
+func (te *testProviderDealEnvironment) ExpectPiece(c cid.Cid, size uint64) {
+	te.expectedCIDs[c] = size
 }
 
 // ExpectMissingPiece records a piece being expected to be queried and should fail
-func (te *testProviderDealEnvironment) ExpectMissingPiece(pieceCid []byte) {
-	te.expectedMissingPieces[string(pieceCid)] = struct{}{}
+func (te *testProviderDealEnvironment) ExpectMissingPiece(c cid.Cid) {
+	te.expectedMissingCIDs[c] = struct{}{}
 }
 
 func (te *testProviderDealEnvironment) ExpectParams(pricePerByte tokenamount.TokenAmount,
@@ -407,8 +407,8 @@ func (te *testProviderDealEnvironment) ExpectParams(pricePerByte tokenamount.Tok
 
 func (te *testProviderDealEnvironment) VerifyExpectations(t *testing.T) {
 	require.Equal(t, len(te.expectedParams), len(te.receivedParams))
-	require.Equal(t, len(te.expectedPieces), len(te.receivedPieces))
-	require.Equal(t, len(te.expectedMissingPieces), len(te.receivedMissingPieces))
+	require.Equal(t, len(te.expectedCIDs), len(te.receivedCIDs))
+	require.Equal(t, len(te.expectedMissingCIDs), len(te.receivedMissingCIDs))
 }
 
 func (te *testProviderDealEnvironment) Node() rm.RetrievalProviderNode {
@@ -419,15 +419,15 @@ func (te *testProviderDealEnvironment) DealStream() rmnet.RetrievalDealStream {
 	return te.ds
 }
 
-func (te *testProviderDealEnvironment) GetPieceSize(pieceCID []byte) (uint64, error) {
-	pio, ok := te.expectedPieces[string(pieceCID)]
+func (te *testProviderDealEnvironment) GetPieceSize(c cid.Cid) (uint64, error) {
+	pio, ok := te.expectedCIDs[c]
 	if ok {
-		te.receivedPieces[string(pieceCID)] = struct{}{}
+		te.receivedCIDs[c] = struct{}{}
 		return pio, nil
 	}
-	_, ok = te.expectedMissingPieces[string(pieceCID)]
+	_, ok = te.expectedMissingCIDs[c]
 	if ok {
-		te.receivedMissingPieces[string(pieceCID)] = struct{}{}
+		te.receivedMissingCIDs[c] = struct{}{}
 		return 0, retrievalmarket.ErrNotFound
 	}
 	return 0, errors.New("GetPieceSize failed")

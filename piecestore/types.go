@@ -1,8 +1,10 @@
 package piecestore
 
-import "github.com/ipfs/go-cid"
+import (
+	"github.com/ipfs/go-cid"
+)
 
-//go:generate cbor-gen-for PieceInfo DealInfo BlockInfo
+//go:generate cbor-gen-for PieceInfo DealInfo BlockLocation PieceBlockLocation CIDInfo
 
 // DealInfo is information about a single deal for a give piece
 type DealInfo struct {
@@ -12,12 +14,27 @@ type DealInfo struct {
 	Length   uint64
 }
 
-// BlockInfo is information about where a given block is within a piece
-type BlockInfo struct {
-	CID       cid.Cid
+// BlockLocation is information about where a given block is relative to the overall piece
+type BlockLocation struct {
 	RelOffset uint64
 	BlockSize uint64
 }
+
+// PieceBlockLocation is block information along with the pieceCID of the piece the block
+// is inside of
+type PieceBlockLocation struct {
+	BlockLocation
+	PieceCID []byte
+}
+
+// CIDInfo is information about where a given CID will live inside a piece
+type CIDInfo struct {
+	CID                 cid.Cid
+	PieceBlockLocations []PieceBlockLocation
+}
+
+// CIDInfoUndefined is cid info with no information
+var CIDInfoUndefined = CIDInfo{}
 
 // PieceInfo is metadata about a piece a provider may be storing based
 // on its PieceCID -- so that, given a pieceCID during retrieval, the miner
@@ -25,7 +42,6 @@ type BlockInfo struct {
 type PieceInfo struct {
 	PieceCID []byte
 	Deals    []DealInfo
-	Blocks   []BlockInfo
 }
 
 // PieceInfoUndefined is piece info with no information
@@ -34,8 +50,7 @@ var PieceInfoUndefined = PieceInfo{}
 // PieceStore is a saved database of piece info that can be modified and queried
 type PieceStore interface {
 	AddDealForPiece(pieceCID []byte, dealInfo DealInfo) error
-	AddBlockInfosToPiece(pieceCID []byte, blockInfos []BlockInfo) error
-	HasBlockInfo(pieceCID []byte) (bool, error)
-	HasDealInfo(pieceCID []byte) (bool, error)
+	AddPieceBlockLocations(pieceCID []byte, blockLocations map[cid.Cid]BlockLocation) error
 	GetPieceInfo(pieceCID []byte) (PieceInfo, error)
+	GetCIDInfo(payloadCID cid.Cid) (CIDInfo, error)
 }
