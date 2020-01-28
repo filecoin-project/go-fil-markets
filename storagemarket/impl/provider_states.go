@@ -177,7 +177,7 @@ func (p *Provider) staged(ctx context.Context, deal MinerDeal) (func(*MinerDeal)
 		return nil, err
 	}
 	paddedReader, paddedSize := padreader.NewPaddedReader(file, uint64(file.Size()))
-	sectorID, err := p.spn.OnDealComplete(
+	err = p.spn.OnDealComplete(
 		ctx,
 		storagemarket.MinerDeal{
 			Client:      deal.Client,
@@ -191,25 +191,22 @@ func (p *Provider) staged(ctx context.Context, deal MinerDeal) (func(*MinerDeal)
 		paddedReader,
 	)
 
-	if err != nil {
-		return nil, err
-	}
-
-	return func(deal *MinerDeal) {
-		deal.SectorID = sectorID
-	}, nil
+	return nil, err
 }
 
 // SEALING
 
 func (p *Provider) sealing(ctx context.Context, deal MinerDeal) (func(*MinerDeal), error) {
 	// TODO: consider waiting for seal to happen
-	cb := func(err error) {
+	cb := func(sectorId uint64, err error) {
 		select {
 		case p.updated <- minerDealUpdate{
 			newState: storagemarket.StorageDealActive,
 			id:       deal.ProposalCid,
 			err:      err,
+			mut: func(deal *MinerDeal) {
+				deal.SectorID = sectorId
+			},
 		}:
 		case <-p.stop:
 		}

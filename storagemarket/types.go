@@ -231,8 +231,7 @@ type StorageProviderNode interface {
 	ListProviderDeals(ctx context.Context, addr address.Address) ([]StorageDeal, error)
 
 	// Called when a deal is complete and on chain, and data has been transferred and is ready to be added to a sector
-	// returns sector id
-	OnDealComplete(ctx context.Context, deal MinerDeal, pieceSize uint64, pieceReader io.Reader) (uint64, error)
+	OnDealComplete(ctx context.Context, deal MinerDeal, pieceSize uint64, pieceReader io.Reader) error
 
 	// returns the worker address associated with a miner
 	GetMinerWorker(ctx context.Context, miner address.Address) (address.Address, error)
@@ -245,7 +244,7 @@ type StorageProviderNode interface {
 	LocatePieceForDealWithinSector(ctx context.Context, dealID uint64) (sectorID uint64, offset uint64, length uint64, err error)
 }
 
-type DealSectorCommittedCallback func(error)
+type DealSectorCommittedCallback func(sectorId uint64, err error)
 
 // Node dependencies for a StorageClient
 type StorageClientNode interface {

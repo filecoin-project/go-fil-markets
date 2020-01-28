@@ -76,7 +76,7 @@ func (c *Client) staged(ctx context.Context, deal ClientDeal) (func(*ClientDeal)
 }
 
 func (c *Client) sealing(ctx context.Context, deal ClientDeal) (func(*ClientDeal), error) {
-	cb := func(err error) {
+	cb := func(_ uint64, err error) {
 		select {
 		case c.updated <- clientDealUpdate{
 			newState: storagemarket.StorageDealActive,
