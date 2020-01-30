@@ -4,13 +4,13 @@ import (
 	"context"
 	"io"
 
+	"github.com/filecoin-project/go-padreader"
+	"github.com/filecoin-project/go-sectorbuilder"
 	"github.com/ipfs/go-cid"
 	blockstore "github.com/ipfs/go-ipfs-blockstore"
 	"github.com/ipld/go-ipld-prime"
 
 	"github.com/filecoin-project/go-fil-markets/filestore"
-	"github.com/filecoin-project/go-fil-markets/pieceio/padreader"
-	"github.com/filecoin-project/go-sectorbuilder"
 )
 
 type CarIO interface {
@@ -60,7 +60,7 @@ func (pio *pieceIO) GeneratePieceCommitment(payloadCid cid.Cid, selector ipld.No
 }
 
 func GeneratePieceCommitment(rd io.Reader, pieceSize uint64) ([]byte, uint64, error) {
-	paddedReader, paddedSize := padreader.NewPaddedReader(rd, pieceSize)
+	paddedReader, paddedSize := padreader.New(rd, pieceSize)
 	commitment, err := sectorbuilder.GeneratePieceCommitment(paddedReader, paddedSize)
 	if err != nil {
 		return nil, 0, err
