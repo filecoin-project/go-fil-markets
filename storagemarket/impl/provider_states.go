@@ -4,14 +4,13 @@ import (
 	"bytes"
 	"context"
 
+	"github.com/filecoin-project/go-padreader"
 	"github.com/ipfs/go-cid"
 	ipldfree "github.com/ipld/go-ipld-prime/impl/free"
 	"github.com/ipld/go-ipld-prime/traversal/selector"
 	"github.com/ipld/go-ipld-prime/traversal/selector/builder"
-
 	"golang.org/x/xerrors"
 
-	"github.com/filecoin-project/go-fil-markets/pieceio/padreader"
 	"github.com/filecoin-project/go-fil-markets/piecestore"
 	"github.com/filecoin-project/go-fil-markets/shared/tokenamount"
 	"github.com/filecoin-project/go-fil-markets/storagemarket"
@@ -176,7 +175,7 @@ func (p *Provider) staged(ctx context.Context, deal MinerDeal) (func(*MinerDeal)
 	if err != nil {
 		return nil, err
 	}
-	paddedReader, paddedSize := padreader.NewPaddedReader(file, uint64(file.Size()))
+	paddedReader, paddedSize := padreader.New(file, uint64(file.Size()))
 	err = p.spn.OnDealComplete(
 		ctx,
 		storagemarket.MinerDeal{
