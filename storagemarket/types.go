@@ -152,6 +152,7 @@ type StorageDeal struct {
 	StoragePricePerEpoch tokenamount.TokenAmount
 	StorageCollateral    tokenamount.TokenAmount
 	ActivationEpoch      uint64 // 0 = inactive
+	Id                   DealID
 }
 
 type StateKey interface {
@@ -273,6 +274,9 @@ type StorageClientNode interface {
 
 	// Cancels a subscription
 	//UnsubscribeStorageMarketEvents(subId SubID)
+
+	// Validates that a deal has been published correctly; returns the dealId
+	// Deal should be already published when this is called
 	ValidatePublishedDeal(ctx context.Context, deal ClientDeal) (uint64, error)
 
 	// SignProposal signs a proposal
