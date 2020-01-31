@@ -14,6 +14,7 @@ import (
 	"golang.org/x/xerrors"
 
 	"github.com/filecoin-project/go-address"
+
 	"github.com/filecoin-project/go-fil-markets/retrievalmarket"
 	"github.com/filecoin-project/go-fil-markets/retrievalmarket/impl/blockio"
 	"github.com/filecoin-project/go-fil-markets/retrievalmarket/impl/clientstates"
@@ -83,6 +84,7 @@ func (c *client) Query(ctx context.Context, p retrievalmarket.RetrievalPeer, pay
 	return s.ReadQueryResponse()
 }
 
+// Retrieve begins the process of requesting the data referred to by payloadCID, after a deal is accepted
 func (c *client) Retrieve(ctx context.Context, payloadCID cid.Cid, params retrievalmarket.Params, totalFunds tokenamount.TokenAmount, miner peer.ID, clientWallet address.Address, minerWallet address.Address) retrievalmarket.DealID {
 	/* The implementation of this function is just wrapper for the old code which retrieves UnixFS pieces
 	-- it will be replaced when we do the V0 implementation of the module */
@@ -97,6 +99,7 @@ func (c *client) Retrieve(ctx context.Context, payloadCID cid.Cid, params retrie
 			ID:         dealID,
 			Params:     params,
 		},
+		Message:          "starting handle deal",
 		TotalFunds:       totalFunds,
 		ClientWallet:     clientWallet,
 		MinerWallet:      minerWallet,
@@ -121,7 +124,6 @@ func (c *client) failDeal(dealState *retrievalmarket.ClientDealState, err error)
 }
 
 func (c *client) handleDeal(ctx context.Context, dealState retrievalmarket.ClientDealState) {
-
 	c.notifySubscribers(retrievalmarket.ClientEventOpen, dealState)
 
 	s, err := c.network.NewDealStream(dealState.Sender)
@@ -154,11 +156,14 @@ func (c *client) handleDeal(ctx context.Context, dealState retrievalmarket.Clien
 		if retrievalmarket.IsTerminalStatus(dealState.Status) {
 			break
 		}
+		dealState.Message = dealState.Message + " done handling"
 		c.notifySubscribers(retrievalmarket.ClientEventProgress, dealState)
 	}
 	if retrievalmarket.IsTerminalSuccess(dealState.Status) {
+		dealState.Message = dealState.Message + "IsTerminalSuccess"
 		c.notifySubscribers(retrievalmarket.ClientEventComplete, dealState)
 	} else {
+		dealState.Message = dealState.Message + "After all that, we failed."
 		c.notifySubscribers(retrievalmarket.ClientEventError, dealState)
 	}
 }

@@ -130,7 +130,7 @@ func ProcessPayment(ctx context.Context, environment ProviderDealEnvironment, de
 	// read payment, or fail
 	payment, err := environment.DealStream().ReadDealPayment()
 	if err != nil {
-		return errorFunc(xerrors.Errorf("reading payment: %", err))
+		return errorFunc(xerrors.Errorf("reading payment: %w", err))
 	}
 
 	// attempt to redeem voucher

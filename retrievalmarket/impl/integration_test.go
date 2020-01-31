@@ -152,10 +152,10 @@ func TestClientCanMakeDealWithProvider(t *testing.T) {
 			unsealing:   true},
 	}
 
-	for _, testCase := range testCases {
+	for i, testCase := range testCases {
 		t.Run(testCase.name, func(t *testing.T) {
 			bgCtx := context.Background()
-			clientPaymentChannel, err := address.NewIDAddress(rand.Uint64())
+			clientPaymentChannel, err := address.NewIDAddress(uint64(i * 10))
 			require.NoError(t, err)
 
 			testData := tut.NewLibp2pTestData(bgCtx, t)
@@ -166,7 +166,7 @@ func TestClientCanMakeDealWithProvider(t *testing.T) {
 			c, ok := pieceLink.(cidlink.Link)
 			require.True(t, ok)
 			payloadCID := c.Cid
-			providerPaymentAddr, err := address.NewIDAddress(rand.Uint64())
+			providerPaymentAddr, err := address.NewIDAddress(uint64(i * 99))
 			require.NoError(t, err)
 			paymentInterval := uint64(10000)
 			paymentIntervalIncrease := uint64(1000)
@@ -254,7 +254,7 @@ Message:         %s
 					clientDealStateChan <- state
 				case retrievalmarket.ClientEventError:
 					t.Errorf(msg, state.Status, state.TotalReceived, state.BytesPaidFor, state.CurrentInterval,
-						   state.TotalFunds.String(), state.Message)
+						state.TotalFunds.String(), state.Message)
 				default:
 					t.Logf(msg, state.Status, state.TotalReceived, state.BytesPaidFor, state.CurrentInterval,
 						state.TotalFunds.String(), state.Message)
@@ -279,7 +279,7 @@ CurrentInterval: %d
 						state.CurrentInterval)
 				default:
 					t.Logf(msg, state.Status, state.TotalSent, state.FundsReceived.String(), state.Message,
-						   state.CurrentInterval)
+						state.CurrentInterval)
 				}
 			})
 

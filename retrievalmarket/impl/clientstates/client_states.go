@@ -55,7 +55,7 @@ func ProposeDeal(ctx context.Context, environment ClientDealEnvironment, deal rm
 	}
 	response, err := stream.ReadDealResponse()
 	if err != nil {
-		return errorFunc(xerrors.Errorf("reading deal reaponse: %w", err))
+		return errorFunc(xerrors.Errorf("reading deal response: %w", err))
 	}
 	if response.Status == rm.DealStatusRejected {
 		return func(deal *rm.ClientDealState) {
