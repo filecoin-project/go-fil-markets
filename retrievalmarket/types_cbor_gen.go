@@ -337,7 +337,7 @@ func (t *DealResponse) UnmarshalCBOR(r io.Reader) error {
 		return err
 	}
 	if maj != cbg.MajArray {
-		return fmt.Errorf("cbor input should be of type array, but was %d", maj)
+		return fmt.Errorf("cbor input should be of type array")
 	}
 
 	if extra != 5 {

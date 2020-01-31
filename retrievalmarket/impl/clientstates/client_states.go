@@ -41,7 +41,6 @@ func SetupPaymentChannel(ctx context.Context, environment ClientDealEnvironment,
 	}
 	return func(deal *rm.ClientDealState) {
 		deal.Status = rm.DealStatusPaymentChannelCreated
-		deal.Message = deal.Message + " SetupPaymentChannel"
 		deal.PayCh = paych
 		deal.Lane = lane
 	}

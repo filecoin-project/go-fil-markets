@@ -51,9 +51,8 @@ func TestReceiveDeal(t *testing.T) {
 		node := testnodes.NewTestRetrievalProviderNode()
 		dealState := blankDealState()
 		expectedDealResponse := retrievalmarket.DealResponse{
-			Message: "DealStatusAccepted",
-			Status:  retrievalmarket.DealStatusAccepted,
-			ID:      proposal.ID,
+			Status: retrievalmarket.DealStatusAccepted,
+			ID:     proposal.ID,
 		}
 		fe := environment(node, testnet.TestDealStreamParams{
 			ProposalReader: testnet.StubbedDealProposalReader(proposal),
@@ -68,7 +67,7 @@ func TestReceiveDeal(t *testing.T) {
 		require.Equal(t, dealState.Status, retrievalmarket.DealStatusAccepted)
 		require.Equal(t, dealState.DealProposal, proposal)
 		require.Equal(t, dealState.CurrentInterval, defaultCurrentInterval)
-		require.NotEmpty(t, dealState.Message)
+		require.Empty(t, dealState.Message)
 	})
 
 	t.Run("missing piece", func(t *testing.T) {
@@ -163,7 +162,6 @@ func TestSendBlocks(t *testing.T) {
 			PaymentOwed: defaultPaymentPerInterval,
 			Blocks:      blocks,
 			ID:          dealState.ID,
-			Message:     " SendBlocks",
 		}
 		fe := environment(testnet.TestDealStreamParams{
 			ResponseWriter: testnet.ExpectDealResponseWriter(t, expectedDealResponse),
@@ -183,7 +181,6 @@ func TestSendBlocks(t *testing.T) {
 			PaymentOwed: defaultPaymentPerInterval,
 			Blocks:      blocks,
 			ID:          dealState.ID,
-			Message:     " SendBlocks",
 		}
 		fe := environment(testnet.TestDealStreamParams{
 			ResponseWriter: testnet.ExpectDealResponseWriter(t, expectedDealResponse),
@@ -298,7 +295,6 @@ func TestProcessPayment(t *testing.T) {
 				ID:          dealState.ID,
 				Status:      retrievalmarket.DealStatusFundsNeeded,
 				PaymentOwed: tokenamount.Sub(defaultPaymentPerInterval, smallerPayment),
-				Message:     " ProcessPayment",
 			}),
 		})
 		f := providerstates.ProcessPayment(ctx, fe, *dealState)

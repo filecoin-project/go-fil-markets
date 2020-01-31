@@ -23,7 +23,7 @@ type ProviderDealEnvironment interface {
 func errorFunc(err error) func(*rm.ProviderDealState) {
 	return func(deal *rm.ProviderDealState) {
 		deal.Status = rm.DealStatusFailed
-		deal.Message = deal.Message + " " + err.Error()
+		deal.Message = err.Error()
 	}
 }
 
@@ -38,7 +38,7 @@ func responseFailure(stream rmnet.RetrievalDealStream, status rm.DealStatus, mes
 	}
 	return func(deal *rm.ProviderDealState) {
 		deal.Status = status
-		deal.Message = deal.Message + " " + message
+		deal.Message = message
 	}
 }
 
@@ -70,12 +70,9 @@ func ReceiveDeal(ctx context.Context, environment ProviderDealEnvironment, deal 
 	}
 
 	// accept the deal
-	deal.Message = "DealStatusAccepted"
-
 	err = environment.DealStream().WriteDealResponse(rm.DealResponse{
-		Message: deal.Message,
-		Status:  rm.DealStatusAccepted,
-		ID:      dealProposal.ID,
+		Status: rm.DealStatusAccepted,
+		ID:     dealProposal.ID,
 	})
 	if err != nil {
 		return errorFunc(xerrors.Errorf("writing real response: %w", err))
@@ -96,7 +93,6 @@ func SendBlocks(ctx context.Context, environment ProviderDealEnvironment, deal r
 	returnStatus := rm.DealStatusFundsNeeded
 	var blocks []rm.Block
 
-	deal.Message = deal.Message + " SendBlocks"
 	// read blocks until we reach current interval
 	for totalSent-totalPaidFor < deal.CurrentInterval {
 		block, done, err := environment.NextBlock(ctx)
@@ -117,7 +113,6 @@ func SendBlocks(ctx context.Context, environment ProviderDealEnvironment, deal r
 		Status:      returnStatus,
 		PaymentOwed: paymentOwed,
 		Blocks:      blocks,
-		Message:     deal.Message,
 	})
 	if err != nil {
 		return errorFunc(xerrors.Errorf("writing deal response: %w", err))
@@ -147,13 +142,11 @@ func ProcessPayment(ctx context.Context, environment ProviderDealEnvironment, de
 	}
 
 	// check if all payments are received to continue the deal, or send updated required payment
-	deal.Message = deal.Message + " ProcessPayment"
 	if received.LessThan(paymentOwed) {
 		err := environment.DealStream().WriteDealResponse(rm.DealResponse{
 			ID:          deal.ID,
 			Status:      deal.Status,
 			PaymentOwed: tokenamount.Sub(paymentOwed, received),
-			Message:     deal.Message,
 		})
 		if err != nil {
 			return errorFunc(xerrors.Errorf("writing deal response", err))

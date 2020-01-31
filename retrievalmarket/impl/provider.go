@@ -166,7 +166,7 @@ func (p *provider) HandleQueryStream(stream rmnet.RetrievalQueryStream) {
 }
 
 func (p *provider) failDeal(dealState *retrievalmarket.ProviderDealState, err error) {
-	dealState.Message = dealState.Message + err.Error()
+	dealState.Message = err.Error()
 	dealState.Status = retrievalmarket.DealStatusFailed
 	p.notifySubscribers(retrievalmarket.ProviderEventError, *dealState)
 }
@@ -176,7 +176,6 @@ func (p *provider) HandleDealStream(stream rmnet.RetrievalDealStream) {
 	ctx, cancel := context.WithCancel(context.TODO())
 	defer cancel()
 	dealState := retrievalmarket.ProviderDealState{
-		Message:       "DealStatusNew",
 		Status:        retrievalmarket.DealStatusNew,
 		TotalSent:     0,
 		FundsReceived: tokenamount.FromInt(0),

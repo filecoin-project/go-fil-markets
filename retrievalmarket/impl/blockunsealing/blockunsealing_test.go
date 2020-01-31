@@ -207,7 +207,6 @@ func TestNewLoaderWithUnsealing(t *testing.T) {
 		})
 
 		t.Run("car io failure", func(t *testing.T) {
-			t.SkipNow()
 			bs := setupBlockStore(t)
 			unsealer := testnodes.NewTestRetrievalProviderNode()
 			randBytes := make([]byte, 100)

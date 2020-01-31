@@ -14,7 +14,6 @@ import (
 	"golang.org/x/xerrors"
 
 	"github.com/filecoin-project/go-address"
-
 	"github.com/filecoin-project/go-fil-markets/retrievalmarket"
 	"github.com/filecoin-project/go-fil-markets/retrievalmarket/impl/blockio"
 	"github.com/filecoin-project/go-fil-markets/retrievalmarket/impl/clientstates"
@@ -99,7 +98,6 @@ func (c *client) Retrieve(ctx context.Context, payloadCID cid.Cid, params retrie
 			ID:         dealID,
 			Params:     params,
 		},
-		Message:          "starting handle deal",
 		TotalFunds:       totalFunds,
 		ClientWallet:     clientWallet,
 		MinerWallet:      minerWallet,
@@ -124,6 +122,7 @@ func (c *client) failDeal(dealState *retrievalmarket.ClientDealState, err error)
 }
 
 func (c *client) handleDeal(ctx context.Context, dealState retrievalmarket.ClientDealState) {
+
 	c.notifySubscribers(retrievalmarket.ClientEventOpen, dealState)
 
 	s, err := c.network.NewDealStream(dealState.Sender)
@@ -159,7 +158,6 @@ func (c *client) handleDeal(ctx context.Context, dealState retrievalmarket.Clien
 		c.notifySubscribers(retrievalmarket.ClientEventProgress, dealState)
 	}
 	if retrievalmarket.IsTerminalSuccess(dealState.Status) {
-		dealState.Message = dealState.Message + "IsTerminalSuccess"
 		c.notifySubscribers(retrievalmarket.ClientEventComplete, dealState)
 	} else {
 		c.notifySubscribers(retrievalmarket.ClientEventError, dealState)
