@@ -121,10 +121,6 @@ func requireSetupTestClientAndProvider(bgCtx context.Context, t *testing.T, payC
 }
 
 func TestClientCanMakeDealWithProvider(t *testing.T) {
-	bgCtx := context.Background()
-	clientPaymentChannel, err := address.NewIDAddress(rand.Uint64())
-	require.NoError(t, err)
-
 	// -------- SET UP PROVIDER
 
 	testCases := []struct {
@@ -158,6 +154,10 @@ func TestClientCanMakeDealWithProvider(t *testing.T) {
 
 	for _, testCase := range testCases {
 		t.Run(testCase.name, func(t *testing.T) {
+			bgCtx := context.Background()
+			clientPaymentChannel, err := address.NewIDAddress(rand.Uint64())
+			require.NoError(t, err)
+
 			testData := tut.NewLibp2pTestData(bgCtx, t)
 
 			// Inject a unixFS file on the provider side to its blockstore
@@ -240,29 +240,30 @@ func TestClientCanMakeDealWithProvider(t *testing.T) {
 
 			clientDealStateChan := make(chan retrievalmarket.ClientDealState)
 			client.SubscribeToEvents(func(event retrievalmarket.ClientEvent, state retrievalmarket.ClientDealState) {
-				switch event {
-				case retrievalmarket.ClientEventComplete:
-					clientDealStateChan <- state
-				case retrievalmarket.ClientEventError:
-					msg := `
+				msg := `
 Client:
 Status:          %d
 TotalReceived:   %d
 BytesPaidFor:    %d
 CurrentInterval: %d
 TotalFunds:      %s
+Message:         %s
 `
-					t.Logf(msg, state.Status, state.TotalReceived, state.BytesPaidFor, state.CurrentInterval, state.TotalFunds.String())
+				switch event {
+				case retrievalmarket.ClientEventComplete:
+					clientDealStateChan <- state
+				case retrievalmarket.ClientEventError:
+					t.Errorf(msg, state.Status, state.TotalReceived, state.BytesPaidFor, state.CurrentInterval,
+						   state.TotalFunds.String(), state.Message)
+				default:
+					t.Logf(msg, state.Status, state.TotalReceived, state.BytesPaidFor, state.CurrentInterval,
+						state.TotalFunds.String(), state.Message)
 				}
 			})
 
 			providerDealStateChan := make(chan retrievalmarket.ProviderDealState)
 			provider.SubscribeToEvents(func(event retrievalmarket.ProviderEvent, state retrievalmarket.ProviderDealState) {
-				switch event {
-				case retrievalmarket.ProviderEventComplete:
-					providerDealStateChan <- state
-				case retrievalmarket.ProviderEventError:
-					msg := `
+				msg := `
 Provider:
 Status:          %d
 TotalSent:       %d
@@ -270,7 +271,15 @@ FundsReceived:   %s
 Message:		 %s
 CurrentInterval: %d
 `
-					t.Logf(msg, state.Status, state.TotalSent, state.FundsReceived.String(), state.Message, state.CurrentInterval)
+				switch event {
+				case retrievalmarket.ProviderEventComplete:
+					providerDealStateChan <- state
+				case retrievalmarket.ProviderEventError:
+					t.Errorf(msg, state.Status, state.TotalSent, state.FundsReceived.String(), state.Message,
+						state.CurrentInterval)
+				default:
+					t.Logf(msg, state.Status, state.TotalSent, state.FundsReceived.String(), state.Message,
+						   state.CurrentInterval)
 				}
 			})
 
