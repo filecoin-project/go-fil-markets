@@ -176,7 +176,7 @@ func (p *provider) HandleDealStream(stream rmnet.RetrievalDealStream) {
 	ctx, cancel := context.WithCancel(context.TODO())
 	defer cancel()
 	dealState := retrievalmarket.ProviderDealState{
-		Message:       "Started handling deal stream",
+		Message:       "DealStatusNew",
 		Status:        retrievalmarket.DealStatusNew,
 		TotalSent:     0,
 		FundsReceived: tokenamount.FromInt(0),
@@ -209,14 +209,11 @@ func (p *provider) HandleDealStream(stream rmnet.RetrievalDealStream) {
 
 			environment.br = blockio.NewSelectorBlockReader(cidlink.Link{Cid: dealState.PayloadCID}, loaderWithUnsealing.Load)
 		}
-		dealState.Message = dealState.Message + " starting next round"
 		p.notifySubscribers(retrievalmarket.ProviderEventProgress, dealState)
 	}
 	if retrievalmarket.IsTerminalSuccess(dealState.Status) {
-		dealState.Message = dealState.Message + " IsTerminalSuccess"
 		p.notifySubscribers(retrievalmarket.ProviderEventComplete, dealState)
 	} else {
-		dealState.Message = dealState.Message + " After all that, we failed."
 		p.notifySubscribers(retrievalmarket.ProviderEventError, dealState)
 	}
 }

@@ -156,14 +156,12 @@ func (c *client) handleDeal(ctx context.Context, dealState retrievalmarket.Clien
 		if retrievalmarket.IsTerminalStatus(dealState.Status) {
 			break
 		}
-		dealState.Message = dealState.Message + " done handling"
 		c.notifySubscribers(retrievalmarket.ClientEventProgress, dealState)
 	}
 	if retrievalmarket.IsTerminalSuccess(dealState.Status) {
 		dealState.Message = dealState.Message + "IsTerminalSuccess"
 		c.notifySubscribers(retrievalmarket.ClientEventComplete, dealState)
 	} else {
-		dealState.Message = dealState.Message + "After all that, we failed."
 		c.notifySubscribers(retrievalmarket.ClientEventError, dealState)
 	}
 }

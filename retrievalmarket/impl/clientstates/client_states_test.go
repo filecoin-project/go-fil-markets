@@ -70,7 +70,7 @@ func TestSetupPaymentChannel(t *testing.T) {
 		})
 		f := clientstates.SetupPaymentChannel(ctx, fe, *dealState)
 		f(dealState)
-		require.Empty(t, dealState.Message)
+		require.NotEmpty(t, dealState.Message)
 		require.Equal(t, dealState.Status, retrievalmarket.DealStatusPaymentChannelCreated)
 		require.Equal(t, dealState.PayCh, expectedPayCh)
 		require.Equal(t, dealState.Lane, expectedLane)
