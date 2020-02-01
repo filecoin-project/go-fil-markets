@@ -44,8 +44,8 @@ type Provider struct {
 
 	spn storagemarket.StorageProviderNode
 
-	fs  filestore.FileStore
-	pio pieceio.PieceIO
+	fs         filestore.FileStore
+	pio        pieceio.PieceIOWithStore
 	pieceStore piecestore.PieceStore
 
 	// dataTransfer is the manager of data transfers used by this storage provider
@@ -78,7 +78,7 @@ var (
 
 func NewProvider(ds datastore.Batching, bs blockstore.Blockstore, fs filestore.FileStore, pieceStore piecestore.PieceStore, dataTransfer datatransfer.Manager, spn storagemarket.StorageProviderNode, minerAddress address.Address) (storagemarket.StorageProvider, error) {
 	carIO := cario.NewCarIO()
-	pio := pieceio.NewPieceIO(carIO, fs, bs)
+	pio := pieceio.NewPieceIOWithStore(carIO, fs, bs)
 
 	h := &Provider{
 		fs:           fs,
