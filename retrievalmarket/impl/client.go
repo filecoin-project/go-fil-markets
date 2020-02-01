@@ -83,6 +83,7 @@ func (c *client) Query(ctx context.Context, p retrievalmarket.RetrievalPeer, pay
 	return s.ReadQueryResponse()
 }
 
+// Retrieve begins the process of requesting the data referred to by payloadCID, after a deal is accepted
 func (c *client) Retrieve(ctx context.Context, payloadCID cid.Cid, params retrievalmarket.Params, totalFunds tokenamount.TokenAmount, miner peer.ID, clientWallet address.Address, minerWallet address.Address) retrievalmarket.DealID {
 	/* The implementation of this function is just wrapper for the old code which retrieves UnixFS pieces
 	-- it will be replaced when we do the V0 implementation of the module */
