@@ -144,14 +144,6 @@ github.com/ipfs/go-block-format v0.0.2/go.mod h1:AWR46JfpcObNfg3ok2JHDUfdiHRgWhJ
 github.com/ipfs/go-blockservice v0.1.0/go.mod h1:hzmMScl1kXHg3M2BjTymbVPjv627N7sYcvYaKbop39M=
 github.com/ipfs/go-blockservice v0.1.3-0.20190908200855-f22eea50656c h1:lN5IQA07VtLiTLAp/Scezp1ljFhXErC6yq4O1cu+yJ0=
 github.com/ipfs/go-blockservice v0.1.3-0.20190908200855-f22eea50656c/go.mod h1:t+411r7psEUhLueM8C7aPA7cxCclv4O3VsUVxt9kz2I=
-github.com/ipfs/go-car v0.0.3-0.20200124090545-1a340009d896 h1:l8gnU1VBhftugMKzfh+n7nuDhOw3X1iqfrA33GVBMMY=
-github.com/ipfs/go-car v0.0.3-0.20200124090545-1a340009d896/go.mod h1:rmd887mJxQRDfndfDEY3Liyx8gQVyfFFRSHdsnDSAlk=
-github.com/ipfs/go-car v0.0.3-0.20200130233554-015b3ddfd48a h1:v0qeqUy6ZbpxN2lhrWw5sAaJYofe4ol3Gdn5Qh1w5eU=
-github.com/ipfs/go-car v0.0.3-0.20200130233554-015b3ddfd48a/go.mod h1:rEkw0S1sHd5kHL3rUSGEhwNanYqTwwNhjtpp0rwjrr4=
-github.com/ipfs/go-car v0.0.3-0.20200130235341-c390874621f7 h1:2lp2fELIlrTGsUqP3Z7TUZfg4+W3IeCadCqbkwtQ37Q=
-github.com/ipfs/go-car v0.0.3-0.20200130235341-c390874621f7/go.mod h1:rEkw0S1sHd5kHL3rUSGEhwNanYqTwwNhjtpp0rwjrr4=
-github.com/ipfs/go-car v0.0.3-0.20200131213208-c9ea3be3a35d h1:lXGeGusyc2SXTjb2qVq4tlnxEuei+ivaooWdD80rZaw=
-github.com/ipfs/go-car v0.0.3-0.20200131213208-c9ea3be3a35d/go.mod h1:rEkw0S1sHd5kHL3rUSGEhwNanYqTwwNhjtpp0rwjrr4=
 github.com/ipfs/go-car v0.0.3-0.20200131220434-3f68f6ebd093 h1:mYq7vJKGUzxIkkYfqXfO0uEO8gOmV9F38Tcpvi/p8P8=
 github.com/ipfs/go-car v0.0.3-0.20200131220434-3f68f6ebd093/go.mod h1:rEkw0S1sHd5kHL3rUSGEhwNanYqTwwNhjtpp0rwjrr4=
 github.com/ipfs/go-cid v0.0.1/go.mod h1:GHWU/WuQdMPmIosc4Yn1bcCT7dSeX4lBafM7iqUPQvM=
