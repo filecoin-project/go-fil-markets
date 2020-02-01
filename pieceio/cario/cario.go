@@ -20,9 +20,9 @@ func NewCarIO() pieceio.CarIO {
 	return &carIO{}
 }
 
-func (c carIO) WriteCar(ctx context.Context, bs pieceio.ReadStore, payloadCid cid.Cid, selector ipld.Node, w io.Writer, onNewCarBlockFuncs ...car.OnNewCarBlockFunc) error {
+func (c carIO) WriteCar(ctx context.Context, bs pieceio.ReadStore, payloadCid cid.Cid, selector ipld.Node, w io.Writer) error {
 	sc := car.NewSelectiveCar(ctx, bs, []car.Dag{{Root: payloadCid, Selector: selector}})
-	return sc.Write(w, onNewCarBlockFuncs...)
+	return sc.Write(w)
 }
 
 func (c carIO) PrepareCar(ctx context.Context, bs pieceio.ReadStore, payloadCid cid.Cid, selector ipld.Node) (pieceio.PreparedCar, error) {

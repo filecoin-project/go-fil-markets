@@ -2,7 +2,6 @@
 
 package mocks
 
-import car "github.com/ipfs/go-car"
 import cid "github.com/ipfs/go-cid"
 import context "context"
 import io "io"
@@ -59,20 +58,13 @@ func (_m *CarIO) PrepareCar(ctx context.Context, bs pieceio.ReadStore, payloadCi
 	return r0, r1
 }
 
-// WriteCar provides a mock function with given fields: ctx, bs, payloadCid, node, w, onNewCarBlockFuncs
-func (_m *CarIO) WriteCar(ctx context.Context, bs pieceio.ReadStore, payloadCid cid.Cid, node ipld.Node, w io.Writer, onNewCarBlockFuncs ...car.OnNewCarBlockFunc) error {
-	_va := make([]interface{}, len(onNewCarBlockFuncs))
-	for _i := range onNewCarBlockFuncs {
-		_va[_i] = onNewCarBlockFuncs[_i]
-	}
-	var _ca []interface{}
-	_ca = append(_ca, ctx, bs, payloadCid, node, w)
-	_ca = append(_ca, _va...)
-	ret := _m.Called(_ca...)
+// WriteCar provides a mock function with given fields: ctx, bs, payloadCid, node, w
+func (_m *CarIO) WriteCar(ctx context.Context, bs pieceio.ReadStore, payloadCid cid.Cid, node ipld.Node, w io.Writer) error {
+	ret := _m.Called(ctx, bs, payloadCid, node, w)
 
 	var r0 error
-	if rf, ok := ret.Get(0).(func(context.Context, pieceio.ReadStore, cid.Cid, ipld.Node, io.Writer, ...car.OnNewCarBlockFunc) error); ok {
-		r0 = rf(ctx, bs, payloadCid, node, w, onNewCarBlockFuncs...)
+	if rf, ok := ret.Get(0).(func(context.Context, pieceio.ReadStore, cid.Cid, ipld.Node, io.Writer) error); ok {
+		r0 = rf(ctx, bs, payloadCid, node, w)
 	} else {
 		r0 = ret.Error(0)
 	}

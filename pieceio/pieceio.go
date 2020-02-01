@@ -8,7 +8,6 @@ import (
 
 	"github.com/filecoin-project/go-padreader"
 	"github.com/filecoin-project/go-sectorbuilder"
-	"github.com/ipfs/go-car"
 	"github.com/ipfs/go-cid"
 	blockstore "github.com/ipfs/go-ipfs-blockstore"
 	"github.com/ipld/go-ipld-prime"
@@ -23,7 +22,7 @@ type PreparedCar interface {
 
 type CarIO interface {
 	// WriteCar writes a given payload to a CAR file and into the passed IO stream
-	WriteCar(ctx context.Context, bs ReadStore, payloadCid cid.Cid, node ipld.Node, w io.Writer, onNewCarBlockFuncs ...car.OnNewCarBlockFunc) error
+	WriteCar(ctx context.Context, bs ReadStore, payloadCid cid.Cid, node ipld.Node, w io.Writer) error
 
 	// PrepareCar prepares a car so that it's total size can be calculated without writing it to a file.
 	// It can then be written with PreparedCar.Dump
@@ -87,7 +86,7 @@ func (pio *pieceIO) GeneratePieceCommitment(payloadCid cid.Cid, selector ipld.No
 	return commitment, paddedSize, nil
 }
 
-func (pio *pieceIOWithStore) GeneratePieceCommitmentToFile(payloadCid cid.Cid, selector ipld.Node, onNewCarBlockFuncs ...car.OnNewCarBlockFunc) ([]byte, filestore.Path, uint64, error) {
+func (pio *pieceIOWithStore) GeneratePieceCommitmentToFile(payloadCid cid.Cid, selector ipld.Node) ([]byte, filestore.Path, uint64, error) {
 	f, err := pio.store.CreateTemp()
 	if err != nil {
 		return nil, "", 0, err
