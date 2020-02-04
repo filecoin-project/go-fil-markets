@@ -68,15 +68,14 @@ type clientDealUpdate struct {
 	mut      func(*ClientDeal)
 }
 
-func NewClient(h host.Host, bs blockstore.Blockstore, fs filestore.FileStore, dataTransfer datatransfer.Manager, discovery *discovery.Local, deals *statestore.StateStore, scn storagemarket.StorageClientNode) *Client {
+func NewClient(h host.Host, bs blockstore.Blockstore, dataTransfer datatransfer.Manager, discovery *discovery.Local, deals *statestore.StateStore, scn storagemarket.StorageClientNode) *Client {
 	carIO := cario.NewCarIO()
-	pio := pieceio.NewPieceIO(carIO, fs, bs)
+	pio := pieceio.NewPieceIO(carIO, bs)
 
 	c := &Client{
 		h:            h,
 		dataTransfer: dataTransfer,
 		bs:           bs,
-		fs:           fs,
 		pio:          pio,
 		discovery:    discovery,
 		node:         scn,

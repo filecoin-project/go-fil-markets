@@ -41,14 +41,9 @@ func (c *Client) commP(ctx context.Context, root cid.Cid) ([]byte, uint64, error
 	allSelector := ssb.ExploreRecursive(selector.RecursionLimitNone(),
 		ssb.ExploreAll(ssb.ExploreRecursiveEdge())).Node()
 
-	commp, tmpPath, paddedSize, err := c.pio.GeneratePieceCommitment(root, allSelector)
+	commp, paddedSize, err := c.pio.GeneratePieceCommitment(root, allSelector)
 	if err != nil {
 		return nil, 0, xerrors.Errorf("generating CommP: %w", err)
-	}
-
-	err = c.fs.Delete(tmpPath)
-	if err != nil {
-		return nil, 0, xerrors.Errorf("error deleting temp file from filestore: %w", err)
 	}
 
 	return commp[:], paddedSize, nil
