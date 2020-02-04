@@ -7,10 +7,10 @@ import (
 	"github.com/ipld/go-ipld-prime"
 
 	"github.com/filecoin-project/go-data-transfer"
-
 	"github.com/filecoin-project/go-fil-markets/storagemarket"
+	"github.com/filecoin-project/go-fil-markets/storagemarket/network"
 
-	"github.com/filecoin-project/go-cbor-util"
+	cborutil "github.com/filecoin-project/go-cbor-util"
 	"github.com/filecoin-project/go-statestore"
 
 	"github.com/ipfs/go-cid"
@@ -31,7 +31,7 @@ func (p *Provider) failDeal(ctx context.Context, id cid.Cid, cerr error) {
 
 	log.Warnf("deal %s failed: %s", id, cerr)
 
-	err := p.sendSignedResponse(ctx, &Response{
+	err := p.sendSignedResponse(ctx, &network.Response{
 		State:    storagemarket.StorageDealFailing,
 		Message:  cerr.Error(),
 		Proposal: id,
@@ -48,7 +48,7 @@ func (p *Provider) failDeal(ctx context.Context, id cid.Cid, cerr error) {
 	}
 }
 
-func (p *Provider) readProposal(s inet.Stream) (proposal Proposal, err error) {
+func (p *Provider) readProposal(s inet.Stream) (proposal network.Proposal, err error) {
 	if err := cborutil.ReadCborRPC(s, &proposal); err != nil {
 		log.Errorw("failed to read proposal message", "error", err)
 		return proposal, err
@@ -70,7 +70,7 @@ func (p *Provider) readProposal(s inet.Stream) (proposal Proposal, err error) {
 	return
 }
 
-func (p *Provider) sendSignedResponse(ctx context.Context, resp *Response) error {
+func (p *Provider) sendSignedResponse(ctx context.Context, resp *network.Response) error {
 	s, ok := p.conns[resp.Proposal]
 	if !ok {
 		return xerrors.New("couldn't send response: not connected")
@@ -91,7 +91,7 @@ func (p *Provider) sendSignedResponse(ctx context.Context, resp *Response) error
 		return xerrors.Errorf("failed to sign response message: %w", err)
 	}
 
-	signedResponse := &SignedResponse{
+	signedResponse := &network.SignedResponse{
 		Response:  *resp,
 		Signature: sig,
 	}

@@ -12,6 +12,8 @@ import (
 	"github.com/filecoin-project/go-fil-markets/retrievalmarket"
 	"github.com/filecoin-project/go-fil-markets/shared/tokenamount"
 	"github.com/filecoin-project/go-fil-markets/shared/types"
+	"github.com/filecoin-project/go-fil-markets/storagemarket"
+	smnet "github.com/filecoin-project/go-fil-markets/storagemarket/network"
 )
 
 // MakeTestSignedVoucher generates a random SignedVoucher that has all non-zero fields
@@ -107,6 +109,87 @@ func MakeTestDealPayment() retrievalmarket.DealPayment {
 		ID:             retrievalmarket.DealID(rand.Uint64()),
 		PaymentChannel: address.TestAddress,
 		PaymentVoucher: MakeTestSignedVoucher(),
+	}
+}
+
+// MakeTestStorageDealProposal generates a valid storage deal proposal
+func MakeTestStorageDealProposal() *storagemarket.StorageDealProposal {
+	return &storagemarket.StorageDealProposal{
+		PieceRef:  RandomBytes(32),
+		PieceSize: rand.Uint64(),
+
+		Client:   address.TestAddress,
+		Provider: address.TestAddress2,
+
+		ProposalExpiration: rand.Uint64(),
+		Duration:           rand.Uint64(),
+
+		StoragePricePerEpoch: MakeTestTokenAmount(),
+		StorageCollateral:    MakeTestTokenAmount(),
+
+		ProposerSignature: MakeTestSignature(),
+	}
+}
+
+// MakeTestStorageAsk generates a storage ask
+func MakeTestStorageAsk() *types.StorageAsk {
+	return &types.StorageAsk{
+		Price:        MakeTestTokenAmount(),
+		MinPieceSize: rand.Uint64(),
+		Miner:        address.TestAddress2,
+		Timestamp:    rand.Uint64(),
+		Expiry:       rand.Uint64(),
+		SeqNo:        rand.Uint64(),
+	}
+}
+
+// MakeTestSignedStorageAsk generates a signed storage ask
+func MakeTestSignedStorageAsk() *types.SignedStorageAsk {
+	return &types.SignedStorageAsk{
+		Ask:       MakeTestStorageAsk(),
+		Signature: MakeTestSignature(),
+	}
+}
+
+// MakeTestStorageNetworkProposal generates a proposal that can be sent over the
+// network to a provider
+func MakeTestStorageNetworkProposal() smnet.Proposal {
+	return smnet.Proposal{
+		DealProposal: MakeTestStorageDealProposal(),
+		Piece:        GenerateCids(1)[0],
+	}
+}
+
+// MakeTestStorageNetworkResponse generates a response to a proposal sent over
+// the network
+func MakeTestStorageNetworkResponse() smnet.Response {
+	return smnet.Response{
+		State:          storagemarket.StorageDealPublished,
+		Proposal:       GenerateCids(1)[0],
+		PublishMessage: &(GenerateCids(1)[0]),
+	}
+}
+
+// MakeTestStorageNetworkSignedResponse generates a response to a proposal sent over
+// the network that is signed
+func MakeTestStorageNetworkSignedResponse() smnet.SignedResponse {
+	return smnet.SignedResponse{
+		Response:  MakeTestStorageNetworkResponse(),
+		Signature: MakeTestSignature(),
+	}
+}
+
+// MakeTestStorageAskRequest generates a request to get a provider's ask
+func MakeTestStorageAskRequest() smnet.AskRequest {
+	return smnet.AskRequest{
+		Miner: address.TestAddress2,
+	}
+}
+
+// MakeTestStorageAskResponse generates a response to an ask request
+func MakeTestStorageAskResponse() smnet.AskResponse {
+	return smnet.AskResponse{
+		Ask: MakeTestSignedStorageAsk(),
 	}
 }
 

@@ -6,13 +6,10 @@ import (
 
 	"github.com/ipfs/go-cid"
 
-	"github.com/filecoin-project/go-address"
-	"github.com/filecoin-project/go-cbor-util"
-	"github.com/filecoin-project/go-fil-markets/shared/types"
 	"github.com/filecoin-project/go-fil-markets/storagemarket"
 )
 
-//go:generate cbor-gen-for AskRequest AskResponse Proposal Response SignedResponse StorageDataTransferVoucher
+//go:generate cbor-gen-for StorageDataTransferVoucher
 
 var (
 	// ErrWrongVoucherType means the voucher was not the correct type can validate against
@@ -42,47 +39,6 @@ var (
 	// DataTransferStates are the states in which it would make sense to actually start a data transfer
 	DataTransferStates = []storagemarket.StorageDealStatus{storagemarket.StorageDealProposalAccepted, storagemarket.StorageDealUnknown}
 )
-
-type Proposal struct {
-	DealProposal *storagemarket.StorageDealProposal
-
-	Piece cid.Cid // Used for retrieving from the client
-}
-
-type Response struct {
-	State storagemarket.StorageDealStatus
-
-	// DealProposalRejected
-	Message  string
-	Proposal cid.Cid
-
-	// StorageDealProposalAccepted
-	PublishMessage *cid.Cid
-}
-
-// TODO: Do we actually need this to be signed?
-type SignedResponse struct {
-	Response Response
-
-	Signature *types.Signature
-}
-
-func (r *SignedResponse) Verify(addr address.Address) error {
-	b, err := cborutil.Dump(&r.Response)
-	if err != nil {
-		return err
-	}
-
-	return r.Signature.Verify(addr, b)
-}
-
-type AskRequest struct {
-	Miner address.Address
-}
-
-type AskResponse struct {
-	Ask *types.SignedStorageAsk
-}
 
 // StorageDataTransferVoucher is the voucher type for data transfers
 // used by the storage market

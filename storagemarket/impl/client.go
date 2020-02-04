@@ -3,6 +3,8 @@ package storageimpl
 import (
 	"context"
 
+	"github.com/filecoin-project/go-fil-markets/storagemarket/network"
+
 	cborutil "github.com/filecoin-project/go-cbor-util"
 	"github.com/ipfs/go-cid"
 	blockstore "github.com/ipfs/go-ipfs-blockstore"
@@ -218,7 +220,7 @@ func (c *Client) Start(ctx context.Context, p ClientDealProposal) (cid.Cid, erro
 		return cid.Undef, xerrors.Errorf("connecting to storage provider failed: %w", err)
 	}
 
-	proposal := &Proposal{
+	proposal := &network.Proposal{
 		DealProposal: dealProposal,
 		Piece:        p.Data,
 	}
@@ -255,14 +257,14 @@ func (c *Client) QueryAsk(ctx context.Context, p peer.ID, a address.Address) (*t
 		return nil, xerrors.Errorf("failed to open stream to miner: %w", err)
 	}
 
-	req := &AskRequest{
+	req := &network.AskRequest{
 		Miner: a,
 	}
 	if err := cborutil.WriteCborRPC(s, req); err != nil {
 		return nil, xerrors.Errorf("failed to send ask request: %w", err)
 	}
 
-	var out AskResponse
+	var out network.AskResponse
 	if err := cborutil.ReadCborRPC(s, &out); err != nil {
 		return nil, xerrors.Errorf("failed to read ask response: %w", err)
 	}

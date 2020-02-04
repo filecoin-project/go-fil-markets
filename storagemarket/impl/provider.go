@@ -23,6 +23,7 @@ import (
 	"github.com/filecoin-project/go-fil-markets/shared/tokenamount"
 	"github.com/filecoin-project/go-fil-markets/shared/types"
 	"github.com/filecoin-project/go-fil-markets/storagemarket"
+	"github.com/filecoin-project/go-fil-markets/storagemarket/network"
 	"github.com/filecoin-project/go-statestore"
 )
 
@@ -243,7 +244,7 @@ func (p *Provider) onDataTransferEvent(event datatransfer.Event, channelState da
 	}
 }
 
-func (p *Provider) newDeal(s inet.Stream, proposal Proposal) (MinerDeal, error) {
+func (p *Provider) newDeal(s inet.Stream, proposal network.Proposal) (MinerDeal, error) {
 	proposalNd, err := cborutil.AsIpld(proposal.DealProposal)
 	if err != nil {
 		return MinerDeal{}, err

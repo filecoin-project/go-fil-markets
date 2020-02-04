@@ -15,6 +15,7 @@ import (
 
 	cborutil "github.com/filecoin-project/go-cbor-util"
 	"github.com/filecoin-project/go-data-transfer"
+	"github.com/filecoin-project/go-fil-markets/storagemarket/network"
 	"github.com/filecoin-project/go-statestore"
 )
 
@@ -49,14 +50,14 @@ func (c *Client) commP(ctx context.Context, root cid.Cid) ([]byte, uint64, error
 	return commp[:], paddedSize, nil
 }
 
-func (c *Client) readStorageDealResp(deal ClientDeal) (*Response, error) {
+func (c *Client) readStorageDealResp(deal ClientDeal) (*network.Response, error) {
 	s, ok := c.conns[deal.ProposalCid]
 	if !ok {
 		// TODO: Try to re-establish the connection using query protocol
 		return nil, xerrors.Errorf("no connection to miner")
 	}
 
-	var resp SignedResponse
+	var resp network.SignedResponse
 	if err := cborutil.ReadCborRPC(s, &resp); err != nil {
 		log.Errorw("failed to read Response message", "error", err)
 		return nil, err

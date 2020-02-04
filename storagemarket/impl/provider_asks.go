@@ -10,9 +10,10 @@ import (
 	"golang.org/x/xerrors"
 
 	"github.com/filecoin-project/go-address"
-	"github.com/filecoin-project/go-cbor-util"
+	cborutil "github.com/filecoin-project/go-cbor-util"
 	"github.com/filecoin-project/go-fil-markets/shared/tokenamount"
 	"github.com/filecoin-project/go-fil-markets/shared/types"
+	"github.com/filecoin-project/go-fil-markets/storagemarket/network"
 )
 
 func (p *Provider) SetPrice(price tokenamount.TokenAmount, ttlsecs int64) error {
@@ -54,7 +55,7 @@ func (p *Provider) GetAsk(m address.Address) *types.SignedStorageAsk {
 
 func (p *Provider) HandleAskStream(s inet.Stream) {
 	defer s.Close()
-	var ar AskRequest
+	var ar network.AskRequest
 	if err := cborutil.ReadCborRPC(s, &ar); err != nil {
 		log.Errorf("failed to read AskRequest from incoming stream: %s", err)
 		return
@@ -68,8 +69,8 @@ func (p *Provider) HandleAskStream(s inet.Stream) {
 	}
 }
 
-func (p *Provider) processAskRequest(ar *AskRequest) *AskResponse {
-	return &AskResponse{
+func (p *Provider) processAskRequest(ar *network.AskRequest) *network.AskResponse {
+	return &network.AskResponse{
 		Ask: p.GetAsk(ar.Miner),
 	}
 }
