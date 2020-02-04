@@ -76,15 +76,7 @@ var (
 	ErrDataTransferFailed = errors.New("deal data transfer failed")
 )
 
-func NewProvider(ds datastore.Batching, bs blockstore.Blockstore, fs filestore.FileStore, pieceStore piecestore.PieceStore, dataTransfer datatransfer.Manager, spn storagemarket.StorageProviderNode) (storagemarket.StorageProvider, error) {
-	addr, err := ds.Get(datastore.NewKey("miner-address"))
-	if err != nil {
-		return nil, err
-	}
-	minerAddress, err := address.NewFromBytes(addr)
-	if err != nil {
-		return nil, err
-	}
+func NewProvider(ds datastore.Batching, bs blockstore.Blockstore, fs filestore.FileStore, pieceStore piecestore.PieceStore, dataTransfer datatransfer.Manager, spn storagemarket.StorageProviderNode, minerAddress address.Address) (storagemarket.StorageProvider, error) {
 	carIO := cario.NewCarIO()
 	pio := pieceio.NewPieceIO(carIO, fs, bs)
 
