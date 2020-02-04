@@ -8,14 +8,18 @@ import (
 	"github.com/ipfs/go-cid"
 	"github.com/ipfs/go-datastore"
 	"github.com/ipfs/go-datastore/namespace"
-	ipld "github.com/ipfs/go-ipld-format"
+	blockstore "github.com/ipfs/go-ipfs-blockstore"
 	"github.com/libp2p/go-libp2p-core/host"
 	inet "github.com/libp2p/go-libp2p-core/network"
 	"golang.org/x/xerrors"
 
 	"github.com/filecoin-project/go-address"
-	"github.com/filecoin-project/go-cbor-util"
+	cborutil "github.com/filecoin-project/go-cbor-util"
 	"github.com/filecoin-project/go-data-transfer"
+	"github.com/filecoin-project/go-fil-markets/filestore"
+	"github.com/filecoin-project/go-fil-markets/pieceio"
+	"github.com/filecoin-project/go-fil-markets/pieceio/cario"
+	"github.com/filecoin-project/go-fil-markets/piecestore"
 	"github.com/filecoin-project/go-fil-markets/shared/tokenamount"
 	"github.com/filecoin-project/go-fil-markets/shared/types"
 	"github.com/filecoin-project/go-fil-markets/storagemarket"
@@ -40,9 +44,9 @@ type Provider struct {
 
 	spn storagemarket.StorageProviderNode
 
-	// TODO: This will go away once storage market module + CAR
-	// is implemented
-	dag ipld.DAGService
+	fs  filestore.FileStore
+	pio pieceio.PieceIO
+	pieceStore piecestore.PieceStore
 
 	// dataTransfer is the manager of data transfers used by this storage provider
 	dataTransfer datatransfer.Manager
@@ -61,7 +65,7 @@ type Provider struct {
 }
 
 type minerDealUpdate struct {
-	newState storagemarket.DealState
+	newState storagemarket.StorageDealStatus
 	id       cid.Cid
 	err      error
 	mut      func(*MinerDeal)
@@ -72,7 +76,7 @@ var (
 	ErrDataTransferFailed = errors.New("deal data transfer failed")
 )
 
-func NewProvider(ds datastore.Batching, dag ipld.DAGService, dataTransfer datatransfer.Manager, spn storagemarket.StorageProviderNode) (storagemarket.StorageProvider, error) {
+func NewProvider(ds datastore.Batching, bs blockstore.Blockstore, fs filestore.FileStore, pieceStore piecestore.PieceStore, dataTransfer datatransfer.Manager, spn storagemarket.StorageProviderNode) (storagemarket.StorageProvider, error) {
 	addr, err := ds.Get(datastore.NewKey("miner-address"))
 	if err != nil {
 		return nil, err
@@ -81,9 +85,13 @@ func NewProvider(ds datastore.Batching, dag ipld.DAGService, dataTransfer datatr
 	if err != nil {
 		return nil, err
 	}
+	carIO := cario.NewCarIO()
+	pio := pieceio.NewPieceIO(carIO, fs, bs)
 
 	h := &Provider{
-		dag:          dag,
+		fs:           fs,
+		pio:          pio,
+		pieceStore:   pieceStore,
 		dataTransfer: dataTransfer,
 		spn:          spn,
 
@@ -134,9 +142,9 @@ func (p *Provider) Run(ctx context.Context, host host.Host) {
 
 		for {
 			select {
-			case deal := <-p.incoming: // DealAccepted
+			case deal := <-p.incoming:
 				p.onIncoming(deal)
-			case update := <-p.updated: // DealStaged
+			case update := <-p.updated:
 				p.onUpdated(ctx, update)
 			case <-p.stop:
 				return
@@ -159,7 +167,7 @@ func (p *Provider) onIncoming(deal MinerDeal) {
 
 	go func() {
 		p.updated <- minerDealUpdate{
-			newState: storagemarket.DealAccepted,
+			newState: storagemarket.StorageDealValidating,
 			id:       deal.ProposalCid,
 			err:      nil,
 		}
@@ -188,14 +196,20 @@ func (p *Provider) onUpdated(ctx context.Context, update minerDealUpdate) {
 	}
 
 	switch update.newState {
-	case storagemarket.DealAccepted:
-		p.handle(ctx, deal, p.accept, storagemarket.DealNoUpdate)
-	case storagemarket.DealStaged:
-		p.handle(ctx, deal, p.staged, storagemarket.DealSealing)
-	case storagemarket.DealSealing:
-		p.handle(ctx, deal, p.sealing, storagemarket.DealComplete)
-	case storagemarket.DealComplete:
-		p.handle(ctx, deal, p.complete, storagemarket.DealNoUpdate)
+	case storagemarket.StorageDealValidating:
+		p.handle(ctx, deal, p.validating, storagemarket.StorageDealTransferring)
+	case storagemarket.StorageDealTransferring:
+		p.handle(ctx, deal, p.transferring, storagemarket.StorageDealNoUpdate)
+	case storagemarket.StorageDealVerifyData:
+		p.handle(ctx, deal, p.verifydata, storagemarket.StorageDealPublishing)
+	case storagemarket.StorageDealPublishing:
+		p.handle(ctx, deal, p.publishing, storagemarket.StorageDealStaged)
+	case storagemarket.StorageDealStaged:
+		p.handle(ctx, deal, p.staged, storagemarket.StorageDealSealing)
+	case storagemarket.StorageDealSealing:
+		p.handle(ctx, deal, p.sealing, storagemarket.StorageDealNoUpdate)
+	case storagemarket.StorageDealActive:
+		p.handle(ctx, deal, p.complete, storagemarket.StorageDealNoUpdate)
 	}
 }
 
@@ -212,17 +226,14 @@ func (p *Provider) onDataTransferEvent(event datatransfer.Event, channelState da
 	}
 
 	// data transfer events for opening and progress do not affect deal state
-	var next storagemarket.DealState
+	var next storagemarket.StorageDealStatus
 	var err error
 	var mut func(*MinerDeal)
 	switch event.Code {
 	case datatransfer.Complete:
-		next = storagemarket.DealStaged
-		mut = func(deal *MinerDeal) {
-			deal.DealID = voucher.DealID
-		}
+		next = storagemarket.StorageDealVerifyData
 	case datatransfer.Error:
-		next = storagemarket.DealFailed
+		next = storagemarket.StorageDealFailing
 		err = ErrDataTransferFailed
 	default:
 		// the only events we care about are complete and error
@@ -251,7 +262,7 @@ func (p *Provider) newDeal(s inet.Stream, proposal Proposal) (MinerDeal, error) 
 			Client:      s.Conn().RemotePeer(),
 			Proposal:    *proposal.DealProposal,
 			ProposalCid: proposalNd.Cid(),
-			State:       storagemarket.DealUnknown,
+			State:       storagemarket.StorageDealUnknown,
 
 			Ref: proposal.Piece,
 		},

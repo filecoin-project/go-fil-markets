@@ -6,8 +6,8 @@ import (
 
 	"github.com/ipld/go-ipld-prime"
 
-	"github.com/filecoin-project/go-address"
 	"github.com/filecoin-project/go-data-transfer"
+
 	"github.com/filecoin-project/go-fil-markets/storagemarket"
 
 	"github.com/filecoin-project/go-cbor-util"
@@ -32,7 +32,7 @@ func (p *Provider) failDeal(ctx context.Context, id cid.Cid, cerr error) {
 	log.Warnf("deal %s failed: %s", id, cerr)
 
 	err := p.sendSignedResponse(ctx, &Response{
-		State:    storagemarket.DealFailed,
+		State:    storagemarket.StorageDealFailing,
 		Message:  cerr.Error(),
 		Proposal: id,
 	})
@@ -58,7 +58,7 @@ func (p *Provider) readProposal(s inet.Stream) (proposal Proposal, err error) {
 		return proposal, xerrors.Errorf("incoming deal proposal has no signature")
 	}
 
-	if err := proposal.DealProposal.Verify(address.Undef); err != nil {
+	if err := proposal.DealProposal.Verify(); err != nil {
 		return proposal, xerrors.Errorf("verifying StorageDealProposal: %w", err)
 	}
 

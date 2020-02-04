@@ -19,6 +19,6 @@ type ReadStore interface {
 
 // PieceIO converts between payloads and pieces
 type PieceIO interface {
-	GeneratePieceCommitment(bs ReadStore, payloadCid cid.Cid, selector ipld.Node) ([]byte, filestore.Path, error)
-	ReadPiece(r io.Reader, bs WriteStore) (cid.Cid, error)
+	GeneratePieceCommitment(payloadCid cid.Cid, selector ipld.Node) ([]byte, filestore.Path, uint64, error)
+	ReadPiece(r io.Reader) (cid.Cid, error)
 }

@@ -4,17 +4,17 @@ import (
 	"context"
 	"runtime"
 
+	ipldfree "github.com/ipld/go-ipld-prime/impl/free"
+	"github.com/ipld/go-ipld-prime/traversal/selector"
+	"github.com/ipld/go-ipld-prime/traversal/selector/builder"
+
 	"github.com/ipfs/go-cid"
-	files "github.com/ipfs/go-ipfs-files"
-	unixfile "github.com/ipfs/go-unixfs/file"
 	"github.com/ipld/go-ipld-prime"
 	"github.com/libp2p/go-libp2p-core/peer"
 	"golang.org/x/xerrors"
 
-	"github.com/filecoin-project/go-cbor-util"
+	cborutil "github.com/filecoin-project/go-cbor-util"
 	"github.com/filecoin-project/go-data-transfer"
-	"github.com/filecoin-project/go-fil-markets/pieceio/padreader"
-	"github.com/filecoin-project/go-sectorbuilder"
 	"github.com/filecoin-project/go-statestore"
 )
 
@@ -34,38 +34,24 @@ func (c *Client) failDeal(id cid.Cid, cerr error) {
 	log.Errorf("deal %s failed: %+v", id, cerr)
 }
 
-func (c *Client) commP(ctx context.Context, data cid.Cid) ([]byte, uint64, error) {
-	root, err := c.dag.Get(ctx, data)
-	if err != nil {
-		log.Errorf("failed to get file root for deal: %s", err)
-		return nil, 0, err
-	}
+func (c *Client) commP(ctx context.Context, root cid.Cid) ([]byte, uint64, error) {
+	ssb := builder.NewSelectorSpecBuilder(ipldfree.NodeBuilder())
 
-	n, err := unixfile.NewUnixfsFile(ctx, c.dag, root)
-	if err != nil {
-		log.Errorf("cannot open unixfs file: %s", err)
-		return nil, 0, err
-	}
+	// entire DAG selector
+	allSelector := ssb.ExploreRecursive(selector.RecursionLimitNone(),
+		ssb.ExploreAll(ssb.ExploreRecursiveEdge())).Node()
 
-	uf, ok := n.(files.File)
-	if !ok {
-		// TODO: we probably got directory, how should we handle this in unixfs mode?
-		return nil, 0, xerrors.New("unsupported unixfs type")
-	}
-
-	s, err := uf.Size()
-	if err != nil {
-		return nil, 0, err
-	}
-
-	pr, psize := padreader.NewPaddedReader(uf, uint64(s))
-
-	commp, err := sectorbuilder.GeneratePieceCommitment(pr, psize)
+	commp, tmpPath, paddedSize, err := c.pio.GeneratePieceCommitment(root, allSelector)
 	if err != nil {
 		return nil, 0, xerrors.Errorf("generating CommP: %w", err)
 	}
 
-	return commp[:], psize, nil
+	err = c.fs.Delete(tmpPath)
+	if err != nil {
+		return nil, 0, xerrors.Errorf("error deleting temp file from filestore: %w", err)
+	}
+
+	return commp[:], paddedSize, nil
 }
 
 func (c *Client) readStorageDealResp(deal ClientDeal) (*Response, error) {

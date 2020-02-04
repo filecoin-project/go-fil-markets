@@ -2,59 +2,75 @@ package retrievalimpl
 
 import (
 	"context"
-	"io"
+	"errors"
 	"reflect"
 	"sync"
 
-	"github.com/ipfs/go-blockservice"
 	"github.com/ipfs/go-cid"
-	files "github.com/ipfs/go-ipfs-files"
-	ipld "github.com/ipfs/go-ipld-format"
-	"github.com/ipfs/go-merkledag"
-	unixfile "github.com/ipfs/go-unixfs/file"
-	"github.com/libp2p/go-libp2p-core/host"
-	"github.com/libp2p/go-libp2p-core/network"
-	"golang.org/x/xerrors"
+	blockstore "github.com/ipfs/go-ipfs-blockstore"
+	cidlink "github.com/ipld/go-ipld-prime/linking/cid"
 
-	cborutil "github.com/filecoin-project/go-cbor-util"
+	"github.com/filecoin-project/go-address"
+	"github.com/filecoin-project/go-fil-markets/pieceio/cario"
+	"github.com/filecoin-project/go-fil-markets/piecestore"
 	"github.com/filecoin-project/go-fil-markets/retrievalmarket"
+	"github.com/filecoin-project/go-fil-markets/retrievalmarket/impl/blockio"
+	"github.com/filecoin-project/go-fil-markets/retrievalmarket/impl/blockunsealing"
+	"github.com/filecoin-project/go-fil-markets/retrievalmarket/impl/providerstates"
+	rmnet "github.com/filecoin-project/go-fil-markets/retrievalmarket/network"
 	"github.com/filecoin-project/go-fil-markets/shared/params"
 	"github.com/filecoin-project/go-fil-markets/shared/tokenamount"
 )
 
-// UnixfsReader is a unixfsfile that can read block by block
-type UnixfsReader interface {
-	files.File
-
-	// ReadBlock reads data from a single unixfs block. Data is nil
-	// for intermediate nodes
-	ReadBlock(context.Context) (data []byte, offset uint64, nd ipld.Node, err error)
-}
-
 type provider struct {
-
-	// TODO: Replace with RetrievalProviderNode for
-	// https://github.com/filecoin-project/go-retrieval-market-project/issues/4
-	node retrievalmarket.RetrievalProviderNode
-
-	pricePerByte tokenamount.TokenAmount
-
-	subscribersLk sync.RWMutex
-	subscribers   []retrievalmarket.ProviderSubscriber
+	bs                      blockstore.Blockstore
+	node                    retrievalmarket.RetrievalProviderNode
+	network                 rmnet.RetrievalMarketNetwork
+	paymentInterval         uint64
+	paymentIntervalIncrease uint64
+	paymentAddress          address.Address
+	pieceStore              piecestore.PieceStore
+	pricePerByte            tokenamount.TokenAmount
+	subscribers             []retrievalmarket.ProviderSubscriber
+	subscribersLk           sync.RWMutex
 }
+
+var _ retrievalmarket.RetrievalProvider = &provider{}
+
+// DefaultPricePerByte is the charge per byte retrieved if the miner does
+// not specifically set it
+var DefaultPricePerByte = tokenamount.FromInt(2)
+
+// DefaultPaymentInterval is the baseline interval, set to the unixfs chunk size
+// if the miner does not explicitly set it otherwise
+var DefaultPaymentInterval = uint64(params.UnixfsChunkSize)
+
+// DefaultPaymentIntervalIncrease is the amount interval increases on each payment, set to the unixfs chunk size
+// if the miner does not explicitly set it otherwise
+var DefaultPaymentIntervalIncrease = uint64(params.UnixfsChunkSize)
 
 // NewProvider returns a new retrieval provider
-func NewProvider(node retrievalmarket.RetrievalProviderNode) retrievalmarket.RetrievalProvider {
+func NewProvider(paymentAddress address.Address, node retrievalmarket.RetrievalProviderNode, network rmnet.RetrievalMarketNetwork, pieceStore piecestore.PieceStore, bs blockstore.Blockstore) retrievalmarket.RetrievalProvider {
 	return &provider{
-		node:         node,
-		pricePerByte: tokenamount.FromInt(2), // TODO: allow setting
+		bs:                      bs,
+		node:                    node,
+		network:                 network,
+		paymentAddress:          paymentAddress,
+		pieceStore:              pieceStore,
+		pricePerByte:            DefaultPricePerByte, // TODO: allow setting
+		paymentInterval:         DefaultPaymentInterval,
+		paymentIntervalIncrease: DefaultPaymentIntervalIncrease,
 	}
 }
 
+// Stop stops handling incoming requests
+func (p *provider) Stop() error {
+	return p.network.StopHandlingRequests()
+}
+
 // Start begins listening for deals on the given host
-func (p *provider) Start(host host.Host) {
-	host.SetStreamHandler(retrievalmarket.QueryProtocolID, p.handleQueryStream)
-	host.SetStreamHandler(retrievalmarket.ProtocolID, p.handleDealStream)
+func (p *provider) Start() error {
+	return p.network.SetDelegate(p)
 }
 
 // V0
@@ -65,9 +81,9 @@ func (p *provider) SetPricePerByte(price tokenamount.TokenAmount) {
 
 // SetPaymentInterval sets the maximum number of bytes a a provider will send before
 // requesting further payment, and the rate at which that value increases
-// TODO: Implement for https://github.com/filecoin-project/go-retrieval-market-project/issues/7
 func (p *provider) SetPaymentInterval(paymentInterval uint64, paymentIntervalIncrease uint64) {
-	panic("not implemented")
+	p.paymentInterval = paymentInterval
+	p.paymentIntervalIncrease = paymentIntervalIncrease
 }
 
 // unsubscribeAt returns a function that removes an item from the subscribers list by comparing
@@ -97,7 +113,6 @@ func (p *provider) notifySubscribers(evt retrievalmarket.ProviderEvent, ds retri
 }
 
 // SubscribeToEvents listens for events that happen related to client retrievals
-// TODO: Implement updates as part of https://github.com/filecoin-project/go-retrieval-market-project/issues/7
 func (p *provider) SubscribeToEvents(subscriber retrievalmarket.ProviderSubscriber) retrievalmarket.Unsubscribe {
 	p.subscribersLk.Lock()
 	p.subscribers = append(p.subscribers, subscriber)
@@ -115,208 +130,154 @@ func (p *provider) ListDeals() map[retrievalmarket.ProviderDealID]retrievalmarke
 	panic("not implemented")
 }
 
-func writeErr(stream network.Stream, err error) {
-	log.Errorf("Retrieval deal error: %+v", err)
-	_ = cborutil.WriteCborRPC(stream, &OldDealResponse{
-		Status:  Error,
-		Message: err.Error(),
-	})
-}
-
-// TODO: Update for https://github.com/filecoin-project/go-retrieval-market-project/issues/8
-func (p *provider) handleQueryStream(stream network.Stream) {
+func (p *provider) HandleQueryStream(stream rmnet.RetrievalQueryStream) {
 	defer stream.Close()
-
-	var query OldQuery
-	if err := cborutil.ReadCborRPC(stream, &query); err != nil {
-		writeErr(stream, err)
+	query, err := stream.ReadQuery()
+	if err != nil {
 		return
 	}
 
-	size, err := p.node.GetPieceSize(query.Piece.Bytes())
+	answer := retrievalmarket.QueryResponse{
+		Status:                     retrievalmarket.QueryResponseUnavailable,
+		PaymentAddress:             p.paymentAddress,
+		MinPricePerByte:            p.pricePerByte,
+		MaxPaymentInterval:         p.paymentInterval,
+		MaxPaymentIntervalIncrease: p.paymentIntervalIncrease,
+	}
+
+	pieceInfo, err := getPieceInfoFromCid(p.pieceStore, query.PayloadCID)
+
+	if err == nil && len(pieceInfo.Deals) > 0 {
+		answer.Status = retrievalmarket.QueryResponseAvailable
+		// TODO: get price, look for already unsealed ref to reduce work
+		answer.Size = uint64(pieceInfo.Deals[0].Length) // TODO: verify on intermediate
+	}
+
 	if err != nil && err != retrievalmarket.ErrNotFound {
 		log.Errorf("Retrieval query: GetRefs: %s", err)
-		return
+		answer.Status = retrievalmarket.QueryResponseError
+		answer.Message = err.Error()
 	}
 
-	answer := &OldQueryResponse{
-		Status: Unavailable,
-	}
-	if err == nil {
-		answer.Status = Available
-
-		// TODO: get price, look for already unsealed ref to reduce work
-		answer.MinPrice = tokenamount.Mul(tokenamount.FromInt(uint64(size)), p.pricePerByte)
-		answer.Size = uint64(size) // TODO: verify on intermediate
-	}
-
-	if err := cborutil.WriteCborRPC(stream, answer); err != nil {
+	if err := stream.WriteQueryResponse(answer); err != nil {
 		log.Errorf("Retrieval query: WriteCborRPC: %s", err)
 		return
 	}
 }
 
-type handlerDeal struct {
-	p      *provider
-	stream network.Stream
-
-	ufsr UnixfsReader
-	open cid.Cid
-	at   uint64
-	size uint64
+func (p *provider) failDeal(dealState *retrievalmarket.ProviderDealState, err error) {
+	dealState.Message = err.Error()
+	dealState.Status = retrievalmarket.DealStatusFailed
+	p.notifySubscribers(retrievalmarket.ProviderEventError, *dealState)
 }
 
-// TODO: Update for https://github.com/filecoin-project/go-retrieval-market-project/issues/7
-func (p *provider) handleDealStream(stream network.Stream) {
+func (p *provider) HandleDealStream(stream rmnet.RetrievalDealStream) {
 	defer stream.Close()
-
-	hnd := &handlerDeal{
-		p: p,
-
-		stream: stream,
+	ctx, cancel := context.WithCancel(context.TODO())
+	defer cancel()
+	dealState := retrievalmarket.ProviderDealState{
+		Status:        retrievalmarket.DealStatusNew,
+		TotalSent:     0,
+		FundsReceived: tokenamount.FromInt(0),
 	}
+	p.notifySubscribers(retrievalmarket.ProviderEventOpen, dealState)
 
-	var err error
-	more := true
+	environment := providerDealEnvironment{p.pieceStore, p.node, nil, p.pricePerByte, p.paymentInterval, p.paymentIntervalIncrease, stream}
 
-	for more {
-		more, err = hnd.handleNext() // TODO: 'more' bool
-		if err != nil {
-			writeErr(stream, err)
+	for {
+		var handler providerstates.ProviderHandlerFunc
+
+		switch dealState.Status {
+		case retrievalmarket.DealStatusNew:
+			handler = providerstates.ReceiveDeal
+		case retrievalmarket.DealStatusAccepted, retrievalmarket.DealStatusOngoing, retrievalmarket.DealStatusUnsealing:
+			handler = providerstates.SendBlocks
+		case retrievalmarket.DealStatusFundsNeeded, retrievalmarket.DealStatusFundsNeededLastPayment:
+			handler = providerstates.ProcessPayment
+		default:
+			p.failDeal(&dealState, errors.New("unexpected deal state"))
 			return
 		}
-	}
+		dealModifier := handler(ctx, &environment, dealState)
+		dealModifier(&dealState)
+		if retrievalmarket.IsTerminalStatus(dealState.Status) {
+			break
+		}
+		if environment.br == nil {
+			loaderWithUnsealing := blockunsealing.NewLoaderWithUnsealing(ctx, p.bs, environment.pieceStore, cario.NewCarIO(), p.node.UnsealSector)
 
+			environment.br = blockio.NewSelectorBlockReader(cidlink.Link{Cid: dealState.PayloadCID}, loaderWithUnsealing.Load)
+		}
+		p.notifySubscribers(retrievalmarket.ProviderEventProgress, dealState)
+	}
+	if retrievalmarket.IsTerminalSuccess(dealState.Status) {
+		p.notifySubscribers(retrievalmarket.ProviderEventComplete, dealState)
+	} else {
+		p.notifySubscribers(retrievalmarket.ProviderEventError, dealState)
+	}
 }
 
-func (hnd *handlerDeal) handleNext() (bool, error) {
-	var deal OldDealProposal
-	if err := cborutil.ReadCborRPC(hnd.stream, &deal); err != nil {
-		if err == io.EOF { // client sent all deals
-			err = nil
-		}
-		return false, err
-	}
-
-	if deal.Params.Unixfs0 == nil {
-		return false, xerrors.New("unknown deal type")
-	}
-
-	unixfs0 := deal.Params.Unixfs0
-
-	if len(deal.Payment.Vouchers) != 1 {
-		return false, xerrors.Errorf("expected one signed voucher, got %d", len(deal.Payment.Vouchers))
-	}
-
-	expPayment := tokenamount.Mul(hnd.p.pricePerByte, tokenamount.FromInt(deal.Params.Unixfs0.Size))
-	if _, err := hnd.p.node.SavePaymentVoucher(context.TODO(), deal.Payment.Channel, deal.Payment.Vouchers[0], nil, expPayment); err != nil {
-		return false, xerrors.Errorf("processing retrieval payment: %w", err)
-	}
-
-	// If the file isn't open (new deal stream), isn't the right file, or isn't
-	// at the right offset, (re)open it
-	if hnd.open != deal.Ref || hnd.at != unixfs0.Offset {
-		log.Infof("opening file for sending (open '%s') (@%d, want %d)", deal.Ref, hnd.at, unixfs0.Offset)
-		if err := hnd.openFile(deal); err != nil {
-			return false, err
-		}
-	}
-
-	if unixfs0.Offset+unixfs0.Size > hnd.size {
-		return false, xerrors.Errorf("tried to read too much %d+%d > %d", unixfs0.Offset, unixfs0.Size, hnd.size)
-	}
-
-	err := hnd.accept(deal)
-	if err != nil {
-		return false, err
-	}
-	return true, nil
+type providerDealEnvironment struct {
+	pieceStore                 piecestore.PieceStore
+	node                       retrievalmarket.RetrievalProviderNode
+	br                         blockio.BlockReader
+	minPricePerByte            tokenamount.TokenAmount
+	maxPaymentInterval         uint64
+	maxPaymentIntervalIncrease uint64
+	stream                     rmnet.RetrievalDealStream
 }
 
-func (hnd *handlerDeal) openFile(deal OldDealProposal) error {
-	unixfs0 := deal.Params.Unixfs0
+func (pde *providerDealEnvironment) Node() retrievalmarket.RetrievalProviderNode {
+	return pde.node
+}
 
-	if unixfs0.Offset != 0 {
-		// TODO: Implement SeekBlock (like ReadBlock) in go-unixfs
-		return xerrors.New("sending merkle proofs for nonzero offset not supported yet")
+func (pde *providerDealEnvironment) DealStream() rmnet.RetrievalDealStream {
+	return pde.stream
+}
+
+func (pde *providerDealEnvironment) CheckDealParams(pricePerByte tokenamount.TokenAmount, paymentInterval uint64, paymentIntervalIncrease uint64) error {
+	if pricePerByte.LessThan(pde.minPricePerByte) {
+		return errors.New("Price per byte too low")
 	}
-	hnd.at = unixfs0.Offset
-
-	bstore := hnd.p.node.SealedBlockstore(func() error {
-		return nil // TODO: approve unsealing based on amount paid
-	})
-
-	ds := merkledag.NewDAGService(blockservice.New(bstore, nil))
-	rootNd, err := ds.Get(context.TODO(), deal.Ref)
-	if err != nil {
-		return err
+	if paymentInterval > pde.maxPaymentInterval {
+		return errors.New("Payment interval too large")
 	}
-
-	fsr, err := unixfile.NewUnixfsFile(context.TODO(), ds, rootNd)
-	if err != nil {
-		return err
+	if paymentIntervalIncrease > pde.maxPaymentIntervalIncrease {
+		return errors.New("Payment interval increase too large")
 	}
-
-	var ok bool
-	hnd.ufsr, ok = fsr.(UnixfsReader)
-	if !ok {
-		return xerrors.Errorf("file %s didn't implement UnixfsReader", deal.Ref)
-	}
-
-	isize, err := hnd.ufsr.Size()
-	if err != nil {
-		return err
-	}
-	hnd.size = uint64(isize)
-
-	hnd.open = deal.Ref
-
 	return nil
 }
 
-func (hnd *handlerDeal) accept(deal OldDealProposal) error {
-	unixfs0 := deal.Params.Unixfs0
-
-	resp := &OldDealResponse{
-		Status: Accepted,
+func (pde *providerDealEnvironment) NextBlock(ctx context.Context) (retrievalmarket.Block, bool, error) {
+	if pde.br == nil {
+		return retrievalmarket.Block{}, false, errors.New("Could not read block")
 	}
-	if err := cborutil.WriteCborRPC(hnd.stream, resp); err != nil {
-		log.Errorf("Retrieval query: Write Accepted resp: %s", err)
-		return err
+	return pde.br.ReadBlock(ctx)
+}
+
+func (pde *providerDealEnvironment) GetPieceSize(c cid.Cid) (uint64, error) {
+	pieceInfo, err := getPieceInfoFromCid(pde.pieceStore, c)
+	if err != nil {
+		return 0, err
 	}
-
-	blocksToSend := (unixfs0.Size + params.UnixfsChunkSize - 1) / params.UnixfsChunkSize
-	for i := uint64(0); i < blocksToSend; {
-		data, offset, nd, err := hnd.ufsr.ReadBlock(context.TODO())
-		if err != nil {
-			return err
-		}
-
-		log.Infof("sending block for a deal: %s", nd.Cid())
-
-		if offset != unixfs0.Offset {
-			return xerrors.Errorf("ReadBlock on wrong offset: want %d, got %d", unixfs0.Offset, offset)
-		}
-
-		/*if uint64(len(data)) != deal.Unixfs0.Size { // TODO: Fix for internal nodes (and any other node too)
-			writeErr(stream, xerrors.Errorf("ReadBlock data with wrong size: want %d, got %d", deal.Unixfs0.Size, len(data)))
-			return
-		}*/
-
-		block := &Block{
-			Prefix: nd.Cid().Prefix().Bytes(),
-			Data:   nd.RawData(),
-		}
-
-		if err := cborutil.WriteCborRPC(hnd.stream, block); err != nil {
-			return err
-		}
-
-		if len(data) > 0 { // don't count internal nodes
-			hnd.at += uint64(len(data))
-			i++
-		}
+	if len(pieceInfo.Deals) == 0 {
+		return 0, errors.New("Not enough piece info")
 	}
+	return pieceInfo.Deals[0].Length, nil
+}
 
-	return nil
+func getPieceInfoFromCid(pieceStore piecestore.PieceStore, c cid.Cid) (piecestore.PieceInfo, error) {
+	cidInfo, err := pieceStore.GetCIDInfo(c)
+	if err != nil {
+		return piecestore.PieceInfoUndefined, err
+	}
+	var lastErr error
+	for _, pieceBlockLocation := range cidInfo.PieceBlockLocations {
+		pieceInfo, err := pieceStore.GetPieceInfo(pieceBlockLocation.PieceCID)
+		if err == nil {
+			return pieceInfo, nil
+		}
+		lastErr = err
+	}
+	return piecestore.PieceInfoUndefined, lastErr
 }

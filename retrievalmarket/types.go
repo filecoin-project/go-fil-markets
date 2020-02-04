@@ -3,29 +3,25 @@ package retrievalmarket
 import (
 	"context"
 	"errors"
+	"io"
 	"math/big"
 
 	"github.com/filecoin-project/go-address"
+	"github.com/ipfs/go-cid"
+	"github.com/libp2p/go-libp2p-core/peer"
+
 	"github.com/filecoin-project/go-fil-markets/shared/tokenamount"
 	"github.com/filecoin-project/go-fil-markets/shared/types"
-	"github.com/ipfs/go-cid"
-	blockstore "github.com/ipfs/go-ipfs-blockstore"
-	"github.com/libp2p/go-libp2p-core/host"
-	"github.com/libp2p/go-libp2p-core/peer"
 )
 
-//go:generate cbor-gen-for Query QueryResponse DealProposal DealResponse Params QueryParams DealPayment Block
-
-// type aliases
-// TODO: Remove and use native types or extract for
-// https://github.com/filecoin-project/go-retrieval-market-project/issues/5
+//go:generate cbor-gen-for Query QueryResponse DealProposal DealResponse Params QueryParams DealPayment Block ClientDealState
 
 // ProtocolID is the protocol for proposing / responding to retrieval deals
 const ProtocolID = "/fil/retrieval/0.0.1"
 
-// QueryProtocolID is the protocol for querying infromation about retrieval
+// QueryProtocolID is the protocol for querying information about retrieval
 // deal parameters
-const QueryProtocolID = "/fil/retrieval/qry/0.0.1" // TODO: spec
+const QueryProtocolID = "/fil/retrieval/qry/0.0.1"
 
 // Unsubscribe is a function that unsubscribes a subscriber for either the
 // client or the provider
@@ -34,11 +30,21 @@ type Unsubscribe func()
 // ClientDealState is the current state of a deal from the point of view
 // of a retrieval client
 type ClientDealState struct {
+	ProposalCid cid.Cid
 	DealProposal
-	Status        DealStatus
-	Sender        peer.ID
-	TotalReceived uint64
-	FundsSpent    tokenamount.TokenAmount
+	TotalFunds       tokenamount.TokenAmount
+	ClientWallet     address.Address
+	MinerWallet      address.Address
+	PayCh            address.Address
+	Lane             uint64
+	Status           DealStatus
+	Sender           peer.ID
+	TotalReceived    uint64
+	Message          string
+	BytesPaidFor     uint64
+	CurrentInterval  uint64
+	PaymentRequested tokenamount.TokenAmount
+	FundsSpent       tokenamount.TokenAmount
 }
 
 // ClientEvent is an event that occurs in a deal lifecycle on the client
@@ -70,20 +76,20 @@ type RetrievalClient interface {
 	// V0
 
 	// Find Providers finds retrieval providers who may be storing a given piece
-	FindProviders(pieceCID []byte) []RetrievalPeer
+	FindProviders(payloadCID cid.Cid) []RetrievalPeer
 
 	// Query asks a provider for information about a piece it is storing
 	Query(
 		ctx context.Context,
 		p RetrievalPeer,
-		pieceCID []byte,
+		payloadCID cid.Cid,
 		params QueryParams,
 	) (QueryResponse, error)
 
 	// Retrieve retrieves all or part of a piece with the given retrieval parameters
 	Retrieve(
 		ctx context.Context,
-		pieceCID []byte,
+		payloadCID cid.Cid,
 		params Params,
 		totalFunds tokenamount.TokenAmount,
 		miner peer.ID,
@@ -101,7 +107,7 @@ type RetrievalClient interface {
 	ListDeals() map[DealID]ClientDealState
 }
 
-// RetrievalClientNode are the node depedencies for a RetrevalClient
+// RetrievalClientNode are the node dependencies for a RetrievalClient
 type RetrievalClientNode interface {
 
 	// GetOrCreatePaymentChannel sets up a new payment channel if one does not exist
@@ -123,10 +129,12 @@ type RetrievalClientNode interface {
 // of a retrieval provider
 type ProviderDealState struct {
 	DealProposal
-	Status        DealStatus
-	Receiver      peer.ID
-	TotalSent     uint64
-	FundsReceived tokenamount.TokenAmount
+	Status          DealStatus
+	Receiver        peer.ID
+	TotalSent       uint64
+	FundsReceived   tokenamount.TokenAmount
+	Message         string
+	CurrentInterval uint64
 }
 
 // ProviderEvent is an event that occurs in a deal lifecycle on the provider
@@ -161,7 +169,10 @@ type ProviderSubscriber func(event ProviderEvent, state ProviderDealState)
 // retrieval operations and monitors deals received and process
 type RetrievalProvider interface {
 	// Start begins listening for deals on the given host
-	Start(host.Host)
+	Start() error
+
+	// Stop stops handling incoming requests
+	Stop() error
 
 	// V0
 
@@ -182,14 +193,13 @@ type RetrievalProvider interface {
 
 // RetrievalProviderNode are the node depedencies for a RetrevalProvider
 type RetrievalProviderNode interface {
-	GetPieceSize(pieceCid []byte) (uint64, error)
-	SealedBlockstore(approveUnseal func() error) blockstore.Blockstore
+	UnsealSector(ctx context.Context, sectorId uint64, offset uint64, length uint64) (io.ReadCloser, error)
 	SavePaymentVoucher(ctx context.Context, paymentChannel address.Address, voucher *types.SignedVoucher, proof []byte, expectedAmount tokenamount.TokenAmount) (tokenamount.TokenAmount, error)
 }
 
 // PeerResolver is an interface for looking up providers that may have a piece
 type PeerResolver interface {
-	GetPeers(data cid.Cid) ([]RetrievalPeer, error) // TODO: channel
+	GetPeers(payloadCID cid.Cid) ([]RetrievalPeer, error) // TODO: channel
 }
 
 // RetrievalPeer is a provider address/peer.ID pair (everything needed to make
@@ -210,6 +220,9 @@ const (
 	// QueryResponseUnavailable indicates a provider either does not have or cannot
 	// serve the queried piece to the client
 	QueryResponseUnavailable
+
+	// QueryResponseError indicates something went wrong generating a query response
+	QueryResponseError
 )
 
 // QueryItemStatus (V1) indicates whether the requested part of a piece (payload or selector)
@@ -245,13 +258,16 @@ type QueryParams struct {
 // Query is a query to a given provider to determine information about a piece
 // they may have available for retrieval
 type Query struct {
-	PieceCID []byte // V0
+	PayloadCID cid.Cid // V0
 	// QueryParams        // V1
 }
 
+// QueryUndefined is a query with no values
+var QueryUndefined = Query{}
+
 // NewQueryV0 creates a V0 query (which only specifies a piece)
-func NewQueryV0(pieceCID []byte) Query {
-	return Query{PieceCID: pieceCID}
+func NewQueryV0(payloadCID cid.Cid) Query {
+	return Query{PayloadCID: payloadCID}
 }
 
 // QueryResponse is a miners response to a given retrieval query
@@ -267,6 +283,7 @@ type QueryResponse struct {
 	MinPricePerByte            tokenamount.TokenAmount
 	MaxPaymentInterval         uint64
 	MaxPaymentIntervalIncrease uint64
+	Message                    string
 }
 
 // QueryResponseUndefined is an empty QueryResponse
@@ -288,9 +305,16 @@ func (qr QueryResponse) PieceRetrievalPrice() tokenamount.TokenAmount {
 type DealStatus uint64
 
 const (
+	// DealStatusNew is a deal that nothing has happened with yet
+	DealStatusNew DealStatus = iota
+
+	// DealStatusPaymentChannelCreated is a deal status that has a payment channel
+	// & lane setup
+	DealStatusPaymentChannelCreated
+
 	// DealStatusAccepted means a deal has been accepted by a provider
 	// and its is ready to proceed with retrieval
-	DealStatusAccepted DealStatus = iota
+	DealStatusAccepted
 
 	// DealStatusFailed indicates something went wrong during a retrieval
 	DealStatusFailed
@@ -322,13 +346,32 @@ const (
 	DealStatusDealNotFound
 )
 
+// IsTerminalError returns true if this status indicates processing of this deal
+// is complete with an error
+func IsTerminalError(status DealStatus) bool {
+	return status == DealStatusDealNotFound ||
+		status == DealStatusFailed ||
+		status == DealStatusRejected
+}
+
+// IsTerminalSuccess returns true if this status indicates processing of this deal
+// is complete with a success
+func IsTerminalSuccess(status DealStatus) bool {
+	return status == DealStatusCompleted
+}
+
+// IsTerminalStatus returns true if this status indicates processing of a deal is
+// complete (either success or error)
+func IsTerminalStatus(status DealStatus) bool {
+	return IsTerminalError(status) || IsTerminalSuccess(status)
+}
+
 // Params are the parameters requested for a retrieval deal proposal
 type Params struct {
-	//PayloadCID              cid.Cid   // V1
 	//Selector                ipld.Node // V1
 	PricePerByte            tokenamount.TokenAmount
-	PaymentInterval         uint64
-	PaymentIntervalIncrease uint64
+	PaymentInterval         uint64 // when to request payment
+	PaymentIntervalIncrease uint64 //
 }
 
 // NewParamsV0 generates parameters for a retrieval deal, which is always a whole piece deal
@@ -345,16 +388,22 @@ type DealID uint64
 
 // DealProposal is a proposal for a new retrieval deal
 type DealProposal struct {
-	PieceCID []byte
-	ID       DealID
+	PayloadCID cid.Cid
+	ID         DealID
 	Params
 }
+
+// DealProposalUndefined is an undefined deal proposal
+var DealProposalUndefined = DealProposal{}
 
 // Block is an IPLD block in bitswap format
 type Block struct {
 	Prefix []byte
 	Data   []byte
 }
+
+// EmptyBlock is just a block with no content
+var EmptyBlock = Block{}
 
 // DealResponse is a response to a retrieval deal proposal
 type DealResponse struct {
@@ -368,6 +417,9 @@ type DealResponse struct {
 	Blocks  []Block // V0 only
 }
 
+// DealResponseUndefined is an undefined deal response
+var DealResponseUndefined = DealResponse{}
+
 // DealPayment is a payment for an in progress retrieval deal
 type DealPayment struct {
 	ID             DealID
@@ -375,7 +427,13 @@ type DealPayment struct {
 	PaymentVoucher *types.SignedVoucher
 }
 
+// DealPaymentUndefined is an undefined deal payment
+var DealPaymentUndefined = DealPayment{}
+
 var (
 	// ErrNotFound means a piece was not found during retrieval
 	ErrNotFound = errors.New("not found")
+
+	// ErrVerification means a retrieval contained a block response that did not verify
+	ErrVerification = errors.New("Error when verify data")
 )

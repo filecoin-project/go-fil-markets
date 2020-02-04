@@ -71,7 +71,8 @@ func FromString(s string) (TokenAmount, error) {
 
 // Mul multiples two token amounts
 func Mul(a, b TokenAmount) TokenAmount {
-	return TokenAmount{big.NewInt(0).Mul(a.Int, b.Int)}
+	zero := big.NewInt(0)
+	return TokenAmount{zero.Mul(a.Int, b.Int)}
 }
 
 // Div divides two token amounts
@@ -121,6 +122,11 @@ func (ta TokenAmount) Equals(o TokenAmount) bool {
 
 // MarshalJSON converts a token amount to a json string
 func (ta *TokenAmount) MarshalJSON() ([]byte, error) {
+	if ta.Int == nil {
+		zero := FromInt(0)
+		return json.Marshal(zero)
+	}
+
 	return json.Marshal(ta.String())
 }
 
@@ -131,15 +137,9 @@ func (ta *TokenAmount) UnmarshalJSON(b []byte) error {
 		return err
 	}
 
-	i, ok := big.NewInt(0).SetString(s, 10)
-	if !ok {
-		if string(s) == "<nil>" {
-			return nil
-		}
-		return xerrors.Errorf("failed to parse bigint string: '%s'", string(b))
-	}
-
-	ta.Int = i
+	res, err := ParseTokenAmount(s)
+	if err != nil { return err }
+	ta.Set(res.Int)
 	return nil
 }
 

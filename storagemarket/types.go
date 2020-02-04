@@ -3,6 +3,7 @@ package storagemarket
 import (
 	"bytes"
 	"context"
+	"io"
 
 	"github.com/ipfs/go-cid"
 	"github.com/libp2p/go-libp2p-core/host"
@@ -11,6 +12,7 @@ import (
 
 	"github.com/filecoin-project/go-address"
 	cborutil "github.com/filecoin-project/go-cbor-util"
+	"github.com/filecoin-project/go-fil-markets/filestore"
 	"github.com/filecoin-project/go-fil-markets/shared/tokenamount"
 	"github.com/filecoin-project/go-fil-markets/shared/types"
 )
@@ -25,34 +27,56 @@ type Balance struct {
 	Available tokenamount.TokenAmount
 }
 
-type DealState = uint64
+type StorageDealStatus = uint64
 
 const (
-	DealUnknown  = DealState(iota)
-	DealRejected // Provider didn't like the proposal
-	DealAccepted // Proposal accepted, data moved
-	DealStaged   // Data put into the sector
-	DealSealing  // Data in process of being sealed
-
-	DealFailed
-	DealComplete
+	StorageDealUnknown = StorageDealStatus(iota)
+	StorageDealProposalNotFound
+	StorageDealProposalRejected
+	StorageDealProposalAccepted
+	StorageDealStaged
+	StorageDealSealing
+	StorageDealProposalSigned
+	StorageDealPublished
+	StorageDealCommitted
+	StorageDealActive
+	StorageDealFailing
+	StorageDealRecovering
+	StorageDealExpired
+	StorageDealNotFound
 
 	// Internal
 
-	DealError // deal failed with an unexpected error
+	StorageDealValidating   // Verifying that deal parameters are good
+	StorageDealTransferring // Moving data
+	StorageDealVerifyData   // Verify transferred data - generate CAR / piece data
+	StorageDealPublishing   // Publishing deal to chain
+	StorageDealError        // deal failed with an unexpected error
 
-	DealNoUpdate = DealUnknown
+	StorageDealNoUpdate = StorageDealUnknown
 )
 
 var DealStates = []string{
-	"DealUnknown",
-	"DealRejected",
-	"DealAccepted",
-	"DealStaged",
-	"DealSealing",
-	"DealFailed",
-	"DealComplete",
-	"DealError",
+	"StorageDealUnknown",
+	"StorageDealProposalNotFound",
+	"StorageDealProposalRejected",
+	"StorageDealProposalAccepted",
+	"StorageDealStaged",
+	"StorageDealSealing",
+	"StorageDealProposalSigned",
+	"StorageDealPublished",
+	"StorageDealCommitted",
+	"StorageDealActive",
+	"StorageDealFailing",
+	"StorageDealRecovering",
+	"StorageDealExpired",
+	"StorageDealNotFound",
+
+	"StorageDealValidating",
+	"StorageDealTransferring",
+	"StorageDealVerifyData",
+	"StorageDealPublishing",
+	"StorageDealError",
 }
 
 type DealID uint64
@@ -104,21 +128,15 @@ func (sdp *StorageDealProposal) Cid() (cid.Cid, error) {
 	return nd.Cid(), nil
 }
 
-func (sdp *StorageDealProposal) Verify(worker address.Address) error {
-	if sdp.Client != worker || worker == address.Undef {
-		unsigned := *sdp
-		unsigned.ProposerSignature = nil
-		var buf bytes.Buffer
-		if err := unsigned.MarshalCBOR(&buf); err != nil {
-			return err
-		}
-
-		if err := sdp.ProposerSignature.Verify(sdp.Client, buf.Bytes()); err != nil {
-			return err
-		}
+func (sdp *StorageDealProposal) Verify() error {
+	unsigned := *sdp
+	unsigned.ProposerSignature = nil
+	var buf bytes.Buffer
+	if err := unsigned.MarshalCBOR(&buf); err != nil {
+		return err
 	}
 
-	return nil
+	return sdp.ProposerSignature.Verify(sdp.Client, buf.Bytes())
 }
 
 type StorageDeal struct {
@@ -148,18 +166,19 @@ type MinerDeal struct {
 	Proposal    StorageDealProposal
 	Miner       peer.ID
 	Client      peer.ID
-	State       DealState
+	State       StorageDealStatus
+	PiecePath   filestore.Path
 
 	Ref cid.Cid
 
 	DealID   uint64
-	SectorID uint64 // Set when sm >= DealStaged
+	SectorID uint64 // Set when sm >= StorageDealStaged
 }
 
 type ClientDeal struct {
 	ProposalCid cid.Cid
 	Proposal    StorageDealProposal
-	State       DealState
+	State       StorageDealStatus
 	Miner       peer.ID
 	MinerWorker address.Address
 	DealID      uint64
@@ -212,17 +231,20 @@ type StorageProviderNode interface {
 	ListProviderDeals(ctx context.Context, addr address.Address) ([]StorageDeal, error)
 
 	// Called when a deal is complete and on chain, and data has been transferred and is ready to be added to a sector
-	// returns sector id
-	OnDealComplete(ctx context.Context, deal MinerDeal, piecePath string) (uint64, error)
+	OnDealComplete(ctx context.Context, deal MinerDeal, pieceSize uint64, pieceReader io.Reader) error
 
 	// returns the worker address associated with a miner
 	GetMinerWorker(ctx context.Context, miner address.Address) (address.Address, error)
 
 	// Signs bytes
 	SignBytes(ctx context.Context, signer address.Address, b []byte) (*types.Signature, error)
+
+	OnDealSectorCommitted(ctx context.Context, provider address.Address, dealID uint64, cb DealSectorCommittedCallback) error
+
+	LocatePieceForDealWithinSector(ctx context.Context, dealID uint64) (sectorID uint64, offset uint64, length uint64, err error)
 }
 
-type DealSectorCommittedCallback func(error)
+type DealSectorCommittedCallback func(sectorId uint64, err error)
 
 // Node dependencies for a StorageClient
 type StorageClientNode interface {

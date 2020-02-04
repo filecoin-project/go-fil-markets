@@ -3,22 +3,23 @@ package storageimpl
 import (
 	"context"
 
-	"github.com/filecoin-project/go-data-transfer"
-	"github.com/filecoin-project/go-fil-markets/shared/tokenamount"
-
+	cborutil "github.com/filecoin-project/go-cbor-util"
 	"github.com/ipfs/go-cid"
-	ipld "github.com/ipfs/go-ipld-format"
-	logging "github.com/ipfs/go-log"
+	blockstore "github.com/ipfs/go-ipfs-blockstore"
+	logging "github.com/ipfs/go-log/v2"
 	"github.com/libp2p/go-libp2p-core/host"
 	inet "github.com/libp2p/go-libp2p-core/network"
 	"github.com/libp2p/go-libp2p-core/peer"
 	"golang.org/x/xerrors"
 
-	"github.com/filecoin-project/go-cbor-util"
+	"github.com/filecoin-project/go-address"
+	"github.com/filecoin-project/go-data-transfer"
+	"github.com/filecoin-project/go-fil-markets/filestore"
+	"github.com/filecoin-project/go-fil-markets/pieceio"
+	"github.com/filecoin-project/go-fil-markets/pieceio/cario"
 	"github.com/filecoin-project/go-fil-markets/retrievalmarket"
 	"github.com/filecoin-project/go-fil-markets/retrievalmarket/discovery"
-
-	"github.com/filecoin-project/go-address"
+	"github.com/filecoin-project/go-fil-markets/shared/tokenamount"
 	"github.com/filecoin-project/go-fil-markets/shared/types"
 	"github.com/filecoin-project/go-fil-markets/storagemarket"
 	"github.com/filecoin-project/go-statestore"
@@ -43,7 +44,9 @@ type Client struct {
 	// Because we are using only a fake DAGService
 	// implementation, there's no validation or events on the client side
 	dataTransfer datatransfer.Manager
-	dag          ipld.DAGService
+	bs           blockstore.Blockstore
+	fs           filestore.FileStore
+	pio          pieceio.PieceIO
 	discovery    *discovery.Local
 
 	node storagemarket.StorageClientNode
@@ -59,17 +62,22 @@ type Client struct {
 }
 
 type clientDealUpdate struct {
-	newState storagemarket.DealState
+	newState storagemarket.StorageDealStatus
 	id       cid.Cid
 	err      error
 	mut      func(*ClientDeal)
 }
 
-func NewClient(h host.Host, dag ipld.DAGService, dataTransfer datatransfer.Manager, discovery *discovery.Local, deals *statestore.StateStore, scn storagemarket.StorageClientNode) *Client {
+func NewClient(h host.Host, bs blockstore.Blockstore, fs filestore.FileStore, dataTransfer datatransfer.Manager, discovery *discovery.Local, deals *statestore.StateStore, scn storagemarket.StorageClientNode) *Client {
+	carIO := cario.NewCarIO()
+	pio := pieceio.NewPieceIO(carIO, fs, bs)
+
 	c := &Client{
 		h:            h,
 		dataTransfer: dataTransfer,
-		dag:          dag,
+		bs:           bs,
+		fs:           fs,
+		pio:          pio,
 		discovery:    discovery,
 		node:         scn,
 
@@ -121,7 +129,7 @@ func (c *Client) onIncoming(deal *ClientDeal) {
 
 	go func() {
 		c.updated <- clientDealUpdate{
-			newState: storagemarket.DealUnknown,
+			newState: storagemarket.StorageDealUnknown,
 			id:       deal.ProposalCid,
 			err:      nil,
 		}
@@ -150,15 +158,15 @@ func (c *Client) onUpdated(ctx context.Context, update clientDealUpdate) {
 	}
 
 	switch update.newState {
-	case storagemarket.DealUnknown: // new
-		c.handle(ctx, deal, c.new, storagemarket.DealAccepted)
-	case storagemarket.DealAccepted:
-		c.handle(ctx, deal, c.accepted, storagemarket.DealStaged)
-	case storagemarket.DealStaged:
-		c.handle(ctx, deal, c.staged, storagemarket.DealSealing)
-	case storagemarket.DealSealing:
-		c.handle(ctx, deal, c.sealing, storagemarket.DealNoUpdate)
-		// TODO: DealComplete -> watch for faults, expiration, etc.
+	case storagemarket.StorageDealUnknown: // new
+		c.handle(ctx, deal, c.new, storagemarket.StorageDealProposalAccepted)
+	case storagemarket.StorageDealProposalAccepted:
+		c.handle(ctx, deal, c.accepted, storagemarket.StorageDealStaged)
+	case storagemarket.StorageDealStaged:
+		c.handle(ctx, deal, c.staged, storagemarket.StorageDealSealing)
+	case storagemarket.StorageDealSealing:
+		c.handle(ctx, deal, c.sealing, storagemarket.StorageDealNoUpdate)
+		// TODO: StorageDealActive -> watch for faults, expiration, etc.
 	}
 }
 
@@ -225,7 +233,7 @@ func (c *Client) Start(ctx context.Context, p ClientDealProposal) (cid.Cid, erro
 		ClientDeal: storagemarket.ClientDeal{
 			ProposalCid: proposalNd.Cid(),
 			Proposal:    *dealProposal,
-			State:       storagemarket.DealUnknown,
+			State:       storagemarket.StorageDealUnknown,
 			Miner:       p.MinerID,
 			MinerWorker: p.MinerWorker,
 			PayloadCid:  p.Data,

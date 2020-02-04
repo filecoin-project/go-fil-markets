@@ -5,8 +5,8 @@ import (
 	"io"
 	"io/ioutil"
 	"os"
+	"path"
 	"path/filepath"
-	"strings"
 )
 
 type fileStore struct {
@@ -14,7 +14,7 @@ type fileStore struct {
 }
 
 // NewLocalFileStore creates a filestore mounted on a given local directory path
-func NewLocalFileStore(basedirectory Path) (FileStore, error) {
+func NewLocalFileStore(basedirectory OsPath) (FileStore, error) {
 	base := filepath.Clean(string(basedirectory))
 	info, err := os.Stat(string(base))
 	if err != nil {
@@ -35,7 +35,7 @@ func (fs fileStore) Open(p Path) (File, error) {
 	if _, err := os.Stat(name); err != nil {
 		return nil, fmt.Errorf("error trying to open %s: %s", name, err.Error())
 	}
-	return newFile(Path(fs.base), p)
+	return newFile(OsPath(fs.base), p)
 }
 
 func (fs fileStore) Create(p Path) (File, error) {
@@ -43,7 +43,7 @@ func (fs fileStore) Create(p Path) (File, error) {
 	if _, err := os.Stat(name); err == nil {
 		return nil, fmt.Errorf("file %s already exists", name)
 	}
-	return newFile(Path(fs.base), p)
+	return newFile(OsPath(fs.base), p)
 }
 
 func (fs fileStore) Store(p Path, src File) (Path, error) {
@@ -56,15 +56,13 @@ func (fs fileStore) Store(p Path, src File) (Path, error) {
 		dest.Close()
 		return Path(""), err
 	}
-	return Path(fs.filename(p)), dest.Close()
+	return p, dest.Close()
 }
 
 func (fs fileStore) Delete(p Path) error {
 	filename := string(p)
-	if strings.HasPrefix(filename, fs.base) {
-		return os.Remove(filename)
-	}
-	return fmt.Errorf("invalid base path for '%s' (expecting '%s')", string(p), fs.base)
+	full := path.Join(string(fs.base), string(filename))
+	return os.Remove(full)
 }
 
 func (fs fileStore) CreateTemp() (File, error) {

@@ -3,6 +3,7 @@ package filestore
 import (
 	"crypto/rand"
 	"fmt"
+	"log"
 	"os"
 	"path"
 	"testing"
@@ -12,7 +13,10 @@ import (
 
 func randBytes(n int) []byte {
 	arr := make([]byte, n)
-	rand.Read(arr)
+	_, err := rand.Read(arr)
+	if err != nil {
+		log.Fatal(err)
+	}
 	return arr
 }
 
@@ -20,14 +24,23 @@ const baseDir = "_test/a/b/c/d"
 const existingFile = "existing.txt"
 
 func init() {
-	os.MkdirAll(baseDir, 0755)
+	err := os.MkdirAll(baseDir, 0755)
+	if err != nil {
+		log.Print(err.Error())
+		return
+	}
 	filename := path.Join(baseDir, existingFile)
 	file, err := os.Create(filename)
 	if err != nil {
+		log.Print(err.Error())
 		return
 	}
 	defer file.Close()
-	file.Write(randBytes(64))
+	_, err = file.Write(randBytes(64))
+	if err != nil {
+		log.Print(err.Error())
+		return
+	}
 }
 
 func Test_SizeFails(t *testing.T) {
@@ -45,7 +58,7 @@ func Test_OpenFileFails(t *testing.T) {
 	base := "_test/a/b/c/d/e"
 	err := os.MkdirAll(base, 0755)
 	require.NoError(t, err)
-	store, err := NewLocalFileStore(Path(base))
+	store, err := NewLocalFileStore(OsPath(base))
 	require.NoError(t, err)
 	err = os.Remove(base)
 	require.NoError(t, err)
@@ -56,7 +69,7 @@ func Test_OpenFileFails(t *testing.T) {
 func Test_RemoveSeparators(t *testing.T) {
 	first, err := NewLocalFileStore(baseDir)
 	require.NoError(t, err)
-	second, err := NewLocalFileStore(Path(fmt.Sprintf("%s%c%c", baseDir, os.PathSeparator, os.PathSeparator)))
+	second, err := NewLocalFileStore(OsPath(fmt.Sprintf("%s%c%c", baseDir, os.PathSeparator, os.PathSeparator)))
 	require.NoError(t, err)
 	f1, err := first.Open(existingFile)
 	require.NoError(t, err)
@@ -67,7 +80,7 @@ func Test_RemoveSeparators(t *testing.T) {
 
 func Test_BaseDirIsFileFails(t *testing.T) {
 	base := fmt.Sprintf("%s%c%s", baseDir, os.PathSeparator, existingFile)
-	_, err := NewLocalFileStore(Path(base))
+	_, err := NewLocalFileStore(OsPath(base))
 	require.Error(t, err)
 }
 
@@ -104,14 +117,12 @@ func Test_CreateFile(t *testing.T) {
 	store, err := NewLocalFileStore(baseDir)
 	require.NoError(t, err)
 	name := Path("newFile.txt")
-	path := fmt.Sprintf("%s%c%s", baseDir, os.PathSeparator, name)
 	f, err := store.Create(name)
 	require.NoError(t, err)
 	defer func() {
 		err := store.Delete(f.Path())
 		require.NoError(t, err)
 	}()
-	require.Equal(t, Path(path), f.Path())
 	bytesToWrite := 32
 	written, err := f.Write(randBytes(bytesToWrite))
 	require.NoError(t, err)
