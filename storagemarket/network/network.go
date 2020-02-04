@@ -21,6 +21,7 @@ type StorageDealStream interface {
 	WriteDealProposal(Proposal) error
 	ReadDealResponse() (SignedResponse, error)
 	WriteDealResponse(SignedResponse) error
+	RemotePeer() peer.ID
 	Close() error
 }
 

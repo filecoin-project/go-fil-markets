@@ -6,7 +6,6 @@ import (
 	"io"
 
 	"github.com/ipfs/go-cid"
-	"github.com/libp2p/go-libp2p-core/host"
 	"github.com/libp2p/go-libp2p-core/peer"
 	xerrors "golang.org/x/xerrors"
 
@@ -188,9 +187,9 @@ type ClientDeal struct {
 
 // The interface provided for storage providers
 type StorageProvider interface {
-	Run(ctx context.Context, host host.Host)
+	Start(ctx context.Context) error
 
-	Stop()
+	Stop() error
 
 	AddAsk(price tokenamount.TokenAmount, ttlsecs int64) error
 

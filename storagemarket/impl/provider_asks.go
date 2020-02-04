@@ -6,7 +6,6 @@ import (
 	"time"
 
 	"github.com/ipfs/go-datastore"
-	inet "github.com/libp2p/go-libp2p-core/network"
 	"golang.org/x/xerrors"
 
 	"github.com/filecoin-project/go-address"
@@ -53,24 +52,24 @@ func (p *Provider) GetAsk(m address.Address) *types.SignedStorageAsk {
 	return p.ask
 }
 
-func (p *Provider) HandleAskStream(s inet.Stream) {
+func (p *Provider) HandleAskStream(s network.StorageAskStream) {
 	defer s.Close()
-	var ar network.AskRequest
-	if err := cborutil.ReadCborRPC(s, &ar); err != nil {
+	ar, err := s.ReadAskRequest()
+	if err != nil {
 		log.Errorf("failed to read AskRequest from incoming stream: %s", err)
 		return
 	}
 
 	resp := p.processAskRequest(&ar)
 
-	if err := cborutil.WriteCborRPC(s, resp); err != nil {
+	if err := s.WriteAskResponse(resp); err != nil {
 		log.Errorf("failed to write ask response: %s", err)
 		return
 	}
 }
 
-func (p *Provider) processAskRequest(ar *network.AskRequest) *network.AskResponse {
-	return &network.AskResponse{
+func (p *Provider) processAskRequest(ar *network.AskRequest) network.AskResponse {
+	return network.AskResponse{
 		Ask: p.GetAsk(ar.Miner),
 	}
 }

@@ -13,10 +13,9 @@ import (
 	"github.com/libp2p/go-libp2p-core/peer"
 	"golang.org/x/xerrors"
 
-	cborutil "github.com/filecoin-project/go-cbor-util"
-	"github.com/filecoin-project/go-data-transfer"
 	"github.com/filecoin-project/go-fil-markets/storagemarket/network"
 	"github.com/filecoin-project/go-statestore"
+	"github.com/filecoin-project/go-data-transfer"
 )
 
 func (c *Client) failDeal(id cid.Cid, cerr error) {
@@ -27,7 +26,7 @@ func (c *Client) failDeal(id cid.Cid, cerr error) {
 
 	s, ok := c.conns[id]
 	if ok {
-		_ = s.Reset()
+		_ = s.Close()
 		delete(c.conns, id)
 	}
 
@@ -57,8 +56,8 @@ func (c *Client) readStorageDealResp(deal ClientDeal) (*network.Response, error)
 		return nil, xerrors.Errorf("no connection to miner")
 	}
 
-	var resp network.SignedResponse
-	if err := cborutil.ReadCborRPC(s, &resp); err != nil {
+	resp, err := s.ReadDealResponse()
+	if err != nil {
 		log.Errorw("failed to read Response message", "error", err)
 		return nil, err
 	}

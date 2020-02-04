@@ -43,3 +43,7 @@ func (d *dealStream) WriteDealResponse(dr SignedResponse) error {
 func (d *dealStream) Close() error {
 	return d.rw.Close()
 }
+
+func (d *dealStream) RemotePeer() peer.ID {
+	return d.p
+}

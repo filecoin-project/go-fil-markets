@@ -6,15 +6,14 @@ import (
 
 	"github.com/ipld/go-ipld-prime"
 
-	"github.com/filecoin-project/go-data-transfer"
 	"github.com/filecoin-project/go-fil-markets/storagemarket"
 	"github.com/filecoin-project/go-fil-markets/storagemarket/network"
+	"github.com/filecoin-project/go-data-transfer"
 
 	cborutil "github.com/filecoin-project/go-cbor-util"
 	"github.com/filecoin-project/go-statestore"
 
 	"github.com/ipfs/go-cid"
-	inet "github.com/libp2p/go-libp2p-core/network"
 	"github.com/libp2p/go-libp2p-core/peer"
 	"golang.org/x/xerrors"
 )
@@ -39,7 +38,7 @@ func (p *Provider) failDeal(ctx context.Context, id cid.Cid, cerr error) {
 
 	s, ok := p.conns[id]
 	if ok {
-		_ = s.Reset()
+		_ = s.Close()
 		delete(p.conns, id)
 	}
 
@@ -48,8 +47,9 @@ func (p *Provider) failDeal(ctx context.Context, id cid.Cid, cerr error) {
 	}
 }
 
-func (p *Provider) readProposal(s inet.Stream) (proposal network.Proposal, err error) {
-	if err := cborutil.ReadCborRPC(s, &proposal); err != nil {
+func (p *Provider) readProposal(s network.StorageDealStream) (proposal network.Proposal, err error) {
+	proposal, err = s.ReadDealProposal()
+	if err != nil {
 		log.Errorw("failed to read proposal message", "error", err)
 		return proposal, err
 	}
@@ -91,12 +91,12 @@ func (p *Provider) sendSignedResponse(ctx context.Context, resp *network.Respons
 		return xerrors.Errorf("failed to sign response message: %w", err)
 	}
 
-	signedResponse := &network.SignedResponse{
+	signedResponse := network.SignedResponse{
 		Response:  *resp,
 		Signature: sig,
 	}
 
-	err = cborutil.WriteCborRPC(s, signedResponse)
+	err = s.WriteDealResponse(signedResponse)
 	if err != nil {
 		// Assume client disconnected
 		s.Close()
