@@ -141,7 +141,6 @@ func (p *Provider) publishing(ctx context.Context, deal MinerDeal) (func(*MinerD
 		ProposalCid: deal.ProposalCid,
 		State:       deal.State,
 		Ref:         deal.Ref,
-		SectorID:    deal.SectorID,
 	}
 
 	dealId, mcid, err := p.spn.PublishDeals(ctx, smDeal)
@@ -196,15 +195,12 @@ func (p *Provider) staged(ctx context.Context, deal MinerDeal) (func(*MinerDeal)
 
 func (p *Provider) sealing(ctx context.Context, deal MinerDeal) (func(*MinerDeal), error) {
 	// TODO: consider waiting for seal to happen
-	cb := func(sectorId uint64, err error) {
+	cb := func(err error) {
 		select {
 		case p.updated <- minerDealUpdate{
 			newState: storagemarket.StorageDealActive,
 			id:       deal.ProposalCid,
 			err:      err,
-			mut: func(deal *MinerDeal) {
-				deal.SectorID = sectorId
-			},
 		}:
 		case <-p.stop:
 		}
