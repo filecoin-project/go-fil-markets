@@ -11,7 +11,6 @@ require (
 	github.com/filecoin-project/go-padreader v0.0.0-20200130212543-892867c4edf9
 	github.com/filecoin-project/go-sectorbuilder v0.0.1
 	github.com/filecoin-project/go-statestore v0.1.0
-	github.com/google/go-cmp v0.4.0 // indirect
 	github.com/hannahhoward/cbor-gen-for v0.0.0-20191218204337-9ab7b1bcc099
 	github.com/ipfs/go-block-format v0.0.2
 	github.com/ipfs/go-blockservice v0.1.3-0.20190908200855-f22eea50656c
