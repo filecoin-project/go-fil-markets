@@ -86,7 +86,7 @@ func (t *QueryResponse) MarshalCBOR(w io.Writer) error {
 		return err
 	}
 
-	// t.MinPricePerByte (tokenamount.TokenAmount) (struct)
+	// t.MinPricePerByte (big.Int) (struct)
 	if err := t.MinPricePerByte.MarshalCBOR(w); err != nil {
 		return err
 	}
@@ -159,7 +159,7 @@ func (t *QueryResponse) UnmarshalCBOR(r io.Reader) error {
 		}
 
 	}
-	// t.MinPricePerByte (tokenamount.TokenAmount) (struct)
+	// t.MinPricePerByte (big.Int) (struct)
 
 	{
 
@@ -296,7 +296,7 @@ func (t *DealResponse) MarshalCBOR(w io.Writer) error {
 		return err
 	}
 
-	// t.PaymentOwed (tokenamount.TokenAmount) (struct)
+	// t.PaymentOwed (big.Int) (struct)
 	if err := t.PaymentOwed.MarshalCBOR(w); err != nil {
 		return err
 	}
@@ -364,7 +364,7 @@ func (t *DealResponse) UnmarshalCBOR(r io.Reader) error {
 		return fmt.Errorf("wrong type for uint64 field")
 	}
 	t.ID = DealID(extra)
-	// t.PaymentOwed (tokenamount.TokenAmount) (struct)
+	// t.PaymentOwed (big.Int) (struct)
 
 	{
 
@@ -422,7 +422,7 @@ func (t *Params) MarshalCBOR(w io.Writer) error {
 		return err
 	}
 
-	// t.PricePerByte (tokenamount.TokenAmount) (struct)
+	// t.PricePerByte (big.Int) (struct)
 	if err := t.PricePerByte.MarshalCBOR(w); err != nil {
 		return err
 	}
@@ -454,7 +454,7 @@ func (t *Params) UnmarshalCBOR(r io.Reader) error {
 		return fmt.Errorf("cbor input had wrong number of fields")
 	}
 
-	// t.PricePerByte (tokenamount.TokenAmount) (struct)
+	// t.PricePerByte (big.Int) (struct)
 
 	{
 
@@ -706,7 +706,7 @@ func (t *ClientDealState) MarshalCBOR(w io.Writer) error {
 		return err
 	}
 
-	// t.TotalFunds (tokenamount.TokenAmount) (struct)
+	// t.TotalFunds (big.Int) (struct)
 	if err := t.TotalFunds.MarshalCBOR(w); err != nil {
 		return err
 	}
@@ -775,12 +775,12 @@ func (t *ClientDealState) MarshalCBOR(w io.Writer) error {
 		return err
 	}
 
-	// t.PaymentRequested (tokenamount.TokenAmount) (struct)
+	// t.PaymentRequested (big.Int) (struct)
 	if err := t.PaymentRequested.MarshalCBOR(w); err != nil {
 		return err
 	}
 
-	// t.FundsSpent (tokenamount.TokenAmount) (struct)
+	// t.FundsSpent (big.Int) (struct)
 	if err := t.FundsSpent.MarshalCBOR(w); err != nil {
 		return err
 	}
@@ -823,7 +823,7 @@ func (t *ClientDealState) UnmarshalCBOR(r io.Reader) error {
 		}
 
 	}
-	// t.TotalFunds (tokenamount.TokenAmount) (struct)
+	// t.TotalFunds (big.Int) (struct)
 
 	{
 
@@ -929,7 +929,7 @@ func (t *ClientDealState) UnmarshalCBOR(r io.Reader) error {
 		return fmt.Errorf("wrong type for uint64 field")
 	}
 	t.CurrentInterval = uint64(extra)
-	// t.PaymentRequested (tokenamount.TokenAmount) (struct)
+	// t.PaymentRequested (big.Int) (struct)
 
 	{
 
@@ -938,7 +938,7 @@ func (t *ClientDealState) UnmarshalCBOR(r io.Reader) error {
 		}
 
 	}
-	// t.FundsSpent (tokenamount.TokenAmount) (struct)
+	// t.FundsSpent (big.Int) (struct)
 
 	{
 

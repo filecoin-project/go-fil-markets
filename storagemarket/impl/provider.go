@@ -20,11 +20,11 @@ import (
 	"github.com/filecoin-project/go-fil-markets/pieceio"
 	"github.com/filecoin-project/go-fil-markets/pieceio/cario"
 	"github.com/filecoin-project/go-fil-markets/piecestore"
-	"github.com/filecoin-project/go-fil-markets/shared/tokenamount"
 	"github.com/filecoin-project/go-fil-markets/shared/types"
 	"github.com/filecoin-project/go-fil-markets/storagemarket"
 	"github.com/filecoin-project/go-fil-markets/storagemarket/network"
 	"github.com/filecoin-project/go-statestore"
+	"github.com/filecoin-project/specs-actors/actors/abi"
 )
 
 var ProviderDsPrefix = "/deals/provider"
@@ -39,7 +39,7 @@ type MinerDeal struct {
 type Provider struct {
 	net network.StorageMarketNetwork
 
-	pricePerByteBlock tokenamount.TokenAmount // how much we want for storing one byte for one block
+	pricePerByteBlock abi.TokenAmount // how much we want for storing one byte for one block
 	minPieceSize      uint64
 
 	ask   *types.SignedStorageAsk
@@ -91,8 +91,8 @@ func NewProvider(net network.StorageMarketNetwork, ds datastore.Batching, bs blo
 		dataTransfer: dataTransfer,
 		spn:          spn,
 
-		pricePerByteBlock: tokenamount.FromInt(3), // TODO: allow setting
-		minPieceSize:      256,                    // TODO: allow setting (BUT KEEP MIN 256! (because of how we fill sectors up))
+		pricePerByteBlock: abi.NewTokenAmount(3), // TODO: allow setting
+		minPieceSize:      256,                   // TODO: allow setting (BUT KEEP MIN 256! (because of how we fill sectors up))
 
 		conns: map[cid.Cid]network.StorageDealStream{},
 
@@ -114,7 +114,7 @@ func NewProvider(net network.StorageMarketNetwork, ds datastore.Batching, bs blo
 	if h.ask == nil {
 		// TODO: we should be fine with this state, and just say it means 'not actively accepting deals'
 		// for now... lets just set a price
-		if err := h.SetPrice(tokenamount.FromInt(500_000_000), 1000000); err != nil {
+		if err := h.SetPrice(abi.NewTokenAmount(500_000_000), 1000000); err != nil {
 			return nil, xerrors.Errorf("failed setting a default price: %w", err)
 		}
 	}

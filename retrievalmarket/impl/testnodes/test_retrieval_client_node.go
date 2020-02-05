@@ -5,7 +5,7 @@ import (
 
 	"github.com/filecoin-project/go-address"
 	"github.com/filecoin-project/go-fil-markets/retrievalmarket"
-	"github.com/filecoin-project/go-fil-markets/shared/tokenamount"
+	"github.com/filecoin-project/specs-actors/actors/abi"
 	"github.com/filecoin-project/go-fil-markets/shared/types"
 )
 
@@ -21,7 +21,7 @@ type TestRetrievalClientNode struct {
 
 	allocateLaneRecorder            func(address.Address)
 	createPaymentVoucherRecorder    func(voucher *types.SignedVoucher)
-	getCreatePaymentChannelRecorder func(address.Address, address.Address, tokenamount.TokenAmount)
+	getCreatePaymentChannelRecorder func(address.Address, address.Address, abi.TokenAmount)
 }
 
 // TestRetrievalClientNodeParams are parameters for initializing a TestRetrievalClientNode
@@ -34,7 +34,7 @@ type TestRetrievalClientNodeParams struct {
 	VoucherError           error
 	AllocateLaneRecorder   func(address.Address)
 	PaymentVoucherRecorder func(voucher *types.SignedVoucher)
-	PaymentChannelRecorder func(address.Address, address.Address, tokenamount.TokenAmount)
+	PaymentChannelRecorder func(address.Address, address.Address, abi.TokenAmount)
 }
 
 var _ retrievalmarket.RetrievalClientNode = &TestRetrievalClientNode{}
@@ -55,7 +55,7 @@ func NewTestRetrievalClientNode(params TestRetrievalClientNodeParams) *TestRetri
 }
 
 // GetOrCreatePaymentChannel returns a mocked payment channel
-func (trcn *TestRetrievalClientNode) GetOrCreatePaymentChannel(ctx context.Context, clientAddress address.Address, minerAddress address.Address, clientFundsAvailable tokenamount.TokenAmount) (address.Address, error) {
+func (trcn *TestRetrievalClientNode) GetOrCreatePaymentChannel(ctx context.Context, clientAddress address.Address, minerAddress address.Address, clientFundsAvailable abi.TokenAmount) (address.Address, error) {
 	if trcn.getCreatePaymentChannelRecorder != nil {
 		trcn.getCreatePaymentChannelRecorder(clientAddress, minerAddress, clientFundsAvailable)
 	}
@@ -71,7 +71,7 @@ func (trcn *TestRetrievalClientNode) AllocateLane(paymentChannel address.Address
 }
 
 // CreatePaymentVoucher creates a mock payment voucher based on a channel and lane
-func (trcn *TestRetrievalClientNode) CreatePaymentVoucher(ctx context.Context, paymentChannel address.Address, amount tokenamount.TokenAmount, lane uint64) (*types.SignedVoucher, error) {
+func (trcn *TestRetrievalClientNode) CreatePaymentVoucher(ctx context.Context, paymentChannel address.Address, amount abi.TokenAmount, lane uint64) (*types.SignedVoucher, error) {
 	if trcn.createPaymentVoucherRecorder != nil {
 		trcn.createPaymentVoucherRecorder(trcn.voucher)
 	}

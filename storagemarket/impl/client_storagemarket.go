@@ -5,7 +5,7 @@ package storageimpl
 import (
 	"context"
 
-	"github.com/filecoin-project/go-fil-markets/shared/tokenamount"
+	"github.com/filecoin-project/specs-actors/actors/abi"
 
 	"github.com/ipfs/go-cid"
 	"golang.org/x/xerrors"
@@ -89,8 +89,8 @@ func (c *Client) ProposeStorageDeal(
 	data *storagemarket.DataRef,
 	proposalExpiration storagemarket.Epoch,
 	duration storagemarket.Epoch,
-	price tokenamount.TokenAmount,
-	collateral tokenamount.TokenAmount,
+	price abi.TokenAmount,
+	collateral abi.TokenAmount,
 ) (*storagemarket.ProposeStorageDealResult, error) {
 
 	proposal := ClientDealProposal{
@@ -120,7 +120,7 @@ func (c *Client) GetPaymentEscrow(ctx context.Context, addr address.Address) (st
 	return balance, err
 }
 
-func (c *Client) AddPaymentEscrow(ctx context.Context, addr address.Address, amount tokenamount.TokenAmount) error {
+func (c *Client) AddPaymentEscrow(ctx context.Context, addr address.Address, amount abi.TokenAmount) error {
 
 	return c.node.AddFunds(ctx, addr, amount)
 }

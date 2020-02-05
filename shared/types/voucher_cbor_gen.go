@@ -53,7 +53,7 @@ func (t *SignedVoucher) MarshalCBOR(w io.Writer) error {
 		return err
 	}
 
-	// t.Amount (tokenamount.TokenAmount) (struct)
+	// t.Amount (big.Int) (struct)
 	if err := t.Amount.MarshalCBOR(w); err != nil {
 		return err
 	}
@@ -167,7 +167,7 @@ func (t *SignedVoucher) UnmarshalCBOR(r io.Reader) error {
 		return fmt.Errorf("wrong type for uint64 field")
 	}
 	t.Nonce = uint64(extra)
-	// t.Amount (tokenamount.TokenAmount) (struct)
+	// t.Amount (big.Int) (struct)
 
 	{
 

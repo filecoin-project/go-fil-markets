@@ -7,7 +7,7 @@ import (
 	"github.com/filecoin-project/go-cbor-util"
 
 	"github.com/filecoin-project/go-address"
-	"github.com/filecoin-project/go-fil-markets/shared/tokenamount"
+	"github.com/filecoin-project/specs-actors/actors/abi"
 	cbor "github.com/ipfs/go-ipld-cbor"
 )
 
@@ -19,7 +19,7 @@ type SignedVoucher struct {
 	Extra          *ModVerifyParams
 	Lane           uint64
 	Nonce          uint64
-	Amount         tokenamount.TokenAmount
+	Amount         abi.TokenAmount
 	MinCloseHeight uint64
 
 	Merges []Merge

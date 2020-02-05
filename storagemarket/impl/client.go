@@ -19,10 +19,11 @@ import (
 	"github.com/filecoin-project/go-fil-markets/pieceio/cario"
 	"github.com/filecoin-project/go-fil-markets/retrievalmarket"
 	"github.com/filecoin-project/go-fil-markets/retrievalmarket/discovery"
-	"github.com/filecoin-project/go-fil-markets/shared/tokenamount"
 	"github.com/filecoin-project/go-fil-markets/shared/types"
 	"github.com/filecoin-project/go-fil-markets/storagemarket"
 	"github.com/filecoin-project/go-statestore"
+	"github.com/filecoin-project/specs-actors/actors/abi"
+	"github.com/filecoin-project/specs-actors/actors/abi/big"
 )
 
 //go:generate cbor-gen-for ClientDeal ClientDealProposal
@@ -179,7 +180,7 @@ func (c *Client) onUpdated(ctx context.Context, update clientDealUpdate) {
 type ClientDealProposal struct {
 	Data *storagemarket.DataRef
 
-	PricePerEpoch      tokenamount.TokenAmount
+	PricePerEpoch      abi.TokenAmount
 	ProposalExpiration uint64
 	Duration           uint64
 
@@ -190,7 +191,7 @@ type ClientDealProposal struct {
 }
 
 func (c *Client) Start(ctx context.Context, p ClientDealProposal) (cid.Cid, error) {
-	amount := tokenamount.Mul(p.PricePerEpoch, tokenamount.FromInt(p.Duration))
+	amount := big.Mul(p.PricePerEpoch, abi.NewTokenAmount(int64(p.Duration)))
 	if err := c.node.EnsureFunds(ctx, p.Client, amount); err != nil {
 		return cid.Undef, xerrors.Errorf("adding market funds failed: %w", err)
 	}
@@ -208,7 +209,7 @@ func (c *Client) Start(ctx context.Context, p ClientDealProposal) (cid.Cid, erro
 		ProposalExpiration:   p.ProposalExpiration,
 		Duration:             p.Duration,
 		StoragePricePerEpoch: p.PricePerEpoch,
-		StorageCollateral:    tokenamount.FromInt(uint64(pieceSize)), // TODO: real calc
+		StorageCollateral:    abi.NewTokenAmount(int64(pieceSize)), // TODO: real calc
 	}
 
 	if err := c.node.SignProposal(ctx, p.Client, dealProposal); err != nil {

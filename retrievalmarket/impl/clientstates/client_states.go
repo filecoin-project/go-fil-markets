@@ -8,7 +8,8 @@ import (
 
 	rm "github.com/filecoin-project/go-fil-markets/retrievalmarket"
 	rmnet "github.com/filecoin-project/go-fil-markets/retrievalmarket/network"
-	"github.com/filecoin-project/go-fil-markets/shared/tokenamount"
+	"github.com/filecoin-project/specs-actors/actors/abi"
+	"github.com/filecoin-project/specs-actors/actors/abi/big"
 )
 
 // ClientDealEnvironment is a bridge to the environment a client deal is executing in
@@ -81,9 +82,9 @@ func ProposeDeal(ctx context.Context, environment ClientDealEnvironment, deal rm
 func ProcessPaymentRequested(ctx context.Context, environment ClientDealEnvironment, deal rm.ClientDealState) func(*rm.ClientDealState) {
 
 	// check that fundsSpent + paymentRequested <= totalFunds, or fail
-	if tokenamount.Add(deal.FundsSpent, deal.PaymentRequested).GreaterThan(deal.TotalFunds) {
+	if big.Add(deal.FundsSpent, deal.PaymentRequested).GreaterThan(deal.TotalFunds) {
 		expectedTotal := deal.TotalFunds.String()
-		actualTotal := tokenamount.Add(deal.FundsSpent, deal.PaymentRequested).String()
+		actualTotal := big.Add(deal.FundsSpent, deal.PaymentRequested).String()
 		errMsg := fmt.Sprintf("not enough funds left: expected amt = %s, actual amt = %s", expectedTotal, actualTotal)
 		return errorFunc(xerrors.New(errMsg))
 	}
@@ -94,13 +95,13 @@ func ProcessPaymentRequested(ctx context.Context, environment ClientDealEnvironm
 	}
 
 	// check that paymentRequest <= (totalReceived - bytesPaidFor) * pricePerByte, or fail
-	if deal.PaymentRequested.GreaterThan(tokenamount.Mul(tokenamount.FromInt(deal.TotalReceived-deal.BytesPaidFor), deal.PricePerByte)) {
+	if deal.PaymentRequested.GreaterThan(big.Mul(abi.NewTokenAmount(int64(deal.TotalReceived-deal.BytesPaidFor)), deal.PricePerByte)) {
 		return errorFunc(xerrors.New("too much money requested for bytes sent"))
 	}
 	// create payment voucher with node (or fail) for (fundsSpent + paymentRequested)
 	// use correct payCh + lane
 	// (node will do subtraction back to paymentRequested... slightly odd behavior but... well anyway)
-	voucher, err := environment.Node().CreatePaymentVoucher(ctx, deal.PayCh, tokenamount.Add(deal.FundsSpent, deal.PaymentRequested), deal.Lane)
+	voucher, err := environment.Node().CreatePaymentVoucher(ctx, deal.PayCh, big.Add(deal.FundsSpent, deal.PaymentRequested), deal.Lane)
 	if err != nil {
 		return errorFunc(xerrors.Errorf("creating payment voucher: %w", err))
 	}
@@ -129,13 +130,13 @@ func ProcessPaymentRequested(ctx context.Context, environment ClientDealEnvironm
 		} else {
 			deal.Status = rm.DealStatusOngoing
 		}
-		deal.FundsSpent = tokenamount.Add(deal.FundsSpent, deal.PaymentRequested)
-		bytesPaidFor := tokenamount.Div(deal.PaymentRequested, deal.PricePerByte).Uint64()
+		deal.FundsSpent = big.Add(deal.FundsSpent, deal.PaymentRequested)
+		bytesPaidFor := big.Div(deal.PaymentRequested, deal.PricePerByte).Uint64()
 		if bytesPaidFor >= deal.CurrentInterval {
 			deal.CurrentInterval += deal.DealProposal.PaymentIntervalIncrease
 		}
 		deal.BytesPaidFor += bytesPaidFor
-		deal.PaymentRequested = tokenamount.FromInt(0)
+		deal.PaymentRequested = abi.NewTokenAmount(0)
 	}
 }
 

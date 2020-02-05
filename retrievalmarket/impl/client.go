@@ -18,7 +18,7 @@ import (
 	"github.com/filecoin-project/go-fil-markets/retrievalmarket/impl/blockio"
 	"github.com/filecoin-project/go-fil-markets/retrievalmarket/impl/clientstates"
 	rmnet "github.com/filecoin-project/go-fil-markets/retrievalmarket/network"
-	"github.com/filecoin-project/go-fil-markets/shared/tokenamount"
+	"github.com/filecoin-project/specs-actors/actors/abi"
 )
 
 var log = logging.Logger("retrieval")
@@ -84,7 +84,7 @@ func (c *client) Query(ctx context.Context, p retrievalmarket.RetrievalPeer, pay
 }
 
 // Retrieve begins the process of requesting the data referred to by payloadCID, after a deal is accepted
-func (c *client) Retrieve(ctx context.Context, payloadCID cid.Cid, params retrievalmarket.Params, totalFunds tokenamount.TokenAmount, miner peer.ID, clientWallet address.Address, minerWallet address.Address) retrievalmarket.DealID {
+func (c *client) Retrieve(ctx context.Context, payloadCID cid.Cid, params retrievalmarket.Params, totalFunds abi.TokenAmount, miner peer.ID, clientWallet address.Address, minerWallet address.Address) retrievalmarket.DealID {
 	/* The implementation of this function is just wrapper for the old code which retrieves UnixFS pieces
 	-- it will be replaced when we do the V0 implementation of the module */
 	c.nextDealLk.Lock()
@@ -104,8 +104,8 @@ func (c *client) Retrieve(ctx context.Context, payloadCID cid.Cid, params retrie
 		TotalReceived:    0,
 		CurrentInterval:  params.PaymentInterval,
 		BytesPaidFor:     0,
-		PaymentRequested: tokenamount.FromInt(0),
-		FundsSpent:       tokenamount.FromInt(0),
+		PaymentRequested: abi.NewTokenAmount(0),
+		FundsSpent:       abi.NewTokenAmount(0),
 		Status:           retrievalmarket.DealStatusNew,
 		Sender:           miner,
 	}
@@ -199,7 +199,7 @@ func (c *client) SubscribeToEvents(subscriber retrievalmarket.ClientSubscriber) 
 }
 
 // V1
-func (c *client) AddMoreFunds(id retrievalmarket.DealID, amount tokenamount.TokenAmount) error {
+func (c *client) AddMoreFunds(id retrievalmarket.DealID, amount abi.TokenAmount) error {
 	panic("not implemented")
 }
 

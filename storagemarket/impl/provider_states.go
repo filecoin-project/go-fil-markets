@@ -12,9 +12,10 @@ import (
 	"golang.org/x/xerrors"
 
 	"github.com/filecoin-project/go-fil-markets/piecestore"
-	"github.com/filecoin-project/go-fil-markets/shared/tokenamount"
 	"github.com/filecoin-project/go-fil-markets/storagemarket"
 	"github.com/filecoin-project/go-fil-markets/storagemarket/network"
+	"github.com/filecoin-project/specs-actors/actors/abi"
+	"github.com/filecoin-project/specs-actors/actors/abi/big"
 )
 
 type providerHandlerFunc func(ctx context.Context, deal MinerDeal) (func(*MinerDeal), error)
@@ -51,7 +52,7 @@ func (p *Provider) validating(ctx context.Context, deal MinerDeal) (func(*MinerD
 
 	// TODO: check StorageCollateral
 
-	minPrice := tokenamount.Div(tokenamount.Mul(p.ask.Ask.Price, tokenamount.FromInt(deal.Proposal.PieceSize)), tokenamount.FromInt(1<<30))
+	minPrice := big.Div(big.Mul(p.ask.Ask.Price, abi.NewTokenAmount(int64(deal.Proposal.PieceSize))), abi.NewTokenAmount(1<<30))
 	if deal.Proposal.StoragePricePerEpoch.LessThan(minPrice) {
 		return nil, xerrors.Errorf("storage price per epoch less than asking price: %s < %s", deal.Proposal.StoragePricePerEpoch, minPrice)
 	}

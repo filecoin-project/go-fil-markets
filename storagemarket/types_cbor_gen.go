@@ -434,12 +434,12 @@ func (t *StorageDeal) MarshalCBOR(w io.Writer) error {
 		return err
 	}
 
-	// t.StoragePricePerEpoch (tokenamount.TokenAmount) (struct)
+	// t.StoragePricePerEpoch (big.Int) (struct)
 	if err := t.StoragePricePerEpoch.MarshalCBOR(w); err != nil {
 		return err
 	}
 
-	// t.StorageCollateral (tokenamount.TokenAmount) (struct)
+	// t.StorageCollateral (big.Int) (struct)
 	if err := t.StorageCollateral.MarshalCBOR(w); err != nil {
 		return err
 	}
@@ -531,7 +531,7 @@ func (t *StorageDeal) UnmarshalCBOR(r io.Reader) error {
 		return fmt.Errorf("wrong type for uint64 field")
 	}
 	t.Duration = uint64(extra)
-	// t.StoragePricePerEpoch (tokenamount.TokenAmount) (struct)
+	// t.StoragePricePerEpoch (big.Int) (struct)
 
 	{
 
@@ -540,7 +540,7 @@ func (t *StorageDeal) UnmarshalCBOR(r io.Reader) error {
 		}
 
 	}
-	// t.StorageCollateral (tokenamount.TokenAmount) (struct)
+	// t.StorageCollateral (big.Int) (struct)
 
 	{
 
@@ -571,12 +571,12 @@ func (t *Balance) MarshalCBOR(w io.Writer) error {
 		return err
 	}
 
-	// t.Locked (tokenamount.TokenAmount) (struct)
+	// t.Locked (big.Int) (struct)
 	if err := t.Locked.MarshalCBOR(w); err != nil {
 		return err
 	}
 
-	// t.Available (tokenamount.TokenAmount) (struct)
+	// t.Available (big.Int) (struct)
 	if err := t.Available.MarshalCBOR(w); err != nil {
 		return err
 	}
@@ -598,7 +598,7 @@ func (t *Balance) UnmarshalCBOR(r io.Reader) error {
 		return fmt.Errorf("cbor input had wrong number of fields")
 	}
 
-	// t.Locked (tokenamount.TokenAmount) (struct)
+	// t.Locked (big.Int) (struct)
 
 	{
 
@@ -607,7 +607,7 @@ func (t *Balance) UnmarshalCBOR(r io.Reader) error {
 		}
 
 	}
-	// t.Available (tokenamount.TokenAmount) (struct)
+	// t.Available (big.Int) (struct)
 
 	{
 
@@ -665,12 +665,12 @@ func (t *StorageDealProposal) MarshalCBOR(w io.Writer) error {
 		return err
 	}
 
-	// t.StoragePricePerEpoch (tokenamount.TokenAmount) (struct)
+	// t.StoragePricePerEpoch (big.Int) (struct)
 	if err := t.StoragePricePerEpoch.MarshalCBOR(w); err != nil {
 		return err
 	}
 
-	// t.StorageCollateral (tokenamount.TokenAmount) (struct)
+	// t.StorageCollateral (big.Int) (struct)
 	if err := t.StorageCollateral.MarshalCBOR(w); err != nil {
 		return err
 	}
@@ -762,7 +762,7 @@ func (t *StorageDealProposal) UnmarshalCBOR(r io.Reader) error {
 		return fmt.Errorf("wrong type for uint64 field")
 	}
 	t.Duration = uint64(extra)
-	// t.StoragePricePerEpoch (tokenamount.TokenAmount) (struct)
+	// t.StoragePricePerEpoch (big.Int) (struct)
 
 	{
 
@@ -771,7 +771,7 @@ func (t *StorageDealProposal) UnmarshalCBOR(r io.Reader) error {
 		}
 
 	}
-	// t.StorageCollateral (tokenamount.TokenAmount) (struct)
+	// t.StorageCollateral (big.Int) (struct)
 
 	{
 

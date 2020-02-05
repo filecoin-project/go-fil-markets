@@ -6,12 +6,12 @@ import (
 	"context"
 
 	"github.com/filecoin-project/go-address"
-	"github.com/filecoin-project/go-fil-markets/shared/tokenamount"
+	"github.com/filecoin-project/specs-actors/actors/abi"
 	"github.com/filecoin-project/go-fil-markets/shared/types"
 	"github.com/filecoin-project/go-fil-markets/storagemarket"
 )
 
-func (p *Provider) AddAsk(price tokenamount.TokenAmount, ttlsecs int64) error {
+func (p *Provider) AddAsk(price abi.TokenAmount, ttlsecs int64) error {
 	return p.SetPrice(price, ttlsecs)
 }
 
@@ -29,7 +29,7 @@ func (p *Provider) ListDeals(ctx context.Context) ([]storagemarket.StorageDeal, 
 	return p.spn.ListProviderDeals(ctx, p.actor)
 }
 
-func (p *Provider) AddStorageCollateral(ctx context.Context, amount tokenamount.TokenAmount) error {
+func (p *Provider) AddStorageCollateral(ctx context.Context, amount abi.TokenAmount) error {
 	return p.spn.AddFunds(ctx, p.actor, amount)
 }
 

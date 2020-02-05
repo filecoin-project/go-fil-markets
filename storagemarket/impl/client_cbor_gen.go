@@ -71,7 +71,7 @@ func (t *ClientDealProposal) MarshalCBOR(w io.Writer) error {
 		return err
 	}
 
-	// t.PricePerEpoch (tokenamount.TokenAmount) (struct)
+	// t.PricePerEpoch (big.Int) (struct)
 	if err := t.PricePerEpoch.MarshalCBOR(w); err != nil {
 		return err
 	}
@@ -151,7 +151,7 @@ func (t *ClientDealProposal) UnmarshalCBOR(r io.Reader) error {
 		}
 
 	}
-	// t.PricePerEpoch (tokenamount.TokenAmount) (struct)
+	// t.PricePerEpoch (big.Int) (struct)
 
 	{
 

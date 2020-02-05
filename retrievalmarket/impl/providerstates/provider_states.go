@@ -8,7 +8,8 @@ import (
 
 	rm "github.com/filecoin-project/go-fil-markets/retrievalmarket"
 	rmnet "github.com/filecoin-project/go-fil-markets/retrievalmarket/network"
-	"github.com/filecoin-project/go-fil-markets/shared/tokenamount"
+	"github.com/filecoin-project/specs-actors/actors/abi"
+	"github.com/filecoin-project/specs-actors/actors/abi/big"
 )
 
 // ProviderDealEnvironment is a bridge to the environment a provider deal is executing in
@@ -17,7 +18,7 @@ type ProviderDealEnvironment interface {
 	GetPieceSize(c cid.Cid) (uint64, error)
 	DealStream() rmnet.RetrievalDealStream
 	NextBlock(context.Context) (rm.Block, bool, error)
-	CheckDealParams(pricePerByte tokenamount.TokenAmount, paymentInterval uint64, paymentIntervalIncrease uint64) error
+	CheckDealParams(pricePerByte abi.TokenAmount, paymentInterval uint64, paymentIntervalIncrease uint64) error
 }
 
 func errorFunc(err error) func(*rm.ProviderDealState) {
@@ -89,7 +90,7 @@ func ReceiveDeal(ctx context.Context, environment ProviderDealEnvironment, deal 
 // SendBlocks sends blocks to the client until funds are needed
 func SendBlocks(ctx context.Context, environment ProviderDealEnvironment, deal rm.ProviderDealState) func(*rm.ProviderDealState) {
 	totalSent := deal.TotalSent
-	totalPaidFor := tokenamount.Div(deal.FundsReceived, deal.PricePerByte).Uint64()
+	totalPaidFor := big.Div(deal.FundsReceived, deal.PricePerByte).Uint64()
 	returnStatus := rm.DealStatusFundsNeeded
 	var blocks []rm.Block
 
@@ -107,7 +108,7 @@ func SendBlocks(ctx context.Context, environment ProviderDealEnvironment, deal r
 		}
 	}
 	// send back response of blocks plus payment owed
-	paymentOwed := tokenamount.Mul(tokenamount.FromInt(totalSent-totalPaidFor), deal.PricePerByte)
+	paymentOwed := big.Mul(abi.NewTokenAmount(int64(totalSent-totalPaidFor)), deal.PricePerByte)
 	err := environment.DealStream().WriteDealResponse(rm.DealResponse{
 		ID:          deal.ID,
 		Status:      returnStatus,
@@ -135,7 +136,7 @@ func ProcessPayment(ctx context.Context, environment ProviderDealEnvironment, de
 
 	// attempt to redeem voucher
 	// (totalSent * pricePerbyte) - fundsReceived
-	paymentOwed := tokenamount.Sub(tokenamount.Mul(tokenamount.FromInt(deal.TotalSent), deal.PricePerByte), deal.FundsReceived)
+	paymentOwed := big.Sub(big.Mul(abi.NewTokenAmount(int64(deal.TotalSent)), deal.PricePerByte), deal.FundsReceived)
 	received, err := environment.Node().SavePaymentVoucher(ctx, payment.PaymentChannel, payment.PaymentVoucher, nil, paymentOwed)
 	if err != nil {
 		return responseFailure(environment.DealStream(), rm.DealStatusFailed, err.Error(), deal.ID)
@@ -146,13 +147,13 @@ func ProcessPayment(ctx context.Context, environment ProviderDealEnvironment, de
 		err := environment.DealStream().WriteDealResponse(rm.DealResponse{
 			ID:          deal.ID,
 			Status:      deal.Status,
-			PaymentOwed: tokenamount.Sub(paymentOwed, received),
+			PaymentOwed: big.Sub(paymentOwed, received),
 		})
 		if err != nil {
 			return errorFunc(xerrors.Errorf("writing deal response", err))
 		}
 		return func(deal *rm.ProviderDealState) {
-			deal.FundsReceived = tokenamount.Add(deal.FundsReceived, received)
+			deal.FundsReceived = big.Add(deal.FundsReceived, received)
 		}
 	}
 
@@ -163,7 +164,7 @@ func ProcessPayment(ctx context.Context, environment ProviderDealEnvironment, de
 		} else {
 			deal.Status = rm.DealStatusOngoing
 		}
-		deal.FundsReceived = tokenamount.Add(deal.FundsReceived, received)
+		deal.FundsReceived = big.Add(deal.FundsReceived, received)
 		deal.CurrentInterval += deal.PaymentIntervalIncrease
 	}
 }

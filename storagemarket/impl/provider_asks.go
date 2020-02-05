@@ -10,12 +10,12 @@ import (
 
 	"github.com/filecoin-project/go-address"
 	cborutil "github.com/filecoin-project/go-cbor-util"
-	"github.com/filecoin-project/go-fil-markets/shared/tokenamount"
+	"github.com/filecoin-project/specs-actors/actors/abi"
 	"github.com/filecoin-project/go-fil-markets/shared/types"
 	"github.com/filecoin-project/go-fil-markets/storagemarket/network"
 )
 
-func (p *Provider) SetPrice(price tokenamount.TokenAmount, ttlsecs int64) error {
+func (p *Provider) SetPrice(price abi.TokenAmount, ttlsecs int64) error {
 	p.askLk.Lock()
 	defer p.askLk.Unlock()
 

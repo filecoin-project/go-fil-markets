@@ -2,8 +2,8 @@ package types
 
 import (
 	"github.com/filecoin-project/go-address"
-	"github.com/filecoin-project/go-fil-markets/shared/tokenamount"
-	cbor "github.com/ipfs/go-ipld-cbor"
+"github.com/filecoin-project/specs-actors/actors/abi"
+	cbor "github.com/ipfs/go-ipld-cbor"	
 )
 
 func init() {
@@ -20,7 +20,7 @@ type SignedStorageAsk struct {
 
 type StorageAsk struct {
 	// Price per GiB / Epoch
-	Price tokenamount.TokenAmount
+	Price abi.TokenAmount
 
 	MinPieceSize uint64
 	Miner        address.Address

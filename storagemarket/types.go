@@ -12,8 +12,9 @@ import (
 	"github.com/filecoin-project/go-address"
 	cborutil "github.com/filecoin-project/go-cbor-util"
 	"github.com/filecoin-project/go-fil-markets/filestore"
-	"github.com/filecoin-project/go-fil-markets/shared/tokenamount"
 	"github.com/filecoin-project/go-fil-markets/shared/types"
+	"github.com/filecoin-project/specs-actors/actors/abi"
+	"github.com/filecoin-project/specs-actors/actors/abi/big"
 )
 
 //go:generate cbor-gen-for ClientDeal MinerDeal StorageDeal Balance StorageDealProposal DataRef
@@ -22,8 +23,8 @@ const DealProtocolID = "/fil/storage/mk/1.0.1"
 const AskProtocolID = "/fil/storage/ask/1.0.1"
 
 type Balance struct {
-	Locked    tokenamount.TokenAmount
-	Available tokenamount.TokenAmount
+	Locked    abi.TokenAmount
+	Available abi.TokenAmount
 }
 
 type StorageDealStatus = uint64
@@ -90,14 +91,14 @@ type StorageDealProposal struct {
 	ProposalExpiration uint64
 	Duration           uint64 // TODO: spec
 
-	StoragePricePerEpoch tokenamount.TokenAmount
-	StorageCollateral    tokenamount.TokenAmount
+	StoragePricePerEpoch abi.TokenAmount
+	StorageCollateral    abi.TokenAmount
 
 	ProposerSignature *types.Signature
 }
 
-func (sdp *StorageDealProposal) TotalStoragePrice() tokenamount.TokenAmount {
-	return tokenamount.Mul(sdp.StoragePricePerEpoch, tokenamount.FromInt(sdp.Duration))
+func (sdp *StorageDealProposal) TotalStoragePrice() abi.TokenAmount {
+	return big.Mul(sdp.StoragePricePerEpoch, abi.NewTokenAmount(int64(sdp.Duration)))
 }
 
 type SignFunc = func(context.Context, []byte) (*types.Signature, error)
@@ -150,8 +151,8 @@ type StorageDeal struct {
 	ProposalExpiration uint64
 	Duration           uint64 // TODO: spec
 
-	StoragePricePerEpoch tokenamount.TokenAmount
-	StorageCollateral    tokenamount.TokenAmount
+	StoragePricePerEpoch abi.TokenAmount
+	StorageCollateral    abi.TokenAmount
 	ActivationEpoch      uint64 // 0 = inactive
 }
 
@@ -193,7 +194,7 @@ type StorageProvider interface {
 
 	Stop() error
 
-	AddAsk(price tokenamount.TokenAmount, ttlsecs int64) error
+	AddAsk(price abi.TokenAmount, ttlsecs int64) error
 
 	// ListAsks lists current asks
 	ListAsks(addr address.Address) []*types.SignedStorageAsk
@@ -205,7 +206,7 @@ type StorageProvider interface {
 	ListIncompleteDeals() ([]MinerDeal, error)
 
 	// AddStorageCollateral adds storage collateral
-	AddStorageCollateral(ctx context.Context, amount tokenamount.TokenAmount) error
+	AddStorageCollateral(ctx context.Context, amount abi.TokenAmount) error
 
 	// GetStorageCollateral returns the current collateral balance
 	GetStorageCollateral(ctx context.Context) (Balance, error)
@@ -218,10 +219,10 @@ type StorageProviderNode interface {
 	MostRecentStateId(ctx context.Context) (StateKey, error)
 
 	// Adds funds with the StorageMinerActor for a storage participant.  Used by both providers and clients.
-	AddFunds(ctx context.Context, addr address.Address, amount tokenamount.TokenAmount) error
+	AddFunds(ctx context.Context, addr address.Address, amount abi.TokenAmount) error
 
 	// Ensures that a storage market participant has a certain amount of available funds
-	EnsureFunds(ctx context.Context, addr address.Address, amount tokenamount.TokenAmount) error
+	EnsureFunds(ctx context.Context, addr address.Address, amount abi.TokenAmount) error
 
 	// GetBalance returns locked/unlocked for a storage participant.  Used by both providers and clients.
 	GetBalance(ctx context.Context, addr address.Address) (Balance, error)
@@ -255,9 +256,9 @@ type StorageClientNode interface {
 	MostRecentStateId(ctx context.Context) (StateKey, error)
 
 	// Adds funds with the StorageMinerActor for a storage participant.  Used by both providers and clients.
-	AddFunds(ctx context.Context, addr address.Address, amount tokenamount.TokenAmount) error
+	AddFunds(ctx context.Context, addr address.Address, amount abi.TokenAmount) error
 
-	EnsureFunds(ctx context.Context, addr address.Address, amount tokenamount.TokenAmount) error
+	EnsureFunds(ctx context.Context, addr address.Address, amount abi.TokenAmount) error
 
 	// GetBalance returns locked/unlocked for a storage participant.  Used by both providers and clients.
 	GetBalance(ctx context.Context, addr address.Address) (Balance, error)
@@ -344,11 +345,11 @@ type StorageClient interface {
 	//FindStorageOffers(criteria AskCriteria, limit uint) []*StorageOffer
 
 	// ProposeStorageDeal initiates deal negotiation with a Storage Provider
-	ProposeStorageDeal(ctx context.Context, addr address.Address, info *StorageProviderInfo, data *DataRef, proposalExpiration Epoch, duration Epoch, price tokenamount.TokenAmount, collateral tokenamount.TokenAmount) (*ProposeStorageDealResult, error)
+	ProposeStorageDeal(ctx context.Context, addr address.Address, info *StorageProviderInfo, data *DataRef, proposalExpiration Epoch, duration Epoch, price abi.TokenAmount, collateral abi.TokenAmount) (*ProposeStorageDealResult, error)
 
 	// GetPaymentEscrow returns the current funds available for deal payment
 	GetPaymentEscrow(ctx context.Context, addr address.Address) (Balance, error)
 
 	// AddStorageCollateral adds storage collateral
-	AddPaymentEscrow(ctx context.Context, addr address.Address, amount tokenamount.TokenAmount) error
+	AddPaymentEscrow(ctx context.Context, addr address.Address, amount abi.TokenAmount) error
 }

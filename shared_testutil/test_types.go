@@ -10,7 +10,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/filecoin-project/go-fil-markets/retrievalmarket"
-	"github.com/filecoin-project/go-fil-markets/shared/tokenamount"
+	"github.com/filecoin-project/specs-actors/actors/abi"
 	"github.com/filecoin-project/go-fil-markets/shared/types"
 	"github.com/filecoin-project/go-fil-markets/storagemarket"
 	smnet "github.com/filecoin-project/go-fil-markets/storagemarket/network"
@@ -57,8 +57,8 @@ func MakeTestSignature() *types.Signature {
 }
 
 // MakeTestTokenAmount generates a valid yet random TokenAmount with a non-zero value.
-func MakeTestTokenAmount() tokenamount.TokenAmount {
-	return tokenamount.TokenAmount{Int: big.NewInt(rand.Int63())}
+func MakeTestTokenAmount() abi.TokenAmount {
+	return abi.TokenAmount{Int: big.NewInt(rand.Int63())}
 }
 
 // MakeTestQueryResponse generates a valid, random QueryResponse with no non-zero fields

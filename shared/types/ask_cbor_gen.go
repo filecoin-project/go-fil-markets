@@ -102,7 +102,7 @@ func (t *StorageAsk) MarshalCBOR(w io.Writer) error {
 		return err
 	}
 
-	// t.Price (tokenamount.TokenAmount) (struct)
+	// t.Price (big.Int) (struct)
 	if err := t.Price.MarshalCBOR(w); err != nil {
 		return err
 	}
@@ -149,7 +149,7 @@ func (t *StorageAsk) UnmarshalCBOR(r io.Reader) error {
 		return fmt.Errorf("cbor input had wrong number of fields")
 	}
 
-	// t.Price (tokenamount.TokenAmount) (struct)
+	// t.Price (big.Int) (struct)
 
 	{
 

@@ -19,7 +19,7 @@ import (
 	"github.com/filecoin-project/go-fil-markets/retrievalmarket/impl/testnodes"
 	"github.com/filecoin-project/go-fil-markets/retrievalmarket/network"
 	rmnet "github.com/filecoin-project/go-fil-markets/retrievalmarket/network"
-	"github.com/filecoin-project/go-fil-markets/shared/tokenamount"
+	"github.com/filecoin-project/specs-actors/actors/abi"
 	tut "github.com/filecoin-project/go-fil-markets/shared_testutil"
 )
 
@@ -43,7 +43,7 @@ func TestClient_Query(t *testing.T) {
 		Status:                     retrievalmarket.QueryResponseAvailable,
 		Size:                       1234,
 		PaymentAddress:             address.TestAddress,
-		MinPricePerByte:            tokenamount.FromInt(5678),
+		MinPricePerByte:            abi.NewTokenAmount(5678),
 		MaxPaymentInterval:         4321,
 		MaxPaymentIntervalIncrease: 0,
 	}

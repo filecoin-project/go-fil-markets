@@ -4,14 +4,14 @@ import (
 	"context"
 	"errors"
 	"io"
-	"math/big"
 
 	"github.com/filecoin-project/go-address"
 	"github.com/ipfs/go-cid"
 	"github.com/libp2p/go-libp2p-core/peer"
 
-	"github.com/filecoin-project/go-fil-markets/shared/tokenamount"
 	"github.com/filecoin-project/go-fil-markets/shared/types"
+	"github.com/filecoin-project/specs-actors/actors/abi"
+	"github.com/filecoin-project/specs-actors/actors/abi/big"
 )
 
 //go:generate cbor-gen-for Query QueryResponse DealProposal DealResponse Params QueryParams DealPayment Block ClientDealState
@@ -32,7 +32,7 @@ type Unsubscribe func()
 type ClientDealState struct {
 	ProposalCid cid.Cid
 	DealProposal
-	TotalFunds       tokenamount.TokenAmount
+	TotalFunds       abi.TokenAmount
 	ClientWallet     address.Address
 	MinerWallet      address.Address
 	PayCh            address.Address
@@ -43,8 +43,8 @@ type ClientDealState struct {
 	Message          string
 	BytesPaidFor     uint64
 	CurrentInterval  uint64
-	PaymentRequested tokenamount.TokenAmount
-	FundsSpent       tokenamount.TokenAmount
+	PaymentRequested abi.TokenAmount
+	FundsSpent       abi.TokenAmount
 }
 
 // ClientEvent is an event that occurs in a deal lifecycle on the client
@@ -91,7 +91,7 @@ type RetrievalClient interface {
 		ctx context.Context,
 		payloadCID cid.Cid,
 		params Params,
-		totalFunds tokenamount.TokenAmount,
+		totalFunds abi.TokenAmount,
 		miner peer.ID,
 		clientWallet address.Address,
 		minerWallet address.Address,
@@ -101,7 +101,7 @@ type RetrievalClient interface {
 	SubscribeToEvents(subscriber ClientSubscriber) Unsubscribe
 
 	// V1
-	AddMoreFunds(id DealID, amount tokenamount.TokenAmount) error
+	AddMoreFunds(id DealID, amount abi.TokenAmount) error
 	CancelDeal(id DealID) error
 	RetrievalStatus(id DealID)
 	ListDeals() map[DealID]ClientDealState
@@ -112,7 +112,7 @@ type RetrievalClientNode interface {
 
 	// GetOrCreatePaymentChannel sets up a new payment channel if one does not exist
 	// between a client and a miner and insures the client has the given amount of funds available in the channel
-	GetOrCreatePaymentChannel(ctx context.Context, clientAddress address.Address, minerAddress address.Address, clientFundsAvailable tokenamount.TokenAmount) (address.Address, error)
+	GetOrCreatePaymentChannel(ctx context.Context, clientAddress address.Address, minerAddress address.Address, clientFundsAvailable abi.TokenAmount) (address.Address, error)
 
 	// Allocate late creates a lane within a payment channel so that calls to
 	// CreatePaymentVoucher will automatically make vouchers only for the difference
@@ -122,7 +122,7 @@ type RetrievalClientNode interface {
 	// CreatePaymentVoucher creates a new payment voucher in the given lane for a
 	// given payment channel so that all the payment vouchers in the lane add up
 	// to the given amount (so the payment voucher will be for the difference)
-	CreatePaymentVoucher(ctx context.Context, paymentChannel address.Address, amount tokenamount.TokenAmount, lane uint64) (*types.SignedVoucher, error)
+	CreatePaymentVoucher(ctx context.Context, paymentChannel address.Address, amount abi.TokenAmount, lane uint64) (*types.SignedVoucher, error)
 }
 
 // ProviderDealState is the current state of a deal from the point of view
@@ -132,7 +132,7 @@ type ProviderDealState struct {
 	Status          DealStatus
 	Receiver        peer.ID
 	TotalSent       uint64
-	FundsReceived   tokenamount.TokenAmount
+	FundsReceived   abi.TokenAmount
 	Message         string
 	CurrentInterval uint64
 }
@@ -177,7 +177,7 @@ type RetrievalProvider interface {
 	// V0
 
 	// SetPricePerByte sets the price per byte a miner charges for retrievals
-	SetPricePerByte(price tokenamount.TokenAmount)
+	SetPricePerByte(price abi.TokenAmount)
 
 	// SetPaymentInterval sets the maximum number of bytes a a provider will send before
 	// requesting further payment, and the rate at which that value increases
@@ -187,14 +187,14 @@ type RetrievalProvider interface {
 	SubscribeToEvents(subscriber ProviderSubscriber) Unsubscribe
 
 	// V1
-	SetPricePerUnseal(price tokenamount.TokenAmount)
+	SetPricePerUnseal(price abi.TokenAmount)
 	ListDeals() map[ProviderDealID]ProviderDealState
 }
 
 // RetrievalProviderNode are the node depedencies for a RetrevalProvider
 type RetrievalProviderNode interface {
 	UnsealSector(ctx context.Context, sectorId uint64, offset uint64, length uint64) (io.ReadCloser, error)
-	SavePaymentVoucher(ctx context.Context, paymentChannel address.Address, voucher *types.SignedVoucher, proof []byte, expectedAmount tokenamount.TokenAmount) (tokenamount.TokenAmount, error)
+	SavePaymentVoucher(ctx context.Context, paymentChannel address.Address, voucher *types.SignedVoucher, proof []byte, expectedAmount abi.TokenAmount) (abi.TokenAmount, error)
 }
 
 // PeerResolver is an interface for looking up providers that may have a piece
@@ -250,7 +250,7 @@ const (
 type QueryParams struct {
 	//PayloadCID                 cid.Cid   // optional, query if miner has this cid in this piece. some miners may not be able to respond.
 	//Selector                   ipld.Node // optional, query if miner has this cid in this piece. some miners may not be able to respond.
-	//MaxPricePerByte            tokenamount.TokenAmount    // optional, tell miner uninterested if more expensive than this
+	//MaxPricePerByte            abi.TokenAmount    // optional, tell miner uninterested if more expensive than this
 	//MinPaymentInterval         uint64    // optional, tell miner uninterested unless payment interval is greater than this
 	//MinPaymentIntervalIncrease uint64    // optional, tell miner uninterested unless payment interval increase is greater than this
 }
@@ -280,7 +280,7 @@ type QueryResponse struct {
 	//ExpectedPayloadSize uint64 // V1 - optional, if PayloadCID + selector are specified and miner knows, can offer an expected size
 
 	PaymentAddress             address.Address // address to send funds to -- may be different than miner addr
-	MinPricePerByte            tokenamount.TokenAmount
+	MinPricePerByte            abi.TokenAmount
 	MaxPaymentInterval         uint64
 	MaxPaymentIntervalIncrease uint64
 	Message                    string
@@ -290,13 +290,13 @@ type QueryResponse struct {
 var QueryResponseUndefined = QueryResponse{}
 
 // PieceRetrievalPrice is the total price to retrieve the piece (size * MinPricePerByte)
-func (qr QueryResponse) PieceRetrievalPrice() tokenamount.TokenAmount {
-	return tokenamount.Mul(qr.MinPricePerByte, tokenamount.FromInt(qr.Size))
+func (qr QueryResponse) PieceRetrievalPrice() abi.TokenAmount {
+	return big.Mul(qr.MinPricePerByte, abi.NewTokenAmount(int64(qr.Size)))
 }
 
 // PayloadRetrievalPrice is the expected price to retrieve just the given payload
 // & selector (V1)
-//func (qr QueryResponse) PayloadRetrievalPrice() tokenamount.TokenAmount {
+//func (qr QueryResponse) PayloadRetrievalPrice() abi.TokenAmount {
 //	return types.BigMul(qr.MinPricePerByte, types.NewInt(qr.ExpectedPayloadSize))
 //}
 
@@ -369,15 +369,15 @@ func IsTerminalStatus(status DealStatus) bool {
 // Params are the parameters requested for a retrieval deal proposal
 type Params struct {
 	//Selector                ipld.Node // V1
-	PricePerByte            tokenamount.TokenAmount
+	PricePerByte            abi.TokenAmount
 	PaymentInterval         uint64 // when to request payment
 	PaymentIntervalIncrease uint64 //
 }
 
 // NewParamsV0 generates parameters for a retrieval deal, which is always a whole piece deal
-func NewParamsV0(pricePerByte *big.Int, paymentInterval uint64, paymentIntervalIncrease uint64) Params {
+func NewParamsV0(pricePerByte abi.TokenAmount, paymentInterval uint64, paymentIntervalIncrease uint64) Params {
 	return Params{
-		PricePerByte:            tokenamount.TokenAmount{Int: pricePerByte},
+		PricePerByte:            pricePerByte,
 		PaymentInterval:         paymentInterval,
 		PaymentIntervalIncrease: paymentIntervalIncrease,
 	}
@@ -411,7 +411,7 @@ type DealResponse struct {
 	ID     DealID
 
 	// payment required to proceed
-	PaymentOwed tokenamount.TokenAmount
+	PaymentOwed abi.TokenAmount
 
 	Message string
 	Blocks  []Block // V0 only

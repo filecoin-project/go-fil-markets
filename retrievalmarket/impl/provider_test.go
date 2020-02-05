@@ -15,7 +15,7 @@ import (
 	retrievalimpl "github.com/filecoin-project/go-fil-markets/retrievalmarket/impl"
 	"github.com/filecoin-project/go-fil-markets/retrievalmarket/impl/testnodes"
 	"github.com/filecoin-project/go-fil-markets/retrievalmarket/network"
-	"github.com/filecoin-project/go-fil-markets/shared/tokenamount"
+	"github.com/filecoin-project/specs-actors/actors/abi"
 	tut "github.com/filecoin-project/go-fil-markets/shared_testutil"
 )
 
@@ -40,7 +40,7 @@ func TestHandleQueryStream(t *testing.T) {
 		},
 	}
 	expectedAddress := address.TestAddress2
-	expectedPricePerByte := tokenamount.FromInt(4321)
+	expectedPricePerByte := abi.NewTokenAmount(4321)
 	expectedPaymentInterval := uint64(4567)
 	expectedPaymentIntervalIncrease := uint64(100)
 

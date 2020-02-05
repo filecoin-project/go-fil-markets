@@ -14,7 +14,7 @@ import (
 	"github.com/filecoin-project/go-address"
 	"github.com/filecoin-project/go-fil-markets/retrievalmarket"
 	"github.com/filecoin-project/go-fil-markets/retrievalmarket/network"
-	"github.com/filecoin-project/go-fil-markets/shared/tokenamount"
+	"github.com/filecoin-project/specs-actors/actors/abi"
 	"github.com/filecoin-project/go-fil-markets/shared_testutil"
 )
 
@@ -330,7 +330,7 @@ func assertDealResponseReceived(parentCtx context.Context, t *testing.T, fromNet
 	dr := retrievalmarket.DealResponse{
 		Status:      retrievalmarket.DealStatusCompleted,
 		ID:          retrievalmarket.DealID(rand.Uint64()),
-		PaymentOwed: tokenamount.TokenAmount{Int: big.NewInt(rand.Int63())},
+		PaymentOwed: abi.TokenAmount{Int: big.NewInt(rand.Int63())},
 		Message:     "some message",
 		Blocks:      []retrievalmarket.Block{fakeBlk},
 	}

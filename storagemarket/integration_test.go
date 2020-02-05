@@ -23,12 +23,13 @@ import (
 	"github.com/filecoin-project/go-fil-markets/filestore"
 	"github.com/filecoin-project/go-fil-markets/piecestore"
 	"github.com/filecoin-project/go-fil-markets/retrievalmarket/discovery"
-	"github.com/filecoin-project/go-fil-markets/shared/tokenamount"
 	"github.com/filecoin-project/go-fil-markets/shared/types"
 	"github.com/filecoin-project/go-fil-markets/shared_testutil"
 	"github.com/filecoin-project/go-fil-markets/storagemarket"
 	storageimpl "github.com/filecoin-project/go-fil-markets/storagemarket/impl"
 	"github.com/filecoin-project/go-fil-markets/storagemarket/network"
+	"github.com/filecoin-project/specs-actors/actors/abi"
+	"github.com/filecoin-project/specs-actors/actors/abi/big"
 )
 
 func TestMakeDeal(t *testing.T) {
@@ -84,7 +85,7 @@ func TestMakeDeal(t *testing.T) {
 	assert.NoError(t, err)
 
 	// set ask price where we'll accept any price
-	err = provider.AddAsk(tokenamount.FromInt(0), 50_000)
+	err = provider.AddAsk(big.NewInt(0), 50_000)
 	assert.NoError(t, err)
 
 	err = provider.Start(ctx)
@@ -108,7 +109,7 @@ func TestMakeDeal(t *testing.T) {
 			TransferType: storagemarket.TTGraphsync,
 			Root:         payloadCid,
 		}
-		result, err := client.ProposeStorageDeal(ctx, providerAddr, &providerInfo, dataRef, storagemarket.Epoch(epoch+100), 20000, tokenamount.FromInt(1), tokenamount.FromInt(0))
+		result, err := client.ProposeStorageDeal(ctx, providerAddr, &providerInfo, dataRef, storagemarket.Epoch(epoch+100), 20000, big.NewInt(1), big.NewInt(0))
 		assert.NoError(t, err)
 
 		proposalCid = result.ProposalCid
@@ -150,7 +151,7 @@ func (k *testStateKey) Height() uint64 {
 type storageMarketState struct {
 	Epoch        uint64
 	DealId       uint64
-	Balances     map[address.Address]tokenamount.TokenAmount
+	Balances     map[address.Address]abi.TokenAmount
 	StorageDeals map[address.Address][]storagemarket.StorageDeal
 	Providers    []*storagemarket.StorageProviderInfo
 }
@@ -159,15 +160,15 @@ func newStorageMarketState() *storageMarketState {
 	return &storageMarketState{
 		Epoch:        0,
 		DealId:       0,
-		Balances:     map[address.Address]tokenamount.TokenAmount{},
+		Balances:     map[address.Address]abi.TokenAmount{},
 		StorageDeals: map[address.Address][]storagemarket.StorageDeal{},
 		Providers:    nil,
 	}
 }
 
-func (sma *storageMarketState) AddFunds(addr address.Address, amount tokenamount.TokenAmount) {
+func (sma *storageMarketState) AddFunds(addr address.Address, amount abi.TokenAmount) {
 	if existing, ok := sma.Balances[addr]; ok {
-		sma.Balances[addr] = tokenamount.Add(existing, amount)
+		sma.Balances[addr] = big.Add(existing, amount)
 	} else {
 		sma.Balances[addr] = amount
 	}
@@ -175,9 +176,9 @@ func (sma *storageMarketState) AddFunds(addr address.Address, amount tokenamount
 
 func (sma *storageMarketState) Balance(addr address.Address) storagemarket.Balance {
 	if existing, ok := sma.Balances[addr]; ok {
-		return storagemarket.Balance{tokenamount.FromInt(0), existing}
+		return storagemarket.Balance{big.NewInt(0), existing}
 	}
-	return storagemarket.Balance{tokenamount.FromInt(0), tokenamount.FromInt(0)}
+	return storagemarket.Balance{big.NewInt(0), big.NewInt(0)}
 }
 
 func (sma *storageMarketState) Deals(addr address.Address) []storagemarket.StorageDeal {
@@ -210,15 +211,15 @@ func (n *fakeCommon) MostRecentStateId(ctx context.Context) (storagemarket.State
 	return n.SMState.StateKey(), nil
 }
 
-func (n *fakeCommon) AddFunds(ctx context.Context, addr address.Address, amount tokenamount.TokenAmount) error {
+func (n *fakeCommon) AddFunds(ctx context.Context, addr address.Address, amount abi.TokenAmount) error {
 	n.SMState.AddFunds(addr, amount)
 	return nil
 }
 
-func (n *fakeCommon) EnsureFunds(ctx context.Context, addr address.Address, amount tokenamount.TokenAmount) error {
+func (n *fakeCommon) EnsureFunds(ctx context.Context, addr address.Address, amount abi.TokenAmount) error {
 	balance := n.SMState.Balance(addr)
 	if balance.Available.LessThan(amount) {
-		n.SMState.AddFunds(addr, tokenamount.Sub(amount, balance.Available))
+		n.SMState.AddFunds(addr, big.Sub(amount, balance.Available))
 	}
 	return nil
 }
