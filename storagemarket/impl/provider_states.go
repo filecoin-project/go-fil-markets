@@ -13,6 +13,7 @@ import (
 	"github.com/filecoin-project/go-fil-markets/piecestore"
 	"github.com/filecoin-project/go-fil-markets/shared/tokenamount"
 	"github.com/filecoin-project/go-fil-markets/storagemarket"
+	"github.com/filecoin-project/go-fil-markets/storagemarket/network"
 )
 
 type providerHandlerFunc func(ctx context.Context, deal MinerDeal) (func(*MinerDeal), error)
@@ -148,7 +149,7 @@ func (p *Provider) publishing(ctx context.Context, deal MinerDeal) (func(*MinerD
 		return nil, err
 	}
 
-	err = p.sendSignedResponse(ctx, &Response{
+	err = p.sendSignedResponse(ctx, &network.Response{
 		State: storagemarket.StorageDealProposalAccepted,
 
 		Proposal:       deal.ProposalCid,
