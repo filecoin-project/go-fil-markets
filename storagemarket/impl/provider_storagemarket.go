@@ -55,7 +55,6 @@ func (p *Provider) ListIncompleteDeals() ([]storagemarket.MinerDeal, error) {
 			State:       deal.State,
 			Ref:         deal.Ref,
 			DealID:      deal.DealID,
-			SectorID:    deal.SectorID,
 		})
 	}
 

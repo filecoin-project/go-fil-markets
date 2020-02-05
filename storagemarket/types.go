@@ -171,8 +171,7 @@ type MinerDeal struct {
 
 	Ref cid.Cid
 
-	DealID   uint64
-	SectorID uint64 // Set when sm >= StorageDealStaged
+	DealID uint64
 }
 
 type ClientDeal struct {
@@ -244,7 +243,7 @@ type StorageProviderNode interface {
 	LocatePieceForDealWithinSector(ctx context.Context, dealID uint64) (sectorID uint64, offset uint64, length uint64, err error)
 }
 
-type DealSectorCommittedCallback func(sectorId uint64, err error)
+type DealSectorCommittedCallback func(err error)
 
 // Node dependencies for a StorageClient
 type StorageClientNode interface {
