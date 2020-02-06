@@ -82,6 +82,7 @@ func NewProvider(net network.StorageMarketNetwork, ds datastore.Batching, bs blo
 	pio := pieceio.NewPieceIOWithStore(carIO, fs, bs)
 
 	h := &Provider{
+		net:          net,
 		fs:           fs,
 		pio:          pio,
 		pieceStore:   pieceStore,
