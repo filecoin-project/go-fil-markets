@@ -1,6 +1,7 @@
 package storageimpl
 
 import (
+	"bytes"
 	"context"
 	"runtime"
 
@@ -47,6 +48,19 @@ func (p *Provider) failDeal(ctx context.Context, id cid.Cid, cerr error) {
 	}
 }
 
+func (p *Provider) verifyProposal(sdp *storagemarket.StorageDealProposal) error {
+	unsigned := *sdp
+	unsigned.ProposerSignature = nil
+	var buf bytes.Buffer
+	if err := unsigned.MarshalCBOR(&buf); err != nil {
+		return err
+	}
+	verified := p.spn.VerifySignature(*sdp.ProposerSignature, sdp.Client, buf.Bytes())
+	if !verified {
+		return xerrors.New("could not verify signature")
+	}
+	return nil
+}
 func (p *Provider) readProposal(s network.StorageDealStream) (proposal network.Proposal, err error) {
 	proposal, err = s.ReadDealProposal()
 	if err != nil {
@@ -58,7 +72,7 @@ func (p *Provider) readProposal(s network.StorageDealStream) (proposal network.P
 		return proposal, xerrors.Errorf("incoming deal proposal has no signature")
 	}
 
-	if err := proposal.DealProposal.Verify(p.spn.VerifySignature); err != nil {
+	if err := p.verifyProposal(proposal.DealProposal); err != nil {
 		return proposal, xerrors.Errorf("verifying StorageDealProposal: %w", err)
 	}
 

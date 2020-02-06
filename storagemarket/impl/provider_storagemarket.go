@@ -6,20 +6,19 @@ import (
 	"context"
 
 	"github.com/filecoin-project/go-address"
-	"github.com/filecoin-project/specs-actors/actors/abi"
-	"github.com/filecoin-project/go-fil-markets/shared/types"
 	"github.com/filecoin-project/go-fil-markets/storagemarket"
+	"github.com/filecoin-project/specs-actors/actors/abi"
 )
 
 func (p *Provider) AddAsk(price abi.TokenAmount, ttlsecs int64) error {
 	return p.SetPrice(price, ttlsecs)
 }
 
-func (p *Provider) ListAsks(addr address.Address) []*types.SignedStorageAsk {
+func (p *Provider) ListAsks(addr address.Address) []*storagemarket.SignedStorageAsk {
 	ask := p.GetAsk(addr)
 
 	if ask != nil {
-		return []*types.SignedStorageAsk{ask}
+		return []*storagemarket.SignedStorageAsk{ask}
 	}
 
 	return nil

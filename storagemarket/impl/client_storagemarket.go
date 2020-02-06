@@ -11,7 +11,6 @@ import (
 	"golang.org/x/xerrors"
 
 	"github.com/filecoin-project/go-address"
-	"github.com/filecoin-project/go-fil-markets/shared/types"
 	"github.com/filecoin-project/go-fil-markets/storagemarket"
 )
 
@@ -78,7 +77,7 @@ func (c *Client) GetInProgressDeal(ctx context.Context, cid cid.Cid) (storagemar
 	return storagemarket.ClientDeal{}, xerrors.Errorf("couldn't find client deal")
 }
 
-func (c *Client) GetAsk(ctx context.Context, info storagemarket.StorageProviderInfo) (*types.SignedStorageAsk, error) {
+func (c *Client) GetAsk(ctx context.Context, info storagemarket.StorageProviderInfo) (*storagemarket.SignedStorageAsk, error) {
 	return c.QueryAsk(ctx, info.PeerID, info.Address)
 }
 

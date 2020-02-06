@@ -10,9 +10,9 @@ import (
 
 	"github.com/filecoin-project/go-address"
 	cborutil "github.com/filecoin-project/go-cbor-util"
-	"github.com/filecoin-project/specs-actors/actors/abi"
-	"github.com/filecoin-project/go-fil-markets/shared/types"
+	"github.com/filecoin-project/go-fil-markets/storagemarket"
 	"github.com/filecoin-project/go-fil-markets/storagemarket/network"
+	"github.com/filecoin-project/specs-actors/actors/abi"
 )
 
 func (p *Provider) SetPrice(price abi.TokenAmount, ttlsecs int64) error {
@@ -25,7 +25,7 @@ func (p *Provider) SetPrice(price abi.TokenAmount, ttlsecs int64) error {
 	}
 
 	now := time.Now().Unix()
-	ask := &types.StorageAsk{
+	ask := &storagemarket.StorageAsk{
 		Price:        price,
 		Timestamp:    uint64(now),
 		Expiry:       uint64(now + ttlsecs),
@@ -42,7 +42,7 @@ func (p *Provider) SetPrice(price abi.TokenAmount, ttlsecs int64) error {
 	return p.saveAsk(ssa)
 }
 
-func (p *Provider) GetAsk(m address.Address) *types.SignedStorageAsk {
+func (p *Provider) GetAsk(m address.Address) *storagemarket.SignedStorageAsk {
 	p.askLk.Lock()
 	defer p.askLk.Unlock()
 	if m != p.actor {
@@ -98,7 +98,7 @@ func (p *Provider) loadAsk() error {
 		return xerrors.Errorf("failed to load most recent ask from disk: %w", err)
 	}
 
-	var ssa types.SignedStorageAsk
+	var ssa storagemarket.SignedStorageAsk
 	if err := cborutil.ReadCborRPC(bytes.NewReader(askb), &ssa); err != nil {
 		return err
 	}
@@ -107,7 +107,7 @@ func (p *Provider) loadAsk() error {
 	return nil
 }
 
-func (p *Provider) signAsk(a *types.StorageAsk) (*types.SignedStorageAsk, error) {
+func (p *Provider) signAsk(a *storagemarket.StorageAsk) (*storagemarket.SignedStorageAsk, error) {
 	b, err := cborutil.Dump(a)
 	if err != nil {
 		return nil, err
@@ -123,13 +123,13 @@ func (p *Provider) signAsk(a *types.StorageAsk) (*types.SignedStorageAsk, error)
 		return nil, err
 	}
 
-	return &types.SignedStorageAsk{
+	return &storagemarket.SignedStorageAsk{
 		Ask:       a,
 		Signature: sig,
 	}, nil
 }
 
-func (p *Provider) saveAsk(a *types.SignedStorageAsk) error {
+func (p *Provider) saveAsk(a *storagemarket.SignedStorageAsk) error {
 	b, err := cborutil.Dump(a)
 	if err != nil {
 		return err

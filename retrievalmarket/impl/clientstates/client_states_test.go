@@ -15,10 +15,10 @@ import (
 	clientstates "github.com/filecoin-project/go-fil-markets/retrievalmarket/impl/clientstates"
 	"github.com/filecoin-project/go-fil-markets/retrievalmarket/impl/testnodes"
 	rmnet "github.com/filecoin-project/go-fil-markets/retrievalmarket/network"
-	"github.com/filecoin-project/go-fil-markets/shared/types"
 	testnet "github.com/filecoin-project/go-fil-markets/shared_testutil"
 	"github.com/filecoin-project/specs-actors/actors/abi"
 	"github.com/filecoin-project/specs-actors/actors/abi/big"
+	"github.com/filecoin-project/specs-actors/actors/builtin/payment_channel"
 )
 
 type consumeBlockResponse struct {
@@ -55,7 +55,7 @@ func TestSetupPaymentChannel(t *testing.T) {
 	ctx := context.Background()
 	ds := testnet.NewTestRetrievalDealStream(testnet.TestDealStreamParams{})
 	expectedPayCh := address.TestAddress2
-	expectedLane := uint64(10)
+	expectedLane := int64(10)
 
 	environment := func(params testnodes.TestRetrievalClientNodeParams) clientstates.ClientDealEnvironment {
 		node := testnodes.NewTestRetrievalClientNode(params)
@@ -192,7 +192,7 @@ func TestProcessPaymentRequested(t *testing.T) {
 		return &fakeEnvironment{node, ds, 0, nil}
 	}
 
-	testVoucher := &types.SignedVoucher{}
+	testVoucher := &payment_channel.SignedVoucher{}
 
 	t.Run("it works", func(t *testing.T) {
 		dealState := makeDealState(retrievalmarket.DealStatusFundsNeeded)
@@ -490,7 +490,7 @@ func makeDealState(status retrievalmarket.DealStatus) *retrievalmarket.ClientDea
 		MinerWallet:      address.TestAddress,
 		ClientWallet:     address.TestAddress2,
 		PayCh:            address.TestAddress2,
-		Lane:             uint64(10),
+		Lane:             int64(10),
 		Status:           status,
 		BytesPaidFor:     defaultBytesPaidFor,
 		TotalReceived:    defaultTotalReceived,

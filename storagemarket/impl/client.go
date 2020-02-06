@@ -19,7 +19,6 @@ import (
 	"github.com/filecoin-project/go-fil-markets/pieceio/cario"
 	"github.com/filecoin-project/go-fil-markets/retrievalmarket"
 	"github.com/filecoin-project/go-fil-markets/retrievalmarket/discovery"
-	"github.com/filecoin-project/go-fil-markets/shared/types"
 	"github.com/filecoin-project/go-fil-markets/storagemarket"
 	"github.com/filecoin-project/go-statestore"
 	"github.com/filecoin-project/specs-actors/actors/abi"
@@ -252,7 +251,7 @@ func (c *Client) Start(ctx context.Context, p ClientDealProposal) (cid.Cid, erro
 	})
 }
 
-func (c *Client) QueryAsk(ctx context.Context, p peer.ID, a address.Address) (*types.SignedStorageAsk, error) {
+func (c *Client) QueryAsk(ctx context.Context, p peer.ID, a address.Address) (*storagemarket.SignedStorageAsk, error) {
 	s, err := c.net.NewAskStream(p)
 	if err != nil {
 		return nil, xerrors.Errorf("failed to open stream to miner: %w", err)

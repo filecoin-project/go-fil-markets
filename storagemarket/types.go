@@ -6,18 +6,19 @@ import (
 	"io"
 
 	"github.com/ipfs/go-cid"
+	cbor "github.com/ipfs/go-ipld-cbor"
 	"github.com/libp2p/go-libp2p-core/peer"
 	xerrors "golang.org/x/xerrors"
 
 	"github.com/filecoin-project/go-address"
 	cborutil "github.com/filecoin-project/go-cbor-util"
 	"github.com/filecoin-project/go-fil-markets/filestore"
-	"github.com/filecoin-project/go-fil-markets/shared/types"
 	"github.com/filecoin-project/specs-actors/actors/abi"
 	"github.com/filecoin-project/specs-actors/actors/abi/big"
+	"github.com/filecoin-project/specs-actors/actors/crypto"
 )
 
-//go:generate cbor-gen-for ClientDeal MinerDeal StorageDeal Balance StorageDealProposal DataRef
+//go:generate cbor-gen-for ClientDeal MinerDeal StorageDeal Balance StorageDealProposal SignedStorageAsk StorageAsk DataRef
 
 const DealProtocolID = "/fil/storage/mk/1.0.1"
 const AskProtocolID = "/fil/storage/ask/1.0.1"
@@ -81,6 +82,27 @@ var DealStates = []string{
 
 type DealID uint64
 
+func init() {
+	cbor.RegisterCborType(SignedStorageAsk{})
+	cbor.RegisterCborType(StorageAsk{})
+}
+
+type SignedStorageAsk struct {
+	Ask       *StorageAsk
+	Signature *crypto.Signature
+}
+
+type StorageAsk struct {
+	// Price per GiB / Epoch
+	Price abi.TokenAmount
+
+	MinPieceSize uint64
+	Miner        address.Address
+	Timestamp    uint64
+	Expiry       uint64
+	SeqNo        uint64
+}
+
 type StorageDealProposal struct {
 	PieceRef  []byte // cid bytes // TODO: spec says to use cid.Cid, probably not a good idea
 	PieceSize uint64
@@ -94,14 +116,14 @@ type StorageDealProposal struct {
 	StoragePricePerEpoch abi.TokenAmount
 	StorageCollateral    abi.TokenAmount
 
-	ProposerSignature *types.Signature
+	ProposerSignature *crypto.Signature
 }
 
 func (sdp *StorageDealProposal) TotalStoragePrice() abi.TokenAmount {
 	return big.Mul(sdp.StoragePricePerEpoch, abi.NewTokenAmount(int64(sdp.Duration)))
 }
 
-type SignFunc = func(context.Context, []byte) (*types.Signature, error)
+type SignFunc = func(context.Context, []byte) (*crypto.Signature, error)
 
 func (sdp *StorageDealProposal) Sign(ctx context.Context, sign SignFunc) error {
 	if sdp.ProposerSignature != nil {
@@ -126,19 +148,6 @@ func (sdp *StorageDealProposal) Cid() (cid.Cid, error) {
 	}
 
 	return nd.Cid(), nil
-}
-
-type SignatureVerifier func(address.Address, []byte) error
-
-func (sdp *StorageDealProposal) Verify(verifier SignatureVerifier) error {
-	unsigned := *sdp
-	unsigned.ProposerSignature = nil
-	var buf bytes.Buffer
-	if err := unsigned.MarshalCBOR(&buf); err != nil {
-		return err
-	}
-
-	return verifier(sdp.Client, buf.Bytes())
 }
 
 type StorageDeal struct {
@@ -197,7 +206,7 @@ type StorageProvider interface {
 	AddAsk(price abi.TokenAmount, ttlsecs int64) error
 
 	// ListAsks lists current asks
-	ListAsks(addr address.Address) []*types.SignedStorageAsk
+	ListAsks(addr address.Address) []*SignedStorageAsk
 
 	// ListDeals lists on-chain deals associated with this provider
 	ListDeals(ctx context.Context) ([]StorageDeal, error)
@@ -217,6 +226,9 @@ type StorageProvider interface {
 // Node dependencies for a StorageProvider
 type StorageProviderNode interface {
 	MostRecentStateId(ctx context.Context) (StateKey, error)
+
+	// Verify a signature against an address + data
+	VerifySignature(signature crypto.Signature, signer address.Address, plaintext []byte) bool
 
 	// Adds funds with the StorageMinerActor for a storage participant.  Used by both providers and clients.
 	AddFunds(ctx context.Context, addr address.Address, amount abi.TokenAmount) error
@@ -240,13 +252,11 @@ type StorageProviderNode interface {
 	GetMinerWorker(ctx context.Context, miner address.Address) (address.Address, error)
 
 	// Signs bytes
-	SignBytes(ctx context.Context, signer address.Address, b []byte) (*types.Signature, error)
+	SignBytes(ctx context.Context, signer address.Address, b []byte) (*crypto.Signature, error)
 
 	OnDealSectorCommitted(ctx context.Context, provider address.Address, dealID uint64, cb DealSectorCommittedCallback) error
 
 	LocatePieceForDealWithinSector(ctx context.Context, dealID uint64) (sectorID uint64, offset uint64, length uint64, err error)
-
-	VerifySignature(addr address.Address, data []byte) error
 }
 
 type DealSectorCommittedCallback func(err error)
@@ -254,6 +264,9 @@ type DealSectorCommittedCallback func(err error)
 // Node dependencies for a StorageClient
 type StorageClientNode interface {
 	MostRecentStateId(ctx context.Context) (StateKey, error)
+
+	// Verify a signature against an address + data
+	VerifySignature(signature crypto.Signature, signer address.Address, plaintext []byte) bool
 
 	// Adds funds with the StorageMinerActor for a storage participant.  Used by both providers and clients.
 	AddFunds(ctx context.Context, addr address.Address, amount abi.TokenAmount) error
@@ -287,9 +300,7 @@ type StorageClientNode interface {
 
 	OnDealSectorCommitted(ctx context.Context, provider address.Address, dealId uint64, cb DealSectorCommittedCallback) error
 
-	ValidateAskSignature(ask *types.SignedStorageAsk) error
-
-	VerifySignature(addr address.Address, data []byte) error
+	ValidateAskSignature(ask *SignedStorageAsk) error
 }
 
 type StorageClientProofs interface {
@@ -339,7 +350,7 @@ type StorageClient interface {
 	GetInProgressDeal(ctx context.Context, cid cid.Cid) (ClientDeal, error)
 
 	// GetAsk returns the current ask for a storage provider
-	GetAsk(ctx context.Context, info StorageProviderInfo) (*types.SignedStorageAsk, error)
+	GetAsk(ctx context.Context, info StorageProviderInfo) (*SignedStorageAsk, error)
 
 	//// FindStorageOffers lists providers and queries them to find offers that satisfy some criteria based on price, duration, etc.
 	//FindStorageOffers(criteria AskCriteria, limit uint) []*StorageOffer

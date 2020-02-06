@@ -20,7 +20,6 @@ import (
 	"github.com/filecoin-project/go-fil-markets/pieceio"
 	"github.com/filecoin-project/go-fil-markets/pieceio/cario"
 	"github.com/filecoin-project/go-fil-markets/piecestore"
-	"github.com/filecoin-project/go-fil-markets/shared/types"
 	"github.com/filecoin-project/go-fil-markets/storagemarket"
 	"github.com/filecoin-project/go-fil-markets/storagemarket/network"
 	"github.com/filecoin-project/go-statestore"
@@ -42,7 +41,7 @@ type Provider struct {
 	pricePerByteBlock abi.TokenAmount // how much we want for storing one byte for one block
 	minPieceSize      uint64
 
-	ask   *types.SignedStorageAsk
+	ask   *storagemarket.SignedStorageAsk
 	askLk sync.Mutex
 
 	spn storagemarket.StorageProviderNode

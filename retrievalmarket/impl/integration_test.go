@@ -20,10 +20,10 @@ import (
 	retrievalimpl "github.com/filecoin-project/go-fil-markets/retrievalmarket/impl"
 	"github.com/filecoin-project/go-fil-markets/retrievalmarket/impl/testnodes"
 	rmnet "github.com/filecoin-project/go-fil-markets/retrievalmarket/network"
-	"github.com/filecoin-project/go-fil-markets/shared/types"
 	tut "github.com/filecoin-project/go-fil-markets/shared_testutil"
 	"github.com/filecoin-project/specs-actors/actors/abi"
 	"github.com/filecoin-project/specs-actors/actors/abi/big"
+	"github.com/filecoin-project/specs-actors/actors/builtin/payment_channel"
 )
 
 func TestClientCanMakeQueryToProvider(t *testing.T) {
@@ -311,7 +311,7 @@ CurrentInterval: %d
 			require.Equal(t, clientPaymentChannel, *newLaneAddr)
 			// verify that the voucher was saved/seen by the client with correct values
 			require.NotNil(t, createdVoucher)
-			assert.True(t, createdVoucher.Equals(expectedVoucher))
+			tut.TestVoucherEquality(t, createdVoucher, expectedVoucher)
 
 			ctx, cancel = context.WithTimeout(bgCtx, 5*time.Second)
 			defer cancel()
@@ -335,11 +335,11 @@ CurrentInterval: %d
 
 func setupClient(
 	clientPaymentChannel address.Address,
-	expectedVoucher *types.SignedVoucher,
+	expectedVoucher *payment_channel.SignedVoucher,
 	nw1 rmnet.RetrievalMarketNetwork,
 	testData *tut.Libp2pTestData) (*pmtChan,
 	*address.Address,
-	*types.SignedVoucher,
+	*payment_channel.SignedVoucher,
 	retrievalmarket.RetrievalClient) {
 	var createdChan pmtChan
 	paymentChannelRecorder := func(client, miner address.Address, amt abi.TokenAmount) {
@@ -351,8 +351,8 @@ func setupClient(
 		newLaneAddr = paymentChannel
 	}
 
-	var createdVoucher types.SignedVoucher
-	paymentVoucherRecorder := func(v *types.SignedVoucher) {
+	var createdVoucher payment_channel.SignedVoucher
+	paymentVoucherRecorder := func(v *payment_channel.SignedVoucher) {
 		createdVoucher = *v
 	}
 	clientNode := testnodes.NewTestRetrievalClientNode(testnodes.TestRetrievalClientNodeParams{

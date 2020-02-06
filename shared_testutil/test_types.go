@@ -10,48 +10,48 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/filecoin-project/go-fil-markets/retrievalmarket"
-	"github.com/filecoin-project/specs-actors/actors/abi"
-	"github.com/filecoin-project/go-fil-markets/shared/types"
 	"github.com/filecoin-project/go-fil-markets/storagemarket"
 	smnet "github.com/filecoin-project/go-fil-markets/storagemarket/network"
+	"github.com/filecoin-project/specs-actors/actors/abi"
+	"github.com/filecoin-project/specs-actors/actors/builtin/payment_channel"
+	"github.com/filecoin-project/specs-actors/actors/crypto"
 )
 
 // MakeTestSignedVoucher generates a random SignedVoucher that has all non-zero fields
-func MakeTestSignedVoucher() *types.SignedVoucher {
-	return &types.SignedVoucher{
-		TimeLock:       rand.Uint64(),
+func MakeTestSignedVoucher() *payment_channel.SignedVoucher {
+	return &payment_channel.SignedVoucher{
+		TimeLock:       abi.ChainEpoch(rand.Int63()),
 		SecretPreimage: []byte("secret-preimage"),
 		Extra:          MakeTestModVerifyParams(),
-		Lane:           rand.Uint64(),
-		Nonce:          rand.Uint64(),
+		Lane:           rand.Int63(),
+		Nonce:          rand.Int63(),
 		Amount:         MakeTestTokenAmount(),
-		MinCloseHeight: rand.Uint64(),
-		Merges:         []types.Merge{MakeTestMerge()},
+		Merges:         []payment_channel.Merge{MakeTestMerge()},
 		Signature:      MakeTestSignature(),
 	}
 }
 
 // MakeTestModVerifyParams generates a random ModVerifyParams that has all non-zero fields
-func MakeTestModVerifyParams() *types.ModVerifyParams {
-	return &types.ModVerifyParams{
+func MakeTestModVerifyParams() *payment_channel.ModVerifyParams {
+	return &payment_channel.ModVerifyParams{
 		Actor:  address.TestAddress,
-		Method: rand.Uint64(),
+		Method: abi.MethodNum(rand.Int63()),
 		Data:   []byte("ModVerifyParams data"),
 	}
 }
 
 // MakeTestMerge generates a random Merge that has all non-zero fields
-func MakeTestMerge() types.Merge {
-	return types.Merge{
-		Lane:  rand.Uint64(),
-		Nonce: rand.Uint64(),
+func MakeTestMerge() payment_channel.Merge {
+	return payment_channel.Merge{
+		Lane:  rand.Int63(),
+		Nonce: rand.Int63(),
 	}
 }
 
-// MakeTestSignagure generates a valid yet random Signature with all non-zero fields
-func MakeTestSignature() *types.Signature {
-	return &types.Signature{
-		Type: types.KTSecp256k1,
+// MakeTestSignature generates a valid yet random Signature with all non-zero fields
+func MakeTestSignature() *crypto.Signature {
+	return &crypto.Signature{
+		Type: crypto.SigTypeSecp256k1,
 		Data: []byte("signature data"),
 	}
 }
@@ -132,8 +132,8 @@ func MakeTestStorageDealProposal() *storagemarket.StorageDealProposal {
 }
 
 // MakeTestStorageAsk generates a storage ask
-func MakeTestStorageAsk() *types.StorageAsk {
-	return &types.StorageAsk{
+func MakeTestStorageAsk() *storagemarket.StorageAsk {
+	return &storagemarket.StorageAsk{
 		Price:        MakeTestTokenAmount(),
 		MinPieceSize: rand.Uint64(),
 		Miner:        address.TestAddress2,
@@ -144,8 +144,8 @@ func MakeTestStorageAsk() *types.StorageAsk {
 }
 
 // MakeTestSignedStorageAsk generates a signed storage ask
-func MakeTestSignedStorageAsk() *types.SignedStorageAsk {
-	return &types.SignedStorageAsk{
+func MakeTestSignedStorageAsk() *storagemarket.SignedStorageAsk {
+	return &storagemarket.SignedStorageAsk{
 		Ask:       MakeTestStorageAsk(),
 		Signature: MakeTestSignature(),
 	}

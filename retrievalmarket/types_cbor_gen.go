@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"io"
 
-	"github.com/filecoin-project/go-fil-markets/shared/types"
+	"github.com/filecoin-project/specs-actors/actors/builtin/payment_channel"
 	"github.com/libp2p/go-libp2p-core/peer"
 	cbg "github.com/whyrusleeping/cbor-gen"
 	xerrors "golang.org/x/xerrors"
@@ -534,7 +534,7 @@ func (t *DealPayment) MarshalCBOR(w io.Writer) error {
 		return err
 	}
 
-	// t.PaymentVoucher (types.SignedVoucher) (struct)
+	// t.PaymentVoucher (payment_channel.SignedVoucher) (struct)
 	if err := t.PaymentVoucher.MarshalCBOR(w); err != nil {
 		return err
 	}
@@ -575,7 +575,7 @@ func (t *DealPayment) UnmarshalCBOR(r io.Reader) error {
 		}
 
 	}
-	// t.PaymentVoucher (types.SignedVoucher) (struct)
+	// t.PaymentVoucher (payment_channel.SignedVoucher) (struct)
 
 	{
 
@@ -589,7 +589,7 @@ func (t *DealPayment) UnmarshalCBOR(r io.Reader) error {
 				return err
 			}
 		} else {
-			t.PaymentVoucher = new(types.SignedVoucher)
+			t.PaymentVoucher = new(payment_channel.SignedVoucher)
 			if err := t.PaymentVoucher.UnmarshalCBOR(br); err != nil {
 				return err
 			}
@@ -726,9 +726,15 @@ func (t *ClientDealState) MarshalCBOR(w io.Writer) error {
 		return err
 	}
 
-	// t.Lane (uint64) (uint64)
-	if _, err := w.Write(cbg.CborEncodeMajorType(cbg.MajUnsignedInt, uint64(t.Lane))); err != nil {
-		return err
+	// t.Lane (int64) (int64)
+	if t.Lane >= 0 {
+		if _, err := w.Write(cbg.CborEncodeMajorType(cbg.MajUnsignedInt, uint64(t.Lane))); err != nil {
+			return err
+		}
+	} else {
+		if _, err := w.Write(cbg.CborEncodeMajorType(cbg.MajNegativeInt, uint64(-t.Lane)-1)); err != nil {
+			return err
+		}
 	}
 
 	// t.Status (retrievalmarket.DealStatus) (uint64)
@@ -859,16 +865,31 @@ func (t *ClientDealState) UnmarshalCBOR(r io.Reader) error {
 		}
 
 	}
-	// t.Lane (uint64) (uint64)
+	// t.Lane (int64) (int64)
+	{
+		maj, extra, err := cbg.CborReadHeader(br)
+		var extraI int64
+		if err != nil {
+			return err
+		}
+		switch maj {
+		case cbg.MajUnsignedInt:
+			extraI = int64(extra)
+			if extraI < 0 {
+				return fmt.Errorf("int64 positive overflow")
+			}
+		case cbg.MajNegativeInt:
+			extraI = int64(extra)
+			if extraI < 0 {
+				return fmt.Errorf("int64 negative oveflow")
+			}
+			extraI = -1 - extraI
+		default:
+			return fmt.Errorf("wrong type for int64 field: %d", maj)
+		}
 
-	maj, extra, err = cbg.CborReadHeader(br)
-	if err != nil {
-		return err
+		t.Lane = int64(extraI)
 	}
-	if maj != cbg.MajUnsignedInt {
-		return fmt.Errorf("wrong type for uint64 field")
-	}
-	t.Lane = uint64(extra)
 	// t.Status (retrievalmarket.DealStatus) (uint64)
 
 	maj, extra, err = cbg.CborReadHeader(br)

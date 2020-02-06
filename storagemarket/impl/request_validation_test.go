@@ -15,10 +15,10 @@ import (
 
 	"github.com/filecoin-project/go-address"
 	cborutil "github.com/filecoin-project/go-cbor-util"
-	"github.com/filecoin-project/go-fil-markets/shared/types"
 	"github.com/filecoin-project/go-fil-markets/storagemarket"
 	deals "github.com/filecoin-project/go-fil-markets/storagemarket/impl"
 	"github.com/filecoin-project/go-statestore"
+	"github.com/filecoin-project/specs-actors/actors/crypto"
 )
 
 var blockGenerator = blocksutil.NewBlockGenerator()
@@ -51,9 +51,9 @@ func uniqueStorageDealProposal() (storagemarket.StorageDealProposal, error) {
 		PieceRef: blockGenerator.Next().Cid().Bytes(),
 		Client:   clientAddr,
 		Provider: providerAddr,
-		ProposerSignature: &types.Signature{
+		ProposerSignature: &crypto.Signature{
 			Data: []byte("foo bar cat dog"),
-			Type: types.KTBLS,
+			Type: crypto.SigTypeBLS,
 		},
 	}, nil
 }

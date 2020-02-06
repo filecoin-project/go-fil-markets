@@ -6,8 +6,8 @@ import (
 	"fmt"
 	"io"
 
-	"github.com/filecoin-project/go-fil-markets/shared/types"
 	"github.com/filecoin-project/go-fil-markets/storagemarket"
+	"github.com/filecoin-project/specs-actors/actors/crypto"
 	cbg "github.com/whyrusleeping/cbor-gen"
 	xerrors "golang.org/x/xerrors"
 )
@@ -66,7 +66,7 @@ func (t *AskResponse) MarshalCBOR(w io.Writer) error {
 		return err
 	}
 
-	// t.Ask (types.SignedStorageAsk) (struct)
+	// t.Ask (storagemarket.SignedStorageAsk) (struct)
 	if err := t.Ask.MarshalCBOR(w); err != nil {
 		return err
 	}
@@ -88,7 +88,7 @@ func (t *AskResponse) UnmarshalCBOR(r io.Reader) error {
 		return fmt.Errorf("cbor input had wrong number of fields")
 	}
 
-	// t.Ask (types.SignedStorageAsk) (struct)
+	// t.Ask (storagemarket.SignedStorageAsk) (struct)
 
 	{
 
@@ -102,7 +102,7 @@ func (t *AskResponse) UnmarshalCBOR(r io.Reader) error {
 				return err
 			}
 		} else {
-			t.Ask = new(types.SignedStorageAsk)
+			t.Ask = new(storagemarket.SignedStorageAsk)
 			if err := t.Ask.UnmarshalCBOR(br); err != nil {
 				return err
 			}
@@ -328,7 +328,7 @@ func (t *SignedResponse) MarshalCBOR(w io.Writer) error {
 		return err
 	}
 
-	// t.Signature (types.Signature) (struct)
+	// t.Signature (crypto.Signature) (struct)
 	if err := t.Signature.MarshalCBOR(w); err != nil {
 		return err
 	}
@@ -359,7 +359,7 @@ func (t *SignedResponse) UnmarshalCBOR(r io.Reader) error {
 		}
 
 	}
-	// t.Signature (types.Signature) (struct)
+	// t.Signature (crypto.Signature) (struct)
 
 	{
 
@@ -373,7 +373,7 @@ func (t *SignedResponse) UnmarshalCBOR(r io.Reader) error {
 				return err
 			}
 		} else {
-			t.Signature = new(types.Signature)
+			t.Signature = new(crypto.Signature)
 			if err := t.Signature.UnmarshalCBOR(br); err != nil {
 				return err
 			}

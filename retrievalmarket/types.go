@@ -9,9 +9,9 @@ import (
 	"github.com/ipfs/go-cid"
 	"github.com/libp2p/go-libp2p-core/peer"
 
-	"github.com/filecoin-project/go-fil-markets/shared/types"
 	"github.com/filecoin-project/specs-actors/actors/abi"
 	"github.com/filecoin-project/specs-actors/actors/abi/big"
+	"github.com/filecoin-project/specs-actors/actors/builtin/payment_channel"
 )
 
 //go:generate cbor-gen-for Query QueryResponse DealProposal DealResponse Params QueryParams DealPayment Block ClientDealState
@@ -36,7 +36,7 @@ type ClientDealState struct {
 	ClientWallet     address.Address
 	MinerWallet      address.Address
 	PayCh            address.Address
-	Lane             uint64
+	Lane             int64
 	Status           DealStatus
 	Sender           peer.ID
 	TotalReceived    uint64
@@ -117,12 +117,12 @@ type RetrievalClientNode interface {
 	// Allocate late creates a lane within a payment channel so that calls to
 	// CreatePaymentVoucher will automatically make vouchers only for the difference
 	// in total
-	AllocateLane(paymentChannel address.Address) (uint64, error)
+	AllocateLane(paymentChannel address.Address) (int64, error)
 
 	// CreatePaymentVoucher creates a new payment voucher in the given lane for a
 	// given payment channel so that all the payment vouchers in the lane add up
 	// to the given amount (so the payment voucher will be for the difference)
-	CreatePaymentVoucher(ctx context.Context, paymentChannel address.Address, amount abi.TokenAmount, lane uint64) (*types.SignedVoucher, error)
+	CreatePaymentVoucher(ctx context.Context, paymentChannel address.Address, amount abi.TokenAmount, lane int64) (*payment_channel.SignedVoucher, error)
 }
 
 // ProviderDealState is the current state of a deal from the point of view
@@ -193,8 +193,8 @@ type RetrievalProvider interface {
 
 // RetrievalProviderNode are the node depedencies for a RetrevalProvider
 type RetrievalProviderNode interface {
-	UnsealSector(ctx context.Context, sectorId uint64, offset uint64, length uint64) (io.ReadCloser, error)
-	SavePaymentVoucher(ctx context.Context, paymentChannel address.Address, voucher *types.SignedVoucher, proof []byte, expectedAmount abi.TokenAmount) (abi.TokenAmount, error)
+	UnsealSector(ctx context.Context, sectorID uint64, offset uint64, length uint64) (io.ReadCloser, error)
+	SavePaymentVoucher(ctx context.Context, paymentChannel address.Address, voucher *payment_channel.SignedVoucher, proof []byte, expectedAmount abi.TokenAmount) (abi.TokenAmount, error)
 }
 
 // PeerResolver is an interface for looking up providers that may have a piece
@@ -424,7 +424,7 @@ var DealResponseUndefined = DealResponse{}
 type DealPayment struct {
 	ID             DealID
 	PaymentChannel address.Address
-	PaymentVoucher *types.SignedVoucher
+	PaymentVoucher *payment_channel.SignedVoucher
 }
 
 // DealPaymentUndefined is an undefined deal payment

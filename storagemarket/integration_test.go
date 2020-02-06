@@ -23,13 +23,13 @@ import (
 	"github.com/filecoin-project/go-fil-markets/filestore"
 	"github.com/filecoin-project/go-fil-markets/piecestore"
 	"github.com/filecoin-project/go-fil-markets/retrievalmarket/discovery"
-	"github.com/filecoin-project/go-fil-markets/shared/types"
 	"github.com/filecoin-project/go-fil-markets/shared_testutil"
 	"github.com/filecoin-project/go-fil-markets/storagemarket"
 	storageimpl "github.com/filecoin-project/go-fil-markets/storagemarket/impl"
 	"github.com/filecoin-project/go-fil-markets/storagemarket/network"
 	"github.com/filecoin-project/specs-actors/actors/abi"
 	"github.com/filecoin-project/specs-actors/actors/abi/big"
+	"github.com/filecoin-project/specs-actors/actors/crypto"
 )
 
 func TestMakeDeal(t *testing.T) {
@@ -228,8 +228,8 @@ func (n *fakeCommon) GetBalance(ctx context.Context, addr address.Address) (stor
 	return n.SMState.Balance(addr), nil
 }
 
-func (n *fakeCommon) VerifySignature(addr address.Address, data []byte) error {
-	return nil
+func (n *fakeCommon) VerifySignature(signature crypto.Signature, addr address.Address, data []byte) bool {
+	return true
 }
 
 type fakeClientNode struct {
@@ -264,7 +264,7 @@ func (n *fakeClientNode) OnDealSectorCommitted(ctx context.Context, provider add
 	return nil
 }
 
-func (n *fakeClientNode) ValidateAskSignature(ask *types.SignedStorageAsk) error {
+func (n *fakeClientNode) ValidateAskSignature(ask *storagemarket.SignedStorageAsk) error {
 	return n.ValidationError
 }
 
@@ -311,7 +311,7 @@ func (n *fakeProviderNode) GetMinerWorker(ctx context.Context, miner address.Add
 	return n.MinerAddr, nil
 }
 
-func (n *fakeProviderNode) SignBytes(ctx context.Context, signer address.Address, b []byte) (*types.Signature, error) {
+func (n *fakeProviderNode) SignBytes(ctx context.Context, signer address.Address, b []byte) (*crypto.Signature, error) {
 	return shared_testutil.MakeTestSignature(), nil
 }
 

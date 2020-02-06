@@ -2,12 +2,16 @@ package shared_testutil
 
 import (
 	"bytes"
+	"testing"
 
+	cborutil "github.com/filecoin-project/go-cbor-util"
+	"github.com/filecoin-project/specs-actors/actors/builtin/payment_channel"
 	blocks "github.com/ipfs/go-block-format"
 	"github.com/ipfs/go-cid"
 	blocksutil "github.com/ipfs/go-ipfs-blocksutil"
 	"github.com/jbenet/go-random"
 	"github.com/libp2p/go-libp2p-core/peer"
+	"github.com/stretchr/testify/require"
 )
 
 var blockGenerator = blocksutil.NewBlockGenerator()
@@ -80,4 +84,13 @@ func IndexOf(blks []blocks.Block, c cid.Cid) int {
 // ContainsBlock returns true if a block is found n a list of blocks
 func ContainsBlock(blks []blocks.Block, block blocks.Block) bool {
 	return IndexOf(blks, block.Cid()) != -1
+}
+
+// TestVoucherEquality verifies that two vouchers are equal to one another
+func TestVoucherEquality(t *testing.T, a, b *payment_channel.SignedVoucher) {
+	aB, err := cborutil.Dump(a)
+	require.NoError(t, err)
+	bB, err := cborutil.Dump(b)
+	require.NoError(t, err)
+	require.True(t, bytes.Equal(aB, bB))
 }
