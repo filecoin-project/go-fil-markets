@@ -5,6 +5,7 @@ import (
 	"context"
 
 	"github.com/filecoin-project/go-padreader"
+	"github.com/ipfs/go-cid"
 	ipldfree "github.com/ipld/go-ipld-prime/impl/free"
 	"github.com/ipld/go-ipld-prime/traversal/selector"
 	"github.com/ipld/go-ipld-prime/traversal/selector/builder"
@@ -219,6 +220,13 @@ func (p *Provider) complete(ctx context.Context, deal MinerDeal) (func(*MinerDea
 		return nil, err
 	}
 	sectorID, offset, length, err := p.spn.LocatePieceForDealWithinSector(ctx, deal.DealID)
+	if err != nil {
+		return nil, err
+	}
+	// TODO: Record actual block locations for all CIDs in piece by improving car writing
+	err = p.pieceStore.AddPieceBlockLocations(deal.Proposal.PieceRef, map[cid.Cid]piecestore.BlockLocation{
+		deal.Ref: {},
+	})
 	if err != nil {
 		return nil, err
 	}
