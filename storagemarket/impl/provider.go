@@ -9,13 +9,10 @@ import (
 	"github.com/ipfs/go-datastore"
 	"github.com/ipfs/go-datastore/namespace"
 	blockstore "github.com/ipfs/go-ipfs-blockstore"
-	"github.com/libp2p/go-libp2p-core/host"
-	inet "github.com/libp2p/go-libp2p-core/network"
 	"golang.org/x/xerrors"
 
 	"github.com/filecoin-project/go-address"
 	cborutil "github.com/filecoin-project/go-cbor-util"
-	"github.com/filecoin-project/go-data-transfer"
 	"github.com/filecoin-project/go-fil-markets/filestore"
 	"github.com/filecoin-project/go-fil-markets/pieceio"
 	"github.com/filecoin-project/go-fil-markets/pieceio/cario"
@@ -23,7 +20,9 @@ import (
 	"github.com/filecoin-project/go-fil-markets/shared/tokenamount"
 	"github.com/filecoin-project/go-fil-markets/shared/types"
 	"github.com/filecoin-project/go-fil-markets/storagemarket"
+	"github.com/filecoin-project/go-fil-markets/storagemarket/network"
 	"github.com/filecoin-project/go-statestore"
+	"github.com/filecoin-project/go-data-transfer"
 )
 
 var ProviderDsPrefix = "/deals/provider"
@@ -32,10 +31,12 @@ var ProviderDsPrefix = "/deals/provider"
 
 type MinerDeal struct {
 	storagemarket.MinerDeal
-	s inet.Stream
+	s network.StorageDealStream
 }
 
 type Provider struct {
+	net network.StorageMarketNetwork
+
 	pricePerByteBlock tokenamount.TokenAmount // how much we want for storing one byte for one block
 	minPieceSize      uint64
 
@@ -44,8 +45,8 @@ type Provider struct {
 
 	spn storagemarket.StorageProviderNode
 
-	fs  filestore.FileStore
-	pio pieceio.PieceIO
+	fs         filestore.FileStore
+	pio        pieceio.PieceIOWithStore
 	pieceStore piecestore.PieceStore
 
 	// dataTransfer is the manager of data transfers used by this storage provider
@@ -54,7 +55,7 @@ type Provider struct {
 	deals *statestore.StateStore
 	ds    datastore.Batching
 
-	conns map[cid.Cid]inet.Stream
+	conns map[cid.Cid]network.StorageDealStream
 
 	actor address.Address
 
@@ -76,19 +77,12 @@ var (
 	ErrDataTransferFailed = errors.New("deal data transfer failed")
 )
 
-func NewProvider(ds datastore.Batching, bs blockstore.Blockstore, fs filestore.FileStore, pieceStore piecestore.PieceStore, dataTransfer datatransfer.Manager, spn storagemarket.StorageProviderNode) (storagemarket.StorageProvider, error) {
-	addr, err := ds.Get(datastore.NewKey("miner-address"))
-	if err != nil {
-		return nil, err
-	}
-	minerAddress, err := address.NewFromBytes(addr)
-	if err != nil {
-		return nil, err
-	}
+func NewProvider(net network.StorageMarketNetwork, ds datastore.Batching, bs blockstore.Blockstore, fs filestore.FileStore, pieceStore piecestore.PieceStore, dataTransfer datatransfer.Manager, spn storagemarket.StorageProviderNode, minerAddress address.Address) (storagemarket.StorageProvider, error) {
 	carIO := cario.NewCarIO()
-	pio := pieceio.NewPieceIO(carIO, fs, bs)
+	pio := pieceio.NewPieceIOWithStore(carIO, fs, bs)
 
 	h := &Provider{
+		net:          net,
 		fs:           fs,
 		pio:          pio,
 		pieceStore:   pieceStore,
@@ -98,7 +92,7 @@ func NewProvider(ds datastore.Batching, bs blockstore.Blockstore, fs filestore.F
 		pricePerByteBlock: tokenamount.FromInt(3), // TODO: allow setting
 		minPieceSize:      256,                    // TODO: allow setting (BUT KEEP MIN 256! (because of how we fill sectors up))
 
-		conns: map[cid.Cid]inet.Stream{},
+		conns: map[cid.Cid]network.StorageDealStream{},
 
 		incoming: make(chan MinerDeal),
 		updated:  make(chan minerDealUpdate),
@@ -130,11 +124,13 @@ func NewProvider(ds datastore.Batching, bs blockstore.Blockstore, fs filestore.F
 	return h, nil
 }
 
-func (p *Provider) Run(ctx context.Context, host host.Host) {
+func (p *Provider) Start(ctx context.Context) error {
 	// TODO: restore state
 
-	host.SetStreamHandler(storagemarket.DealProtocolID, p.HandleStream)
-	host.SetStreamHandler(storagemarket.AskProtocolID, p.HandleAskStream)
+	err := p.net.SetDelegate(p)
+	if err != nil {
+		return err
+	}
 
 	go func() {
 		defer log.Warn("quitting deal provider loop")
@@ -151,6 +147,7 @@ func (p *Provider) Run(ctx context.Context, host host.Host) {
 			}
 		}
 	}()
+	return nil
 }
 
 func (p *Provider) onIncoming(deal MinerDeal) {
@@ -251,7 +248,7 @@ func (p *Provider) onDataTransferEvent(event datatransfer.Event, channelState da
 	}
 }
 
-func (p *Provider) newDeal(s inet.Stream, proposal Proposal) (MinerDeal, error) {
+func (p *Provider) newDeal(s network.StorageDealStream, proposal network.Proposal) (MinerDeal, error) {
 	proposalNd, err := cborutil.AsIpld(proposal.DealProposal)
 	if err != nil {
 		return MinerDeal{}, err
@@ -259,7 +256,7 @@ func (p *Provider) newDeal(s inet.Stream, proposal Proposal) (MinerDeal, error) 
 
 	return MinerDeal{
 		MinerDeal: storagemarket.MinerDeal{
-			Client:      s.Conn().RemotePeer(),
+			Client:      s.RemotePeer(),
 			Proposal:    *proposal.DealProposal,
 			ProposalCid: proposalNd.Cid(),
 			State:       storagemarket.StorageDealUnknown,
@@ -270,7 +267,7 @@ func (p *Provider) newDeal(s inet.Stream, proposal Proposal) (MinerDeal, error) 
 	}, nil
 }
 
-func (p *Provider) HandleStream(s inet.Stream) {
+func (p *Provider) HandleDealStream(s network.StorageDealStream) {
 	log.Info("Handling storage deal proposal!")
 
 	proposal, err := p.readProposal(s)
@@ -290,7 +287,8 @@ func (p *Provider) HandleStream(s inet.Stream) {
 	p.incoming <- deal
 }
 
-func (p *Provider) Stop() {
+func (p *Provider) Stop() error {
 	close(p.stop)
 	<-p.stopped
+	return p.net.StopHandlingRequests()
 }

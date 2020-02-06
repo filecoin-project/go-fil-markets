@@ -4,17 +4,17 @@ import (
 	"bytes"
 	"context"
 
+	"github.com/filecoin-project/go-padreader"
 	"github.com/ipfs/go-cid"
 	ipldfree "github.com/ipld/go-ipld-prime/impl/free"
 	"github.com/ipld/go-ipld-prime/traversal/selector"
 	"github.com/ipld/go-ipld-prime/traversal/selector/builder"
-
 	"golang.org/x/xerrors"
 
-	"github.com/filecoin-project/go-fil-markets/pieceio/padreader"
 	"github.com/filecoin-project/go-fil-markets/piecestore"
 	"github.com/filecoin-project/go-fil-markets/shared/tokenamount"
 	"github.com/filecoin-project/go-fil-markets/storagemarket"
+	"github.com/filecoin-project/go-fil-markets/storagemarket/network"
 )
 
 type providerHandlerFunc func(ctx context.Context, deal MinerDeal) (func(*MinerDeal), error)
@@ -110,7 +110,7 @@ func (p *Provider) verifydata(ctx context.Context, deal MinerDeal) (func(*MinerD
 	allSelector := ssb.ExploreRecursive(selector.RecursionLimitNone(),
 		ssb.ExploreAll(ssb.ExploreRecursiveEdge())).Node()
 
-	commp, path, _, err := p.pio.GeneratePieceCommitment(deal.Ref, allSelector)
+	commp, path, _, err := p.pio.GeneratePieceCommitmentToFile(deal.Ref, allSelector)
 	if err != nil {
 		return nil, err
 	}
@@ -150,7 +150,7 @@ func (p *Provider) publishing(ctx context.Context, deal MinerDeal) (func(*MinerD
 		return nil, err
 	}
 
-	err = p.sendSignedResponse(ctx, &Response{
+	err = p.sendSignedResponse(ctx, &network.Response{
 		State: storagemarket.StorageDealProposalAccepted,
 
 		Proposal:       deal.ProposalCid,
@@ -175,7 +175,7 @@ func (p *Provider) staged(ctx context.Context, deal MinerDeal) (func(*MinerDeal)
 	if err != nil {
 		return nil, err
 	}
-	paddedReader, paddedSize := padreader.NewPaddedReader(file, uint64(file.Size()))
+	paddedReader, paddedSize := padreader.New(file, uint64(file.Size()))
 	err = p.spn.OnDealComplete(
 		ctx,
 		storagemarket.MinerDeal{

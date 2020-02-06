@@ -3,17 +3,17 @@ package storageimpl
 import (
 	"context"
 
+	"github.com/filecoin-project/go-fil-markets/storagemarket/network"
+	"github.com/filecoin-project/go-data-transfer"
+
 	cborutil "github.com/filecoin-project/go-cbor-util"
 	"github.com/ipfs/go-cid"
 	blockstore "github.com/ipfs/go-ipfs-blockstore"
 	logging "github.com/ipfs/go-log/v2"
-	"github.com/libp2p/go-libp2p-core/host"
-	inet "github.com/libp2p/go-libp2p-core/network"
 	"github.com/libp2p/go-libp2p-core/peer"
 	"golang.org/x/xerrors"
 
 	"github.com/filecoin-project/go-address"
-	"github.com/filecoin-project/go-data-transfer"
 	"github.com/filecoin-project/go-fil-markets/filestore"
 	"github.com/filecoin-project/go-fil-markets/pieceio"
 	"github.com/filecoin-project/go-fil-markets/pieceio/cario"
@@ -32,11 +32,11 @@ var log = logging.Logger("deals")
 type ClientDeal struct {
 	storagemarket.ClientDeal
 
-	s inet.Stream
+	s network.StorageDealStream
 }
 
 type Client struct {
-	h host.Host
+	net network.StorageMarketNetwork
 
 	// dataTransfer
 	// TODO: once the data transfer module is complete, the
@@ -52,7 +52,7 @@ type Client struct {
 	node storagemarket.StorageClientNode
 
 	deals *statestore.StateStore
-	conns map[cid.Cid]inet.Stream
+	conns map[cid.Cid]network.StorageDealStream
 
 	incoming chan *ClientDeal
 	updated  chan clientDealUpdate
@@ -68,21 +68,20 @@ type clientDealUpdate struct {
 	mut      func(*ClientDeal)
 }
 
-func NewClient(h host.Host, bs blockstore.Blockstore, fs filestore.FileStore, dataTransfer datatransfer.Manager, discovery *discovery.Local, deals *statestore.StateStore, scn storagemarket.StorageClientNode) *Client {
+func NewClient(net network.StorageMarketNetwork, bs blockstore.Blockstore, dataTransfer datatransfer.Manager, discovery *discovery.Local, deals *statestore.StateStore, scn storagemarket.StorageClientNode) *Client {
 	carIO := cario.NewCarIO()
-	pio := pieceio.NewPieceIO(carIO, fs, bs)
+	pio := pieceio.NewPieceIO(carIO, bs)
 
 	c := &Client{
-		h:            h,
+		net:          net,
 		dataTransfer: dataTransfer,
 		bs:           bs,
-		fs:           fs,
 		pio:          pio,
 		discovery:    discovery,
 		node:         scn,
 
 		deals: deals,
-		conns: map[cid.Cid]inet.Stream{},
+		conns: map[cid.Cid]network.StorageDealStream{},
 
 		incoming: make(chan *ClientDeal, 16),
 		updated:  make(chan clientDealUpdate, 16),
@@ -214,18 +213,13 @@ func (c *Client) Start(ctx context.Context, p ClientDealProposal) (cid.Cid, erro
 		return cid.Undef, xerrors.Errorf("getting proposal node failed: %w", err)
 	}
 
-	s, err := c.h.NewStream(ctx, p.MinerID, storagemarket.DealProtocolID)
+	s, err := c.net.NewDealStream(p.MinerID)
 	if err != nil {
 		return cid.Undef, xerrors.Errorf("connecting to storage provider failed: %w", err)
 	}
 
-	proposal := &Proposal{
-		DealProposal: dealProposal,
-		Piece:        p.Data,
-	}
-
-	if err := cborutil.WriteCborRPC(s, proposal); err != nil {
-		_ = s.Reset()
+	proposal := network.Proposal{DealProposal: dealProposal, Piece: p.Data}
+	if err := s.WriteDealProposal(proposal); err != nil {
 		return cid.Undef, xerrors.Errorf("sending proposal to storage provider failed: %w", err)
 	}
 
@@ -251,20 +245,18 @@ func (c *Client) Start(ctx context.Context, p ClientDealProposal) (cid.Cid, erro
 }
 
 func (c *Client) QueryAsk(ctx context.Context, p peer.ID, a address.Address) (*types.SignedStorageAsk, error) {
-	s, err := c.h.NewStream(ctx, p, storagemarket.AskProtocolID)
+	s, err := c.net.NewAskStream(p)
 	if err != nil {
 		return nil, xerrors.Errorf("failed to open stream to miner: %w", err)
 	}
 
-	req := &AskRequest{
-		Miner: a,
-	}
-	if err := cborutil.WriteCborRPC(s, req); err != nil {
+	request := network.AskRequest{Miner: a}
+	if err := s.WriteAskRequest(request); err != nil {
 		return nil, xerrors.Errorf("failed to send ask request: %w", err)
 	}
 
-	var out AskResponse
-	if err := cborutil.ReadCborRPC(s, &out); err != nil {
+	out, err := s.ReadAskResponse()
+	if err != nil {
 		return nil, xerrors.Errorf("failed to read ask response: %w", err)
 	}
 
