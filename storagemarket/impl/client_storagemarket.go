@@ -82,10 +82,10 @@ func (c *Client) GetAsk(ctx context.Context, info storagemarket.StorageProviderI
 	return c.QueryAsk(ctx, info.PeerID, info.Address)
 }
 
-func (c *Client) ProposeStorageDeal(ctx context.Context, addr address.Address, info *storagemarket.StorageProviderInfo, payloadCid cid.Cid, proposalExpiration storagemarket.Epoch, duration storagemarket.Epoch, price tokenamount.TokenAmount, collateral tokenamount.TokenAmount) (*storagemarket.ProposeStorageDealResult, error) {
+func (c *Client) ProposeStorageDeal(ctx context.Context, addr address.Address, info *storagemarket.StorageProviderInfo, data *storagemarket.DataRef, proposalExpiration storagemarket.Epoch, duration storagemarket.Epoch, price tokenamount.TokenAmount, collateral tokenamount.TokenAmount) (*storagemarket.ProposeStorageDealResult, error) {
 
 	proposal := ClientDealProposal{
-		Data:               payloadCid,
+		Data:               data,
 		PricePerEpoch:      price,
 		ProposalExpiration: uint64(proposalExpiration),
 		Duration:           uint64(duration),

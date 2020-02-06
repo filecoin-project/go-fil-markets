@@ -64,10 +64,6 @@ func (t *ClientDeal) MarshalCBOR(w io.Writer) error {
 
 	// t.PayloadCid (cid.Cid) (struct)
 
-	if err := cbg.WriteCid(w, t.PayloadCid); err != nil {
-		return xerrors.Errorf("failed to write cid field t.PayloadCid: %w", err)
-	}
-
 	// t.PublishMessage (cid.Cid) (struct)
 
 	if t.PublishMessage == nil {
@@ -162,13 +158,6 @@ func (t *ClientDeal) UnmarshalCBOR(r io.Reader) error {
 
 	{
 
-		c, err := cbg.ReadCid(br)
-		if err != nil {
-			return xerrors.Errorf("failed to read cid field t.PayloadCid: %w", err)
-		}
-
-		t.PayloadCid = c
-
 	}
 	// t.PublishMessage (cid.Cid) (struct)
 
@@ -260,10 +249,6 @@ func (t *MinerDeal) MarshalCBOR(w io.Writer) error {
 
 	// t.Ref (cid.Cid) (struct)
 
-	if err := cbg.WriteCid(w, t.Ref); err != nil {
-		return xerrors.Errorf("failed to write cid field t.Ref: %w", err)
-	}
-
 	// t.DealID (uint64) (uint64)
 	if _, err := w.Write(cbg.CborEncodeMajorType(cbg.MajUnsignedInt, uint64(t.DealID))); err != nil {
 		return err
@@ -350,13 +335,6 @@ func (t *MinerDeal) UnmarshalCBOR(r io.Reader) error {
 	// t.Ref (cid.Cid) (struct)
 
 	{
-
-		c, err := cbg.ReadCid(br)
-		if err != nil {
-			return xerrors.Errorf("failed to read cid field t.Ref: %w", err)
-		}
-
-		t.Ref = c
 
 	}
 	// t.DealID (uint64) (uint64)

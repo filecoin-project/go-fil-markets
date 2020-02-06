@@ -128,10 +128,6 @@ func (t *Proposal) MarshalCBOR(w io.Writer) error {
 
 	// t.Piece (cid.Cid) (struct)
 
-	if err := cbg.WriteCid(w, t.Piece); err != nil {
-		return xerrors.Errorf("failed to write cid field t.Piece: %w", err)
-	}
-
 	return nil
 }
 
@@ -174,13 +170,6 @@ func (t *Proposal) UnmarshalCBOR(r io.Reader) error {
 	// t.Piece (cid.Cid) (struct)
 
 	{
-
-		c, err := cbg.ReadCid(br)
-		if err != nil {
-			return xerrors.Errorf("failed to read cid field t.Piece: %w", err)
-		}
-
-		t.Piece = c
 
 	}
 	return nil

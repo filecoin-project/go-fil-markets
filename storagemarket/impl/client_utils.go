@@ -13,9 +13,9 @@ import (
 	"github.com/libp2p/go-libp2p-core/peer"
 	"golang.org/x/xerrors"
 
+	datatransfer "github.com/filecoin-project/go-data-transfer"
 	"github.com/filecoin-project/go-fil-markets/storagemarket/network"
 	"github.com/filecoin-project/go-statestore"
-	"github.com/filecoin-project/go-data-transfer"
 )
 
 func (c *Client) failDeal(id cid.Cid, cerr error) {
@@ -134,10 +134,11 @@ func (c *ClientRequestValidator) ValidatePull(
 	if err != nil {
 		return xerrors.Errorf("Proposal CID %s: %w", dealVoucher.Proposal.String(), ErrNoDeal)
 	}
+
 	if deal.Miner != receiver {
 		return xerrors.Errorf("Deal Peer %s, Data Transfer Peer %s: %w", deal.Miner.String(), receiver.String(), ErrWrongPeer)
 	}
-	if !deal.PayloadCid.Equals(baseCid) {
+	if !deal.DataRef.Root.Equals(baseCid) {
 		return xerrors.Errorf("Deal Payload CID %s, Data Transfer CID %s: %w", string(deal.Proposal.PieceRef), baseCid.String(), ErrWrongPiece)
 	}
 	for _, state := range DataTransferStates {

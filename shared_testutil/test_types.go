@@ -156,7 +156,7 @@ func MakeTestSignedStorageAsk() *types.SignedStorageAsk {
 func MakeTestStorageNetworkProposal() smnet.Proposal {
 	return smnet.Proposal{
 		DealProposal: MakeTestStorageDealProposal(),
-		Piece:        GenerateCids(1)[0],
+		Piece:        &storagemarket.DataRef{Root: GenerateCids(1)[0]},
 	}
 }
 
