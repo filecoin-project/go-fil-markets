@@ -1,6 +1,7 @@
 package network
 
 import (
+	"bufio"
 	"context"
 
 	logging "github.com/ipfs/go-log/v2"
@@ -31,7 +32,8 @@ func (impl *libp2pRetrievalMarketNetwork) NewQueryStream(id peer.ID) (RetrievalQ
 		log.Warn(err)
 		return nil, err
 	}
-	return &QueryStream{p: id, rw: s}, nil
+	buffered := bufio.NewReaderSize(s, 16)
+	return &QueryStream{p: id, rw: s, buffered: buffered}, nil
 }
 
 func (impl *libp2pRetrievalMarketNetwork) NewDealStream(id peer.ID) (RetrievalDealStream, error) {
@@ -39,7 +41,8 @@ func (impl *libp2pRetrievalMarketNetwork) NewDealStream(id peer.ID) (RetrievalDe
 	if err != nil {
 		return nil, err
 	}
-	return &DealStream{p: id, rw: s}, nil
+	buffered := bufio.NewReaderSize(s, 16)
+	return &DealStream{p: id, rw: s, buffered: buffered}, nil
 }
 
 func (impl *libp2pRetrievalMarketNetwork) SetDelegate(r RetrievalReceiver) error {
@@ -63,7 +66,8 @@ func (impl *libp2pRetrievalMarketNetwork) handleNewQueryStream(s network.Stream)
 		return
 	}
 	remotePID := s.Conn().RemotePeer()
-	qs := &QueryStream{remotePID, s}
+	buffered := bufio.NewReaderSize(s, 16)
+	qs := &QueryStream{remotePID, s, buffered}
 	impl.receiver.HandleQueryStream(qs)
 }
 
@@ -74,6 +78,7 @@ func (impl *libp2pRetrievalMarketNetwork) handleNewDealStream(s network.Stream) 
 		return
 	}
 	remotePID := s.Conn().RemotePeer()
-	ds := &DealStream{remotePID, s}
+	buffered := bufio.NewReaderSize(s, 16)
+	ds := &DealStream{remotePID, s, buffered}
 	impl.receiver.HandleDealStream(ds)
 }

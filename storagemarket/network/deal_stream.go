@@ -1,14 +1,17 @@
 package network
 
 import (
+	"bufio"
+
 	cborutil "github.com/filecoin-project/go-cbor-util"
 	"github.com/libp2p/go-libp2p-core/mux"
 	"github.com/libp2p/go-libp2p-core/peer"
 )
 
 type dealStream struct {
-	p  peer.ID
-	rw mux.MuxedStream
+	p        peer.ID
+	rw       mux.MuxedStream
+	buffered *bufio.Reader
 }
 
 var _ StorageDealStream = (*dealStream)(nil)
@@ -16,7 +19,7 @@ var _ StorageDealStream = (*dealStream)(nil)
 func (d *dealStream) ReadDealProposal() (Proposal, error) {
 	var ds Proposal
 
-	if err := ds.UnmarshalCBOR(d.rw); err != nil {
+	if err := ds.UnmarshalCBOR(d.buffered); err != nil {
 		log.Warn(err)
 		return ProposalUndefined, err
 	}
@@ -30,7 +33,7 @@ func (d *dealStream) WriteDealProposal(dp Proposal) error {
 func (d *dealStream) ReadDealResponse() (SignedResponse, error) {
 	var dr SignedResponse
 
-	if err := dr.UnmarshalCBOR(d.rw); err != nil {
+	if err := dr.UnmarshalCBOR(d.buffered); err != nil {
 		return SignedResponseUndefined, err
 	}
 	return dr, nil

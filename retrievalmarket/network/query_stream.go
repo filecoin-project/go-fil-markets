@@ -1,6 +1,8 @@
 package network
 
 import (
+	"bufio"
+
 	"github.com/libp2p/go-libp2p-core/mux"
 	"github.com/libp2p/go-libp2p-core/peer"
 
@@ -9,8 +11,9 @@ import (
 )
 
 type QueryStream struct {
-	p  peer.ID
-	rw mux.MuxedStream
+	p        peer.ID
+	rw       mux.MuxedStream
+	buffered *bufio.Reader
 }
 
 var _ RetrievalQueryStream = (*QueryStream)(nil)
@@ -18,7 +21,7 @@ var _ RetrievalQueryStream = (*QueryStream)(nil)
 func (qs *QueryStream) ReadQuery() (retrievalmarket.Query, error) {
 	var q retrievalmarket.Query
 
-	if err := q.UnmarshalCBOR(qs.rw); err != nil {
+	if err := q.UnmarshalCBOR(qs.buffered); err != nil {
 		log.Warn(err)
 		return retrievalmarket.QueryUndefined, err
 
@@ -34,7 +37,7 @@ func (qs *QueryStream) WriteQuery(q retrievalmarket.Query) error {
 func (qs *QueryStream) ReadQueryResponse() (retrievalmarket.QueryResponse, error) {
 	var resp retrievalmarket.QueryResponse
 
-	if err := resp.UnmarshalCBOR(qs.rw); err != nil {
+	if err := resp.UnmarshalCBOR(qs.buffered); err != nil {
 		log.Warn(err)
 		return retrievalmarket.QueryResponseUndefined, err
 	}

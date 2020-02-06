@@ -1,6 +1,7 @@
 package network
 
 import (
+	"bufio"
 	"context"
 
 	"github.com/filecoin-project/go-fil-markets/storagemarket"
@@ -31,7 +32,8 @@ func (impl *libp2pStorageMarketNetwork) NewAskStream(id peer.ID) (StorageAskStre
 		log.Warn(err)
 		return nil, err
 	}
-	return &askStream{p: id, rw: s}, nil
+	buffered := bufio.NewReaderSize(s, 16)
+	return &askStream{p: id, rw: s, buffered: buffered}, nil
 }
 
 func (impl *libp2pStorageMarketNetwork) NewDealStream(id peer.ID) (StorageDealStream, error) {
@@ -39,7 +41,8 @@ func (impl *libp2pStorageMarketNetwork) NewDealStream(id peer.ID) (StorageDealSt
 	if err != nil {
 		return nil, err
 	}
-	return &dealStream{p: id, rw: s}, nil
+	buffered := bufio.NewReaderSize(s, 16)
+	return &dealStream{p: id, rw: s, buffered: buffered}, nil
 }
 
 func (impl *libp2pStorageMarketNetwork) SetDelegate(r StorageReceiver) error {
@@ -63,7 +66,8 @@ func (impl *libp2pStorageMarketNetwork) handleNewAskStream(s network.Stream) {
 		return
 	}
 	remotePID := s.Conn().RemotePeer()
-	as := &askStream{remotePID, s}
+	buffered := bufio.NewReaderSize(s, 16)
+	as := &askStream{remotePID, s, buffered}
 	impl.receiver.HandleAskStream(as)
 }
 
@@ -74,6 +78,7 @@ func (impl *libp2pStorageMarketNetwork) handleNewDealStream(s network.Stream) {
 		return
 	}
 	remotePID := s.Conn().RemotePeer()
-	ds := &dealStream{remotePID, s}
+	buffered := bufio.NewReaderSize(s, 16)
+	ds := &dealStream{remotePID, s, buffered}
 	impl.receiver.HandleDealStream(ds)
 }
