@@ -18,7 +18,6 @@ import (
 	"github.com/filecoin-project/go-fil-markets/retrievalmarket/impl/blockunsealing"
 	"github.com/filecoin-project/go-fil-markets/retrievalmarket/impl/providerstates"
 	rmnet "github.com/filecoin-project/go-fil-markets/retrievalmarket/network"
-	"github.com/filecoin-project/go-fil-markets/shared/params"
 	"github.com/filecoin-project/specs-actors/actors/abi"
 )
 
@@ -41,13 +40,13 @@ var _ retrievalmarket.RetrievalProvider = &provider{}
 // not specifically set it
 var DefaultPricePerByte = abi.NewTokenAmount(2)
 
-// DefaultPaymentInterval is the baseline interval, set to the unixfs chunk size
+// DefaultPaymentInterval is the baseline interval, set to 1Mb
 // if the miner does not explicitly set it otherwise
-var DefaultPaymentInterval = uint64(params.UnixfsChunkSize)
+var DefaultPaymentInterval = uint64(1 << 20)
 
-// DefaultPaymentIntervalIncrease is the amount interval increases on each payment, set to the unixfs chunk size
-// if the miner does not explicitly set it otherwise
-var DefaultPaymentIntervalIncrease = uint64(params.UnixfsChunkSize)
+// DefaultPaymentIntervalIncrease is the amount interval increases on each payment,
+// set to to 1Mb if the miner does not explicitly set it otherwise
+var DefaultPaymentIntervalIncrease = uint64(1 << 20)
 
 // NewProvider returns a new retrieval provider
 func NewProvider(paymentAddress address.Address, node retrievalmarket.RetrievalProviderNode, network rmnet.RetrievalMarketNetwork, pieceStore piecestore.PieceStore, bs blockstore.Blockstore) retrievalmarket.RetrievalProvider {
