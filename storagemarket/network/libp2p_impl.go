@@ -11,7 +11,7 @@ import (
 	"github.com/libp2p/go-libp2p-core/peer"
 )
 
-var log = logging.Logger("retrieval_network")
+var log = logging.Logger("storagemarket_network")
 
 // NewFromLibp2pHost builds a storage market network on top of libp2p
 func NewFromLibp2pHost(h host.Host) StorageMarketNetwork {

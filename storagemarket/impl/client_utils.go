@@ -13,9 +13,9 @@ import (
 	"github.com/libp2p/go-libp2p-core/peer"
 	"golang.org/x/xerrors"
 
+	"github.com/filecoin-project/go-data-transfer"
 	"github.com/filecoin-project/go-fil-markets/storagemarket/network"
 	"github.com/filecoin-project/go-statestore"
-	"github.com/filecoin-project/go-data-transfer"
 )
 
 func (c *Client) failDeal(id cid.Cid, cerr error) {
@@ -62,7 +62,7 @@ func (c *Client) readStorageDealResp(deal ClientDeal) (*network.Response, error)
 		return nil, err
 	}
 
-	if err := resp.Verify(deal.MinerWorker); err != nil {
+	if err := resp.Verify(deal.MinerWorker, c.node.VerifySignature); err != nil {
 		return nil, xerrors.Errorf("verifying response signature failed", err)
 	}
 

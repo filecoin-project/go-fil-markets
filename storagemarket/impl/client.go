@@ -3,8 +3,8 @@ package storageimpl
 import (
 	"context"
 
-	"github.com/filecoin-project/go-fil-markets/storagemarket/network"
 	"github.com/filecoin-project/go-data-transfer"
+	"github.com/filecoin-project/go-fil-markets/storagemarket/network"
 
 	cborutil "github.com/filecoin-project/go-cbor-util"
 	"github.com/ipfs/go-cid"
@@ -27,7 +27,7 @@ import (
 
 //go:generate cbor-gen-for ClientDeal ClientDealProposal
 
-var log = logging.Logger("deals")
+var log = logging.Logger("storagemarket_impl")
 
 type ClientDeal struct {
 	storagemarket.ClientDeal
@@ -68,7 +68,14 @@ type clientDealUpdate struct {
 	mut      func(*ClientDeal)
 }
 
-func NewClient(net network.StorageMarketNetwork, bs blockstore.Blockstore, dataTransfer datatransfer.Manager, discovery *discovery.Local, deals *statestore.StateStore, scn storagemarket.StorageClientNode) *Client {
+func NewClient(
+	net network.StorageMarketNetwork,
+	bs blockstore.Blockstore,
+	dataTransfer datatransfer.Manager,
+	discovery *discovery.Local,
+	deals *statestore.StateStore,
+	scn storagemarket.StorageClientNode,
+) *Client {
 	carIO := cario.NewCarIO()
 	pio := pieceio.NewPieceIO(carIO, bs)
 

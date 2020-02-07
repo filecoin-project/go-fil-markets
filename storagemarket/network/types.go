@@ -43,13 +43,13 @@ type SignedResponse struct {
 var SignedResponseUndefined = SignedResponse{}
 
 // Verify verifies that a proposal was signed by the given provider
-func (r *SignedResponse) Verify(addr address.Address) error {
+func (r *SignedResponse) Verify(addr address.Address, verifier storagemarket.SignatureVerifier) error {
 	b, err := cborutil.Dump(&r.Response)
 	if err != nil {
 		return err
 	}
 
-	return r.Signature.Verify(addr, b)
+	return verifier(addr, b)
 }
 
 // AskRequest is a request for current ask parameters for a given miner
