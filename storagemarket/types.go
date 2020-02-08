@@ -16,7 +16,7 @@ import (
 	"github.com/filecoin-project/go-fil-markets/shared/types"
 )
 
-//go:generate cbor-gen-for ClientDeal MinerDeal StorageDeal Balance StorageDealProposal
+//go:generate cbor-gen-for ClientDeal MinerDeal StorageDeal Balance StorageDealProposal DataRef
 
 const DealProtocolID = "/fil/storage/mk/1.0.1"
 const AskProtocolID = "/fil/storage/ask/1.0.1"
@@ -207,6 +207,8 @@ type StorageProvider interface {
 
 	// GetStorageCollateral returns the current collateral balance
 	GetStorageCollateral(ctx context.Context) (Balance, error)
+
+	ImportDataForDeal(ctx context.Context, propCid cid.Cid, data io.Reader) error
 }
 
 // Node dependencies for a StorageProvider

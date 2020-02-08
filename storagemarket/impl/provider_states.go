@@ -3,7 +3,6 @@ package storageimpl
 import (
 	"bytes"
 	"context"
-	"fmt"
 
 	"github.com/filecoin-project/go-padreader"
 	"github.com/ipfs/go-cid"
@@ -80,7 +79,8 @@ func (p *Provider) validating(ctx context.Context, deal MinerDeal) (func(*MinerD
 // State: StorageDealTransferring
 func (p *Provider) transferring(ctx context.Context, deal MinerDeal) (func(*MinerDeal), error) {
 	if deal.Ref.TransferType == storagemarket.TTManual {
-		return nil, fmt.Errorf("attempted to graphsync a deal marked as manual transfer")
+		log.Info("deal entering manual transfer state")
+		return nil, nil
 	}
 
 	ssb := builder.NewSelectorSpecBuilder(ipldfree.NodeBuilder())
