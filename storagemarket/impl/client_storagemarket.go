@@ -86,21 +86,21 @@ func (c *Client) ProposeStorageDeal(
 	addr address.Address,
 	info *storagemarket.StorageProviderInfo,
 	data *storagemarket.DataRef,
-	proposalExpiration storagemarket.Epoch,
-	duration storagemarket.Epoch,
+	startEpoch abi.ChainEpoch,
+	endEpoch abi.ChainEpoch,
 	price abi.TokenAmount,
 	collateral abi.TokenAmount,
 ) (*storagemarket.ProposeStorageDealResult, error) {
 
 	proposal := ClientDealProposal{
 		Data:               data,
-		PricePerEpoch:      price,
-		ProposalExpiration: uint64(proposalExpiration),
-		Duration:           uint64(duration),
-		Client:             addr,
-		ProviderAddress:    info.Address,
-		MinerWorker:        info.Worker,
-		MinerID:            info.PeerID,
+		PricePerEpoch:   price,
+		StartEpoch:      startEpoch,
+		EndEpoch:        endEpoch,
+		Client:          addr,
+		ProviderAddress: info.Address,
+		MinerWorker:     info.Worker,
+		MinerID:         info.PeerID,
 	}
 
 	proposalCid, err := c.Start(ctx, proposal)

@@ -11,7 +11,7 @@ import (
 
 	"github.com/filecoin-project/specs-actors/actors/abi"
 	"github.com/filecoin-project/specs-actors/actors/abi/big"
-	"github.com/filecoin-project/specs-actors/actors/builtin/payment_channel"
+	"github.com/filecoin-project/specs-actors/actors/builtin/paych"
 )
 
 //go:generate cbor-gen-for Query QueryResponse DealProposal DealResponse Params QueryParams DealPayment Block ClientDealState
@@ -122,7 +122,7 @@ type RetrievalClientNode interface {
 	// CreatePaymentVoucher creates a new payment voucher in the given lane for a
 	// given payment channel so that all the payment vouchers in the lane add up
 	// to the given amount (so the payment voucher will be for the difference)
-	CreatePaymentVoucher(ctx context.Context, paymentChannel address.Address, amount abi.TokenAmount, lane int64) (*payment_channel.SignedVoucher, error)
+	CreatePaymentVoucher(ctx context.Context, paymentChannel address.Address, amount abi.TokenAmount, lane int64) (*paych.SignedVoucher, error)
 }
 
 // ProviderDealState is the current state of a deal from the point of view
@@ -194,7 +194,7 @@ type RetrievalProvider interface {
 // RetrievalProviderNode are the node depedencies for a RetrevalProvider
 type RetrievalProviderNode interface {
 	UnsealSector(ctx context.Context, sectorID uint64, offset uint64, length uint64) (io.ReadCloser, error)
-	SavePaymentVoucher(ctx context.Context, paymentChannel address.Address, voucher *payment_channel.SignedVoucher, proof []byte, expectedAmount abi.TokenAmount) (abi.TokenAmount, error)
+	SavePaymentVoucher(ctx context.Context, paymentChannel address.Address, voucher *paych.SignedVoucher, proof []byte, expectedAmount abi.TokenAmount) (abi.TokenAmount, error)
 }
 
 // PeerResolver is an interface for looking up providers that may have a piece
@@ -424,7 +424,7 @@ var DealResponseUndefined = DealResponse{}
 type DealPayment struct {
 	ID             DealID
 	PaymentChannel address.Address
-	PaymentVoucher *payment_channel.SignedVoucher
+	PaymentVoucher *paych.SignedVoucher
 }
 
 // DealPaymentUndefined is an undefined deal payment

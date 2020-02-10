@@ -14,7 +14,7 @@ import (
 
 func TestStorePieceInfo(t *testing.T) {
 
-	pieceCid := []byte{1, 2, 3, 4}
+	pieceCid := shared_testutil.GenerateCids(1)[0]
 	initializePieceStore := func(t *testing.T) piecestore.PieceStore {
 		ps := piecestore.NewPieceStore(datastore.NewMapDatastore())
 		_, err := ps.GetPieceInfo(pieceCid)
@@ -67,9 +67,9 @@ func TestStorePieceInfo(t *testing.T) {
 }
 
 func TestStoreCIDInfo(t *testing.T) {
-
-	pieceCid1 := []byte{1, 2, 3, 4}
-	pieceCid2 := []byte{5, 6, 7, 8}
+	pieceCids := shared_testutil.GenerateCids(2)
+	pieceCid1 := pieceCids[0]
+	pieceCid2 := pieceCids[1]
 	testCIDs := shared_testutil.GenerateCids(3)
 	blockLocations := make([]piecestore.BlockLocation, 0, 3)
 	for i := 0; i < 3; i++ {

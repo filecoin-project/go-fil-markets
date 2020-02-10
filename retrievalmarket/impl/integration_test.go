@@ -3,7 +3,6 @@ package retrievalimpl_test
 import (
 	"bytes"
 	"context"
-	"math/rand"
 	"testing"
 	"time"
 
@@ -23,7 +22,7 @@ import (
 	tut "github.com/filecoin-project/go-fil-markets/shared_testutil"
 	"github.com/filecoin-project/specs-actors/actors/abi"
 	"github.com/filecoin-project/specs-actors/actors/abi/big"
-	"github.com/filecoin-project/specs-actors/actors/builtin/payment_channel"
+	"github.com/filecoin-project/specs-actors/actors/builtin/paych"
 )
 
 func TestClientCanMakeQueryToProvider(t *testing.T) {
@@ -83,7 +82,7 @@ func requireSetupTestClientAndProvider(bgCtx context.Context, t *testing.T, payC
 	providerNode := testnodes.NewTestRetrievalProviderNode()
 	pieceStore := tut.NewTestPieceStore()
 	expectedCIDs := tut.GenerateCids(3)
-	expectedPieces := [][]byte{[]byte("applesuace"), []byte("jam"), []byte("apricot")}
+	expectedPieceCIDs := tut.GenerateCids(3)
 	missingCID := tut.GenerateCids(1)[0]
 	expectedQR := tut.MakeTestQueryResponse()
 
@@ -92,12 +91,12 @@ func requireSetupTestClientAndProvider(bgCtx context.Context, t *testing.T, payC
 		pieceStore.ExpectCID(c, piecestore.CIDInfo{
 			PieceBlockLocations: []piecestore.PieceBlockLocation{
 				{
-					PieceCID: expectedPieces[i],
+					PieceCID: expectedPieceCIDs[i],
 				},
 			},
 		})
 	}
-	for i, piece := range expectedPieces {
+	for i, piece := range expectedPieceCIDs {
 		pieceStore.ExpectPiece(piece, piecestore.PieceInfo{
 			Deals: []piecestore.DealInfo{
 				{
@@ -335,11 +334,11 @@ CurrentInterval: %d
 
 func setupClient(
 	clientPaymentChannel address.Address,
-	expectedVoucher *payment_channel.SignedVoucher,
+	expectedVoucher *paych.SignedVoucher,
 	nw1 rmnet.RetrievalMarketNetwork,
 	testData *tut.Libp2pTestData) (*pmtChan,
 	*address.Address,
-	*payment_channel.SignedVoucher,
+	*paych.SignedVoucher,
 	retrievalmarket.RetrievalClient) {
 	var createdChan pmtChan
 	paymentChannelRecorder := func(client, miner address.Address, amt abi.TokenAmount) {
@@ -351,8 +350,8 @@ func setupClient(
 		newLaneAddr = paymentChannel
 	}
 
-	var createdVoucher payment_channel.SignedVoucher
-	paymentVoucherRecorder := func(v *payment_channel.SignedVoucher) {
+	var createdVoucher paych.SignedVoucher
+	paymentVoucherRecorder := func(v *paych.SignedVoucher) {
 		createdVoucher = *v
 	}
 	clientNode := testnodes.NewTestRetrievalClientNode(testnodes.TestRetrievalClientNodeParams{
@@ -370,9 +369,7 @@ func setupClient(
 func setupProvider(t *testing.T, testData *tut.Libp2pTestData, payloadCID cid.Cid, pieceInfo piecestore.PieceInfo, expectedQR retrievalmarket.QueryResponse, providerPaymentAddr address.Address, providerNode retrievalmarket.RetrievalProviderNode) retrievalmarket.RetrievalProvider {
 	nw2 := rmnet.NewFromLibp2pHost(testData.Host2)
 	pieceStore := tut.NewTestPieceStore()
-	expectedPiece := make([]byte, 32)
-	_, err := rand.Read(expectedPiece)
-	require.NoError(t, err)
+	expectedPiece := tut.GenerateCids(1)[0]
 	cidInfo := piecestore.CIDInfo{
 		PieceBlockLocations: []piecestore.PieceBlockLocation{
 			{

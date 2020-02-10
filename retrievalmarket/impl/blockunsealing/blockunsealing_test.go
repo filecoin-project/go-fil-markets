@@ -54,7 +54,7 @@ func TestNewLoaderWithUnsealing(t *testing.T) {
 		Offset:   rand.Uint64(),
 		Length:   rand.Uint64(),
 	}
-	pieceCID := []byte("applesauce")
+	pieceCID := tut.GenerateCids(1)[0]
 	piece := piecestore.PieceInfo{
 		PieceCID: pieceCID,
 		Deals: []piecestore.DealInfo{
@@ -68,7 +68,7 @@ func TestNewLoaderWithUnsealing(t *testing.T) {
 		Offset:   rand.Uint64(),
 		Length:   rand.Uint64(),
 	}
-	pieceCID2 := []byte("cheesewhiz")
+	pieceCID2 := tut.GenerateCids(1)[0]
 	piece2 := piecestore.PieceInfo{
 		PieceCID: pieceCID2,
 		Deals: []piecestore.DealInfo{

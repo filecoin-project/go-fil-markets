@@ -13,6 +13,7 @@ import (
 	"golang.org/x/xerrors"
 
 	"github.com/filecoin-project/go-address"
+	commcid "github.com/filecoin-project/go-fil-commcid"
 	datatransfer "github.com/filecoin-project/go-data-transfer"
 	"github.com/filecoin-project/go-fil-markets/filestore"
 	"github.com/filecoin-project/go-fil-markets/pieceio"
@@ -23,6 +24,7 @@ import (
 	"github.com/filecoin-project/go-statestore"
 	"github.com/filecoin-project/specs-actors/actors/abi"
 	"github.com/filecoin-project/specs-actors/actors/abi/big"
+	"github.com/filecoin-project/specs-actors/actors/builtin/market"
 )
 
 //go:generate cbor-gen-for ClientDeal ClientDealProposal
@@ -179,9 +181,9 @@ func (c *Client) onUpdated(ctx context.Context, update clientDealUpdate) {
 type ClientDealProposal struct {
 	Data *storagemarket.DataRef
 
-	PricePerEpoch      abi.TokenAmount
-	ProposalExpiration uint64
-	Duration           uint64
+	PricePerEpoch abi.TokenAmount
+	StartEpoch    abi.ChainEpoch
+	EndEpoch      abi.ChainEpoch
 
 	ProviderAddress address.Address
 	Client          address.Address
@@ -190,7 +192,7 @@ type ClientDealProposal struct {
 }
 
 func (c *Client) Start(ctx context.Context, p ClientDealProposal) (cid.Cid, error) {
-	amount := big.Mul(p.PricePerEpoch, abi.NewTokenAmount(int64(p.Duration)))
+	amount := big.Mul(p.PricePerEpoch, abi.NewTokenAmount(int64(p.EndEpoch)-int64(p.StartEpoch)))
 	if err := c.node.EnsureFunds(ctx, p.Client, amount); err != nil {
 		return cid.Undef, xerrors.Errorf("adding market funds failed: %w", err)
 	}
@@ -200,22 +202,23 @@ func (c *Client) Start(ctx context.Context, p ClientDealProposal) (cid.Cid, erro
 		return cid.Undef, xerrors.Errorf("computing commP failed: %w", err)
 	}
 
-	dealProposal := &storagemarket.StorageDealProposal{
-		PieceRef:             commP,
-		PieceSize:            uint64(pieceSize),
+	dealProposal := market.DealProposal{
+		PieceCID:             commcid.PieceCommitmentV1ToCID(commP),
+		PieceSize:            abi.PaddedPieceSize(pieceSize),
 		Client:               p.Client,
 		Provider:             p.ProviderAddress,
-		ProposalExpiration:   p.ProposalExpiration,
-		Duration:             p.Duration,
+		StartEpoch:           p.StartEpoch,
+		EndEpoch:             p.EndEpoch,
 		StoragePricePerEpoch: p.PricePerEpoch,
-		StorageCollateral:    abi.NewTokenAmount(int64(pieceSize)), // TODO: real calc
+		ProviderCollateral:   abi.NewTokenAmount(int64(pieceSize)), // TODO: real calc
 	}
 
-	if err := c.node.SignProposal(ctx, p.Client, dealProposal); err != nil {
+	clientDealProposal, err := c.node.SignProposal(ctx, p.Client, dealProposal)
+	if err != nil {
 		return cid.Undef, xerrors.Errorf("signing deal proposal failed: %w", err)
 	}
 
-	proposalNd, err := cborutil.AsIpld(dealProposal)
+	proposalNd, err := cborutil.AsIpld(clientDealProposal)
 	if err != nil {
 		return cid.Undef, xerrors.Errorf("getting proposal node failed: %w", err)
 	}
@@ -225,7 +228,7 @@ func (c *Client) Start(ctx context.Context, p ClientDealProposal) (cid.Cid, erro
 		return cid.Undef, xerrors.Errorf("connecting to storage provider failed: %w", err)
 	}
 
-	proposal := network.Proposal{DealProposal: dealProposal, Piece: p.Data}
+	proposal := network.Proposal{DealProposal: clientDealProposal, Piece: p.Data}
 	if err := s.WriteDealProposal(proposal); err != nil {
 		return cid.Undef, xerrors.Errorf("sending proposal to storage provider failed: %w", err)
 	}
@@ -233,7 +236,7 @@ func (c *Client) Start(ctx context.Context, p ClientDealProposal) (cid.Cid, erro
 	deal := &ClientDeal{
 		ClientDeal: storagemarket.ClientDeal{
 			ProposalCid: proposalNd.Cid(),
-			Proposal:    *dealProposal,
+			Proposal:    *clientDealProposal,
 			State:       storagemarket.StorageDealUnknown,
 			Miner:       p.MinerID,
 			MinerWorker: p.MinerWorker,

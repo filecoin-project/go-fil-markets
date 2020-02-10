@@ -6,7 +6,7 @@ import (
 	"github.com/filecoin-project/go-address"
 	"github.com/filecoin-project/go-fil-markets/retrievalmarket"
 	"github.com/filecoin-project/specs-actors/actors/abi"
-	"github.com/filecoin-project/specs-actors/actors/builtin/payment_channel"
+	"github.com/filecoin-project/specs-actors/actors/builtin/paych"
 )
 
 // TestRetrievalClientNode is a node adapter for a retrieval client whose responses
@@ -16,11 +16,11 @@ type TestRetrievalClientNode struct {
 	payChErr     error
 	lane         int64
 	laneError    error
-	voucher      *payment_channel.SignedVoucher
+	voucher      *paych.SignedVoucher
 	voucherError error
 
 	allocateLaneRecorder            func(address.Address)
-	createPaymentVoucherRecorder    func(voucher *payment_channel.SignedVoucher)
+	createPaymentVoucherRecorder    func(voucher *paych.SignedVoucher)
 	getCreatePaymentChannelRecorder func(address.Address, address.Address, abi.TokenAmount)
 }
 
@@ -30,10 +30,10 @@ type TestRetrievalClientNodeParams struct {
 	PayChErr               error
 	Lane                   int64
 	LaneError              error
-	Voucher                *payment_channel.SignedVoucher
+	Voucher                *paych.SignedVoucher
 	VoucherError           error
 	AllocateLaneRecorder   func(address.Address)
-	PaymentVoucherRecorder func(voucher *payment_channel.SignedVoucher)
+	PaymentVoucherRecorder func(voucher *paych.SignedVoucher)
 	PaymentChannelRecorder func(address.Address, address.Address, abi.TokenAmount)
 }
 
@@ -71,7 +71,7 @@ func (trcn *TestRetrievalClientNode) AllocateLane(paymentChannel address.Address
 }
 
 // CreatePaymentVoucher creates a mock payment voucher based on a channel and lane
-func (trcn *TestRetrievalClientNode) CreatePaymentVoucher(ctx context.Context, paymentChannel address.Address, amount abi.TokenAmount, lane int64) (*payment_channel.SignedVoucher, error) {
+func (trcn *TestRetrievalClientNode) CreatePaymentVoucher(ctx context.Context, paymentChannel address.Address, amount abi.TokenAmount, lane int64) (*paych.SignedVoucher, error) {
 	if trcn.createPaymentVoucherRecorder != nil {
 		trcn.createPaymentVoucherRecorder(trcn.voucher)
 	}

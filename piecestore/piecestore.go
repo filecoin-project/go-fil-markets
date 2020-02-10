@@ -1,9 +1,6 @@
 package piecestore
 
 import (
-	"bytes"
-	"fmt"
-
 	"github.com/filecoin-project/go-statestore"
 	"github.com/ipfs/go-cid"
 	"github.com/ipfs/go-datastore"
@@ -29,7 +26,7 @@ type pieceStore struct {
 	cidInfos *statestore.StateStore
 }
 
-func (ps *pieceStore) AddDealForPiece(pieceCID []byte, dealInfo DealInfo) error {
+func (ps *pieceStore) AddDealForPiece(pieceCID cid.Cid, dealInfo DealInfo) error {
 	return ps.mutatePieceInfo(pieceCID, func(pi *PieceInfo) error {
 		for _, di := range pi.Deals {
 			if di == dealInfo {
@@ -41,11 +38,11 @@ func (ps *pieceStore) AddDealForPiece(pieceCID []byte, dealInfo DealInfo) error 
 	})
 }
 
-func (ps *pieceStore) AddPieceBlockLocations(pieceCID []byte, blockLocations map[cid.Cid]BlockLocation) error {
+func (ps *pieceStore) AddPieceBlockLocations(pieceCID cid.Cid, blockLocations map[cid.Cid]BlockLocation) error {
 	for c, blockLocation := range blockLocations {
 		err := ps.mutateCIDInfo(c, func(ci *CIDInfo) error {
 			for _, pbl := range ci.PieceBlockLocations {
-				if bytes.Equal(pbl.PieceCID, pieceCID) && pbl.BlockLocation == blockLocation {
+				if pbl.PieceCID.Equals(pieceCID) && pbl.BlockLocation == blockLocation {
 					return nil
 				}
 			}
@@ -59,9 +56,9 @@ func (ps *pieceStore) AddPieceBlockLocations(pieceCID []byte, blockLocations map
 	return nil
 }
 
-func (ps *pieceStore) GetPieceInfo(pieceCID []byte) (PieceInfo, error) {
+func (ps *pieceStore) GetPieceInfo(pieceCID cid.Cid) (PieceInfo, error) {
 	var out PieceInfo
-	if err := ps.pieces.Get(newKey(pieceCID)).Get(&out); err != nil {
+	if err := ps.pieces.Get(pieceCID).Get(&out); err != nil {
 		return PieceInfo{}, err
 	}
 	return out, nil
@@ -75,8 +72,8 @@ func (ps *pieceStore) GetCIDInfo(payloadCID cid.Cid) (CIDInfo, error) {
 	return out, nil
 }
 
-func (ps *pieceStore) ensurePieceInfo(pieceCID []byte) error {
-	has, err := ps.pieces.Has(newKey(pieceCID))
+func (ps *pieceStore) ensurePieceInfo(pieceCID cid.Cid) error {
+	has, err := ps.pieces.Has(pieceCID)
 
 	if err != nil {
 		return err
@@ -86,7 +83,7 @@ func (ps *pieceStore) ensurePieceInfo(pieceCID []byte) error {
 	}
 
 	pieceInfo := PieceInfo{PieceCID: pieceCID}
-	return ps.pieces.Begin(newKey(pieceCID), &pieceInfo)
+	return ps.pieces.Begin(pieceCID, &pieceInfo)
 }
 
 func (ps *pieceStore) ensureCIDInfo(c cid.Cid) error {
@@ -104,13 +101,13 @@ func (ps *pieceStore) ensureCIDInfo(c cid.Cid) error {
 	return ps.cidInfos.Begin(c, &cidInfo)
 }
 
-func (ps *pieceStore) mutatePieceInfo(pieceCID []byte, mutator interface{}) error {
+func (ps *pieceStore) mutatePieceInfo(pieceCID cid.Cid, mutator interface{}) error {
 	err := ps.ensurePieceInfo(pieceCID)
 	if err != nil {
 		return err
 	}
 
-	return ps.pieces.Get(newKey(pieceCID)).Mutate(mutator)
+	return ps.pieces.Get(pieceCID).Mutate(mutator)
 }
 
 func (ps *pieceStore) mutateCIDInfo(c cid.Cid, mutator interface{}) error {
@@ -120,16 +117,4 @@ func (ps *pieceStore) mutateCIDInfo(c cid.Cid, mutator interface{}) error {
 	}
 
 	return ps.cidInfos.Get(c).Mutate(mutator)
-}
-
-func newKey(pieceCID []byte) fmt.Stringer {
-	return &pieceStoreKey{pieceCID}
-}
-
-type pieceStoreKey struct {
-	cid []byte
-}
-
-func (k *pieceStoreKey) String() string {
-	return string(k.cid)
 }

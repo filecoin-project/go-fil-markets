@@ -7,6 +7,7 @@ import (
 	"io"
 
 	"github.com/filecoin-project/go-fil-markets/storagemarket"
+	"github.com/filecoin-project/specs-actors/actors/builtin/market"
 	"github.com/filecoin-project/specs-actors/actors/crypto"
 	cbg "github.com/whyrusleeping/cbor-gen"
 	xerrors "golang.org/x/xerrors"
@@ -121,7 +122,7 @@ func (t *Proposal) MarshalCBOR(w io.Writer) error {
 		return err
 	}
 
-	// t.DealProposal (storagemarket.StorageDealProposal) (struct)
+	// t.DealProposal (market.ClientDealProposal) (struct)
 	if err := t.DealProposal.MarshalCBOR(w); err != nil {
 		return err
 	}
@@ -148,7 +149,7 @@ func (t *Proposal) UnmarshalCBOR(r io.Reader) error {
 		return fmt.Errorf("cbor input had wrong number of fields")
 	}
 
-	// t.DealProposal (storagemarket.StorageDealProposal) (struct)
+	// t.DealProposal (market.ClientDealProposal) (struct)
 
 	{
 
@@ -162,7 +163,7 @@ func (t *Proposal) UnmarshalCBOR(r io.Reader) error {
 				return err
 			}
 		} else {
-			t.DealProposal = new(storagemarket.StorageDealProposal)
+			t.DealProposal = new(market.ClientDealProposal)
 			if err := t.DealProposal.UnmarshalCBOR(br); err != nil {
 				return err
 			}

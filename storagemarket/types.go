@@ -1,24 +1,21 @@
 package storagemarket
 
 import (
-	"bytes"
 	"context"
 	"io"
 
 	"github.com/ipfs/go-cid"
 	cbor "github.com/ipfs/go-ipld-cbor"
 	"github.com/libp2p/go-libp2p-core/peer"
-	xerrors "golang.org/x/xerrors"
 
 	"github.com/filecoin-project/go-address"
-	cborutil "github.com/filecoin-project/go-cbor-util"
 	"github.com/filecoin-project/go-fil-markets/filestore"
 	"github.com/filecoin-project/specs-actors/actors/abi"
-	"github.com/filecoin-project/specs-actors/actors/abi/big"
+	"github.com/filecoin-project/specs-actors/actors/builtin/market"
 	"github.com/filecoin-project/specs-actors/actors/crypto"
 )
 
-//go:generate cbor-gen-for ClientDeal MinerDeal StorageDeal Balance StorageDealProposal SignedStorageAsk StorageAsk DataRef
+//go:generate cbor-gen-for ClientDeal MinerDeal Balance SignedStorageAsk StorageAsk StorageDeal DataRef
 
 const DealProtocolID = "/fil/storage/mk/1.0.1"
 const AskProtocolID = "/fil/storage/ask/1.0.1"
@@ -96,85 +93,21 @@ type StorageAsk struct {
 	// Price per GiB / Epoch
 	Price abi.TokenAmount
 
-	MinPieceSize uint64
+	MinPieceSize abi.PaddedPieceSize
 	Miner        address.Address
-	Timestamp    uint64
-	Expiry       uint64
+	Timestamp    abi.ChainEpoch
+	Expiry       abi.ChainEpoch
 	SeqNo        uint64
 }
 
-type StorageDealProposal struct {
-	PieceRef  []byte // cid bytes // TODO: spec says to use cid.Cid, probably not a good idea
-	PieceSize uint64
-
-	Client   address.Address
-	Provider address.Address
-
-	ProposalExpiration uint64
-	Duration           uint64 // TODO: spec
-
-	StoragePricePerEpoch abi.TokenAmount
-	StorageCollateral    abi.TokenAmount
-
-	ProposerSignature *crypto.Signature
-}
-
-func (sdp *StorageDealProposal) TotalStoragePrice() abi.TokenAmount {
-	return big.Mul(sdp.StoragePricePerEpoch, abi.NewTokenAmount(int64(sdp.Duration)))
-}
-
-type SignFunc = func(context.Context, []byte) (*crypto.Signature, error)
-
-func (sdp *StorageDealProposal) Sign(ctx context.Context, sign SignFunc) error {
-	if sdp.ProposerSignature != nil {
-		return xerrors.New("signature already present in StorageDealProposal")
-	}
-	var buf bytes.Buffer
-	if err := sdp.MarshalCBOR(&buf); err != nil {
-		return err
-	}
-	sig, err := sign(ctx, buf.Bytes())
-	if err != nil {
-		return err
-	}
-	sdp.ProposerSignature = sig
-	return nil
-}
-
-func (sdp *StorageDealProposal) Cid() (cid.Cid, error) {
-	nd, err := cborutil.AsIpld(sdp)
-	if err != nil {
-		return cid.Undef, err
-	}
-
-	return nd.Cid(), nil
-}
-
-type StorageDeal struct {
-	PieceRef  []byte // cid bytes // TODO: spec says to use cid.Cid, probably not a good idea
-	PieceSize uint64
-
-	Client   address.Address
-	Provider address.Address
-
-	ProposalExpiration uint64
-	Duration           uint64 // TODO: spec
-
-	StoragePricePerEpoch abi.TokenAmount
-	StorageCollateral    abi.TokenAmount
-	ActivationEpoch      uint64 // 0 = inactive
-}
-
 type StateKey interface {
-	Height() uint64
+	Height() abi.ChainEpoch
 }
-
-type Epoch uint64
 
 // Duplicated from deals package for now
 type MinerDeal struct {
 	ProposalCid cid.Cid
-	Proposal    StorageDealProposal
+	Proposal    market.ClientDealProposal
 	Miner       peer.ID
 	Client      peer.ID
 	State       StorageDealStatus
@@ -187,7 +120,7 @@ type MinerDeal struct {
 
 type ClientDeal struct {
 	ProposalCid cid.Cid
-	Proposal    StorageDealProposal
+	Proposal    market.ClientDealProposal
 	State       StorageDealStatus
 	Miner       peer.ID
 	MinerWorker address.Address
@@ -197,13 +130,19 @@ type ClientDeal struct {
 	PublishMessage *cid.Cid
 }
 
-// The interface provided for storage providers
+// StorageDeal is a local combination of a proposal and a current deal state
+type StorageDeal struct {
+	market.DealProposal
+	market.DealState
+}
+
+// StorageProvider is the interface provided for storage providers
 type StorageProvider interface {
 	Start(ctx context.Context) error
 
 	Stop() error
 
-	AddAsk(price abi.TokenAmount, ttlsecs int64) error
+	AddAsk(price abi.TokenAmount, duration abi.ChainEpoch) error
 
 	// ListAsks lists current asks
 	ListAsks(addr address.Address) []*SignedStorageAsk
@@ -294,7 +233,7 @@ type StorageClientNode interface {
 	ValidatePublishedDeal(ctx context.Context, deal ClientDeal) (uint64, error)
 
 	// SignProposal signs a proposal
-	SignProposal(ctx context.Context, signer address.Address, proposal *StorageDealProposal) error
+	SignProposal(ctx context.Context, signer address.Address, proposal market.DealProposal) (*market.ClientDealProposal, error)
 
 	GetDefaultWalletAddress(ctx context.Context) (address.Address, error)
 
@@ -356,7 +295,7 @@ type StorageClient interface {
 	//FindStorageOffers(criteria AskCriteria, limit uint) []*StorageOffer
 
 	// ProposeStorageDeal initiates deal negotiation with a Storage Provider
-	ProposeStorageDeal(ctx context.Context, addr address.Address, info *StorageProviderInfo, data *DataRef, proposalExpiration Epoch, duration Epoch, price abi.TokenAmount, collateral abi.TokenAmount) (*ProposeStorageDealResult, error)
+	ProposeStorageDeal(ctx context.Context, addr address.Address, info *StorageProviderInfo, data *DataRef, startEpoch abi.ChainEpoch, endEpoch abi.ChainEpoch, price abi.TokenAmount, collateral abi.TokenAmount) (*ProposeStorageDealResult, error)
 
 	// GetPaymentEscrow returns the current funds available for deal payment
 	GetPaymentEscrow(ctx context.Context, addr address.Address) (Balance, error)

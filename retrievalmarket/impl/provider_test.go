@@ -15,8 +15,8 @@ import (
 	retrievalimpl "github.com/filecoin-project/go-fil-markets/retrievalmarket/impl"
 	"github.com/filecoin-project/go-fil-markets/retrievalmarket/impl/testnodes"
 	"github.com/filecoin-project/go-fil-markets/retrievalmarket/network"
-	"github.com/filecoin-project/specs-actors/actors/abi"
 	tut "github.com/filecoin-project/go-fil-markets/shared_testutil"
+	"github.com/filecoin-project/specs-actors/actors/abi"
 )
 
 func TestHandleQueryStream(t *testing.T) {
@@ -24,7 +24,7 @@ func TestHandleQueryStream(t *testing.T) {
 	pcid := tut.GenerateCids(1)[0]
 	expectedPeer := peer.ID("somepeer")
 	expectedSize := uint64(1234)
-	expectedPieceCID := []byte("applesauce")
+	expectedPieceCID := tut.GenerateCids(1)[0]
 	expectedCIDInfo := piecestore.CIDInfo{
 		PieceBlockLocations: []piecestore.PieceBlockLocation{
 			{

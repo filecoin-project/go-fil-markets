@@ -5,7 +5,8 @@ import (
 	"math/rand"
 	"testing"
 
-	"github.com/ipfs/go-cid"
+	"github.com/filecoin-project/specs-actors/actors/builtin/market"
+
 	"github.com/ipfs/go-datastore"
 	"github.com/ipfs/go-datastore/namespace"
 	dss "github.com/ipfs/go-datastore/sync"
@@ -38,20 +39,22 @@ func (wrongDTType) Type() string {
 	return "WrongDTTYPE"
 }
 
-func uniqueStorageDealProposal() (storagemarket.StorageDealProposal, error) {
+func uniqueStorageDealProposal() (market.ClientDealProposal, error) {
 	clientAddr, err := address.NewIDAddress(uint64(rand.Int()))
 	if err != nil {
-		return storagemarket.StorageDealProposal{}, err
+		return market.ClientDealProposal{}, err
 	}
 	providerAddr, err := address.NewIDAddress(uint64(rand.Int()))
 	if err != nil {
-		return storagemarket.StorageDealProposal{}, err
+		return market.ClientDealProposal{}, err
 	}
-	return storagemarket.StorageDealProposal{
-		PieceRef: blockGenerator.Next().Cid().Bytes(),
-		Client:   clientAddr,
-		Provider: providerAddr,
-		ProposerSignature: &crypto.Signature{
+	return market.ClientDealProposal{
+		Proposal: market.DealProposal{
+			PieceCID: blockGenerator.Next().Cid(),
+			Client:   clientAddr,
+			Provider: providerAddr,
+		},
+		ClientSignature: crypto.Signature{
 			Data: []byte("foo bar cat dog"),
 			Type: crypto.SigTypeBLS,
 		},
@@ -129,11 +132,7 @@ func TestClientRequestValidation(t *testing.T) {
 		if err != nil {
 			t.Fatal("error serializing proposal")
 		}
-		pieceRef, err := cid.Cast(proposal.PieceRef)
-		if err != nil {
-			t.Fatal("unable to construct piece cid")
-		}
-		if !xerrors.Is(crv.ValidatePull(minerID, &deals.StorageDataTransferVoucher{proposalNd.Cid()}, pieceRef, nil), deals.ErrNoDeal) {
+		if !xerrors.Is(crv.ValidatePull(minerID, &deals.StorageDataTransferVoucher{proposalNd.Cid()}, proposal.Proposal.PieceCID, nil), deals.ErrNoDeal) {
 			t.Fatal("Pull should fail if there is no deal stored")
 		}
 	})
@@ -213,11 +212,7 @@ func TestProviderRequestValidation(t *testing.T) {
 		if err != nil {
 			t.Fatal("error serializing proposal")
 		}
-		pieceRef, err := cid.Cast(proposal.PieceRef)
-		if err != nil {
-			t.Fatal("unable to construct piece cid")
-		}
-		if !xerrors.Is(mrv.ValidatePush(clientID, &deals.StorageDataTransferVoucher{proposalNd.Cid()}, pieceRef, nil), deals.ErrNoDeal) {
+		if !xerrors.Is(mrv.ValidatePush(clientID, &deals.StorageDataTransferVoucher{proposalNd.Cid()}, proposal.Proposal.PieceCID, nil), deals.ErrNoDeal) {
 			t.Fatal("Push should fail if there is no deal stored")
 		}
 	})

@@ -21,16 +21,10 @@ func (t *PieceInfo) MarshalCBOR(w io.Writer) error {
 		return err
 	}
 
-	// t.PieceCID ([]uint8) (slice)
-	if len(t.PieceCID) > cbg.ByteArrayMaxLen {
-		return xerrors.Errorf("Byte array in field t.PieceCID was too long")
-	}
+	// t.PieceCID (cid.Cid) (struct)
 
-	if _, err := w.Write(cbg.CborEncodeMajorType(cbg.MajByteString, uint64(len(t.PieceCID)))); err != nil {
-		return err
-	}
-	if _, err := w.Write(t.PieceCID); err != nil {
-		return err
+	if err := cbg.WriteCid(w, t.PieceCID); err != nil {
+		return xerrors.Errorf("failed to write cid field t.PieceCID: %w", err)
 	}
 
 	// t.Deals ([]piecestore.DealInfo) (slice)
@@ -64,22 +58,17 @@ func (t *PieceInfo) UnmarshalCBOR(r io.Reader) error {
 		return fmt.Errorf("cbor input had wrong number of fields")
 	}
 
-	// t.PieceCID ([]uint8) (slice)
+	// t.PieceCID (cid.Cid) (struct)
 
-	maj, extra, err = cbg.CborReadHeader(br)
-	if err != nil {
-		return err
-	}
+	{
 
-	if extra > cbg.ByteArrayMaxLen {
-		return fmt.Errorf("t.PieceCID: byte array too large (%d)", extra)
-	}
-	if maj != cbg.MajByteString {
-		return fmt.Errorf("expected byte array")
-	}
-	t.PieceCID = make([]byte, extra)
-	if _, err := io.ReadFull(br, t.PieceCID); err != nil {
-		return err
+		c, err := cbg.ReadCid(br)
+		if err != nil {
+			return xerrors.Errorf("failed to read cid field t.PieceCID: %w", err)
+		}
+
+		t.PieceCID = c
+
 	}
 	// t.Deals ([]piecestore.DealInfo) (slice)
 
@@ -273,17 +262,12 @@ func (t *PieceBlockLocation) MarshalCBOR(w io.Writer) error {
 		return err
 	}
 
-	// t.PieceCID ([]uint8) (slice)
-	if len(t.PieceCID) > cbg.ByteArrayMaxLen {
-		return xerrors.Errorf("Byte array in field t.PieceCID was too long")
+	// t.PieceCID (cid.Cid) (struct)
+
+	if err := cbg.WriteCid(w, t.PieceCID); err != nil {
+		return xerrors.Errorf("failed to write cid field t.PieceCID: %w", err)
 	}
 
-	if _, err := w.Write(cbg.CborEncodeMajorType(cbg.MajByteString, uint64(len(t.PieceCID)))); err != nil {
-		return err
-	}
-	if _, err := w.Write(t.PieceCID); err != nil {
-		return err
-	}
 	return nil
 }
 
@@ -311,22 +295,17 @@ func (t *PieceBlockLocation) UnmarshalCBOR(r io.Reader) error {
 		}
 
 	}
-	// t.PieceCID ([]uint8) (slice)
+	// t.PieceCID (cid.Cid) (struct)
 
-	maj, extra, err = cbg.CborReadHeader(br)
-	if err != nil {
-		return err
-	}
+	{
 
-	if extra > cbg.ByteArrayMaxLen {
-		return fmt.Errorf("t.PieceCID: byte array too large (%d)", extra)
-	}
-	if maj != cbg.MajByteString {
-		return fmt.Errorf("expected byte array")
-	}
-	t.PieceCID = make([]byte, extra)
-	if _, err := io.ReadFull(br, t.PieceCID); err != nil {
-		return err
+		c, err := cbg.ReadCid(br)
+		if err != nil {
+			return xerrors.Errorf("failed to read cid field t.PieceCID: %w", err)
+		}
+
+		t.PieceCID = c
+
 	}
 	return nil
 }

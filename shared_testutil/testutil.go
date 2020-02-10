@@ -5,7 +5,7 @@ import (
 	"testing"
 
 	cborutil "github.com/filecoin-project/go-cbor-util"
-	"github.com/filecoin-project/specs-actors/actors/builtin/payment_channel"
+	"github.com/filecoin-project/specs-actors/actors/builtin/paych"
 	blocks "github.com/ipfs/go-block-format"
 	"github.com/ipfs/go-cid"
 	blocksutil "github.com/ipfs/go-ipfs-blocksutil"
@@ -87,7 +87,7 @@ func ContainsBlock(blks []blocks.Block, block blocks.Block) bool {
 }
 
 // TestVoucherEquality verifies that two vouchers are equal to one another
-func TestVoucherEquality(t *testing.T, a, b *payment_channel.SignedVoucher) {
+func TestVoucherEquality(t *testing.T, a, b *paych.SignedVoucher) {
 	aB, err := cborutil.Dump(a)
 	require.NoError(t, err)
 	bB, err := cborutil.Dump(b)

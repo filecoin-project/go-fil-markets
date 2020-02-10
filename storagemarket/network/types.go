@@ -1,6 +1,7 @@
 package network
 
 import (
+	"github.com/filecoin-project/specs-actors/actors/builtin/market"
 	"github.com/ipfs/go-cid"
 
 	"github.com/filecoin-project/go-address"
@@ -13,7 +14,7 @@ import (
 // Proposal is the data sent over the network from client to provider when proposing
 // a deal
 type Proposal struct {
-	DealProposal *storagemarket.StorageDealProposal
+	DealProposal *market.ClientDealProposal
 
 	Piece *storagemarket.DataRef
 }

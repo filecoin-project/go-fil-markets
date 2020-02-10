@@ -24,7 +24,7 @@ type BlockLocation struct {
 // is inside of
 type PieceBlockLocation struct {
 	BlockLocation
-	PieceCID []byte
+	PieceCID cid.Cid
 }
 
 // CIDInfo is information about where a given CID will live inside a piece
@@ -40,7 +40,7 @@ var CIDInfoUndefined = CIDInfo{}
 // on its PieceCID -- so that, given a pieceCID during retrieval, the miner
 // can determine how to unseal it if needed
 type PieceInfo struct {
-	PieceCID []byte
+	PieceCID cid.Cid
 	Deals    []DealInfo
 }
 
@@ -49,8 +49,8 @@ var PieceInfoUndefined = PieceInfo{}
 
 // PieceStore is a saved database of piece info that can be modified and queried
 type PieceStore interface {
-	AddDealForPiece(pieceCID []byte, dealInfo DealInfo) error
-	AddPieceBlockLocations(pieceCID []byte, blockLocations map[cid.Cid]BlockLocation) error
-	GetPieceInfo(pieceCID []byte) (PieceInfo, error)
+	AddDealForPiece(pieceCID cid.Cid, dealInfo DealInfo) error
+	AddPieceBlockLocations(pieceCID cid.Cid, blockLocations map[cid.Cid]BlockLocation) error
+	GetPieceInfo(pieceCID cid.Cid) (PieceInfo, error)
 	GetCIDInfo(payloadCID cid.Cid) (CIDInfo, error)
 }

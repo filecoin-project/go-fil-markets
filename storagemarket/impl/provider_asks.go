@@ -3,7 +3,6 @@ package storageimpl
 import (
 	"bytes"
 	"context"
-	"time"
 
 	"github.com/ipfs/go-datastore"
 	"golang.org/x/xerrors"
@@ -15,7 +14,7 @@ import (
 	"github.com/filecoin-project/specs-actors/actors/abi"
 )
 
-func (p *Provider) SetPrice(price abi.TokenAmount, ttlsecs int64) error {
+func (p *Provider) SetPrice(price abi.TokenAmount, duration abi.ChainEpoch) error {
 	p.askLk.Lock()
 	defer p.askLk.Unlock()
 
@@ -24,11 +23,14 @@ func (p *Provider) SetPrice(price abi.TokenAmount, ttlsecs int64) error {
 		seqno = p.ask.Ask.SeqNo + 1
 	}
 
-	now := time.Now().Unix()
+	stateKey, err := p.spn.MostRecentStateId(context.TODO())
+	if err != nil {
+		return err
+	}
 	ask := &storagemarket.StorageAsk{
 		Price:        price,
-		Timestamp:    uint64(now),
-		Expiry:       uint64(now + ttlsecs),
+		Timestamp:    stateKey.Height(),
+		Expiry:       stateKey.Height() + duration,
 		Miner:        p.actor,
 		SeqNo:        seqno,
 		MinPieceSize: p.minPieceSize,

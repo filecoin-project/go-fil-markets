@@ -1,9 +1,9 @@
 package storageimpl
 
 import (
-	"bytes"
 	"context"
 
+	commcid "github.com/filecoin-project/go-fil-commcid"
 	"github.com/filecoin-project/go-padreader"
 	"github.com/ipfs/go-cid"
 	ipldfree "github.com/ipld/go-ipld-prime/impl/free"
@@ -46,30 +46,30 @@ func (p *Provider) validating(ctx context.Context, deal MinerDeal) (func(*MinerD
 	if err != nil {
 		return nil, err
 	}
-	if head.Height() >= deal.Proposal.ProposalExpiration {
+	if head.Height() >= deal.Proposal.Proposal.StartEpoch {
 		return nil, xerrors.Errorf("deal proposal already expired")
 	}
 
 	// TODO: check StorageCollateral
 
-	minPrice := big.Div(big.Mul(p.ask.Ask.Price, abi.NewTokenAmount(int64(deal.Proposal.PieceSize))), abi.NewTokenAmount(1<<30))
-	if deal.Proposal.StoragePricePerEpoch.LessThan(minPrice) {
-		return nil, xerrors.Errorf("storage price per epoch less than asking price: %s < %s", deal.Proposal.StoragePricePerEpoch, minPrice)
+	minPrice := big.Div(big.Mul(p.ask.Ask.Price, abi.NewTokenAmount(int64(deal.Proposal.Proposal.PieceSize))), abi.NewTokenAmount(1<<30))
+	if deal.Proposal.Proposal.StoragePricePerEpoch.LessThan(minPrice) {
+		return nil, xerrors.Errorf("storage price per epoch less than asking price: %s < %s", deal.Proposal.Proposal.StoragePricePerEpoch, minPrice)
 	}
 
-	if deal.Proposal.PieceSize < p.ask.Ask.MinPieceSize {
-		return nil, xerrors.Errorf("piece size less than minimum required size: %d < %d", deal.Proposal.PieceSize, p.ask.Ask.MinPieceSize)
+	if deal.Proposal.Proposal.PieceSize < p.ask.Ask.MinPieceSize {
+		return nil, xerrors.Errorf("piece size less than minimum required size: %d < %d", deal.Proposal.Proposal.PieceSize, p.ask.Ask.MinPieceSize)
 	}
 
 	// check market funds
-	clientMarketBalance, err := p.spn.GetBalance(ctx, deal.Proposal.Client)
+	clientMarketBalance, err := p.spn.GetBalance(ctx, deal.Proposal.Proposal.Client)
 	if err != nil {
 		return nil, xerrors.Errorf("getting client market balance failed: %w", err)
 	}
 
 	// This doesn't guarantee that the client won't withdraw / lock those funds
 	// but it's a decent first filter
-	if clientMarketBalance.Available.LessThan(deal.Proposal.TotalStoragePrice()) {
+	if clientMarketBalance.Available.LessThan(deal.Proposal.Proposal.TotalStorageFee()) {
 		return nil, xerrors.New("clientMarketBalance.Available too small")
 	}
 
@@ -121,8 +121,9 @@ func (p *Provider) verifydata(ctx context.Context, deal MinerDeal) (func(*MinerD
 		return nil, err
 	}
 
+	pieceCid := commcid.PieceCommitmentV1ToCID(commp)
 	// Verify CommP matches
-	if !bytes.Equal(commp, deal.Proposal.PieceRef) {
+	if !pieceCid.Equals(deal.Proposal.Proposal.PieceCID) {
 		return nil, xerrors.Errorf("proposal CommP doesn't match calculated CommP")
 	}
 
@@ -133,13 +134,13 @@ func (p *Provider) verifydata(ctx context.Context, deal MinerDeal) (func(*MinerD
 
 // State: StorageDealPublishing
 func (p *Provider) publishing(ctx context.Context, deal MinerDeal) (func(*MinerDeal), error) {
-	waddr, err := p.spn.GetMinerWorker(ctx, deal.Proposal.Provider)
+	waddr, err := p.spn.GetMinerWorker(ctx, deal.Proposal.Proposal.Provider)
 	if err != nil {
 		return nil, err
 	}
 
 	// TODO: check StorageCollateral (may be too large (or too small))
-	if err := p.spn.EnsureFunds(ctx, waddr, deal.Proposal.StorageCollateral); err != nil {
+	if err := p.spn.EnsureFunds(ctx, waddr, deal.Proposal.Proposal.ProviderCollateral); err != nil {
 		return nil, err
 	}
 
@@ -214,7 +215,7 @@ func (p *Provider) sealing(ctx context.Context, deal MinerDeal) (func(*MinerDeal
 		}
 	}
 
-	err := p.spn.OnDealSectorCommitted(ctx, deal.Proposal.Provider, deal.DealID, cb)
+	err := p.spn.OnDealSectorCommitted(ctx, deal.Proposal.Proposal.Provider, deal.DealID, cb)
 
 	return nil, err
 
@@ -230,13 +231,13 @@ func (p *Provider) complete(ctx context.Context, deal MinerDeal) (func(*MinerDea
 		return nil, err
 	}
 	// TODO: Record actual block locations for all CIDs in piece by improving car writing
-	err = p.pieceStore.AddPieceBlockLocations(deal.Proposal.PieceRef, map[cid.Cid]piecestore.BlockLocation{
+	err = p.pieceStore.AddPieceBlockLocations(deal.Proposal.Proposal.PieceCID, map[cid.Cid]piecestore.BlockLocation{
 		deal.Ref.Root: {},
 	})
 	if err != nil {
 		return nil, err
 	}
-	return nil, p.pieceStore.AddDealForPiece(deal.Proposal.PieceRef, piecestore.DealInfo{
+	return nil, p.pieceStore.AddDealForPiece(deal.Proposal.Proposal.PieceCID, piecestore.DealInfo{
 		DealID:   deal.DealID,
 		SectorID: sectorID,
 		Offset:   offset,

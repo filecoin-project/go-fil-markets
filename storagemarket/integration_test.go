@@ -29,12 +29,13 @@ import (
 	"github.com/filecoin-project/go-fil-markets/storagemarket/network"
 	"github.com/filecoin-project/specs-actors/actors/abi"
 	"github.com/filecoin-project/specs-actors/actors/abi/big"
+	"github.com/filecoin-project/specs-actors/actors/builtin/market"
 	"github.com/filecoin-project/specs-actors/actors/crypto"
 )
 
 func TestMakeDeal(t *testing.T) {
 	ctx := context.Background()
-	epoch := uint64(100)
+	epoch := abi.ChainEpoch(100)
 	nodeCommon := fakeCommon{newStorageMarketState()}
 	ds1 := datastore.NewMapDatastore()
 	td := shared_testutil.NewLibp2pTestData(ctx, t)
@@ -109,7 +110,7 @@ func TestMakeDeal(t *testing.T) {
 			TransferType: storagemarket.TTGraphsync,
 			Root:         payloadCid,
 		}
-		result, err := client.ProposeStorageDeal(ctx, providerAddr, &providerInfo, dataRef, storagemarket.Epoch(epoch+100), 20000, big.NewInt(1), big.NewInt(0))
+		result, err := client.ProposeStorageDeal(ctx, providerAddr, &providerInfo, dataRef, abi.ChainEpoch(epoch+100), abi.ChainEpoch(epoch+20100), big.NewInt(1), big.NewInt(0))
 		assert.NoError(t, err)
 
 		proposalCid = result.ProposalCid
@@ -142,14 +143,14 @@ func (v *fakeDTValidator) ValidatePull(receiver peer.ID, voucher datatransfer.Vo
 var _ datatransfer.RequestValidator = (*fakeDTValidator)(nil)
 
 // Below fake node implementations
-type testStateKey struct{ Epoch uint64 }
+type testStateKey struct{ Epoch abi.ChainEpoch }
 
-func (k *testStateKey) Height() uint64 {
+func (k *testStateKey) Height() abi.ChainEpoch {
 	return k.Epoch
 }
 
 type storageMarketState struct {
-	Epoch        uint64
+	Epoch        abi.ChainEpoch
 	DealId       uint64
 	Balances     map[address.Address]abi.TokenAmount
 	StorageDeals map[address.Address][]storagemarket.StorageDeal
@@ -250,9 +251,11 @@ func (n *fakeClientNode) ValidatePublishedDeal(ctx context.Context, deal storage
 	return 0, nil
 }
 
-func (n *fakeClientNode) SignProposal(ctx context.Context, signer address.Address, proposal *storagemarket.StorageDealProposal) error {
-	proposal.ProposerSignature = shared_testutil.MakeTestSignature()
-	return nil
+func (n *fakeClientNode) SignProposal(ctx context.Context, signer address.Address, proposal market.DealProposal) (*market.ClientDealProposal, error) {
+	return &market.ClientDealProposal{
+		Proposal:        proposal,
+		ClientSignature: *shared_testutil.MakeTestSignature(),
+	}, nil
 }
 
 func (n *fakeClientNode) GetDefaultWalletAddress(ctx context.Context) (address.Address, error) {
@@ -281,17 +284,10 @@ type fakeProviderNode struct {
 }
 
 func (n *fakeProviderNode) PublishDeals(ctx context.Context, deal storagemarket.MinerDeal) (storagemarket.DealID, cid.Cid, error) {
-	p := deal.Proposal
 
 	sd := storagemarket.StorageDeal{
-		PieceRef:             p.PieceRef,
-		PieceSize:            p.PieceSize,
-		Client:               p.Client,
-		Provider:             p.Provider,
-		ProposalExpiration:   p.ProposalExpiration,
-		Duration:             p.Duration,
-		StoragePricePerEpoch: p.StoragePricePerEpoch,
-		StorageCollateral:    p.StorageCollateral,
+		deal.Proposal.Proposal,
+		market.DealState{},
 	}
 
 	n.SMState.AddDeal(sd)

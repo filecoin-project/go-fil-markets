@@ -10,8 +10,8 @@ import (
 	"github.com/filecoin-project/specs-actors/actors/abi"
 )
 
-func (p *Provider) AddAsk(price abi.TokenAmount, ttlsecs int64) error {
-	return p.SetPrice(price, ttlsecs)
+func (p *Provider) AddAsk(price abi.TokenAmount, duration abi.ChainEpoch) error {
+	return p.SetPrice(price, duration)
 }
 
 func (p *Provider) ListAsks(addr address.Address) []*storagemarket.SignedStorageAsk {

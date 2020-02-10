@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"io"
 
-	"github.com/filecoin-project/specs-actors/actors/builtin/payment_channel"
+	"github.com/filecoin-project/specs-actors/actors/builtin/paych"
 	"github.com/libp2p/go-libp2p-core/peer"
 	cbg "github.com/whyrusleeping/cbor-gen"
 	xerrors "golang.org/x/xerrors"
@@ -534,7 +534,7 @@ func (t *DealPayment) MarshalCBOR(w io.Writer) error {
 		return err
 	}
 
-	// t.PaymentVoucher (payment_channel.SignedVoucher) (struct)
+	// t.PaymentVoucher (paych.SignedVoucher) (struct)
 	if err := t.PaymentVoucher.MarshalCBOR(w); err != nil {
 		return err
 	}
@@ -575,7 +575,7 @@ func (t *DealPayment) UnmarshalCBOR(r io.Reader) error {
 		}
 
 	}
-	// t.PaymentVoucher (payment_channel.SignedVoucher) (struct)
+	// t.PaymentVoucher (paych.SignedVoucher) (struct)
 
 	{
 
@@ -589,7 +589,7 @@ func (t *DealPayment) UnmarshalCBOR(r io.Reader) error {
 				return err
 			}
 		} else {
-			t.PaymentVoucher = new(payment_channel.SignedVoucher)
+			t.PaymentVoucher = new(paych.SignedVoucher)
 			if err := t.PaymentVoucher.UnmarshalCBOR(br); err != nil {
 				return err
 			}

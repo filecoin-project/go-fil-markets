@@ -18,7 +18,7 @@ import (
 	testnet "github.com/filecoin-project/go-fil-markets/shared_testutil"
 	"github.com/filecoin-project/specs-actors/actors/abi"
 	"github.com/filecoin-project/specs-actors/actors/abi/big"
-	"github.com/filecoin-project/specs-actors/actors/builtin/payment_channel"
+	"github.com/filecoin-project/specs-actors/actors/builtin/paych"
 )
 
 type consumeBlockResponse struct {
@@ -192,7 +192,7 @@ func TestProcessPaymentRequested(t *testing.T) {
 		return &fakeEnvironment{node, ds, 0, nil}
 	}
 
-	testVoucher := &payment_channel.SignedVoucher{}
+	testVoucher := &paych.SignedVoucher{}
 
 	t.Run("it works", func(t *testing.T) {
 		dealState := makeDealState(retrievalmarket.DealStatusFundsNeeded)
