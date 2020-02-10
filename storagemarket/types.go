@@ -127,7 +127,9 @@ func (sdp *StorageDealProposal) Cid() (cid.Cid, error) {
 	return nd.Cid(), nil
 }
 
-func (sdp *StorageDealProposal) Verify() error {
+type SignatureVerifier func(address.Address, []byte) error
+
+func (sdp *StorageDealProposal) Verify(verifier SignatureVerifier) error {
 	unsigned := *sdp
 	unsigned.ProposerSignature = nil
 	var buf bytes.Buffer
@@ -135,7 +137,7 @@ func (sdp *StorageDealProposal) Verify() error {
 		return err
 	}
 
-	return sdp.ProposerSignature.Verify(sdp.Client, buf.Bytes())
+	return verifier(sdp.Client, buf.Bytes())
 }
 
 type StorageDeal struct {
@@ -240,6 +242,8 @@ type StorageProviderNode interface {
 	OnDealSectorCommitted(ctx context.Context, provider address.Address, dealID uint64, cb DealSectorCommittedCallback) error
 
 	LocatePieceForDealWithinSector(ctx context.Context, dealID uint64) (sectorID uint64, offset uint64, length uint64, err error)
+
+	VerifySignature(addr address.Address, data []byte) error
 }
 
 type DealSectorCommittedCallback func(err error)
@@ -281,6 +285,8 @@ type StorageClientNode interface {
 	OnDealSectorCommitted(ctx context.Context, provider address.Address, dealId uint64, cb DealSectorCommittedCallback) error
 
 	ValidateAskSignature(ask *types.SignedStorageAsk) error
+
+	VerifySignature(addr address.Address, data []byte) error
 }
 
 type StorageClientProofs interface {

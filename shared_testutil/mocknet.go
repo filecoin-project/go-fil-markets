@@ -3,11 +3,20 @@ package shared_testutil
 import (
 	"bytes"
 	"errors"
+	"io"
+	"io/ioutil"
+	"os"
+	"path/filepath"
+	"testing"
+
 	blocks "github.com/ipfs/go-block-format"
 	"github.com/ipfs/go-blockservice"
 	"github.com/ipfs/go-datastore"
 	dss "github.com/ipfs/go-datastore/sync"
+	"github.com/ipfs/go-graphsync"
+	graphsyncimpl "github.com/ipfs/go-graphsync/impl"
 	"github.com/ipfs/go-graphsync/ipldbridge"
+	"github.com/ipfs/go-graphsync/network"
 	bstore "github.com/ipfs/go-ipfs-blockstore"
 	chunk "github.com/ipfs/go-ipfs-chunker"
 	offline "github.com/ipfs/go-ipfs-exchange-offline"
@@ -26,11 +35,6 @@ import (
 	mocknet "github.com/libp2p/go-libp2p/p2p/net/mock"
 	"github.com/stretchr/testify/require"
 	"golang.org/x/net/context"
-	"io"
-	"io/ioutil"
-	"os"
-	"path/filepath"
-	"testing"
 )
 
 type Libp2pTestData struct {
@@ -39,6 +43,8 @@ type Libp2pTestData struct {
 	Bs2         bstore.Blockstore
 	DagService1 ipldformat.DAGService
 	DagService2 ipldformat.DAGService
+	GraphSync1  graphsync.GraphExchange
+	GraphSync2  graphsync.GraphExchange
 	Loader1     ipld.Loader
 	Loader2     ipld.Loader
 	Storer1     ipld.Storer
@@ -117,6 +123,9 @@ func NewLibp2pTestData(ctx context.Context, t *testing.T) *Libp2pTestData {
 	testData.Bridge1 = ipldbridge.NewIPLDBridge()
 	testData.Bridge2 = ipldbridge.NewIPLDBridge()
 
+	testData.GraphSync1 = graphsyncimpl.New(ctx, network.NewFromLibp2pHost(testData.Host1), testData.Bridge1, testData.Loader1, testData.Storer1)
+	testData.GraphSync2 = graphsyncimpl.New(ctx, network.NewFromLibp2pHost(testData.Host2), testData.Bridge2, testData.Loader2, testData.Storer2)
+
 	// create a selector for the whole UnixFS dag
 	ssb := builder.NewSelectorSpecBuilder(ipldfree.NodeBuilder())
 
@@ -128,6 +137,7 @@ func NewLibp2pTestData(ctx context.Context, t *testing.T) *Libp2pTestData {
 
 const unixfsChunkSize uint64 = 1 << 10
 const unixfsLinksPerLevel = 1024
+
 // LoadUnixFSFile injects the fixture `filename` into the given blockstore from the
 // fixtures directory. If useSecondNode is true, fixture is injected to the second node;
 // otherwise the first node gets it

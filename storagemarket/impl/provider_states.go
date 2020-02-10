@@ -85,7 +85,7 @@ func (p *Provider) transferring(ctx context.Context, deal MinerDeal) (func(*Mine
 	allSelector := ssb.ExploreRecursive(selector.RecursionLimitNone(),
 		ssb.ExploreAll(ssb.ExploreRecursiveEdge())).Node()
 
-	log.Infof("fetching data for a deal %d", deal.ProposalCid)
+	log.Infof("fetching data for a deal %s", deal.ProposalCid)
 
 	// initiate a pull data transfer. This will complete asynchronously and the
 	// completion of the data transfer will trigger a change in deal state
