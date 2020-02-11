@@ -1,6 +1,7 @@
 package storagemarket_test
 
 import (
+	"bytes"
 	"context"
 	"io"
 	"io/ioutil"
@@ -21,6 +22,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/filecoin-project/go-fil-markets/filestore"
+	"github.com/filecoin-project/go-fil-markets/pieceio/cario"
 	"github.com/filecoin-project/go-fil-markets/piecestore"
 	"github.com/filecoin-project/go-fil-markets/retrievalmarket/discovery"
 	"github.com/filecoin-project/go-fil-markets/shared_testutil"
@@ -126,6 +128,121 @@ func TestMakeDeal(t *testing.T) {
 	assert.NoError(t, err)
 
 	pd := providerDeals[0]
+	assert.True(t, pd.ProposalCid.Equals(proposalCid))
+	assert.Equal(t, pd.State, storagemarket.StorageDealActive)
+}
+
+func TestMakeDealOffline(t *testing.T) {
+	ctx := context.Background()
+	epoch := abi.ChainEpoch(100)
+	nodeCommon := fakeCommon{newStorageMarketState()}
+	ds1 := datastore.NewMapDatastore()
+	td := shared_testutil.NewLibp2pTestData(ctx, t)
+	rootLink := td.LoadUnixFSFile(t, "payload.txt", false)
+	payloadCid := rootLink.(cidlink.Link).Cid
+
+	clientNode := fakeClientNode{
+		fakeCommon: nodeCommon,
+		ClientAddr: address.TestAddress,
+	}
+
+	providerAddr := address.TestAddress2
+	ds2 := datastore.NewMapDatastore()
+	tempPath, err := ioutil.TempDir("", "storagemarket_test")
+	assert.NoError(t, err)
+	ps := piecestore.NewPieceStore(ds2)
+	providerNode := fakeProviderNode{
+		fakeCommon: nodeCommon,
+		MinerAddr:  providerAddr,
+	}
+	fs, err := filestore.NewLocalFileStore(filestore.OsPath(tempPath))
+	assert.NoError(t, err)
+
+	// create provider and client
+	dt1 := graphsync.NewGraphSyncDataTransfer(td.Host1, td.GraphSync1)
+	require.NoError(t, dt1.RegisterVoucherType(reflect.TypeOf(&storageimpl.StorageDataTransferVoucher{}), &fakeDTValidator{}))
+
+	client := storageimpl.NewClient(
+		network.NewFromLibp2pHost(td.Host1),
+		td.Bs1,
+		dt1,
+		discovery.NewLocal(ds1),
+		statestore.New(ds1),
+		&clientNode,
+	)
+
+	dt2 := graphsync.NewGraphSyncDataTransfer(td.Host2, td.GraphSync2)
+	provider, err := storageimpl.NewProvider(
+		network.NewFromLibp2pHost(td.Host2),
+		ds2,
+		td.Bs2,
+		fs,
+		ps,
+		dt2,
+		&providerNode,
+		providerAddr,
+	)
+	assert.NoError(t, err)
+
+	// set ask price where we'll accept any price
+	err = provider.AddAsk(big.NewInt(0), 50_000)
+	assert.NoError(t, err)
+
+	err = provider.Start(ctx)
+	assert.NoError(t, err)
+
+	// Closely follows the MinerInfo struct in the spec
+	providerInfo := storagemarket.StorageProviderInfo{
+		Address:    providerAddr,
+		Owner:      providerAddr,
+		Worker:     providerAddr,
+		SectorSize: 32,
+		PeerID:     td.Host2.ID(),
+	}
+
+	var proposalCid cid.Cid
+
+	// make a deal
+	go func() {
+		client.Run(ctx)
+		dataRef := &storagemarket.DataRef{
+			TransferType: storagemarket.TTManual,
+			Root:         payloadCid,
+		}
+		result, err := client.ProposeStorageDeal(ctx, providerAddr, &providerInfo, dataRef, abi.ChainEpoch(epoch+100), abi.ChainEpoch(epoch+20100), big.NewInt(1), big.NewInt(0))
+		assert.NoError(t, err)
+
+		proposalCid = result.ProposalCid
+	}()
+
+	time.Sleep(time.Millisecond * 100)
+
+	cd, err := client.GetInProgressDeal(ctx, proposalCid)
+	assert.NoError(t, err)
+	assert.Equal(t, cd.State, storagemarket.StorageDealUnknown)
+
+	providerDeals, err := provider.ListIncompleteDeals()
+	assert.NoError(t, err)
+
+	pd := providerDeals[0]
+	assert.True(t, pd.ProposalCid.Equals(proposalCid))
+	assert.Equal(t, pd.State, storagemarket.StorageDealTransferring)
+
+	carBuf := new(bytes.Buffer)
+
+	cario.NewCarIO().WriteCar(ctx, td.Bs1, payloadCid, td.AllSelector, carBuf)
+	provider.ImportDataForDeal(ctx, pd.ProposalCid, carBuf)
+
+	time.Sleep(time.Millisecond * 100)
+
+	cd, err = client.GetInProgressDeal(ctx, proposalCid)
+	assert.NoError(t, err)
+	assert.Equal(t, cd.State, storagemarket.StorageDealActive)
+
+	providerDeals, err = provider.ListIncompleteDeals()
+	assert.NoError(t, err)
+
+	pd = providerDeals[0]
 	assert.True(t, pd.ProposalCid.Equals(proposalCid))
 	assert.Equal(t, pd.State, storagemarket.StorageDealActive)
 }
