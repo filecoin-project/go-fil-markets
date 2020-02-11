@@ -9,10 +9,11 @@ Separating implementations into a blockchain component and one or more mining an
 
 ## Components
 
+* **[filestore](./filestore)**: a submodule branch that is a side effect of using the ffi to generate commP
+* **[pieceio](./pieceio)**: utilities that take IPLD graphs and turn them into pieces
+* **[piecestore](/.piecestore)**:  
 * **[storage market](./storagemarket)**: for finding, negotiating, and consummating deals to store data between clients and providers (storage miners)
 * **[retrieval market](./retrievalmarket)**: for finding, negotiating, and consummating deals to retrieve data between clients and providers (retrieval miners)
-* **[pieceio](./pieceio)**: utilities that take IPLD graphs and turn them into pieces
-* **[filestore](./filestore)**: a submodule branch that is a side effect of using the ffi to generate commP
 
 Related components in other repos:
 * **[data transfer](https://github.com/filecoin-project/go-data-transfer)**: for exchanging piece data between clients and miners, used by storage & retrieval market modules.
@@ -25,9 +26,17 @@ Related components in other repos:
 
 **Requires go 1.13**
 
-Install the module in your package or app with `go get "github.com/filecoin-project/go-fil-markets/filmarkets"`
+Install the go-fil-markets module(s) that you want to use.  Available modules are:
+* `filestore`
+* `pieceio`
+* `piecestore`
+* `retrievalmarket`
+* `storagemarket`
 
-TODO
+Install with:
+`go get "github.com/filecoin-project/go-fil-markets/<MODULENAME>"`
+
+TODO: usage for each module (maybe in subdirectories)
 
 ## Contributing
 Issues and PRs are welcome! Please first read the [background reading](#background-reading) and [CONTRIBUTING](.go-fil-markets/CONTRIBUTING.md) guide, and look over the current code. PRs against master require approval of at least two maintainers. 
