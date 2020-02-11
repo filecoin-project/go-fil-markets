@@ -5,7 +5,6 @@ import (
 	"context"
 	"errors"
 	"io"
-	"os"
 	"sync"
 
 	"github.com/ipfs/go-cid"
@@ -314,7 +313,7 @@ func (p *Provider) ImportDataForDeal(ctx context.Context, propCid cid.Cid, data 
 	}
 	_ = n // TODO: verify n?
 
-	_, err = tempfi.Seek(0, os.SEEK_SET)
+	_, err = tempfi.Seek(0, io.SeekStart)
 	if err != nil {
 		return xerrors.Errorf("failed to seek through temp imported file: %w", err)
 	}
