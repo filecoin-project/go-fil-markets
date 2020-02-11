@@ -4,7 +4,6 @@ import (
 	"context"
 
 	"github.com/filecoin-project/go-fil-markets/storagemarket/network"
-	"github.com/filecoin-project/go-data-transfer"
 
 	cborutil "github.com/filecoin-project/go-cbor-util"
 	"github.com/ipfs/go-cid"
@@ -14,6 +13,7 @@ import (
 	"golang.org/x/xerrors"
 
 	"github.com/filecoin-project/go-address"
+	datatransfer "github.com/filecoin-project/go-data-transfer"
 	"github.com/filecoin-project/go-fil-markets/filestore"
 	"github.com/filecoin-project/go-fil-markets/pieceio"
 	"github.com/filecoin-project/go-fil-markets/pieceio/cario"
@@ -170,7 +170,7 @@ func (c *Client) onUpdated(ctx context.Context, update clientDealUpdate) {
 }
 
 type ClientDealProposal struct {
-	Data cid.Cid
+	Data *storagemarket.DataRef
 
 	PricePerEpoch      tokenamount.TokenAmount
 	ProposalExpiration uint64
@@ -188,7 +188,7 @@ func (c *Client) Start(ctx context.Context, p ClientDealProposal) (cid.Cid, erro
 		return cid.Undef, xerrors.Errorf("adding market funds failed: %w", err)
 	}
 
-	commP, pieceSize, err := c.commP(ctx, p.Data)
+	commP, pieceSize, err := c.commP(ctx, p.Data.Root)
 	if err != nil {
 		return cid.Undef, xerrors.Errorf("computing commP failed: %w", err)
 	}
@@ -230,7 +230,7 @@ func (c *Client) Start(ctx context.Context, p ClientDealProposal) (cid.Cid, erro
 			State:       storagemarket.StorageDealUnknown,
 			Miner:       p.MinerID,
 			MinerWorker: p.MinerWorker,
-			PayloadCid:  p.Data,
+			DataRef:     p.Data,
 		},
 
 		s: s,
@@ -238,7 +238,7 @@ func (c *Client) Start(ctx context.Context, p ClientDealProposal) (cid.Cid, erro
 
 	c.incoming <- deal
 
-	return deal.ProposalCid, c.discovery.AddPeer(p.Data, retrievalmarket.RetrievalPeer{
+	return deal.ProposalCid, c.discovery.AddPeer(p.Data.Root, retrievalmarket.RetrievalPeer{
 		Address: dealProposal.Provider,
 		ID:      deal.Miner,
 	})

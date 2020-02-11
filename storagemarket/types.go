@@ -16,7 +16,7 @@ import (
 	"github.com/filecoin-project/go-fil-markets/shared/types"
 )
 
-//go:generate cbor-gen-for ClientDeal MinerDeal StorageDeal Balance StorageDealProposal
+//go:generate cbor-gen-for ClientDeal MinerDeal StorageDeal Balance StorageDealProposal DataRef
 
 const DealProtocolID = "/fil/storage/mk/1.0.1"
 const AskProtocolID = "/fil/storage/ask/1.0.1"
@@ -168,7 +168,7 @@ type MinerDeal struct {
 	State       StorageDealStatus
 	PiecePath   filestore.Path
 
-	Ref cid.Cid
+	Ref *DataRef
 
 	DealID uint64
 }
@@ -180,7 +180,7 @@ type ClientDeal struct {
 	Miner       peer.ID
 	MinerWorker address.Address
 	DealID      uint64
-	PayloadCid  cid.Cid
+	DataRef     *DataRef
 
 	PublishMessage *cid.Cid
 }
@@ -207,6 +207,8 @@ type StorageProvider interface {
 
 	// GetStorageCollateral returns the current collateral balance
 	GetStorageCollateral(ctx context.Context) (Balance, error)
+
+	ImportDataForDeal(ctx context.Context, propCid cid.Cid, data io.Reader) error
 }
 
 // Node dependencies for a StorageProvider
@@ -301,6 +303,16 @@ type ProposeStorageDealResult struct {
 	ProposalCid cid.Cid
 }
 
+const (
+	TTGraphsync = "graphsync"
+	TTManual    = "manual"
+)
+
+type DataRef struct {
+	TransferType string
+	Root         cid.Cid
+}
+
 // The interface provided by the module to the outside world for storage clients.
 type StorageClient interface {
 	Run(ctx context.Context)
@@ -326,7 +338,7 @@ type StorageClient interface {
 	//FindStorageOffers(criteria AskCriteria, limit uint) []*StorageOffer
 
 	// ProposeStorageDeal initiates deal negotiation with a Storage Provider
-	ProposeStorageDeal(ctx context.Context, addr address.Address, info *StorageProviderInfo, payloadCid cid.Cid, proposalExpiration Epoch, duration Epoch, price tokenamount.TokenAmount, collateral tokenamount.TokenAmount) (*ProposeStorageDealResult, error)
+	ProposeStorageDeal(ctx context.Context, addr address.Address, info *StorageProviderInfo, data *DataRef, proposalExpiration Epoch, duration Epoch, price tokenamount.TokenAmount, collateral tokenamount.TokenAmount) (*ProposeStorageDealResult, error)
 
 	// GetPaymentEscrow returns the current funds available for deal payment
 	GetPaymentEscrow(ctx context.Context, addr address.Address) (Balance, error)
