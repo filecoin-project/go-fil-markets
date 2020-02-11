@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 
+	"github.com/filecoin-project/go-fil-markets/storagemarket"
 	"github.com/libp2p/go-libp2p-core/peer"
 	cbg "github.com/whyrusleeping/cbor-gen"
 	xerrors "golang.org/x/xerrors"
@@ -65,7 +66,10 @@ func (t *ClientDealProposal) MarshalCBOR(w io.Writer) error {
 		return err
 	}
 
-	// t.Data (cid.Cid) (struct)
+	// t.Data (storagemarket.DataRef) (struct)
+	if err := t.Data.MarshalCBOR(w); err != nil {
+		return err
+	}
 
 	// t.PricePerEpoch (tokenamount.TokenAmount) (struct)
 	if err := t.PricePerEpoch.MarshalCBOR(w); err != nil {
@@ -126,9 +130,25 @@ func (t *ClientDealProposal) UnmarshalCBOR(r io.Reader) error {
 		return fmt.Errorf("cbor input had wrong number of fields")
 	}
 
-	// t.Data (cid.Cid) (struct)
+	// t.Data (storagemarket.DataRef) (struct)
 
 	{
+
+		pb, err := br.PeekByte()
+		if err != nil {
+			return err
+		}
+		if pb == cbg.CborNull[0] {
+			var nbuf [1]byte
+			if _, err := br.Read(nbuf[:]); err != nil {
+				return err
+			}
+		} else {
+			t.Data = new(storagemarket.DataRef)
+			if err := t.Data.UnmarshalCBOR(br); err != nil {
+				return err
+			}
+		}
 
 	}
 	// t.PricePerEpoch (tokenamount.TokenAmount) (struct)
