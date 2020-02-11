@@ -67,10 +67,6 @@ func (t *ClientDealProposal) MarshalCBOR(w io.Writer) error {
 
 	// t.Data (cid.Cid) (struct)
 
-	if err := cbg.WriteCid(w, t.Data); err != nil {
-		return xerrors.Errorf("failed to write cid field t.Data: %w", err)
-	}
-
 	// t.PricePerEpoch (tokenamount.TokenAmount) (struct)
 	if err := t.PricePerEpoch.MarshalCBOR(w); err != nil {
 		return err
@@ -133,13 +129,6 @@ func (t *ClientDealProposal) UnmarshalCBOR(r io.Reader) error {
 	// t.Data (cid.Cid) (struct)
 
 	{
-
-		c, err := cbg.ReadCid(br)
-		if err != nil {
-			return xerrors.Errorf("failed to read cid field t.Data: %w", err)
-		}
-
-		t.Data = c
 
 	}
 	// t.PricePerEpoch (tokenamount.TokenAmount) (struct)

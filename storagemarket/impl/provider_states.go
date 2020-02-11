@@ -78,6 +78,11 @@ func (p *Provider) validating(ctx context.Context, deal MinerDeal) (func(*MinerD
 
 // State: StorageDealTransferring
 func (p *Provider) transferring(ctx context.Context, deal MinerDeal) (func(*MinerDeal), error) {
+	if deal.Ref.TransferType == storagemarket.TTManual {
+		log.Info("deal entering manual transfer state")
+		return nil, nil
+	}
+
 	ssb := builder.NewSelectorSpecBuilder(ipldfree.NodeBuilder())
 
 	// this is the selector for "get the whole DAG"
@@ -93,7 +98,7 @@ func (p *Provider) transferring(ctx context.Context, deal MinerDeal) (func(*Mine
 	_, err := p.dataTransfer.OpenPullDataChannel(ctx,
 		deal.Client,
 		&StorageDataTransferVoucher{Proposal: deal.ProposalCid},
-		deal.Ref,
+		deal.Ref.Root,
 		allSelector,
 	)
 	if err != nil {
@@ -110,7 +115,7 @@ func (p *Provider) verifydata(ctx context.Context, deal MinerDeal) (func(*MinerD
 	allSelector := ssb.ExploreRecursive(selector.RecursionLimitNone(),
 		ssb.ExploreAll(ssb.ExploreRecursiveEdge())).Node()
 
-	commp, path, _, err := p.pio.GeneratePieceCommitmentToFile(deal.Ref, allSelector)
+	commp, path, _, err := p.pio.GeneratePieceCommitmentToFile(deal.Ref.Root, allSelector)
 	if err != nil {
 		return nil, err
 	}
@@ -225,7 +230,7 @@ func (p *Provider) complete(ctx context.Context, deal MinerDeal) (func(*MinerDea
 	}
 	// TODO: Record actual block locations for all CIDs in piece by improving car writing
 	err = p.pieceStore.AddPieceBlockLocations(deal.Proposal.PieceRef, map[cid.Cid]piecestore.BlockLocation{
-		deal.Ref: {},
+		deal.Ref.Root: {},
 	})
 	if err != nil {
 		return nil, err

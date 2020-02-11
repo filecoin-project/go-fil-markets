@@ -9,7 +9,7 @@ import (
 	"time"
 
 	"github.com/filecoin-project/go-address"
-	"github.com/filecoin-project/go-data-transfer"
+	datatransfer "github.com/filecoin-project/go-data-transfer"
 	graphsync "github.com/filecoin-project/go-data-transfer/impl/graphsync"
 	"github.com/filecoin-project/go-statestore"
 	"github.com/ipfs/go-cid"
@@ -104,7 +104,11 @@ func TestMakeDeal(t *testing.T) {
 	// make a deal
 	go func() {
 		client.Run(ctx)
-		result, err := client.ProposeStorageDeal(ctx, providerAddr, &providerInfo, payloadCid, storagemarket.Epoch(epoch+100), 20000, tokenamount.FromInt(1), tokenamount.FromInt(0))
+		dataRef := &storagemarket.DataRef{
+			TransferType: storagemarket.TTGraphsync,
+			Root:         payloadCid,
+		}
+		result, err := client.ProposeStorageDeal(ctx, providerAddr, &providerInfo, dataRef, storagemarket.Epoch(epoch+100), 20000, tokenamount.FromInt(1), tokenamount.FromInt(0))
 		assert.NoError(t, err)
 
 		proposalCid = result.ProposalCid

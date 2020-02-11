@@ -126,12 +126,10 @@ func (t *Proposal) MarshalCBOR(w io.Writer) error {
 		return err
 	}
 
-	// t.Piece (cid.Cid) (struct)
-
-	if err := cbg.WriteCid(w, t.Piece); err != nil {
-		return xerrors.Errorf("failed to write cid field t.Piece: %w", err)
+	// t.Piece (storagemarket.DataRef) (struct)
+	if err := t.Piece.MarshalCBOR(w); err != nil {
+		return err
 	}
-
 	return nil
 }
 
@@ -171,16 +169,25 @@ func (t *Proposal) UnmarshalCBOR(r io.Reader) error {
 		}
 
 	}
-	// t.Piece (cid.Cid) (struct)
+	// t.Piece (storagemarket.DataRef) (struct)
 
 	{
 
-		c, err := cbg.ReadCid(br)
+		pb, err := br.PeekByte()
 		if err != nil {
-			return xerrors.Errorf("failed to read cid field t.Piece: %w", err)
+			return err
 		}
-
-		t.Piece = c
+		if pb == cbg.CborNull[0] {
+			var nbuf [1]byte
+			if _, err := br.Read(nbuf[:]); err != nil {
+				return err
+			}
+		} else {
+			t.Piece = new(storagemarket.DataRef)
+			if err := t.Piece.UnmarshalCBOR(br); err != nil {
+				return err
+			}
+		}
 
 	}
 	return nil

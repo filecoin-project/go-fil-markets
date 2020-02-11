@@ -1,8 +1,10 @@
 package storageimpl
 
 import (
+	"bytes"
 	"context"
 	"errors"
+	"io"
 	"sync"
 
 	"github.com/ipfs/go-cid"
@@ -13,7 +15,7 @@ import (
 
 	"github.com/filecoin-project/go-address"
 	cborutil "github.com/filecoin-project/go-cbor-util"
-	"github.com/filecoin-project/go-data-transfer"
+	datatransfer "github.com/filecoin-project/go-data-transfer"
 	"github.com/filecoin-project/go-fil-markets/filestore"
 	"github.com/filecoin-project/go-fil-markets/pieceio"
 	"github.com/filecoin-project/go-fil-markets/pieceio/cario"
@@ -291,4 +293,51 @@ func (p *Provider) Stop() error {
 	close(p.stop)
 	<-p.stopped
 	return p.net.StopHandlingRequests()
+}
+
+func (p *Provider) ImportDataForDeal(ctx context.Context, propCid cid.Cid, data io.Reader) error {
+	// TODO: be able to check if we have enough disk space
+	var d MinerDeal
+	if err := p.deals.Get(propCid).Get(&d); err != nil {
+		return xerrors.Errorf("failed getting deal %s: %w", propCid, err)
+	}
+
+	tempfi, err := p.fs.CreateTemp()
+	if err != nil {
+		return xerrors.Errorf("failed to create temp file for data import: %w", err)
+	}
+
+	n, err := io.Copy(tempfi, data)
+	if err != nil {
+		return xerrors.Errorf("importing deal data failed: %w", err)
+	}
+	_ = n // TODO: verify n?
+
+	_, err = tempfi.Seek(0, io.SeekStart)
+	if err != nil {
+		return xerrors.Errorf("failed to seek through temp imported file: %w", err)
+	}
+
+	commP, err := p.pio.ReadPiece(tempfi)
+	if err != nil {
+		return xerrors.Errorf("failed to generate commP")
+	}
+
+	if !bytes.Equal(commP.Bytes(), d.Proposal.PieceRef) {
+		return xerrors.Errorf("given data does not match expected commP (got: %x, expected %x)", commP.Bytes(), d.Proposal.PieceRef)
+	}
+
+	select {
+	case p.updated <- minerDealUpdate{
+		newState: storagemarket.StorageDealPublishing,
+		id:       propCid,
+		mut: func(deal *MinerDeal) {
+			deal.PiecePath = tempfi.Path()
+		},
+	}:
+	case <-ctx.Done():
+		return ctx.Err()
+	}
+
+	return nil
 }

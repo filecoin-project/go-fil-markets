@@ -86,7 +86,7 @@ func (c *Client) ProposeStorageDeal(
 	ctx context.Context,
 	addr address.Address,
 	info *storagemarket.StorageProviderInfo,
-	payloadCid cid.Cid,
+	data *storagemarket.DataRef,
 	proposalExpiration storagemarket.Epoch,
 	duration storagemarket.Epoch,
 	price tokenamount.TokenAmount,
@@ -94,7 +94,7 @@ func (c *Client) ProposeStorageDeal(
 ) (*storagemarket.ProposeStorageDealResult, error) {
 
 	proposal := ClientDealProposal{
-		Data:               payloadCid,
+		Data:               data,
 		PricePerEpoch:      price,
 		ProposalExpiration: uint64(proposalExpiration),
 		Duration:           uint64(duration),

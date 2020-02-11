@@ -62,10 +62,9 @@ func (t *ClientDeal) MarshalCBOR(w io.Writer) error {
 		return err
 	}
 
-	// t.PayloadCid (cid.Cid) (struct)
-
-	if err := cbg.WriteCid(w, t.PayloadCid); err != nil {
-		return xerrors.Errorf("failed to write cid field t.PayloadCid: %w", err)
+	// t.DataRef (storagemarket.DataRef) (struct)
+	if err := t.DataRef.MarshalCBOR(w); err != nil {
+		return err
 	}
 
 	// t.PublishMessage (cid.Cid) (struct)
@@ -158,16 +157,25 @@ func (t *ClientDeal) UnmarshalCBOR(r io.Reader) error {
 		return fmt.Errorf("wrong type for uint64 field")
 	}
 	t.DealID = uint64(extra)
-	// t.PayloadCid (cid.Cid) (struct)
+	// t.DataRef (storagemarket.DataRef) (struct)
 
 	{
 
-		c, err := cbg.ReadCid(br)
+		pb, err := br.PeekByte()
 		if err != nil {
-			return xerrors.Errorf("failed to read cid field t.PayloadCid: %w", err)
+			return err
 		}
-
-		t.PayloadCid = c
+		if pb == cbg.CborNull[0] {
+			var nbuf [1]byte
+			if _, err := br.Read(nbuf[:]); err != nil {
+				return err
+			}
+		} else {
+			t.DataRef = new(DataRef)
+			if err := t.DataRef.UnmarshalCBOR(br); err != nil {
+				return err
+			}
+		}
 
 	}
 	// t.PublishMessage (cid.Cid) (struct)
@@ -258,10 +266,9 @@ func (t *MinerDeal) MarshalCBOR(w io.Writer) error {
 		return err
 	}
 
-	// t.Ref (cid.Cid) (struct)
-
-	if err := cbg.WriteCid(w, t.Ref); err != nil {
-		return xerrors.Errorf("failed to write cid field t.Ref: %w", err)
+	// t.Ref (storagemarket.DataRef) (struct)
+	if err := t.Ref.MarshalCBOR(w); err != nil {
+		return err
 	}
 
 	// t.DealID (uint64) (uint64)
@@ -347,16 +354,25 @@ func (t *MinerDeal) UnmarshalCBOR(r io.Reader) error {
 
 		t.PiecePath = filestore.Path(sval)
 	}
-	// t.Ref (cid.Cid) (struct)
+	// t.Ref (storagemarket.DataRef) (struct)
 
 	{
 
-		c, err := cbg.ReadCid(br)
+		pb, err := br.PeekByte()
 		if err != nil {
-			return xerrors.Errorf("failed to read cid field t.Ref: %w", err)
+			return err
 		}
-
-		t.Ref = c
+		if pb == cbg.CborNull[0] {
+			var nbuf [1]byte
+			if _, err := br.Read(nbuf[:]); err != nil {
+				return err
+			}
+		} else {
+			t.Ref = new(DataRef)
+			if err := t.Ref.UnmarshalCBOR(br); err != nil {
+				return err
+			}
+		}
 
 	}
 	// t.DealID (uint64) (uint64)
@@ -783,6 +799,76 @@ func (t *StorageDealProposal) UnmarshalCBOR(r io.Reader) error {
 				return err
 			}
 		}
+
+	}
+	return nil
+}
+
+func (t *DataRef) MarshalCBOR(w io.Writer) error {
+	if t == nil {
+		_, err := w.Write(cbg.CborNull)
+		return err
+	}
+	if _, err := w.Write([]byte{130}); err != nil {
+		return err
+	}
+
+	// t.TransferType (string) (string)
+	if len(t.TransferType) > cbg.MaxLength {
+		return xerrors.Errorf("Value in field t.TransferType was too long")
+	}
+
+	if _, err := w.Write(cbg.CborEncodeMajorType(cbg.MajTextString, uint64(len(t.TransferType)))); err != nil {
+		return err
+	}
+	if _, err := w.Write([]byte(t.TransferType)); err != nil {
+		return err
+	}
+
+	// t.Root (cid.Cid) (struct)
+
+	if err := cbg.WriteCid(w, t.Root); err != nil {
+		return xerrors.Errorf("failed to write cid field t.Root: %w", err)
+	}
+
+	return nil
+}
+
+func (t *DataRef) UnmarshalCBOR(r io.Reader) error {
+	br := cbg.GetPeeker(r)
+
+	maj, extra, err := cbg.CborReadHeader(br)
+	if err != nil {
+		return err
+	}
+	if maj != cbg.MajArray {
+		return fmt.Errorf("cbor input should be of type array")
+	}
+
+	if extra != 2 {
+		return fmt.Errorf("cbor input had wrong number of fields")
+	}
+
+	// t.TransferType (string) (string)
+
+	{
+		sval, err := cbg.ReadString(br)
+		if err != nil {
+			return err
+		}
+
+		t.TransferType = string(sval)
+	}
+	// t.Root (cid.Cid) (struct)
+
+	{
+
+		c, err := cbg.ReadCid(br)
+		if err != nil {
+			return xerrors.Errorf("failed to read cid field t.Root: %w", err)
+		}
+
+		t.Root = c
 
 	}
 	return nil

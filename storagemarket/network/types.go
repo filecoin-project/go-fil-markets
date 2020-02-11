@@ -16,7 +16,7 @@ import (
 type Proposal struct {
 	DealProposal *storagemarket.StorageDealProposal
 
-	Piece cid.Cid // Used for retrieving from the client
+	Piece *storagemarket.DataRef
 }
 
 var ProposalUndefined = Proposal{}
