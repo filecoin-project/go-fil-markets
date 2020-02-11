@@ -169,7 +169,7 @@ func (m *ProviderRequestValidator) ValidatePush(
 	}
 
 	if !deal.Ref.Root.Equals(baseCid) {
-		return xerrors.Errorf("Deal Payload CID %s, Data Transfer CID %s: %w", deal.Proposal.Proposal.PieceCID.String(), baseCid.String(), ErrWrongPiece)
+		return xerrors.Errorf("Deal Payload CID %s, Data Transfer CID %s: %w", deal.Proposal.PieceCID.String(), baseCid.String(), ErrWrongPiece)
 	}
 	for _, state := range DataTransferStates {
 		if deal.State == state {

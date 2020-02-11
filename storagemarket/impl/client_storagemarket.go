@@ -49,13 +49,13 @@ func (c *Client) ListInProgressDeals(ctx context.Context) ([]storagemarket.Clien
 	out := make([]storagemarket.ClientDeal, len(deals))
 	for k, v := range deals {
 		out[k] = storagemarket.ClientDeal{
-			ProposalCid:    v.ProposalCid,
-			Proposal:       v.Proposal,
-			State:          v.State,
-			Miner:          v.Miner,
-			MinerWorker:    v.MinerWorker,
-			DealID:         v.DealID,
-			PublishMessage: v.PublishMessage,
+			ProposalCid:        v.ProposalCid,
+			ClientDealProposal: v.ClientDealProposal,
+			State:              v.State,
+			Miner:              v.Miner,
+			MinerWorker:        v.MinerWorker,
+			DealID:             v.DealID,
+			PublishMessage:     v.PublishMessage,
 		}
 	}
 
@@ -93,7 +93,7 @@ func (c *Client) ProposeStorageDeal(
 ) (*storagemarket.ProposeStorageDealResult, error) {
 
 	proposal := ClientDealProposal{
-		Data:               data,
+		Data:            data,
 		PricePerEpoch:   price,
 		StartEpoch:      startEpoch,
 		EndEpoch:        endEpoch,

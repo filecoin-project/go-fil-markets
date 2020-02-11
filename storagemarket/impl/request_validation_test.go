@@ -77,8 +77,8 @@ func newClientDeal(minerID peer.ID, state storagemarket.StorageDealStatus) (deal
 
 	return deals.ClientDeal{
 		ClientDeal: storagemarket.ClientDeal{
-			Proposal:    newProposal,
-			ProposalCid: proposalNd.Cid(),
+			ClientDealProposal: newProposal,
+			ProposalCid:        proposalNd.Cid(),
 			DataRef: &storagemarket.DataRef{
 				Root: blockGenerator.Next().Cid(),
 			},
@@ -102,11 +102,11 @@ func newMinerDeal(clientID peer.ID, state storagemarket.StorageDealStatus) (deal
 
 	return deals.MinerDeal{
 		MinerDeal: storagemarket.MinerDeal{
-			Proposal:    newProposal,
-			ProposalCid: proposalNd.Cid(),
-			Client:      clientID,
-			State:       state,
-			Ref:         &storagemarket.DataRef{Root: ref},
+			ClientDealProposal: newProposal,
+			ProposalCid:        proposalNd.Cid(),
+			Client:             clientID,
+			State:              state,
+			Ref:                &storagemarket.DataRef{Root: ref},
 		},
 	}, nil
 }

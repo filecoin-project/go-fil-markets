@@ -13,8 +13,8 @@ import (
 	"golang.org/x/xerrors"
 
 	"github.com/filecoin-project/go-address"
-	commcid "github.com/filecoin-project/go-fil-commcid"
 	datatransfer "github.com/filecoin-project/go-data-transfer"
+	commcid "github.com/filecoin-project/go-fil-commcid"
 	"github.com/filecoin-project/go-fil-markets/filestore"
 	"github.com/filecoin-project/go-fil-markets/pieceio"
 	"github.com/filecoin-project/go-fil-markets/pieceio/cario"
@@ -235,12 +235,12 @@ func (c *Client) Start(ctx context.Context, p ClientDealProposal) (cid.Cid, erro
 
 	deal := &ClientDeal{
 		ClientDeal: storagemarket.ClientDeal{
-			ProposalCid: proposalNd.Cid(),
-			Proposal:    *clientDealProposal,
-			State:       storagemarket.StorageDealUnknown,
-			Miner:       p.MinerID,
-			MinerWorker: p.MinerWorker,
-			DataRef:     p.Data,
+			ProposalCid:        proposalNd.Cid(),
+			ClientDealProposal: *clientDealProposal,
+			State:              storagemarket.StorageDealUnknown,
+			Miner:              p.MinerID,
+			MinerWorker:        p.MinerWorker,
+			DataRef:            p.Data,
 		},
 
 		s: s,

@@ -25,15 +25,15 @@ func (t *ClientDeal) MarshalCBOR(w io.Writer) error {
 		return err
 	}
 
+	// t.ClientDealProposal (market.ClientDealProposal) (struct)
+	if err := t.ClientDealProposal.MarshalCBOR(w); err != nil {
+		return err
+	}
+
 	// t.ProposalCid (cid.Cid) (struct)
 
 	if err := cbg.WriteCid(w, t.ProposalCid); err != nil {
 		return xerrors.Errorf("failed to write cid field t.ProposalCid: %w", err)
-	}
-
-	// t.Proposal (market.ClientDealProposal) (struct)
-	if err := t.Proposal.MarshalCBOR(w); err != nil {
-		return err
 	}
 
 	// t.State (uint64) (uint64)
@@ -98,6 +98,15 @@ func (t *ClientDeal) UnmarshalCBOR(r io.Reader) error {
 		return fmt.Errorf("cbor input had wrong number of fields")
 	}
 
+	// t.ClientDealProposal (market.ClientDealProposal) (struct)
+
+	{
+
+		if err := t.ClientDealProposal.UnmarshalCBOR(br); err != nil {
+			return err
+		}
+
+	}
 	// t.ProposalCid (cid.Cid) (struct)
 
 	{
@@ -108,15 +117,6 @@ func (t *ClientDeal) UnmarshalCBOR(r io.Reader) error {
 		}
 
 		t.ProposalCid = c
-
-	}
-	// t.Proposal (market.ClientDealProposal) (struct)
-
-	{
-
-		if err := t.Proposal.UnmarshalCBOR(br); err != nil {
-			return err
-		}
 
 	}
 	// t.State (uint64) (uint64)
@@ -215,15 +215,15 @@ func (t *MinerDeal) MarshalCBOR(w io.Writer) error {
 		return err
 	}
 
+	// t.ClientDealProposal (market.ClientDealProposal) (struct)
+	if err := t.ClientDealProposal.MarshalCBOR(w); err != nil {
+		return err
+	}
+
 	// t.ProposalCid (cid.Cid) (struct)
 
 	if err := cbg.WriteCid(w, t.ProposalCid); err != nil {
 		return xerrors.Errorf("failed to write cid field t.ProposalCid: %w", err)
-	}
-
-	// t.Proposal (market.ClientDealProposal) (struct)
-	if err := t.Proposal.MarshalCBOR(w); err != nil {
-		return err
 	}
 
 	// t.Miner (peer.ID) (string)
@@ -294,6 +294,15 @@ func (t *MinerDeal) UnmarshalCBOR(r io.Reader) error {
 		return fmt.Errorf("cbor input had wrong number of fields")
 	}
 
+	// t.ClientDealProposal (market.ClientDealProposal) (struct)
+
+	{
+
+		if err := t.ClientDealProposal.UnmarshalCBOR(br); err != nil {
+			return err
+		}
+
+	}
 	// t.ProposalCid (cid.Cid) (struct)
 
 	{
@@ -304,15 +313,6 @@ func (t *MinerDeal) UnmarshalCBOR(r io.Reader) error {
 		}
 
 		t.ProposalCid = c
-
-	}
-	// t.Proposal (market.ClientDealProposal) (struct)
-
-	{
-
-		if err := t.Proposal.UnmarshalCBOR(br); err != nil {
-			return err
-		}
 
 	}
 	// t.Miner (peer.ID) (string)

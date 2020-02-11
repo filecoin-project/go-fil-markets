@@ -19,8 +19,8 @@ import (
 	"github.com/filecoin-project/go-fil-markets/retrievalmarket/impl/testnodes"
 	"github.com/filecoin-project/go-fil-markets/retrievalmarket/network"
 	rmnet "github.com/filecoin-project/go-fil-markets/retrievalmarket/network"
-	"github.com/filecoin-project/specs-actors/actors/abi"
 	tut "github.com/filecoin-project/go-fil-markets/shared_testutil"
+	"github.com/filecoin-project/specs-actors/actors/abi"
 )
 
 func TestClient_Query(t *testing.T) {

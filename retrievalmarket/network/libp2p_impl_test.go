@@ -14,8 +14,8 @@ import (
 	"github.com/filecoin-project/go-address"
 	"github.com/filecoin-project/go-fil-markets/retrievalmarket"
 	"github.com/filecoin-project/go-fil-markets/retrievalmarket/network"
-	"github.com/filecoin-project/specs-actors/actors/abi"
 	"github.com/filecoin-project/go-fil-markets/shared_testutil"
+	"github.com/filecoin-project/specs-actors/actors/abi"
 )
 
 type testReceiver struct {

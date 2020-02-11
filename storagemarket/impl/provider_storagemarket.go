@@ -48,12 +48,12 @@ func (p *Provider) ListIncompleteDeals() ([]storagemarket.MinerDeal, error) {
 
 	for _, deal := range deals {
 		out = append(out, storagemarket.MinerDeal{
-			Client:      deal.Client,
-			Proposal:    deal.Proposal,
-			ProposalCid: deal.ProposalCid,
-			State:       deal.State,
-			Ref:         deal.Ref,
-			DealID:      deal.DealID,
+			Client:             deal.Client,
+			ClientDealProposal: deal.ClientDealProposal,
+			ProposalCid:        deal.ProposalCid,
+			State:              deal.State,
+			Ref:                deal.Ref,
+			DealID:             deal.DealID,
 		})
 	}
 

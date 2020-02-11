@@ -286,7 +286,7 @@ type fakeProviderNode struct {
 func (n *fakeProviderNode) PublishDeals(ctx context.Context, deal storagemarket.MinerDeal) (storagemarket.DealID, cid.Cid, error) {
 
 	sd := storagemarket.StorageDeal{
-		deal.Proposal.Proposal,
+		deal.Proposal,
 		market.DealState{},
 	}
 

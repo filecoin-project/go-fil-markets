@@ -86,7 +86,7 @@ func (c *Client) sealing(ctx context.Context, deal ClientDeal) (func(*ClientDeal
 		}
 	}
 
-	err := c.node.OnDealSectorCommitted(ctx, deal.Proposal.Proposal.Provider, deal.DealID, cb)
+	err := c.node.OnDealSectorCommitted(ctx, deal.Proposal.Provider, deal.DealID, cb)
 
 	return nil, err
 }

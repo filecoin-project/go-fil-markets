@@ -106,8 +106,8 @@ type StateKey interface {
 
 // Duplicated from deals package for now
 type MinerDeal struct {
+	market.ClientDealProposal
 	ProposalCid cid.Cid
-	Proposal    market.ClientDealProposal
 	Miner       peer.ID
 	Client      peer.ID
 	State       StorageDealStatus
@@ -119,8 +119,8 @@ type MinerDeal struct {
 }
 
 type ClientDeal struct {
+	market.ClientDealProposal
 	ProposalCid cid.Cid
-	Proposal    market.ClientDealProposal
 	State       StorageDealStatus
 	Miner       peer.ID
 	MinerWorker address.Address

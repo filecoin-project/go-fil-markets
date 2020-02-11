@@ -257,10 +257,10 @@ func (p *Provider) newDeal(s network.StorageDealStream, proposal network.Proposa
 
 	return MinerDeal{
 		MinerDeal: storagemarket.MinerDeal{
-			Client:      s.RemotePeer(),
-			Proposal:    *proposal.DealProposal,
-			ProposalCid: proposalNd.Cid(),
-			State:       storagemarket.StorageDealUnknown,
+			Client:             s.RemotePeer(),
+			ClientDealProposal: *proposal.DealProposal,
+			ProposalCid:        proposalNd.Cid(),
+			State:              storagemarket.StorageDealUnknown,
 
 			Ref: proposal.Piece,
 		},
@@ -326,8 +326,8 @@ func (p *Provider) ImportDataForDeal(ctx context.Context, propCid cid.Cid, data 
 
 	pieceCid := commcid.PieceCommitmentV1ToCID(commP)
 	// Verify CommP matches
-	if !pieceCid.Equals(d.Proposal.Proposal.PieceCID) {
-		return xerrors.Errorf("given data does not match expected commP (got: %x, expected %x)", pieceCid, d.Proposal.Proposal.PieceCID)
+	if !pieceCid.Equals(d.Proposal.PieceCID) {
+		return xerrors.Errorf("given data does not match expected commP (got: %x, expected %x)", pieceCid, d.Proposal.PieceCID)
 	}
 
 	select {
