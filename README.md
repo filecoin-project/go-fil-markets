@@ -22,6 +22,11 @@ Related components in other repos:
 * The [Storage Market Module design doc](https://docs.google.com/document/d/1FfMUpW8vanR9FrXsybxBBbba7DzeyuCIN2uAXgE7J8U) is a more specific overview of these component implementations
 
 ## Usage
+
+**Requires go 1.13**
+
+Install the module in your package or app with `go get "github.com/filecoin-project/go-fil-markets/filmarkets"`
+
 TODO
 
 ## Contributing
