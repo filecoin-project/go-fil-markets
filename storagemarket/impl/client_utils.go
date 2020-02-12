@@ -4,6 +4,8 @@ import (
 	"context"
 	"runtime"
 
+	"github.com/filecoin-project/specs-actors/actors/abi"
+
 	ipldfree "github.com/ipld/go-ipld-prime/impl/free"
 	"github.com/ipld/go-ipld-prime/traversal/selector"
 	"github.com/ipld/go-ipld-prime/traversal/selector/builder"
@@ -36,7 +38,7 @@ func (c *Client) failDeal(id cid.Cid, cerr error) {
 	log.Errorf("deal %s failed: %+v", id, cerr)
 }
 
-func (c *Client) commP(ctx context.Context, root cid.Cid) ([]byte, uint64, error) {
+func (c *Client) commP(ctx context.Context, root cid.Cid) ([]byte, abi.UnpaddedPieceSize, error) {
 	ssb := builder.NewSelectorSpecBuilder(ipldfree.NodeBuilder())
 
 	// entire DAG selector
