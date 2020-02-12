@@ -230,8 +230,10 @@ func TestMakeDealOffline(t *testing.T) {
 
 	carBuf := new(bytes.Buffer)
 
-	cario.NewCarIO().WriteCar(ctx, td.Bs1, payloadCid, td.AllSelector, carBuf)
-	provider.ImportDataForDeal(ctx, pd.ProposalCid, carBuf)
+	err = cario.NewCarIO().WriteCar(ctx, td.Bs1, payloadCid, td.AllSelector, carBuf)
+	require.NoError(t, err)
+	err = provider.ImportDataForDeal(ctx, pd.ProposalCid, carBuf)
+	require.NoError(t, err)
 
 	time.Sleep(time.Millisecond * 100)
 
