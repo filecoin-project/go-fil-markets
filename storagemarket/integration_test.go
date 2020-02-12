@@ -418,7 +418,7 @@ func (n *fakeProviderNode) ListProviderDeals(ctx context.Context, addr address.A
 	return n.SMState.Deals(addr), nil
 }
 
-func (n *fakeProviderNode) OnDealComplete(ctx context.Context, deal storagemarket.MinerDeal, pieceSize uint64, pieceReader io.Reader) error {
+func (n *fakeProviderNode) OnDealComplete(ctx context.Context, deal storagemarket.MinerDeal, pieceSize abi.UnpaddedPieceSize, pieceReader io.Reader) error {
 	return nil
 }
 

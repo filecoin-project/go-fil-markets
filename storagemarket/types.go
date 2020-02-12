@@ -185,7 +185,7 @@ type StorageProviderNode interface {
 	ListProviderDeals(ctx context.Context, addr address.Address) ([]StorageDeal, error)
 
 	// Called when a deal is complete and on chain, and data has been transferred and is ready to be added to a sector
-	OnDealComplete(ctx context.Context, deal MinerDeal, pieceSize uint64, pieceReader io.Reader) error
+	OnDealComplete(ctx context.Context, deal MinerDeal, pieceSize abi.UnpaddedPieceSize, pieceReader io.Reader) error
 
 	// returns the worker address associated with a miner
 	GetMinerWorker(ctx context.Context, miner address.Address) (address.Address, error)

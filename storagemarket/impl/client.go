@@ -204,7 +204,7 @@ func (c *Client) Start(ctx context.Context, p ClientDealProposal) (cid.Cid, erro
 
 	dealProposal := market.DealProposal{
 		PieceCID:             commcid.PieceCommitmentV1ToCID(commP),
-		PieceSize:            abi.PaddedPieceSize(pieceSize),
+		PieceSize:            pieceSize.Padded(),
 		Client:               p.Client,
 		Provider:             p.ProviderAddress,
 		StartEpoch:           p.StartEpoch,
