@@ -5,7 +5,6 @@ import (
 
 	"golang.org/x/xerrors"
 
-	"github.com/filecoin-project/go-fil-markets/shared/types"
 	"github.com/filecoin-project/go-fil-markets/storagemarket"
 )
 
@@ -92,6 +91,6 @@ func (c *Client) sealing(ctx context.Context, deal ClientDeal) (func(*ClientDeal
 	return nil, err
 }
 
-func (c *Client) checkAskSignature(ask *types.SignedStorageAsk) error {
+func (c *Client) checkAskSignature(ask *storagemarket.SignedStorageAsk) error {
 	return c.node.ValidateAskSignature(ask)
 }

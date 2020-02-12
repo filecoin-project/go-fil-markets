@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"io"
 
-	"github.com/filecoin-project/go-fil-markets/shared/types"
+	"github.com/filecoin-project/specs-actors/actors/builtin/paych"
 	"github.com/libp2p/go-libp2p-core/peer"
 	cbg "github.com/whyrusleeping/cbor-gen"
 	xerrors "golang.org/x/xerrors"
@@ -86,7 +86,7 @@ func (t *QueryResponse) MarshalCBOR(w io.Writer) error {
 		return err
 	}
 
-	// t.MinPricePerByte (tokenamount.TokenAmount) (struct)
+	// t.MinPricePerByte (big.Int) (struct)
 	if err := t.MinPricePerByte.MarshalCBOR(w); err != nil {
 		return err
 	}
@@ -159,7 +159,7 @@ func (t *QueryResponse) UnmarshalCBOR(r io.Reader) error {
 		}
 
 	}
-	// t.MinPricePerByte (tokenamount.TokenAmount) (struct)
+	// t.MinPricePerByte (big.Int) (struct)
 
 	{
 
@@ -296,7 +296,7 @@ func (t *DealResponse) MarshalCBOR(w io.Writer) error {
 		return err
 	}
 
-	// t.PaymentOwed (tokenamount.TokenAmount) (struct)
+	// t.PaymentOwed (big.Int) (struct)
 	if err := t.PaymentOwed.MarshalCBOR(w); err != nil {
 		return err
 	}
@@ -364,7 +364,7 @@ func (t *DealResponse) UnmarshalCBOR(r io.Reader) error {
 		return fmt.Errorf("wrong type for uint64 field")
 	}
 	t.ID = DealID(extra)
-	// t.PaymentOwed (tokenamount.TokenAmount) (struct)
+	// t.PaymentOwed (big.Int) (struct)
 
 	{
 
@@ -422,7 +422,7 @@ func (t *Params) MarshalCBOR(w io.Writer) error {
 		return err
 	}
 
-	// t.PricePerByte (tokenamount.TokenAmount) (struct)
+	// t.PricePerByte (big.Int) (struct)
 	if err := t.PricePerByte.MarshalCBOR(w); err != nil {
 		return err
 	}
@@ -454,7 +454,7 @@ func (t *Params) UnmarshalCBOR(r io.Reader) error {
 		return fmt.Errorf("cbor input had wrong number of fields")
 	}
 
-	// t.PricePerByte (tokenamount.TokenAmount) (struct)
+	// t.PricePerByte (big.Int) (struct)
 
 	{
 
@@ -534,7 +534,7 @@ func (t *DealPayment) MarshalCBOR(w io.Writer) error {
 		return err
 	}
 
-	// t.PaymentVoucher (types.SignedVoucher) (struct)
+	// t.PaymentVoucher (paych.SignedVoucher) (struct)
 	if err := t.PaymentVoucher.MarshalCBOR(w); err != nil {
 		return err
 	}
@@ -575,7 +575,7 @@ func (t *DealPayment) UnmarshalCBOR(r io.Reader) error {
 		}
 
 	}
-	// t.PaymentVoucher (types.SignedVoucher) (struct)
+	// t.PaymentVoucher (paych.SignedVoucher) (struct)
 
 	{
 
@@ -589,7 +589,7 @@ func (t *DealPayment) UnmarshalCBOR(r io.Reader) error {
 				return err
 			}
 		} else {
-			t.PaymentVoucher = new(types.SignedVoucher)
+			t.PaymentVoucher = new(paych.SignedVoucher)
 			if err := t.PaymentVoucher.UnmarshalCBOR(br); err != nil {
 				return err
 			}
@@ -706,7 +706,7 @@ func (t *ClientDealState) MarshalCBOR(w io.Writer) error {
 		return err
 	}
 
-	// t.TotalFunds (tokenamount.TokenAmount) (struct)
+	// t.TotalFunds (big.Int) (struct)
 	if err := t.TotalFunds.MarshalCBOR(w); err != nil {
 		return err
 	}
@@ -726,9 +726,15 @@ func (t *ClientDealState) MarshalCBOR(w io.Writer) error {
 		return err
 	}
 
-	// t.Lane (uint64) (uint64)
-	if _, err := w.Write(cbg.CborEncodeMajorType(cbg.MajUnsignedInt, uint64(t.Lane))); err != nil {
-		return err
+	// t.Lane (int64) (int64)
+	if t.Lane >= 0 {
+		if _, err := w.Write(cbg.CborEncodeMajorType(cbg.MajUnsignedInt, uint64(t.Lane))); err != nil {
+			return err
+		}
+	} else {
+		if _, err := w.Write(cbg.CborEncodeMajorType(cbg.MajNegativeInt, uint64(-t.Lane)-1)); err != nil {
+			return err
+		}
 	}
 
 	// t.Status (retrievalmarket.DealStatus) (uint64)
@@ -775,12 +781,12 @@ func (t *ClientDealState) MarshalCBOR(w io.Writer) error {
 		return err
 	}
 
-	// t.PaymentRequested (tokenamount.TokenAmount) (struct)
+	// t.PaymentRequested (big.Int) (struct)
 	if err := t.PaymentRequested.MarshalCBOR(w); err != nil {
 		return err
 	}
 
-	// t.FundsSpent (tokenamount.TokenAmount) (struct)
+	// t.FundsSpent (big.Int) (struct)
 	if err := t.FundsSpent.MarshalCBOR(w); err != nil {
 		return err
 	}
@@ -823,7 +829,7 @@ func (t *ClientDealState) UnmarshalCBOR(r io.Reader) error {
 		}
 
 	}
-	// t.TotalFunds (tokenamount.TokenAmount) (struct)
+	// t.TotalFunds (big.Int) (struct)
 
 	{
 
@@ -859,16 +865,31 @@ func (t *ClientDealState) UnmarshalCBOR(r io.Reader) error {
 		}
 
 	}
-	// t.Lane (uint64) (uint64)
+	// t.Lane (int64) (int64)
+	{
+		maj, extra, err := cbg.CborReadHeader(br)
+		var extraI int64
+		if err != nil {
+			return err
+		}
+		switch maj {
+		case cbg.MajUnsignedInt:
+			extraI = int64(extra)
+			if extraI < 0 {
+				return fmt.Errorf("int64 positive overflow")
+			}
+		case cbg.MajNegativeInt:
+			extraI = int64(extra)
+			if extraI < 0 {
+				return fmt.Errorf("int64 negative oveflow")
+			}
+			extraI = -1 - extraI
+		default:
+			return fmt.Errorf("wrong type for int64 field: %d", maj)
+		}
 
-	maj, extra, err = cbg.CborReadHeader(br)
-	if err != nil {
-		return err
+		t.Lane = int64(extraI)
 	}
-	if maj != cbg.MajUnsignedInt {
-		return fmt.Errorf("wrong type for uint64 field")
-	}
-	t.Lane = uint64(extra)
 	// t.Status (retrievalmarket.DealStatus) (uint64)
 
 	maj, extra, err = cbg.CborReadHeader(br)
@@ -929,7 +950,7 @@ func (t *ClientDealState) UnmarshalCBOR(r io.Reader) error {
 		return fmt.Errorf("wrong type for uint64 field")
 	}
 	t.CurrentInterval = uint64(extra)
-	// t.PaymentRequested (tokenamount.TokenAmount) (struct)
+	// t.PaymentRequested (big.Int) (struct)
 
 	{
 
@@ -938,7 +959,7 @@ func (t *ClientDealState) UnmarshalCBOR(r io.Reader) error {
 		}
 
 	}
-	// t.FundsSpent (tokenamount.TokenAmount) (struct)
+	// t.FundsSpent (big.Int) (struct)
 
 	{
 

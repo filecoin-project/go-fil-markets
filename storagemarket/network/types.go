@@ -1,12 +1,12 @@
 package network
 
 import (
+	"github.com/filecoin-project/specs-actors/actors/builtin/market"
 	"github.com/ipfs/go-cid"
 
 	"github.com/filecoin-project/go-address"
-	cborutil "github.com/filecoin-project/go-cbor-util"
-	"github.com/filecoin-project/go-fil-markets/shared/types"
 	"github.com/filecoin-project/go-fil-markets/storagemarket"
+	"github.com/filecoin-project/specs-actors/actors/crypto"
 )
 
 //go:generate cbor-gen-for AskRequest AskResponse Proposal Response SignedResponse
@@ -14,7 +14,7 @@ import (
 // Proposal is the data sent over the network from client to provider when proposing
 // a deal
 type Proposal struct {
-	DealProposal *storagemarket.StorageDealProposal
+	DealProposal *market.ClientDealProposal
 
 	Piece *storagemarket.DataRef
 }
@@ -37,20 +37,10 @@ type Response struct {
 type SignedResponse struct {
 	Response Response
 
-	Signature *types.Signature
+	Signature *crypto.Signature
 }
 
 var SignedResponseUndefined = SignedResponse{}
-
-// Verify verifies that a proposal was signed by the given provider
-func (r *SignedResponse) Verify(addr address.Address, verifier storagemarket.SignatureVerifier) error {
-	b, err := cborutil.Dump(&r.Response)
-	if err != nil {
-		return err
-	}
-
-	return verifier(addr, b)
-}
 
 // AskRequest is a request for current ask parameters for a given miner
 type AskRequest struct {
@@ -62,7 +52,7 @@ var AskRequestUndefined = AskRequest{}
 // AskResponse is the response sent over the network in response
 // to an ask request
 type AskResponse struct {
-	Ask *types.SignedStorageAsk
+	Ask *storagemarket.SignedStorageAsk
 }
 
 var AskResponseUndefined = AskResponse{}

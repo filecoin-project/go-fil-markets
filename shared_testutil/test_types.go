@@ -5,60 +5,62 @@ import (
 	"math/rand"
 	"testing"
 
+	"github.com/filecoin-project/specs-actors/actors/builtin/market"
+
 	"github.com/filecoin-project/go-address"
 	"github.com/libp2p/go-libp2p-core/test"
 	"github.com/stretchr/testify/require"
 
 	"github.com/filecoin-project/go-fil-markets/retrievalmarket"
-	"github.com/filecoin-project/go-fil-markets/shared/tokenamount"
-	"github.com/filecoin-project/go-fil-markets/shared/types"
 	"github.com/filecoin-project/go-fil-markets/storagemarket"
 	smnet "github.com/filecoin-project/go-fil-markets/storagemarket/network"
+	"github.com/filecoin-project/specs-actors/actors/abi"
+	"github.com/filecoin-project/specs-actors/actors/builtin/paych"
+	"github.com/filecoin-project/specs-actors/actors/crypto"
 )
 
 // MakeTestSignedVoucher generates a random SignedVoucher that has all non-zero fields
-func MakeTestSignedVoucher() *types.SignedVoucher {
-	return &types.SignedVoucher{
-		TimeLock:       rand.Uint64(),
+func MakeTestSignedVoucher() *paych.SignedVoucher {
+	return &paych.SignedVoucher{
+		TimeLock:       abi.ChainEpoch(rand.Int63()),
 		SecretPreimage: []byte("secret-preimage"),
 		Extra:          MakeTestModVerifyParams(),
-		Lane:           rand.Uint64(),
-		Nonce:          rand.Uint64(),
+		Lane:           rand.Int63(),
+		Nonce:          rand.Int63(),
 		Amount:         MakeTestTokenAmount(),
-		MinCloseHeight: rand.Uint64(),
-		Merges:         []types.Merge{MakeTestMerge()},
+		Merges:         []paych.Merge{MakeTestMerge()},
 		Signature:      MakeTestSignature(),
 	}
 }
 
 // MakeTestModVerifyParams generates a random ModVerifyParams that has all non-zero fields
-func MakeTestModVerifyParams() *types.ModVerifyParams {
-	return &types.ModVerifyParams{
+func MakeTestModVerifyParams() *paych.ModVerifyParams {
+	return &paych.ModVerifyParams{
 		Actor:  address.TestAddress,
-		Method: rand.Uint64(),
+		Method: abi.MethodNum(rand.Int63()),
 		Data:   []byte("ModVerifyParams data"),
 	}
 }
 
 // MakeTestMerge generates a random Merge that has all non-zero fields
-func MakeTestMerge() types.Merge {
-	return types.Merge{
-		Lane:  rand.Uint64(),
-		Nonce: rand.Uint64(),
+func MakeTestMerge() paych.Merge {
+	return paych.Merge{
+		Lane:  rand.Int63(),
+		Nonce: rand.Int63(),
 	}
 }
 
-// MakeTestSignagure generates a valid yet random Signature with all non-zero fields
-func MakeTestSignature() *types.Signature {
-	return &types.Signature{
-		Type: types.KTSecp256k1,
+// MakeTestSignature generates a valid yet random Signature with all non-zero fields
+func MakeTestSignature() *crypto.Signature {
+	return &crypto.Signature{
+		Type: crypto.SigTypeSecp256k1,
 		Data: []byte("signature data"),
 	}
 }
 
 // MakeTestTokenAmount generates a valid yet random TokenAmount with a non-zero value.
-func MakeTestTokenAmount() tokenamount.TokenAmount {
-	return tokenamount.TokenAmount{Int: big.NewInt(rand.Int63())}
+func MakeTestTokenAmount() abi.TokenAmount {
+	return abi.TokenAmount{Int: big.NewInt(rand.Int63())}
 }
 
 // MakeTestQueryResponse generates a valid, random QueryResponse with no non-zero fields
@@ -112,40 +114,47 @@ func MakeTestDealPayment() retrievalmarket.DealPayment {
 	}
 }
 
-// MakeTestStorageDealProposal generates a valid storage deal proposal
-func MakeTestStorageDealProposal() *storagemarket.StorageDealProposal {
-	return &storagemarket.StorageDealProposal{
-		PieceRef:  RandomBytes(32),
-		PieceSize: rand.Uint64(),
+// MakeTestUnsignedDealProposal generates a deal proposal with no signature
+func MakeTestUnsignedDealProposal() market.DealProposal {
+	return market.DealProposal{
+		PieceCID:  GenerateCids(1)[0],
+		PieceSize: abi.PaddedPieceSize(rand.Int63()),
 
 		Client:   address.TestAddress,
 		Provider: address.TestAddress2,
 
-		ProposalExpiration: rand.Uint64(),
-		Duration:           rand.Uint64(),
+		StartEpoch: abi.ChainEpoch(rand.Int63()),
+		EndEpoch:   abi.ChainEpoch(rand.Int63()),
 
 		StoragePricePerEpoch: MakeTestTokenAmount(),
-		StorageCollateral:    MakeTestTokenAmount(),
+		ProviderCollateral:   MakeTestTokenAmount(),
+		ClientCollateral:     MakeTestTokenAmount(),
+	}
+}
 
-		ProposerSignature: MakeTestSignature(),
+// MakeTestClientDealProposal generates a valid storage deal proposal
+func MakeTestClientDealProposal() *market.ClientDealProposal {
+	return &market.ClientDealProposal{
+		Proposal:        MakeTestUnsignedDealProposal(),
+		ClientSignature: *MakeTestSignature(),
 	}
 }
 
 // MakeTestStorageAsk generates a storage ask
-func MakeTestStorageAsk() *types.StorageAsk {
-	return &types.StorageAsk{
+func MakeTestStorageAsk() *storagemarket.StorageAsk {
+	return &storagemarket.StorageAsk{
 		Price:        MakeTestTokenAmount(),
-		MinPieceSize: rand.Uint64(),
+		MinPieceSize: abi.PaddedPieceSize(rand.Uint64()),
 		Miner:        address.TestAddress2,
-		Timestamp:    rand.Uint64(),
-		Expiry:       rand.Uint64(),
+		Timestamp:    abi.ChainEpoch(rand.Int63()),
+		Expiry:       abi.ChainEpoch(rand.Int63()),
 		SeqNo:        rand.Uint64(),
 	}
 }
 
 // MakeTestSignedStorageAsk generates a signed storage ask
-func MakeTestSignedStorageAsk() *types.SignedStorageAsk {
-	return &types.SignedStorageAsk{
+func MakeTestSignedStorageAsk() *storagemarket.SignedStorageAsk {
+	return &storagemarket.SignedStorageAsk{
 		Ask:       MakeTestStorageAsk(),
 		Signature: MakeTestSignature(),
 	}
@@ -155,7 +164,7 @@ func MakeTestSignedStorageAsk() *types.SignedStorageAsk {
 // network to a provider
 func MakeTestStorageNetworkProposal() smnet.Proposal {
 	return smnet.Proposal{
-		DealProposal: MakeTestStorageDealProposal(),
+		DealProposal: MakeTestClientDealProposal(),
 		Piece:        &storagemarket.DataRef{Root: GenerateCids(1)[0]},
 	}
 }

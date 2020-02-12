@@ -7,6 +7,7 @@ import (
 	"io"
 
 	"github.com/filecoin-project/go-fil-markets/storagemarket"
+	"github.com/filecoin-project/specs-actors/actors/abi"
 	"github.com/libp2p/go-libp2p-core/peer"
 	cbg "github.com/whyrusleeping/cbor-gen"
 	xerrors "golang.org/x/xerrors"
@@ -71,19 +72,31 @@ func (t *ClientDealProposal) MarshalCBOR(w io.Writer) error {
 		return err
 	}
 
-	// t.PricePerEpoch (tokenamount.TokenAmount) (struct)
+	// t.PricePerEpoch (big.Int) (struct)
 	if err := t.PricePerEpoch.MarshalCBOR(w); err != nil {
 		return err
 	}
 
-	// t.ProposalExpiration (uint64) (uint64)
-	if _, err := w.Write(cbg.CborEncodeMajorType(cbg.MajUnsignedInt, uint64(t.ProposalExpiration))); err != nil {
-		return err
+	// t.StartEpoch (abi.ChainEpoch) (int64)
+	if t.StartEpoch >= 0 {
+		if _, err := w.Write(cbg.CborEncodeMajorType(cbg.MajUnsignedInt, uint64(t.StartEpoch))); err != nil {
+			return err
+		}
+	} else {
+		if _, err := w.Write(cbg.CborEncodeMajorType(cbg.MajNegativeInt, uint64(-t.StartEpoch)-1)); err != nil {
+			return err
+		}
 	}
 
-	// t.Duration (uint64) (uint64)
-	if _, err := w.Write(cbg.CborEncodeMajorType(cbg.MajUnsignedInt, uint64(t.Duration))); err != nil {
-		return err
+	// t.EndEpoch (abi.ChainEpoch) (int64)
+	if t.EndEpoch >= 0 {
+		if _, err := w.Write(cbg.CborEncodeMajorType(cbg.MajUnsignedInt, uint64(t.EndEpoch))); err != nil {
+			return err
+		}
+	} else {
+		if _, err := w.Write(cbg.CborEncodeMajorType(cbg.MajNegativeInt, uint64(-t.EndEpoch)-1)); err != nil {
+			return err
+		}
 	}
 
 	// t.ProviderAddress (address.Address) (struct)
@@ -151,7 +164,7 @@ func (t *ClientDealProposal) UnmarshalCBOR(r io.Reader) error {
 		}
 
 	}
-	// t.PricePerEpoch (tokenamount.TokenAmount) (struct)
+	// t.PricePerEpoch (big.Int) (struct)
 
 	{
 
@@ -160,26 +173,56 @@ func (t *ClientDealProposal) UnmarshalCBOR(r io.Reader) error {
 		}
 
 	}
-	// t.ProposalExpiration (uint64) (uint64)
+	// t.StartEpoch (abi.ChainEpoch) (int64)
+	{
+		maj, extra, err := cbg.CborReadHeader(br)
+		var extraI int64
+		if err != nil {
+			return err
+		}
+		switch maj {
+		case cbg.MajUnsignedInt:
+			extraI = int64(extra)
+			if extraI < 0 {
+				return fmt.Errorf("int64 positive overflow")
+			}
+		case cbg.MajNegativeInt:
+			extraI = int64(extra)
+			if extraI < 0 {
+				return fmt.Errorf("int64 negative oveflow")
+			}
+			extraI = -1 - extraI
+		default:
+			return fmt.Errorf("wrong type for int64 field: %d", maj)
+		}
 
-	maj, extra, err = cbg.CborReadHeader(br)
-	if err != nil {
-		return err
+		t.StartEpoch = abi.ChainEpoch(extraI)
 	}
-	if maj != cbg.MajUnsignedInt {
-		return fmt.Errorf("wrong type for uint64 field")
-	}
-	t.ProposalExpiration = uint64(extra)
-	// t.Duration (uint64) (uint64)
+	// t.EndEpoch (abi.ChainEpoch) (int64)
+	{
+		maj, extra, err := cbg.CborReadHeader(br)
+		var extraI int64
+		if err != nil {
+			return err
+		}
+		switch maj {
+		case cbg.MajUnsignedInt:
+			extraI = int64(extra)
+			if extraI < 0 {
+				return fmt.Errorf("int64 positive overflow")
+			}
+		case cbg.MajNegativeInt:
+			extraI = int64(extra)
+			if extraI < 0 {
+				return fmt.Errorf("int64 negative oveflow")
+			}
+			extraI = -1 - extraI
+		default:
+			return fmt.Errorf("wrong type for int64 field: %d", maj)
+		}
 
-	maj, extra, err = cbg.CborReadHeader(br)
-	if err != nil {
-		return err
+		t.EndEpoch = abi.ChainEpoch(extraI)
 	}
-	if maj != cbg.MajUnsignedInt {
-		return fmt.Errorf("wrong type for uint64 field")
-	}
-	t.Duration = uint64(extra)
 	// t.ProviderAddress (address.Address) (struct)
 
 	{

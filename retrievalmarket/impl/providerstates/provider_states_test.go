@@ -16,8 +16,9 @@ import (
 	"github.com/filecoin-project/go-fil-markets/retrievalmarket/impl/providerstates"
 	"github.com/filecoin-project/go-fil-markets/retrievalmarket/impl/testnodes"
 	rmnet "github.com/filecoin-project/go-fil-markets/retrievalmarket/network"
-	"github.com/filecoin-project/go-fil-markets/shared/tokenamount"
 	testnet "github.com/filecoin-project/go-fil-markets/shared_testutil"
+	"github.com/filecoin-project/specs-actors/actors/abi"
+	"github.com/filecoin-project/specs-actors/actors/abi/big"
 )
 
 func TestReceiveDeal(t *testing.T) {
@@ -32,7 +33,7 @@ func TestReceiveDeal(t *testing.T) {
 		return &retrievalmarket.ProviderDealState{
 			Status:        retrievalmarket.DealStatusNew,
 			TotalSent:     0,
-			FundsReceived: tokenamount.FromInt(0),
+			FundsReceived: abi.NewTokenAmount(0),
 		}
 	}
 
@@ -250,7 +251,7 @@ func TestProcessPayment(t *testing.T) {
 		node.VerifyExpectations(t)
 		f(dealState)
 		require.Equal(t, dealState.Status, retrievalmarket.DealStatusOngoing)
-		require.Equal(t, dealState.FundsReceived, tokenamount.Add(defaultFundsReceived, defaultPaymentPerInterval))
+		require.Equal(t, dealState.FundsReceived, big.Add(defaultFundsReceived, defaultPaymentPerInterval))
 		require.Equal(t, dealState.CurrentInterval, defaultCurrentInterval+defaultIntervalIncrease)
 		require.Empty(t, dealState.Message)
 	})
@@ -272,14 +273,14 @@ func TestProcessPayment(t *testing.T) {
 		node.VerifyExpectations(t)
 		f(dealState)
 		require.Equal(t, dealState.Status, retrievalmarket.DealStatusCompleted)
-		require.Equal(t, dealState.FundsReceived, tokenamount.Add(defaultFundsReceived, defaultPaymentPerInterval))
+		require.Equal(t, dealState.FundsReceived, big.Add(defaultFundsReceived, defaultPaymentPerInterval))
 		require.Equal(t, dealState.CurrentInterval, defaultCurrentInterval+defaultIntervalIncrease)
 		require.Empty(t, dealState.Message)
 	})
 
 	t.Run("not enough funds sent", func(t *testing.T) {
 		node := testnodes.NewTestRetrievalProviderNode()
-		smallerPayment := tokenamount.FromInt(400000)
+		smallerPayment := abi.NewTokenAmount(400000)
 		err := node.ExpectVoucher(payCh, voucher, nil, defaultPaymentPerInterval, smallerPayment, nil)
 		require.NoError(t, err)
 		dealState := makeDealState(retrievalmarket.DealStatusFundsNeeded)
@@ -294,14 +295,14 @@ func TestProcessPayment(t *testing.T) {
 			ResponseWriter: testnet.ExpectDealResponseWriter(t, rm.DealResponse{
 				ID:          dealState.ID,
 				Status:      retrievalmarket.DealStatusFundsNeeded,
-				PaymentOwed: tokenamount.Sub(defaultPaymentPerInterval, smallerPayment),
+				PaymentOwed: big.Sub(defaultPaymentPerInterval, smallerPayment),
 			}),
 		})
 		f := providerstates.ProcessPayment(ctx, fe, *dealState)
 		node.VerifyExpectations(t)
 		f(dealState)
 		require.Equal(t, dealState.Status, retrievalmarket.DealStatusFundsNeeded)
-		require.Equal(t, dealState.FundsReceived, tokenamount.Add(defaultFundsReceived, smallerPayment))
+		require.Equal(t, dealState.FundsReceived, big.Add(defaultFundsReceived, smallerPayment))
 		require.Equal(t, dealState.CurrentInterval, defaultCurrentInterval)
 		require.Empty(t, dealState.Message)
 	})
@@ -309,7 +310,7 @@ func TestProcessPayment(t *testing.T) {
 	t.Run("failure processing payment", func(t *testing.T) {
 		node := testnodes.NewTestRetrievalProviderNode()
 		message := "your money's no good here"
-		err := node.ExpectVoucher(payCh, voucher, nil, defaultPaymentPerInterval, tokenamount.FromInt(0), errors.New(message))
+		err := node.ExpectVoucher(payCh, voucher, nil, defaultPaymentPerInterval, abi.NewTokenAmount(0), errors.New(message))
 		require.NoError(t, err)
 		dealState := makeDealState(retrievalmarket.DealStatusFundsNeeded)
 		dealState.TotalSent = defaultTotalSent + defaultCurrentInterval
@@ -398,7 +399,7 @@ func (te *testProviderDealEnvironment) ExpectMissingPiece(c cid.Cid) {
 	te.expectedMissingCIDs[c] = struct{}{}
 }
 
-func (te *testProviderDealEnvironment) ExpectParams(pricePerByte tokenamount.TokenAmount,
+func (te *testProviderDealEnvironment) ExpectParams(pricePerByte abi.TokenAmount,
 	paymentInterval uint64,
 	paymentIntervalIncrease uint64,
 	response error) {
@@ -433,7 +434,7 @@ func (te *testProviderDealEnvironment) GetPieceSize(c cid.Cid) (uint64, error) {
 	return 0, errors.New("GetPieceSize failed")
 }
 
-func (te *testProviderDealEnvironment) CheckDealParams(pricePerByte tokenamount.TokenAmount, paymentInterval uint64, paymentIntervalIncrease uint64) error {
+func (te *testProviderDealEnvironment) CheckDealParams(pricePerByte abi.TokenAmount, paymentInterval uint64, paymentIntervalIncrease uint64) error {
 	key := dealParamsKey{pricePerByte.String(), paymentInterval, paymentIntervalIncrease}
 	err, ok := te.expectedParams[key]
 	if !ok {
@@ -454,10 +455,10 @@ func (te *testProviderDealEnvironment) NextBlock(_ context.Context) (rm.Block, b
 
 var defaultCurrentInterval = uint64(1000)
 var defaultIntervalIncrease = uint64(500)
-var defaultPricePerByte = tokenamount.FromInt(500)
-var defaultPaymentPerInterval = tokenamount.Mul(defaultPricePerByte, tokenamount.FromInt(defaultCurrentInterval))
+var defaultPricePerByte = abi.NewTokenAmount(500)
+var defaultPaymentPerInterval = big.Mul(defaultPricePerByte, abi.NewTokenAmount(int64(defaultCurrentInterval)))
 var defaultTotalSent = uint64(5000)
-var defaultFundsReceived = tokenamount.FromInt(2500000)
+var defaultFundsReceived = abi.NewTokenAmount(2500000)
 
 func makeDealState(status retrievalmarket.DealStatus) *retrievalmarket.ProviderDealState {
 	return &retrievalmarket.ProviderDealState{

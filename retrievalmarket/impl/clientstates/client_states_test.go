@@ -15,9 +15,10 @@ import (
 	clientstates "github.com/filecoin-project/go-fil-markets/retrievalmarket/impl/clientstates"
 	"github.com/filecoin-project/go-fil-markets/retrievalmarket/impl/testnodes"
 	rmnet "github.com/filecoin-project/go-fil-markets/retrievalmarket/network"
-	"github.com/filecoin-project/go-fil-markets/shared/tokenamount"
-	"github.com/filecoin-project/go-fil-markets/shared/types"
 	testnet "github.com/filecoin-project/go-fil-markets/shared_testutil"
+	"github.com/filecoin-project/specs-actors/actors/abi"
+	"github.com/filecoin-project/specs-actors/actors/abi/big"
+	"github.com/filecoin-project/specs-actors/actors/builtin/paych"
 )
 
 type consumeBlockResponse struct {
@@ -54,7 +55,7 @@ func TestSetupPaymentChannel(t *testing.T) {
 	ctx := context.Background()
 	ds := testnet.NewTestRetrievalDealStream(testnet.TestDealStreamParams{})
 	expectedPayCh := address.TestAddress2
-	expectedLane := uint64(10)
+	expectedLane := int64(10)
 
 	environment := func(params testnodes.TestRetrievalClientNodeParams) clientstates.ClientDealEnvironment {
 		node := testnodes.NewTestRetrievalClientNode(params)
@@ -191,7 +192,7 @@ func TestProcessPaymentRequested(t *testing.T) {
 		return &fakeEnvironment{node, ds, 0, nil}
 	}
 
-	testVoucher := &types.SignedVoucher{}
+	testVoucher := &paych.SignedVoucher{}
 
 	t.Run("it works", func(t *testing.T) {
 		dealState := makeDealState(retrievalmarket.DealStatusFundsNeeded)
@@ -201,8 +202,8 @@ func TestProcessPaymentRequested(t *testing.T) {
 		f := clientstates.ProcessPaymentRequested(ctx, fe, *dealState)
 		f(dealState)
 		require.Empty(t, dealState.Message)
-		require.Equal(t, dealState.PaymentRequested, tokenamount.FromInt(0))
-		require.Equal(t, dealState.FundsSpent, tokenamount.Add(defaultFundsSpent, defaultPaymentRequested))
+		require.Equal(t, dealState.PaymentRequested, abi.NewTokenAmount(0))
+		require.Equal(t, dealState.FundsSpent, big.Add(defaultFundsSpent, defaultPaymentRequested))
 		require.Equal(t, dealState.BytesPaidFor, defaultTotalReceived)
 		require.Equal(t, dealState.CurrentInterval, defaultCurrentInterval+defaultIntervalIncrease)
 		require.Equal(t, dealState.Status, retrievalmarket.DealStatusOngoing)
@@ -216,8 +217,8 @@ func TestProcessPaymentRequested(t *testing.T) {
 		f := clientstates.ProcessPaymentRequested(ctx, fe, *dealState)
 		f(dealState)
 		require.Empty(t, dealState.Message)
-		require.Equal(t, dealState.PaymentRequested, tokenamount.FromInt(0))
-		require.Equal(t, dealState.FundsSpent, tokenamount.Add(defaultFundsSpent, defaultPaymentRequested))
+		require.Equal(t, dealState.PaymentRequested, abi.NewTokenAmount(0))
+		require.Equal(t, dealState.FundsSpent, big.Add(defaultFundsSpent, defaultPaymentRequested))
 		require.Equal(t, dealState.BytesPaidFor, defaultTotalReceived)
 		require.Equal(t, dealState.CurrentInterval, defaultCurrentInterval+defaultIntervalIncrease)
 		require.Equal(t, dealState.Status, retrievalmarket.DealStatusCompleted)
@@ -250,7 +251,7 @@ func TestProcessPaymentRequested(t *testing.T) {
 	t.Run("more bytes since last payment than interval works, can charge more", func(t *testing.T) {
 		dealState := makeDealState(retrievalmarket.DealStatusFundsNeeded)
 		dealState.BytesPaidFor = defaultBytesPaidFor - 500
-		largerPaymentRequested := tokenamount.FromInt(750000)
+		largerPaymentRequested := abi.NewTokenAmount(750000)
 		dealState.PaymentRequested = largerPaymentRequested
 
 		fe := environment(testnet.TestDealStreamParams{}, testnodes.TestRetrievalClientNodeParams{
@@ -259,8 +260,8 @@ func TestProcessPaymentRequested(t *testing.T) {
 		f := clientstates.ProcessPaymentRequested(ctx, fe, *dealState)
 		f(dealState)
 		require.Empty(t, dealState.Message)
-		require.Equal(t, dealState.PaymentRequested, tokenamount.FromInt(0))
-		require.Equal(t, dealState.FundsSpent, tokenamount.Add(defaultFundsSpent, largerPaymentRequested))
+		require.Equal(t, dealState.PaymentRequested, abi.NewTokenAmount(0))
+		require.Equal(t, dealState.FundsSpent, big.Add(defaultFundsSpent, largerPaymentRequested))
 		require.Equal(t, dealState.BytesPaidFor, defaultTotalReceived)
 		require.Equal(t, dealState.CurrentInterval, defaultCurrentInterval+defaultIntervalIncrease)
 		require.Equal(t, dealState.Status, retrievalmarket.DealStatusOngoing)
@@ -268,7 +269,7 @@ func TestProcessPaymentRequested(t *testing.T) {
 
 	t.Run("too much payment requested", func(t *testing.T) {
 		dealState := makeDealState(retrievalmarket.DealStatusFundsNeeded)
-		dealState.PaymentRequested = tokenamount.FromInt(750000)
+		dealState.PaymentRequested = abi.NewTokenAmount(750000)
 		fe := environment(testnet.TestDealStreamParams{}, testnodes.TestRetrievalClientNodeParams{
 			Voucher: testVoucher,
 		})
@@ -280,7 +281,7 @@ func TestProcessPaymentRequested(t *testing.T) {
 
 	t.Run("too little payment requested works but records correctly", func(t *testing.T) {
 		dealState := makeDealState(retrievalmarket.DealStatusFundsNeeded)
-		smallerPaymentRequested := tokenamount.FromInt(250000)
+		smallerPaymentRequested := abi.NewTokenAmount(250000)
 		dealState.PaymentRequested = smallerPaymentRequested
 		fe := environment(testnet.TestDealStreamParams{}, testnodes.TestRetrievalClientNodeParams{
 			Voucher: testVoucher,
@@ -288,8 +289,8 @@ func TestProcessPaymentRequested(t *testing.T) {
 		f := clientstates.ProcessPaymentRequested(ctx, fe, *dealState)
 		f(dealState)
 		require.Empty(t, dealState.Message)
-		require.Equal(t, dealState.PaymentRequested, tokenamount.FromInt(0))
-		require.Equal(t, dealState.FundsSpent, tokenamount.Add(defaultFundsSpent, smallerPaymentRequested))
+		require.Equal(t, dealState.PaymentRequested, abi.NewTokenAmount(0))
+		require.Equal(t, dealState.FundsSpent, big.Add(defaultFundsSpent, smallerPaymentRequested))
 		// only records change for those bytes paid for
 		require.Equal(t, dealState.BytesPaidFor, defaultBytesPaidFor+500)
 		// no interval increase
@@ -374,7 +375,7 @@ func TestProcessNextResponse(t *testing.T) {
 		response := retrievalmarket.DealResponse{
 			Status:      retrievalmarket.DealStatusFundsNeededLastPayment,
 			ID:          dealState.ID,
-			PaymentOwed: tokenamount.FromInt(1000),
+			PaymentOwed: abi.NewTokenAmount(1000),
 			Blocks:      blocks,
 		}
 		fe := environment(testnet.TestDealStreamParams{
@@ -411,7 +412,7 @@ func TestProcessNextResponse(t *testing.T) {
 		response := retrievalmarket.DealResponse{
 			Status:      retrievalmarket.DealStatusFundsNeeded,
 			ID:          dealState.ID,
-			PaymentOwed: tokenamount.FromInt(1000),
+			PaymentOwed: abi.NewTokenAmount(1000),
 			Blocks:      blocks,
 		}
 		fe := environment(testnet.TestDealStreamParams{
@@ -474,14 +475,14 @@ func TestProcessNextResponse(t *testing.T) {
 	})
 }
 
-var defaultTotalFunds = tokenamount.FromInt(4000000)
+var defaultTotalFunds = abi.NewTokenAmount(4000000)
 var defaultCurrentInterval = uint64(1000)
 var defaultIntervalIncrease = uint64(500)
-var defaultPricePerByte = tokenamount.FromInt(500)
+var defaultPricePerByte = abi.NewTokenAmount(500)
 var defaultTotalReceived = uint64(6000)
 var defaultBytesPaidFor = uint64(5000)
-var defaultFundsSpent = tokenamount.FromInt(2500000)
-var defaultPaymentRequested = tokenamount.FromInt(500000)
+var defaultFundsSpent = abi.NewTokenAmount(2500000)
+var defaultPaymentRequested = abi.NewTokenAmount(500000)
 
 func makeDealState(status retrievalmarket.DealStatus) *retrievalmarket.ClientDealState {
 	return &retrievalmarket.ClientDealState{
@@ -489,7 +490,7 @@ func makeDealState(status retrievalmarket.DealStatus) *retrievalmarket.ClientDea
 		MinerWallet:      address.TestAddress,
 		ClientWallet:     address.TestAddress2,
 		PayCh:            address.TestAddress2,
-		Lane:             uint64(10),
+		Lane:             int64(10),
 		Status:           status,
 		BytesPaidFor:     defaultBytesPaidFor,
 		TotalReceived:    defaultTotalReceived,

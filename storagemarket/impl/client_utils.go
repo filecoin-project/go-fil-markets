@@ -13,6 +13,8 @@ import (
 	"github.com/libp2p/go-libp2p-core/peer"
 	"golang.org/x/xerrors"
 
+	"github.com/filecoin-project/go-address"
+	cborutil "github.com/filecoin-project/go-cbor-util"
 	datatransfer "github.com/filecoin-project/go-data-transfer"
 	"github.com/filecoin-project/go-fil-markets/storagemarket/network"
 	"github.com/filecoin-project/go-statestore"
@@ -49,6 +51,18 @@ func (c *Client) commP(ctx context.Context, root cid.Cid) ([]byte, uint64, error
 	return commp[:], paddedSize, nil
 }
 
+func (c *Client) verifyResponse(resp network.SignedResponse, minerAddr address.Address) error {
+	b, err := cborutil.Dump(&resp.Response)
+	if err != nil {
+		return err
+	}
+	verified := c.node.VerifySignature(*resp.Signature, minerAddr, b)
+	if !verified {
+		return xerrors.New("could not verify signature")
+	}
+	return nil
+}
+
 func (c *Client) readStorageDealResp(deal ClientDeal) (*network.Response, error) {
 	s, ok := c.conns[deal.ProposalCid]
 	if !ok {
@@ -62,8 +76,8 @@ func (c *Client) readStorageDealResp(deal ClientDeal) (*network.Response, error)
 		return nil, err
 	}
 
-	if err := resp.Verify(deal.MinerWorker, c.node.VerifySignature); err != nil {
-		return nil, xerrors.Errorf("verifying response signature failed", err)
+	if err := c.verifyResponse(resp, deal.MinerWorker); err != nil {
+		return nil, xerrors.Errorf("verifying response signature failed: %w", err)
 	}
 
 	if resp.Response.Proposal != deal.ProposalCid {
@@ -139,7 +153,7 @@ func (c *ClientRequestValidator) ValidatePull(
 		return xerrors.Errorf("Deal Peer %s, Data Transfer Peer %s: %w", deal.Miner.String(), receiver.String(), ErrWrongPeer)
 	}
 	if !deal.DataRef.Root.Equals(baseCid) {
-		return xerrors.Errorf("Deal Payload CID %s, Data Transfer CID %s: %w", string(deal.Proposal.PieceRef), baseCid.String(), ErrWrongPiece)
+		return xerrors.Errorf("Deal Payload CID %s, Data Transfer CID %s: %w", deal.Proposal.PieceCID.String(), baseCid.String(), ErrWrongPiece)
 	}
 	for _, state := range DataTransferStates {
 		if deal.State == state {

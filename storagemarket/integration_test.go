@@ -1,6 +1,7 @@
 package storagemarket_test
 
 import (
+	"bytes"
 	"context"
 	"io"
 	"io/ioutil"
@@ -21,19 +22,22 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/filecoin-project/go-fil-markets/filestore"
+	"github.com/filecoin-project/go-fil-markets/pieceio/cario"
 	"github.com/filecoin-project/go-fil-markets/piecestore"
 	"github.com/filecoin-project/go-fil-markets/retrievalmarket/discovery"
-	"github.com/filecoin-project/go-fil-markets/shared/tokenamount"
-	"github.com/filecoin-project/go-fil-markets/shared/types"
 	"github.com/filecoin-project/go-fil-markets/shared_testutil"
 	"github.com/filecoin-project/go-fil-markets/storagemarket"
 	storageimpl "github.com/filecoin-project/go-fil-markets/storagemarket/impl"
 	"github.com/filecoin-project/go-fil-markets/storagemarket/network"
+	"github.com/filecoin-project/specs-actors/actors/abi"
+	"github.com/filecoin-project/specs-actors/actors/abi/big"
+	"github.com/filecoin-project/specs-actors/actors/builtin/market"
+	"github.com/filecoin-project/specs-actors/actors/crypto"
 )
 
 func TestMakeDeal(t *testing.T) {
 	ctx := context.Background()
-	epoch := uint64(100)
+	epoch := abi.ChainEpoch(100)
 	nodeCommon := fakeCommon{newStorageMarketState()}
 	ds1 := datastore.NewMapDatastore()
 	td := shared_testutil.NewLibp2pTestData(ctx, t)
@@ -84,7 +88,7 @@ func TestMakeDeal(t *testing.T) {
 	assert.NoError(t, err)
 
 	// set ask price where we'll accept any price
-	err = provider.AddAsk(tokenamount.FromInt(0), 50_000)
+	err = provider.AddAsk(big.NewInt(0), 50_000)
 	assert.NoError(t, err)
 
 	err = provider.Start(ctx)
@@ -108,7 +112,7 @@ func TestMakeDeal(t *testing.T) {
 			TransferType: storagemarket.TTGraphsync,
 			Root:         payloadCid,
 		}
-		result, err := client.ProposeStorageDeal(ctx, providerAddr, &providerInfo, dataRef, storagemarket.Epoch(epoch+100), 20000, tokenamount.FromInt(1), tokenamount.FromInt(0))
+		result, err := client.ProposeStorageDeal(ctx, providerAddr, &providerInfo, dataRef, abi.ChainEpoch(epoch+100), abi.ChainEpoch(epoch+20100), big.NewInt(1), big.NewInt(0))
 		assert.NoError(t, err)
 
 		proposalCid = result.ProposalCid
@@ -128,6 +132,123 @@ func TestMakeDeal(t *testing.T) {
 	assert.Equal(t, pd.State, storagemarket.StorageDealActive)
 }
 
+func TestMakeDealOffline(t *testing.T) {
+	ctx := context.Background()
+	epoch := abi.ChainEpoch(100)
+	nodeCommon := fakeCommon{newStorageMarketState()}
+	ds1 := datastore.NewMapDatastore()
+	td := shared_testutil.NewLibp2pTestData(ctx, t)
+	rootLink := td.LoadUnixFSFile(t, "payload.txt", false)
+	payloadCid := rootLink.(cidlink.Link).Cid
+
+	clientNode := fakeClientNode{
+		fakeCommon: nodeCommon,
+		ClientAddr: address.TestAddress,
+	}
+
+	providerAddr := address.TestAddress2
+	ds2 := datastore.NewMapDatastore()
+	tempPath, err := ioutil.TempDir("", "storagemarket_test")
+	assert.NoError(t, err)
+	ps := piecestore.NewPieceStore(ds2)
+	providerNode := fakeProviderNode{
+		fakeCommon: nodeCommon,
+		MinerAddr:  providerAddr,
+	}
+	fs, err := filestore.NewLocalFileStore(filestore.OsPath(tempPath))
+	assert.NoError(t, err)
+
+	// create provider and client
+	dt1 := graphsync.NewGraphSyncDataTransfer(td.Host1, td.GraphSync1)
+	require.NoError(t, dt1.RegisterVoucherType(reflect.TypeOf(&storageimpl.StorageDataTransferVoucher{}), &fakeDTValidator{}))
+
+	client := storageimpl.NewClient(
+		network.NewFromLibp2pHost(td.Host1),
+		td.Bs1,
+		dt1,
+		discovery.NewLocal(ds1),
+		statestore.New(ds1),
+		&clientNode,
+	)
+
+	dt2 := graphsync.NewGraphSyncDataTransfer(td.Host2, td.GraphSync2)
+	provider, err := storageimpl.NewProvider(
+		network.NewFromLibp2pHost(td.Host2),
+		ds2,
+		td.Bs2,
+		fs,
+		ps,
+		dt2,
+		&providerNode,
+		providerAddr,
+	)
+	assert.NoError(t, err)
+
+	// set ask price where we'll accept any price
+	err = provider.AddAsk(big.NewInt(0), 50_000)
+	assert.NoError(t, err)
+
+	err = provider.Start(ctx)
+	assert.NoError(t, err)
+
+	// Closely follows the MinerInfo struct in the spec
+	providerInfo := storagemarket.StorageProviderInfo{
+		Address:    providerAddr,
+		Owner:      providerAddr,
+		Worker:     providerAddr,
+		SectorSize: 32,
+		PeerID:     td.Host2.ID(),
+	}
+
+	var proposalCid cid.Cid
+
+	// make a deal
+	go func() {
+		client.Run(ctx)
+		dataRef := &storagemarket.DataRef{
+			TransferType: storagemarket.TTManual,
+			Root:         payloadCid,
+		}
+		result, err := client.ProposeStorageDeal(ctx, providerAddr, &providerInfo, dataRef, abi.ChainEpoch(epoch+100), abi.ChainEpoch(epoch+20100), big.NewInt(1), big.NewInt(0))
+		assert.NoError(t, err)
+
+		proposalCid = result.ProposalCid
+	}()
+
+	time.Sleep(time.Millisecond * 100)
+
+	cd, err := client.GetInProgressDeal(ctx, proposalCid)
+	assert.NoError(t, err)
+	assert.Equal(t, cd.State, storagemarket.StorageDealUnknown)
+
+	providerDeals, err := provider.ListIncompleteDeals()
+	assert.NoError(t, err)
+
+	pd := providerDeals[0]
+	assert.True(t, pd.ProposalCid.Equals(proposalCid))
+	assert.Equal(t, pd.State, storagemarket.StorageDealTransferring)
+
+	carBuf := new(bytes.Buffer)
+
+	err = cario.NewCarIO().WriteCar(ctx, td.Bs1, payloadCid, td.AllSelector, carBuf)
+	require.NoError(t, err)
+	err = provider.ImportDataForDeal(ctx, pd.ProposalCid, carBuf)
+	require.NoError(t, err)
+
+	time.Sleep(time.Millisecond * 100)
+
+	cd, err = client.GetInProgressDeal(ctx, proposalCid)
+	assert.NoError(t, err)
+	assert.Equal(t, cd.State, storagemarket.StorageDealActive)
+
+	providerDeals, err = provider.ListIncompleteDeals()
+	assert.NoError(t, err)
+
+	pd = providerDeals[0]
+	assert.True(t, pd.ProposalCid.Equals(proposalCid))
+	assert.Equal(t, pd.State, storagemarket.StorageDealActive)
+}
+
 type fakeDTValidator struct{}
 
 func (v *fakeDTValidator) ValidatePush(sender peer.ID, voucher datatransfer.Voucher, baseCid cid.Cid, selector ipld.Node) error {
@@ -141,16 +262,16 @@ func (v *fakeDTValidator) ValidatePull(receiver peer.ID, voucher datatransfer.Vo
 var _ datatransfer.RequestValidator = (*fakeDTValidator)(nil)
 
 // Below fake node implementations
-type testStateKey struct{ Epoch uint64 }
+type testStateKey struct{ Epoch abi.ChainEpoch }
 
-func (k *testStateKey) Height() uint64 {
+func (k *testStateKey) Height() abi.ChainEpoch {
 	return k.Epoch
 }
 
 type storageMarketState struct {
-	Epoch        uint64
+	Epoch        abi.ChainEpoch
 	DealId       uint64
-	Balances     map[address.Address]tokenamount.TokenAmount
+	Balances     map[address.Address]abi.TokenAmount
 	StorageDeals map[address.Address][]storagemarket.StorageDeal
 	Providers    []*storagemarket.StorageProviderInfo
 }
@@ -159,15 +280,15 @@ func newStorageMarketState() *storageMarketState {
 	return &storageMarketState{
 		Epoch:        0,
 		DealId:       0,
-		Balances:     map[address.Address]tokenamount.TokenAmount{},
+		Balances:     map[address.Address]abi.TokenAmount{},
 		StorageDeals: map[address.Address][]storagemarket.StorageDeal{},
 		Providers:    nil,
 	}
 }
 
-func (sma *storageMarketState) AddFunds(addr address.Address, amount tokenamount.TokenAmount) {
+func (sma *storageMarketState) AddFunds(addr address.Address, amount abi.TokenAmount) {
 	if existing, ok := sma.Balances[addr]; ok {
-		sma.Balances[addr] = tokenamount.Add(existing, amount)
+		sma.Balances[addr] = big.Add(existing, amount)
 	} else {
 		sma.Balances[addr] = amount
 	}
@@ -175,9 +296,9 @@ func (sma *storageMarketState) AddFunds(addr address.Address, amount tokenamount
 
 func (sma *storageMarketState) Balance(addr address.Address) storagemarket.Balance {
 	if existing, ok := sma.Balances[addr]; ok {
-		return storagemarket.Balance{tokenamount.FromInt(0), existing}
+		return storagemarket.Balance{big.NewInt(0), existing}
 	}
-	return storagemarket.Balance{tokenamount.FromInt(0), tokenamount.FromInt(0)}
+	return storagemarket.Balance{big.NewInt(0), big.NewInt(0)}
 }
 
 func (sma *storageMarketState) Deals(addr address.Address) []storagemarket.StorageDeal {
@@ -210,15 +331,15 @@ func (n *fakeCommon) MostRecentStateId(ctx context.Context) (storagemarket.State
 	return n.SMState.StateKey(), nil
 }
 
-func (n *fakeCommon) AddFunds(ctx context.Context, addr address.Address, amount tokenamount.TokenAmount) error {
+func (n *fakeCommon) AddFunds(ctx context.Context, addr address.Address, amount abi.TokenAmount) error {
 	n.SMState.AddFunds(addr, amount)
 	return nil
 }
 
-func (n *fakeCommon) EnsureFunds(ctx context.Context, addr address.Address, amount tokenamount.TokenAmount) error {
+func (n *fakeCommon) EnsureFunds(ctx context.Context, addr address.Address, amount abi.TokenAmount) error {
 	balance := n.SMState.Balance(addr)
 	if balance.Available.LessThan(amount) {
-		n.SMState.AddFunds(addr, tokenamount.Sub(amount, balance.Available))
+		n.SMState.AddFunds(addr, big.Sub(amount, balance.Available))
 	}
 	return nil
 }
@@ -227,8 +348,8 @@ func (n *fakeCommon) GetBalance(ctx context.Context, addr address.Address) (stor
 	return n.SMState.Balance(addr), nil
 }
 
-func (n *fakeCommon) VerifySignature(addr address.Address, data []byte) error {
-	return nil
+func (n *fakeCommon) VerifySignature(signature crypto.Signature, addr address.Address, data []byte) bool {
+	return true
 }
 
 type fakeClientNode struct {
@@ -249,9 +370,11 @@ func (n *fakeClientNode) ValidatePublishedDeal(ctx context.Context, deal storage
 	return 0, nil
 }
 
-func (n *fakeClientNode) SignProposal(ctx context.Context, signer address.Address, proposal *storagemarket.StorageDealProposal) error {
-	proposal.ProposerSignature = shared_testutil.MakeTestSignature()
-	return nil
+func (n *fakeClientNode) SignProposal(ctx context.Context, signer address.Address, proposal market.DealProposal) (*market.ClientDealProposal, error) {
+	return &market.ClientDealProposal{
+		Proposal:        proposal,
+		ClientSignature: *shared_testutil.MakeTestSignature(),
+	}, nil
 }
 
 func (n *fakeClientNode) GetDefaultWalletAddress(ctx context.Context) (address.Address, error) {
@@ -263,7 +386,7 @@ func (n *fakeClientNode) OnDealSectorCommitted(ctx context.Context, provider add
 	return nil
 }
 
-func (n *fakeClientNode) ValidateAskSignature(ask *types.SignedStorageAsk) error {
+func (n *fakeClientNode) ValidateAskSignature(ask *storagemarket.SignedStorageAsk) error {
 	return n.ValidationError
 }
 
@@ -280,17 +403,10 @@ type fakeProviderNode struct {
 }
 
 func (n *fakeProviderNode) PublishDeals(ctx context.Context, deal storagemarket.MinerDeal) (storagemarket.DealID, cid.Cid, error) {
-	p := deal.Proposal
 
 	sd := storagemarket.StorageDeal{
-		PieceRef:             p.PieceRef,
-		PieceSize:            p.PieceSize,
-		Client:               p.Client,
-		Provider:             p.Provider,
-		ProposalExpiration:   p.ProposalExpiration,
-		Duration:             p.Duration,
-		StoragePricePerEpoch: p.StoragePricePerEpoch,
-		StorageCollateral:    p.StorageCollateral,
+		deal.Proposal,
+		market.DealState{},
 	}
 
 	n.SMState.AddDeal(sd)
@@ -310,7 +426,7 @@ func (n *fakeProviderNode) GetMinerWorker(ctx context.Context, miner address.Add
 	return n.MinerAddr, nil
 }
 
-func (n *fakeProviderNode) SignBytes(ctx context.Context, signer address.Address, b []byte) (*types.Signature, error) {
+func (n *fakeProviderNode) SignBytes(ctx context.Context, signer address.Address, b []byte) (*crypto.Signature, error) {
 	return shared_testutil.MakeTestSignature(), nil
 }
 
