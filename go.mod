@@ -9,6 +9,7 @@ require (
 	github.com/filecoin-project/go-fil-commcid v0.0.0-20200208005934-2b8bd03caca5
 	github.com/filecoin-project/go-padreader v0.0.0-20200210211231-548257017ca6
 	github.com/filecoin-project/go-sectorbuilder v0.0.2-0.20200210220012-eb75ec747d6b
+	github.com/filecoin-project/go-statemachine v0.0.0-20200129223247-008dd1f98b28
 	github.com/filecoin-project/go-statestore v0.1.0
 	github.com/filecoin-project/specs-actors v0.0.0-20200210130641-2d1fbd8672cf
 	github.com/hannahhoward/cbor-gen-for v0.0.0-20191218204337-9ab7b1bcc099
