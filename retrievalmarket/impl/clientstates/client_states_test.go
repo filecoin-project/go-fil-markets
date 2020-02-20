@@ -55,7 +55,7 @@ func TestSetupPaymentChannel(t *testing.T) {
 	ctx := context.Background()
 	ds := testnet.NewTestRetrievalDealStream(testnet.TestDealStreamParams{})
 	expectedPayCh := address.TestAddress2
-	expectedLane := int64(10)
+	expectedLane := uint64(10)
 
 	environment := func(params testnodes.TestRetrievalClientNodeParams) clientstates.ClientDealEnvironment {
 		node := testnodes.NewTestRetrievalClientNode(params)
@@ -490,7 +490,7 @@ func makeDealState(status retrievalmarket.DealStatus) *retrievalmarket.ClientDea
 		MinerWallet:      address.TestAddress,
 		ClientWallet:     address.TestAddress2,
 		PayCh:            address.TestAddress2,
-		Lane:             int64(10),
+		Lane:             uint64(10),
 		Status:           status,
 		BytesPaidFor:     defaultBytesPaidFor,
 		TotalReceived:    defaultTotalReceived,

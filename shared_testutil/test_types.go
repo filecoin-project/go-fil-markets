@@ -25,8 +25,8 @@ func MakeTestSignedVoucher() *paych.SignedVoucher {
 		TimeLock:       abi.ChainEpoch(rand.Int63()),
 		SecretPreimage: []byte("secret-preimage"),
 		Extra:          MakeTestModVerifyParams(),
-		Lane:           rand.Int63(),
-		Nonce:          rand.Int63(),
+		Lane:           rand.Uint64(),
+		Nonce:          rand.Uint64(),
 		Amount:         MakeTestTokenAmount(),
 		Merges:         []paych.Merge{MakeTestMerge()},
 		Signature:      MakeTestSignature(),
@@ -45,8 +45,8 @@ func MakeTestModVerifyParams() *paych.ModVerifyParams {
 // MakeTestMerge generates a random Merge that has all non-zero fields
 func MakeTestMerge() paych.Merge {
 	return paych.Merge{
-		Lane:  rand.Int63(),
-		Nonce: rand.Int63(),
+		Lane:  rand.Uint64(),
+		Nonce: rand.Uint64(),
 	}
 }
 
