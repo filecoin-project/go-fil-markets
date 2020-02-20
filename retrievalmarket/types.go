@@ -36,7 +36,7 @@ type ClientDealState struct {
 	ClientWallet     address.Address
 	MinerWallet      address.Address
 	PayCh            address.Address
-	Lane             int64
+	Lane             uint64
 	Status           DealStatus
 	Sender           peer.ID
 	TotalReceived    uint64
@@ -117,12 +117,12 @@ type RetrievalClientNode interface {
 	// Allocate late creates a lane within a payment channel so that calls to
 	// CreatePaymentVoucher will automatically make vouchers only for the difference
 	// in total
-	AllocateLane(paymentChannel address.Address) (int64, error)
+	AllocateLane(paymentChannel address.Address) (uint64, error)
 
 	// CreatePaymentVoucher creates a new payment voucher in the given lane for a
 	// given payment channel so that all the payment vouchers in the lane add up
 	// to the given amount (so the payment voucher will be for the difference)
-	CreatePaymentVoucher(ctx context.Context, paymentChannel address.Address, amount abi.TokenAmount, lane int64) (*paych.SignedVoucher, error)
+	CreatePaymentVoucher(ctx context.Context, paymentChannel address.Address, amount abi.TokenAmount, lane uint64) (*paych.SignedVoucher, error)
 }
 
 // ProviderDealState is the current state of a deal from the point of view

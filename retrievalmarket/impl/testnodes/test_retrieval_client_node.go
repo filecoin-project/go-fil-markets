@@ -14,7 +14,7 @@ import (
 type TestRetrievalClientNode struct {
 	payCh        address.Address
 	payChErr     error
-	lane         int64
+	lane         uint64
 	laneError    error
 	voucher      *paych.SignedVoucher
 	voucherError error
@@ -28,7 +28,7 @@ type TestRetrievalClientNode struct {
 type TestRetrievalClientNodeParams struct {
 	PayCh                  address.Address
 	PayChErr               error
-	Lane                   int64
+	Lane                   uint64
 	LaneError              error
 	Voucher                *paych.SignedVoucher
 	VoucherError           error
@@ -63,7 +63,7 @@ func (trcn *TestRetrievalClientNode) GetOrCreatePaymentChannel(ctx context.Conte
 }
 
 // AllocateLane creates a mock lane on a payment channel
-func (trcn *TestRetrievalClientNode) AllocateLane(paymentChannel address.Address) (int64, error) {
+func (trcn *TestRetrievalClientNode) AllocateLane(paymentChannel address.Address) (uint64, error) {
 	if trcn.allocateLaneRecorder != nil {
 		trcn.allocateLaneRecorder(paymentChannel)
 	}
@@ -71,7 +71,7 @@ func (trcn *TestRetrievalClientNode) AllocateLane(paymentChannel address.Address
 }
 
 // CreatePaymentVoucher creates a mock payment voucher based on a channel and lane
-func (trcn *TestRetrievalClientNode) CreatePaymentVoucher(ctx context.Context, paymentChannel address.Address, amount abi.TokenAmount, lane int64) (*paych.SignedVoucher, error) {
+func (trcn *TestRetrievalClientNode) CreatePaymentVoucher(ctx context.Context, paymentChannel address.Address, amount abi.TokenAmount, lane uint64) (*paych.SignedVoucher, error) {
 	if trcn.createPaymentVoucherRecorder != nil {
 		trcn.createPaymentVoucherRecorder(trcn.voucher)
 	}
