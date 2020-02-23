@@ -6,6 +6,7 @@ import (
 	"github.com/filecoin-project/go-fil-markets/storagemarket/network"
 
 	cborutil "github.com/filecoin-project/go-cbor-util"
+	"github.com/filecoin-project/specs-actors/actors/abi/big"
 	"github.com/ipfs/go-cid"
 	blockstore "github.com/ipfs/go-ipfs-blockstore"
 	logging "github.com/ipfs/go-log/v2"
@@ -205,6 +206,7 @@ func (c *Client) Start(ctx context.Context, p ClientDealProposal) (cid.Cid, erro
 		EndEpoch:             p.EndEpoch,
 		StoragePricePerEpoch: p.PricePerEpoch,
 		ProviderCollateral:   abi.NewTokenAmount(int64(pieceSize)), // TODO: real calc
+		ClientCollateral:     big.Zero(),
 	}
 
 	if err := c.node.EnsureFunds(ctx, p.Client, dealProposal.ClientBalanceRequirement()); err != nil {
