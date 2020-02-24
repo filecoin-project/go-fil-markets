@@ -6,6 +6,7 @@ import (
 	"github.com/filecoin-project/go-fil-markets/storagemarket/network"
 
 	cborutil "github.com/filecoin-project/go-cbor-util"
+	"github.com/filecoin-project/specs-actors/actors/abi/big"
 	"github.com/ipfs/go-cid"
 	blockstore "github.com/ipfs/go-ipfs-blockstore"
 	logging "github.com/ipfs/go-log/v2"
@@ -23,7 +24,6 @@ import (
 	"github.com/filecoin-project/go-fil-markets/storagemarket"
 	"github.com/filecoin-project/go-statestore"
 	"github.com/filecoin-project/specs-actors/actors/abi"
-	"github.com/filecoin-project/specs-actors/actors/abi/big"
 	"github.com/filecoin-project/specs-actors/actors/builtin/market"
 )
 
@@ -192,11 +192,6 @@ type ClientDealProposal struct {
 }
 
 func (c *Client) Start(ctx context.Context, p ClientDealProposal) (cid.Cid, error) {
-	amount := big.Mul(p.PricePerEpoch, abi.NewTokenAmount(int64(p.EndEpoch)-int64(p.StartEpoch)))
-	if err := c.node.EnsureFunds(ctx, p.Client, amount); err != nil {
-		return cid.Undef, xerrors.Errorf("adding market funds failed: %w", err)
-	}
-
 	commP, pieceSize, err := c.commP(ctx, p.Data.Root)
 	if err != nil {
 		return cid.Undef, xerrors.Errorf("computing commP failed: %w", err)
@@ -211,6 +206,11 @@ func (c *Client) Start(ctx context.Context, p ClientDealProposal) (cid.Cid, erro
 		EndEpoch:             p.EndEpoch,
 		StoragePricePerEpoch: p.PricePerEpoch,
 		ProviderCollateral:   abi.NewTokenAmount(int64(pieceSize)), // TODO: real calc
+		ClientCollateral:     big.Zero(),
+	}
+
+	if err := c.node.EnsureFunds(ctx, p.Client, dealProposal.ClientBalanceRequirement()); err != nil {
+		return cid.Undef, xerrors.Errorf("adding market funds failed: %w", err)
 	}
 
 	clientDealProposal, err := c.node.SignProposal(ctx, p.Client, dealProposal)
