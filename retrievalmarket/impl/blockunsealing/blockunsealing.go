@@ -21,12 +21,11 @@ type LoaderWithUnsealing interface {
 }
 
 type loaderWithUnsealing struct {
-	ctx             context.Context
-	bs              blockstore.Blockstore
-	pieceStore      piecestore.PieceStore
-	carIO           pieceio.CarIO
-	unsealer        UnsealingFunc
-	alreadyUnsealed bool
+	ctx        context.Context
+	bs         blockstore.Blockstore
+	pieceStore piecestore.PieceStore
+	carIO      pieceio.CarIO
+	unsealer   UnsealingFunc
 }
 
 // UnsealingFunc is a function that unseals sectors at a given offset and length
@@ -35,7 +34,7 @@ type UnsealingFunc func(ctx context.Context, sectorId uint64, offset uint64, len
 // NewLoaderWithUnsealing creates a loader that will attempt to read blocks from the blockstore but unseal the piece
 // as needed using the passed unsealing function
 func NewLoaderWithUnsealing(ctx context.Context, bs blockstore.Blockstore, pieceStore piecestore.PieceStore, carIO pieceio.CarIO, unsealer UnsealingFunc) LoaderWithUnsealing {
-	return &loaderWithUnsealing{ctx, bs, pieceStore, carIO, unsealer, false}
+	return &loaderWithUnsealing{ctx, bs, pieceStore, carIO, unsealer}
 }
 
 func (lu *loaderWithUnsealing) Load(lnk ipld.Link, lnkCtx ipld.LinkContext) (io.Reader, error) {

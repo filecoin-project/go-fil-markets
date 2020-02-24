@@ -59,9 +59,11 @@ func TestHandleQueryStream(t *testing.T) {
 
 	receiveStreamOnProvider := func(qs network.RetrievalQueryStream, pieceStore piecestore.PieceStore) {
 		node := testnodes.NewTestRetrievalProviderNode()
-		bs := bstore.NewBlockstore(dss.MutexWrap(datastore.NewMapDatastore()))
+		ds := dss.MutexWrap(datastore.NewMapDatastore())
+		bs := bstore.NewBlockstore(ds)
 		net := tut.NewTestRetrievalMarketNetwork(tut.TestNetworkParams{})
-		c := retrievalimpl.NewProvider(expectedAddress, node, net, pieceStore, bs)
+		c, err := retrievalimpl.NewProvider(expectedAddress, node, net, pieceStore, bs, ds)
+		require.NoError(t, err)
 		c.SetPricePerByte(expectedPricePerByte)
 		c.SetPaymentInterval(expectedPaymentInterval, expectedPaymentIntervalIncrease)
 		_ = c.Start()

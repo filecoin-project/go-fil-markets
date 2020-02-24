@@ -6,6 +6,8 @@ import (
 	"errors"
 	"testing"
 
+	"github.com/filecoin-project/go-statemachine/fsm"
+
 	"github.com/ipfs/go-cid"
 	mh "github.com/multiformats/go-multihash"
 	"github.com/stretchr/testify/require"
@@ -16,6 +18,7 @@ import (
 	"github.com/filecoin-project/go-fil-markets/retrievalmarket/impl/testnodes"
 	rmnet "github.com/filecoin-project/go-fil-markets/retrievalmarket/network"
 	testnet "github.com/filecoin-project/go-fil-markets/shared_testutil"
+	fsmtest "github.com/filecoin-project/go-statemachine/fsm/testutil"
 	"github.com/filecoin-project/specs-actors/actors/abi"
 	"github.com/filecoin-project/specs-actors/actors/abi/big"
 	"github.com/filecoin-project/specs-actors/actors/builtin/paych"
@@ -38,11 +41,11 @@ func (e *fakeEnvironment) Node() retrievalmarket.RetrievalClientNode {
 	return e.node
 }
 
-func (e *fakeEnvironment) DealStream() rmnet.RetrievalDealStream {
+func (e *fakeEnvironment) DealStream(id retrievalmarket.DealID) rmnet.RetrievalDealStream {
 	return e.ds
 }
 
-func (e *fakeEnvironment) ConsumeBlock(context.Context, retrievalmarket.Block) (uint64, bool, error) {
+func (e *fakeEnvironment) ConsumeBlock(context.Context, retrievalmarket.DealID, retrievalmarket.Block) (uint64, bool, error) {
 	if e.nextResponse >= len(e.responses) {
 		return 0, false, errors.New("ConsumeBlock failed")
 	}
@@ -56,7 +59,8 @@ func TestSetupPaymentChannel(t *testing.T) {
 	ds := testnet.NewTestRetrievalDealStream(testnet.TestDealStreamParams{})
 	expectedPayCh := address.TestAddress2
 	expectedLane := uint64(10)
-
+	eventMachine, err := fsm.NewEventMachine(retrievalmarket.ClientDealState{}, "Status", clientstates.ClientEvents)
+	require.NoError(t, err)
 	environment := func(params testnodes.TestRetrievalClientNodeParams) clientstates.ClientDealEnvironment {
 		node := testnodes.NewTestRetrievalClientNode(params)
 		return &fakeEnvironment{node, ds, 0, nil}
@@ -69,12 +73,14 @@ func TestSetupPaymentChannel(t *testing.T) {
 			PayCh: expectedPayCh,
 			Lane:  expectedLane,
 		})
-		f := clientstates.SetupPaymentChannel(ctx, fe, *dealState)
-		f(dealState)
+		fsmCtx := fsmtest.NewTestContext(ctx, eventMachine)
+		err := clientstates.SetupPaymentChannel(fsmCtx, fe, *dealState)
+		require.NoError(t, err)
+		fsmCtx.ReplayEvents(t, dealState)
 		require.Empty(t, dealState.Message)
 		require.Equal(t, dealState.Status, retrievalmarket.DealStatusPaymentChannelCreated)
-		require.Equal(t, dealState.PayCh, expectedPayCh)
-		require.Equal(t, dealState.Lane, expectedLane)
+		require.Equal(t, dealState.PaymentInfo.PayCh, expectedPayCh)
+		require.Equal(t, dealState.PaymentInfo.Lane, expectedLane)
 	})
 
 	t.Run("when create payment channel fails", func(t *testing.T) {
@@ -84,8 +90,10 @@ func TestSetupPaymentChannel(t *testing.T) {
 			PayChErr: errors.New("Something went wrong"),
 			Lane:     expectedLane,
 		})
-		f := clientstates.SetupPaymentChannel(ctx, fe, *dealState)
-		f(dealState)
+		fsmCtx := fsmtest.NewTestContext(ctx, eventMachine)
+		err := clientstates.SetupPaymentChannel(fsmCtx, fe, *dealState)
+		require.NoError(t, err)
+		fsmCtx.ReplayEvents(t, dealState)
 		require.NotEmpty(t, dealState.Message)
 		require.Equal(t, dealState.Status, retrievalmarket.DealStatusFailed)
 	})
@@ -98,8 +106,10 @@ func TestSetupPaymentChannel(t *testing.T) {
 			LaneError: errors.New("Something went wrong"),
 		})
 
-		f := clientstates.SetupPaymentChannel(ctx, fe, *dealState)
-		f(dealState)
+		fsmCtx := fsmtest.NewTestContext(ctx, eventMachine)
+		err := clientstates.SetupPaymentChannel(fsmCtx, fe, *dealState)
+		require.NoError(t, err)
+		fsmCtx.ReplayEvents(t, dealState)
 		require.NotEmpty(t, dealState.Message)
 		require.Equal(t, dealState.Status, retrievalmarket.DealStatusFailed)
 	})
@@ -108,7 +118,8 @@ func TestSetupPaymentChannel(t *testing.T) {
 func TestProposeDeal(t *testing.T) {
 	ctx := context.Background()
 	node := testnodes.NewTestRetrievalClientNode(testnodes.TestRetrievalClientNodeParams{})
-
+	eventMachine, err := fsm.NewEventMachine(retrievalmarket.ClientDealState{}, "Status", clientstates.ClientEvents)
+	require.NoError(t, err)
 	environment := func(params testnet.TestDealStreamParams) clientstates.ClientDealEnvironment {
 		ds := testnet.NewTestRetrievalDealStream(params)
 		return &fakeEnvironment{node, ds, 0, nil}
@@ -123,8 +134,10 @@ func TestProposeDeal(t *testing.T) {
 				ID:     dealState.ID,
 			}),
 		})
-		f := clientstates.ProposeDeal(ctx, fe, *dealState)
-		f(dealState)
+		fsmCtx := fsmtest.NewTestContext(ctx, eventMachine)
+		err := clientstates.ProposeDeal(fsmCtx, fe, *dealState)
+		require.NoError(t, err)
+		fsmCtx.ReplayEvents(t, dealState)
 		require.Empty(t, dealState.Message)
 		require.Equal(t, dealState.Status, retrievalmarket.DealStatusAccepted)
 	})
@@ -138,8 +151,10 @@ func TestProposeDeal(t *testing.T) {
 				Message: "your deal proposal sucks",
 			}),
 		})
-		f := clientstates.ProposeDeal(ctx, fe, *dealState)
-		f(dealState)
+		fsmCtx := fsmtest.NewTestContext(ctx, eventMachine)
+		err := clientstates.ProposeDeal(fsmCtx, fe, *dealState)
+		require.NoError(t, err)
+		fsmCtx.ReplayEvents(t, dealState)
 		require.NotEmpty(t, dealState.Message)
 		require.Equal(t, dealState.Status, retrievalmarket.DealStatusRejected)
 	})
@@ -153,8 +168,10 @@ func TestProposeDeal(t *testing.T) {
 				Message: "can't find a deal",
 			}),
 		})
-		f := clientstates.ProposeDeal(ctx, fe, *dealState)
-		f(dealState)
+		fsmCtx := fsmtest.NewTestContext(ctx, eventMachine)
+		err := clientstates.ProposeDeal(fsmCtx, fe, *dealState)
+		require.NoError(t, err)
+		fsmCtx.ReplayEvents(t, dealState)
 		require.NotEmpty(t, dealState.Message)
 		require.Equal(t, dealState.Status, retrievalmarket.DealStatusDealNotFound)
 	})
@@ -164,10 +181,12 @@ func TestProposeDeal(t *testing.T) {
 		fe := environment(testnet.TestDealStreamParams{
 			ProposalWriter: testnet.FailDealProposalWriter,
 		})
-		f := clientstates.ProposeDeal(ctx, fe, *dealState)
-		f(dealState)
+		fsmCtx := fsmtest.NewTestContext(ctx, eventMachine)
+		err := clientstates.ProposeDeal(fsmCtx, fe, *dealState)
+		require.NoError(t, err)
+		fsmCtx.ReplayEvents(t, dealState)
 		require.NotEmpty(t, dealState.Message)
-		require.Equal(t, dealState.Status, retrievalmarket.DealStatusFailed)
+		require.Equal(t, dealState.Status, retrievalmarket.DealStatusErrored)
 	})
 
 	t.Run("unable to read response", func(t *testing.T) {
@@ -175,16 +194,19 @@ func TestProposeDeal(t *testing.T) {
 		fe := environment(testnet.TestDealStreamParams{
 			ResponseReader: testnet.FailDealResponseReader,
 		})
-		f := clientstates.ProposeDeal(ctx, fe, *dealState)
-		f(dealState)
+		fsmCtx := fsmtest.NewTestContext(ctx, eventMachine)
+		err := clientstates.ProposeDeal(fsmCtx, fe, *dealState)
+		require.NoError(t, err)
+		fsmCtx.ReplayEvents(t, dealState)
 		require.NotEmpty(t, dealState.Message)
-		require.Equal(t, dealState.Status, retrievalmarket.DealStatusFailed)
+		require.Equal(t, dealState.Status, retrievalmarket.DealStatusErrored)
 	})
 }
 
 func TestProcessPaymentRequested(t *testing.T) {
 	ctx := context.Background()
-
+	eventMachine, err := fsm.NewEventMachine(retrievalmarket.ClientDealState{}, "Status", clientstates.ClientEvents)
+	require.NoError(t, err)
 	environment := func(netParams testnet.TestDealStreamParams,
 		nodeParams testnodes.TestRetrievalClientNodeParams) clientstates.ClientDealEnvironment {
 		ds := testnet.NewTestRetrievalDealStream(netParams)
@@ -199,8 +221,10 @@ func TestProcessPaymentRequested(t *testing.T) {
 		fe := environment(testnet.TestDealStreamParams{}, testnodes.TestRetrievalClientNodeParams{
 			Voucher: testVoucher,
 		})
-		f := clientstates.ProcessPaymentRequested(ctx, fe, *dealState)
-		f(dealState)
+		fsmCtx := fsmtest.NewTestContext(ctx, eventMachine)
+		err := clientstates.ProcessPaymentRequested(fsmCtx, fe, *dealState)
+		require.NoError(t, err)
+		fsmCtx.ReplayEvents(t, dealState)
 		require.Empty(t, dealState.Message)
 		require.Equal(t, dealState.PaymentRequested, abi.NewTokenAmount(0))
 		require.Equal(t, dealState.FundsSpent, big.Add(defaultFundsSpent, defaultPaymentRequested))
@@ -214,14 +238,16 @@ func TestProcessPaymentRequested(t *testing.T) {
 		fe := environment(testnet.TestDealStreamParams{}, testnodes.TestRetrievalClientNodeParams{
 			Voucher: testVoucher,
 		})
-		f := clientstates.ProcessPaymentRequested(ctx, fe, *dealState)
-		f(dealState)
+		fsmCtx := fsmtest.NewTestContext(ctx, eventMachine)
+		err := clientstates.ProcessPaymentRequested(fsmCtx, fe, *dealState)
+		require.NoError(t, err)
+		fsmCtx.ReplayEvents(t, dealState)
 		require.Empty(t, dealState.Message)
 		require.Equal(t, dealState.PaymentRequested, abi.NewTokenAmount(0))
 		require.Equal(t, dealState.FundsSpent, big.Add(defaultFundsSpent, defaultPaymentRequested))
 		require.Equal(t, dealState.BytesPaidFor, defaultTotalReceived)
 		require.Equal(t, dealState.CurrentInterval, defaultCurrentInterval+defaultIntervalIncrease)
-		require.Equal(t, dealState.Status, retrievalmarket.DealStatusCompleted)
+		require.Equal(t, dealState.Status, retrievalmarket.DealStatusFinalizing)
 	})
 
 	t.Run("not enough funds left", func(t *testing.T) {
@@ -230,8 +256,10 @@ func TestProcessPaymentRequested(t *testing.T) {
 		fe := environment(testnet.TestDealStreamParams{}, testnodes.TestRetrievalClientNodeParams{
 			Voucher: testVoucher,
 		})
-		f := clientstates.ProcessPaymentRequested(ctx, fe, *dealState)
-		f(dealState)
+		fsmCtx := fsmtest.NewTestContext(ctx, eventMachine)
+		err := clientstates.ProcessPaymentRequested(fsmCtx, fe, *dealState)
+		require.NoError(t, err)
+		fsmCtx.ReplayEvents(t, dealState)
 		require.NotEmpty(t, dealState.Message)
 		require.Equal(t, dealState.Status, retrievalmarket.DealStatusFailed)
 	})
@@ -242,8 +270,10 @@ func TestProcessPaymentRequested(t *testing.T) {
 		fe := environment(testnet.TestDealStreamParams{}, testnodes.TestRetrievalClientNodeParams{
 			Voucher: testVoucher,
 		})
-		f := clientstates.ProcessPaymentRequested(ctx, fe, *dealState)
-		f(dealState)
+		fsmCtx := fsmtest.NewTestContext(ctx, eventMachine)
+		err := clientstates.ProcessPaymentRequested(fsmCtx, fe, *dealState)
+		require.NoError(t, err)
+		fsmCtx.ReplayEvents(t, dealState)
 		require.NotEmpty(t, dealState.Message)
 		require.Equal(t, dealState.Status, retrievalmarket.DealStatusFailed)
 	})
@@ -257,8 +287,10 @@ func TestProcessPaymentRequested(t *testing.T) {
 		fe := environment(testnet.TestDealStreamParams{}, testnodes.TestRetrievalClientNodeParams{
 			Voucher: testVoucher,
 		})
-		f := clientstates.ProcessPaymentRequested(ctx, fe, *dealState)
-		f(dealState)
+		fsmCtx := fsmtest.NewTestContext(ctx, eventMachine)
+		err := clientstates.ProcessPaymentRequested(fsmCtx, fe, *dealState)
+		require.NoError(t, err)
+		fsmCtx.ReplayEvents(t, dealState)
 		require.Empty(t, dealState.Message)
 		require.Equal(t, dealState.PaymentRequested, abi.NewTokenAmount(0))
 		require.Equal(t, dealState.FundsSpent, big.Add(defaultFundsSpent, largerPaymentRequested))
@@ -273,8 +305,10 @@ func TestProcessPaymentRequested(t *testing.T) {
 		fe := environment(testnet.TestDealStreamParams{}, testnodes.TestRetrievalClientNodeParams{
 			Voucher: testVoucher,
 		})
-		f := clientstates.ProcessPaymentRequested(ctx, fe, *dealState)
-		f(dealState)
+		fsmCtx := fsmtest.NewTestContext(ctx, eventMachine)
+		err := clientstates.ProcessPaymentRequested(fsmCtx, fe, *dealState)
+		require.NoError(t, err)
+		fsmCtx.ReplayEvents(t, dealState)
 		require.NotEmpty(t, dealState.Message)
 		require.Equal(t, dealState.Status, retrievalmarket.DealStatusFailed)
 	})
@@ -286,8 +320,10 @@ func TestProcessPaymentRequested(t *testing.T) {
 		fe := environment(testnet.TestDealStreamParams{}, testnodes.TestRetrievalClientNodeParams{
 			Voucher: testVoucher,
 		})
-		f := clientstates.ProcessPaymentRequested(ctx, fe, *dealState)
-		f(dealState)
+		fsmCtx := fsmtest.NewTestContext(ctx, eventMachine)
+		err := clientstates.ProcessPaymentRequested(fsmCtx, fe, *dealState)
+		require.NoError(t, err)
+		fsmCtx.ReplayEvents(t, dealState)
 		require.Empty(t, dealState.Message)
 		require.Equal(t, dealState.PaymentRequested, abi.NewTokenAmount(0))
 		require.Equal(t, dealState.FundsSpent, big.Add(defaultFundsSpent, smallerPaymentRequested))
@@ -303,8 +339,10 @@ func TestProcessPaymentRequested(t *testing.T) {
 		fe := environment(testnet.TestDealStreamParams{}, testnodes.TestRetrievalClientNodeParams{
 			VoucherError: errors.New("Something Went Wrong"),
 		})
-		f := clientstates.ProcessPaymentRequested(ctx, fe, *dealState)
-		f(dealState)
+		fsmCtx := fsmtest.NewTestContext(ctx, eventMachine)
+		err := clientstates.ProcessPaymentRequested(fsmCtx, fe, *dealState)
+		require.NoError(t, err)
+		fsmCtx.ReplayEvents(t, dealState)
 		require.NotEmpty(t, dealState.Message)
 		require.Equal(t, dealState.Status, retrievalmarket.DealStatusFailed)
 	})
@@ -316,17 +354,20 @@ func TestProcessPaymentRequested(t *testing.T) {
 		}, testnodes.TestRetrievalClientNodeParams{
 			Voucher: testVoucher,
 		})
-		f := clientstates.ProcessPaymentRequested(ctx, fe, *dealState)
-		f(dealState)
+		fsmCtx := fsmtest.NewTestContext(ctx, eventMachine)
+		err := clientstates.ProcessPaymentRequested(fsmCtx, fe, *dealState)
+		require.NoError(t, err)
+		fsmCtx.ReplayEvents(t, dealState)
 		require.NotEmpty(t, dealState.Message)
-		require.Equal(t, dealState.Status, retrievalmarket.DealStatusFailed)
+		require.Equal(t, dealState.Status, retrievalmarket.DealStatusErrored)
 	})
 }
 
 func TestProcessNextResponse(t *testing.T) {
 	ctx := context.Background()
 	node := testnodes.NewTestRetrievalClientNode(testnodes.TestRetrievalClientNodeParams{})
-
+	eventMachine, err := fsm.NewEventMachine(retrievalmarket.ClientDealState{}, "Status", clientstates.ClientEvents)
+	require.NoError(t, err)
 	environment := func(netParams testnet.TestDealStreamParams,
 		responses []consumeBlockResponse) clientstates.ClientDealEnvironment {
 		ds := testnet.NewTestRetrievalDealStream(netParams)
@@ -344,8 +385,10 @@ func TestProcessNextResponse(t *testing.T) {
 		fe := environment(testnet.TestDealStreamParams{
 			ResponseReader: testnet.StubbedDealResponseReader(response),
 		}, consumeBlockResponses)
-		f := clientstates.ProcessNextResponse(ctx, fe, *dealState)
-		f(dealState)
+		fsmCtx := fsmtest.NewTestContext(ctx, eventMachine)
+		err := clientstates.ProcessNextResponse(fsmCtx, fe, *dealState)
+		require.NoError(t, err)
+		fsmCtx.ReplayEvents(t, dealState)
 		require.Empty(t, dealState.Message)
 		require.Equal(t, dealState.TotalReceived, defaultTotalReceived+1000)
 		require.Equal(t, dealState.Status, retrievalmarket.DealStatusOngoing)
@@ -362,8 +405,10 @@ func TestProcessNextResponse(t *testing.T) {
 		fe := environment(testnet.TestDealStreamParams{
 			ResponseReader: testnet.StubbedDealResponseReader(response),
 		}, consumeBlockResponses)
-		f := clientstates.ProcessNextResponse(ctx, fe, *dealState)
-		f(dealState)
+		fsmCtx := fsmtest.NewTestContext(ctx, eventMachine)
+		err := clientstates.ProcessNextResponse(fsmCtx, fe, *dealState)
+		require.NoError(t, err)
+		fsmCtx.ReplayEvents(t, dealState)
 		require.Empty(t, dealState.Message)
 		require.Equal(t, dealState.TotalReceived, defaultTotalReceived+1000)
 		require.Equal(t, dealState.Status, retrievalmarket.DealStatusCompleted)
@@ -381,8 +426,10 @@ func TestProcessNextResponse(t *testing.T) {
 		fe := environment(testnet.TestDealStreamParams{
 			ResponseReader: testnet.StubbedDealResponseReader(response),
 		}, consumeBlockResponses)
-		f := clientstates.ProcessNextResponse(ctx, fe, *dealState)
-		f(dealState)
+		fsmCtx := fsmtest.NewTestContext(ctx, eventMachine)
+		err := clientstates.ProcessNextResponse(fsmCtx, fe, *dealState)
+		require.NoError(t, err)
+		fsmCtx.ReplayEvents(t, dealState)
 		require.Empty(t, dealState.Message)
 		require.Equal(t, dealState.TotalReceived, defaultTotalReceived+1000)
 		require.Equal(t, dealState.Status, retrievalmarket.DealStatusFundsNeededLastPayment)
@@ -400,8 +447,10 @@ func TestProcessNextResponse(t *testing.T) {
 		fe := environment(testnet.TestDealStreamParams{
 			ResponseReader: testnet.StubbedDealResponseReader(response),
 		}, consumeBlockResponses)
-		f := clientstates.ProcessNextResponse(ctx, fe, *dealState)
-		f(dealState)
+		fsmCtx := fsmtest.NewTestContext(ctx, eventMachine)
+		err := clientstates.ProcessNextResponse(fsmCtx, fe, *dealState)
+		require.NoError(t, err)
+		fsmCtx.ReplayEvents(t, dealState)
 		require.NotEmpty(t, dealState.Message)
 		require.Equal(t, dealState.TotalReceived, defaultTotalReceived)
 		require.Equal(t, dealState.Status, retrievalmarket.DealStatusFailed)
@@ -418,8 +467,10 @@ func TestProcessNextResponse(t *testing.T) {
 		fe := environment(testnet.TestDealStreamParams{
 			ResponseReader: testnet.StubbedDealResponseReader(response),
 		}, consumeBlockResponses)
-		f := clientstates.ProcessNextResponse(ctx, fe, *dealState)
-		f(dealState)
+		fsmCtx := fsmtest.NewTestContext(ctx, eventMachine)
+		err := clientstates.ProcessNextResponse(fsmCtx, fe, *dealState)
+		require.NoError(t, err)
+		fsmCtx.ReplayEvents(t, dealState)
 		require.Empty(t, dealState.Message)
 		require.Equal(t, dealState.TotalReceived, defaultTotalReceived+1000)
 		require.Equal(t, dealState.Status, retrievalmarket.DealStatusFundsNeeded)
@@ -437,8 +488,10 @@ func TestProcessNextResponse(t *testing.T) {
 		fe := environment(testnet.TestDealStreamParams{
 			ResponseReader: testnet.StubbedDealResponseReader(response),
 		}, consumeBlockResponses)
-		f := clientstates.ProcessNextResponse(ctx, fe, *dealState)
-		f(dealState)
+		fsmCtx := fsmtest.NewTestContext(ctx, eventMachine)
+		err := clientstates.ProcessNextResponse(fsmCtx, fe, *dealState)
+		require.NoError(t, err)
+		fsmCtx.ReplayEvents(t, dealState)
 		require.NotEmpty(t, dealState.Message)
 		require.Equal(t, dealState.TotalReceived, defaultTotalReceived)
 		require.Equal(t, dealState.Status, retrievalmarket.DealStatusFailed)
@@ -455,8 +508,10 @@ func TestProcessNextResponse(t *testing.T) {
 		fe := environment(testnet.TestDealStreamParams{
 			ResponseReader: testnet.StubbedDealResponseReader(response),
 		}, consumeBlockResponses)
-		f := clientstates.ProcessNextResponse(ctx, fe, *dealState)
-		f(dealState)
+		fsmCtx := fsmtest.NewTestContext(ctx, eventMachine)
+		err := clientstates.ProcessNextResponse(fsmCtx, fe, *dealState)
+		require.NoError(t, err)
+		fsmCtx.ReplayEvents(t, dealState)
 		require.NotEmpty(t, dealState.Message)
 		require.Equal(t, dealState.TotalReceived, defaultTotalReceived)
 		require.Equal(t, dealState.Status, retrievalmarket.DealStatusFailed)
@@ -467,11 +522,13 @@ func TestProcessNextResponse(t *testing.T) {
 		fe := environment(testnet.TestDealStreamParams{
 			ResponseReader: testnet.FailDealResponseReader,
 		}, nil)
-		f := clientstates.ProcessNextResponse(ctx, fe, *dealState)
-		f(dealState)
+		fsmCtx := fsmtest.NewTestContext(ctx, eventMachine)
+		err := clientstates.ProcessNextResponse(fsmCtx, fe, *dealState)
+		require.NoError(t, err)
+		fsmCtx.ReplayEvents(t, dealState)
 		require.NotEmpty(t, dealState.Message)
 		require.Equal(t, dealState.TotalReceived, defaultTotalReceived)
-		require.Equal(t, dealState.Status, retrievalmarket.DealStatusFailed)
+		require.Equal(t, dealState.Status, retrievalmarket.DealStatusErrored)
 	})
 }
 
@@ -486,11 +543,13 @@ var defaultPaymentRequested = abi.NewTokenAmount(500000)
 
 func makeDealState(status retrievalmarket.DealStatus) *retrievalmarket.ClientDealState {
 	return &retrievalmarket.ClientDealState{
-		TotalFunds:       defaultTotalFunds,
-		MinerWallet:      address.TestAddress,
-		ClientWallet:     address.TestAddress2,
-		PayCh:            address.TestAddress2,
-		Lane:             uint64(10),
+		TotalFunds:   defaultTotalFunds,
+		MinerWallet:  address.TestAddress,
+		ClientWallet: address.TestAddress2,
+		PaymentInfo: &retrievalmarket.PaymentInfo{
+			PayCh: address.TestAddress2,
+			Lane:  uint64(10),
+		},
 		Status:           status,
 		BytesPaidFor:     defaultBytesPaidFor,
 		TotalReceived:    defaultTotalReceived,

@@ -3,6 +3,7 @@ package retrievalmarket
 import (
 	"context"
 	"errors"
+	"fmt"
 	"io"
 
 	"github.com/filecoin-project/go-address"
@@ -14,7 +15,7 @@ import (
 	"github.com/filecoin-project/specs-actors/actors/builtin/paych"
 )
 
-//go:generate cbor-gen-for Query QueryResponse DealProposal DealResponse Params QueryParams DealPayment Block ClientDealState
+//go:generate cbor-gen-for Query QueryResponse DealProposal DealResponse Params QueryParams DealPayment Block ClientDealState ProviderDealState PaymentInfo
 
 // ProtocolID is the protocol for proposing / responding to retrieval deals
 const ProtocolID = "/fil/retrieval/0.0.1"
@@ -27,16 +28,20 @@ const QueryProtocolID = "/fil/retrieval/qry/0.0.1"
 // client or the provider
 type Unsubscribe func()
 
+// PaymentInfo is the payment channel and lane for a deal, once it is setup
+type PaymentInfo struct {
+	PayCh address.Address
+	Lane  uint64
+}
+
 // ClientDealState is the current state of a deal from the point of view
 // of a retrieval client
 type ClientDealState struct {
-	ProposalCid cid.Cid
 	DealProposal
 	TotalFunds       abi.TokenAmount
 	ClientWallet     address.Address
 	MinerWallet      address.Address
-	PayCh            address.Address
-	Lane             uint64
+	PaymentInfo      *PaymentInfo
 	Status           DealStatus
 	Sender           peer.ID
 	TotalReceived    uint64
@@ -54,9 +59,69 @@ const (
 	// ClientEventOpen indicates a deal was initiated
 	ClientEventOpen ClientEvent = iota
 
+	// ClientEventPaymentChannelErrored means there was a failure creating a payment channel
+	ClientEventPaymentChannelErrored
+
+	// ClientEventAllocateLaneErrored means there was a failure creating a lane in a payment channel
+	ClientEventAllocateLaneErrored
+
+	// ClientEventPaymentChannelCreated means a payment channel has successfully been created
+	ClientEventPaymentChannelCreated
+
+	// ClientEventWriteDealProposalErrored means a network error writing a deal proposal
+	ClientEventWriteDealProposalErrored
+
+	// ClientEventReadDealResponseErrored means a network error reading a deal response
+	ClientEventReadDealResponseErrored
+
+	// ClientEventDealRejected means a deal was rejected by the provider
+	ClientEventDealRejected
+
+	// ClientEventDealNotFound means a provider could not find a piece for a deal
+	ClientEventDealNotFound
+
+	// ClientEventDealAccepted means a provider accepted a deal
+	ClientEventDealAccepted
+
+	// ClientEventUnknownResponseReceived means a client received a response it doesn't
+	// understand from the provider
+	ClientEventUnknownResponseReceived
+
 	// ClientEventFundsExpended indicates a deal has run out of funds in the payment channel
 	// forcing the client to add more funds to continue the deal
 	ClientEventFundsExpended // when totalFunds is expended
+
+	// ClientEventBadPaymentRequested indicates the provider asked for funds
+	// in a way that does not match the terms of the deal
+	ClientEventBadPaymentRequested
+
+	// ClientEventCreateVoucherFailed indicates an error happened creating a payment voucher
+	ClientEventCreateVoucherFailed
+
+	// ClientEventWriteDealPaymentErrored indicates a network error trying to write a payment
+	ClientEventWriteDealPaymentErrored
+
+	// ClientEventPaymentSent indicates a payment was sent to the provider
+	ClientEventPaymentSent
+
+	// ClientEventConsumeBlockFailed indicates an error occurrect while trying to
+	// read a block from the provider
+	ClientEventConsumeBlockFailed
+
+	// ClientEventLastPaymentRequested indicates the provider requested a final payment
+	ClientEventLastPaymentRequested
+
+	// ClientEventAllBlocksReceived indicates the provider has sent all blocks
+	ClientEventAllBlocksReceived
+
+	// ClientEventEarlyTermination indicates the provider completed the deal without sending all blocks
+	ClientEventEarlyTermination
+
+	// ClientEventPaymentRequested indicates the provider requested a payment
+	ClientEventPaymentRequested
+
+	// ClientEventBlocksReceived indicates the provider has sent blocks
+	ClientEventBlocksReceived
 
 	// ClientEventProgress indicates more data was received for a retrieval
 	ClientEventProgress
@@ -95,7 +160,7 @@ type RetrievalClient interface {
 		miner peer.ID,
 		clientWallet address.Address,
 		minerWallet address.Address,
-	) DealID
+	) (DealID, error)
 
 	// SubscribeToEvents listens for events that happen related to client retrievals
 	SubscribeToEvents(subscriber ClientSubscriber) Unsubscribe
@@ -137,19 +202,73 @@ type ProviderDealState struct {
 	CurrentInterval uint64
 }
 
+// Identifier provides a unique id for this provider deal
+func (pds ProviderDealState) Identifier() ProviderDealIdentifier {
+	return ProviderDealIdentifier{Receiver: pds.Receiver, DealID: pds.ID}
+}
+
+// ProviderDealIdentifier is a value that uniquely identifies a deal
+type ProviderDealIdentifier struct {
+	Receiver peer.ID
+	DealID   DealID
+}
+
+func (p ProviderDealIdentifier) String() string {
+	return fmt.Sprintf("%v/%v", p.Receiver, p.DealID)
+}
+
 // ProviderEvent is an event that occurs in a deal lifecycle on the provider
 type ProviderEvent uint64
 
 const (
-
 	// ProviderEventOpen indicates a new deal was received from a client
 	ProviderEventOpen ProviderEvent = iota
 
-	// ProviderEventProgress indicates more data was sent to a client
-	ProviderEventProgress
+	// ProviderEventWriteResponseFailed happens when a network error ocurrs writing a deal response
+	ProviderEventWriteResponseFailed
 
-	// ProviderEventError indicates an error occurred in processing a deal for a client
-	ProviderEventError
+	// ProviderEventReadPaymentFailed happens when a network error occurs trying to read a
+	// payment from the client
+	ProviderEventReadPaymentFailed
+
+	// ProviderEventGetPieceSizeErrored happens when the provider encounters an error
+	// looking up the requested pieces size
+	ProviderEventGetPieceSizeErrored
+
+	// ProviderEventDealNotFound happens when the provider cannot find the piece for the
+	// deal proposed by the client
+	ProviderEventDealNotFound
+
+	// ProviderEventDealRejected happens when a provider rejects a deal proposed
+	// by the client
+	ProviderEventDealRejected
+
+	// ProviderEventDealAccepted happens when a provider accepts a deal
+	ProviderEventDealAccepted
+
+	// ProviderEventBlockErrored happens when the provider encounters an error
+	// trying to read the next block from the piece
+	ProviderEventBlockErrored
+
+	// ProviderEventBlocksCompleted happeds when the provider reads the last block
+	// in the piece
+	ProviderEventBlocksCompleted
+
+	// ProviderEventPaymentRequested happens when a provider asks for payment from
+	// a client for blocks sent
+	ProviderEventPaymentRequested
+
+	// ProviderEventSaveVoucherFailed happens when an attempt to save a payment
+	// voucher fails
+	ProviderEventSaveVoucherFailed
+
+	// ProviderEventPartialPaymentReceived happens when a provider receives and processes
+	// a payment that is less than what was requested to proceed with the deal
+	ProviderEventPartialPaymentReceived
+
+	// ProviderEventPaymentReceived happens when a provider receives a payment
+	// and resumes processing a deal
+	ProviderEventPaymentReceived
 
 	// ProviderEventComplete indicates a retrieval deal was completed for a client
 	ProviderEventComplete
@@ -323,19 +442,15 @@ const (
 	// for some reason
 	DealStatusRejected
 
-	// DealStatusUnsealing indicates the provider is currently unsealing the sector
-	// needed to serve the retrieval deal
-	DealStatusUnsealing
-
-	// DealStatusFundsNeeded indicates the provider is awaiting a payment voucher to
+	// DealStatusFundsNeeded indicates the provider needs a payment voucher to
 	// continue processing the deal
 	DealStatusFundsNeeded
 
 	// DealStatusOngoing indicates the provider is continuing to process a deal
 	DealStatusOngoing
 
-	// DealStatusFundsNeededLastPayment indicates the provider is awaiting funds for
-	// a final payment in order to complete a deal
+	// DealStatusFundsNeededLastPayment indicates the provider needs a payment voucher
+	// in order to complete a deal
 	DealStatusFundsNeededLastPayment
 
 	// DealStatusCompleted indicates a deal is complete
@@ -344,7 +459,38 @@ const (
 	// DealStatusDealNotFound indicates an update was received for a deal that could
 	// not be identified
 	DealStatusDealNotFound
+
+	// DealStatusVerified means a deal has been verified as having the right parameters
+	DealStatusVerified
+
+	// DealStatusErrored indicates something went wrong with a deal
+	DealStatusErrored
+
+	// DealStatusBlocksComplete indicates that all blocks have been processed for the piece
+	DealStatusBlocksComplete
+
+	// DealStatusFinalizing means the last payment has been received and
+	// we are just confirming the deal is complete
+	DealStatusFinalizing
 )
+
+// DealStatuses maps deal status to a human readable representation
+var DealStatuses = map[DealStatus]string{
+	DealStatusNew:                    "DealStatusNew",
+	DealStatusPaymentChannelCreated:  "DealStatusPaymentChannelCreated",
+	DealStatusAccepted:               "DealStatusAccepted",
+	DealStatusFailed:                 "DealStatusFailed",
+	DealStatusRejected:               "DealStatusRejected",
+	DealStatusFundsNeeded:            "DealStatusFundsNeeded",
+	DealStatusOngoing:                "DealStatusOngoing",
+	DealStatusFundsNeededLastPayment: "DealStatusFundsNeededLastPayment",
+	DealStatusCompleted:              "DealStatusCompleted",
+	DealStatusDealNotFound:           "DealStatusDealNotFound",
+	DealStatusVerified:               "DealStatusVerified",
+	DealStatusErrored:                "DealStatusErrored",
+	DealStatusBlocksComplete:         "DealStatusBlocksComplete",
+	DealStatusFinalizing:             "DealStatusFinalizing",
+}
 
 // IsTerminalError returns true if this status indicates processing of this deal
 // is complete with an error
@@ -385,6 +531,10 @@ func NewParamsV0(pricePerByte abi.TokenAmount, paymentInterval uint64, paymentIn
 
 // DealID is an identifier for a retrieval deal (unique to a client)
 type DealID uint64
+
+func (d DealID) String() string {
+	return fmt.Sprintf("%d", d)
+}
 
 // DealProposal is a proposal for a new retrieval deal
 type DealProposal struct {

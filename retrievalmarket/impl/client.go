@@ -7,6 +7,8 @@ import (
 
 	blocks "github.com/ipfs/go-block-format"
 	"github.com/ipfs/go-cid"
+	"github.com/ipfs/go-datastore"
+	"github.com/ipfs/go-datastore/namespace"
 	blockstore "github.com/ipfs/go-ipfs-blockstore"
 	logging "github.com/ipfs/go-log/v2"
 	cidlink "github.com/ipld/go-ipld-prime/linking/cid"
@@ -18,6 +20,7 @@ import (
 	"github.com/filecoin-project/go-fil-markets/retrievalmarket/impl/blockio"
 	"github.com/filecoin-project/go-fil-markets/retrievalmarket/impl/clientstates"
 	rmnet "github.com/filecoin-project/go-fil-markets/retrievalmarket/network"
+	"github.com/filecoin-project/go-statemachine/fsm"
 	"github.com/filecoin-project/specs-actors/actors/abi"
 )
 
@@ -32,25 +35,48 @@ type client struct {
 	nextDealLk sync.RWMutex
 	nextDealID retrievalmarket.DealID
 
-	subscribersLk sync.RWMutex
-	subscribers   []retrievalmarket.ClientSubscriber
-	resolver      retrievalmarket.PeerResolver
+	subscribersLk  sync.RWMutex
+	subscribers    []retrievalmarket.ClientSubscriber
+	resolver       retrievalmarket.PeerResolver
+	blockVerifiers map[retrievalmarket.DealID]blockio.BlockVerifier
+	dealStreams    map[retrievalmarket.DealID]rmnet.RetrievalDealStream
+	stateMachines  fsm.Group
 }
 
 var _ retrievalmarket.RetrievalClient = &client{}
+
+// ClientDsPrefix is the datastore for the client retrievals key
+var ClientDsPrefix = "/retrievals/client"
 
 // NewClient creates a new retrieval client
 func NewClient(
 	network rmnet.RetrievalMarketNetwork,
 	bs blockstore.Blockstore,
 	node retrievalmarket.RetrievalClientNode,
-	resolver retrievalmarket.PeerResolver) retrievalmarket.RetrievalClient {
-	return &client{
-		network:  network,
-		bs:       bs,
-		node:     node,
-		resolver: resolver,
+	resolver retrievalmarket.PeerResolver,
+	ds datastore.Batching,
+) (retrievalmarket.RetrievalClient, error) {
+	c := &client{
+		network:        network,
+		bs:             bs,
+		node:           node,
+		resolver:       resolver,
+		dealStreams:    make(map[retrievalmarket.DealID]rmnet.RetrievalDealStream),
+		blockVerifiers: make(map[retrievalmarket.DealID]blockio.BlockVerifier),
 	}
+	stateMachines, err := fsm.New(namespace.Wrap(ds, datastore.NewKey(ClientDsPrefix)), fsm.Parameters{
+		Environment:   c,
+		StateType:     retrievalmarket.ClientDealState{},
+		StateKeyField: "Status",
+		Events:        clientstates.ClientEvents,
+		StateHandlers: clientstates.ClientHandlers,
+		Notifier:      c.notifySubscribers,
+	})
+	if err != nil {
+		return nil, err
+	}
+	c.stateMachines = stateMachines
+	return c, nil
 }
 
 // V0
@@ -84,9 +110,7 @@ func (c *client) Query(ctx context.Context, p retrievalmarket.RetrievalPeer, pay
 }
 
 // Retrieve begins the process of requesting the data referred to by payloadCID, after a deal is accepted
-func (c *client) Retrieve(ctx context.Context, payloadCID cid.Cid, params retrievalmarket.Params, totalFunds abi.TokenAmount, miner peer.ID, clientWallet address.Address, minerWallet address.Address) retrievalmarket.DealID {
-	/* The implementation of this function is just wrapper for the old code which retrieves UnixFS pieces
-	-- it will be replaced when we do the V0 implementation of the module */
+func (c *client) Retrieve(ctx context.Context, payloadCID cid.Cid, params retrievalmarket.Params, totalFunds abi.TokenAmount, miner peer.ID, clientWallet address.Address, minerWallet address.Address) (retrievalmarket.DealID, error) {
 	c.nextDealLk.Lock()
 	c.nextDealID++
 	dealID := c.nextDealID
@@ -110,58 +134,28 @@ func (c *client) Retrieve(ctx context.Context, payloadCID cid.Cid, params retrie
 		Sender:           miner,
 	}
 
-	go c.handleDeal(ctx, dealState)
+	// start the deal processing
+	err := c.stateMachines.Begin(dealState.ID, &dealState)
+	if err != nil {
+		return 0, err
+	}
 
-	return dealID
-}
-
-func (c *client) failDeal(dealState *retrievalmarket.ClientDealState, err error) {
-	dealState.Message = err.Error()
-	dealState.Status = retrievalmarket.DealStatusFailed
-	c.notifySubscribers(retrievalmarket.ClientEventError, *dealState)
-}
-
-func (c *client) handleDeal(ctx context.Context, dealState retrievalmarket.ClientDealState) {
-
-	c.notifySubscribers(retrievalmarket.ClientEventOpen, dealState)
-
+	// open stream
 	s, err := c.network.NewDealStream(dealState.Sender)
 	if err != nil {
-		c.failDeal(&dealState, err)
-		return
+		return 0, err
 	}
-	defer s.Close()
 
-	environment := clientDealEnvironment{c.node, blockio.NewSelectorVerifier(cidlink.Link{Cid: dealState.DealProposal.PayloadCID}), c.bs, s}
+	c.dealStreams[dealID] = s
+	c.blockVerifiers[dealID] = blockio.NewSelectorVerifier(cidlink.Link{Cid: dealState.DealProposal.PayloadCID})
 
-	for {
-		var handler clientstates.ClientHandlerFunc
-
-		switch dealState.Status {
-		case retrievalmarket.DealStatusNew:
-			handler = clientstates.ProposeDeal
-		case retrievalmarket.DealStatusAccepted:
-			handler = clientstates.SetupPaymentChannel
-		case retrievalmarket.DealStatusPaymentChannelCreated, retrievalmarket.DealStatusOngoing, retrievalmarket.DealStatusUnsealing:
-			handler = clientstates.ProcessNextResponse
-		case retrievalmarket.DealStatusFundsNeeded, retrievalmarket.DealStatusFundsNeededLastPayment:
-			handler = clientstates.ProcessPaymentRequested
-		default:
-			c.failDeal(&dealState, xerrors.New("unexpected deal state"))
-			return
-		}
-		dealModifier := handler(ctx, &environment, dealState)
-		dealModifier(&dealState)
-		if retrievalmarket.IsTerminalStatus(dealState.Status) {
-			break
-		}
-		c.notifySubscribers(retrievalmarket.ClientEventProgress, dealState)
+	err = c.stateMachines.Send(dealState.ID, retrievalmarket.ClientEventOpen)
+	if err != nil {
+		s.Close()
+		return 0, err
 	}
-	if retrievalmarket.IsTerminalSuccess(dealState.Status) {
-		c.notifySubscribers(retrievalmarket.ClientEventComplete, dealState)
-	} else {
-		c.notifySubscribers(retrievalmarket.ClientEventError, dealState)
-	}
+
+	return dealID, nil
 }
 
 // unsubscribeAt returns a function that removes an item from the subscribers list by comparing
@@ -182,9 +176,11 @@ func (c *client) unsubscribeAt(sub retrievalmarket.ClientSubscriber) retrievalma
 	}
 }
 
-func (c *client) notifySubscribers(evt retrievalmarket.ClientEvent, ds retrievalmarket.ClientDealState) {
+func (c *client) notifySubscribers(eventName fsm.EventName, state fsm.StateType) {
 	c.subscribersLk.RLock()
 	defer c.subscribersLk.RUnlock()
+	evt := eventName.(retrievalmarket.ClientEvent)
+	ds := state.(retrievalmarket.ClientDealState)
 	for _, cb := range c.subscribers {
 		cb(evt, ds)
 	}
@@ -215,22 +211,15 @@ func (c *client) ListDeals() map[retrievalmarket.DealID]retrievalmarket.ClientDe
 	panic("not implemented")
 }
 
-type clientDealEnvironment struct {
-	node     retrievalmarket.RetrievalClientNode
-	verifier blockio.BlockVerifier
-	bs       blockstore.Blockstore
-	stream   rmnet.RetrievalDealStream
+func (c *client) Node() retrievalmarket.RetrievalClientNode {
+	return c.node
 }
 
-func (cde *clientDealEnvironment) Node() retrievalmarket.RetrievalClientNode {
-	return cde.node
+func (c *client) DealStream(dealID retrievalmarket.DealID) rmnet.RetrievalDealStream {
+	return c.dealStreams[dealID]
 }
 
-func (cde *clientDealEnvironment) DealStream() rmnet.RetrievalDealStream {
-	return cde.stream
-}
-
-func (cde *clientDealEnvironment) ConsumeBlock(ctx context.Context, block retrievalmarket.Block) (uint64, bool, error) {
+func (c *client) ConsumeBlock(ctx context.Context, dealID retrievalmarket.DealID, block retrievalmarket.Block) (uint64, bool, error) {
 	prefix, err := cid.PrefixFromBytes(block.Prefix)
 	if err != nil {
 		return 0, false, err
@@ -246,7 +235,12 @@ func (cde *clientDealEnvironment) ConsumeBlock(ctx context.Context, block retrie
 		return 0, false, err
 	}
 
-	done, err := cde.verifier.Verify(ctx, blk)
+	verifier, ok := c.blockVerifiers[dealID]
+	if !ok {
+		return 0, false, xerrors.New("no block verifier found")
+	}
+
+	done, err := verifier.Verify(ctx, blk)
 	if err != nil {
 		log.Warnf("block verify failed: %s", err)
 		return 0, false, err
@@ -254,7 +248,7 @@ func (cde *clientDealEnvironment) ConsumeBlock(ctx context.Context, block retrie
 
 	// TODO: Smarter out, maybe add to filestore automagically
 	//  (Also, persist intermediate nodes)
-	err = cde.bs.Put(blk)
+	err = c.bs.Put(blk)
 	if err != nil {
 		log.Warnf("block write failed: %s", err)
 		return 0, false, err

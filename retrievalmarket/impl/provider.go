@@ -7,6 +7,8 @@ import (
 	"sync"
 
 	"github.com/ipfs/go-cid"
+	"github.com/ipfs/go-datastore"
+	"github.com/ipfs/go-datastore/namespace"
 	blockstore "github.com/ipfs/go-ipfs-blockstore"
 	cidlink "github.com/ipld/go-ipld-prime/linking/cid"
 
@@ -18,8 +20,12 @@ import (
 	"github.com/filecoin-project/go-fil-markets/retrievalmarket/impl/blockunsealing"
 	"github.com/filecoin-project/go-fil-markets/retrievalmarket/impl/providerstates"
 	rmnet "github.com/filecoin-project/go-fil-markets/retrievalmarket/network"
+	"github.com/filecoin-project/go-statemachine/fsm"
 	"github.com/filecoin-project/specs-actors/actors/abi"
 )
+
+// ProviderDsPrefix is the datastore for the provider key
+var ProviderDsPrefix = "/retrievals/provider"
 
 type provider struct {
 	bs                      blockstore.Blockstore
@@ -32,6 +38,9 @@ type provider struct {
 	pricePerByte            abi.TokenAmount
 	subscribers             []retrievalmarket.ProviderSubscriber
 	subscribersLk           sync.RWMutex
+	dealStreams             map[retrievalmarket.ProviderDealIdentifier]rmnet.RetrievalDealStream
+	blockReaders            map[retrievalmarket.ProviderDealIdentifier]blockio.BlockReader
+	stateMachines           fsm.Group
 }
 
 var _ retrievalmarket.RetrievalProvider = &provider{}
@@ -49,8 +58,9 @@ var DefaultPaymentInterval = uint64(1 << 20)
 var DefaultPaymentIntervalIncrease = uint64(1 << 20)
 
 // NewProvider returns a new retrieval provider
-func NewProvider(paymentAddress address.Address, node retrievalmarket.RetrievalProviderNode, network rmnet.RetrievalMarketNetwork, pieceStore piecestore.PieceStore, bs blockstore.Blockstore) retrievalmarket.RetrievalProvider {
-	return &provider{
+func NewProvider(paymentAddress address.Address, node retrievalmarket.RetrievalProviderNode, network rmnet.RetrievalMarketNetwork, pieceStore piecestore.PieceStore, bs blockstore.Blockstore, ds datastore.Batching) (retrievalmarket.RetrievalProvider, error) {
+
+	p := &provider{
 		bs:                      bs,
 		node:                    node,
 		network:                 network,
@@ -59,7 +69,22 @@ func NewProvider(paymentAddress address.Address, node retrievalmarket.RetrievalP
 		pricePerByte:            DefaultPricePerByte, // TODO: allow setting
 		paymentInterval:         DefaultPaymentInterval,
 		paymentIntervalIncrease: DefaultPaymentIntervalIncrease,
+		dealStreams:             make(map[retrievalmarket.ProviderDealIdentifier]rmnet.RetrievalDealStream),
+		blockReaders:            make(map[retrievalmarket.ProviderDealIdentifier]blockio.BlockReader),
 	}
+	statemachines, err := fsm.New(namespace.Wrap(ds, datastore.NewKey(ProviderDsPrefix)), fsm.Parameters{
+		Environment:   p,
+		StateType:     retrievalmarket.ProviderDealState{},
+		StateKeyField: "Status",
+		Events:        providerstates.ProviderEvents,
+		StateHandlers: providerstates.ProviderHandlers,
+		Notifier:      p.notifySubscribers,
+	})
+	p.stateMachines = statemachines
+	if err != nil {
+		return nil, err
+	}
+	return p, nil
 }
 
 // Stop stops handling incoming requests
@@ -103,9 +128,11 @@ func (p *provider) unsubscribeAt(sub retrievalmarket.ProviderSubscriber) retriev
 	}
 }
 
-func (p *provider) notifySubscribers(evt retrievalmarket.ProviderEvent, ds retrievalmarket.ProviderDealState) {
+func (p *provider) notifySubscribers(eventName fsm.EventName, state fsm.StateType) {
 	p.subscribersLk.RLock()
 	defer p.subscribersLk.RUnlock()
+	evt := eventName.(retrievalmarket.ProviderEvent)
+	ds := state.(retrievalmarket.ProviderDealState)
 	for _, cb := range p.subscribers {
 		cb(evt, ds)
 	}
@@ -164,98 +191,77 @@ func (p *provider) HandleQueryStream(stream rmnet.RetrievalQueryStream) {
 	}
 }
 
-func (p *provider) failDeal(dealState *retrievalmarket.ProviderDealState, err error) {
-	dealState.Message = err.Error()
-	dealState.Status = retrievalmarket.DealStatusFailed
-	p.notifySubscribers(retrievalmarket.ProviderEventError, *dealState)
-}
-
 func (p *provider) HandleDealStream(stream rmnet.RetrievalDealStream) {
-	defer stream.Close()
-	ctx, cancel := context.WithCancel(context.TODO())
-	defer cancel()
-	dealState := retrievalmarket.ProviderDealState{
-		Status:        retrievalmarket.DealStatusNew,
-		TotalSent:     0,
-		FundsReceived: abi.NewTokenAmount(0),
-	}
-	p.notifySubscribers(retrievalmarket.ProviderEventOpen, dealState)
-
-	environment := providerDealEnvironment{p.pieceStore, p.node, nil, p.pricePerByte, p.paymentInterval, p.paymentIntervalIncrease, stream}
-
-	for {
-		var handler providerstates.ProviderHandlerFunc
-
-		switch dealState.Status {
-		case retrievalmarket.DealStatusNew:
-			handler = providerstates.ReceiveDeal
-		case retrievalmarket.DealStatusAccepted, retrievalmarket.DealStatusOngoing, retrievalmarket.DealStatusUnsealing:
-			handler = providerstates.SendBlocks
-		case retrievalmarket.DealStatusFundsNeeded, retrievalmarket.DealStatusFundsNeededLastPayment:
-			handler = providerstates.ProcessPayment
-		default:
-			p.failDeal(&dealState, errors.New("unexpected deal state"))
-			return
-		}
-		dealModifier := handler(ctx, &environment, dealState)
-		dealModifier(&dealState)
-		if retrievalmarket.IsTerminalStatus(dealState.Status) {
-			break
-		}
-		if environment.br == nil {
-			loaderWithUnsealing := blockunsealing.NewLoaderWithUnsealing(ctx, p.bs, environment.pieceStore, cario.NewCarIO(), p.node.UnsealSector)
-
-			environment.br = blockio.NewSelectorBlockReader(cidlink.Link{Cid: dealState.PayloadCID}, loaderWithUnsealing.Load)
-		}
-		p.notifySubscribers(retrievalmarket.ProviderEventProgress, dealState)
-	}
-	if retrievalmarket.IsTerminalSuccess(dealState.Status) {
-		p.notifySubscribers(retrievalmarket.ProviderEventComplete, dealState)
-	} else {
-		p.notifySubscribers(retrievalmarket.ProviderEventError, dealState)
+	// read deal proposal (or fail)
+	err := p.newProviderDeal(stream)
+	if err != nil {
+		log.Error(err)
+		stream.Close()
 	}
 }
 
-type providerDealEnvironment struct {
-	pieceStore                 piecestore.PieceStore
-	node                       retrievalmarket.RetrievalProviderNode
-	br                         blockio.BlockReader
-	minPricePerByte            abi.TokenAmount
-	maxPaymentInterval         uint64
-	maxPaymentIntervalIncrease uint64
-	stream                     rmnet.RetrievalDealStream
+func (p *provider) newProviderDeal(stream rmnet.RetrievalDealStream) error {
+	dealProposal, err := stream.ReadDealProposal()
+	if err != nil {
+		return err
+	}
+
+	pds := retrievalmarket.ProviderDealState{
+		DealProposal: dealProposal,
+		Receiver:     stream.Receiver(),
+	}
+
+	p.dealStreams[pds.Identifier()] = stream
+
+	loaderWithUnsealing := blockunsealing.NewLoaderWithUnsealing(context.TODO(), p.bs, p.pieceStore, cario.NewCarIO(), p.node.UnsealSector)
+	br := blockio.NewSelectorBlockReader(cidlink.Link{Cid: dealProposal.PayloadCID}, loaderWithUnsealing.Load)
+	p.blockReaders[pds.Identifier()] = br
+
+	// start the deal processing, synchronously so we can log the error and close the stream if it doesn't start
+	err = p.stateMachines.Begin(pds.Identifier(), &pds)
+	if err != nil {
+		return err
+	}
+
+	err = p.stateMachines.Send(pds.Identifier(), retrievalmarket.ProviderEventOpen)
+	if err != nil {
+		return err
+	}
+
+	return nil
 }
 
-func (pde *providerDealEnvironment) Node() retrievalmarket.RetrievalProviderNode {
-	return pde.node
+func (p *provider) Node() retrievalmarket.RetrievalProviderNode {
+	return p.node
 }
 
-func (pde *providerDealEnvironment) DealStream() rmnet.RetrievalDealStream {
-	return pde.stream
+func (p *provider) DealStream(id retrievalmarket.ProviderDealIdentifier) rmnet.RetrievalDealStream {
+	return p.dealStreams[id]
 }
 
-func (pde *providerDealEnvironment) CheckDealParams(pricePerByte abi.TokenAmount, paymentInterval uint64, paymentIntervalIncrease uint64) error {
-	if pricePerByte.LessThan(pde.minPricePerByte) {
+func (p *provider) CheckDealParams(pricePerByte abi.TokenAmount, paymentInterval uint64, paymentIntervalIncrease uint64) error {
+	if pricePerByte.LessThan(p.pricePerByte) {
 		return errors.New("Price per byte too low")
 	}
-	if paymentInterval > pde.maxPaymentInterval {
+	if paymentInterval > p.paymentInterval {
 		return errors.New("Payment interval too large")
 	}
-	if paymentIntervalIncrease > pde.maxPaymentIntervalIncrease {
+	if paymentIntervalIncrease > p.paymentIntervalIncrease {
 		return errors.New("Payment interval increase too large")
 	}
 	return nil
 }
 
-func (pde *providerDealEnvironment) NextBlock(ctx context.Context) (retrievalmarket.Block, bool, error) {
-	if pde.br == nil {
+func (p *provider) NextBlock(ctx context.Context, id retrievalmarket.ProviderDealIdentifier) (retrievalmarket.Block, bool, error) {
+	br, ok := p.blockReaders[id]
+	if !ok {
 		return retrievalmarket.Block{}, false, errors.New("Could not read block")
 	}
-	return pde.br.ReadBlock(ctx)
+	return br.ReadBlock(ctx)
 }
 
-func (pde *providerDealEnvironment) GetPieceSize(c cid.Cid) (uint64, error) {
-	pieceInfo, err := getPieceInfoFromCid(pde.pieceStore, c)
+func (p *provider) GetPieceSize(c cid.Cid) (uint64, error) {
+	pieceInfo, err := getPieceInfoFromCid(p.pieceStore, c)
 	if err != nil {
 		return 0, err
 	}

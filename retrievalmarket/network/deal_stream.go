@@ -58,6 +58,10 @@ func (d *DealStream) WriteDealPayment(dpy retrievalmarket.DealPayment) error {
 	return cborutil.WriteCborRPC(d.rw, &dpy)
 }
 
+func (d *DealStream) Receiver() peer.ID {
+	return d.p
+}
+
 func (d *DealStream) Close() error {
 	return d.rw.Close()
 }

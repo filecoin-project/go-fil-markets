@@ -691,14 +691,8 @@ func (t *ClientDealState) MarshalCBOR(w io.Writer) error {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	if _, err := w.Write([]byte{143}); err != nil {
+	if _, err := w.Write([]byte{141}); err != nil {
 		return err
-	}
-
-	// t.ProposalCid (cid.Cid) (struct)
-
-	if err := cbg.WriteCid(w, t.ProposalCid); err != nil {
-		return xerrors.Errorf("failed to write cid field t.ProposalCid: %w", err)
 	}
 
 	// t.DealProposal (retrievalmarket.DealProposal) (struct)
@@ -721,13 +715,8 @@ func (t *ClientDealState) MarshalCBOR(w io.Writer) error {
 		return err
 	}
 
-	// t.PayCh (address.Address) (struct)
-	if err := t.PayCh.MarshalCBOR(w); err != nil {
-		return err
-	}
-
-	// t.Lane (uint64) (uint64)
-	if _, err := w.Write(cbg.CborEncodeMajorType(cbg.MajUnsignedInt, uint64(t.Lane))); err != nil {
+	// t.PaymentInfo (retrievalmarket.PaymentInfo) (struct)
+	if err := t.PaymentInfo.MarshalCBOR(w); err != nil {
 		return err
 	}
 
@@ -798,22 +787,10 @@ func (t *ClientDealState) UnmarshalCBOR(r io.Reader) error {
 		return fmt.Errorf("cbor input should be of type array")
 	}
 
-	if extra != 15 {
+	if extra != 13 {
 		return fmt.Errorf("cbor input had wrong number of fields")
 	}
 
-	// t.ProposalCid (cid.Cid) (struct)
-
-	{
-
-		c, err := cbg.ReadCid(br)
-		if err != nil {
-			return xerrors.Errorf("failed to read cid field t.ProposalCid: %w", err)
-		}
-
-		t.ProposalCid = c
-
-	}
 	// t.DealProposal (retrievalmarket.DealProposal) (struct)
 
 	{
@@ -850,25 +827,27 @@ func (t *ClientDealState) UnmarshalCBOR(r io.Reader) error {
 		}
 
 	}
-	// t.PayCh (address.Address) (struct)
+	// t.PaymentInfo (retrievalmarket.PaymentInfo) (struct)
 
 	{
 
-		if err := t.PayCh.UnmarshalCBOR(br); err != nil {
+		pb, err := br.PeekByte()
+		if err != nil {
 			return err
+		}
+		if pb == cbg.CborNull[0] {
+			var nbuf [1]byte
+			if _, err := br.Read(nbuf[:]); err != nil {
+				return err
+			}
+		} else {
+			t.PaymentInfo = new(PaymentInfo)
+			if err := t.PaymentInfo.UnmarshalCBOR(br); err != nil {
+				return err
+			}
 		}
 
 	}
-	// t.Lane (uint64) (uint64)
-
-	maj, extra, err = cbg.CborReadHeader(br)
-	if err != nil {
-		return err
-	}
-	if maj != cbg.MajUnsignedInt {
-		return fmt.Errorf("wrong type for uint64 field")
-	}
-	t.Lane = uint64(extra)
 	// t.Status (retrievalmarket.DealStatus) (uint64)
 
 	maj, extra, err = cbg.CborReadHeader(br)
@@ -947,5 +926,209 @@ func (t *ClientDealState) UnmarshalCBOR(r io.Reader) error {
 		}
 
 	}
+	return nil
+}
+
+func (t *ProviderDealState) MarshalCBOR(w io.Writer) error {
+	if t == nil {
+		_, err := w.Write(cbg.CborNull)
+		return err
+	}
+	if _, err := w.Write([]byte{135}); err != nil {
+		return err
+	}
+
+	// t.DealProposal (retrievalmarket.DealProposal) (struct)
+	if err := t.DealProposal.MarshalCBOR(w); err != nil {
+		return err
+	}
+
+	// t.Status (retrievalmarket.DealStatus) (uint64)
+	if _, err := w.Write(cbg.CborEncodeMajorType(cbg.MajUnsignedInt, uint64(t.Status))); err != nil {
+		return err
+	}
+
+	// t.Receiver (peer.ID) (string)
+	if len(t.Receiver) > cbg.MaxLength {
+		return xerrors.Errorf("Value in field t.Receiver was too long")
+	}
+
+	if _, err := w.Write(cbg.CborEncodeMajorType(cbg.MajTextString, uint64(len(t.Receiver)))); err != nil {
+		return err
+	}
+	if _, err := w.Write([]byte(t.Receiver)); err != nil {
+		return err
+	}
+
+	// t.TotalSent (uint64) (uint64)
+	if _, err := w.Write(cbg.CborEncodeMajorType(cbg.MajUnsignedInt, uint64(t.TotalSent))); err != nil {
+		return err
+	}
+
+	// t.FundsReceived (big.Int) (struct)
+	if err := t.FundsReceived.MarshalCBOR(w); err != nil {
+		return err
+	}
+
+	// t.Message (string) (string)
+	if len(t.Message) > cbg.MaxLength {
+		return xerrors.Errorf("Value in field t.Message was too long")
+	}
+
+	if _, err := w.Write(cbg.CborEncodeMajorType(cbg.MajTextString, uint64(len(t.Message)))); err != nil {
+		return err
+	}
+	if _, err := w.Write([]byte(t.Message)); err != nil {
+		return err
+	}
+
+	// t.CurrentInterval (uint64) (uint64)
+	if _, err := w.Write(cbg.CborEncodeMajorType(cbg.MajUnsignedInt, uint64(t.CurrentInterval))); err != nil {
+		return err
+	}
+	return nil
+}
+
+func (t *ProviderDealState) UnmarshalCBOR(r io.Reader) error {
+	br := cbg.GetPeeker(r)
+
+	maj, extra, err := cbg.CborReadHeader(br)
+	if err != nil {
+		return err
+	}
+	if maj != cbg.MajArray {
+		return fmt.Errorf("cbor input should be of type array")
+	}
+
+	if extra != 7 {
+		return fmt.Errorf("cbor input had wrong number of fields")
+	}
+
+	// t.DealProposal (retrievalmarket.DealProposal) (struct)
+
+	{
+
+		if err := t.DealProposal.UnmarshalCBOR(br); err != nil {
+			return err
+		}
+
+	}
+	// t.Status (retrievalmarket.DealStatus) (uint64)
+
+	maj, extra, err = cbg.CborReadHeader(br)
+	if err != nil {
+		return err
+	}
+	if maj != cbg.MajUnsignedInt {
+		return fmt.Errorf("wrong type for uint64 field")
+	}
+	t.Status = DealStatus(extra)
+	// t.Receiver (peer.ID) (string)
+
+	{
+		sval, err := cbg.ReadString(br)
+		if err != nil {
+			return err
+		}
+
+		t.Receiver = peer.ID(sval)
+	}
+	// t.TotalSent (uint64) (uint64)
+
+	maj, extra, err = cbg.CborReadHeader(br)
+	if err != nil {
+		return err
+	}
+	if maj != cbg.MajUnsignedInt {
+		return fmt.Errorf("wrong type for uint64 field")
+	}
+	t.TotalSent = uint64(extra)
+	// t.FundsReceived (big.Int) (struct)
+
+	{
+
+		if err := t.FundsReceived.UnmarshalCBOR(br); err != nil {
+			return err
+		}
+
+	}
+	// t.Message (string) (string)
+
+	{
+		sval, err := cbg.ReadString(br)
+		if err != nil {
+			return err
+		}
+
+		t.Message = string(sval)
+	}
+	// t.CurrentInterval (uint64) (uint64)
+
+	maj, extra, err = cbg.CborReadHeader(br)
+	if err != nil {
+		return err
+	}
+	if maj != cbg.MajUnsignedInt {
+		return fmt.Errorf("wrong type for uint64 field")
+	}
+	t.CurrentInterval = uint64(extra)
+	return nil
+}
+
+func (t *PaymentInfo) MarshalCBOR(w io.Writer) error {
+	if t == nil {
+		_, err := w.Write(cbg.CborNull)
+		return err
+	}
+	if _, err := w.Write([]byte{130}); err != nil {
+		return err
+	}
+
+	// t.PayCh (address.Address) (struct)
+	if err := t.PayCh.MarshalCBOR(w); err != nil {
+		return err
+	}
+
+	// t.Lane (uint64) (uint64)
+	if _, err := w.Write(cbg.CborEncodeMajorType(cbg.MajUnsignedInt, uint64(t.Lane))); err != nil {
+		return err
+	}
+	return nil
+}
+
+func (t *PaymentInfo) UnmarshalCBOR(r io.Reader) error {
+	br := cbg.GetPeeker(r)
+
+	maj, extra, err := cbg.CborReadHeader(br)
+	if err != nil {
+		return err
+	}
+	if maj != cbg.MajArray {
+		return fmt.Errorf("cbor input should be of type array")
+	}
+
+	if extra != 2 {
+		return fmt.Errorf("cbor input had wrong number of fields")
+	}
+
+	// t.PayCh (address.Address) (struct)
+
+	{
+
+		if err := t.PayCh.UnmarshalCBOR(br); err != nil {
+			return err
+		}
+
+	}
+	// t.Lane (uint64) (uint64)
+
+	maj, extra, err = cbg.CborReadHeader(br)
+	if err != nil {
+		return err
+	}
+	if maj != cbg.MajUnsignedInt {
+		return fmt.Errorf("wrong type for uint64 field")
+	}
+	t.Lane = uint64(extra)
 	return nil
 }
