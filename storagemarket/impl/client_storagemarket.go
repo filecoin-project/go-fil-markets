@@ -5,13 +5,12 @@ package storageimpl
 import (
 	"context"
 
-	"github.com/filecoin-project/go-fil-markets/shared/tokenamount"
+	"github.com/filecoin-project/specs-actors/actors/abi"
 
 	"github.com/ipfs/go-cid"
 	"golang.org/x/xerrors"
 
 	"github.com/filecoin-project/go-address"
-	"github.com/filecoin-project/go-fil-markets/shared/types"
 	"github.com/filecoin-project/go-fil-markets/storagemarket"
 )
 
@@ -50,13 +49,13 @@ func (c *Client) ListInProgressDeals(ctx context.Context) ([]storagemarket.Clien
 	out := make([]storagemarket.ClientDeal, len(deals))
 	for k, v := range deals {
 		out[k] = storagemarket.ClientDeal{
-			ProposalCid:    v.ProposalCid,
-			Proposal:       v.Proposal,
-			State:          v.State,
-			Miner:          v.Miner,
-			MinerWorker:    v.MinerWorker,
-			DealID:         v.DealID,
-			PublishMessage: v.PublishMessage,
+			ProposalCid:        v.ProposalCid,
+			ClientDealProposal: v.ClientDealProposal,
+			State:              v.State,
+			Miner:              v.Miner,
+			MinerWorker:        v.MinerWorker,
+			DealID:             v.DealID,
+			PublishMessage:     v.PublishMessage,
 		}
 	}
 
@@ -78,21 +77,30 @@ func (c *Client) GetInProgressDeal(ctx context.Context, cid cid.Cid) (storagemar
 	return storagemarket.ClientDeal{}, xerrors.Errorf("couldn't find client deal")
 }
 
-func (c *Client) GetAsk(ctx context.Context, info storagemarket.StorageProviderInfo) (*types.SignedStorageAsk, error) {
+func (c *Client) GetAsk(ctx context.Context, info storagemarket.StorageProviderInfo) (*storagemarket.SignedStorageAsk, error) {
 	return c.QueryAsk(ctx, info.PeerID, info.Address)
 }
 
-func (c *Client) ProposeStorageDeal(ctx context.Context, addr address.Address, info *storagemarket.StorageProviderInfo, data *storagemarket.DataRef, proposalExpiration storagemarket.Epoch, duration storagemarket.Epoch, price tokenamount.TokenAmount, collateral tokenamount.TokenAmount) (*storagemarket.ProposeStorageDealResult, error) {
+func (c *Client) ProposeStorageDeal(
+	ctx context.Context,
+	addr address.Address,
+	info *storagemarket.StorageProviderInfo,
+	data *storagemarket.DataRef,
+	startEpoch abi.ChainEpoch,
+	endEpoch abi.ChainEpoch,
+	price abi.TokenAmount,
+	collateral abi.TokenAmount,
+) (*storagemarket.ProposeStorageDealResult, error) {
 
 	proposal := ClientDealProposal{
-		Data:               data,
-		PricePerEpoch:      price,
-		ProposalExpiration: uint64(proposalExpiration),
-		Duration:           uint64(duration),
-		Client:             addr,
-		ProviderAddress:    info.Address,
-		MinerWorker:        info.Worker,
-		MinerID:            info.PeerID,
+		Data:            data,
+		PricePerEpoch:   price,
+		StartEpoch:      startEpoch,
+		EndEpoch:        endEpoch,
+		Client:          addr,
+		ProviderAddress: info.Address,
+		MinerWorker:     info.Worker,
+		MinerID:         info.PeerID,
 	}
 
 	proposalCid, err := c.Start(ctx, proposal)
@@ -111,7 +119,7 @@ func (c *Client) GetPaymentEscrow(ctx context.Context, addr address.Address) (st
 	return balance, err
 }
 
-func (c *Client) AddPaymentEscrow(ctx context.Context, addr address.Address, amount tokenamount.TokenAmount) error {
+func (c *Client) AddPaymentEscrow(ctx context.Context, addr address.Address, amount abi.TokenAmount) error {
 
 	return c.node.AddFunds(ctx, addr, amount)
 }

@@ -1,6 +1,7 @@
 package storageimpl
 
 import (
+	"bytes"
 	"context"
 	"runtime"
 
@@ -9,6 +10,7 @@ import (
 	datatransfer "github.com/filecoin-project/go-data-transfer"
 	"github.com/filecoin-project/go-fil-markets/storagemarket"
 	"github.com/filecoin-project/go-fil-markets/storagemarket/network"
+	"github.com/filecoin-project/specs-actors/actors/builtin/market"
 
 	cborutil "github.com/filecoin-project/go-cbor-util"
 	"github.com/filecoin-project/go-statestore"
@@ -47,6 +49,17 @@ func (p *Provider) failDeal(ctx context.Context, id cid.Cid, cerr error) {
 	}
 }
 
+func (p *Provider) verifyProposal(sdp *market.ClientDealProposal) error {
+	var buf bytes.Buffer
+	if err := sdp.Proposal.MarshalCBOR(&buf); err != nil {
+		return err
+	}
+	verified := p.spn.VerifySignature(sdp.ClientSignature, sdp.Proposal.Client, buf.Bytes())
+	if !verified {
+		return xerrors.New("could not verify signature")
+	}
+	return nil
+}
 func (p *Provider) readProposal(s network.StorageDealStream) (proposal network.Proposal, err error) {
 	proposal, err = s.ReadDealProposal()
 	if err != nil {
@@ -54,16 +67,12 @@ func (p *Provider) readProposal(s network.StorageDealStream) (proposal network.P
 		return proposal, err
 	}
 
-	if proposal.DealProposal.ProposerSignature == nil {
-		return proposal, xerrors.Errorf("incoming deal proposal has no signature")
-	}
-
-	if err := proposal.DealProposal.Verify(); err != nil {
+	if err := p.verifyProposal(proposal.DealProposal); err != nil {
 		return proposal, xerrors.Errorf("verifying StorageDealProposal: %w", err)
 	}
 
-	if proposal.DealProposal.Provider != p.actor {
-		log.Errorf("proposal with wrong ProviderAddress: %s", proposal.DealProposal.Provider)
+	if proposal.DealProposal.Proposal.Provider != p.actor {
+		log.Errorf("proposal with wrong ProviderAddress: %s", proposal.DealProposal.Proposal.Provider)
 		return proposal, err
 	}
 
@@ -160,7 +169,7 @@ func (m *ProviderRequestValidator) ValidatePush(
 	}
 
 	if !deal.Ref.Root.Equals(baseCid) {
-		return xerrors.Errorf("Deal Payload CID %s, Data Transfer CID %s: %w", string(deal.Proposal.PieceRef), baseCid.String(), ErrWrongPiece)
+		return xerrors.Errorf("Deal Payload CID %s, Data Transfer CID %s: %w", deal.Proposal.PieceCID.String(), baseCid.String(), ErrWrongPiece)
 	}
 	for _, state := range DataTransferStates {
 		if deal.State == state {

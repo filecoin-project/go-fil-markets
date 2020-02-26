@@ -1,7 +1,6 @@
 package storageimpl
 
 import (
-	"bytes"
 	"context"
 	"errors"
 	"io"
@@ -16,15 +15,15 @@ import (
 	"github.com/filecoin-project/go-address"
 	cborutil "github.com/filecoin-project/go-cbor-util"
 	datatransfer "github.com/filecoin-project/go-data-transfer"
+	commcid "github.com/filecoin-project/go-fil-commcid"
 	"github.com/filecoin-project/go-fil-markets/filestore"
 	"github.com/filecoin-project/go-fil-markets/pieceio"
 	"github.com/filecoin-project/go-fil-markets/pieceio/cario"
 	"github.com/filecoin-project/go-fil-markets/piecestore"
-	"github.com/filecoin-project/go-fil-markets/shared/tokenamount"
-	"github.com/filecoin-project/go-fil-markets/shared/types"
 	"github.com/filecoin-project/go-fil-markets/storagemarket"
 	"github.com/filecoin-project/go-fil-markets/storagemarket/network"
 	"github.com/filecoin-project/go-statestore"
+	"github.com/filecoin-project/specs-actors/actors/abi"
 )
 
 var ProviderDsPrefix = "/deals/provider"
@@ -39,10 +38,10 @@ type MinerDeal struct {
 type Provider struct {
 	net network.StorageMarketNetwork
 
-	pricePerByteBlock tokenamount.TokenAmount // how much we want for storing one byte for one block
-	minPieceSize      uint64
+	pricePerByteBlock abi.TokenAmount // how much we want for storing one byte for one block
+	minPieceSize      abi.PaddedPieceSize
 
-	ask   *types.SignedStorageAsk
+	ask   *storagemarket.SignedStorageAsk
 	askLk sync.Mutex
 
 	spn storagemarket.StorageProviderNode
@@ -91,8 +90,8 @@ func NewProvider(net network.StorageMarketNetwork, ds datastore.Batching, bs blo
 		dataTransfer: dataTransfer,
 		spn:          spn,
 
-		pricePerByteBlock: tokenamount.FromInt(3), // TODO: allow setting
-		minPieceSize:      256,                    // TODO: allow setting (BUT KEEP MIN 256! (because of how we fill sectors up))
+		pricePerByteBlock: abi.NewTokenAmount(3), // TODO: allow setting
+		minPieceSize:      256,                   // TODO: allow setting (BUT KEEP MIN 256! (because of how we fill sectors up))
 
 		conns: map[cid.Cid]network.StorageDealStream{},
 
@@ -114,7 +113,7 @@ func NewProvider(net network.StorageMarketNetwork, ds datastore.Batching, bs blo
 	if h.ask == nil {
 		// TODO: we should be fine with this state, and just say it means 'not actively accepting deals'
 		// for now... lets just set a price
-		if err := h.SetPrice(tokenamount.FromInt(500_000_000), 1000000); err != nil {
+		if err := h.SetPrice(abi.NewTokenAmount(500_000_000), 1000000); err != nil {
 			return nil, xerrors.Errorf("failed setting a default price: %w", err)
 		}
 	}
@@ -258,10 +257,10 @@ func (p *Provider) newDeal(s network.StorageDealStream, proposal network.Proposa
 
 	return MinerDeal{
 		MinerDeal: storagemarket.MinerDeal{
-			Client:      s.RemotePeer(),
-			Proposal:    *proposal.DealProposal,
-			ProposalCid: proposalNd.Cid(),
-			State:       storagemarket.StorageDealUnknown,
+			Client:             s.RemotePeer(),
+			ClientDealProposal: *proposal.DealProposal,
+			ProposalCid:        proposalNd.Cid(),
+			State:              storagemarket.StorageDealUnknown,
 
 			Ref: proposal.Piece,
 		},
@@ -313,18 +312,22 @@ func (p *Provider) ImportDataForDeal(ctx context.Context, propCid cid.Cid, data 
 	}
 	_ = n // TODO: verify n?
 
+	pieceSize := uint64(tempfi.Size())
+
 	_, err = tempfi.Seek(0, io.SeekStart)
 	if err != nil {
 		return xerrors.Errorf("failed to seek through temp imported file: %w", err)
 	}
 
-	commP, err := p.pio.ReadPiece(tempfi)
+	commP, _, err := pieceio.GeneratePieceCommitment(tempfi, pieceSize)
 	if err != nil {
 		return xerrors.Errorf("failed to generate commP")
 	}
 
-	if !bytes.Equal(commP.Bytes(), d.Proposal.PieceRef) {
-		return xerrors.Errorf("given data does not match expected commP (got: %x, expected %x)", commP.Bytes(), d.Proposal.PieceRef)
+	pieceCid := commcid.PieceCommitmentV1ToCID(commP)
+	// Verify CommP matches
+	if !pieceCid.Equals(d.Proposal.PieceCID) {
+		return xerrors.Errorf("given data does not match expected commP (got: %x, expected %x)", pieceCid, d.Proposal.PieceCID)
 	}
 
 	select {

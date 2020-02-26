@@ -3,7 +3,6 @@ package retrievalimpl_test
 import (
 	"bytes"
 	"context"
-	"math/rand"
 	"testing"
 	"time"
 
@@ -20,9 +19,10 @@ import (
 	retrievalimpl "github.com/filecoin-project/go-fil-markets/retrievalmarket/impl"
 	"github.com/filecoin-project/go-fil-markets/retrievalmarket/impl/testnodes"
 	rmnet "github.com/filecoin-project/go-fil-markets/retrievalmarket/network"
-	"github.com/filecoin-project/go-fil-markets/shared/tokenamount"
-	"github.com/filecoin-project/go-fil-markets/shared/types"
 	tut "github.com/filecoin-project/go-fil-markets/shared_testutil"
+	"github.com/filecoin-project/specs-actors/actors/abi"
+	"github.com/filecoin-project/specs-actors/actors/abi/big"
+	"github.com/filecoin-project/specs-actors/actors/builtin/paych"
 )
 
 func TestClientCanMakeQueryToProvider(t *testing.T) {
@@ -82,7 +82,7 @@ func requireSetupTestClientAndProvider(bgCtx context.Context, t *testing.T, payC
 	providerNode := testnodes.NewTestRetrievalProviderNode()
 	pieceStore := tut.NewTestPieceStore()
 	expectedCIDs := tut.GenerateCids(3)
-	expectedPieces := [][]byte{[]byte("applesuace"), []byte("jam"), []byte("apricot")}
+	expectedPieceCIDs := tut.GenerateCids(3)
 	missingCID := tut.GenerateCids(1)[0]
 	expectedQR := tut.MakeTestQueryResponse()
 
@@ -91,12 +91,12 @@ func requireSetupTestClientAndProvider(bgCtx context.Context, t *testing.T, payC
 		pieceStore.ExpectCID(c, piecestore.CIDInfo{
 			PieceBlockLocations: []piecestore.PieceBlockLocation{
 				{
-					PieceCID: expectedPieces[i],
+					PieceCID: expectedPieceCIDs[i],
 				},
 			},
 		})
 	}
-	for i, piece := range expectedPieces {
+	for i, piece := range expectedPieceCIDs {
 		pieceStore.ExpectPiece(piece, piecestore.PieceInfo{
 			Deals: []piecestore.DealInfo{
 				{
@@ -127,28 +127,28 @@ func TestClientCanMakeDealWithProvider(t *testing.T) {
 		name        string
 		filename    string
 		filesize    uint64
-		voucherAmts []tokenamount.TokenAmount
+		voucherAmts []abi.TokenAmount
 		unsealing   bool
 	}{
 		{name: "1 block file retrieval succeeds",
 			filename:    "lorem_under_1_block.txt",
 			filesize:    410,
-			voucherAmts: []tokenamount.TokenAmount{tokenamount.FromInt(410000)},
+			voucherAmts: []abi.TokenAmount{abi.NewTokenAmount(410000)},
 			unsealing:   false},
 		{name: "1 block file retrieval succeeds with unsealing",
 			filename:    "lorem_under_1_block.txt",
 			filesize:    410,
-			voucherAmts: []tokenamount.TokenAmount{tokenamount.FromInt(410000)},
+			voucherAmts: []abi.TokenAmount{abi.NewTokenAmount(410000)},
 			unsealing:   true},
 		{name: "multi-block file retrieval succeeds",
 			filename:    "lorem.txt",
 			filesize:    19000,
-			voucherAmts: []tokenamount.TokenAmount{tokenamount.FromInt(10136000), tokenamount.FromInt(9784000)},
+			voucherAmts: []abi.TokenAmount{abi.NewTokenAmount(10136000), abi.NewTokenAmount(9784000)},
 			unsealing:   false},
 		{name: "multi-block file retrieval succeeds with unsealing",
 			filename:    "lorem.txt",
 			filesize:    19000,
-			voucherAmts: []tokenamount.TokenAmount{tokenamount.FromInt(10136000), tokenamount.FromInt(9784000)},
+			voucherAmts: []abi.TokenAmount{abi.NewTokenAmount(10136000), abi.NewTokenAmount(9784000)},
 			unsealing:   true},
 	}
 
@@ -170,7 +170,7 @@ func TestClientCanMakeDealWithProvider(t *testing.T) {
 			require.NoError(t, err)
 			paymentInterval := uint64(10000)
 			paymentIntervalIncrease := uint64(1000)
-			pricePerByte := tokenamount.FromInt(1000)
+			pricePerByte := abi.NewTokenAmount(1000)
 
 			expectedQR := retrievalmarket.QueryResponse{
 				Size:                       1024,
@@ -224,7 +224,7 @@ func TestClientCanMakeDealWithProvider(t *testing.T) {
 			expectedVoucher := tut.MakeTestSignedVoucher()
 
 			// just make sure there is enough to cover the transfer
-			expectedTotal := tokenamount.Mul(pricePerByte, tokenamount.FromInt(testCase.filesize*2))
+			expectedTotal := big.Mul(pricePerByte, abi.NewTokenAmount(int64(testCase.filesize*2)))
 
 			// voucherAmts are pulled from the actual answer so the expected keys in the test node match up.
 			// later we compare the voucher values.  The last voucherAmt is a remainder
@@ -310,7 +310,7 @@ CurrentInterval: %d
 			require.Equal(t, clientPaymentChannel, *newLaneAddr)
 			// verify that the voucher was saved/seen by the client with correct values
 			require.NotNil(t, createdVoucher)
-			assert.True(t, createdVoucher.Equals(expectedVoucher))
+			tut.TestVoucherEquality(t, createdVoucher, expectedVoucher)
 
 			ctx, cancel = context.WithTimeout(bgCtx, 5*time.Second)
 			defer cancel()
@@ -334,14 +334,14 @@ CurrentInterval: %d
 
 func setupClient(
 	clientPaymentChannel address.Address,
-	expectedVoucher *types.SignedVoucher,
+	expectedVoucher *paych.SignedVoucher,
 	nw1 rmnet.RetrievalMarketNetwork,
 	testData *tut.Libp2pTestData) (*pmtChan,
 	*address.Address,
-	*types.SignedVoucher,
+	*paych.SignedVoucher,
 	retrievalmarket.RetrievalClient) {
 	var createdChan pmtChan
-	paymentChannelRecorder := func(client, miner address.Address, amt tokenamount.TokenAmount) {
+	paymentChannelRecorder := func(client, miner address.Address, amt abi.TokenAmount) {
 		createdChan = pmtChan{client, miner, amt}
 	}
 
@@ -350,8 +350,8 @@ func setupClient(
 		newLaneAddr = paymentChannel
 	}
 
-	var createdVoucher types.SignedVoucher
-	paymentVoucherRecorder := func(v *types.SignedVoucher) {
+	var createdVoucher paych.SignedVoucher
+	paymentVoucherRecorder := func(v *paych.SignedVoucher) {
 		createdVoucher = *v
 	}
 	clientNode := testnodes.NewTestRetrievalClientNode(testnodes.TestRetrievalClientNodeParams{
@@ -369,9 +369,7 @@ func setupClient(
 func setupProvider(t *testing.T, testData *tut.Libp2pTestData, payloadCID cid.Cid, pieceInfo piecestore.PieceInfo, expectedQR retrievalmarket.QueryResponse, providerPaymentAddr address.Address, providerNode retrievalmarket.RetrievalProviderNode) retrievalmarket.RetrievalProvider {
 	nw2 := rmnet.NewFromLibp2pHost(testData.Host2)
 	pieceStore := tut.NewTestPieceStore()
-	expectedPiece := make([]byte, 32)
-	_, err := rand.Read(expectedPiece)
-	require.NoError(t, err)
+	expectedPiece := tut.GenerateCids(1)[0]
 	cidInfo := piecestore.CIDInfo{
 		PieceBlockLocations: []piecestore.PieceBlockLocation{
 			{
@@ -390,5 +388,5 @@ func setupProvider(t *testing.T, testData *tut.Libp2pTestData, payloadCID cid.Ci
 
 type pmtChan struct {
 	client, miner address.Address
-	amt           tokenamount.TokenAmount
+	amt           abi.TokenAmount
 }

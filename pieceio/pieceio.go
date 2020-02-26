@@ -8,6 +8,7 @@ import (
 
 	"github.com/filecoin-project/go-padreader"
 	"github.com/filecoin-project/go-sectorbuilder"
+	"github.com/filecoin-project/specs-actors/actors/abi"
 	"github.com/ipfs/go-cid"
 	blockstore "github.com/ipfs/go-ipfs-blockstore"
 	"github.com/ipld/go-ipld-prime"
@@ -50,7 +51,7 @@ func NewPieceIOWithStore(carIO CarIO, store filestore.FileStore, bs blockstore.B
 	return &pieceIOWithStore{pieceIO{carIO, bs}, store}
 }
 
-func (pio *pieceIO) GeneratePieceCommitment(payloadCid cid.Cid, selector ipld.Node) ([]byte, uint64, error) {
+func (pio *pieceIO) GeneratePieceCommitment(payloadCid cid.Cid, selector ipld.Node) ([]byte, abi.UnpaddedPieceSize, error) {
 	preparedCar, err := pio.carIO.PrepareCar(context.Background(), pio.bs, payloadCid, selector)
 	if err != nil {
 		return nil, 0, err
@@ -86,7 +87,7 @@ func (pio *pieceIO) GeneratePieceCommitment(payloadCid cid.Cid, selector ipld.No
 	return commitment, paddedSize, nil
 }
 
-func (pio *pieceIOWithStore) GeneratePieceCommitmentToFile(payloadCid cid.Cid, selector ipld.Node) ([]byte, filestore.Path, uint64, error) {
+func (pio *pieceIOWithStore) GeneratePieceCommitmentToFile(payloadCid cid.Cid, selector ipld.Node) ([]byte, filestore.Path, abi.UnpaddedPieceSize, error) {
 	f, err := pio.store.CreateTemp()
 	if err != nil {
 		return nil, "", 0, err
@@ -115,7 +116,7 @@ func (pio *pieceIOWithStore) GeneratePieceCommitmentToFile(payloadCid cid.Cid, s
 	return commitment, f.Path(), paddedSize, nil
 }
 
-func GeneratePieceCommitment(rd io.Reader, pieceSize uint64) ([]byte, uint64, error) {
+func GeneratePieceCommitment(rd io.Reader, pieceSize uint64) ([]byte, abi.UnpaddedPieceSize, error) {
 	paddedReader, paddedSize := padreader.New(rd, pieceSize)
 	commitment, err := sectorbuilder.GeneratePieceCommitment(paddedReader, paddedSize)
 	if err != nil {

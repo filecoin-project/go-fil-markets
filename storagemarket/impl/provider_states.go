@@ -1,9 +1,9 @@
 package storageimpl
 
 import (
-	"bytes"
 	"context"
 
+	commcid "github.com/filecoin-project/go-fil-commcid"
 	"github.com/filecoin-project/go-padreader"
 	"github.com/ipfs/go-cid"
 	ipldfree "github.com/ipld/go-ipld-prime/impl/free"
@@ -12,9 +12,10 @@ import (
 	"golang.org/x/xerrors"
 
 	"github.com/filecoin-project/go-fil-markets/piecestore"
-	"github.com/filecoin-project/go-fil-markets/shared/tokenamount"
 	"github.com/filecoin-project/go-fil-markets/storagemarket"
 	"github.com/filecoin-project/go-fil-markets/storagemarket/network"
+	"github.com/filecoin-project/specs-actors/actors/abi"
+	"github.com/filecoin-project/specs-actors/actors/abi/big"
 )
 
 type providerHandlerFunc func(ctx context.Context, deal MinerDeal) (func(*MinerDeal), error)
@@ -45,13 +46,13 @@ func (p *Provider) validating(ctx context.Context, deal MinerDeal) (func(*MinerD
 	if err != nil {
 		return nil, err
 	}
-	if head.Height() >= deal.Proposal.ProposalExpiration {
+	if head.Height() >= deal.Proposal.StartEpoch {
 		return nil, xerrors.Errorf("deal proposal already expired")
 	}
 
 	// TODO: check StorageCollateral
 
-	minPrice := tokenamount.Div(tokenamount.Mul(p.ask.Ask.Price, tokenamount.FromInt(deal.Proposal.PieceSize)), tokenamount.FromInt(1<<30))
+	minPrice := big.Div(big.Mul(p.ask.Ask.Price, abi.NewTokenAmount(int64(deal.Proposal.PieceSize))), abi.NewTokenAmount(1<<30))
 	if deal.Proposal.StoragePricePerEpoch.LessThan(minPrice) {
 		return nil, xerrors.Errorf("storage price per epoch less than asking price: %s < %s", deal.Proposal.StoragePricePerEpoch, minPrice)
 	}
@@ -68,7 +69,7 @@ func (p *Provider) validating(ctx context.Context, deal MinerDeal) (func(*MinerD
 
 	// This doesn't guarantee that the client won't withdraw / lock those funds
 	// but it's a decent first filter
-	if clientMarketBalance.Available.LessThan(deal.Proposal.TotalStoragePrice()) {
+	if clientMarketBalance.Available.LessThan(deal.Proposal.TotalStorageFee()) {
 		return nil, xerrors.New("clientMarketBalance.Available too small")
 	}
 
@@ -90,7 +91,7 @@ func (p *Provider) transferring(ctx context.Context, deal MinerDeal) (func(*Mine
 	allSelector := ssb.ExploreRecursive(selector.RecursionLimitNone(),
 		ssb.ExploreAll(ssb.ExploreRecursiveEdge())).Node()
 
-	log.Infof("fetching data for a deal %d", deal.ProposalCid)
+	log.Infof("fetching data for a deal %s", deal.ProposalCid)
 
 	// initiate a pull data transfer. This will complete asynchronously and the
 	// completion of the data transfer will trigger a change in deal state
@@ -120,8 +121,9 @@ func (p *Provider) verifydata(ctx context.Context, deal MinerDeal) (func(*MinerD
 		return nil, err
 	}
 
+	pieceCid := commcid.PieceCommitmentV1ToCID(commp)
 	// Verify CommP matches
-	if !bytes.Equal(commp, deal.Proposal.PieceRef) {
+	if !pieceCid.Equals(deal.Proposal.PieceCID) {
 		return nil, xerrors.Errorf("proposal CommP doesn't match calculated CommP")
 	}
 
@@ -138,16 +140,16 @@ func (p *Provider) publishing(ctx context.Context, deal MinerDeal) (func(*MinerD
 	}
 
 	// TODO: check StorageCollateral (may be too large (or too small))
-	if err := p.spn.EnsureFunds(ctx, waddr, deal.Proposal.StorageCollateral); err != nil {
+	if err := p.spn.EnsureFunds(ctx, waddr, deal.Proposal.ProviderCollateral); err != nil {
 		return nil, err
 	}
 
 	smDeal := storagemarket.MinerDeal{
-		Client:      deal.Client,
-		Proposal:    deal.Proposal,
-		ProposalCid: deal.ProposalCid,
-		State:       deal.State,
-		Ref:         deal.Ref,
+		Client:             deal.Client,
+		ClientDealProposal: deal.ClientDealProposal,
+		ProposalCid:        deal.ProposalCid,
+		State:              deal.State,
+		Ref:                deal.Ref,
 	}
 
 	dealId, mcid, err := p.spn.PublishDeals(ctx, smDeal)
@@ -184,12 +186,12 @@ func (p *Provider) staged(ctx context.Context, deal MinerDeal) (func(*MinerDeal)
 	err = p.spn.OnDealComplete(
 		ctx,
 		storagemarket.MinerDeal{
-			Client:      deal.Client,
-			Proposal:    deal.Proposal,
-			ProposalCid: deal.ProposalCid,
-			State:       deal.State,
-			Ref:         deal.Ref,
-			DealID:      deal.DealID,
+			Client:             deal.Client,
+			ClientDealProposal: deal.ClientDealProposal,
+			ProposalCid:        deal.ProposalCid,
+			State:              deal.State,
+			Ref:                deal.Ref,
+			DealID:             deal.DealID,
 		},
 		paddedSize,
 		paddedReader,
@@ -229,13 +231,13 @@ func (p *Provider) complete(ctx context.Context, deal MinerDeal) (func(*MinerDea
 		return nil, err
 	}
 	// TODO: Record actual block locations for all CIDs in piece by improving car writing
-	err = p.pieceStore.AddPieceBlockLocations(deal.Proposal.PieceRef, map[cid.Cid]piecestore.BlockLocation{
+	err = p.pieceStore.AddPieceBlockLocations(deal.Proposal.PieceCID, map[cid.Cid]piecestore.BlockLocation{
 		deal.Ref.Root: {},
 	})
 	if err != nil {
 		return nil, err
 	}
-	return nil, p.pieceStore.AddDealForPiece(deal.Proposal.PieceRef, piecestore.DealInfo{
+	return nil, p.pieceStore.AddDealForPiece(deal.Proposal.PieceCID, piecestore.DealInfo{
 		DealID:   deal.DealID,
 		SectorID: sectorID,
 		Offset:   offset,

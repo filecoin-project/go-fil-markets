@@ -6,20 +6,19 @@ import (
 	"context"
 
 	"github.com/filecoin-project/go-address"
-	"github.com/filecoin-project/go-fil-markets/shared/tokenamount"
-	"github.com/filecoin-project/go-fil-markets/shared/types"
 	"github.com/filecoin-project/go-fil-markets/storagemarket"
+	"github.com/filecoin-project/specs-actors/actors/abi"
 )
 
-func (p *Provider) AddAsk(price tokenamount.TokenAmount, ttlsecs int64) error {
-	return p.SetPrice(price, ttlsecs)
+func (p *Provider) AddAsk(price abi.TokenAmount, duration abi.ChainEpoch) error {
+	return p.SetPrice(price, duration)
 }
 
-func (p *Provider) ListAsks(addr address.Address) []*types.SignedStorageAsk {
+func (p *Provider) ListAsks(addr address.Address) []*storagemarket.SignedStorageAsk {
 	ask := p.GetAsk(addr)
 
 	if ask != nil {
-		return []*types.SignedStorageAsk{ask}
+		return []*storagemarket.SignedStorageAsk{ask}
 	}
 
 	return nil
@@ -29,7 +28,7 @@ func (p *Provider) ListDeals(ctx context.Context) ([]storagemarket.StorageDeal, 
 	return p.spn.ListProviderDeals(ctx, p.actor)
 }
 
-func (p *Provider) AddStorageCollateral(ctx context.Context, amount tokenamount.TokenAmount) error {
+func (p *Provider) AddStorageCollateral(ctx context.Context, amount abi.TokenAmount) error {
 	return p.spn.AddFunds(ctx, p.actor, amount)
 }
 
@@ -49,12 +48,12 @@ func (p *Provider) ListIncompleteDeals() ([]storagemarket.MinerDeal, error) {
 
 	for _, deal := range deals {
 		out = append(out, storagemarket.MinerDeal{
-			Client:      deal.Client,
-			Proposal:    deal.Proposal,
-			ProposalCid: deal.ProposalCid,
-			State:       deal.State,
-			Ref:         deal.Ref,
-			DealID:      deal.DealID,
+			Client:             deal.Client,
+			ClientDealProposal: deal.ClientDealProposal,
+			ProposalCid:        deal.ProposalCid,
+			State:              deal.State,
+			Ref:                deal.Ref,
+			DealID:             deal.DealID,
 		})
 	}
 

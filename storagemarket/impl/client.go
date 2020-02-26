@@ -6,6 +6,7 @@ import (
 	"github.com/filecoin-project/go-fil-markets/storagemarket/network"
 
 	cborutil "github.com/filecoin-project/go-cbor-util"
+	"github.com/filecoin-project/specs-actors/actors/abi/big"
 	"github.com/ipfs/go-cid"
 	blockstore "github.com/ipfs/go-ipfs-blockstore"
 	logging "github.com/ipfs/go-log/v2"
@@ -14,20 +15,21 @@ import (
 
 	"github.com/filecoin-project/go-address"
 	datatransfer "github.com/filecoin-project/go-data-transfer"
+	commcid "github.com/filecoin-project/go-fil-commcid"
 	"github.com/filecoin-project/go-fil-markets/filestore"
 	"github.com/filecoin-project/go-fil-markets/pieceio"
 	"github.com/filecoin-project/go-fil-markets/pieceio/cario"
 	"github.com/filecoin-project/go-fil-markets/retrievalmarket"
 	"github.com/filecoin-project/go-fil-markets/retrievalmarket/discovery"
-	"github.com/filecoin-project/go-fil-markets/shared/tokenamount"
-	"github.com/filecoin-project/go-fil-markets/shared/types"
 	"github.com/filecoin-project/go-fil-markets/storagemarket"
 	"github.com/filecoin-project/go-statestore"
+	"github.com/filecoin-project/specs-actors/actors/abi"
+	"github.com/filecoin-project/specs-actors/actors/builtin/market"
 )
 
 //go:generate cbor-gen-for ClientDeal ClientDealProposal
 
-var log = logging.Logger("deals")
+var log = logging.Logger("storagemarket_impl")
 
 type ClientDeal struct {
 	storagemarket.ClientDeal
@@ -68,7 +70,14 @@ type clientDealUpdate struct {
 	mut      func(*ClientDeal)
 }
 
-func NewClient(net network.StorageMarketNetwork, bs blockstore.Blockstore, dataTransfer datatransfer.Manager, discovery *discovery.Local, deals *statestore.StateStore, scn storagemarket.StorageClientNode) *Client {
+func NewClient(
+	net network.StorageMarketNetwork,
+	bs blockstore.Blockstore,
+	dataTransfer datatransfer.Manager,
+	discovery *discovery.Local,
+	deals *statestore.StateStore,
+	scn storagemarket.StorageClientNode,
+) *Client {
 	carIO := cario.NewCarIO()
 	pio := pieceio.NewPieceIO(carIO, bs)
 
@@ -172,9 +181,9 @@ func (c *Client) onUpdated(ctx context.Context, update clientDealUpdate) {
 type ClientDealProposal struct {
 	Data *storagemarket.DataRef
 
-	PricePerEpoch      tokenamount.TokenAmount
-	ProposalExpiration uint64
-	Duration           uint64
+	PricePerEpoch abi.TokenAmount
+	StartEpoch    abi.ChainEpoch
+	EndEpoch      abi.ChainEpoch
 
 	ProviderAddress address.Address
 	Client          address.Address
@@ -183,32 +192,33 @@ type ClientDealProposal struct {
 }
 
 func (c *Client) Start(ctx context.Context, p ClientDealProposal) (cid.Cid, error) {
-	amount := tokenamount.Mul(p.PricePerEpoch, tokenamount.FromInt(p.Duration))
-	if err := c.node.EnsureFunds(ctx, p.Client, amount); err != nil {
-		return cid.Undef, xerrors.Errorf("adding market funds failed: %w", err)
-	}
-
 	commP, pieceSize, err := c.commP(ctx, p.Data.Root)
 	if err != nil {
 		return cid.Undef, xerrors.Errorf("computing commP failed: %w", err)
 	}
 
-	dealProposal := &storagemarket.StorageDealProposal{
-		PieceRef:             commP,
-		PieceSize:            uint64(pieceSize),
+	dealProposal := market.DealProposal{
+		PieceCID:             commcid.PieceCommitmentV1ToCID(commP),
+		PieceSize:            pieceSize.Padded(),
 		Client:               p.Client,
 		Provider:             p.ProviderAddress,
-		ProposalExpiration:   p.ProposalExpiration,
-		Duration:             p.Duration,
+		StartEpoch:           p.StartEpoch,
+		EndEpoch:             p.EndEpoch,
 		StoragePricePerEpoch: p.PricePerEpoch,
-		StorageCollateral:    tokenamount.FromInt(uint64(pieceSize)), // TODO: real calc
+		ProviderCollateral:   abi.NewTokenAmount(int64(pieceSize)), // TODO: real calc
+		ClientCollateral:     big.Zero(),
 	}
 
-	if err := c.node.SignProposal(ctx, p.Client, dealProposal); err != nil {
+	if err := c.node.EnsureFunds(ctx, p.Client, dealProposal.ClientBalanceRequirement()); err != nil {
+		return cid.Undef, xerrors.Errorf("adding market funds failed: %w", err)
+	}
+
+	clientDealProposal, err := c.node.SignProposal(ctx, p.Client, dealProposal)
+	if err != nil {
 		return cid.Undef, xerrors.Errorf("signing deal proposal failed: %w", err)
 	}
 
-	proposalNd, err := cborutil.AsIpld(dealProposal)
+	proposalNd, err := cborutil.AsIpld(clientDealProposal)
 	if err != nil {
 		return cid.Undef, xerrors.Errorf("getting proposal node failed: %w", err)
 	}
@@ -218,19 +228,19 @@ func (c *Client) Start(ctx context.Context, p ClientDealProposal) (cid.Cid, erro
 		return cid.Undef, xerrors.Errorf("connecting to storage provider failed: %w", err)
 	}
 
-	proposal := network.Proposal{DealProposal: dealProposal, Piece: p.Data}
+	proposal := network.Proposal{DealProposal: clientDealProposal, Piece: p.Data}
 	if err := s.WriteDealProposal(proposal); err != nil {
 		return cid.Undef, xerrors.Errorf("sending proposal to storage provider failed: %w", err)
 	}
 
 	deal := &ClientDeal{
 		ClientDeal: storagemarket.ClientDeal{
-			ProposalCid: proposalNd.Cid(),
-			Proposal:    *dealProposal,
-			State:       storagemarket.StorageDealUnknown,
-			Miner:       p.MinerID,
-			MinerWorker: p.MinerWorker,
-			DataRef:     p.Data,
+			ProposalCid:        proposalNd.Cid(),
+			ClientDealProposal: *clientDealProposal,
+			State:              storagemarket.StorageDealUnknown,
+			Miner:              p.MinerID,
+			MinerWorker:        p.MinerWorker,
+			DataRef:            p.Data,
 		},
 
 		s: s,
@@ -244,7 +254,7 @@ func (c *Client) Start(ctx context.Context, p ClientDealProposal) (cid.Cid, erro
 	})
 }
 
-func (c *Client) QueryAsk(ctx context.Context, p peer.ID, a address.Address) (*types.SignedStorageAsk, error) {
+func (c *Client) QueryAsk(ctx context.Context, p peer.ID, a address.Address) (*storagemarket.SignedStorageAsk, error) {
 	s, err := c.net.NewAskStream(p)
 	if err != nil {
 		return nil, xerrors.Errorf("failed to open stream to miner: %w", err)
