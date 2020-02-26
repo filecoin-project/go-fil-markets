@@ -17,7 +17,7 @@ func recordError(deal *rm.ProviderDealState, err error) error {
 var ProviderEvents = fsm.Events{
 	fsm.Event(rm.ProviderEventOpen).
 		From(rm.DealStatusNew).ToNoChange().
-		WithCallback(
+		Action(
 			func(deal *rm.ProviderDealState) error {
 				deal.TotalSent = 0
 				deal.FundsReceived = abi.NewTokenAmount(0)
@@ -26,57 +26,57 @@ var ProviderEvents = fsm.Events{
 		),
 	fsm.Event(rm.ProviderEventWriteResponseFailed).
 		FromAny().To(rm.DealStatusErrored).
-		WithCallback(func(deal *rm.ProviderDealState, err error) error {
+		Action(func(deal *rm.ProviderDealState, err error) error {
 			deal.Message = xerrors.Errorf("writing deal response: %w", err).Error()
 			return nil
 		}),
 	fsm.Event(rm.ProviderEventReadPaymentFailed).
 		FromAny().To(rm.DealStatusErrored).
-		WithCallback(recordError),
+		Action(recordError),
 	fsm.Event(rm.ProviderEventGetPieceSizeErrored).
 		From(rm.DealStatusNew).To(rm.DealStatusFailed).
-		WithCallback(recordError),
+		Action(recordError),
 	fsm.Event(rm.ProviderEventDealNotFound).
 		From(rm.DealStatusNew).To(rm.DealStatusDealNotFound).
-		WithCallback(func(deal *rm.ProviderDealState) error {
+		Action(func(deal *rm.ProviderDealState) error {
 			deal.Message = rm.ErrNotFound.Error()
 			return nil
 		}),
 	fsm.Event(rm.ProviderEventDealRejected).
 		From(rm.DealStatusNew).To(rm.DealStatusRejected).
-		WithCallback(recordError),
+		Action(recordError),
 	fsm.Event(rm.ProviderEventDealAccepted).
 		From(rm.DealStatusNew).To(rm.DealStatusAccepted).
-		WithCallback(func(deal *rm.ProviderDealState, dealProposal rm.DealProposal) error {
+		Action(func(deal *rm.ProviderDealState, dealProposal rm.DealProposal) error {
 			deal.DealProposal = dealProposal
 			deal.CurrentInterval = deal.PaymentInterval
 			return nil
 		}),
 	fsm.Event(rm.ProviderEventBlockErrored).
 		FromMany(rm.DealStatusAccepted, rm.DealStatusOngoing).To(rm.DealStatusFailed).
-		WithCallback(recordError),
+		Action(recordError),
 	fsm.Event(rm.ProviderEventBlocksCompleted).
 		FromMany(rm.DealStatusAccepted, rm.DealStatusOngoing).To(rm.DealStatusBlocksComplete),
 	fsm.Event(rm.ProviderEventPaymentRequested).
 		FromMany(rm.DealStatusAccepted, rm.DealStatusOngoing).To(rm.DealStatusFundsNeeded).
 		From(rm.DealStatusBlocksComplete).To(rm.DealStatusFundsNeededLastPayment).
-		WithCallback(func(deal *rm.ProviderDealState, totalSent uint64) error {
+		Action(func(deal *rm.ProviderDealState, totalSent uint64) error {
 			deal.TotalSent = totalSent
 			return nil
 		}),
 	fsm.Event(rm.ProviderEventSaveVoucherFailed).
 		FromMany(rm.DealStatusFundsNeeded, rm.DealStatusFundsNeededLastPayment).To(rm.DealStatusFailed).
-		WithCallback(recordError),
+		Action(recordError),
 	fsm.Event(rm.ProviderEventPartialPaymentReceived).
 		FromMany(rm.DealStatusFundsNeeded, rm.DealStatusFundsNeededLastPayment).ToNoChange().
-		WithCallback(func(deal *rm.ProviderDealState, fundsReceived abi.TokenAmount) error {
+		Action(func(deal *rm.ProviderDealState, fundsReceived abi.TokenAmount) error {
 			deal.FundsReceived = big.Add(deal.FundsReceived, fundsReceived)
 			return nil
 		}),
 	fsm.Event(rm.ProviderEventPaymentReceived).
 		From(rm.DealStatusFundsNeeded).To(rm.DealStatusOngoing).
 		From(rm.DealStatusFundsNeededLastPayment).To(rm.DealStatusFinalizing).
-		WithCallback(func(deal *rm.ProviderDealState, fundsReceived abi.TokenAmount) error {
+		Action(func(deal *rm.ProviderDealState, fundsReceived abi.TokenAmount) error {
 			deal.FundsReceived = big.Add(deal.FundsReceived, fundsReceived)
 			deal.CurrentInterval += deal.PaymentIntervalIncrease
 			return nil
@@ -85,8 +85,8 @@ var ProviderEvents = fsm.Events{
 		From(rm.DealStatusFinalizing).To(rm.DealStatusCompleted),
 }
 
-// ProviderHandlers are the handlers for different states in a retrieval provider
-var ProviderHandlers = fsm.StateHandlers{
+// ProviderStateEntryFuncs are the handlers for different states in a retrieval provider
+var ProviderStateEntryFuncs = fsm.StateEntryFuncs{
 	rm.DealStatusNew:                    ReceiveDeal,
 	rm.DealStatusFailed:                 SendFailResponse,
 	rm.DealStatusRejected:               SendFailResponse,

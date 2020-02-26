@@ -17,28 +17,17 @@ type ClientDealEnvironment interface {
 	ConsumeBlock(context.Context, rm.DealID, rm.Block) (uint64, bool, error)
 }
 
-func errorFunc(err error) func(*rm.ClientDealState) {
-	return func(deal *rm.ClientDealState) {
-		deal.Status = rm.DealStatusFailed
-		deal.Message = err.Error()
-	}
-}
-
-// ClientHandlerFunc is a function that handles a client deal being in a specific state
-// It processes the state and returns a modification function for a deal
-type ClientHandlerFunc func(ctx fsm.Context, environment ClientDealEnvironment, deal rm.ClientDealState) error
-
 // SetupPaymentChannel sets up a payment channel for a deal
 func SetupPaymentChannel(ctx fsm.Context, environment ClientDealEnvironment, deal rm.ClientDealState) error {
 	paych, err := environment.Node().GetOrCreatePaymentChannel(ctx.Context(), deal.ClientWallet, deal.MinerWallet, deal.TotalFunds)
 	if err != nil {
-		return ctx.Event(rm.ClientEventPaymentChannelErrored, err)
+		return ctx.Trigger(rm.ClientEventPaymentChannelErrored, err)
 	}
 	lane, err := environment.Node().AllocateLane(paych)
 	if err != nil {
-		return ctx.Event(rm.ClientEventAllocateLaneErrored, err)
+		return ctx.Trigger(rm.ClientEventAllocateLaneErrored, err)
 	}
-	return ctx.Event(rm.ClientEventPaymentChannelCreated, paych, lane)
+	return ctx.Trigger(rm.ClientEventPaymentChannelCreated, paych, lane)
 }
 
 // ProposeDeal sends the proposal to the other party
@@ -46,21 +35,21 @@ func ProposeDeal(ctx fsm.Context, environment ClientDealEnvironment, deal rm.Cli
 	stream := environment.DealStream(deal.ID)
 	err := stream.WriteDealProposal(deal.DealProposal)
 	if err != nil {
-		return ctx.Event(rm.ClientEventWriteDealProposalErrored, err)
+		return ctx.Trigger(rm.ClientEventWriteDealProposalErrored, err)
 	}
 	response, err := stream.ReadDealResponse()
 	if err != nil {
-		return ctx.Event(rm.ClientEventReadDealResponseErrored, err)
+		return ctx.Trigger(rm.ClientEventReadDealResponseErrored, err)
 	}
 	switch response.Status {
 	case rm.DealStatusRejected:
-		return ctx.Event(rm.ClientEventDealRejected, response.Message)
+		return ctx.Trigger(rm.ClientEventDealRejected, response.Message)
 	case rm.DealStatusDealNotFound:
-		return ctx.Event(rm.ClientEventDealNotFound, response.Message)
+		return ctx.Trigger(rm.ClientEventDealNotFound, response.Message)
 	case rm.DealStatusAccepted:
-		return ctx.Event(rm.ClientEventDealAccepted)
+		return ctx.Trigger(rm.ClientEventDealAccepted)
 	default:
-		return ctx.Event(rm.ClientEventUnknownResponseReceived)
+		return ctx.Trigger(rm.ClientEventUnknownResponseReceived)
 	}
 }
 
@@ -71,17 +60,17 @@ func ProcessPaymentRequested(ctx fsm.Context, environment ClientDealEnvironment,
 	if big.Add(deal.FundsSpent, deal.PaymentRequested).GreaterThan(deal.TotalFunds) {
 		expectedTotal := deal.TotalFunds.String()
 		actualTotal := big.Add(deal.FundsSpent, deal.PaymentRequested).String()
-		return ctx.Event(rm.ClientEventFundsExpended, expectedTotal, actualTotal)
+		return ctx.Trigger(rm.ClientEventFundsExpended, expectedTotal, actualTotal)
 	}
 
 	// check that totalReceived - bytesPaidFor >= currentInterval, or fail
 	if (deal.TotalReceived-deal.BytesPaidFor < deal.CurrentInterval) && deal.Status != rm.DealStatusFundsNeededLastPayment {
-		return ctx.Event(rm.ClientEventBadPaymentRequested, "not enough bytes received between payment request")
+		return ctx.Trigger(rm.ClientEventBadPaymentRequested, "not enough bytes received between payment request")
 	}
 
 	// check that paymentRequest <= (totalReceived - bytesPaidFor) * pricePerByte, or fail
 	if deal.PaymentRequested.GreaterThan(big.Mul(abi.NewTokenAmount(int64(deal.TotalReceived-deal.BytesPaidFor)), deal.PricePerByte)) {
-		return ctx.Event(rm.ClientEventBadPaymentRequested, "too much money requested for bytes sent")
+		return ctx.Trigger(rm.ClientEventBadPaymentRequested, "too much money requested for bytes sent")
 	}
 
 	// create payment voucher with node (or fail) for (fundsSpent + paymentRequested)
@@ -89,7 +78,7 @@ func ProcessPaymentRequested(ctx fsm.Context, environment ClientDealEnvironment,
 	// (node will do subtraction back to paymentRequested... slightly odd behavior but... well anyway)
 	voucher, err := environment.Node().CreatePaymentVoucher(ctx.Context(), deal.PaymentInfo.PayCh, big.Add(deal.FundsSpent, deal.PaymentRequested), deal.PaymentInfo.Lane)
 	if err != nil {
-		return ctx.Event(rm.ClientEventCreateVoucherFailed, err)
+		return ctx.Trigger(rm.ClientEventCreateVoucherFailed, err)
 	}
 
 	// send payment voucher (or fail)
@@ -99,10 +88,10 @@ func ProcessPaymentRequested(ctx fsm.Context, environment ClientDealEnvironment,
 		PaymentVoucher: voucher,
 	})
 	if err != nil {
-		return ctx.Event(rm.ClientEventWriteDealPaymentErrored, err)
+		return ctx.Trigger(rm.ClientEventWriteDealPaymentErrored, err)
 	}
 
-	return ctx.Event(rm.ClientEventPaymentSent)
+	return ctx.Trigger(rm.ClientEventPaymentSent)
 }
 
 // ProcessNextResponse reads and processes the next response from the provider
@@ -110,7 +99,7 @@ func ProcessNextResponse(ctx fsm.Context, environment ClientDealEnvironment, dea
 	// Read next response (or fail)
 	response, err := environment.DealStream(deal.ID).ReadDealResponse()
 	if err != nil {
-		return ctx.Event(rm.ClientEventReadDealResponseErrored, err)
+		return ctx.Trigger(rm.ClientEventReadDealResponseErrored, err)
 	}
 
 	// Process Blocks
@@ -119,7 +108,7 @@ func ProcessNextResponse(ctx fsm.Context, environment ClientDealEnvironment, dea
 	for _, block := range response.Blocks {
 		processed, done, err := environment.ConsumeBlock(ctx.Context(), deal.ID, block)
 		if err != nil {
-			return ctx.Event(rm.ClientEventConsumeBlockFailed, err)
+			return ctx.Trigger(rm.ClientEventConsumeBlockFailed, err)
 		}
 		totalProcessed += processed
 		if done {
@@ -131,25 +120,25 @@ func ProcessNextResponse(ctx fsm.Context, environment ClientDealEnvironment, dea
 	if completed {
 		switch response.Status {
 		case rm.DealStatusFundsNeededLastPayment:
-			return ctx.Event(rm.ClientEventLastPaymentRequested, totalProcessed, response.PaymentOwed)
+			return ctx.Trigger(rm.ClientEventLastPaymentRequested, totalProcessed, response.PaymentOwed)
 		case rm.DealStatusBlocksComplete:
-			return ctx.Event(rm.ClientEventAllBlocksReceived, totalProcessed)
+			return ctx.Trigger(rm.ClientEventAllBlocksReceived, totalProcessed)
 		case rm.DealStatusCompleted:
-			return ctx.Event(rm.ClientEventComplete, totalProcessed)
+			return ctx.Trigger(rm.ClientEventComplete, totalProcessed)
 		default:
-			return ctx.Event(rm.ClientEventUnknownResponseReceived)
+			return ctx.Trigger(rm.ClientEventUnknownResponseReceived)
 		}
 	}
 	switch response.Status {
 	// Error on complete status, but not all blocks received
 	case rm.DealStatusFundsNeededLastPayment, rm.DealStatusCompleted:
-		return ctx.Event(rm.ClientEventEarlyTermination)
+		return ctx.Trigger(rm.ClientEventEarlyTermination)
 	case rm.DealStatusFundsNeeded:
-		return ctx.Event(rm.ClientEventPaymentRequested, totalProcessed, response.PaymentOwed)
+		return ctx.Trigger(rm.ClientEventPaymentRequested, totalProcessed, response.PaymentOwed)
 	case rm.DealStatusOngoing:
-		return ctx.Event(rm.ClientEventBlocksReceived, totalProcessed)
+		return ctx.Trigger(rm.ClientEventBlocksReceived, totalProcessed)
 	default:
-		return ctx.Event(rm.ClientEventUnknownResponseReceived)
+		return ctx.Trigger(rm.ClientEventUnknownResponseReceived)
 	}
 }
 
@@ -158,12 +147,12 @@ func Finalize(ctx fsm.Context, environment ClientDealEnvironment, deal rm.Client
 	// Read next response (or fail)
 	response, err := environment.DealStream(deal.ID).ReadDealResponse()
 	if err != nil {
-		return ctx.Event(rm.ClientEventReadDealResponseErrored, err)
+		return ctx.Trigger(rm.ClientEventReadDealResponseErrored, err)
 	}
 
 	if response.Status != rm.DealStatusCompleted {
-		return ctx.Event(rm.ClientEventUnknownResponseReceived)
+		return ctx.Trigger(rm.ClientEventUnknownResponseReceived)
 	}
 
-	return ctx.Event(rm.ClientEventComplete, uint64(0))
+	return ctx.Trigger(rm.ClientEventComplete, uint64(0))
 }

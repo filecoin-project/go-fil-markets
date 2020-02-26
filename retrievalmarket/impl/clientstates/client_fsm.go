@@ -28,19 +28,19 @@ var ClientEvents = fsm.Events{
 		From(rm.DealStatusNew).ToNoChange(),
 	fsm.Event(rm.ClientEventPaymentChannelErrored).
 		From(rm.DealStatusAccepted).To(rm.DealStatusFailed).
-		WithCallback(func(deal *rm.ClientDealState, err error) error {
+		Action(func(deal *rm.ClientDealState, err error) error {
 			deal.Message = xerrors.Errorf("getting payment channel: %w", err).Error()
 			return nil
 		}),
 	fsm.Event(rm.ClientEventAllocateLaneErrored).
 		From(rm.DealStatusAccepted).To(rm.DealStatusFailed).
-		WithCallback(func(deal *rm.ClientDealState, err error) error {
+		Action(func(deal *rm.ClientDealState, err error) error {
 			deal.Message = xerrors.Errorf("allocating payment lane: %w", err).Error()
 			return nil
 		}),
 	fsm.Event(rm.ClientEventPaymentChannelCreated).
 		From(rm.DealStatusAccepted).To(rm.DealStatusPaymentChannelCreated).
-		WithCallback(func(deal *rm.ClientDealState, payCh address.Address, lane uint64) error {
+		Action(func(deal *rm.ClientDealState, payCh address.Address, lane uint64) error {
 			deal.PaymentInfo = &rm.PaymentInfo{
 				PayCh: payCh,
 				Lane:  lane,
@@ -49,25 +49,25 @@ var ClientEvents = fsm.Events{
 		}),
 	fsm.Event(rm.ClientEventWriteDealProposalErrored).
 		FromAny().To(rm.DealStatusErrored).
-		WithCallback(func(deal *rm.ClientDealState, err error) error {
+		Action(func(deal *rm.ClientDealState, err error) error {
 			deal.Message = xerrors.Errorf("proposing deal: %w", err).Error()
 			return nil
 		}),
 	fsm.Event(rm.ClientEventReadDealResponseErrored).
 		FromAny().To(rm.DealStatusErrored).
-		WithCallback(func(deal *rm.ClientDealState, err error) error {
+		Action(func(deal *rm.ClientDealState, err error) error {
 			deal.Message = xerrors.Errorf("reading deal response: %w", err).Error()
 			return nil
 		}),
 	fsm.Event(rm.ClientEventDealRejected).
 		From(rm.DealStatusNew).To(rm.DealStatusRejected).
-		WithCallback(func(deal *rm.ClientDealState, message string) error {
+		Action(func(deal *rm.ClientDealState, message string) error {
 			deal.Message = fmt.Sprintf("deal rejected: %s", message)
 			return nil
 		}),
 	fsm.Event(rm.ClientEventDealNotFound).
 		From(rm.DealStatusNew).To(rm.DealStatusDealNotFound).
-		WithCallback(func(deal *rm.ClientDealState, message string) error {
+		Action(func(deal *rm.ClientDealState, message string) error {
 			deal.Message = fmt.Sprintf("deal not found: %s", message)
 			return nil
 		}),
@@ -75,38 +75,38 @@ var ClientEvents = fsm.Events{
 		From(rm.DealStatusNew).To(rm.DealStatusAccepted),
 	fsm.Event(rm.ClientEventUnknownResponseReceived).
 		FromAny().To(rm.DealStatusFailed).
-		WithCallback(func(deal *rm.ClientDealState) error {
+		Action(func(deal *rm.ClientDealState) error {
 			deal.Message = "Unexpected deal response status"
 			return nil
 		}),
 	fsm.Event(rm.ClientEventFundsExpended).
 		FromMany(rm.DealStatusFundsNeeded, rm.DealStatusFundsNeededLastPayment).To(rm.DealStatusFailed).
-		WithCallback(func(deal *rm.ClientDealState, expectedTotal string, actualTotal string) error {
+		Action(func(deal *rm.ClientDealState, expectedTotal string, actualTotal string) error {
 			deal.Message = fmt.Sprintf("not enough funds left: expected amt = %s, actual amt = %s", expectedTotal, actualTotal)
 			return nil
 		}),
 	fsm.Event(rm.ClientEventBadPaymentRequested).
 		FromMany(rm.DealStatusFundsNeeded, rm.DealStatusFundsNeededLastPayment).To(rm.DealStatusFailed).
-		WithCallback(func(deal *rm.ClientDealState, message string) error {
+		Action(func(deal *rm.ClientDealState, message string) error {
 			deal.Message = message
 			return nil
 		}),
 	fsm.Event(rm.ClientEventCreateVoucherFailed).
 		FromMany(rm.DealStatusFundsNeeded, rm.DealStatusFundsNeededLastPayment).To(rm.DealStatusFailed).
-		WithCallback(func(deal *rm.ClientDealState, err error) error {
+		Action(func(deal *rm.ClientDealState, err error) error {
 			deal.Message = xerrors.Errorf("creating payment voucher: %w", err).Error()
 			return nil
 		}),
 	fsm.Event(rm.ClientEventWriteDealPaymentErrored).
 		FromAny().To(rm.DealStatusErrored).
-		WithCallback(func(deal *rm.ClientDealState, err error) error {
+		Action(func(deal *rm.ClientDealState, err error) error {
 			deal.Message = xerrors.Errorf("writing deal payment: %w", err).Error()
 			return nil
 		}),
 	fsm.Event(rm.ClientEventPaymentSent).
 		From(rm.DealStatusFundsNeeded).To(rm.DealStatusOngoing).
 		From(rm.DealStatusFundsNeededLastPayment).To(rm.DealStatusFinalizing).
-		WithCallback(func(deal *rm.ClientDealState) error {
+		Action(func(deal *rm.ClientDealState) error {
 			// paymentRequested = 0
 			// fundsSpent = fundsSpent + paymentRequested
 			// if paymentRequested / pricePerByte >= currentInterval
@@ -123,7 +123,7 @@ var ClientEvents = fsm.Events{
 		}),
 	fsm.Event(rm.ClientEventConsumeBlockFailed).
 		FromMany(rm.DealStatusPaymentChannelCreated, rm.DealStatusOngoing).To(rm.DealStatusFailed).
-		WithCallback(func(deal *rm.ClientDealState, err error) error {
+		Action(func(deal *rm.ClientDealState, err error) error {
 			deal.Message = xerrors.Errorf("consuming block: %w", err).Error()
 			return nil
 		}),
@@ -131,35 +131,35 @@ var ClientEvents = fsm.Events{
 		FromMany(rm.DealStatusPaymentChannelCreated,
 			rm.DealStatusOngoing,
 			rm.DealStatusBlocksComplete).To(rm.DealStatusFundsNeededLastPayment).
-		WithCallback(recordPaymentOwed),
+		Action(recordPaymentOwed),
 	fsm.Event(rm.ClientEventAllBlocksReceived).
 		FromMany(rm.DealStatusPaymentChannelCreated,
 			rm.DealStatusOngoing,
 			rm.DealStatusBlocksComplete).To(rm.DealStatusBlocksComplete).
-		WithCallback(recordProcessed),
+		Action(recordProcessed),
 	fsm.Event(rm.ClientEventComplete).
 		FromMany(rm.DealStatusPaymentChannelCreated,
 			rm.DealStatusOngoing,
 			rm.DealStatusBlocksComplete,
 			rm.DealStatusFinalizing).To(rm.DealStatusCompleted).
-		WithCallback(recordProcessed),
+		Action(recordProcessed),
 	fsm.Event(rm.ClientEventEarlyTermination).
 		FromMany(rm.DealStatusPaymentChannelCreated, rm.DealStatusOngoing).To(rm.DealStatusFailed).
-		WithCallback(func(deal *rm.ClientDealState) error {
+		Action(func(deal *rm.ClientDealState) error {
 			deal.Message = "received complete status before all blocks received"
 			return nil
 		}),
 	fsm.Event(rm.ClientEventPaymentRequested).
 		FromMany(rm.DealStatusPaymentChannelCreated, rm.DealStatusOngoing).To(rm.DealStatusFundsNeeded).
-		WithCallback(recordPaymentOwed),
+		Action(recordPaymentOwed),
 	fsm.Event(rm.ClientEventBlocksReceived).
 		From(rm.DealStatusPaymentChannelCreated).To(rm.DealStatusOngoing).
 		From(rm.DealStatusOngoing).ToNoChange().
-		WithCallback(recordProcessed),
+		Action(recordProcessed),
 }
 
-// ClientHandlers are the handlers for different states in a retrieval client
-var ClientHandlers = fsm.StateHandlers{
+// ClientStateEntryFuncs are the handlers for different states in a retrieval client
+var ClientStateEntryFuncs = fsm.StateEntryFuncs{
 	rm.DealStatusNew:                    ProposeDeal,
 	rm.DealStatusAccepted:               SetupPaymentChannel,
 	rm.DealStatusPaymentChannelCreated:  ProcessNextResponse,

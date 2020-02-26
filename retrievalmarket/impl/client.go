@@ -65,12 +65,12 @@ func NewClient(
 		blockVerifiers: make(map[retrievalmarket.DealID]blockio.BlockVerifier),
 	}
 	stateMachines, err := fsm.New(namespace.Wrap(ds, datastore.NewKey(ClientDsPrefix)), fsm.Parameters{
-		Environment:   c,
-		StateType:     retrievalmarket.ClientDealState{},
-		StateKeyField: "Status",
-		Events:        clientstates.ClientEvents,
-		StateHandlers: clientstates.ClientHandlers,
-		Notifier:      c.notifySubscribers,
+		Environment:     c,
+		StateType:       retrievalmarket.ClientDealState{},
+		StateKeyField:   "Status",
+		Events:          clientstates.ClientEvents,
+		StateEntryFuncs: clientstates.ClientStateEntryFuncs,
+		Notifier:        c.notifySubscribers,
 	})
 	if err != nil {
 		return nil, err

@@ -73,12 +73,12 @@ func NewProvider(paymentAddress address.Address, node retrievalmarket.RetrievalP
 		blockReaders:            make(map[retrievalmarket.ProviderDealIdentifier]blockio.BlockReader),
 	}
 	statemachines, err := fsm.New(namespace.Wrap(ds, datastore.NewKey(ProviderDsPrefix)), fsm.Parameters{
-		Environment:   p,
-		StateType:     retrievalmarket.ProviderDealState{},
-		StateKeyField: "Status",
-		Events:        providerstates.ProviderEvents,
-		StateHandlers: providerstates.ProviderHandlers,
-		Notifier:      p.notifySubscribers,
+		Environment:     p,
+		StateType:       retrievalmarket.ProviderDealState{},
+		StateKeyField:   "Status",
+		Events:          providerstates.ProviderEvents,
+		StateEntryFuncs: providerstates.ProviderStateEntryFuncs,
+		Notifier:        p.notifySubscribers,
 	})
 	p.stateMachines = statemachines
 	if err != nil {
