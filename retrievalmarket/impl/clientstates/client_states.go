@@ -105,15 +105,17 @@ func ProcessNextResponse(ctx fsm.Context, environment ClientDealEnvironment, dea
 	// Process Blocks
 	totalProcessed := uint64(0)
 	completed := deal.Status == rm.DealStatusBlocksComplete
-	for _, block := range response.Blocks {
-		processed, done, err := environment.ConsumeBlock(ctx.Context(), deal.ID, block)
-		if err != nil {
-			return ctx.Trigger(rm.ClientEventConsumeBlockFailed, err)
-		}
-		totalProcessed += processed
-		if done {
-			completed = true
-			break
+	if !completed {
+		var processed uint64
+		for _, block := range response.Blocks {
+			processed, completed, err = environment.ConsumeBlock(ctx.Context(), deal.ID, block)
+			if err != nil {
+				return ctx.Trigger(rm.ClientEventConsumeBlockFailed, err)
+			}
+			totalProcessed += processed
+			if completed {
+				break
+			}
 		}
 	}
 

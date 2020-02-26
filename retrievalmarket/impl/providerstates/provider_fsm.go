@@ -1,6 +1,8 @@
 package providerstates
 
 import (
+	"fmt"
+
 	rm "github.com/filecoin-project/go-fil-markets/retrievalmarket"
 	"github.com/filecoin-project/go-statemachine/fsm"
 	"github.com/filecoin-project/specs-actors/actors/abi"
@@ -61,6 +63,7 @@ var ProviderEvents = fsm.Events{
 		FromMany(rm.DealStatusAccepted, rm.DealStatusOngoing).To(rm.DealStatusFundsNeeded).
 		From(rm.DealStatusBlocksComplete).To(rm.DealStatusFundsNeededLastPayment).
 		Action(func(deal *rm.ProviderDealState, totalSent uint64) error {
+			fmt.Println("Requesting payment")
 			deal.TotalSent = totalSent
 			return nil
 		}),
