@@ -196,6 +196,9 @@ func (trds *TestRetrievalDealStream) WriteDealPayment(dealPayment rm.DealPayment
 	return trds.paymentWriter(dealPayment)
 }
 
+// Receiver returns the other peer
+func (trds TestRetrievalDealStream) Receiver() peer.ID { return trds.p }
+
 // Close closes the stream (does nothing for mocked stream)
 func (trds TestRetrievalDealStream) Close() error { return nil }
 

@@ -76,8 +76,8 @@ func requireSetupTestClientAndProvider(bgCtx context.Context, t *testing.T, payC
 	testData := tut.NewLibp2pTestData(bgCtx, t)
 	nw1 := rmnet.NewFromLibp2pHost(testData.Host1)
 	rcNode1 := testnodes.NewTestRetrievalClientNode(testnodes.TestRetrievalClientNodeParams{PayCh: payChAddr})
-	client := retrievalimpl.NewClient(nw1, testData.Bs1, rcNode1, &testPeerResolver{})
-
+	client, err := retrievalimpl.NewClient(nw1, testData.Bs1, rcNode1, &testPeerResolver{}, testData.Ds1)
+	require.NoError(t, err)
 	nw2 := rmnet.NewFromLibp2pHost(testData.Host2)
 	providerNode := testnodes.NewTestRetrievalProviderNode()
 	pieceStore := tut.NewTestPieceStore()
@@ -107,7 +107,8 @@ func requireSetupTestClientAndProvider(bgCtx context.Context, t *testing.T, payC
 	}
 
 	paymentAddress := address.TestAddress2
-	provider := retrievalimpl.NewProvider(paymentAddress, providerNode, nw2, pieceStore, testData.Bs2)
+	provider, err := retrievalimpl.NewProvider(paymentAddress, providerNode, nw2, pieceStore, testData.Bs2, testData.Ds2)
+	require.NoError(t, err)
 
 	provider.SetPaymentInterval(expectedQR.MaxPaymentInterval, expectedQR.MaxPaymentIntervalIncrease)
 	provider.SetPricePerByte(expectedQR.MinPricePerByte)
@@ -236,24 +237,25 @@ func TestClientCanMakeDealWithProvider(t *testing.T) {
 			// ------- SET UP CLIENT
 			nw1 := rmnet.NewFromLibp2pHost(testData.Host1)
 
-			createdChan, newLaneAddr, createdVoucher, client := setupClient(clientPaymentChannel, expectedVoucher, nw1, testData)
+			createdChan, newLaneAddr, createdVoucher, client, err := setupClient(clientPaymentChannel, expectedVoucher, nw1, testData)
+			require.NoError(t, err)
 
 			clientDealStateChan := make(chan retrievalmarket.ClientDealState)
 			client.SubscribeToEvents(func(event retrievalmarket.ClientEvent, state retrievalmarket.ClientDealState) {
 				switch event {
 				case retrievalmarket.ClientEventComplete:
 					clientDealStateChan <- state
-				case retrievalmarket.ClientEventError:
+				default:
 					msg := `
 Client:
-Status:          %d
+Status:          %s
 TotalReceived:   %d
 BytesPaidFor:    %d
 CurrentInterval: %d
 TotalFunds:      %s
 Message:         %s
 `
-					t.Errorf(msg, state.Status, state.TotalReceived, state.BytesPaidFor, state.CurrentInterval,
+					t.Logf(msg, retrievalmarket.DealStatuses[state.Status], state.TotalReceived, state.BytesPaidFor, state.CurrentInterval,
 						state.TotalFunds.String(), state.Message)
 				}
 			})
@@ -263,16 +265,16 @@ Message:         %s
 				switch event {
 				case retrievalmarket.ProviderEventComplete:
 					providerDealStateChan <- state
-				case retrievalmarket.ProviderEventError:
+				default:
 					msg := `
 Provider:
-Status:          %d
+Status:          %s
 TotalSent:       %d
 FundsReceived:   %s
 Message:		 %s
 CurrentInterval: %d
 `
-					t.Errorf(msg, state.Status, state.TotalSent, state.FundsReceived.String(), state.Message,
+					t.Logf(msg, retrievalmarket.DealStatuses[state.Status], state.TotalSent, state.FundsReceived.String(), state.Message,
 						state.CurrentInterval)
 				}
 			})
@@ -290,8 +292,9 @@ CurrentInterval: %d
 			}
 
 			// *** Retrieve the piece
-			did := client.Retrieve(bgCtx, payloadCID, rmParams, expectedTotal, retrievalPeer.ID, clientPaymentChannel, retrievalPeer.Address)
+			did, err := client.Retrieve(bgCtx, payloadCID, rmParams, expectedTotal, retrievalPeer.ID, clientPaymentChannel, retrievalPeer.Address)
 			assert.Equal(t, did, retrievalmarket.DealID(1))
+			require.NoError(t, err)
 
 			ctx, cancel := context.WithTimeout(bgCtx, 10*time.Second)
 			defer cancel()
@@ -304,7 +307,7 @@ CurrentInterval: %d
 				t.FailNow()
 			case clientDealState = <-clientDealStateChan:
 			}
-			assert.Equal(t, clientDealState.Lane, expectedVoucher.Lane)
+			assert.Equal(t, clientDealState.PaymentInfo.Lane, expectedVoucher.Lane)
 			require.NotNil(t, createdChan)
 			require.Equal(t, expectedTotal, createdChan.amt)
 			require.Equal(t, clientPaymentChannel, *newLaneAddr)
@@ -339,7 +342,7 @@ func setupClient(
 	testData *tut.Libp2pTestData) (*pmtChan,
 	*address.Address,
 	*paych.SignedVoucher,
-	retrievalmarket.RetrievalClient) {
+	retrievalmarket.RetrievalClient, error) {
 	var createdChan pmtChan
 	paymentChannelRecorder := func(client, miner address.Address, amt abi.TokenAmount) {
 		createdChan = pmtChan{client, miner, amt}
@@ -362,8 +365,8 @@ func setupClient(
 		AllocateLaneRecorder:   laneRecorder,
 		PaymentVoucherRecorder: paymentVoucherRecorder,
 	})
-	client := retrievalimpl.NewClient(nw1, testData.Bs1, clientNode, &testPeerResolver{})
-	return &createdChan, &newLaneAddr, &createdVoucher, client
+	client, err := retrievalimpl.NewClient(nw1, testData.Bs1, clientNode, &testPeerResolver{}, testData.Ds1)
+	return &createdChan, &newLaneAddr, &createdVoucher, client, err
 }
 
 func setupProvider(t *testing.T, testData *tut.Libp2pTestData, payloadCID cid.Cid, pieceInfo piecestore.PieceInfo, expectedQR retrievalmarket.QueryResponse, providerPaymentAddr address.Address, providerNode retrievalmarket.RetrievalProviderNode) retrievalmarket.RetrievalProvider {
@@ -379,7 +382,8 @@ func setupProvider(t *testing.T, testData *tut.Libp2pTestData, payloadCID cid.Ci
 	}
 	pieceStore.ExpectCID(payloadCID, cidInfo)
 	pieceStore.ExpectPiece(expectedPiece, pieceInfo)
-	provider := retrievalimpl.NewProvider(providerPaymentAddr, providerNode, nw2, pieceStore, testData.Bs2)
+	provider, err := retrievalimpl.NewProvider(providerPaymentAddr, providerNode, nw2, pieceStore, testData.Bs2, testData.Ds2)
+	require.NoError(t, err)
 	provider.SetPaymentInterval(expectedQR.MaxPaymentInterval, expectedQR.MaxPaymentIntervalIncrease)
 	provider.SetPricePerByte(expectedQR.MinPricePerByte)
 	require.NoError(t, provider.Start())
