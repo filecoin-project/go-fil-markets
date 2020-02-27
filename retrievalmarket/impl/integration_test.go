@@ -76,7 +76,7 @@ func requireSetupTestClientAndProvider(bgCtx context.Context, t *testing.T, payC
 	testData := tut.NewLibp2pTestData(bgCtx, t)
 	nw1 := rmnet.NewFromLibp2pHost(testData.Host1)
 	rcNode1 := testnodes.NewTestRetrievalClientNode(testnodes.TestRetrievalClientNodeParams{PayCh: payChAddr})
-	client, err := retrievalimpl.NewClient(nw1, testData.Bs1, rcNode1, &testPeerResolver{}, testData.Ds1)
+	client, err := retrievalimpl.NewClient(nw1, testData.Bs1, rcNode1, &testPeerResolver{}, testData.Ds1, testData.StoredCounter1)
 	require.NoError(t, err)
 	nw2 := rmnet.NewFromLibp2pHost(testData.Host2)
 	providerNode := testnodes.NewTestRetrievalProviderNode()
@@ -293,7 +293,7 @@ CurrentInterval: %d
 
 			// *** Retrieve the piece
 			did, err := client.Retrieve(bgCtx, payloadCID, rmParams, expectedTotal, retrievalPeer.ID, clientPaymentChannel, retrievalPeer.Address)
-			assert.Equal(t, did, retrievalmarket.DealID(1))
+			assert.Equal(t, did, retrievalmarket.DealID(0))
 			require.NoError(t, err)
 
 			ctx, cancel := context.WithTimeout(bgCtx, 10*time.Second)
@@ -365,7 +365,7 @@ func setupClient(
 		AllocateLaneRecorder:   laneRecorder,
 		PaymentVoucherRecorder: paymentVoucherRecorder,
 	})
-	client, err := retrievalimpl.NewClient(nw1, testData.Bs1, clientNode, &testPeerResolver{}, testData.Ds1)
+	client, err := retrievalimpl.NewClient(nw1, testData.Bs1, clientNode, &testPeerResolver{}, testData.Ds1, testData.StoredCounter1)
 	return &createdChan, &newLaneAddr, &createdVoucher, client, err
 }
 

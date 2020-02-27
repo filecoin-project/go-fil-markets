@@ -20,6 +20,7 @@ import (
 	"github.com/filecoin-project/go-fil-markets/retrievalmarket/impl/blockio"
 	"github.com/filecoin-project/go-fil-markets/retrievalmarket/impl/clientstates"
 	rmnet "github.com/filecoin-project/go-fil-markets/retrievalmarket/network"
+	"github.com/filecoin-project/go-fil-markets/storedcounter"
 	"github.com/filecoin-project/go-statemachine/fsm"
 	"github.com/filecoin-project/specs-actors/actors/abi"
 )
@@ -27,13 +28,10 @@ import (
 var log = logging.Logger("retrieval")
 
 type client struct {
-	network rmnet.RetrievalMarketNetwork
-	bs      blockstore.Blockstore
-	node    retrievalmarket.RetrievalClientNode
-	// The parameters should be replaced by RetrievalClientNode
-
-	nextDealLk sync.RWMutex
-	nextDealID retrievalmarket.DealID
+	network       rmnet.RetrievalMarketNetwork
+	bs            blockstore.Blockstore
+	node          retrievalmarket.RetrievalClientNode
+	storedCounter *storedcounter.StoredCounter
 
 	subscribersLk  sync.RWMutex
 	subscribers    []retrievalmarket.ClientSubscriber
@@ -55,12 +53,14 @@ func NewClient(
 	node retrievalmarket.RetrievalClientNode,
 	resolver retrievalmarket.PeerResolver,
 	ds datastore.Batching,
+	storedCounter *storedcounter.StoredCounter,
 ) (retrievalmarket.RetrievalClient, error) {
 	c := &client{
 		network:        network,
 		bs:             bs,
 		node:           node,
 		resolver:       resolver,
+		storedCounter:  storedCounter,
 		dealStreams:    make(map[retrievalmarket.DealID]rmnet.RetrievalDealStream),
 		blockVerifiers: make(map[retrievalmarket.DealID]blockio.BlockVerifier),
 	}
@@ -111,10 +111,11 @@ func (c *client) Query(ctx context.Context, p retrievalmarket.RetrievalPeer, pay
 
 // Retrieve begins the process of requesting the data referred to by payloadCID, after a deal is accepted
 func (c *client) Retrieve(ctx context.Context, payloadCID cid.Cid, params retrievalmarket.Params, totalFunds abi.TokenAmount, miner peer.ID, clientWallet address.Address, minerWallet address.Address) (retrievalmarket.DealID, error) {
-	c.nextDealLk.Lock()
-	c.nextDealID++
-	dealID := c.nextDealID
-	c.nextDealLk.Unlock()
+	next, err := c.storedCounter.Next()
+	if err != nil {
+		return 0, err
+	}
+	dealID := retrievalmarket.DealID(next)
 
 	dealState := retrievalmarket.ClientDealState{
 		DealProposal: retrievalmarket.DealProposal{
@@ -135,7 +136,7 @@ func (c *client) Retrieve(ctx context.Context, payloadCID cid.Cid, params retrie
 	}
 
 	// start the deal processing
-	err := c.stateMachines.Begin(dealState.ID, &dealState)
+	err = c.stateMachines.Begin(dealState.ID, &dealState)
 	if err != nil {
 		return 0, err
 	}
