@@ -185,13 +185,14 @@ type ClientDealProposal struct {
 	EndEpoch      abi.ChainEpoch
 
 	ProviderAddress address.Address
+	ProofType       abi.RegisteredProof
 	Client          address.Address
 	MinerWorker     address.Address
 	MinerID         peer.ID
 }
 
 func (c *Client) Start(ctx context.Context, p ClientDealProposal) (cid.Cid, error) {
-	commP, pieceSize, err := c.commP(ctx, p.Data.Root)
+	commP, pieceSize, err := c.commP(ctx, p.ProofType, p.Data.Root)
 	if err != nil {
 		return cid.Undef, xerrors.Errorf("computing commP failed: %w", err)
 	}

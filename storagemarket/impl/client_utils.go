@@ -38,14 +38,14 @@ func (c *Client) failDeal(id cid.Cid, cerr error) {
 	log.Errorf("deal %s failed: %+v", id, cerr)
 }
 
-func (c *Client) commP(ctx context.Context, root cid.Cid) (cid.Cid, abi.UnpaddedPieceSize, error) {
+func (c *Client) commP(ctx context.Context, rt abi.RegisteredProof, root cid.Cid) (cid.Cid, abi.UnpaddedPieceSize, error) {
 	ssb := builder.NewSelectorSpecBuilder(ipldfree.NodeBuilder())
 
 	// entire DAG selector
 	allSelector := ssb.ExploreRecursive(selector.RecursionLimitNone(),
 		ssb.ExploreAll(ssb.ExploreRecursiveEdge())).Node()
 
-	commp, paddedSize, err := c.pio.GeneratePieceCommitment(abi.RegisteredProof_StackedDRG2KiBPoSt, root, allSelector)
+	commp, paddedSize, err := c.pio.GeneratePieceCommitment(rt, root, allSelector)
 	if err != nil {
 		return cid.Undef, 0, xerrors.Errorf("generating CommP: %w", err)
 	}

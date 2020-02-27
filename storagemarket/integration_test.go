@@ -113,7 +113,7 @@ func TestMakeDeal(t *testing.T) {
 			TransferType: storagemarket.TTGraphsync,
 			Root:         payloadCid,
 		}
-		result, err := client.ProposeStorageDeal(ctx, providerAddr, &providerInfo, dataRef, abi.ChainEpoch(epoch+100), abi.ChainEpoch(epoch+20100), big.NewInt(1), big.NewInt(0))
+		result, err := client.ProposeStorageDeal(ctx, providerAddr, &providerInfo, dataRef, abi.ChainEpoch(epoch+100), abi.ChainEpoch(epoch+20100), big.NewInt(1), big.NewInt(0), abi.RegisteredProof_StackedDRG2KiBPoSt)
 		assert.NoError(t, err)
 
 		proposalCid = result.ProposalCid
@@ -211,7 +211,7 @@ func TestMakeDealOffline(t *testing.T) {
 			TransferType: storagemarket.TTManual,
 			Root:         payloadCid,
 		}
-		result, err := client.ProposeStorageDeal(ctx, providerAddr, &providerInfo, dataRef, abi.ChainEpoch(epoch+100), abi.ChainEpoch(epoch+20100), big.NewInt(1), big.NewInt(0))
+		result, err := client.ProposeStorageDeal(ctx, providerAddr, &providerInfo, dataRef, abi.ChainEpoch(epoch+100), abi.ChainEpoch(epoch+20100), big.NewInt(1), big.NewInt(0), abi.RegisteredProof_StackedDRG2KiBPoSt)
 		assert.NoError(t, err)
 
 		proposalCid = result.ProposalCid
