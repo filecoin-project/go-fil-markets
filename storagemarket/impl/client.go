@@ -15,7 +15,6 @@ import (
 
 	"github.com/filecoin-project/go-address"
 	datatransfer "github.com/filecoin-project/go-data-transfer"
-	commcid "github.com/filecoin-project/go-fil-commcid"
 	"github.com/filecoin-project/go-fil-markets/filestore"
 	"github.com/filecoin-project/go-fil-markets/pieceio"
 	"github.com/filecoin-project/go-fil-markets/pieceio/cario"
@@ -198,7 +197,7 @@ func (c *Client) Start(ctx context.Context, p ClientDealProposal) (cid.Cid, erro
 	}
 
 	dealProposal := market.DealProposal{
-		PieceCID:             commcid.PieceCommitmentV1ToCID(commP),
+		PieceCID:             commP,
 		PieceSize:            pieceSize.Padded(),
 		Client:               p.Client,
 		Provider:             p.ProviderAddress,

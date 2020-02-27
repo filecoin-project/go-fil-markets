@@ -84,6 +84,7 @@ func TestMakeDeal(t *testing.T) {
 		dt2,
 		&providerNode,
 		providerAddr,
+		abi.RegisteredProof_StackedDRG2KiBPoSt,
 	)
 	assert.NoError(t, err)
 
@@ -181,6 +182,7 @@ func TestMakeDealOffline(t *testing.T) {
 		dt2,
 		&providerNode,
 		providerAddr,
+		abi.RegisteredProof_StackedDRG2KiBPoSt,
 	)
 	assert.NoError(t, err)
 

@@ -5,12 +5,19 @@ import (
 	"context"
 	"fmt"
 
+	"io"
+	"testing"
+
 	"github.com/filecoin-project/go-fil-markets/filestore"
 	fsmocks "github.com/filecoin-project/go-fil-markets/filestore/mocks"
 	"github.com/filecoin-project/go-fil-markets/pieceio"
 	"github.com/filecoin-project/go-fil-markets/pieceio/cario"
 	pmocks "github.com/filecoin-project/go-fil-markets/pieceio/mocks"
+
 	"github.com/filecoin-project/go-sectorbuilder"
+	"github.com/filecoin-project/specs-actors/actors/abi"
+
+	"github.com/ipfs/go-cid"
 	dag "github.com/ipfs/go-merkledag"
 	dstest "github.com/ipfs/go-merkledag/test"
 	ipldfree "github.com/ipld/go-ipld-prime/impl/free"
@@ -18,8 +25,6 @@ import (
 	"github.com/ipld/go-ipld-prime/traversal/selector/builder"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
-	"io"
-	"testing"
 )
 
 func Test_ThereAndBackAgain(t *testing.T) {
@@ -65,7 +70,7 @@ func Test_ThereAndBackAgain(t *testing.T) {
 			ssb.ExploreIndex(1, ssb.ExploreRecursive(selector.RecursionLimitNone(), ssb.ExploreAll(ssb.ExploreRecursiveEdge()))))
 	}).Node()
 
-	bytes, tmpPath, _, err := pio.GeneratePieceCommitmentToFile(nd3.Cid(), node)
+	pcid, tmpPath, _, err := pio.GeneratePieceCommitmentToFile(abi.RegisteredProof_StackedDRG2KiBPoSt, nd3.Cid(), node)
 	require.NoError(t, err)
 	tmpFile, err := store.Open(tmpPath)
 	require.NoError(t, err)
@@ -75,9 +80,7 @@ func Test_ThereAndBackAgain(t *testing.T) {
 		deferErr = store.Delete(tmpFile.Path())
 		require.NoError(t, deferErr)
 	}()
-	for _, b := range bytes {
-		require.NotEqual(t, 0, b)
-	}
+	require.NotEqual(t, pcid, cid.Undef)
 	bufSize := int64(16) // small buffer to illustrate the logic
 	buf := make([]byte, bufSize)
 	var readErr error
@@ -155,7 +158,7 @@ func Test_StoreRestoreMemoryBuffer(t *testing.T) {
 			ssb.ExploreIndex(1, ssb.ExploreRecursive(selector.RecursionLimitNone(), ssb.ExploreAll(ssb.ExploreRecursiveEdge()))))
 	}).Node()
 
-	commitment, tmpPath, paddedSize, err := pio.GeneratePieceCommitmentToFile(nd3.Cid(), node)
+	commitment, tmpPath, paddedSize, err := pio.GeneratePieceCommitmentToFile(abi.RegisteredProof_StackedDRG2KiBPoSt, nd3.Cid(), node)
 	require.NoError(t, err)
 	tmpFile, err := store.Open(tmpPath)
 	require.NoError(t, err)
@@ -169,16 +172,14 @@ func Test_StoreRestoreMemoryBuffer(t *testing.T) {
 	_, err = tmpFile.Seek(0, io.SeekStart)
 	require.NoError(t, err)
 
-	for _, b := range commitment {
-		require.NotEqual(t, 0, b)
-	}
+	require.NotEqual(t, commitment, cid.Undef)
 	buf := make([]byte, paddedSize)
 	_, err = tmpFile.Read(buf)
 	require.NoError(t, err)
 	buffer := bytes.NewBuffer(buf)
-	secondCommitment, err := sectorbuilder.GeneratePieceCommitment(buffer, paddedSize)
+	secondCommitment, err := sectorbuilder.GeneratePieceCIDFromFile(abi.RegisteredProof_StackedDRG2KiBPoSt, buffer, paddedSize)
 	require.NoError(t, err)
-	require.Equal(t, commitment, secondCommitment[:])
+	require.Equal(t, commitment, secondCommitment)
 }
 
 func Test_PieceCommitmentEquivalenceMemoryFile(t *testing.T) {
@@ -222,13 +223,13 @@ func Test_PieceCommitmentEquivalenceMemoryFile(t *testing.T) {
 			ssb.ExploreIndex(1, ssb.ExploreRecursive(selector.RecursionLimitNone(), ssb.ExploreAll(ssb.ExploreRecursiveEdge()))))
 	}).Node()
 
-	fcommitment, tmpPath, fpaddedSize, ferr := pio.GeneratePieceCommitmentToFile(nd3.Cid(), node)
+	fcommitment, tmpPath, fpaddedSize, ferr := pio.GeneratePieceCommitmentToFile(abi.RegisteredProof_StackedDRG2KiBPoSt, nd3.Cid(), node)
 	defer func() {
 		deferErr := store.Delete(tmpPath)
 		require.NoError(t, deferErr)
 	}()
 
-	mcommitment, mpaddedSize, merr := pio.GeneratePieceCommitment(nd3.Cid(), node)
+	mcommitment, mpaddedSize, merr := pio.GeneratePieceCommitment(abi.RegisteredProof_StackedDRG2KiBPoSt, nd3.Cid(), node)
 	require.Equal(t, fcommitment, mcommitment)
 	require.Equal(t, fpaddedSize, mpaddedSize)
 	require.Equal(t, ferr, merr)
@@ -273,7 +274,7 @@ func Test_Failures(t *testing.T) {
 		fsmock := fsmocks.FileStore{}
 		fsmock.On("CreateTemp").Return(nil, fmt.Errorf("Failed"))
 		pio := pieceio.NewPieceIOWithStore(nil, &fsmock, sourceBs)
-		_, _, _, err := pio.GeneratePieceCommitmentToFile(nd3.Cid(), node)
+		_, _, _, err := pio.GeneratePieceCommitmentToFile(abi.RegisteredProof_StackedDRG2KiBPoSt, nd3.Cid(), node)
 		require.Error(t, err)
 	})
 	t.Run("write CAR fails", func(t *testing.T) {
@@ -285,7 +286,7 @@ func Test_Failures(t *testing.T) {
 		any := mock.Anything
 		ciomock.On("WriteCar", any, any, any, any, any).Return(fmt.Errorf("failed to write car"))
 		pio := pieceio.NewPieceIOWithStore(&ciomock, store, sourceBs)
-		_, _, _, err = pio.GeneratePieceCommitmentToFile(nd3.Cid(), node)
+		_, _, _, err = pio.GeneratePieceCommitmentToFile(abi.RegisteredProof_StackedDRG2KiBPoSt, nd3.Cid(), node)
 		require.Error(t, err)
 	})
 	t.Run("prepare CAR fails", func(t *testing.T) {
@@ -294,7 +295,7 @@ func Test_Failures(t *testing.T) {
 		any := mock.Anything
 		ciomock.On("PrepareCar", any, any, any, any).Return(nil, fmt.Errorf("failed to prepare car"))
 		pio := pieceio.NewPieceIO(&ciomock, sourceBs)
-		_, _, err := pio.GeneratePieceCommitment(nd3.Cid(), node)
+		_, _, err := pio.GeneratePieceCommitment(abi.RegisteredProof_StackedDRG2KiBPoSt, nd3.Cid(), node)
 		require.Error(t, err)
 	})
 	t.Run("PreparedCard dump operation fails", func(t *testing.T) {
@@ -305,7 +306,7 @@ func Test_Failures(t *testing.T) {
 		preparedCarMock.On("Size").Return(uint64(1000))
 		preparedCarMock.On("Dump", any).Return(fmt.Errorf("failed to write car"))
 		pio := pieceio.NewPieceIO(&ciomock, sourceBs)
-		_, _, err := pio.GeneratePieceCommitment(nd3.Cid(), node)
+		_, _, err := pio.GeneratePieceCommitment(abi.RegisteredProof_StackedDRG2KiBPoSt, nd3.Cid(), node)
 		require.Error(t, err)
 	})
 	t.Run("seek fails", func(t *testing.T) {
@@ -332,7 +333,7 @@ func Test_Failures(t *testing.T) {
 		mockfile.On("Seek", mock.Anything, mock.Anything).Return(int64(0), fmt.Errorf("seek failed"))
 
 		pio := pieceio.NewPieceIOWithStore(cio, &fsmock, sourceBs)
-		_, _, _, err := pio.GeneratePieceCommitmentToFile(nd3.Cid(), node)
+		_, _, _, err := pio.GeneratePieceCommitmentToFile(abi.RegisteredProof_StackedDRG2KiBPoSt, nd3.Cid(), node)
 		require.Error(t, err)
 	})
 }

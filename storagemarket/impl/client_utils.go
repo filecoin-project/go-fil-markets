@@ -38,19 +38,19 @@ func (c *Client) failDeal(id cid.Cid, cerr error) {
 	log.Errorf("deal %s failed: %+v", id, cerr)
 }
 
-func (c *Client) commP(ctx context.Context, root cid.Cid) ([]byte, abi.UnpaddedPieceSize, error) {
+func (c *Client) commP(ctx context.Context, root cid.Cid) (cid.Cid, abi.UnpaddedPieceSize, error) {
 	ssb := builder.NewSelectorSpecBuilder(ipldfree.NodeBuilder())
 
 	// entire DAG selector
 	allSelector := ssb.ExploreRecursive(selector.RecursionLimitNone(),
 		ssb.ExploreAll(ssb.ExploreRecursiveEdge())).Node()
 
-	commp, paddedSize, err := c.pio.GeneratePieceCommitment(root, allSelector)
+	commp, paddedSize, err := c.pio.GeneratePieceCommitment(abi.RegisteredProof_StackedDRG2KiBPoSt, root, allSelector)
 	if err != nil {
-		return nil, 0, xerrors.Errorf("generating CommP: %w", err)
+		return cid.Undef, 0, xerrors.Errorf("generating CommP: %w", err)
 	}
 
-	return commp[:], paddedSize, nil
+	return commp, paddedSize, nil
 }
 
 func (c *Client) verifyResponse(resp network.SignedResponse, minerAddr address.Address) error {
