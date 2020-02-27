@@ -3,7 +3,6 @@ package storageimpl
 import (
 	"context"
 
-	commcid "github.com/filecoin-project/go-fil-commcid"
 	"github.com/filecoin-project/go-padreader"
 	"github.com/ipfs/go-cid"
 	ipldfree "github.com/ipld/go-ipld-prime/impl/free"
@@ -116,14 +115,13 @@ func (p *Provider) verifydata(ctx context.Context, deal MinerDeal) (func(*MinerD
 	allSelector := ssb.ExploreRecursive(selector.RecursionLimitNone(),
 		ssb.ExploreAll(ssb.ExploreRecursiveEdge())).Node()
 
-	commp, path, _, err := p.pio.GeneratePieceCommitmentToFile(deal.Ref.Root, allSelector)
+	pieceCid, path, _, err := p.pio.GeneratePieceCommitmentToFile(p.proofType, deal.Ref.Root, allSelector)
 	if err != nil {
 		return nil, err
 	}
 
-	pieceCid := commcid.PieceCommitmentV1ToCID(commp)
 	// Verify CommP matches
-	if !pieceCid.Equals(deal.Proposal.PieceCID) {
+	if pieceCid != deal.Proposal.PieceCID {
 		return nil, xerrors.Errorf("proposal CommP doesn't match calculated CommP")
 	}
 

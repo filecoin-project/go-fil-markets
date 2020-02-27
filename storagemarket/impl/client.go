@@ -15,7 +15,6 @@ import (
 
 	"github.com/filecoin-project/go-address"
 	datatransfer "github.com/filecoin-project/go-data-transfer"
-	commcid "github.com/filecoin-project/go-fil-commcid"
 	"github.com/filecoin-project/go-fil-markets/filestore"
 	"github.com/filecoin-project/go-fil-markets/pieceio"
 	"github.com/filecoin-project/go-fil-markets/pieceio/cario"
@@ -186,19 +185,20 @@ type ClientDealProposal struct {
 	EndEpoch      abi.ChainEpoch
 
 	ProviderAddress address.Address
+	ProofType       abi.RegisteredProof
 	Client          address.Address
 	MinerWorker     address.Address
 	MinerID         peer.ID
 }
 
 func (c *Client) Start(ctx context.Context, p ClientDealProposal) (cid.Cid, error) {
-	commP, pieceSize, err := c.commP(ctx, p.Data.Root)
+	commP, pieceSize, err := c.commP(ctx, p.ProofType, p.Data.Root)
 	if err != nil {
 		return cid.Undef, xerrors.Errorf("computing commP failed: %w", err)
 	}
 
 	dealProposal := market.DealProposal{
-		PieceCID:             commcid.PieceCommitmentV1ToCID(commP),
+		PieceCID:             commP,
 		PieceSize:            pieceSize.Padded(),
 		Client:               p.Client,
 		Provider:             p.ProviderAddress,

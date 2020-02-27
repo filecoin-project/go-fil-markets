@@ -90,6 +90,7 @@ func (c *Client) ProposeStorageDeal(
 	endEpoch abi.ChainEpoch,
 	price abi.TokenAmount,
 	collateral abi.TokenAmount,
+	rt abi.RegisteredProof,
 ) (*storagemarket.ProposeStorageDealResult, error) {
 
 	proposal := ClientDealProposal{
@@ -101,6 +102,7 @@ func (c *Client) ProposeStorageDeal(
 		ProviderAddress: info.Address,
 		MinerWorker:     info.Worker,
 		MinerID:         info.PeerID,
+		ProofType:       rt,
 	}
 
 	proposalCid, err := c.Start(ctx, proposal)

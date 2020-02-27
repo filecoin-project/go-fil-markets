@@ -21,11 +21,11 @@ type ReadStore interface {
 
 // PieceIO converts between payloads and pieces
 type PieceIO interface {
-	GeneratePieceCommitment(payloadCid cid.Cid, selector ipld.Node) ([]byte, abi.UnpaddedPieceSize, error)
+	GeneratePieceCommitment(rt abi.RegisteredProof, payloadCid cid.Cid, selector ipld.Node) (cid.Cid, abi.UnpaddedPieceSize, error)
 	ReadPiece(r io.Reader) (cid.Cid, error)
 }
 
 type PieceIOWithStore interface {
 	PieceIO
-	GeneratePieceCommitmentToFile(payloadCid cid.Cid, selector ipld.Node) ([]byte, filestore.Path, abi.UnpaddedPieceSize, error)
+	GeneratePieceCommitmentToFile(rt abi.RegisteredProof, payloadCid cid.Cid, selector ipld.Node) (cid.Cid, filestore.Path, abi.UnpaddedPieceSize, error)
 }

@@ -51,15 +51,15 @@ func NewPieceIOWithStore(carIO CarIO, store filestore.FileStore, bs blockstore.B
 	return &pieceIOWithStore{pieceIO{carIO, bs}, store}
 }
 
-func (pio *pieceIO) GeneratePieceCommitment(payloadCid cid.Cid, selector ipld.Node) ([]byte, abi.UnpaddedPieceSize, error) {
+func (pio *pieceIO) GeneratePieceCommitment(rt abi.RegisteredProof, payloadCid cid.Cid, selector ipld.Node) (cid.Cid, abi.UnpaddedPieceSize, error) {
 	preparedCar, err := pio.carIO.PrepareCar(context.Background(), pio.bs, payloadCid, selector)
 	if err != nil {
-		return nil, 0, err
+		return cid.Undef, 0, err
 	}
 	pieceSize := uint64(preparedCar.Size())
 	r, w, err := os.Pipe()
 	if err != nil {
-		return nil, 0, err
+		return cid.Undef, 0, err
 	}
 	var stop sync.WaitGroup
 	stop.Add(1)
@@ -72,25 +72,25 @@ func (pio *pieceIO) GeneratePieceCommitment(payloadCid cid.Cid, selector ipld.No
 			werr = err
 		}
 	}()
-	commitment, paddedSize, err := GeneratePieceCommitment(r, pieceSize)
+	commitment, paddedSize, err := GeneratePieceCommitment(rt, r, pieceSize)
 	closeErr := r.Close()
 	if err != nil {
-		return nil, 0, err
+		return cid.Undef, 0, err
 	}
 	if closeErr != nil {
-		return nil, 0, closeErr
+		return cid.Undef, 0, closeErr
 	}
 	stop.Wait()
 	if werr != nil {
-		return nil, 0, werr
+		return cid.Undef, 0, werr
 	}
 	return commitment, paddedSize, nil
 }
 
-func (pio *pieceIOWithStore) GeneratePieceCommitmentToFile(payloadCid cid.Cid, selector ipld.Node) ([]byte, filestore.Path, abi.UnpaddedPieceSize, error) {
+func (pio *pieceIOWithStore) GeneratePieceCommitmentToFile(rt abi.RegisteredProof, payloadCid cid.Cid, selector ipld.Node) (cid.Cid, filestore.Path, abi.UnpaddedPieceSize, error) {
 	f, err := pio.store.CreateTemp()
 	if err != nil {
-		return nil, "", 0, err
+		return cid.Undef, "", 0, err
 	}
 	cleanup := func() {
 		f.Close()
@@ -99,30 +99,30 @@ func (pio *pieceIOWithStore) GeneratePieceCommitmentToFile(payloadCid cid.Cid, s
 	err = pio.carIO.WriteCar(context.Background(), pio.bs, payloadCid, selector, f)
 	if err != nil {
 		cleanup()
-		return nil, "", 0, err
+		return cid.Undef, "", 0, err
 	}
 	pieceSize := uint64(f.Size())
 	_, err = f.Seek(0, io.SeekStart)
 	if err != nil {
 		cleanup()
-		return nil, "", 0, err
+		return cid.Undef, "", 0, err
 	}
-	commitment, paddedSize, err := GeneratePieceCommitment(f, pieceSize)
+	commitment, paddedSize, err := GeneratePieceCommitment(rt, f, pieceSize)
 	if err != nil {
 		cleanup()
-		return nil, "", 0, err
+		return cid.Undef, "", 0, err
 	}
 	_ = f.Close()
 	return commitment, f.Path(), paddedSize, nil
 }
 
-func GeneratePieceCommitment(rd io.Reader, pieceSize uint64) ([]byte, abi.UnpaddedPieceSize, error) {
+func GeneratePieceCommitment(rt abi.RegisteredProof, rd io.Reader, pieceSize uint64) (cid.Cid, abi.UnpaddedPieceSize, error) {
 	paddedReader, paddedSize := padreader.New(rd, pieceSize)
-	commitment, err := sectorbuilder.GeneratePieceCommitment(paddedReader, paddedSize)
+	commitment, err := sectorbuilder.GeneratePieceCIDFromFile(rt, paddedReader, paddedSize)
 	if err != nil {
-		return nil, 0, err
+		return cid.Undef, 0, err
 	}
-	return commitment[:], paddedSize, nil
+	return commitment, paddedSize, nil
 }
 
 func (pio *pieceIO) ReadPiece(r io.Reader) (cid.Cid, error) {

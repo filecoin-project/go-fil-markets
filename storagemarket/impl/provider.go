@@ -15,7 +15,6 @@ import (
 	"github.com/filecoin-project/go-address"
 	cborutil "github.com/filecoin-project/go-cbor-util"
 	datatransfer "github.com/filecoin-project/go-data-transfer"
-	commcid "github.com/filecoin-project/go-fil-commcid"
 	"github.com/filecoin-project/go-fil-markets/filestore"
 	"github.com/filecoin-project/go-fil-markets/pieceio"
 	"github.com/filecoin-project/go-fil-markets/pieceio/cario"
@@ -40,6 +39,7 @@ type Provider struct {
 
 	pricePerByteBlock abi.TokenAmount // how much we want for storing one byte for one block
 	minPieceSize      abi.PaddedPieceSize
+	proofType         abi.RegisteredProof
 
 	ask   *storagemarket.SignedStorageAsk
 	askLk sync.Mutex
@@ -78,7 +78,7 @@ var (
 	ErrDataTransferFailed = errors.New("deal data transfer failed")
 )
 
-func NewProvider(net network.StorageMarketNetwork, ds datastore.Batching, bs blockstore.Blockstore, fs filestore.FileStore, pieceStore piecestore.PieceStore, dataTransfer datatransfer.Manager, spn storagemarket.StorageProviderNode, minerAddress address.Address) (storagemarket.StorageProvider, error) {
+func NewProvider(net network.StorageMarketNetwork, ds datastore.Batching, bs blockstore.Blockstore, fs filestore.FileStore, pieceStore piecestore.PieceStore, dataTransfer datatransfer.Manager, spn storagemarket.StorageProviderNode, minerAddress address.Address, rt abi.RegisteredProof) (storagemarket.StorageProvider, error) {
 	carIO := cario.NewCarIO()
 	pio := pieceio.NewPieceIOWithStore(carIO, fs, bs)
 
@@ -92,6 +92,7 @@ func NewProvider(net network.StorageMarketNetwork, ds datastore.Batching, bs blo
 
 		pricePerByteBlock: abi.NewTokenAmount(3), // TODO: allow setting
 		minPieceSize:      256,                   // TODO: allow setting (BUT KEEP MIN 256! (because of how we fill sectors up))
+		proofType:         rt,
 
 		conns: map[cid.Cid]network.StorageDealStream{},
 
@@ -319,12 +320,11 @@ func (p *Provider) ImportDataForDeal(ctx context.Context, propCid cid.Cid, data 
 		return xerrors.Errorf("failed to seek through temp imported file: %w", err)
 	}
 
-	commP, _, err := pieceio.GeneratePieceCommitment(tempfi, pieceSize)
+	pieceCid, _, err := pieceio.GeneratePieceCommitment(p.proofType, tempfi, pieceSize)
 	if err != nil {
 		return xerrors.Errorf("failed to generate commP")
 	}
 
-	pieceCid := commcid.PieceCommitmentV1ToCID(commP)
 	// Verify CommP matches
 	if !pieceCid.Equals(d.Proposal.PieceCID) {
 		return xerrors.Errorf("given data does not match expected commP (got: %x, expected %x)", pieceCid, d.Proposal.PieceCID)
