@@ -180,7 +180,7 @@ func (p *provider) HandleQueryStream(stream rmnet.RetrievalQueryStream) {
 		answer.Size = uint64(pieceInfo.Deals[0].Length) // TODO: verify on intermediate
 	}
 
-	if err != nil && err != retrievalmarket.ErrNotFound {
+	if err != nil && !xerrors.Is(err, retrievalmarket.ErrNotFound) {
 		log.Errorf("Retrieval query: GetRefs: %s", err)
 		answer.Status = retrievalmarket.QueryResponseError
 		answer.Message = err.Error()
