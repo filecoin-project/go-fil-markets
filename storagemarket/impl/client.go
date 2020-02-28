@@ -2,12 +2,15 @@ package storageimpl
 
 import (
 	"context"
+	"sync"
 
 	"github.com/filecoin-project/go-fil-markets/storagemarket/network"
+	"github.com/filecoin-project/go-statemachine/fsm"
 
 	cborutil "github.com/filecoin-project/go-cbor-util"
 	"github.com/filecoin-project/specs-actors/actors/abi/big"
 	"github.com/ipfs/go-cid"
+	"github.com/ipfs/go-datastore"
 	blockstore "github.com/ipfs/go-ipfs-blockstore"
 	logging "github.com/ipfs/go-log/v2"
 	"github.com/libp2p/go-libp2p-core/peer"
@@ -21,20 +24,15 @@ import (
 	"github.com/filecoin-project/go-fil-markets/retrievalmarket"
 	"github.com/filecoin-project/go-fil-markets/retrievalmarket/discovery"
 	"github.com/filecoin-project/go-fil-markets/storagemarket"
-	"github.com/filecoin-project/go-statestore"
+	"github.com/filecoin-project/go-fil-markets/storagemarket/impl/clientstates"
+	"github.com/filecoin-project/go-fil-markets/storagemarket/impl/clientutils"
 	"github.com/filecoin-project/specs-actors/actors/abi"
 	"github.com/filecoin-project/specs-actors/actors/builtin/market"
 )
 
-//go:generate cbor-gen-for ClientDeal ClientDealProposal
+//go:generate cbor-gen-for ClientDealProposal
 
 var log = logging.Logger("storagemarket_impl")
-
-type ClientDeal struct {
-	storagemarket.ClientDeal
-
-	s network.StorageDealStream
-}
 
 type Client struct {
 	net network.StorageMarketNetwork
@@ -52,21 +50,10 @@ type Client struct {
 
 	node storagemarket.StorageClientNode
 
-	deals *statestore.StateStore
-	conns map[cid.Cid]network.StorageDealStream
+	statemachines fsm.Group
 
-	incoming chan *ClientDeal
-	updated  chan clientDealUpdate
-
-	stop    chan struct{}
-	stopped chan struct{}
-}
-
-type clientDealUpdate struct {
-	newState storagemarket.StorageDealStatus
-	id       cid.Cid
-	err      error
-	mut      func(*ClientDeal)
+	connsLk sync.RWMutex
+	conns   map[cid.Cid]network.StorageDealStream
 }
 
 func NewClient(
@@ -74,9 +61,9 @@ func NewClient(
 	bs blockstore.Blockstore,
 	dataTransfer datatransfer.Manager,
 	discovery *discovery.Local,
-	deals *statestore.StateStore,
+	ds datastore.Batching,
 	scn storagemarket.StorageClientNode,
-) *Client {
+) (*Client, error) {
 	carIO := cario.NewCarIO()
 	pio := pieceio.NewPieceIO(carIO, bs)
 
@@ -88,93 +75,24 @@ func NewClient(
 		discovery:    discovery,
 		node:         scn,
 
-		deals: deals,
 		conns: map[cid.Cid]network.StorageDealStream{},
-
-		incoming: make(chan *ClientDeal, 16),
-		updated:  make(chan clientDealUpdate, 16),
-
-		stop:    make(chan struct{}),
-		stopped: make(chan struct{}),
 	}
 
-	return c
+	statemachines, err := fsm.New(ds, fsm.Parameters{
+		Environment:     c,
+		StateType:       storagemarket.ClientDeal{},
+		StateKeyField:   "State",
+		Events:          clientstates.ClientEvents,
+		StateEntryFuncs: clientstates.ClientStateEntryFuncs,
+	})
+	if err != nil {
+		return nil, err
+	}
+	c.statemachines = statemachines
+	return c, nil
 }
 
 func (c *Client) Run(ctx context.Context) {
-	go func() {
-		defer close(c.stopped)
-
-		for {
-			select {
-			case deal := <-c.incoming:
-				c.onIncoming(deal)
-			case update := <-c.updated:
-				c.onUpdated(ctx, update)
-			case <-c.stop:
-				return
-			}
-		}
-	}()
-}
-
-func (c *Client) onIncoming(deal *ClientDeal) {
-	log.Info("incoming deal")
-
-	if _, ok := c.conns[deal.ProposalCid]; ok {
-		log.Errorf("tracking deal connection: already tracking connection for deal %s", deal.ProposalCid)
-		return
-	}
-	c.conns[deal.ProposalCid] = deal.s
-
-	if err := c.deals.Begin(deal.ProposalCid, deal); err != nil {
-		// We may have re-sent the proposal
-		log.Errorf("deal tracking failed: %s", err)
-		c.failDeal(deal.ProposalCid, err)
-		return
-	}
-
-	go func() {
-		c.updated <- clientDealUpdate{
-			newState: storagemarket.StorageDealUnknown,
-			id:       deal.ProposalCid,
-			err:      nil,
-		}
-	}()
-}
-
-func (c *Client) onUpdated(ctx context.Context, update clientDealUpdate) {
-	log.Infof("Client deal %s updated state to %s", update.id, storagemarket.DealStates[update.newState])
-	var deal ClientDeal
-	err := c.deals.Get(update.id).Mutate(func(d *ClientDeal) error {
-		d.State = update.newState
-		if update.mut != nil {
-			update.mut(d)
-		}
-		deal = *d
-		return nil
-	})
-	if update.err != nil {
-		log.Errorf("deal %s failed: %s", update.id, update.err)
-		c.failDeal(update.id, update.err)
-		return
-	}
-	if err != nil {
-		c.failDeal(update.id, err)
-		return
-	}
-
-	switch update.newState {
-	case storagemarket.StorageDealUnknown: // new
-		c.handle(ctx, deal, c.new, storagemarket.StorageDealProposalAccepted)
-	case storagemarket.StorageDealProposalAccepted:
-		c.handle(ctx, deal, c.accepted, storagemarket.StorageDealStaged)
-	case storagemarket.StorageDealStaged:
-		c.handle(ctx, deal, c.staged, storagemarket.StorageDealSealing)
-	case storagemarket.StorageDealSealing:
-		c.handle(ctx, deal, c.sealing, storagemarket.StorageDealNoUpdate)
-		// TODO: StorageDealActive -> watch for faults, expiration, etc.
-	}
 }
 
 type ClientDealProposal struct {
@@ -192,7 +110,7 @@ type ClientDealProposal struct {
 }
 
 func (c *Client) Start(ctx context.Context, p ClientDealProposal) (cid.Cid, error) {
-	commP, pieceSize, err := c.commP(ctx, p.ProofType, p.Data)
+	commP, pieceSize, err := clientutils.CommP(ctx, c.pio, p.ProofType, p.Data)
 	if err != nil {
 		return cid.Undef, xerrors.Errorf("computing commP failed: %w", err)
 	}
@@ -209,10 +127,6 @@ func (c *Client) Start(ctx context.Context, p ClientDealProposal) (cid.Cid, erro
 		ClientCollateral:     big.Zero(),
 	}
 
-	if err := c.node.EnsureFunds(ctx, p.Client, p.Client, dealProposal.ClientBalanceRequirement()); err != nil {
-		return cid.Undef, xerrors.Errorf("adding market funds failed: %w", err)
-	}
-
 	clientDealProposal, err := c.node.SignProposal(ctx, p.Client, dealProposal)
 	if err != nil {
 		return cid.Undef, xerrors.Errorf("signing deal proposal failed: %w", err)
@@ -223,30 +137,29 @@ func (c *Client) Start(ctx context.Context, p ClientDealProposal) (cid.Cid, erro
 		return cid.Undef, xerrors.Errorf("getting proposal node failed: %w", err)
 	}
 
+	deal := &storagemarket.ClientDeal{
+		ProposalCid:        proposalNd.Cid(),
+		ClientDealProposal: *clientDealProposal,
+		State:              storagemarket.StorageDealUnknown,
+		Miner:              p.MinerID,
+		MinerWorker:        p.MinerWorker,
+		DataRef:            p.Data,
+	}
+
+	err = c.statemachines.Begin(proposalNd.Cid(), deal)
+	if err != nil {
+		return cid.Undef, xerrors.Errorf("setting up deal tracking: %w", err)
+	}
+
 	s, err := c.net.NewDealStream(p.MinerID)
 	if err != nil {
 		return cid.Undef, xerrors.Errorf("connecting to storage provider failed: %w", err)
 	}
+	c.connsLk.Lock()
+	c.conns[deal.ProposalCid] = s
+	c.connsLk.Unlock()
 
-	proposal := network.Proposal{DealProposal: clientDealProposal, Piece: p.Data}
-	if err := s.WriteDealProposal(proposal); err != nil {
-		return cid.Undef, xerrors.Errorf("sending proposal to storage provider failed: %w", err)
-	}
-
-	deal := &ClientDeal{
-		ClientDeal: storagemarket.ClientDeal{
-			ProposalCid:        proposalNd.Cid(),
-			ClientDealProposal: *clientDealProposal,
-			State:              storagemarket.StorageDealUnknown,
-			Miner:              p.MinerID,
-			MinerWorker:        p.MinerWorker,
-			DataRef:            p.Data,
-		},
-
-		s: s,
-	}
-
-	c.incoming <- deal
+	c.statemachines.Send(deal.ProposalCid, storagemarket.ClientEventOpen)
 
 	return deal.ProposalCid, c.discovery.AddPeer(p.Data.Root, retrievalmarket.RetrievalPeer{
 		Address: dealProposal.Provider,
@@ -278,30 +191,56 @@ func (c *Client) QueryAsk(ctx context.Context, p peer.ID, a address.Address) (*s
 		return nil, xerrors.Errorf("got back ask for wrong miner")
 	}
 
-	if err := c.checkAskSignature(out.Ask); err != nil {
+	if err := c.node.ValidateAskSignature(out.Ask); err != nil {
 		return nil, xerrors.Errorf("ask was not properly signed")
 	}
 
 	return out.Ask, nil
 }
 
-func (c *Client) List() ([]ClientDeal, error) {
-	var out []ClientDeal
-	if err := c.deals.List(&out); err != nil {
+func (c *Client) List() ([]storagemarket.ClientDeal, error) {
+	var out []storagemarket.ClientDeal
+	if err := c.statemachines.List(&out); err != nil {
 		return nil, err
 	}
 	return out, nil
 }
 
-func (c *Client) GetDeal(d cid.Cid) (*ClientDeal, error) {
-	var out ClientDeal
-	if err := c.deals.Get(d).Get(&out); err != nil {
+func (c *Client) GetDeal(d cid.Cid) (*storagemarket.ClientDeal, error) {
+	var out storagemarket.ClientDeal
+	if err := c.statemachines.Get(d).Get(&out); err != nil {
 		return nil, err
 	}
 	return &out, nil
 }
 
 func (c *Client) Stop() {
-	close(c.stop)
-	<-c.stopped
+	c.statemachines.Stop(context.TODO())
+}
+
+func (c *Client) Node() storagemarket.StorageClientNode {
+	return c.node
+}
+
+func (c *Client) DealStream(proposalCid cid.Cid) (network.StorageDealStream, error) {
+	c.connsLk.RLock()
+	s, ok := c.conns[proposalCid]
+	c.connsLk.RUnlock()
+	if ok {
+		return s, nil
+	}
+	return nil, xerrors.New("no connection to provider")
+}
+
+func (c *Client) CloseStream(proposalCid cid.Cid) error {
+	c.connsLk.Lock()
+	defer c.connsLk.Unlock()
+	s, ok := c.conns[proposalCid]
+	if !ok {
+		return nil
+	}
+
+	err := s.Close()
+	delete(c.conns, proposalCid)
+	return err
 }

@@ -21,7 +21,7 @@ func (t *ClientDeal) MarshalCBOR(w io.Writer) error {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	if _, err := w.Write([]byte{136}); err != nil {
+	if _, err := w.Write([]byte{137}); err != nil {
 		return err
 	}
 
@@ -58,13 +58,25 @@ func (t *ClientDeal) MarshalCBOR(w io.Writer) error {
 		return err
 	}
 
-	// t.DealID (uint64) (uint64)
+	// t.DealID (abi.DealID) (uint64)
 	if _, err := w.Write(cbg.CborEncodeMajorType(cbg.MajUnsignedInt, uint64(t.DealID))); err != nil {
 		return err
 	}
 
 	// t.DataRef (storagemarket.DataRef) (struct)
 	if err := t.DataRef.MarshalCBOR(w); err != nil {
+		return err
+	}
+
+	// t.Message (string) (string)
+	if len(t.Message) > cbg.MaxLength {
+		return xerrors.Errorf("Value in field t.Message was too long")
+	}
+
+	if _, err := w.Write(cbg.CborEncodeMajorType(cbg.MajTextString, uint64(len(t.Message)))); err != nil {
+		return err
+	}
+	if _, err := w.Write([]byte(t.Message)); err != nil {
 		return err
 	}
 
@@ -94,7 +106,7 @@ func (t *ClientDeal) UnmarshalCBOR(r io.Reader) error {
 		return fmt.Errorf("cbor input should be of type array")
 	}
 
-	if extra != 8 {
+	if extra != 9 {
 		return fmt.Errorf("cbor input had wrong number of fields")
 	}
 
@@ -148,7 +160,7 @@ func (t *ClientDeal) UnmarshalCBOR(r io.Reader) error {
 		}
 
 	}
-	// t.DealID (uint64) (uint64)
+	// t.DealID (abi.DealID) (uint64)
 
 	maj, extra, err = cbg.CborReadHeader(br)
 	if err != nil {
@@ -157,7 +169,7 @@ func (t *ClientDeal) UnmarshalCBOR(r io.Reader) error {
 	if maj != cbg.MajUnsignedInt {
 		return fmt.Errorf("wrong type for uint64 field")
 	}
-	t.DealID = uint64(extra)
+	t.DealID = abi.DealID(extra)
 	// t.DataRef (storagemarket.DataRef) (struct)
 
 	{
@@ -178,6 +190,16 @@ func (t *ClientDeal) UnmarshalCBOR(r io.Reader) error {
 			}
 		}
 
+	}
+	// t.Message (string) (string)
+
+	{
+		sval, err := cbg.ReadString(br)
+		if err != nil {
+			return err
+		}
+
+		t.Message = string(sval)
 	}
 	// t.PublishMessage (cid.Cid) (struct)
 

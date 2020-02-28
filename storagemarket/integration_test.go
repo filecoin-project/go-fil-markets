@@ -12,7 +12,6 @@ import (
 	"github.com/filecoin-project/go-address"
 	datatransfer "github.com/filecoin-project/go-data-transfer"
 	graphsync "github.com/filecoin-project/go-data-transfer/impl/graphsync"
-	"github.com/filecoin-project/go-statestore"
 	"github.com/ipfs/go-cid"
 	"github.com/ipfs/go-datastore"
 	"github.com/ipld/go-ipld-prime"
@@ -28,6 +27,7 @@ import (
 	"github.com/filecoin-project/go-fil-markets/shared_testutil"
 	"github.com/filecoin-project/go-fil-markets/storagemarket"
 	storageimpl "github.com/filecoin-project/go-fil-markets/storagemarket/impl"
+	"github.com/filecoin-project/go-fil-markets/storagemarket/impl/requestvalidation"
 	"github.com/filecoin-project/go-fil-markets/storagemarket/network"
 	"github.com/filecoin-project/specs-actors/actors/abi"
 	"github.com/filecoin-project/specs-actors/actors/abi/big"
@@ -63,17 +63,17 @@ func TestMakeDeal(t *testing.T) {
 
 	// create provider and client
 	dt1 := graphsync.NewGraphSyncDataTransfer(td.Host1, td.GraphSync1)
-	require.NoError(t, dt1.RegisterVoucherType(reflect.TypeOf(&storageimpl.StorageDataTransferVoucher{}), &fakeDTValidator{}))
+	require.NoError(t, dt1.RegisterVoucherType(reflect.TypeOf(&requestvalidation.StorageDataTransferVoucher{}), &fakeDTValidator{}))
 
-	client := storageimpl.NewClient(
+	client, err := storageimpl.NewClient(
 		network.NewFromLibp2pHost(td.Host1),
 		td.Bs1,
 		dt1,
 		discovery.NewLocal(ds1),
-		statestore.New(ds1),
+		ds1,
 		&clientNode,
 	)
-
+	require.NoError(t, err)
 	dt2 := graphsync.NewGraphSyncDataTransfer(td.Host2, td.GraphSync2)
 	provider, err := storageimpl.NewProvider(
 		network.NewFromLibp2pHost(td.Host2),
@@ -161,17 +161,17 @@ func TestMakeDealOffline(t *testing.T) {
 
 	// create provider and client
 	dt1 := graphsync.NewGraphSyncDataTransfer(td.Host1, td.GraphSync1)
-	require.NoError(t, dt1.RegisterVoucherType(reflect.TypeOf(&storageimpl.StorageDataTransferVoucher{}), &fakeDTValidator{}))
+	require.NoError(t, dt1.RegisterVoucherType(reflect.TypeOf(&requestvalidation.StorageDataTransferVoucher{}), &fakeDTValidator{}))
 
-	client := storageimpl.NewClient(
+	client, err := storageimpl.NewClient(
 		network.NewFromLibp2pHost(td.Host1),
 		td.Bs1,
 		dt1,
 		discovery.NewLocal(ds1),
-		statestore.New(ds1),
+		ds1,
 		&clientNode,
 	)
-
+	require.NoError(t, err)
 	dt2 := graphsync.NewGraphSyncDataTransfer(td.Host2, td.GraphSync2)
 	provider, err := storageimpl.NewProvider(
 		network.NewFromLibp2pHost(td.Host2),
@@ -221,7 +221,7 @@ func TestMakeDealOffline(t *testing.T) {
 
 	cd, err := client.GetInProgressDeal(ctx, proposalCid)
 	assert.NoError(t, err)
-	assert.Equal(t, cd.State, storagemarket.StorageDealUnknown)
+	assert.Equal(t, cd.State, storagemarket.StorageDealValidating)
 
 	providerDeals, err := provider.ListIncompleteDeals()
 	assert.NoError(t, err)
@@ -368,7 +368,7 @@ func (n *fakeClientNode) ListStorageProviders(ctx context.Context) ([]*storagema
 	return n.SMState.Providers, nil
 }
 
-func (n *fakeClientNode) ValidatePublishedDeal(ctx context.Context, deal storagemarket.ClientDeal) (uint64, error) {
+func (n *fakeClientNode) ValidatePublishedDeal(ctx context.Context, deal storagemarket.ClientDeal) (abi.DealID, error) {
 	return 0, nil
 }
 
@@ -383,7 +383,7 @@ func (n *fakeClientNode) GetDefaultWalletAddress(ctx context.Context) (address.A
 	return n.ClientAddr, nil
 }
 
-func (n *fakeClientNode) OnDealSectorCommitted(ctx context.Context, provider address.Address, dealId uint64, cb storagemarket.DealSectorCommittedCallback) error {
+func (n *fakeClientNode) OnDealSectorCommitted(ctx context.Context, provider address.Address, dealId abi.DealID, cb storagemarket.DealSectorCommittedCallback) error {
 	cb(nil)
 	return nil
 }

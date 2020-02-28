@@ -20,6 +20,7 @@ import (
 	"github.com/filecoin-project/go-fil-markets/pieceio/cario"
 	"github.com/filecoin-project/go-fil-markets/piecestore"
 	"github.com/filecoin-project/go-fil-markets/storagemarket"
+	"github.com/filecoin-project/go-fil-markets/storagemarket/impl/requestvalidation"
 	"github.com/filecoin-project/go-fil-markets/storagemarket/network"
 	"github.com/filecoin-project/go-statestore"
 	"github.com/filecoin-project/specs-actors/actors/abi"
@@ -218,7 +219,7 @@ func (p *Provider) onUpdated(ctx context.Context, update minerDealUpdate) {
 // and update message for the deal -- either moving to staged for a completion
 // event or moving to error if a data transfer error occurs
 func (p *Provider) onDataTransferEvent(event datatransfer.Event, channelState datatransfer.ChannelState) {
-	voucher, ok := channelState.Voucher().(*StorageDataTransferVoucher)
+	voucher, ok := channelState.Voucher().(*requestvalidation.StorageDataTransferVoucher)
 	// if this event is for a transfer not related to storage, ignore
 	if !ok {
 		return
