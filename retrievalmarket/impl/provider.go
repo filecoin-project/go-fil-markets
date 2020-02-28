@@ -11,6 +11,7 @@ import (
 	"github.com/ipfs/go-datastore/namespace"
 	blockstore "github.com/ipfs/go-ipfs-blockstore"
 	cidlink "github.com/ipld/go-ipld-prime/linking/cid"
+	"golang.org/x/xerrors"
 
 	"github.com/filecoin-project/go-address"
 	"github.com/filecoin-project/go-fil-markets/pieceio/cario"
@@ -274,7 +275,7 @@ func (p *provider) GetPieceSize(c cid.Cid) (uint64, error) {
 func getPieceInfoFromCid(pieceStore piecestore.PieceStore, c cid.Cid) (piecestore.PieceInfo, error) {
 	cidInfo, err := pieceStore.GetCIDInfo(c)
 	if err != nil {
-		return piecestore.PieceInfoUndefined, err
+		return piecestore.PieceInfoUndefined, xerrors.Errorf("get cid info: %w", err)
 	}
 	var lastErr error
 	for _, pieceBlockLocation := range cidInfo.PieceBlockLocations {
@@ -284,5 +285,5 @@ func getPieceInfoFromCid(pieceStore piecestore.PieceStore, c cid.Cid) (piecestor
 		}
 		lastErr = err
 	}
-	return piecestore.PieceInfoUndefined, lastErr
+	return piecestore.PieceInfoUndefined, xerrors.Errorf("could not locate piece: %w", lastErr)
 }
