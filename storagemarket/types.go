@@ -173,7 +173,8 @@ type StorageProviderNode interface {
 	AddFunds(ctx context.Context, addr address.Address, amount abi.TokenAmount) error
 
 	// Ensures that a storage market participant has a certain amount of available funds
-	EnsureFunds(ctx context.Context, addr address.Address, amount abi.TokenAmount) error
+	// If additional funds are needed, they will be sent from the 'wallet' address
+	EnsureFunds(ctx context.Context, addr, wallet address.Address, amount abi.TokenAmount) error
 
 	// GetBalance returns locked/unlocked for a storage participant.  Used by both providers and clients.
 	GetBalance(ctx context.Context, addr address.Address) (Balance, error)
@@ -210,7 +211,7 @@ type StorageClientNode interface {
 	// Adds funds with the StorageMinerActor for a storage participant.  Used by both providers and clients.
 	AddFunds(ctx context.Context, addr address.Address, amount abi.TokenAmount) error
 
-	EnsureFunds(ctx context.Context, addr address.Address, amount abi.TokenAmount) error
+	EnsureFunds(ctx context.Context, addr, wallet address.Address, amount abi.TokenAmount) error
 
 	// GetBalance returns locked/unlocked for a storage participant.  Used by both providers and clients.
 	GetBalance(ctx context.Context, addr address.Address) (Balance, error)

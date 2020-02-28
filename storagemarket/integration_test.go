@@ -338,7 +338,7 @@ func (n *fakeCommon) AddFunds(ctx context.Context, addr address.Address, amount 
 	return nil
 }
 
-func (n *fakeCommon) EnsureFunds(ctx context.Context, addr address.Address, amount abi.TokenAmount) error {
+func (n *fakeCommon) EnsureFunds(ctx context.Context, addr, wallet address.Address, amount abi.TokenAmount) error {
 	balance := n.SMState.Balance(addr)
 	if balance.Available.LessThan(amount) {
 		n.SMState.AddFunds(addr, big.Sub(amount, balance.Available))

@@ -138,7 +138,7 @@ func (p *Provider) publishing(ctx context.Context, deal MinerDeal) (func(*MinerD
 	}
 
 	// TODO: check StorageCollateral (may be too large (or too small))
-	if err := p.spn.EnsureFunds(ctx, waddr, deal.Proposal.ProviderCollateral); err != nil {
+	if err := p.spn.EnsureFunds(ctx, deal.Proposal.Provider, waddr, deal.Proposal.ProviderCollateral); err != nil {
 		return nil, err
 	}
 

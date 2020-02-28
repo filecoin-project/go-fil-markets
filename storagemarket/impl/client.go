@@ -209,7 +209,7 @@ func (c *Client) Start(ctx context.Context, p ClientDealProposal) (cid.Cid, erro
 		ClientCollateral:     big.Zero(),
 	}
 
-	if err := c.node.EnsureFunds(ctx, p.Client, dealProposal.ClientBalanceRequirement()); err != nil {
+	if err := c.node.EnsureFunds(ctx, p.Client, p.Client, dealProposal.ClientBalanceRequirement()); err != nil {
 		return cid.Undef, xerrors.Errorf("adding market funds failed: %w", err)
 	}
 

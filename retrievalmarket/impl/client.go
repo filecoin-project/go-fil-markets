@@ -84,7 +84,7 @@ func NewClient(
 func (c *client) FindProviders(payloadCID cid.Cid) []retrievalmarket.RetrievalPeer {
 	peers, err := c.resolver.GetPeers(payloadCID)
 	if err != nil {
-		log.Error(err)
+		log.Errorf("failed to get peers: %s", err)
 		return []retrievalmarket.RetrievalPeer{}
 	}
 	return peers
