@@ -312,6 +312,8 @@ type RetrievalProvider interface {
 
 // RetrievalProviderNode are the node depedencies for a RetrevalProvider
 type RetrievalProviderNode interface {
+	// returns the worker address associated with a miner
+	GetMinerWorker(ctx context.Context, miner address.Address) (address.Address, error)
 	UnsealSector(ctx context.Context, sectorID uint64, offset uint64, length uint64) (io.ReadCloser, error)
 	SavePaymentVoucher(ctx context.Context, paymentChannel address.Address, voucher *paych.SignedVoucher, proof []byte, expectedAmount abi.TokenAmount) (abi.TokenAmount, error)
 }

@@ -113,6 +113,11 @@ func (trpn *TestRetrievalProviderNode) SavePaymentVoucher(
 	return abi.TokenAmount{}, errors.New("SavePaymentVoucher failed")
 }
 
+// GetMinerWorker translates an address
+func (trpn *TestRetrievalProviderNode) GetMinerWorker(ctx context.Context, addr address.Address) (address.Address, error) {
+	return addr, nil
+}
+
 // --- Non-interface Functions
 
 // to ExpectedVoucherKey creates a lookup key for expected vouchers.

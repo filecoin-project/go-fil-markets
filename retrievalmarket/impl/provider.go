@@ -34,7 +34,7 @@ type provider struct {
 	network                 rmnet.RetrievalMarketNetwork
 	paymentInterval         uint64
 	paymentIntervalIncrease uint64
-	paymentAddress          address.Address
+	minerAddress            address.Address
 	pieceStore              piecestore.PieceStore
 	pricePerByte            abi.TokenAmount
 	subscribers             []retrievalmarket.ProviderSubscriber
@@ -59,13 +59,13 @@ var DefaultPaymentInterval = uint64(1 << 20)
 var DefaultPaymentIntervalIncrease = uint64(1 << 20)
 
 // NewProvider returns a new retrieval provider
-func NewProvider(paymentAddress address.Address, node retrievalmarket.RetrievalProviderNode, network rmnet.RetrievalMarketNetwork, pieceStore piecestore.PieceStore, bs blockstore.Blockstore, ds datastore.Batching) (retrievalmarket.RetrievalProvider, error) {
+func NewProvider(minerAddress address.Address, node retrievalmarket.RetrievalProviderNode, network rmnet.RetrievalMarketNetwork, pieceStore piecestore.PieceStore, bs blockstore.Blockstore, ds datastore.Batching) (retrievalmarket.RetrievalProvider, error) {
 
 	p := &provider{
 		bs:                      bs,
 		node:                    node,
 		network:                 network,
-		paymentAddress:          paymentAddress,
+		minerAddress:            minerAddress,
 		pieceStore:              pieceStore,
 		pricePerByte:            DefaultPricePerByte, // TODO: allow setting
 		paymentInterval:         DefaultPaymentInterval,
@@ -166,26 +166,32 @@ func (p *provider) HandleQueryStream(stream rmnet.RetrievalQueryStream) {
 
 	answer := retrievalmarket.QueryResponse{
 		Status:                     retrievalmarket.QueryResponseUnavailable,
-		PaymentAddress:             p.paymentAddress,
 		MinPricePerByte:            p.pricePerByte,
 		MaxPaymentInterval:         p.paymentInterval,
 		MaxPaymentIntervalIncrease: p.paymentIntervalIncrease,
 	}
 
-	pieceInfo, err := getPieceInfoFromCid(p.pieceStore, query.PayloadCID)
-
-	if err == nil && len(pieceInfo.Deals) > 0 {
-		answer.Status = retrievalmarket.QueryResponseAvailable
-		// TODO: get price, look for already unsealed ref to reduce work
-		answer.Size = uint64(pieceInfo.Deals[0].Length) // TODO: verify on intermediate
-	}
-
-	if err != nil && !xerrors.Is(err, retrievalmarket.ErrNotFound) {
-		log.Errorf("Retrieval query: GetRefs: %s", err)
+	paymentAddress, err := p.node.GetMinerWorker(context.TODO(), p.minerAddress)
+	if err != nil {
+		log.Errorf("Retrieval query: Lookup Payment Address: %s", err)
 		answer.Status = retrievalmarket.QueryResponseError
 		answer.Message = err.Error()
-	}
+	} else {
+		answer.PaymentAddress = paymentAddress
+		pieceInfo, err := getPieceInfoFromCid(p.pieceStore, query.PayloadCID)
 
+		if err == nil && len(pieceInfo.Deals) > 0 {
+			answer.Status = retrievalmarket.QueryResponseAvailable
+			// TODO: get price, look for already unsealed ref to reduce work
+			answer.Size = uint64(pieceInfo.Deals[0].Length) // TODO: verify on intermediate
+		}
+
+		if err != nil && !xerrors.Is(err, retrievalmarket.ErrNotFound) {
+			log.Errorf("Retrieval query: GetRefs: %s", err)
+			answer.Status = retrievalmarket.QueryResponseError
+			answer.Message = err.Error()
+		}
+	}
 	if err := stream.WriteQueryResponse(answer); err != nil {
 		log.Errorf("Retrieval query: WriteCborRPC: %s", err)
 		return
