@@ -111,6 +111,13 @@ func ProcessPayment(ctx fsm.Context, environment ProviderDealEnvironment, deal r
 		return ctx.Trigger(rm.ProviderEventSaveVoucherFailed, err)
 	}
 
+	// received = 0 / err = nil indicates that the voucher was already saved, but this may be ok
+	// if we are making a deal with ourself - in this case, we'll instead calculate received
+	// but subtracting from fund sent
+	if big.Cmp(received, big.Zero()) == 0 {
+		received = big.Sub(payment.PaymentVoucher.Amount, deal.FundsReceived)
+	}
+
 	// check if all payments are received to continue the deal, or send updated required payment
 	if received.LessThan(paymentOwed) {
 		err := environment.DealStream(deal.Identifier()).WriteDealResponse(rm.DealResponse{
