@@ -237,6 +237,7 @@ func TestProcessPayment(t *testing.T) {
 
 	payCh := address.TestAddress
 	voucher := testnet.MakeTestSignedVoucher()
+	voucher.Amount = big.Add(defaultFundsReceived, defaultPaymentPerInterval)
 	dealPayment := retrievalmarket.DealPayment{
 		ID:             dealID,
 		PaymentChannel: payCh,
@@ -292,6 +293,22 @@ func TestProcessPayment(t *testing.T) {
 		require.Equal(t, dealState.Status, retrievalmarket.DealStatusFundsNeeded)
 		require.Equal(t, dealState.FundsReceived, big.Add(defaultFundsReceived, smallerPayment))
 		require.Equal(t, dealState.CurrentInterval, defaultCurrentInterval)
+		require.Empty(t, dealState.Message)
+	})
+
+	t.Run("voucher already saved", func(t *testing.T) {
+		node := testnodes.NewTestRetrievalProviderNode()
+		err := node.ExpectVoucher(payCh, voucher, nil, defaultPaymentPerInterval, big.Zero(), nil)
+		require.NoError(t, err)
+		dealState := makeDealState(retrievalmarket.DealStatusFundsNeeded)
+		dealState.TotalSent = defaultTotalSent + defaultCurrentInterval
+		dealStreamParams := testnet.TestDealStreamParams{
+			PaymentReader: testnet.StubbedDealPaymentReader(dealPayment),
+		}
+		runProcessPayment(t, node, dealStreamParams, dealState)
+		require.Equal(t, dealState.Status, retrievalmarket.DealStatusOngoing)
+		require.Equal(t, dealState.FundsReceived, big.Add(defaultFundsReceived, defaultPaymentPerInterval))
+		require.Equal(t, dealState.CurrentInterval, defaultCurrentInterval+defaultIntervalIncrease)
 		require.Empty(t, dealState.Message)
 	})
 
