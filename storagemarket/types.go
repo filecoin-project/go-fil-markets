@@ -269,6 +269,9 @@ const (
 type DataRef struct {
 	TransferType string
 	Root         cid.Cid
+
+	PieceCid  *cid.Cid // Optional, will be recomputed from the data if not given
+	PieceSize abi.UnpaddedPieceSize
 }
 
 // The interface provided by the module to the outside world for storage clients.

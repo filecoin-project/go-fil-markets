@@ -192,7 +192,7 @@ type ClientDealProposal struct {
 }
 
 func (c *Client) Start(ctx context.Context, p ClientDealProposal) (cid.Cid, error) {
-	commP, pieceSize, err := c.commP(ctx, p.ProofType, p.Data.Root)
+	commP, pieceSize, err := c.commP(ctx, p.ProofType, p.Data)
 	if err != nil {
 		return cid.Undef, xerrors.Errorf("computing commP failed: %w", err)
 	}

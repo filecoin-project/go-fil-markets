@@ -18,6 +18,7 @@ import (
 	"github.com/filecoin-project/go-address"
 	cborutil "github.com/filecoin-project/go-cbor-util"
 	datatransfer "github.com/filecoin-project/go-data-transfer"
+	"github.com/filecoin-project/go-fil-markets/storagemarket"
 	"github.com/filecoin-project/go-fil-markets/storagemarket/network"
 	"github.com/filecoin-project/go-statestore"
 )
@@ -38,14 +39,18 @@ func (c *Client) failDeal(id cid.Cid, cerr error) {
 	log.Errorf("deal %s failed: %+v", id, cerr)
 }
 
-func (c *Client) commP(ctx context.Context, rt abi.RegisteredProof, root cid.Cid) (cid.Cid, abi.UnpaddedPieceSize, error) {
+func (c *Client) commP(ctx context.Context, rt abi.RegisteredProof, data *storagemarket.DataRef) (cid.Cid, abi.UnpaddedPieceSize, error) {
+	if data.PieceCid != nil {
+		return *data.PieceCid, data.PieceSize, nil
+	}
+
 	ssb := builder.NewSelectorSpecBuilder(ipldfree.NodeBuilder())
 
 	// entire DAG selector
 	allSelector := ssb.ExploreRecursive(selector.RecursionLimitNone(),
 		ssb.ExploreAll(ssb.ExploreRecursiveEdge())).Node()
 
-	commp, paddedSize, err := c.pio.GeneratePieceCommitment(rt, root, allSelector)
+	commp, paddedSize, err := c.pio.GeneratePieceCommitment(rt, data.Root, allSelector)
 	if err != nil {
 		return cid.Undef, 0, xerrors.Errorf("generating CommP: %w", err)
 	}
