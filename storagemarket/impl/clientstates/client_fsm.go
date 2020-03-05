@@ -31,7 +31,7 @@ var ClientEvents = fsm.Events{
 	fsm.Event(storagemarket.ClientEventDealStreamLookupErrored).
 		FromAny().To(storagemarket.StorageDealFailing).
 		Action(func(deal *storagemarket.ClientDeal, err error) error {
-			deal.Message = "no connection to miner"
+			deal.Message = xerrors.Errorf("miner connection error: %w", err).Error()
 			return nil
 		}),
 	fsm.Event(storagemarket.ClientEventReadResponseFailed).
@@ -65,7 +65,7 @@ var ClientEvents = fsm.Events{
 			return nil
 		}),
 	fsm.Event(storagemarket.ClientEventStreamCloseError).
-		FromAny().To(storagemarket.StorageDealFailing).
+		FromAny().To(storagemarket.StorageDealError).
 		Action(func(deal *storagemarket.ClientDeal, err error) error {
 			deal.Message = xerrors.Errorf("error attempting to close stream: %w", err).Error()
 			return nil

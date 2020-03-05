@@ -5,6 +5,7 @@ import (
 	"math/rand"
 	"testing"
 
+	cborutil "github.com/filecoin-project/go-cbor-util"
 	"github.com/filecoin-project/specs-actors/actors/builtin/market"
 
 	"github.com/filecoin-project/go-address"
@@ -139,6 +140,35 @@ func MakeTestClientDealProposal() *market.ClientDealProposal {
 		Proposal:        MakeTestUnsignedDealProposal(),
 		ClientSignature: *MakeTestSignature(),
 	}
+}
+
+// MakeTestDataRef returns a storage market data ref
+func MakeTestDataRef() *storagemarket.DataRef {
+	return &storagemarket.DataRef{
+		Root: GenerateCids(1)[0],
+	}
+}
+
+// MakeTestClientDeal returns a storage market client deal
+func MakeTestClientDeal(state storagemarket.StorageDealStatus, clientDealProposal *market.ClientDealProposal) (*storagemarket.ClientDeal, error) {
+	proposalNd, err := cborutil.AsIpld(clientDealProposal)
+
+	if err != nil {
+		return nil, err
+	}
+
+	p, err := test.RandPeerID()
+	if err != nil {
+		return nil, err
+	}
+	return &storagemarket.ClientDeal{
+		ProposalCid:        proposalNd.Cid(),
+		ClientDealProposal: *clientDealProposal,
+		State:              state,
+		Miner:              p,
+		MinerWorker:        address.TestAddress2,
+		DataRef:            MakeTestDataRef(),
+	}, nil
 }
 
 // MakeTestStorageAsk generates a storage ask

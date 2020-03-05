@@ -20,6 +20,9 @@ type ClientDealEnvironment interface {
 	CloseStream(proposalCid cid.Cid) error
 }
 
+// ClientStateEntryFunc is the type for all state entry functions on a storage client
+type ClientStateEntryFunc func(ctx fsm.Context, environment ClientDealEnvironment, deal storagemarket.ClientDeal) error
+
 // EnsureFunds attempts to ensure the client has enough funds for the deal being proposed
 func EnsureFunds(ctx fsm.Context, environment ClientDealEnvironment, deal storagemarket.ClientDeal) error {
 	if err := environment.Node().EnsureFunds(
@@ -50,7 +53,7 @@ func VerifyDealResponse(ctx fsm.Context, environment ClientDealEnvironment, deal
 
 	s, err := environment.DealStream(deal.ProposalCid)
 	if err != nil {
-		return ctx.Trigger(storagemarket.ClientEventDealStreamLookupErrored)
+		return ctx.Trigger(storagemarket.ClientEventDealStreamLookupErrored, err)
 	}
 
 	resp, err := s.ReadDealResponse()
@@ -59,7 +62,7 @@ func VerifyDealResponse(ctx fsm.Context, environment ClientDealEnvironment, deal
 	}
 
 	if err := clientutils.VerifyResponse(resp, deal.MinerWorker, environment.Node().VerifySignature); err != nil {
-		return ctx.Trigger(storagemarket.ClientEventResponseVerificationFailed, err)
+		return ctx.Trigger(storagemarket.ClientEventResponseVerificationFailed)
 	}
 
 	if resp.Response.Proposal != deal.ProposalCid {

@@ -9,6 +9,7 @@ import (
 
 	rm "github.com/filecoin-project/go-fil-markets/retrievalmarket"
 	rmnet "github.com/filecoin-project/go-fil-markets/retrievalmarket/network"
+	smnet "github.com/filecoin-project/go-fil-markets/storagemarket/network"
 )
 
 // QueryReader is a function to mock reading queries.
@@ -500,4 +501,141 @@ func StubbedDealPaymentReader(payment rm.DealPayment) DealPaymentReader {
 	return func() (rm.DealPayment, error) {
 		return payment, nil
 	}
+}
+
+// StorageDealProposalReader is a function to mock reading deal proposals.
+type StorageDealProposalReader func() (smnet.Proposal, error)
+
+// StorageDealResponseReader is a function to mock reading deal responses.
+type StorageDealResponseReader func() (smnet.SignedResponse, error)
+
+// StorageDealResponseWriter is a function to mock writing deal responses.
+type StorageDealResponseWriter func(smnet.SignedResponse) error
+
+// StorageDealProposalWriter is a function to mock writing deal proposals.
+type StorageDealProposalWriter func(smnet.Proposal) error
+
+// TestStorageDealStream is a retrieval deal stream with predefined
+// stubbed behavior.
+type TestStorageDealStream struct {
+	p              peer.ID
+	proposalReader StorageDealProposalReader
+	proposalWriter StorageDealProposalWriter
+	responseReader StorageDealResponseReader
+	responseWriter StorageDealResponseWriter
+}
+
+// TestStorageDealStreamParams are parameters used to setup a TestStorageDealStream.
+// All parameters except the peer ID are optional.
+type TestStorageDealStreamParams struct {
+	PeerID         peer.ID
+	ProposalReader StorageDealProposalReader
+	ProposalWriter StorageDealProposalWriter
+	ResponseReader StorageDealResponseReader
+	ResponseWriter StorageDealResponseWriter
+}
+
+// NewTestStorageDealStream returns a new TestStorageDealStream with the
+// behavior specified by the paramaters, or default behaviors if not specified.
+func NewTestStorageDealStream(params TestStorageDealStreamParams) smnet.StorageDealStream {
+	stream := TestStorageDealStream{
+		p:              params.PeerID,
+		proposalReader: TrivialStorageDealProposalReader,
+		proposalWriter: TrivialStorageDealProposalWriter,
+		responseReader: TrivialStorageDealResponseReader,
+		responseWriter: TrivialStorageDealResponseWriter,
+	}
+	if params.ProposalReader != nil {
+		stream.proposalReader = params.ProposalReader
+	}
+	if params.ProposalWriter != nil {
+		stream.proposalWriter = params.ProposalWriter
+	}
+	if params.ResponseReader != nil {
+		stream.responseReader = params.ResponseReader
+	}
+	if params.ResponseWriter != nil {
+		stream.responseWriter = params.ResponseWriter
+	}
+	return &stream
+}
+
+// ReadDealProposal calls the mocked deal proposal reader function.
+func (tsds *TestStorageDealStream) ReadDealProposal() (smnet.Proposal, error) {
+	return tsds.proposalReader()
+}
+
+// WriteDealProposal calls the mocked deal proposal writer function.
+func (tsds *TestStorageDealStream) WriteDealProposal(dealProposal smnet.Proposal) error {
+	return tsds.proposalWriter(dealProposal)
+}
+
+// ReadDealResponse calls the mocked deal response reader function.
+func (tsds *TestStorageDealStream) ReadDealResponse() (smnet.SignedResponse, error) {
+	return tsds.responseReader()
+}
+
+// WriteDealResponse calls the mocked deal response writer function.
+func (tsds *TestStorageDealStream) WriteDealResponse(dealResponse smnet.SignedResponse) error {
+	return tsds.responseWriter(dealResponse)
+}
+
+// RemotePeer returns the other peer
+func (tsds TestStorageDealStream) RemotePeer() peer.ID { return tsds.p }
+
+// Close closes the stream (does nothing for mocked stream)
+func (tsds TestStorageDealStream) Close() error { return nil }
+
+// TrivialStorageDealProposalReader succeeds trivially, returning an empty proposal.
+func TrivialStorageDealProposalReader() (smnet.Proposal, error) {
+	return smnet.Proposal{}, nil
+}
+
+// TrivialStorageDealResponseReader succeeds trivially, returning an empty deal response.
+func TrivialStorageDealResponseReader() (smnet.SignedResponse, error) {
+	return smnet.SignedResponse{}, nil
+}
+
+// TrivialStorageDealProposalWriter succeeds trivially, returning no error.
+func TrivialStorageDealProposalWriter(smnet.Proposal) error {
+	return nil
+}
+
+// TrivialStorageDealResponseWriter succeeds trivially, returning no error.
+func TrivialStorageDealResponseWriter(smnet.SignedResponse) error {
+	return nil
+}
+
+// StubbedStorageProposalReader returns the given proposal when called
+func StubbedStorageProposalReader(proposal smnet.Proposal) StorageDealProposalReader {
+	return func() (smnet.Proposal, error) {
+		return proposal, nil
+	}
+}
+
+// StubbedStorageResponseReader returns the given deal response when called
+func StubbedStorageResponseReader(response smnet.SignedResponse) StorageDealResponseReader {
+	return func() (smnet.SignedResponse, error) {
+		return response, nil
+	}
+}
+
+// FailStorageProposalWriter always fails
+func FailStorageProposalWriter(smnet.Proposal) error {
+	return errors.New("write proposal failed")
+}
+
+// FailStorageProposalReader always fails
+func FailStorageProposalReader() (smnet.Proposal, error) {
+	return smnet.ProposalUndefined, errors.New("read proposal failed")
+}
+
+// FailStorageResponseWriter always fails
+func FailStorageResponseWriter(smnet.SignedResponse) error {
+	return errors.New("write proposal failed")
+}
+
+// FailStorageResponseReader always fails
+func FailStorageResponseReader() (smnet.SignedResponse, error) {
+	return smnet.SignedResponseUndefined, errors.New("read response failed")
 }
