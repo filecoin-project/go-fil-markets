@@ -159,7 +159,10 @@ func (c *Client) Start(ctx context.Context, p ClientDealProposal) (cid.Cid, erro
 	c.conns[deal.ProposalCid] = s
 	c.connsLk.Unlock()
 
-	c.statemachines.Send(deal.ProposalCid, storagemarket.ClientEventOpen)
+	err = c.statemachines.Send(deal.ProposalCid, storagemarket.ClientEventOpen)
+	if err != nil {
+		return cid.Undef, xerrors.Errorf("initializing state machine: %w", err)
+	}
 
 	return deal.ProposalCid, c.discovery.AddPeer(p.Data.Root, retrievalmarket.RetrievalPeer{
 		Address: dealProposal.Provider,
@@ -215,7 +218,7 @@ func (c *Client) GetDeal(d cid.Cid) (*storagemarket.ClientDeal, error) {
 }
 
 func (c *Client) Stop() {
-	c.statemachines.Stop(context.TODO())
+	_ = c.statemachines.Stop(context.TODO())
 }
 
 func (c *Client) Node() storagemarket.StorageClientNode {
