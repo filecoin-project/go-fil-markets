@@ -12,6 +12,7 @@ import (
 
 	"github.com/filecoin-project/go-fil-markets/piecestore"
 	"github.com/filecoin-project/go-fil-markets/storagemarket"
+	"github.com/filecoin-project/go-fil-markets/storagemarket/impl/requestvalidation"
 	"github.com/filecoin-project/go-fil-markets/storagemarket/network"
 	"github.com/filecoin-project/specs-actors/actors/abi"
 	"github.com/filecoin-project/specs-actors/actors/abi/big"
@@ -97,7 +98,7 @@ func (p *Provider) transferring(ctx context.Context, deal MinerDeal) (func(*Mine
 	// (see onDataTransferEvent)
 	_, err := p.dataTransfer.OpenPullDataChannel(ctx,
 		deal.Client,
-		&StorageDataTransferVoucher{Proposal: deal.ProposalCid},
+		&requestvalidation.StorageDataTransferVoucher{Proposal: deal.ProposalCid},
 		deal.Ref.Root,
 		allSelector,
 	)

@@ -45,6 +45,7 @@ const (
 
 	// Internal
 
+	StorageDealFundsEnsured // Deposited funds as neccesary to create a deal, ready to move forward
 	StorageDealValidating   // Verifying that deal parameters are good
 	StorageDealTransferring // Moving data
 	StorageDealVerifyData   // Verify transferred data - generate CAR / piece data
@@ -120,15 +121,70 @@ type MinerDeal struct {
 
 type ClientDeal struct {
 	market.ClientDealProposal
-	ProposalCid cid.Cid
-	State       StorageDealStatus
-	Miner       peer.ID
-	MinerWorker address.Address
-	DealID      uint64
-	DataRef     *DataRef
-
+	ProposalCid    cid.Cid
+	State          StorageDealStatus
+	Miner          peer.ID
+	MinerWorker    address.Address
+	DealID         abi.DealID
+	DataRef        *DataRef
+	Message        string
 	PublishMessage *cid.Cid
 }
+
+type ClientEvent uint64
+
+const (
+	// ClientEventOpen indicates a new deal was started
+	ClientEventOpen ClientEvent = iota
+
+	// ClientEventEnsureFundsFailed happens when attempting to ensure the client has enough funds available fails
+	ClientEventEnsureFundsFailed
+
+	// ClientEventFundsEnsured happens when a client successfully ensures it has funds for a deal
+	ClientEventFundsEnsured
+
+	// ClientEventWriteProposalFailed indicates an attempt to send a deal proposal to a provider failed
+	ClientEventWriteProposalFailed
+
+	// ClientEventDealProposed happens when a new proposal is sent to a provider
+	ClientEventDealProposed
+
+	// ClientEventDealStreamLookupErrored the deal stream for a deal could not be found
+	ClientEventDealStreamLookupErrored
+
+	// ClientEventReadResponseFailed means a network error occurred reading a deal response
+	ClientEventReadResponseFailed
+
+	// ClientEventResponseVerificationFailed means a response was not verified
+	ClientEventResponseVerificationFailed
+
+	// ClientEventResponseDealDidNotMatch means a response was sent for the wrong deal
+	ClientEventResponseDealDidNotMatch
+
+	// ClientEventStreamCloseError happens when an attempt to close a deals stream fails
+	ClientEventStreamCloseError
+
+	// ClientEventDealRejected happens when the provider does not accept a deal
+	ClientEventDealRejected
+
+	// ClientEventDealAccepted happens when a client receives a response accepting a deal from a provider
+	ClientEventDealAccepted
+
+	// ClientEventDealPublishFailed happens when a client cannot verify a deal was published
+	ClientEventDealPublishFailed
+
+	// ClientEventDealPublished happens when a deal is successfully published
+	ClientEventDealPublished
+
+	// ClientEventDealActivationFailed happens when a client cannot verify a deal was activated
+	ClientEventDealActivationFailed
+
+	// ClientEventDealActivated happens when a deal is successfully activated
+	ClientEventDealActivated
+
+	// ClientEventFailed happens when a deal terminates in failure
+	ClientEventFailed
+)
 
 // StorageDeal is a local combination of a proposal and a current deal state
 type StorageDeal struct {
@@ -231,14 +287,14 @@ type StorageClientNode interface {
 
 	// Cancels a subscription
 	//UnsubscribeStorageMarketEvents(subId SubID)
-	ValidatePublishedDeal(ctx context.Context, deal ClientDeal) (uint64, error)
+	ValidatePublishedDeal(ctx context.Context, deal ClientDeal) (abi.DealID, error)
 
 	// SignProposal signs a proposal
 	SignProposal(ctx context.Context, signer address.Address, proposal market.DealProposal) (*market.ClientDealProposal, error)
 
 	GetDefaultWalletAddress(ctx context.Context) (address.Address, error)
 
-	OnDealSectorCommitted(ctx context.Context, provider address.Address, dealId uint64, cb DealSectorCommittedCallback) error
+	OnDealSectorCommitted(ctx context.Context, provider address.Address, dealID abi.DealID, cb DealSectorCommittedCallback) error
 
 	ValidateAskSignature(ask *SignedStorageAsk) error
 }
