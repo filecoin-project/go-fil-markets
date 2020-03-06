@@ -11,7 +11,7 @@ import (
 // ClientEvents are the events that can happen in a storage client
 var ClientEvents = fsm.Events{
 	fsm.Event(storagemarket.ClientEventOpen).
-		From(storagemarket.StorageDealUnknown).To(nil),
+		From(storagemarket.StorageDealUnknown).ToNoChange(),
 	fsm.Event(storagemarket.ClientEventEnsureFundsFailed).
 		From(storagemarket.StorageDealUnknown).To(storagemarket.StorageDealFailing).
 		Action(func(deal *storagemarket.ClientDeal, err error) error {
