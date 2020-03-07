@@ -1,9 +1,10 @@
-package clientutils
+package utils
 
 import (
 	"context"
 
 	"github.com/filecoin-project/specs-actors/actors/abi"
+	"github.com/filecoin-project/specs-actors/actors/builtin/market"
 	"github.com/filecoin-project/specs-actors/actors/crypto"
 
 	ipldfree "github.com/ipld/go-ipld-prime/impl/free"
@@ -46,6 +47,18 @@ func VerifyResponse(resp network.SignedResponse, minerAddr address.Address, veri
 		return err
 	}
 	verified := verifier(*resp.Signature, minerAddr, b)
+	if !verified {
+		return xerrors.New("could not verify signature")
+	}
+	return nil
+}
+
+func VerifyProposal(sdp market.ClientDealProposal, verifier VerifyFunc) error {
+	b, err := cborutil.Dump(&sdp.Proposal)
+	if err != nil {
+		return err
+	}
+	verified := verifier(sdp.ClientSignature, sdp.Proposal.Client, b)
 	if !verified {
 		return xerrors.New("could not verify signature")
 	}

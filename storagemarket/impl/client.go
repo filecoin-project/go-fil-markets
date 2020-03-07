@@ -24,7 +24,7 @@ import (
 	"github.com/filecoin-project/go-fil-markets/retrievalmarket/discovery"
 	"github.com/filecoin-project/go-fil-markets/storagemarket"
 	"github.com/filecoin-project/go-fil-markets/storagemarket/impl/clientstates"
-	"github.com/filecoin-project/go-fil-markets/storagemarket/impl/clientutils"
+	"github.com/filecoin-project/go-fil-markets/storagemarket/impl/utils"
 	"github.com/filecoin-project/specs-actors/actors/abi"
 	"github.com/filecoin-project/specs-actors/actors/builtin/market"
 )
@@ -182,7 +182,7 @@ func (c *Client) ProposeStorageDeal(
 	collateral abi.TokenAmount,
 	rt abi.RegisteredProof,
 ) (*storagemarket.ProposeStorageDealResult, error) {
-	commP, pieceSize, err := clientutils.CommP(ctx, c.pio, rt, data)
+	commP, pieceSize, err := utils.CommP(ctx, c.pio, rt, data)
 	if err != nil {
 		return nil, xerrors.Errorf("computing commP failed: %w", err)
 	}

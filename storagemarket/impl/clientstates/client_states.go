@@ -2,7 +2,7 @@ package clientstates
 
 import (
 	"github.com/filecoin-project/go-fil-markets/storagemarket"
-	"github.com/filecoin-project/go-fil-markets/storagemarket/impl/clientutils"
+	"github.com/filecoin-project/go-fil-markets/storagemarket/impl/utils"
 	"github.com/filecoin-project/go-fil-markets/storagemarket/network"
 	smnet "github.com/filecoin-project/go-fil-markets/storagemarket/network"
 	"github.com/filecoin-project/go-statemachine/fsm"
@@ -61,7 +61,7 @@ func VerifyDealResponse(ctx fsm.Context, environment ClientDealEnvironment, deal
 		return ctx.Trigger(storagemarket.ClientEventReadResponseFailed, err)
 	}
 
-	if err := clientutils.VerifyResponse(resp, deal.MinerWorker, environment.Node().VerifySignature); err != nil {
+	if err := utils.VerifyResponse(resp, deal.MinerWorker, environment.Node().VerifySignature); err != nil {
 		return ctx.Trigger(storagemarket.ClientEventResponseVerificationFailed)
 	}
 

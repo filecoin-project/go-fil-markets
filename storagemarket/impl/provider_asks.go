@@ -14,7 +14,7 @@ import (
 	"github.com/filecoin-project/specs-actors/actors/abi"
 )
 
-func (p *Provider) SetPrice(price abi.TokenAmount, duration abi.ChainEpoch) error {
+func (p *Provider) AddAsk(price abi.TokenAmount, duration abi.ChainEpoch) error {
 	p.askLk.Lock()
 	defer p.askLk.Unlock()
 

@@ -218,7 +218,7 @@ func TestMakeDealOffline(t *testing.T) {
 
 	pd := providerDeals[0]
 	assert.True(t, pd.ProposalCid.Equals(proposalCid))
-	assert.Equal(t, pd.State, storagemarket.StorageDealTransferring)
+	assert.Equal(t, pd.State, storagemarket.StorageDealWaitingForData)
 
 	carBuf := new(bytes.Buffer)
 

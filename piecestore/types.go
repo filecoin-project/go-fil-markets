@@ -1,6 +1,7 @@
 package piecestore
 
 import (
+	"github.com/filecoin-project/specs-actors/actors/abi"
 	"github.com/ipfs/go-cid"
 )
 
@@ -8,7 +9,7 @@ import (
 
 // DealInfo is information about a single deal for a give piece
 type DealInfo struct {
-	DealID   uint64
+	DealID   abi.DealID
 	SectorID uint64
 	Offset   uint64
 	Length   uint64

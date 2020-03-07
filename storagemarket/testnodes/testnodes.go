@@ -28,7 +28,7 @@ func (k *TestStateKey) Height() abi.ChainEpoch {
 // - methods on the provider nodes will affect this state
 type StorageMarketState struct {
 	Epoch        abi.ChainEpoch
-	DealId       uint64
+	DealId       abi.DealID
 	Balances     map[address.Address]abi.TokenAmount
 	StorageDeals map[address.Address][]storagemarket.StorageDeal
 	Providers    []*storagemarket.StorageProviderInfo
@@ -188,11 +188,11 @@ type FakeProviderNode struct {
 	PieceLength   uint64
 	PieceSectorID uint64
 	CompletedDeal storagemarket.MinerDeal
-	PublishDealID storagemarket.DealID
+	PublishDealID abi.DealID
 }
 
 // PublishDeals simulates publishing a deal by adding it to the storage market state
-func (n *FakeProviderNode) PublishDeals(ctx context.Context, deal storagemarket.MinerDeal) (storagemarket.DealID, cid.Cid, error) {
+func (n *FakeProviderNode) PublishDeals(ctx context.Context, deal storagemarket.MinerDeal) (abi.DealID, cid.Cid, error) {
 
 	sd := storagemarket.StorageDeal{
 		DealProposal: deal.Proposal,
@@ -225,13 +225,13 @@ func (n *FakeProviderNode) SignBytes(ctx context.Context, signer address.Address
 }
 
 // OnDealSectorCommitted returns immediately, with success
-func (n *FakeProviderNode) OnDealSectorCommitted(ctx context.Context, provider address.Address, dealID uint64, cb storagemarket.DealSectorCommittedCallback) error {
+func (n *FakeProviderNode) OnDealSectorCommitted(ctx context.Context, provider address.Address, dealID abi.DealID, cb storagemarket.DealSectorCommittedCallback) error {
 	cb(nil)
 	return nil
 }
 
 // LocatePieceForDealWithinSector returns stubbed data for a pieces location in a sector
-func (n *FakeProviderNode) LocatePieceForDealWithinSector(ctx context.Context, dealID uint64) (sectorID uint64, offset uint64, length uint64, err error) {
+func (n *FakeProviderNode) LocatePieceForDealWithinSector(ctx context.Context, dealID abi.DealID) (sectorID uint64, offset uint64, length uint64, err error) {
 	return n.PieceSectorID, 0, n.PieceLength, nil
 }
 

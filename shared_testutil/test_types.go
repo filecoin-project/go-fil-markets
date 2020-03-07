@@ -204,7 +204,7 @@ func MakeTestStorageNetworkProposal() smnet.Proposal {
 // the network
 func MakeTestStorageNetworkResponse() smnet.Response {
 	return smnet.Response{
-		State:          storagemarket.StorageDealPublished,
+		State:          storagemarket.StorageDealSealing,
 		Proposal:       GenerateCids(1)[0],
 		PublishMessage: &(GenerateCids(1)[0]),
 	}
