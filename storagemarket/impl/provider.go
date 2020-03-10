@@ -2,14 +2,14 @@ package storageimpl
 
 import (
 	"context"
-	"errors"
 	"io"
-	"sync"
 
 	"github.com/ipfs/go-cid"
 	"github.com/ipfs/go-datastore"
 	"github.com/ipfs/go-datastore/namespace"
 	blockstore "github.com/ipfs/go-ipfs-blockstore"
+	"github.com/ipld/go-ipld-prime"
+	peer "github.com/libp2p/go-libp2p-peer"
 	"golang.org/x/xerrors"
 
 	"github.com/filecoin-project/go-address"
@@ -20,67 +20,55 @@ import (
 	"github.com/filecoin-project/go-fil-markets/pieceio/cario"
 	"github.com/filecoin-project/go-fil-markets/piecestore"
 	"github.com/filecoin-project/go-fil-markets/storagemarket"
+	"github.com/filecoin-project/go-fil-markets/storagemarket/impl/connmanager"
 	"github.com/filecoin-project/go-fil-markets/storagemarket/impl/providerstates"
-	"github.com/filecoin-project/go-fil-markets/storagemarket/impl/requestvalidation"
+	"github.com/filecoin-project/go-fil-markets/storagemarket/impl/providerutils"
+	"github.com/filecoin-project/go-fil-markets/storagemarket/impl/storedask"
 	"github.com/filecoin-project/go-fil-markets/storagemarket/network"
 	"github.com/filecoin-project/go-statemachine/fsm"
 	"github.com/filecoin-project/specs-actors/actors/abi"
 )
 
 var ProviderDsPrefix = "/deals/provider"
+var _ storagemarket.StorageProvider = &Provider{}
 
 type Provider struct {
 	net network.StorageMarketNetwork
 
-	minPieceSize abi.PaddedPieceSize
-	proofType    abi.RegisteredProof
+	proofType abi.RegisteredProof
 
-	askLk sync.RWMutex
-	ask   *storagemarket.SignedStorageAsk
-
-	spn storagemarket.StorageProviderNode
-
-	fs         filestore.FileStore
-	pio        pieceio.PieceIOWithStore
-	pieceStore piecestore.PieceStore
-
-	// dataTransfer is the manager of data transfers used by this storage provider
+	spn          storagemarket.StorageProviderNode
+	fs           filestore.FileStore
+	pio          pieceio.PieceIOWithStore
+	pieceStore   piecestore.PieceStore
+	conns        *connmanager.ConnManager
+	storedAsk    *storedask.StoredAsk
+	actor        address.Address
 	dataTransfer datatransfer.Manager
 
 	deals fsm.Group
-	ds    datastore.Batching
-
-	connsLk sync.RWMutex
-	conns   map[cid.Cid]network.StorageDealStream
-
-	actor address.Address
 }
-
-var (
-	// ErrDataTransferFailed means a data transfer for a deal failed
-	ErrDataTransferFailed = errors.New("deal data transfer failed")
-)
 
 func NewProvider(net network.StorageMarketNetwork, ds datastore.Batching, bs blockstore.Blockstore, fs filestore.FileStore, pieceStore piecestore.PieceStore, dataTransfer datatransfer.Manager, spn storagemarket.StorageProviderNode, minerAddress address.Address, rt abi.RegisteredProof) (storagemarket.StorageProvider, error) {
 	carIO := cario.NewCarIO()
 	pio := pieceio.NewPieceIOWithStore(carIO, fs, bs)
 
+	storedAsk, err := storedask.NewStoredAsk(ds, spn, minerAddress)
+	if err != nil {
+		return nil, err
+	}
+
 	h := &Provider{
 		net:          net,
+		proofType:    rt,
+		spn:          spn,
 		fs:           fs,
 		pio:          pio,
 		pieceStore:   pieceStore,
+		conns:        connmanager.NewConnManager(),
+		storedAsk:    storedAsk,
+		actor:        minerAddress,
 		dataTransfer: dataTransfer,
-		spn:          spn,
-
-		minPieceSize: 256, // TODO: allow setting (BUT KEEP MIN 256! (because of how we fill sectors up))
-		proofType:    rt,
-
-		conns: map[cid.Cid]network.StorageDealStream{},
-
-		actor: minerAddress,
-
-		ds: ds,
 	}
 
 	deals, err := fsm.New(namespace.Wrap(ds, datastore.NewKey(ProviderDsPrefix)), fsm.Parameters{
@@ -96,21 +84,9 @@ func NewProvider(net network.StorageMarketNetwork, ds datastore.Batching, bs blo
 
 	h.deals = deals
 
-	if err := h.tryLoadAsk(); err != nil {
-		return nil, err
-	}
-
-	if h.ask == nil {
-		// TODO: we should be fine with this state, and just say it means 'not actively accepting deals'
-		// for now... lets just set a price
-		if err := h.AddAsk(abi.NewTokenAmount(500_000_000), 1000000); err != nil {
-			return nil, xerrors.Errorf("failed setting a default price: %w", err)
-		}
-	}
-
 	// register a data transfer event handler -- this will move deals from
 	// accepted to staged
-	h.dataTransfer.SubscribeToEvents(h.onDataTransferEvent)
+	dataTransfer.SubscribeToEvents(providerutils.DataTransferSubscriber(deals))
 
 	return h, nil
 }
@@ -122,34 +98,6 @@ func (p *Provider) Start(ctx context.Context) error {
 		return err
 	}
 	return nil
-}
-
-// onDataTransferEvent is the function called when an event occurs in a data
-// transfer -- it reads the voucher to verify this even occurred in a storage
-// market deal, then, based on the data transfer event that occurred, it generates
-// and update message for the deal -- either moving to staged for a completion
-// event or moving to error if a data transfer error occurs
-func (p *Provider) onDataTransferEvent(event datatransfer.Event, channelState datatransfer.ChannelState) {
-	voucher, ok := channelState.Voucher().(*requestvalidation.StorageDataTransferVoucher)
-	// if this event is for a transfer not related to storage, ignore
-	if !ok {
-		return
-	}
-
-	// data transfer events for opening and progress do not affect deal state
-	switch event.Code {
-	case datatransfer.Complete:
-		err := p.deals.Send(voucher.Proposal, storagemarket.ProviderEventDataTransferCompleted)
-		if err != nil {
-			log.Errorf("processing dt event: %w", err)
-		}
-	case datatransfer.Error:
-		err := p.deals.Send(voucher.Proposal, storagemarket.ProviderEventDataTransferFailed, ErrDataTransferFailed)
-		if err != nil {
-			log.Errorf("processing dt event: %w", err)
-		}
-	default:
-	}
 }
 
 func (p *Provider) HandleDealStream(s network.StorageDealStream) {
@@ -186,15 +134,18 @@ func (p *Provider) receiveDeal(s network.StorageDealStream) error {
 	if err != nil {
 		return err
 	}
-	p.connsLk.Lock()
-	p.conns[proposalNd.Cid()] = s
-	p.connsLk.Unlock()
-
+	err = p.conns.AddStream(proposalNd.Cid(), s)
+	if err != nil {
+		return err
+	}
 	return p.deals.Send(proposalNd.Cid(), storagemarket.ProviderEventOpen)
 }
 
 func (p *Provider) Stop() error {
-	p.deals.Stop(context.TODO())
+	err := p.deals.Stop(context.TODO())
+	if err != nil {
+		return err
+	}
 	return p.net.StopHandlingRequests()
 }
 
@@ -237,12 +188,10 @@ func (p *Provider) ImportDataForDeal(ctx context.Context, propCid cid.Cid, data 
 }
 
 func (p *Provider) ListAsks(addr address.Address) []*storagemarket.SignedStorageAsk {
-	ask := p.GetAsk(addr)
-
+	ask := p.storedAsk.GetAsk(addr)
 	if ask != nil {
 		return []*storagemarket.SignedStorageAsk{ask}
 	}
-
 	return nil
 }
 
@@ -255,19 +204,109 @@ func (p *Provider) AddStorageCollateral(ctx context.Context, amount abi.TokenAmo
 }
 
 func (p *Provider) GetStorageCollateral(ctx context.Context) (storagemarket.Balance, error) {
-	balance, err := p.spn.GetBalance(ctx, p.actor)
-
-	return balance, err
+	return p.spn.GetBalance(ctx, p.actor)
 }
 
 func (p *Provider) ListIncompleteDeals() ([]storagemarket.MinerDeal, error) {
 	var out []storagemarket.MinerDeal
-
 	if err := p.deals.List(&out); err != nil {
 		return nil, err
 	}
-
 	return out, nil
 }
 
-var _ storagemarket.StorageProvider = &Provider{}
+func (p *Provider) AddAsk(price abi.TokenAmount, duration abi.ChainEpoch) error {
+	return p.storedAsk.AddAsk(price, duration)
+}
+
+func (p *Provider) HandleAskStream(s network.StorageAskStream) {
+	defer s.Close()
+	ar, err := s.ReadAskRequest()
+	if err != nil {
+		log.Errorf("failed to read AskRequest from incoming stream: %s", err)
+		return
+	}
+
+	resp := network.AskResponse{
+		Ask: p.storedAsk.GetAsk(ar.Miner),
+	}
+
+	if err := s.WriteAskResponse(resp); err != nil {
+		log.Errorf("failed to write ask response: %s", err)
+		return
+	}
+}
+
+type providerDealEnvironment struct {
+	p *Provider
+}
+
+func (p *providerDealEnvironment) Address() address.Address {
+	return p.p.actor
+}
+
+func (p *providerDealEnvironment) Node() storagemarket.StorageProviderNode {
+	return p.p.spn
+}
+
+func (p *providerDealEnvironment) Ask() storagemarket.StorageAsk {
+	sask := p.p.storedAsk.GetAsk(p.p.actor)
+	if sask == nil {
+		return storagemarket.StorageAskUndefined
+	}
+	return *sask.Ask
+}
+
+func (p *providerDealEnvironment) StartDataTransfer(ctx context.Context, to peer.ID, voucher datatransfer.Voucher, baseCid cid.Cid, selector ipld.Node) error {
+	_, err := p.p.dataTransfer.OpenPullDataChannel(ctx, to, voucher, baseCid, selector)
+	return err
+}
+
+func (p *providerDealEnvironment) GeneratePieceCommitmentToFile(payloadCid cid.Cid, selector ipld.Node) (cid.Cid, filestore.Path, error) {
+	pieceCid, path, _, err := p.p.pio.GeneratePieceCommitmentToFile(p.p.proofType, payloadCid, selector)
+	return pieceCid, path, err
+}
+
+func (p *providerDealEnvironment) OpenFile(path filestore.Path) (filestore.File, error) {
+	return p.p.fs.Open(path)
+}
+
+func (p *providerDealEnvironment) DeleteFile(path filestore.Path) error {
+	return p.p.fs.Delete(path)
+}
+
+func (p *providerDealEnvironment) AddDealForPiece(pieceCID cid.Cid, dealInfo piecestore.DealInfo) error {
+	return p.p.pieceStore.AddDealForPiece(pieceCID, dealInfo)
+}
+
+func (p *providerDealEnvironment) AddPieceBlockLocations(pieceCID cid.Cid, blockLocations map[cid.Cid]piecestore.BlockLocation) error {
+	return p.p.pieceStore.AddPieceBlockLocations(pieceCID, blockLocations)
+}
+
+func (p *providerDealEnvironment) SendSignedResponse(ctx context.Context, resp *network.Response) error {
+	s, err := p.p.conns.DealStream(resp.Proposal)
+	if err != nil {
+		return xerrors.Errorf("couldn't send response: %w", err)
+	}
+
+	sig, err := providerutils.SignMinerData(resp, ctx, p.p.actor, p.Node().GetMinerWorker, p.Node().SignBytes)
+	if err != nil {
+		return xerrors.Errorf("failed to sign response message: %w", err)
+	}
+
+	signedResponse := network.SignedResponse{
+		Response:  *resp,
+		Signature: sig,
+	}
+
+	err = s.WriteDealResponse(signedResponse)
+	if err != nil {
+		// Assume client disconnected
+		_ = p.p.conns.Disconnect(resp.Proposal)
+	}
+	return err
+}
+
+func (p *providerDealEnvironment) Disconnect(proposalCid cid.Cid) error {
+	return p.p.conns.Disconnect(proposalCid)
+}

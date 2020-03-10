@@ -19,8 +19,8 @@ import (
 	"github.com/filecoin-project/go-fil-markets/filestore"
 	"github.com/filecoin-project/go-fil-markets/piecestore"
 	"github.com/filecoin-project/go-fil-markets/storagemarket"
+	"github.com/filecoin-project/go-fil-markets/storagemarket/impl/providerutils"
 	"github.com/filecoin-project/go-fil-markets/storagemarket/impl/requestvalidation"
-	"github.com/filecoin-project/go-fil-markets/storagemarket/impl/utils"
 	"github.com/filecoin-project/go-fil-markets/storagemarket/network"
 	"github.com/filecoin-project/specs-actors/actors/abi"
 	"github.com/filecoin-project/specs-actors/actors/abi/big"
@@ -48,7 +48,7 @@ type ProviderStateEntryFunc func(ctx fsm.Context, environment ProviderDealEnviro
 // ValidateDealProposal validates a proposed deal against the provider criteria
 func ValidateDealProposal(ctx fsm.Context, environment ProviderDealEnvironment, deal storagemarket.MinerDeal) error {
 
-	if err := utils.VerifyProposal(deal.ClientDealProposal, environment.Node().VerifySignature); err != nil {
+	if err := providerutils.VerifyProposal(deal.ClientDealProposal, environment.Node().VerifySignature); err != nil {
 		return ctx.Trigger(storagemarket.ProviderEventDealRejected, xerrors.Errorf("verifying StorageDealProposal: %w", err))
 	}
 
@@ -182,6 +182,7 @@ func PublishDeal(ctx fsm.Context, environment ProviderDealEnvironment, deal stor
 		Proposal:       deal.ProposalCid,
 		PublishMessage: &mcid,
 	})
+
 	if err != nil {
 		return ctx.Trigger(storagemarket.ProviderEventSendResponseFailed, err)
 	}

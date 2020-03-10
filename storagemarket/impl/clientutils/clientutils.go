@@ -1,17 +1,12 @@
-package utils
+package clientutils
 
 import (
 	"context"
 
-	"github.com/filecoin-project/specs-actors/actors/abi"
-	"github.com/filecoin-project/specs-actors/actors/builtin/market"
-	"github.com/filecoin-project/specs-actors/actors/crypto"
-
+	"github.com/ipfs/go-cid"
 	ipldfree "github.com/ipld/go-ipld-prime/impl/free"
 	"github.com/ipld/go-ipld-prime/traversal/selector"
 	"github.com/ipld/go-ipld-prime/traversal/selector/builder"
-
-	"github.com/ipfs/go-cid"
 	"golang.org/x/xerrors"
 
 	"github.com/filecoin-project/go-address"
@@ -19,6 +14,8 @@ import (
 	"github.com/filecoin-project/go-fil-markets/pieceio"
 	"github.com/filecoin-project/go-fil-markets/storagemarket"
 	"github.com/filecoin-project/go-fil-markets/storagemarket/network"
+	"github.com/filecoin-project/specs-actors/actors/abi"
+	"github.com/filecoin-project/specs-actors/actors/crypto"
 )
 
 func CommP(ctx context.Context, pieceIO pieceio.PieceIO, rt abi.RegisteredProof, data *storagemarket.DataRef) (cid.Cid, abi.UnpaddedPieceSize, error) {
@@ -47,18 +44,6 @@ func VerifyResponse(resp network.SignedResponse, minerAddr address.Address, veri
 		return err
 	}
 	verified := verifier(*resp.Signature, minerAddr, b)
-	if !verified {
-		return xerrors.New("could not verify signature")
-	}
-	return nil
-}
-
-func VerifyProposal(sdp market.ClientDealProposal, verifier VerifyFunc) error {
-	b, err := cborutil.Dump(&sdp.Proposal)
-	if err != nil {
-		return err
-	}
-	verified := verifier(sdp.ClientSignature, sdp.Proposal.Client, b)
 	if !verified {
 		return xerrors.New("could not verify signature")
 	}

@@ -81,6 +81,8 @@ type SignedStorageAsk struct {
 	Signature *crypto.Signature
 }
 
+var SignedStorageAskUndefined = SignedStorageAsk{}
+
 type StorageAsk struct {
 	// Price per GiB / Epoch
 	Price abi.TokenAmount
@@ -91,6 +93,8 @@ type StorageAsk struct {
 	Expiry       abi.ChainEpoch
 	SeqNo        uint64
 }
+
+var StorageAskUndefined = StorageAsk{}
 
 type StateKey interface {
 	Height() abi.ChainEpoch
