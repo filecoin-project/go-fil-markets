@@ -94,8 +94,7 @@ func (s *StoredAsk) GetAsk(addr address.Address) *storagemarket.SignedStorageAsk
 	if s.ask == nil {
 		return nil
 	}
-	var ask storagemarket.SignedStorageAsk
-	ask = *s.ask
+	ask := *s.ask
 	return &ask
 }
 
