@@ -23,8 +23,11 @@ var (
 	ErrDataTransferFailed = errors.New("deal data transfer failed")
 )
 
+// VerifyFunc is a function that can validate a signature for a given address and bytes
 type VerifyFunc func(crypto.Signature, address.Address, []byte) bool
 
+// VerifyProposal verifies the signature on the given signed proposal matches
+// the client addres for the proposal, using the given signature verification function
 func VerifyProposal(sdp market.ClientDealProposal, verifier VerifyFunc) error {
 	b, err := cborutil.Dump(&sdp.Proposal)
 	if err != nil {
@@ -37,10 +40,14 @@ func VerifyProposal(sdp market.ClientDealProposal, verifier VerifyFunc) error {
 	return nil
 }
 
+// WorkerLookupFunc is a function that can lookup a miner worker address from a storage miner actor
 type WorkerLookupFunc func(context.Context, address.Address) (address.Address, error)
+
+// SignFunc is a function that can sign a set of bytes with a given address
 type SignFunc func(context.Context, address.Address, []byte) (*crypto.Signature, error)
 
-func SignMinerData(data interface{}, ctx context.Context, address address.Address, workerLookup WorkerLookupFunc, sign SignFunc) (*crypto.Signature, error) {
+// SignMinerData signs the given data structure with a signature for the given address
+func SignMinerData(ctx context.Context, data interface{}, address address.Address, workerLookup WorkerLookupFunc, sign SignFunc) (*crypto.Signature, error) {
 	msg, err := cborutil.Dump(data)
 	if err != nil {
 		return nil, xerrors.Errorf("serializing: %w", err)
@@ -58,12 +65,17 @@ func SignMinerData(data interface{}, ctx context.Context, address address.Addres
 	return sig, nil
 }
 
-// DataTransferSubscribe is the function called when an event occurs in a data
+// EventReceiver is any thing that can receive FSM events
+type EventReceiver interface {
+	Send(id interface{}, name fsm.EventName, args ...interface{}) (err error)
+}
+
+// DataTransferSubscriber is the function called when an event occurs in a data
 // transfer -- it reads the voucher to verify this even occurred in a storage
 // market deal, then, based on the data transfer event that occurred, it generates
 // and update message for the deal -- either moving to staged for a completion
 // event or moving to error if a data transfer error occurs
-func DataTransferSubscriber(deals fsm.Group) datatransfer.Subscriber {
+func DataTransferSubscriber(deals EventReceiver) datatransfer.Subscriber {
 	return func(event datatransfer.Event, channelState datatransfer.ChannelState) {
 		voucher, ok := channelState.Voucher().(*requestvalidation.StorageDataTransferVoucher)
 		// if this event is for a transfer not related to storage, ignore

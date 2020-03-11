@@ -36,12 +36,12 @@ func (c *ConnManager) DealStream(proposalCid cid.Cid) (network.StorageDealStream
 // exists for the given proposal CID
 func (c *ConnManager) AddStream(proposalCid cid.Cid, s network.StorageDealStream) error {
 	c.connsLk.Lock()
+	defer c.connsLk.Unlock()
 	_, ok := c.conns[proposalCid]
 	if ok {
 		return xerrors.Errorf("already have connected for proposal %s", proposalCid)
 	}
 	c.conns[proposalCid] = s
-	c.connsLk.Unlock()
 	return nil
 }
 

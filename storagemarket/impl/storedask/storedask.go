@@ -72,7 +72,7 @@ func (s *StoredAsk) AddAsk(price abi.TokenAmount, duration abi.ChainEpoch) error
 		MinPieceSize: defaultMinPieceSize,
 	}
 
-	sig, err := providerutils.SignMinerData(ask, context.TODO(), s.actor, s.spn.GetMinerWorker, s.spn.SignBytes)
+	sig, err := providerutils.SignMinerData(context.TODO(), ask, s.actor, s.spn.GetMinerWorker, s.spn.SignBytes)
 	if err != nil {
 		return err
 	}

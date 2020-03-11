@@ -124,7 +124,7 @@ func TestMakeDeal(t *testing.T) {
 
 	pd := providerDeals[0]
 	assert.True(t, pd.ProposalCid.Equals(proposalCid))
-	assert.Equal(t, pd.State, storagemarket.StorageDealActive)
+	assert.Equal(t, pd.State, storagemarket.StorageDealCompleted)
 }
 
 func TestMakeDealOffline(t *testing.T) {
@@ -238,7 +238,7 @@ func TestMakeDealOffline(t *testing.T) {
 
 	pd = providerDeals[0]
 	assert.True(t, pd.ProposalCid.Equals(proposalCid))
-	assert.Equal(t, pd.State, storagemarket.StorageDealActive)
+	assert.Equal(t, pd.State, storagemarket.StorageDealCompleted)
 }
 
 type fakeDTValidator struct{}

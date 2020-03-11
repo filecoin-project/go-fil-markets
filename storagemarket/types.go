@@ -169,6 +169,10 @@ const (
 	// ProviderEventDealActivationFailed happens when an error occurs activating a deal
 	ProviderEventDealActivationFailed
 
+	// ProviderEventUnableToLocatePiece happens when an attempt to learn the location of a piece from
+	// the node fails
+	ProviderEventUnableToLocatePiece
+
 	// ProviderEventDealActivated happens when a deal is successfully activated and commited to a sector
 	ProviderEventDealActivated
 

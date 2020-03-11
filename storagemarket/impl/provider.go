@@ -289,7 +289,7 @@ func (p *providerDealEnvironment) SendSignedResponse(ctx context.Context, resp *
 		return xerrors.Errorf("couldn't send response: %w", err)
 	}
 
-	sig, err := providerutils.SignMinerData(resp, ctx, p.p.actor, p.Node().GetMinerWorker, p.Node().SignBytes)
+	sig, err := providerutils.SignMinerData(ctx, resp, p.p.actor, p.Node().GetMinerWorker, p.Node().SignBytes)
 	if err != nil {
 		return xerrors.Errorf("failed to sign response message: %w", err)
 	}

@@ -171,6 +171,28 @@ func MakeTestClientDeal(state storagemarket.StorageDealStatus, clientDealProposa
 	}, nil
 }
 
+// MakeTestMinerDeal returns a storage market provider deal
+func MakeTestMinerDeal(state storagemarket.StorageDealStatus, clientDealProposal *market.ClientDealProposal, dataRef *storagemarket.DataRef) (*storagemarket.MinerDeal, error) {
+	proposalNd, err := cborutil.AsIpld(clientDealProposal)
+
+	if err != nil {
+		return nil, err
+	}
+
+	p, err := test.RandPeerID()
+	if err != nil {
+		return nil, err
+	}
+
+	return &storagemarket.MinerDeal{
+		ProposalCid:        proposalNd.Cid(),
+		ClientDealProposal: *clientDealProposal,
+		State:              state,
+		Client:             p,
+		Ref:                dataRef,
+	}, nil
+}
+
 // MakeTestStorageAsk generates a storage ask
 func MakeTestStorageAsk() *storagemarket.StorageAsk {
 	return &storagemarket.StorageAsk{

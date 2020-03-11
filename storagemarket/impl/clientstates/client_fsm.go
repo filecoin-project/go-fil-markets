@@ -71,7 +71,7 @@ var ClientEvents = fsm.Events{
 			return nil
 		}),
 	fsm.Event(storagemarket.ClientEventDealPublishFailed).
-		From(storagemarket.StorageDealProposalAccepted).To(storagemarket.StorageDealFailing).
+		From(storagemarket.StorageDealProposalAccepted).To(storagemarket.StorageDealError).
 		Action(func(deal *storagemarket.ClientDeal, err error) error {
 			deal.Message = xerrors.Errorf("error validating deal published: %w", err).Error()
 			return nil
@@ -83,7 +83,7 @@ var ClientEvents = fsm.Events{
 			return nil
 		}),
 	fsm.Event(storagemarket.ClientEventDealActivationFailed).
-		From(storagemarket.StorageDealSealing).To(storagemarket.StorageDealFailing).
+		From(storagemarket.StorageDealSealing).To(storagemarket.StorageDealError).
 		Action(func(deal *storagemarket.ClientDeal, err error) error {
 			deal.Message = xerrors.Errorf("error in deal activation: %w", err).Error()
 			return nil

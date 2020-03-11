@@ -59,7 +59,7 @@ func ValidateDealProposal(ctx fsm.Context, environment ProviderDealEnvironment, 
 	head, err := environment.Node().MostRecentStateId(ctx.Context())
 
 	if err != nil {
-		return ctx.Trigger(storagemarket.ProviderEventNodeErrored, xerrors.Errorf("getting most recent state id: ", err))
+		return ctx.Trigger(storagemarket.ProviderEventNodeErrored, xerrors.Errorf("getting most recent state id: %w", err))
 	}
 
 	// TODO: set configurable value for how many epochs in the future StartEpoch must be
@@ -250,7 +250,7 @@ func RecordPieceInfo(ctx fsm.Context, environment ProviderDealEnvironment, deal 
 
 	sectorID, offset, length, err := environment.Node().LocatePieceForDealWithinSector(ctx.Context(), deal.DealID)
 	if err != nil {
-		return ctx.Trigger(storagemarket.ProviderEventNodeErrored, xerrors.Errorf("locating piece for deal ID %d in sector: %w", deal.DealID, err))
+		return ctx.Trigger(storagemarket.ProviderEventUnableToLocatePiece, deal.DealID, err)
 	}
 	// TODO: Record actual block locations for all CIDs in piece by improving car writing
 	err = environment.AddPieceBlockLocations(deal.Proposal.PieceCID, map[cid.Cid]piecestore.BlockLocation{
@@ -271,7 +271,7 @@ func RecordPieceInfo(ctx fsm.Context, environment ProviderDealEnvironment, deal 
 		return ctx.Trigger(storagemarket.ProviderEventPieceStoreErrored, xerrors.Errorf("adding deal info for piece: %w", err))
 	}
 
-	return nil
+	return ctx.Trigger(storagemarket.ProviderEventDealCompleted)
 }
 
 // FailDeal sends a failure response before terminating a deal
