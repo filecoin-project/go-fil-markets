@@ -6,7 +6,7 @@ import (
 	"sync"
 
 	"github.com/ipfs/go-datastore"
-	"github.com/prometheus/common/log"
+	logging "github.com/ipfs/go-log/v2"
 	"golang.org/x/xerrors"
 
 	"github.com/filecoin-project/go-address"
@@ -16,6 +16,7 @@ import (
 	"github.com/filecoin-project/specs-actors/actors/abi"
 )
 
+var log = logging.Logger("storedask")
 var defaultPrice = abi.NewTokenAmount(500_000_000)
 
 const defaultDuration abi.ChainEpoch = 1000000
