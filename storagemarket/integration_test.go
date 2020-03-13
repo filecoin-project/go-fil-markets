@@ -7,9 +7,7 @@ import (
 	"reflect"
 	"testing"
 	"time"
-
 	"github.com/filecoin-project/go-fil-markets/storagemarket/testnodes"
-
 	"github.com/filecoin-project/go-address"
 	datatransfer "github.com/filecoin-project/go-data-transfer"
 	graphsync "github.com/filecoin-project/go-data-transfer/impl/graphsync"
@@ -19,10 +17,8 @@ import (
 	"github.com/libp2p/go-libp2p-core/peer"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-
 	"github.com/filecoin-project/specs-actors/actors/abi"
 	"github.com/filecoin-project/specs-actors/actors/abi/big"
-
 	"github.com/filecoin-project/go-fil-markets/filestore"
 	"github.com/filecoin-project/go-fil-markets/pieceio/cario"
 	"github.com/filecoin-project/go-fil-markets/piecestore"

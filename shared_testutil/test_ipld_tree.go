@@ -5,11 +5,9 @@ import (
 	"context"
 	"errors"
 	"io"
-
 	blocks "github.com/ipfs/go-block-format"
 	"github.com/ipfs/go-cid"
 	"github.com/ipld/go-ipld-prime"
-
 	// to register multicodec
 	_ "github.com/ipld/go-ipld-prime/encoding/dagjson"
 	"github.com/ipld/go-ipld-prime/fluent"

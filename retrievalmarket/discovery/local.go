@@ -7,7 +7,6 @@ import (
 	dshelp "github.com/ipfs/go-ipfs-ds-help"
 	cbor "github.com/ipfs/go-ipld-cbor"
 	logging "github.com/ipfs/go-log/v2"
-
 	"github.com/filecoin-project/go-fil-markets/retrievalmarket"
 )
 

@@ -4,11 +4,9 @@ import (
 	"bytes"
 	"context"
 	"testing"
-
 	blocks "github.com/ipfs/go-block-format"
 	cidlink "github.com/ipld/go-ipld-prime/linking/cid"
 	"github.com/stretchr/testify/require"
-
 	"github.com/filecoin-project/go-fil-markets/retrievalmarket/impl/blockio"
 	tut "github.com/filecoin-project/go-fil-markets/shared_testutil"
 )

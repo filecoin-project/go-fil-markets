@@ -2,7 +2,6 @@ package storedcounter
 
 import (
 	"encoding/binary"
-
 	"github.com/ipfs/go-datastore"
 )
 

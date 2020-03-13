@@ -2,10 +2,8 @@ package storedcounter_test
 
 import (
 	"testing"
-
 	"github.com/ipfs/go-datastore"
 	"github.com/stretchr/testify/require"
-
 	"github.com/filecoin-project/go-fil-markets/storedcounter"
 )
 

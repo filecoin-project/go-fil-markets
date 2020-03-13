@@ -3,10 +3,8 @@ package shared_testutil
 import (
 	"errors"
 	"testing"
-
 	"github.com/libp2p/go-libp2p-core/peer"
 	"github.com/stretchr/testify/require"
-
 	rm "github.com/filecoin-project/go-fil-markets/retrievalmarket"
 	rmnet "github.com/filecoin-project/go-fil-markets/retrievalmarket/network"
 	smnet "github.com/filecoin-project/go-fil-markets/storagemarket/network"

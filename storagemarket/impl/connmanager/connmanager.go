@@ -2,10 +2,8 @@ package connmanager
 
 import (
 	"sync"
-
 	"github.com/ipfs/go-cid"
 	"golang.org/x/xerrors"
-
 	"github.com/filecoin-project/go-fil-markets/storagemarket/network"
 )
 

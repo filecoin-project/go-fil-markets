@@ -5,7 +5,6 @@ package mocks
 import (
 	blocks "github.com/ipfs/go-block-format"
 	cid "github.com/ipfs/go-cid"
-
 	mock "github.com/stretchr/testify/mock"
 )
 

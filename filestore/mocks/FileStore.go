@@ -4,7 +4,6 @@ package mocks
 
 import (
 	mock "github.com/stretchr/testify/mock"
-
 	filestore "github.com/filecoin-project/go-fil-markets/filestore"
 )
 

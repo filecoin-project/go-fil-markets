@@ -8,7 +8,6 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
-
 	blocks "github.com/ipfs/go-block-format"
 	"github.com/ipfs/go-blockservice"
 	"github.com/ipfs/go-datastore"
@@ -35,7 +34,6 @@ import (
 	mocknet "github.com/libp2p/go-libp2p/p2p/net/mock"
 	"github.com/stretchr/testify/require"
 	"golang.org/x/net/context"
-
 	"github.com/filecoin-project/go-fil-markets/storedcounter"
 )
 

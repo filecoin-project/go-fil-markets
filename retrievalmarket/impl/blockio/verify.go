@@ -3,11 +3,9 @@ package blockio
 import (
 	"bytes"
 	"context"
-
 	blocks "github.com/ipfs/go-block-format"
 	"github.com/ipld/go-ipld-prime"
 	cidlink "github.com/ipld/go-ipld-prime/linking/cid"
-
 	"github.com/filecoin-project/go-fil-markets/retrievalmarket"
 )
 

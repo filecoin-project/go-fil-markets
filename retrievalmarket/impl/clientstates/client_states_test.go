@@ -5,19 +5,15 @@ import (
 	"crypto/rand"
 	"errors"
 	"testing"
-
 	"github.com/filecoin-project/go-statemachine/fsm"
-
 	"github.com/ipfs/go-cid"
 	mh "github.com/multiformats/go-multihash"
 	"github.com/stretchr/testify/require"
-
 	"github.com/filecoin-project/go-address"
 	fsmtest "github.com/filecoin-project/go-statemachine/fsm/testutil"
 	"github.com/filecoin-project/specs-actors/actors/abi"
 	"github.com/filecoin-project/specs-actors/actors/abi/big"
 	"github.com/filecoin-project/specs-actors/actors/builtin/paych"
-
 	"github.com/filecoin-project/go-fil-markets/retrievalmarket"
 	clientstates "github.com/filecoin-project/go-fil-markets/retrievalmarket/impl/clientstates"
 	"github.com/filecoin-project/go-fil-markets/retrievalmarket/impl/testnodes"

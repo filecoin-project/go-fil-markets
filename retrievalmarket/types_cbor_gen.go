@@ -5,7 +5,6 @@ package retrievalmarket
 import (
 	"fmt"
 	"io"
-
 	"github.com/filecoin-project/specs-actors/actors/builtin/paych"
 	"github.com/libp2p/go-libp2p-core/peer"
 	cbg "github.com/whyrusleeping/cbor-gen"

@@ -4,10 +4,8 @@ import (
 	"bytes"
 	"context"
 	"io"
-
 	"github.com/ipld/go-ipld-prime"
 	cidlink "github.com/ipld/go-ipld-prime/linking/cid"
-
 	"github.com/filecoin-project/go-fil-markets/retrievalmarket"
 )
 

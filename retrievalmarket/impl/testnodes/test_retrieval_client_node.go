@@ -2,11 +2,9 @@ package testnodes
 
 import (
 	"context"
-
 	"github.com/filecoin-project/go-address"
 	"github.com/filecoin-project/specs-actors/actors/abi"
 	"github.com/filecoin-project/specs-actors/actors/builtin/paych"
-
 	"github.com/filecoin-project/go-fil-markets/retrievalmarket"
 )
 

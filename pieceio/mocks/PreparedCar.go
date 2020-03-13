@@ -4,7 +4,6 @@ package mocks
 
 import (
 	io "io"
-
 	mock "github.com/stretchr/testify/mock"
 )
 

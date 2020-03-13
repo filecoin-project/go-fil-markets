@@ -5,16 +5,13 @@ import (
 	"errors"
 	"fmt"
 	"testing"
-
 	"github.com/ipfs/go-cid"
 	"github.com/stretchr/testify/require"
-
 	cborutil "github.com/filecoin-project/go-cbor-util"
 	"github.com/filecoin-project/go-statemachine/fsm"
 	fsmtest "github.com/filecoin-project/go-statemachine/fsm/testutil"
 	"github.com/filecoin-project/specs-actors/actors/abi"
 	"github.com/filecoin-project/specs-actors/actors/builtin/market"
-
 	tut "github.com/filecoin-project/go-fil-markets/shared_testutil"
 	"github.com/filecoin-project/go-fil-markets/storagemarket"
 	"github.com/filecoin-project/go-fil-markets/storagemarket/impl/clientstates"
