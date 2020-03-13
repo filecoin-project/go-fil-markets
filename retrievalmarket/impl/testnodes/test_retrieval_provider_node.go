@@ -120,7 +120,7 @@ func (trpn *TestRetrievalProviderNode) GetMinerWorker(ctx context.Context, addr 
 }
 
 func (trpn *TestRetrievalProviderNode) GetChainHead(ctx context.Context) (shared.TipSetToken, abi.ChainEpoch, error) {
-	panic("implement me")
+	return []byte{42}, 0, nil
 }
 
 // --- Non-interface Functions
