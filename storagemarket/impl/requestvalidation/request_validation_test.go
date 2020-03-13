@@ -4,17 +4,19 @@ import (
 	"fmt"
 	"math/rand"
 	"testing"
+
+	"github.com/filecoin-project/go-address"
+	cborutil "github.com/filecoin-project/go-cbor-util"
+	"github.com/filecoin-project/go-statestore"
 	"github.com/filecoin-project/specs-actors/actors/builtin/market"
+	"github.com/filecoin-project/specs-actors/actors/crypto"
 	"github.com/ipfs/go-datastore"
 	"github.com/ipfs/go-datastore/namespace"
 	dss "github.com/ipfs/go-datastore/sync"
 	blocksutil "github.com/ipfs/go-ipfs-blocksutil"
 	"github.com/libp2p/go-libp2p-core/peer"
 	xerrors "golang.org/x/xerrors"
-	"github.com/filecoin-project/go-address"
-	cborutil "github.com/filecoin-project/go-cbor-util"
-	"github.com/filecoin-project/go-statestore"
-	"github.com/filecoin-project/specs-actors/actors/crypto"
+
 	"github.com/filecoin-project/go-fil-markets/storagemarket"
 	rv "github.com/filecoin-project/go-fil-markets/storagemarket/impl/requestvalidation"
 )

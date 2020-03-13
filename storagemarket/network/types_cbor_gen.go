@@ -5,10 +5,12 @@ package network
 import (
 	"fmt"
 	"io"
+
 	"github.com/filecoin-project/specs-actors/actors/builtin/market"
 	"github.com/filecoin-project/specs-actors/actors/crypto"
 	cbg "github.com/whyrusleeping/cbor-gen"
 	xerrors "golang.org/x/xerrors"
+
 	"github.com/filecoin-project/go-fil-markets/storagemarket"
 )
 

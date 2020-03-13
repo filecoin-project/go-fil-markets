@@ -2,6 +2,7 @@ package discovery
 
 import (
 	cbor "github.com/ipfs/go-ipld-cbor"
+
 	"github.com/filecoin-project/go-fil-markets/retrievalmarket"
 )
 

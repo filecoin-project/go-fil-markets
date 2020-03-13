@@ -1,10 +1,11 @@
 package network
 
 import (
-	"github.com/filecoin-project/specs-actors/actors/builtin/market"
-	"github.com/ipfs/go-cid"
 	"github.com/filecoin-project/go-address"
+	"github.com/filecoin-project/specs-actors/actors/builtin/market"
 	"github.com/filecoin-project/specs-actors/actors/crypto"
+	"github.com/ipfs/go-cid"
+
 	"github.com/filecoin-project/go-fil-markets/storagemarket"
 )
 

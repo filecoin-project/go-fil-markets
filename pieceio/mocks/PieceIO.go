@@ -4,10 +4,12 @@ package mocks
 
 import (
 	io "io"
+
 	cid "github.com/ipfs/go-cid"
-	filestore "github.com/filecoin-project/go-fil-markets/filestore"
 	ipld "github.com/ipld/go-ipld-prime"
 	mock "github.com/stretchr/testify/mock"
+
+	filestore "github.com/filecoin-project/go-fil-markets/filestore"
 	pieceio "github.com/filecoin-project/go-fil-markets/pieceio"
 )
 

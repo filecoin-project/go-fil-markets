@@ -6,11 +6,7 @@ import (
 	"fmt"
 	"io"
 	"testing"
-	"github.com/filecoin-project/go-fil-markets/filestore"
-	fsmocks "github.com/filecoin-project/go-fil-markets/filestore/mocks"
-	"github.com/filecoin-project/go-fil-markets/pieceio"
-	"github.com/filecoin-project/go-fil-markets/pieceio/cario"
-	pmocks "github.com/filecoin-project/go-fil-markets/pieceio/mocks"
+
 	"github.com/filecoin-project/go-sectorbuilder"
 	"github.com/filecoin-project/specs-actors/actors/abi"
 	"github.com/ipfs/go-cid"
@@ -21,6 +17,12 @@ import (
 	"github.com/ipld/go-ipld-prime/traversal/selector/builder"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
+
+	"github.com/filecoin-project/go-fil-markets/filestore"
+	fsmocks "github.com/filecoin-project/go-fil-markets/filestore/mocks"
+	"github.com/filecoin-project/go-fil-markets/pieceio"
+	"github.com/filecoin-project/go-fil-markets/pieceio/cario"
+	pmocks "github.com/filecoin-project/go-fil-markets/pieceio/mocks"
 )
 
 func Test_ThereAndBackAgain(t *testing.T) {

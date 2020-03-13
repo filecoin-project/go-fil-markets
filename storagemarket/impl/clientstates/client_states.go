@@ -4,6 +4,7 @@ import (
 	"github.com/filecoin-project/go-statemachine/fsm"
 	"github.com/ipfs/go-cid"
 	logging "github.com/ipfs/go-log/v2"
+
 	"github.com/filecoin-project/go-fil-markets/storagemarket"
 	"github.com/filecoin-project/go-fil-markets/storagemarket/impl/clientutils"
 	"github.com/filecoin-project/go-fil-markets/storagemarket/network"

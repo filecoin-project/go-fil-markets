@@ -2,11 +2,13 @@ package clientstates
 
 import (
 	"fmt"
+
 	"github.com/filecoin-project/go-address"
 	"github.com/filecoin-project/go-statemachine/fsm"
 	"github.com/filecoin-project/specs-actors/actors/abi"
 	"github.com/filecoin-project/specs-actors/actors/abi/big"
 	"golang.org/x/xerrors"
+
 	rm "github.com/filecoin-project/go-fil-markets/retrievalmarket"
 )
 
