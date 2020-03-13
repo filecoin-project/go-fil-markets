@@ -2,7 +2,9 @@ package storageimpl
 
 import (
 	"context"
-	"sync"
+
+	"github.com/filecoin-project/go-fil-markets/storagemarket/impl/clientutils"
+	"github.com/filecoin-project/go-fil-markets/storagemarket/impl/connmanager"
 
 	"github.com/filecoin-project/go-fil-markets/storagemarket/network"
 	"github.com/filecoin-project/go-statemachine/fsm"
@@ -24,7 +26,6 @@ import (
 	"github.com/filecoin-project/go-fil-markets/retrievalmarket/discovery"
 	"github.com/filecoin-project/go-fil-markets/storagemarket"
 	"github.com/filecoin-project/go-fil-markets/storagemarket/impl/clientstates"
-	"github.com/filecoin-project/go-fil-markets/storagemarket/impl/clientutils"
 	"github.com/filecoin-project/specs-actors/actors/abi"
 	"github.com/filecoin-project/specs-actors/actors/builtin/market"
 )
@@ -50,9 +51,7 @@ type Client struct {
 	node storagemarket.StorageClientNode
 
 	statemachines fsm.Group
-
-	connsLk sync.RWMutex
-	conns   map[cid.Cid]network.StorageDealStream
+	conns         *connmanager.ConnManager
 }
 
 func NewClient(
@@ -74,7 +73,7 @@ func NewClient(
 		discovery:    discovery,
 		node:         scn,
 
-		conns: map[cid.Cid]network.StorageDealStream{},
+		conns: connmanager.NewConnManager(),
 	}
 
 	statemachines, err := fsm.New(ds, fsm.Parameters{
@@ -227,9 +226,10 @@ func (c *Client) ProposeStorageDeal(
 	if err != nil {
 		return nil, xerrors.Errorf("connecting to storage provider failed: %w", err)
 	}
-	c.connsLk.Lock()
-	c.conns[deal.ProposalCid] = s
-	c.connsLk.Unlock()
+	err = c.conns.AddStream(deal.ProposalCid, s)
+	if err != nil {
+		return nil, err
+	}
 
 	err = c.statemachines.Send(deal.ProposalCid, storagemarket.ClientEventOpen)
 	if err != nil {
@@ -261,24 +261,9 @@ func (c *clientDealEnvironment) Node() storagemarket.StorageClientNode {
 }
 
 func (c *clientDealEnvironment) DealStream(proposalCid cid.Cid) (network.StorageDealStream, error) {
-	c.c.connsLk.RLock()
-	s, ok := c.c.conns[proposalCid]
-	c.c.connsLk.RUnlock()
-	if ok {
-		return s, nil
-	}
-	return nil, xerrors.New("no connection to provider")
+	return c.c.conns.DealStream(proposalCid)
 }
 
 func (c *clientDealEnvironment) CloseStream(proposalCid cid.Cid) error {
-	c.c.connsLk.Lock()
-	defer c.c.connsLk.Unlock()
-	s, ok := c.c.conns[proposalCid]
-	if !ok {
-		return nil
-	}
-
-	err := s.Close()
-	delete(c.c.conns, proposalCid)
-	return err
+	return c.c.conns.Disconnect(proposalCid)
 }

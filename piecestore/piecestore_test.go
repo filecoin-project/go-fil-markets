@@ -10,6 +10,7 @@ import (
 
 	"github.com/filecoin-project/go-fil-markets/piecestore"
 	"github.com/filecoin-project/go-fil-markets/shared_testutil"
+	"github.com/filecoin-project/specs-actors/actors/abi"
 )
 
 func TestStorePieceInfo(t *testing.T) {
@@ -26,7 +27,7 @@ func TestStorePieceInfo(t *testing.T) {
 	t.Run("can add deals", func(t *testing.T) {
 		ps := initializePieceStore(t)
 		dealInfo := piecestore.DealInfo{
-			DealID:   rand.Uint64(),
+			DealID:   abi.DealID(rand.Uint64()),
 			SectorID: rand.Uint64(),
 			Offset:   rand.Uint64(),
 			Length:   rand.Uint64(),
@@ -43,7 +44,7 @@ func TestStorePieceInfo(t *testing.T) {
 	t.Run("adding same deal twice does not dup", func(t *testing.T) {
 		ps := initializePieceStore(t)
 		dealInfo := piecestore.DealInfo{
-			DealID:   rand.Uint64(),
+			DealID:   abi.DealID(rand.Uint64()),
 			SectorID: rand.Uint64(),
 			Offset:   rand.Uint64(),
 			Length:   rand.Uint64(),

@@ -71,25 +71,25 @@ var ClientEvents = fsm.Events{
 			return nil
 		}),
 	fsm.Event(storagemarket.ClientEventDealPublishFailed).
-		From(storagemarket.StorageDealProposalAccepted).To(storagemarket.StorageDealFailing).
+		From(storagemarket.StorageDealProposalAccepted).To(storagemarket.StorageDealError).
 		Action(func(deal *storagemarket.ClientDeal, err error) error {
 			deal.Message = xerrors.Errorf("error validating deal published: %w", err).Error()
 			return nil
 		}),
 	fsm.Event(storagemarket.ClientEventDealPublished).
-		From(storagemarket.StorageDealProposalAccepted).To(storagemarket.StorageDealPublished).
+		From(storagemarket.StorageDealProposalAccepted).To(storagemarket.StorageDealSealing).
 		Action(func(deal *storagemarket.ClientDeal, dealID abi.DealID) error {
 			deal.DealID = dealID
 			return nil
 		}),
 	fsm.Event(storagemarket.ClientEventDealActivationFailed).
-		From(storagemarket.StorageDealPublished).To(storagemarket.StorageDealFailing).
+		From(storagemarket.StorageDealSealing).To(storagemarket.StorageDealError).
 		Action(func(deal *storagemarket.ClientDeal, err error) error {
 			deal.Message = xerrors.Errorf("error in deal activation: %w", err).Error()
 			return nil
 		}),
 	fsm.Event(storagemarket.ClientEventDealActivated).
-		From(storagemarket.StorageDealPublished).To(storagemarket.StorageDealActive),
+		From(storagemarket.StorageDealSealing).To(storagemarket.StorageDealActive),
 	fsm.Event(storagemarket.ClientEventFailed).
 		From(storagemarket.StorageDealFailing).To(storagemarket.StorageDealError),
 }
@@ -100,6 +100,6 @@ var ClientStateEntryFuncs = fsm.StateEntryFuncs{
 	storagemarket.StorageDealFundsEnsured:     ProposeDeal,
 	storagemarket.StorageDealValidating:       VerifyDealResponse,
 	storagemarket.StorageDealProposalAccepted: ValidateDealPublished,
-	storagemarket.StorageDealPublished:        VerifyDealActivated,
+	storagemarket.StorageDealSealing:          VerifyDealActivated,
 	storagemarket.StorageDealFailing:          FailDeal,
 }

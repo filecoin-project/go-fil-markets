@@ -34,25 +34,20 @@ const (
 	StorageDealProposalAccepted
 	StorageDealStaged
 	StorageDealSealing
-	StorageDealProposalSigned
-	StorageDealPublished
-	StorageDealCommitted
 	StorageDealActive
 	StorageDealFailing
-	StorageDealRecovering
-	StorageDealExpired
 	StorageDealNotFound
 
 	// Internal
 
-	StorageDealFundsEnsured // Deposited funds as neccesary to create a deal, ready to move forward
-	StorageDealValidating   // Verifying that deal parameters are good
-	StorageDealTransferring // Moving data
-	StorageDealVerifyData   // Verify transferred data - generate CAR / piece data
-	StorageDealPublishing   // Publishing deal to chain
-	StorageDealError        // deal failed with an unexpected error
-
-	StorageDealNoUpdate = StorageDealUnknown
+	StorageDealFundsEnsured   // Deposited funds as neccesary to create a deal, ready to move forward
+	StorageDealValidating     // Verifying that deal parameters are good
+	StorageDealTransferring   // Moving data
+	StorageDealWaitingForData // Manual transfer
+	StorageDealVerifyData     // Verify transferred data - generate CAR / piece data
+	StorageDealPublishing     // Publishing deal to chain
+	StorageDealError          // deal failed with an unexpected error
+	StorageDealCompleted      // on provider side, indicates deal is active and info for retrieval is recorded
 )
 
 var DealStates = []string{
@@ -62,23 +57,19 @@ var DealStates = []string{
 	"StorageDealProposalAccepted",
 	"StorageDealStaged",
 	"StorageDealSealing",
-	"StorageDealProposalSigned",
-	"StorageDealPublished",
-	"StorageDealCommitted",
 	"StorageDealActive",
 	"StorageDealFailing",
-	"StorageDealRecovering",
-	"StorageDealExpired",
 	"StorageDealNotFound",
 
+	"StorageDealFundsEnsured",
 	"StorageDealValidating",
 	"StorageDealTransferring",
+	"StorageDealWaitingForData",
 	"StorageDealVerifyData",
 	"StorageDealPublishing",
 	"StorageDealError",
+	"StorageDealCompleted",
 }
-
-type DealID uint64
 
 func init() {
 	cbor.RegisterCborType(SignedStorageAsk{})
@@ -89,6 +80,8 @@ type SignedStorageAsk struct {
 	Ask       *StorageAsk
 	Signature *crypto.Signature
 }
+
+var SignedStorageAskUndefined = SignedStorageAsk{}
 
 type StorageAsk struct {
 	// Price per GiB / Epoch
@@ -101,11 +94,12 @@ type StorageAsk struct {
 	SeqNo        uint64
 }
 
+var StorageAskUndefined = StorageAsk{}
+
 type StateKey interface {
 	Height() abi.ChainEpoch
 }
 
-// Duplicated from deals package for now
 type MinerDeal struct {
 	market.ClientDealProposal
 	ProposalCid cid.Cid
@@ -113,11 +107,84 @@ type MinerDeal struct {
 	Client      peer.ID
 	State       StorageDealStatus
 	PiecePath   filestore.Path
+	Message     string
 
 	Ref *DataRef
 
-	DealID uint64
+	DealID abi.DealID
 }
+
+type ProviderEvent uint64
+
+const (
+	// ProviderEventOpen indicates a new deal proposal has been received
+	ProviderEventOpen ProviderEvent = iota
+
+	// ProviderEventNodeErrored indicates an error happened talking to the node implementation
+	ProviderEventNodeErrored
+
+	// ProviderEventDealRejected happens when a deal proposal is rejected for not meeting criteria
+	ProviderEventDealRejected
+
+	// ProviderEventDealAccepted happens when a deal is accepted based on provider criteria
+	ProviderEventDealAccepted
+
+	// ProviderEventWaitingForManualData happens when an offline deal proposal is accepted,
+	// meaning the provider must wait until it receives data manually
+	ProviderEventWaitingForManualData
+
+	// ProviderEventDataTransferFailed happens when an error occurs transferring data
+	ProviderEventDataTransferFailed
+
+	// ProviderEventDataTransferInitiated happens when a data transfer starts
+	ProviderEventDataTransferInitiated
+
+	// ProviderEventDataTransferCompleted happens when a data transfer is successful
+	ProviderEventDataTransferCompleted
+
+	// ProviderEventManualDataReceived happens when data is received manually for an offline deal
+	ProviderEventManualDataReceived
+
+	// ProviderEventGeneratePieceCIDFailed happens when generating a piece cid from received data errors
+	ProviderEventGeneratePieceCIDFailed
+
+	// ProviderEventVerifiedData happens when received data is verified as matching the pieceCID in a deal proposal
+	ProviderEventVerifiedData
+
+	// ProviderEventSendResponseFailed happens when a response cannot be sent to a deal
+	ProviderEventSendResponseFailed
+
+	// ProviderEventDealPublished happens when a deal is succesfully published
+	ProviderEventDealPublished
+
+	// ProviderEventFileStoreErrored happens when an error occurs accessing the filestore
+	ProviderEventFileStoreErrored
+
+	// ProviderEventDealHandoffFailed happens when an error occurs handing off a deal with OnDealComplete
+	ProviderEventDealHandoffFailed
+
+	// ProviderEventDealHandedOff happens when a deal is successfully handed off to the node for processing in a sector
+	ProviderEventDealHandedOff
+
+	// ProviderEventDealActivationFailed happens when an error occurs activating a deal
+	ProviderEventDealActivationFailed
+
+	// ProviderEventUnableToLocatePiece happens when an attempt to learn the location of a piece from
+	// the node fails
+	ProviderEventUnableToLocatePiece
+
+	// ProviderEventDealActivated happens when a deal is successfully activated and commited to a sector
+	ProviderEventDealActivated
+
+	// ProviderEventPieceStoreErrored happens when an attempt to save data in the piece store errors
+	ProviderEventPieceStoreErrored
+
+	// ProviderEventDealCompleted happens when a deal completes successfully
+	ProviderEventDealCompleted
+
+	// ProviderEventFailed indicates a deal has failed and should no longer be processed
+	ProviderEventFailed
+)
 
 type ClientDeal struct {
 	market.ClientDealProposal
@@ -236,7 +303,7 @@ type StorageProviderNode interface {
 	GetBalance(ctx context.Context, addr address.Address) (Balance, error)
 
 	// Publishes deal on chain
-	PublishDeals(ctx context.Context, deal MinerDeal) (DealID, cid.Cid, error)
+	PublishDeals(ctx context.Context, deal MinerDeal) (abi.DealID, cid.Cid, error)
 
 	// ListProviderDeals lists all deals associated with a storage provider
 	ListProviderDeals(ctx context.Context, addr address.Address) ([]StorageDeal, error)
@@ -250,9 +317,9 @@ type StorageProviderNode interface {
 	// Signs bytes
 	SignBytes(ctx context.Context, signer address.Address, b []byte) (*crypto.Signature, error)
 
-	OnDealSectorCommitted(ctx context.Context, provider address.Address, dealID uint64, cb DealSectorCommittedCallback) error
+	OnDealSectorCommitted(ctx context.Context, provider address.Address, dealID abi.DealID, cb DealSectorCommittedCallback) error
 
-	LocatePieceForDealWithinSector(ctx context.Context, dealID uint64) (sectorID uint64, offset uint64, length uint64, err error)
+	LocatePieceForDealWithinSector(ctx context.Context, dealID abi.DealID) (sectorID uint64, offset uint64, length uint64, err error)
 }
 
 type DealSectorCommittedCallback func(err error)

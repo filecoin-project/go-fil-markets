@@ -22,6 +22,7 @@ import (
 	"github.com/filecoin-project/go-fil-markets/retrievalmarket/impl/blockunsealing"
 	"github.com/filecoin-project/go-fil-markets/retrievalmarket/impl/testnodes"
 	tut "github.com/filecoin-project/go-fil-markets/shared_testutil"
+	"github.com/filecoin-project/specs-actors/actors/abi"
 )
 
 func TestNewLoaderWithUnsealing(t *testing.T) {
@@ -43,13 +44,13 @@ func TestNewLoaderWithUnsealing(t *testing.T) {
 		return bs
 	}
 	deal1 := piecestore.DealInfo{
-		DealID:   rand.Uint64(),
+		DealID:   abi.DealID(rand.Uint64()),
 		SectorID: rand.Uint64(),
 		Offset:   rand.Uint64(),
 		Length:   rand.Uint64(),
 	}
 	deal2 := piecestore.DealInfo{
-		DealID:   rand.Uint64(),
+		DealID:   abi.DealID(rand.Uint64()),
 		SectorID: rand.Uint64(),
 		Offset:   rand.Uint64(),
 		Length:   rand.Uint64(),
@@ -63,7 +64,7 @@ func TestNewLoaderWithUnsealing(t *testing.T) {
 		},
 	}
 	deal3 := piecestore.DealInfo{
-		DealID:   rand.Uint64(),
+		DealID:   abi.DealID(rand.Uint64()),
 		SectorID: rand.Uint64(),
 		Offset:   rand.Uint64(),
 		Length:   rand.Uint64(),

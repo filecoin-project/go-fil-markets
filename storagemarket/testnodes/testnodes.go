@@ -28,7 +28,7 @@ func (k *TestStateKey) Height() abi.ChainEpoch {
 // - methods on the provider nodes will affect this state
 type StorageMarketState struct {
 	Epoch        abi.ChainEpoch
-	DealId       uint64
+	DealId       abi.DealID
 	Balances     map[address.Address]abi.TokenAmount
 	StorageDeals map[address.Address][]storagemarket.StorageDeal
 	Providers    []*storagemarket.StorageProviderInfo
@@ -89,14 +89,19 @@ func (sma *StorageMarketState) AddDeal(deal storagemarket.StorageDeal) storagema
 
 // FakeCommonNode has the common methods for the storage & client node adapters
 type FakeCommonNode struct {
-	SMState              *StorageMarketState
-	EnsureFundsError     error
-	VerifySignatureFails bool
+	SMState                *StorageMarketState
+	EnsureFundsError       error
+	VerifySignatureFails   bool
+	GetBalanceError        error
+	MostRecentStateIDError error
 }
 
 // MostRecentStateId returns the state id in the storage market state
 func (n *FakeCommonNode) MostRecentStateId(ctx context.Context) (storagemarket.StateKey, error) {
-	return n.SMState.StateKey(), nil
+	if n.MostRecentStateIDError == nil {
+		return n.SMState.StateKey(), nil
+	}
+	return &TestStateKey{}, n.MostRecentStateIDError
 }
 
 // AddFunds adds funds to the given actor in the storage market state
@@ -118,7 +123,10 @@ func (n *FakeCommonNode) EnsureFunds(ctx context.Context, addr, wallet address.A
 
 // GetBalance returns the funds in the storage market state
 func (n *FakeCommonNode) GetBalance(ctx context.Context, addr address.Address) (storagemarket.Balance, error) {
-	return n.SMState.Balance(addr), nil
+	if n.GetBalanceError == nil {
+		return n.SMState.Balance(addr), nil
+	}
+	return storagemarket.Balance{}, n.GetBalanceError
 }
 
 // VerifySignature just always returns true, for now
@@ -183,25 +191,32 @@ var _ storagemarket.StorageClientNode = (*FakeClientNode)(nil)
 // FakeProviderNode implements functions specific to the StorageProviderNode
 type FakeProviderNode struct {
 	FakeCommonNode
-	MinerAddr     address.Address
-	Epoch         uint64
-	PieceLength   uint64
-	PieceSectorID uint64
-	CompletedDeal storagemarket.MinerDeal
-	PublishDealID storagemarket.DealID
+	MinerAddr                           address.Address
+	MinerWorkerError                    error
+	PieceLength                         uint64
+	PieceSectorID                       uint64
+	PublishDealID                       abi.DealID
+	PublishDealsError                   error
+	OnDealCompleteError                 error
+	LocatePieceForDealWithinSectorError error
+	DealCommittedSyncError              error
+	DealCommittedAsyncError             error
+	SignBytesError                      error
 }
 
 // PublishDeals simulates publishing a deal by adding it to the storage market state
-func (n *FakeProviderNode) PublishDeals(ctx context.Context, deal storagemarket.MinerDeal) (storagemarket.DealID, cid.Cid, error) {
+func (n *FakeProviderNode) PublishDeals(ctx context.Context, deal storagemarket.MinerDeal) (abi.DealID, cid.Cid, error) {
+	if n.PublishDealsError == nil {
+		sd := storagemarket.StorageDeal{
+			DealProposal: deal.Proposal,
+			DealState:    market.DealState{},
+		}
 
-	sd := storagemarket.StorageDeal{
-		DealProposal: deal.Proposal,
-		DealState:    market.DealState{},
+		n.SMState.AddDeal(sd)
+
+		return n.PublishDealID, shared_testutil.GenerateCids(1)[0], nil
 	}
-
-	n.SMState.AddDeal(sd)
-
-	return n.PublishDealID, shared_testutil.GenerateCids(1)[0], nil
+	return abi.DealID(0), cid.Undef, n.PublishDealsError
 }
 
 // ListProviderDeals returns the deals in the storage market state
@@ -211,28 +226,39 @@ func (n *FakeProviderNode) ListProviderDeals(ctx context.Context, addr address.A
 
 // OnDealComplete simulates passing of the deal to the storage miner, and does nothing
 func (n *FakeProviderNode) OnDealComplete(ctx context.Context, deal storagemarket.MinerDeal, pieceSize abi.UnpaddedPieceSize, pieceReader io.Reader) error {
-	return nil
+	return n.OnDealCompleteError
 }
 
 // GetMinerWorker returns the address specified by MinerAddr
 func (n *FakeProviderNode) GetMinerWorker(ctx context.Context, miner address.Address) (address.Address, error) {
-	return n.MinerAddr, nil
+	if n.MinerWorkerError == nil {
+		return n.MinerAddr, nil
+	}
+	return address.Undef, n.MinerWorkerError
 }
 
 // SignBytes simulates signing data by returning a test signature
 func (n *FakeProviderNode) SignBytes(ctx context.Context, signer address.Address, b []byte) (*crypto.Signature, error) {
-	return shared_testutil.MakeTestSignature(), nil
+	if n.SignBytesError == nil {
+		return shared_testutil.MakeTestSignature(), nil
+	}
+	return nil, n.SignBytesError
 }
 
 // OnDealSectorCommitted returns immediately, with success
-func (n *FakeProviderNode) OnDealSectorCommitted(ctx context.Context, provider address.Address, dealID uint64, cb storagemarket.DealSectorCommittedCallback) error {
-	cb(nil)
-	return nil
+func (n *FakeProviderNode) OnDealSectorCommitted(ctx context.Context, provider address.Address, dealID abi.DealID, cb storagemarket.DealSectorCommittedCallback) error {
+	if n.DealCommittedSyncError == nil {
+		cb(n.DealCommittedAsyncError)
+	}
+	return n.DealCommittedSyncError
 }
 
 // LocatePieceForDealWithinSector returns stubbed data for a pieces location in a sector
-func (n *FakeProviderNode) LocatePieceForDealWithinSector(ctx context.Context, dealID uint64) (sectorID uint64, offset uint64, length uint64, err error) {
-	return n.PieceSectorID, 0, n.PieceLength, nil
+func (n *FakeProviderNode) LocatePieceForDealWithinSector(ctx context.Context, dealID abi.DealID) (sectorID uint64, offset uint64, length uint64, err error) {
+	if n.LocatePieceForDealWithinSectorError == nil {
+		return n.PieceSectorID, 0, n.PieceLength, nil
+	}
+	return 0, 0, 0, n.LocatePieceForDealWithinSectorError
 }
 
 var _ storagemarket.StorageProviderNode = (*FakeProviderNode)(nil)

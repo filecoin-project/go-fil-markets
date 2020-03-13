@@ -3,14 +3,10 @@ package clientutils
 import (
 	"context"
 
-	"github.com/filecoin-project/specs-actors/actors/abi"
-	"github.com/filecoin-project/specs-actors/actors/crypto"
-
+	"github.com/ipfs/go-cid"
 	ipldfree "github.com/ipld/go-ipld-prime/impl/free"
 	"github.com/ipld/go-ipld-prime/traversal/selector"
 	"github.com/ipld/go-ipld-prime/traversal/selector/builder"
-
-	"github.com/ipfs/go-cid"
 	"golang.org/x/xerrors"
 
 	"github.com/filecoin-project/go-address"
@@ -18,8 +14,11 @@ import (
 	"github.com/filecoin-project/go-fil-markets/pieceio"
 	"github.com/filecoin-project/go-fil-markets/storagemarket"
 	"github.com/filecoin-project/go-fil-markets/storagemarket/network"
+	"github.com/filecoin-project/specs-actors/actors/abi"
+	"github.com/filecoin-project/specs-actors/actors/crypto"
 )
 
+// CommP calculates the commP for a given dataref
 func CommP(ctx context.Context, pieceIO pieceio.PieceIO, rt abi.RegisteredProof, data *storagemarket.DataRef) (cid.Cid, abi.UnpaddedPieceSize, error) {
 	if data.PieceCid != nil {
 		return *data.PieceCid, data.PieceSize, nil
@@ -38,8 +37,11 @@ func CommP(ctx context.Context, pieceIO pieceio.PieceIO, rt abi.RegisteredProof,
 	return commp, paddedSize, nil
 }
 
+// VerifyFunc is a function that can validate a signature for a given address and bytes
 type VerifyFunc func(crypto.Signature, address.Address, []byte) bool
 
+// VerifyResponse verifies the signature on the given signed response matches
+// the given miner address, using the given signature verification function
 func VerifyResponse(resp network.SignedResponse, minerAddr address.Address, verifier VerifyFunc) error {
 	b, err := cborutil.Dump(&resp.Response)
 	if err != nil {

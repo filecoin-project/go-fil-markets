@@ -2,14 +2,14 @@ package storageimpl
 
 import (
 	"context"
-	"errors"
 	"io"
-	"sync"
 
 	"github.com/ipfs/go-cid"
 	"github.com/ipfs/go-datastore"
 	"github.com/ipfs/go-datastore/namespace"
 	blockstore "github.com/ipfs/go-ipfs-blockstore"
+	"github.com/ipld/go-ipld-prime"
+	"github.com/libp2p/go-libp2p-core/peer"
 	"golang.org/x/xerrors"
 
 	"github.com/filecoin-project/go-address"
@@ -20,285 +20,138 @@ import (
 	"github.com/filecoin-project/go-fil-markets/pieceio/cario"
 	"github.com/filecoin-project/go-fil-markets/piecestore"
 	"github.com/filecoin-project/go-fil-markets/storagemarket"
-	"github.com/filecoin-project/go-fil-markets/storagemarket/impl/requestvalidation"
+	"github.com/filecoin-project/go-fil-markets/storagemarket/impl/connmanager"
+	"github.com/filecoin-project/go-fil-markets/storagemarket/impl/providerstates"
+	"github.com/filecoin-project/go-fil-markets/storagemarket/impl/providerutils"
+	"github.com/filecoin-project/go-fil-markets/storagemarket/impl/storedask"
 	"github.com/filecoin-project/go-fil-markets/storagemarket/network"
-	"github.com/filecoin-project/go-statestore"
+	"github.com/filecoin-project/go-statemachine/fsm"
 	"github.com/filecoin-project/specs-actors/actors/abi"
 )
 
 var ProviderDsPrefix = "/deals/provider"
-
-//go:generate cbor-gen-for MinerDeal
-
-type MinerDeal struct {
-	storagemarket.MinerDeal
-	s network.StorageDealStream
-}
+var _ storagemarket.StorageProvider = &Provider{}
 
 type Provider struct {
 	net network.StorageMarketNetwork
 
-	pricePerByteBlock abi.TokenAmount // how much we want for storing one byte for one block
-	minPieceSize      abi.PaddedPieceSize
-	proofType         abi.RegisteredProof
+	proofType abi.RegisteredProof
 
-	ask   *storagemarket.SignedStorageAsk
-	askLk sync.Mutex
-
-	spn storagemarket.StorageProviderNode
-
-	fs         filestore.FileStore
-	pio        pieceio.PieceIOWithStore
-	pieceStore piecestore.PieceStore
-
-	// dataTransfer is the manager of data transfers used by this storage provider
+	spn          storagemarket.StorageProviderNode
+	fs           filestore.FileStore
+	pio          pieceio.PieceIOWithStore
+	pieceStore   piecestore.PieceStore
+	conns        *connmanager.ConnManager
+	storedAsk    *storedask.StoredAsk
+	actor        address.Address
 	dataTransfer datatransfer.Manager
 
-	deals *statestore.StateStore
-	ds    datastore.Batching
-
-	conns map[cid.Cid]network.StorageDealStream
-
-	actor address.Address
-
-	incoming chan MinerDeal
-	updated  chan minerDealUpdate
-	stop     chan struct{}
-	stopped  chan struct{}
+	deals fsm.Group
 }
-
-type minerDealUpdate struct {
-	newState storagemarket.StorageDealStatus
-	id       cid.Cid
-	err      error
-	mut      func(*MinerDeal)
-}
-
-var (
-	// ErrDataTransferFailed means a data transfer for a deal failed
-	ErrDataTransferFailed = errors.New("deal data transfer failed")
-)
 
 func NewProvider(net network.StorageMarketNetwork, ds datastore.Batching, bs blockstore.Blockstore, fs filestore.FileStore, pieceStore piecestore.PieceStore, dataTransfer datatransfer.Manager, spn storagemarket.StorageProviderNode, minerAddress address.Address, rt abi.RegisteredProof) (storagemarket.StorageProvider, error) {
 	carIO := cario.NewCarIO()
 	pio := pieceio.NewPieceIOWithStore(carIO, fs, bs)
 
-	h := &Provider{
-		net:          net,
-		fs:           fs,
-		pio:          pio,
-		pieceStore:   pieceStore,
-		dataTransfer: dataTransfer,
-		spn:          spn,
-
-		pricePerByteBlock: abi.NewTokenAmount(3), // TODO: allow setting
-		minPieceSize:      256,                   // TODO: allow setting (BUT KEEP MIN 256! (because of how we fill sectors up))
-		proofType:         rt,
-
-		conns: map[cid.Cid]network.StorageDealStream{},
-
-		incoming: make(chan MinerDeal),
-		updated:  make(chan minerDealUpdate),
-		stop:     make(chan struct{}),
-		stopped:  make(chan struct{}),
-
-		actor: minerAddress,
-
-		deals: statestore.New(namespace.Wrap(ds, datastore.NewKey(ProviderDsPrefix))),
-		ds:    ds,
-	}
-
-	if err := h.tryLoadAsk(); err != nil {
+	storedAsk, err := storedask.NewStoredAsk(ds, spn, minerAddress)
+	if err != nil {
 		return nil, err
 	}
 
-	if h.ask == nil {
-		// TODO: we should be fine with this state, and just say it means 'not actively accepting deals'
-		// for now... lets just set a price
-		if err := h.SetPrice(abi.NewTokenAmount(500_000_000), 1000000); err != nil {
-			return nil, xerrors.Errorf("failed setting a default price: %w", err)
-		}
+	h := &Provider{
+		net:          net,
+		proofType:    rt,
+		spn:          spn,
+		fs:           fs,
+		pio:          pio,
+		pieceStore:   pieceStore,
+		conns:        connmanager.NewConnManager(),
+		storedAsk:    storedAsk,
+		actor:        minerAddress,
+		dataTransfer: dataTransfer,
 	}
+
+	deals, err := fsm.New(namespace.Wrap(ds, datastore.NewKey(ProviderDsPrefix)), fsm.Parameters{
+		Environment:     &providerDealEnvironment{h},
+		StateType:       storagemarket.MinerDeal{},
+		StateKeyField:   "State",
+		Events:          providerstates.ProviderEvents,
+		StateEntryFuncs: providerstates.ProviderStateEntryFuncs,
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	h.deals = deals
 
 	// register a data transfer event handler -- this will move deals from
 	// accepted to staged
-	h.dataTransfer.SubscribeToEvents(h.onDataTransferEvent)
+	dataTransfer.SubscribeToEvents(providerutils.DataTransferSubscriber(deals))
 
 	return h, nil
 }
 
 func (p *Provider) Start(ctx context.Context) error {
 	// TODO: restore state
-
 	err := p.net.SetDelegate(p)
 	if err != nil {
 		return err
 	}
-
-	go func() {
-		defer log.Warn("quitting deal provider loop")
-		defer close(p.stopped)
-
-		for {
-			select {
-			case deal := <-p.incoming:
-				p.onIncoming(deal)
-			case update := <-p.updated:
-				p.onUpdated(ctx, update)
-			case <-p.stop:
-				return
-			}
-		}
-	}()
 	return nil
-}
-
-func (p *Provider) onIncoming(deal MinerDeal) {
-	log.Info("incoming deal")
-
-	p.conns[deal.ProposalCid] = deal.s
-
-	if err := p.deals.Begin(deal.ProposalCid, &deal); err != nil {
-		// This can happen when client re-sends proposal
-		p.failDeal(context.TODO(), deal.ProposalCid, err)
-		log.Errorf("deal tracking failed: %s", err)
-		return
-	}
-
-	go func() {
-		p.updated <- minerDealUpdate{
-			newState: storagemarket.StorageDealValidating,
-			id:       deal.ProposalCid,
-			err:      nil,
-		}
-	}()
-}
-
-func (p *Provider) onUpdated(ctx context.Context, update minerDealUpdate) {
-	log.Infof("Deal %s updated state to %s", update.id, storagemarket.DealStates[update.newState])
-	if update.err != nil {
-		log.Errorf("deal %s (newSt: %d) failed: %+v", update.id, update.newState, update.err)
-		p.failDeal(ctx, update.id, update.err)
-		return
-	}
-	var deal MinerDeal
-	err := p.deals.Get(update.id).Mutate(func(d *MinerDeal) error {
-		d.State = update.newState
-		if update.mut != nil {
-			update.mut(d)
-		}
-		deal = *d
-		return nil
-	})
-	if err != nil {
-		p.failDeal(ctx, update.id, err)
-		return
-	}
-
-	switch update.newState {
-	case storagemarket.StorageDealValidating:
-		p.handle(ctx, deal, p.validating, storagemarket.StorageDealTransferring)
-	case storagemarket.StorageDealTransferring:
-		p.handle(ctx, deal, p.transferring, storagemarket.StorageDealNoUpdate)
-	case storagemarket.StorageDealVerifyData:
-		p.handle(ctx, deal, p.verifydata, storagemarket.StorageDealPublishing)
-	case storagemarket.StorageDealPublishing:
-		p.handle(ctx, deal, p.publishing, storagemarket.StorageDealStaged)
-	case storagemarket.StorageDealStaged:
-		p.handle(ctx, deal, p.staged, storagemarket.StorageDealSealing)
-	case storagemarket.StorageDealSealing:
-		p.handle(ctx, deal, p.sealing, storagemarket.StorageDealNoUpdate)
-	case storagemarket.StorageDealActive:
-		p.handle(ctx, deal, p.complete, storagemarket.StorageDealNoUpdate)
-	}
-}
-
-// onDataTransferEvent is the function called when an event occurs in a data
-// transfer -- it reads the voucher to verify this even occurred in a storage
-// market deal, then, based on the data transfer event that occurred, it generates
-// and update message for the deal -- either moving to staged for a completion
-// event or moving to error if a data transfer error occurs
-func (p *Provider) onDataTransferEvent(event datatransfer.Event, channelState datatransfer.ChannelState) {
-	voucher, ok := channelState.Voucher().(*requestvalidation.StorageDataTransferVoucher)
-	// if this event is for a transfer not related to storage, ignore
-	if !ok {
-		return
-	}
-
-	// data transfer events for opening and progress do not affect deal state
-	var next storagemarket.StorageDealStatus
-	var err error
-	var mut func(*MinerDeal)
-	switch event.Code {
-	case datatransfer.Complete:
-		next = storagemarket.StorageDealVerifyData
-	case datatransfer.Error:
-		next = storagemarket.StorageDealFailing
-		err = ErrDataTransferFailed
-	default:
-		// the only events we care about are complete and error
-		return
-	}
-
-	select {
-	case p.updated <- minerDealUpdate{
-		newState: next,
-		id:       voucher.Proposal,
-		err:      err,
-		mut:      mut,
-	}:
-	case <-p.stop:
-	}
-}
-
-func (p *Provider) newDeal(s network.StorageDealStream, proposal network.Proposal) (MinerDeal, error) {
-	proposalNd, err := cborutil.AsIpld(proposal.DealProposal)
-	if err != nil {
-		return MinerDeal{}, err
-	}
-
-	return MinerDeal{
-		MinerDeal: storagemarket.MinerDeal{
-			Client:             s.RemotePeer(),
-			ClientDealProposal: *proposal.DealProposal,
-			ProposalCid:        proposalNd.Cid(),
-			State:              storagemarket.StorageDealUnknown,
-
-			Ref: proposal.Piece,
-		},
-		s: s,
-	}, nil
 }
 
 func (p *Provider) HandleDealStream(s network.StorageDealStream) {
 	log.Info("Handling storage deal proposal!")
 
-	proposal, err := p.readProposal(s)
-	if err != nil {
-		log.Error(err)
-		s.Close()
-		return
-	}
-
-	deal, err := p.newDeal(s, proposal)
+	err := p.receiveDeal(s)
 	if err != nil {
 		log.Errorf("%+v", err)
 		s.Close()
 		return
 	}
+}
 
-	p.incoming <- deal
+func (p *Provider) receiveDeal(s network.StorageDealStream) error {
+	proposal, err := s.ReadDealProposal()
+	if err != nil {
+		return xerrors.Errorf("failed to read proposal message: %w", err)
+	}
+
+	proposalNd, err := cborutil.AsIpld(proposal.DealProposal)
+	if err != nil {
+		return err
+	}
+
+	deal := &storagemarket.MinerDeal{
+		Client:             s.RemotePeer(),
+		ClientDealProposal: *proposal.DealProposal,
+		ProposalCid:        proposalNd.Cid(),
+		State:              storagemarket.StorageDealUnknown,
+		Ref:                proposal.Piece,
+	}
+
+	err = p.deals.Begin(proposalNd.Cid(), deal)
+	if err != nil {
+		return err
+	}
+	err = p.conns.AddStream(proposalNd.Cid(), s)
+	if err != nil {
+		return err
+	}
+	return p.deals.Send(proposalNd.Cid(), storagemarket.ProviderEventOpen)
 }
 
 func (p *Provider) Stop() error {
-	close(p.stop)
-	<-p.stopped
+	err := p.deals.Stop(context.TODO())
+	if err != nil {
+		return err
+	}
 	return p.net.StopHandlingRequests()
 }
 
 func (p *Provider) ImportDataForDeal(ctx context.Context, propCid cid.Cid, data io.Reader) error {
 	// TODO: be able to check if we have enough disk space
-	var d MinerDeal
+	var d storagemarket.MinerDeal
 	if err := p.deals.Get(propCid).Get(&d); err != nil {
 		return xerrors.Errorf("failed getting deal %s: %w", propCid, err)
 	}
@@ -331,17 +184,129 @@ func (p *Provider) ImportDataForDeal(ctx context.Context, propCid cid.Cid, data 
 		return xerrors.Errorf("given data does not match expected commP (got: %x, expected %x)", pieceCid, d.Proposal.PieceCID)
 	}
 
-	select {
-	case p.updated <- minerDealUpdate{
-		newState: storagemarket.StorageDealPublishing,
-		id:       propCid,
-		mut: func(deal *MinerDeal) {
-			deal.PiecePath = tempfi.Path()
-		},
-	}:
-	case <-ctx.Done():
-		return ctx.Err()
+	return p.deals.Send(propCid, storagemarket.ProviderEventVerifiedData, tempfi.Path())
+}
+
+func (p *Provider) ListAsks(addr address.Address) []*storagemarket.SignedStorageAsk {
+	ask := p.storedAsk.GetAsk(addr)
+	if ask != nil {
+		return []*storagemarket.SignedStorageAsk{ask}
+	}
+	return nil
+}
+
+func (p *Provider) ListDeals(ctx context.Context) ([]storagemarket.StorageDeal, error) {
+	return p.spn.ListProviderDeals(ctx, p.actor)
+}
+
+func (p *Provider) AddStorageCollateral(ctx context.Context, amount abi.TokenAmount) error {
+	return p.spn.AddFunds(ctx, p.actor, amount)
+}
+
+func (p *Provider) GetStorageCollateral(ctx context.Context) (storagemarket.Balance, error) {
+	return p.spn.GetBalance(ctx, p.actor)
+}
+
+func (p *Provider) ListIncompleteDeals() ([]storagemarket.MinerDeal, error) {
+	var out []storagemarket.MinerDeal
+	if err := p.deals.List(&out); err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (p *Provider) AddAsk(price abi.TokenAmount, duration abi.ChainEpoch) error {
+	return p.storedAsk.AddAsk(price, duration)
+}
+
+func (p *Provider) HandleAskStream(s network.StorageAskStream) {
+	defer s.Close()
+	ar, err := s.ReadAskRequest()
+	if err != nil {
+		log.Errorf("failed to read AskRequest from incoming stream: %s", err)
+		return
 	}
 
-	return nil
+	resp := network.AskResponse{
+		Ask: p.storedAsk.GetAsk(ar.Miner),
+	}
+
+	if err := s.WriteAskResponse(resp); err != nil {
+		log.Errorf("failed to write ask response: %s", err)
+		return
+	}
+}
+
+type providerDealEnvironment struct {
+	p *Provider
+}
+
+func (p *providerDealEnvironment) Address() address.Address {
+	return p.p.actor
+}
+
+func (p *providerDealEnvironment) Node() storagemarket.StorageProviderNode {
+	return p.p.spn
+}
+
+func (p *providerDealEnvironment) Ask() storagemarket.StorageAsk {
+	sask := p.p.storedAsk.GetAsk(p.p.actor)
+	if sask == nil {
+		return storagemarket.StorageAskUndefined
+	}
+	return *sask.Ask
+}
+
+func (p *providerDealEnvironment) StartDataTransfer(ctx context.Context, to peer.ID, voucher datatransfer.Voucher, baseCid cid.Cid, selector ipld.Node) error {
+	_, err := p.p.dataTransfer.OpenPullDataChannel(ctx, to, voucher, baseCid, selector)
+	return err
+}
+
+func (p *providerDealEnvironment) GeneratePieceCommitmentToFile(payloadCid cid.Cid, selector ipld.Node) (cid.Cid, filestore.Path, error) {
+	pieceCid, path, _, err := p.p.pio.GeneratePieceCommitmentToFile(p.p.proofType, payloadCid, selector)
+	return pieceCid, path, err
+}
+
+func (p *providerDealEnvironment) OpenFile(path filestore.Path) (filestore.File, error) {
+	return p.p.fs.Open(path)
+}
+
+func (p *providerDealEnvironment) DeleteFile(path filestore.Path) error {
+	return p.p.fs.Delete(path)
+}
+
+func (p *providerDealEnvironment) AddDealForPiece(pieceCID cid.Cid, dealInfo piecestore.DealInfo) error {
+	return p.p.pieceStore.AddDealForPiece(pieceCID, dealInfo)
+}
+
+func (p *providerDealEnvironment) AddPieceBlockLocations(pieceCID cid.Cid, blockLocations map[cid.Cid]piecestore.BlockLocation) error {
+	return p.p.pieceStore.AddPieceBlockLocations(pieceCID, blockLocations)
+}
+
+func (p *providerDealEnvironment) SendSignedResponse(ctx context.Context, resp *network.Response) error {
+	s, err := p.p.conns.DealStream(resp.Proposal)
+	if err != nil {
+		return xerrors.Errorf("couldn't send response: %w", err)
+	}
+
+	sig, err := providerutils.SignMinerData(ctx, resp, p.p.actor, p.Node().GetMinerWorker, p.Node().SignBytes)
+	if err != nil {
+		return xerrors.Errorf("failed to sign response message: %w", err)
+	}
+
+	signedResponse := network.SignedResponse{
+		Response:  *resp,
+		Signature: sig,
+	}
+
+	err = s.WriteDealResponse(signedResponse)
+	if err != nil {
+		// Assume client disconnected
+		_ = p.p.conns.Disconnect(resp.Proposal)
+	}
+	return err
+}
+
+func (p *providerDealEnvironment) Disconnect(proposalCid cid.Cid) error {
+	return p.p.conns.Disconnect(proposalCid)
 }
