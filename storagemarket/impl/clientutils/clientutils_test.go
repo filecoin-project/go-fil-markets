@@ -1,13 +1,14 @@
 package clientutils_test
 
 import (
-	"github.com/filecoin-project/specs-actors/actors/crypto"
 	"context"
 	"errors"
 	"fmt"
 	"io"
 	"math/rand"
 	"testing"
+
+	"github.com/filecoin-project/specs-actors/actors/crypto"
 
 	"github.com/ipfs/go-cid"
 	ipld "github.com/ipld/go-ipld-prime"
@@ -17,24 +18,24 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/filecoin-project/go-address"
+	"github.com/filecoin-project/specs-actors/actors/abi"
+
 	"github.com/filecoin-project/go-fil-markets/shared_testutil"
 	"github.com/filecoin-project/go-fil-markets/storagemarket"
 	"github.com/filecoin-project/go-fil-markets/storagemarket/impl/clientutils"
-	"github.com/filecoin-project/specs-actors/actors/abi"
 	"github.com/filecoin-project/go-fil-markets/storagemarket/network"
-
 )
 
-func TestCommP(t * testing.T) {
+func TestCommP(t *testing.T) {
 	ctx := context.Background()
 	proofType := abi.RegisteredProof_StackedDRG2KiBPoSt
-	t.Run("when PieceCID is present on data ref", func(t* testing.T) {
+	t.Run("when PieceCID is present on data ref", func(t *testing.T) {
 		pieceCid := &shared_testutil.GenerateCids(1)[0]
 		pieceSize := abi.UnpaddedPieceSize(rand.Uint64())
 		data := &storagemarket.DataRef{
 			TransferType: storagemarket.TTManual,
-			PieceCid: pieceCid,
-			PieceSize: pieceSize,
+			PieceCid:     pieceCid,
+			PieceSize:    pieceSize,
 		}
 		respcid, ressize, err := clientutils.CommP(ctx, nil, proofType, data)
 		require.NoError(t, err)
@@ -42,16 +43,16 @@ func TestCommP(t * testing.T) {
 		require.Equal(t, ressize, pieceSize)
 	})
 
-	t.Run("when PieceCID is not present on data ref", func (t * testing.T) {
+	t.Run("when PieceCID is not present on data ref", func(t *testing.T) {
 		root := shared_testutil.GenerateCids(1)[0]
 		data := &storagemarket.DataRef{
 			TransferType: storagemarket.TTGraphsync,
-			Root: root,
+			Root:         root,
 		}
 		ssb := builder.NewSelectorSpecBuilder(ipldfree.NodeBuilder())
 		allSelector := ssb.ExploreRecursive(selector.RecursionLimitNone(),
 			ssb.ExploreAll(ssb.ExploreRecursiveEdge())).Node()
-		t.Run("when pieceIO succeeds", func (t*testing.T) {
+		t.Run("when pieceIO succeeds", func(t *testing.T) {
 			pieceCid := shared_testutil.GenerateCids(1)[0]
 			pieceSize := abi.UnpaddedPieceSize(rand.Uint64())
 			pieceIO := &testPieceIO{t, proofType, root, allSelector, pieceCid, pieceSize, nil}
@@ -61,7 +62,7 @@ func TestCommP(t * testing.T) {
 			require.Equal(t, ressize, pieceSize)
 		})
 
-		t.Run("when pieceIO fails", func (t*testing.T) {
+		t.Run("when pieceIO fails", func(t *testing.T) {
 			expectedMsg := "something went wrong"
 			pieceIO := &testPieceIO{t, proofType, root, allSelector, cid.Undef, 0, errors.New(expectedMsg)}
 			respcid, ressize, err := clientutils.CommP(ctx, pieceIO, proofType, data)
@@ -72,33 +73,33 @@ func TestCommP(t * testing.T) {
 	})
 }
 
-func TestVerifyResponse(t * testing.T) {
-	tests := map[string]struct{
+func TestVerifyResponse(t *testing.T) {
+	tests := map[string]struct {
 		sresponse network.SignedResponse
-		verifier clientutils.VerifyFunc
+		verifier  clientutils.VerifyFunc
 		shouldErr bool
 	}{
 		"successful verification": {
 			sresponse: shared_testutil.MakeTestStorageNetworkSignedResponse(),
-			verifier: func(crypto.Signature, address.Address, []byte) bool { return true},
+			verifier:  func(crypto.Signature, address.Address, []byte) bool { return true },
 			shouldErr: false,
 		},
 		"bad response": {
-			sresponse: network.SignedResponse{ 
-				Response: network.Response{}, 
+			sresponse: network.SignedResponse{
+				Response:  network.Response{},
 				Signature: shared_testutil.MakeTestSignature(),
 			},
-			verifier: func(crypto.Signature, address.Address, []byte) bool { return true},
+			verifier:  func(crypto.Signature, address.Address, []byte) bool { return true },
 			shouldErr: true,
 		},
 		"verification fails": {
 			sresponse: shared_testutil.MakeTestStorageNetworkSignedResponse(),
-			verifier: func(crypto.Signature, address.Address, []byte) bool { return false},
+			verifier:  func(crypto.Signature, address.Address, []byte) bool { return false },
 			shouldErr: true,
 		},
 	}
 	for name, data := range tests {
-		t.Run(name, func(t*testing.T) {
+		t.Run(name, func(t *testing.T) {
 			err := clientutils.VerifyResponse(data.sresponse, address.TestAddress, data.verifier)
 			require.Equal(t, err != nil, data.shouldErr)
 		})
@@ -106,13 +107,13 @@ func TestVerifyResponse(t * testing.T) {
 }
 
 type testPieceIO struct {
-	t * testing.T
-	expectedRt abi.RegisteredProof
+	t                  *testing.T
+	expectedRt         abi.RegisteredProof
 	expectedPayloadCid cid.Cid
-	expectedSelector ipld.Node
-	pieceCID cid.Cid
-	pieceSize abi.UnpaddedPieceSize
-	err error
+	expectedSelector   ipld.Node
+	pieceCID           cid.Cid
+	pieceSize          abi.UnpaddedPieceSize
+	err                error
 }
 
 func (t *testPieceIO) GeneratePieceCommitment(rt abi.RegisteredProof, payloadCid cid.Cid, selector ipld.Node) (cid.Cid, abi.UnpaddedPieceSize, error) {
@@ -125,4 +126,3 @@ func (t *testPieceIO) GeneratePieceCommitment(rt abi.RegisteredProof, payloadCid
 func (t *testPieceIO) ReadPiece(r io.Reader) (cid.Cid, error) {
 	panic("not implemented")
 }
-

@@ -16,10 +16,11 @@ import (
 
 	"github.com/filecoin-project/go-address"
 	cborutil "github.com/filecoin-project/go-cbor-util"
-	"github.com/filecoin-project/go-fil-markets/storagemarket"
-	rv "github.com/filecoin-project/go-fil-markets/storagemarket/impl/requestvalidation"
 	"github.com/filecoin-project/go-statestore"
 	"github.com/filecoin-project/specs-actors/actors/crypto"
+
+	"github.com/filecoin-project/go-fil-markets/storagemarket"
+	rv "github.com/filecoin-project/go-fil-markets/storagemarket/impl/requestvalidation"
 )
 
 var blockGenerator = blocksutil.NewBlockGenerator()

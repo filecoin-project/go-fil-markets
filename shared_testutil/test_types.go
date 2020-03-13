@@ -12,12 +12,13 @@ import (
 	"github.com/libp2p/go-libp2p-core/test"
 	"github.com/stretchr/testify/require"
 
-	"github.com/filecoin-project/go-fil-markets/retrievalmarket"
-	"github.com/filecoin-project/go-fil-markets/storagemarket"
-	smnet "github.com/filecoin-project/go-fil-markets/storagemarket/network"
 	"github.com/filecoin-project/specs-actors/actors/abi"
 	"github.com/filecoin-project/specs-actors/actors/builtin/paych"
 	"github.com/filecoin-project/specs-actors/actors/crypto"
+
+	"github.com/filecoin-project/go-fil-markets/retrievalmarket"
+	"github.com/filecoin-project/go-fil-markets/storagemarket"
+	smnet "github.com/filecoin-project/go-fil-markets/storagemarket/network"
 )
 
 // MakeTestSignedVoucher generates a random SignedVoucher that has all non-zero fields
