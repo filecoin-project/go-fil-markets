@@ -15,6 +15,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/filecoin-project/go-fil-markets/retrievalmarket"
+	"github.com/filecoin-project/go-fil-markets/shared"
 )
 
 type expectedVoucherKey struct {
@@ -118,7 +119,7 @@ func (trpn *TestRetrievalProviderNode) GetMinerWorker(ctx context.Context, addr 
 	return addr, nil
 }
 
-func (trpn *TestRetrievalProviderNode) MostRecentStateId(ctx context.Context) (retrievalmarket.StateKey, error) {
+func (trpn *TestRetrievalProviderNode) MostRecentStateId(ctx context.Context) (shared.StateKey, error) {
 	panic("implement me")
 }
 

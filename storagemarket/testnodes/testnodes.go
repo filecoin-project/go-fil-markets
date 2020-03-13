@@ -4,6 +4,8 @@ import (
 	"context"
 	"io"
 
+	"github.com/filecoin-project/go-fil-markets/shared"
+
 	"github.com/filecoin-project/go-address"
 	"github.com/filecoin-project/specs-actors/actors/abi"
 	"github.com/filecoin-project/specs-actors/actors/abi/big"
@@ -20,10 +22,10 @@ import (
 // TestStateKey is just a stubbed state key that returns a preset height
 type TestStateKey struct {
 	Epoch abi.ChainEpoch
-	Token storagemarket.TipSetToken
+	Token shared.TipSetToken
 }
 
-func (k *TestStateKey) TipSetToken() storagemarket.TipSetToken {
+func (k *TestStateKey) TipSetToken() shared.TipSetToken {
 	return k.Token
 }
 
@@ -35,7 +37,7 @@ func (k *TestStateKey) Height() abi.ChainEpoch {
 // StorageMarketState represents a state for the storage market that can be inspected
 // - methods on the provider nodes will affect this state
 type StorageMarketState struct {
-	TipSetToken  storagemarket.TipSetToken
+	TipSetToken  shared.TipSetToken
 	Epoch        abi.ChainEpoch
 	DealId       abi.DealID
 	Balances     map[address.Address]abi.TokenAmount
@@ -80,12 +82,12 @@ func (sma *StorageMarketState) Deals(addr address.Address) []storagemarket.Stora
 }
 
 // StateKey returns a state key with the storage market states set Epoch
-func (sma *StorageMarketState) StateKey() storagemarket.StateKey {
+func (sma *StorageMarketState) StateKey() shared.StateKey {
 	return &TestStateKey{sma.Epoch, sma.TipSetToken}
 }
 
 // AddDeal adds a deal to the current state of the storage market
-func (sma *StorageMarketState) AddDeal(deal storagemarket.StorageDeal) storagemarket.StateKey {
+func (sma *StorageMarketState) AddDeal(deal storagemarket.StorageDeal) shared.StateKey {
 	for _, addr := range []address.Address{deal.Client, deal.Provider} {
 		if existing, ok := sma.StorageDeals[addr]; ok {
 			sma.StorageDeals[addr] = append(existing, deal)
@@ -106,7 +108,7 @@ type FakeCommonNode struct {
 }
 
 // MostRecentStateId returns the state id in the storage market state
-func (n *FakeCommonNode) MostRecentStateId(ctx context.Context) (storagemarket.StateKey, error) {
+func (n *FakeCommonNode) MostRecentStateId(ctx context.Context) (shared.StateKey, error) {
 	if n.MostRecentStateIDError == nil {
 		return n.SMState.StateKey(), nil
 	}

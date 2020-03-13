@@ -13,6 +13,7 @@ import (
 	"github.com/libp2p/go-libp2p-core/peer"
 
 	"github.com/filecoin-project/go-fil-markets/filestore"
+	"github.com/filecoin-project/go-fil-markets/shared"
 )
 
 //go:generate cbor-gen-for ClientDeal MinerDeal Balance SignedStorageAsk StorageAsk StorageDeal DataRef
@@ -95,14 +96,6 @@ type StorageAsk struct {
 }
 
 var StorageAskUndefined = StorageAsk{}
-
-// TipSetToken is the implementation-nonspecific identity for a tipset.
-type TipSetToken []byte
-
-type StateKey interface {
-	TipSetToken() TipSetToken
-	Height() abi.ChainEpoch
-}
 
 type MinerDeal struct {
 	market.ClientDealProposal
@@ -291,7 +284,7 @@ type StorageProvider interface {
 
 // Node dependencies for a StorageProvider
 type StorageProviderNode interface {
-	MostRecentStateId(ctx context.Context) (StateKey, error)
+	MostRecentStateId(ctx context.Context) (shared.StateKey, error)
 
 	// Verify a signature against an address + data
 	VerifySignature(signature crypto.Signature, signer address.Address, plaintext []byte) bool
@@ -330,7 +323,7 @@ type DealSectorCommittedCallback func(err error)
 
 // Node dependencies for a StorageClient
 type StorageClientNode interface {
-	MostRecentStateId(ctx context.Context) (StateKey, error)
+	MostRecentStateId(ctx context.Context) (shared.StateKey, error)
 
 	// Verify a signature against an address + data
 	VerifySignature(signature crypto.Signature, signer address.Address, plaintext []byte) bool

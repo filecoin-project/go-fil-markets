@@ -19,6 +19,7 @@ import (
 
 	"github.com/filecoin-project/go-fil-markets/filestore"
 	"github.com/filecoin-project/go-fil-markets/piecestore"
+	"github.com/filecoin-project/go-fil-markets/shared"
 	tut "github.com/filecoin-project/go-fil-markets/shared_testutil"
 	"github.com/filecoin-project/go-fil-markets/storagemarket"
 	"github.com/filecoin-project/go-fil-markets/storagemarket/impl/providerstates"
@@ -495,7 +496,7 @@ type nodeParams struct {
 	MinerWorkerError                    error
 	EnsureFundsError                    error
 	Height                              abi.ChainEpoch
-	TipSetToken                         storagemarket.TipSetToken
+	TipSetToken                         shared.TipSetToken
 	ClientMarketBalance                 abi.TokenAmount
 	ClientMarketBalanceError            error
 	VerifySignatureFails                bool

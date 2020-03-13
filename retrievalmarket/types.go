@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"io"
 
+	"github.com/filecoin-project/go-fil-markets/shared"
+
 	"github.com/filecoin-project/go-address"
 	"github.com/filecoin-project/specs-actors/actors/abi"
 	"github.com/filecoin-project/specs-actors/actors/abi/big"
@@ -309,17 +311,9 @@ type RetrievalProvider interface {
 	ListDeals() map[ProviderDealID]ProviderDealState
 }
 
-// TipSetToken is the implementation-nonspecific identity for a tipset.
-type TipSetToken []byte
-
-type StateKey interface {
-	TipSetToken() TipSetToken
-	Height() abi.ChainEpoch
-}
-
 // RetrievalProviderNode are the node depedencies for a RetrevalProvider
 type RetrievalProviderNode interface {
-	MostRecentStateId(ctx context.Context) (StateKey, error)
+	MostRecentStateId(ctx context.Context) (shared.StateKey, error)
 
 	// returns the worker address associated with a miner
 	GetMinerWorker(ctx context.Context, miner address.Address) (address.Address, error)
