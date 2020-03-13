@@ -2,7 +2,7 @@
 
 First, thank you for your interest in contributing to this project! Before you pick up your first issue and start
 changing code, please:
- 
+
 1. Review all documentation for the module you're interested in.
 1. Look through the [issues for this repo](https://github.com/filecoin-project/go-fil-markets/issues) for relevant discussions.
 1. If you have questions about an issue, post a comment in the issue.
@@ -30,7 +30,7 @@ Before a PR can be merged to `master`, it must:
 
 ### Conventions and Style
 
-#### Imports 
+#### Imports
 We use the following import ordering.
 ```
 import (
@@ -38,7 +38,7 @@ import (
         <single, empty line>
         [external packages]
         <single, empty line>
-        [go-filecoin packages]
+        [go-fil-markets packages]
 )
 ```
 
