@@ -313,7 +313,7 @@ type RetrievalProvider interface {
 
 // RetrievalProviderNode are the node depedencies for a RetrevalProvider
 type RetrievalProviderNode interface {
-	MostRecentStateId(ctx context.Context) (shared.StateKey, error)
+	GetChainHead(ctx context.Context) (shared.TipSetToken, abi.ChainEpoch, error)
 
 	// returns the worker address associated with a miner
 	GetMinerWorker(ctx context.Context, miner address.Address) (address.Address, error)

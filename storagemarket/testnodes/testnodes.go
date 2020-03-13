@@ -19,21 +19,6 @@ import (
 
 // Below fake node implementations
 
-// TestStateKey is just a stubbed state key that returns a preset height
-type TestStateKey struct {
-	Epoch abi.ChainEpoch
-	Token shared.TipSetToken
-}
-
-func (k *TestStateKey) TipSetToken() shared.TipSetToken {
-	return k.Token
-}
-
-// Height returns the value specified by Epoch
-func (k *TestStateKey) Height() abi.ChainEpoch {
-	return k.Epoch
-}
-
 // StorageMarketState represents a state for the storage market that can be inspected
 // - methods on the provider nodes will affect this state
 type StorageMarketState struct {
@@ -82,12 +67,12 @@ func (sma *StorageMarketState) Deals(addr address.Address) []storagemarket.Stora
 }
 
 // StateKey returns a state key with the storage market states set Epoch
-func (sma *StorageMarketState) StateKey() shared.StateKey {
-	return &TestStateKey{sma.Epoch, sma.TipSetToken}
+func (sma *StorageMarketState) StateKey() (shared.TipSetToken, abi.ChainEpoch) {
+	return sma.TipSetToken, sma.Epoch
 }
 
 // AddDeal adds a deal to the current state of the storage market
-func (sma *StorageMarketState) AddDeal(deal storagemarket.StorageDeal) shared.StateKey {
+func (sma *StorageMarketState) AddDeal(deal storagemarket.StorageDeal) (shared.TipSetToken, abi.ChainEpoch) {
 	for _, addr := range []address.Address{deal.Client, deal.Provider} {
 		if existing, ok := sma.StorageDeals[addr]; ok {
 			sma.StorageDeals[addr] = append(existing, deal)
@@ -95,6 +80,7 @@ func (sma *StorageMarketState) AddDeal(deal storagemarket.StorageDeal) shared.St
 			sma.StorageDeals[addr] = []storagemarket.StorageDeal{deal}
 		}
 	}
+
 	return sma.StateKey()
 }
 
@@ -107,12 +93,14 @@ type FakeCommonNode struct {
 	MostRecentStateIDError error
 }
 
-// MostRecentStateId returns the state id in the storage market state
-func (n *FakeCommonNode) MostRecentStateId(ctx context.Context) (shared.StateKey, error) {
+// GetChainHead returns the state id in the storage market state
+func (n *FakeCommonNode) GetChainHead(ctx context.Context) (shared.TipSetToken, abi.ChainEpoch, error) {
 	if n.MostRecentStateIDError == nil {
-		return n.SMState.StateKey(), nil
+		key, epoch := n.SMState.StateKey()
+		return key, epoch, nil
 	}
-	return &TestStateKey{}, n.MostRecentStateIDError
+
+	return []byte{}, 0, n.MostRecentStateIDError
 }
 
 // AddFunds adds funds to the given actor in the storage market state

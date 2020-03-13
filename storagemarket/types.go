@@ -284,7 +284,7 @@ type StorageProvider interface {
 
 // Node dependencies for a StorageProvider
 type StorageProviderNode interface {
-	MostRecentStateId(ctx context.Context) (shared.StateKey, error)
+	GetChainHead(ctx context.Context) (shared.TipSetToken, abi.ChainEpoch, error)
 
 	// Verify a signature against an address + data
 	VerifySignature(signature crypto.Signature, signer address.Address, plaintext []byte) bool
@@ -323,7 +323,7 @@ type DealSectorCommittedCallback func(err error)
 
 // Node dependencies for a StorageClient
 type StorageClientNode interface {
-	MostRecentStateId(ctx context.Context) (shared.StateKey, error)
+	GetChainHead(ctx context.Context) (shared.TipSetToken, abi.ChainEpoch, error)
 
 	// Verify a signature against an address + data
 	VerifySignature(signature crypto.Signature, signer address.Address, plaintext []byte) bool

@@ -119,7 +119,7 @@ func (trpn *TestRetrievalProviderNode) GetMinerWorker(ctx context.Context, addr 
 	return addr, nil
 }
 
-func (trpn *TestRetrievalProviderNode) MostRecentStateId(ctx context.Context) (shared.StateKey, error) {
+func (trpn *TestRetrievalProviderNode) GetChainHead(ctx context.Context) (shared.TipSetToken, abi.ChainEpoch, error) {
 	panic("implement me")
 }
 
