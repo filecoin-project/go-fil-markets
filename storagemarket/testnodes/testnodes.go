@@ -18,7 +18,14 @@ import (
 // Below fake node implementations
 
 // TestStateKey is just a stubbed state key that returns a preset height
-type TestStateKey struct{ Epoch abi.ChainEpoch }
+type TestStateKey struct {
+	Epoch abi.ChainEpoch
+	Token storagemarket.TipSetToken
+}
+
+func (k *TestStateKey) TipSetToken() storagemarket.TipSetToken {
+	return k.Token
+}
 
 // Height returns the value specified by Epoch
 func (k *TestStateKey) Height() abi.ChainEpoch {
@@ -28,6 +35,7 @@ func (k *TestStateKey) Height() abi.ChainEpoch {
 // StorageMarketState represents a state for the storage market that can be inspected
 // - methods on the provider nodes will affect this state
 type StorageMarketState struct {
+	TipSetToken  storagemarket.TipSetToken
 	Epoch        abi.ChainEpoch
 	DealId       abi.DealID
 	Balances     map[address.Address]abi.TokenAmount
@@ -73,7 +81,7 @@ func (sma *StorageMarketState) Deals(addr address.Address) []storagemarket.Stora
 
 // StateKey returns a state key with the storage market states set Epoch
 func (sma *StorageMarketState) StateKey() storagemarket.StateKey {
-	return &TestStateKey{sma.Epoch}
+	return &TestStateKey{sma.Epoch, sma.TipSetToken}
 }
 
 // AddDeal adds a deal to the current state of the storage market

@@ -96,7 +96,11 @@ type StorageAsk struct {
 
 var StorageAskUndefined = StorageAsk{}
 
+// TipSetToken is the implementation-nonspecific identity for a tipset.
+type TipSetToken []byte
+
 type StateKey interface {
+	TipSetToken() TipSetToken
 	Height() abi.ChainEpoch
 }
 

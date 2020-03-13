@@ -467,6 +467,7 @@ func TestFailDeal(t *testing.T) {
 
 // all of these default parameters are setup to allow a deal to complete each handler with no errors
 var defaultHeight = abi.ChainEpoch(50)
+var defaultTipSetToken = []byte{1, 2, 3}
 var defaultStoragePricePerEpoch = abi.NewTokenAmount(10000)
 var defaultPieceSize = abi.PaddedPieceSize(1048576)
 var defaultStartEpoch = abi.ChainEpoch(200)
@@ -494,6 +495,7 @@ type nodeParams struct {
 	MinerWorkerError                    error
 	EnsureFundsError                    error
 	Height                              abi.ChainEpoch
+	TipSetToken                         storagemarket.TipSetToken
 	ClientMarketBalance                 abi.TokenAmount
 	ClientMarketBalanceError            error
 	VerifySignatureFails                bool
@@ -553,8 +555,10 @@ func makeExecutor(ctx context.Context,
 		smstate := testnodes.NewStorageMarketState()
 		if nodeParams.Height != abi.ChainEpoch(0) {
 			smstate.Epoch = nodeParams.Height
+			smstate.TipSetToken = nodeParams.TipSetToken
 		} else {
 			smstate.Epoch = defaultHeight
+			smstate.TipSetToken = defaultTipSetToken
 		}
 		if !nodeParams.ClientMarketBalance.Nil() {
 			smstate.AddFunds(defaultClientAddress, nodeParams.ClientMarketBalance)
