@@ -118,6 +118,10 @@ func (trpn *TestRetrievalProviderNode) GetMinerWorker(ctx context.Context, addr 
 	return addr, nil
 }
 
+func (trpn *TestRetrievalProviderNode) MostRecentStateId(ctx context.Context) (retrievalmarket.StateKey, error) {
+	panic("implement me")
+}
+
 // --- Non-interface Functions
 
 // to ExpectedVoucherKey creates a lookup key for expected vouchers.

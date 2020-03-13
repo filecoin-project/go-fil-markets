@@ -309,8 +309,18 @@ type RetrievalProvider interface {
 	ListDeals() map[ProviderDealID]ProviderDealState
 }
 
+// TipSetToken is the implementation-nonspecific identity for a tipset.
+type TipSetToken []byte
+
+type StateKey interface {
+	TipSetToken() TipSetToken
+	Height() abi.ChainEpoch
+}
+
 // RetrievalProviderNode are the node depedencies for a RetrevalProvider
 type RetrievalProviderNode interface {
+	MostRecentStateId(ctx context.Context) (StateKey, error)
+
 	// returns the worker address associated with a miner
 	GetMinerWorker(ctx context.Context, miner address.Address) (address.Address, error)
 	UnsealSector(ctx context.Context, sectorID uint64, offset uint64, length uint64) (io.ReadCloser, error)
