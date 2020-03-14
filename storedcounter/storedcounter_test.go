@@ -9,8 +9,7 @@ import (
 	"github.com/filecoin-project/go-fil-markets/storedcounter"
 )
 
-
-func TestStoredCounter(t * testing.T) {
+func TestStoredCounter(t *testing.T) {
 	ds := datastore.NewMapDatastore()
 
 	t.Run("test two instances with same data store and key count together", func(t *testing.T) {
@@ -34,9 +33,8 @@ func TestStoredCounter(t * testing.T) {
 		require.Equal(t, next, uint64(3))
 	})
 
-
 	t.Run("test two instances with same data store but different keys count seperate", func(t *testing.T) {
-		
+
 		key1 := datastore.NewKey("counter 1")
 		key2 := datastore.NewKey("counter 2")
 

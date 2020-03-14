@@ -1,8 +1,9 @@
 package discovery
 
 import (
-	"github.com/filecoin-project/go-fil-markets/retrievalmarket"
 	cbor "github.com/ipfs/go-ipld-cbor"
+
+	"github.com/filecoin-project/go-fil-markets/retrievalmarket"
 )
 
 func init() {

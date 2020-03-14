@@ -5,6 +5,9 @@ import (
 	"reflect"
 	"sync"
 
+	"github.com/filecoin-project/go-address"
+	"github.com/filecoin-project/go-statemachine/fsm"
+	"github.com/filecoin-project/specs-actors/actors/abi"
 	blocks "github.com/ipfs/go-block-format"
 	"github.com/ipfs/go-cid"
 	"github.com/ipfs/go-datastore"
@@ -15,14 +18,11 @@ import (
 	"github.com/libp2p/go-libp2p-core/peer"
 	"golang.org/x/xerrors"
 
-	"github.com/filecoin-project/go-address"
 	"github.com/filecoin-project/go-fil-markets/retrievalmarket"
 	"github.com/filecoin-project/go-fil-markets/retrievalmarket/impl/blockio"
 	"github.com/filecoin-project/go-fil-markets/retrievalmarket/impl/clientstates"
 	rmnet "github.com/filecoin-project/go-fil-markets/retrievalmarket/network"
 	"github.com/filecoin-project/go-fil-markets/storedcounter"
-	"github.com/filecoin-project/go-statemachine/fsm"
-	"github.com/filecoin-project/specs-actors/actors/abi"
 )
 
 var log = logging.Logger("retrieval")

@@ -6,22 +6,21 @@ import (
 	"errors"
 	"testing"
 
+	"github.com/filecoin-project/go-address"
 	"github.com/filecoin-project/go-statemachine/fsm"
-
+	fsmtest "github.com/filecoin-project/go-statemachine/fsm/testutil"
+	"github.com/filecoin-project/specs-actors/actors/abi"
+	"github.com/filecoin-project/specs-actors/actors/abi/big"
+	"github.com/filecoin-project/specs-actors/actors/builtin/paych"
 	"github.com/ipfs/go-cid"
 	mh "github.com/multiformats/go-multihash"
 	"github.com/stretchr/testify/require"
 
-	"github.com/filecoin-project/go-address"
 	"github.com/filecoin-project/go-fil-markets/retrievalmarket"
 	clientstates "github.com/filecoin-project/go-fil-markets/retrievalmarket/impl/clientstates"
 	"github.com/filecoin-project/go-fil-markets/retrievalmarket/impl/testnodes"
 	rmnet "github.com/filecoin-project/go-fil-markets/retrievalmarket/network"
 	testnet "github.com/filecoin-project/go-fil-markets/shared_testutil"
-	fsmtest "github.com/filecoin-project/go-statemachine/fsm/testutil"
-	"github.com/filecoin-project/specs-actors/actors/abi"
-	"github.com/filecoin-project/specs-actors/actors/abi/big"
-	"github.com/filecoin-project/specs-actors/actors/builtin/paych"
 )
 
 type consumeBlockResponse struct {

@@ -4,11 +4,12 @@ import (
 	"sync"
 	"testing"
 
+	"github.com/ipfs/go-cid"
+	"github.com/stretchr/testify/require"
+
 	"github.com/filecoin-project/go-fil-markets/shared_testutil"
 	"github.com/filecoin-project/go-fil-markets/storagemarket/impl/connmanager"
 	"github.com/filecoin-project/go-fil-markets/storagemarket/network"
-	"github.com/ipfs/go-cid"
-	"github.com/stretchr/testify/require"
 )
 
 func TestConnManager(t *testing.T) {

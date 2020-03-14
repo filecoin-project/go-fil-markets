@@ -6,13 +6,17 @@ import (
 	"math/rand"
 	"testing"
 
+	"github.com/filecoin-project/go-address"
+	datatransfer "github.com/filecoin-project/go-data-transfer"
+	"github.com/filecoin-project/go-statemachine/fsm"
+	fsmtest "github.com/filecoin-project/go-statemachine/fsm/testutil"
+	"github.com/filecoin-project/specs-actors/actors/abi"
+	"github.com/filecoin-project/specs-actors/actors/builtin/market"
 	"github.com/ipfs/go-cid"
 	"github.com/ipld/go-ipld-prime"
 	"github.com/libp2p/go-libp2p-core/peer"
 	"github.com/stretchr/testify/require"
 
-	"github.com/filecoin-project/go-address"
-	datatransfer "github.com/filecoin-project/go-data-transfer"
 	"github.com/filecoin-project/go-fil-markets/filestore"
 	"github.com/filecoin-project/go-fil-markets/piecestore"
 	tut "github.com/filecoin-project/go-fil-markets/shared_testutil"
@@ -20,10 +24,6 @@ import (
 	"github.com/filecoin-project/go-fil-markets/storagemarket/impl/providerstates"
 	"github.com/filecoin-project/go-fil-markets/storagemarket/network"
 	"github.com/filecoin-project/go-fil-markets/storagemarket/testnodes"
-	"github.com/filecoin-project/go-statemachine/fsm"
-	fsmtest "github.com/filecoin-project/go-statemachine/fsm/testutil"
-	"github.com/filecoin-project/specs-actors/actors/abi"
-	"github.com/filecoin-project/specs-actors/actors/builtin/market"
 )
 
 func TestValidateDealProposal(t *testing.T) {

@@ -1,11 +1,12 @@
 package providerstates
 
 import (
-	"github.com/filecoin-project/go-fil-markets/filestore"
-	"github.com/filecoin-project/go-fil-markets/storagemarket"
 	"github.com/filecoin-project/go-statemachine/fsm"
 	"github.com/filecoin-project/specs-actors/actors/abi"
 	"golang.org/x/xerrors"
+
+	"github.com/filecoin-project/go-fil-markets/filestore"
+	"github.com/filecoin-project/go-fil-markets/storagemarket"
 )
 
 // ProviderEvents are the events that can happen in a storage provider

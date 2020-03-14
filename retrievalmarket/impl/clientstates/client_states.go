@@ -3,11 +3,12 @@ package clientstates
 import (
 	"context"
 
-	rm "github.com/filecoin-project/go-fil-markets/retrievalmarket"
-	rmnet "github.com/filecoin-project/go-fil-markets/retrievalmarket/network"
 	"github.com/filecoin-project/go-statemachine/fsm"
 	"github.com/filecoin-project/specs-actors/actors/abi"
 	"github.com/filecoin-project/specs-actors/actors/abi/big"
+
+	rm "github.com/filecoin-project/go-fil-markets/retrievalmarket"
+	rmnet "github.com/filecoin-project/go-fil-markets/retrievalmarket/network"
 )
 
 // ClientDealEnvironment is a bridge to the environment a client deal is executing in

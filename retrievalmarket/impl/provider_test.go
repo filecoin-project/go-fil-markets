@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"github.com/filecoin-project/go-address"
+	"github.com/filecoin-project/specs-actors/actors/abi"
 	"github.com/ipfs/go-datastore"
 	dss "github.com/ipfs/go-datastore/sync"
 	bstore "github.com/ipfs/go-ipfs-blockstore"
@@ -16,7 +17,6 @@ import (
 	"github.com/filecoin-project/go-fil-markets/retrievalmarket/impl/testnodes"
 	"github.com/filecoin-project/go-fil-markets/retrievalmarket/network"
 	tut "github.com/filecoin-project/go-fil-markets/shared_testutil"
-	"github.com/filecoin-project/specs-actors/actors/abi"
 )
 
 func TestHandleQueryStream(t *testing.T) {

@@ -3,9 +3,10 @@ package connmanager
 import (
 	"sync"
 
-	"github.com/filecoin-project/go-fil-markets/storagemarket/network"
 	"github.com/ipfs/go-cid"
 	"golang.org/x/xerrors"
+
+	"github.com/filecoin-project/go-fil-markets/storagemarket/network"
 )
 
 // ConnManager is a simple threadsafe map of proposal CID -> network deal stream

@@ -4,11 +4,12 @@ import (
 	"bufio"
 	"context"
 
-	"github.com/filecoin-project/go-fil-markets/storagemarket"
 	logging "github.com/ipfs/go-log/v2"
 	"github.com/libp2p/go-libp2p-core/host"
 	"github.com/libp2p/go-libp2p-core/network"
 	"github.com/libp2p/go-libp2p-core/peer"
+
+	"github.com/filecoin-project/go-fil-markets/storagemarket"
 )
 
 var log = logging.Logger("storagemarket_network")

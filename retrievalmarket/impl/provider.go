@@ -6,6 +6,9 @@ import (
 	"reflect"
 	"sync"
 
+	"github.com/filecoin-project/go-address"
+	"github.com/filecoin-project/go-statemachine/fsm"
+	"github.com/filecoin-project/specs-actors/actors/abi"
 	"github.com/ipfs/go-cid"
 	"github.com/ipfs/go-datastore"
 	"github.com/ipfs/go-datastore/namespace"
@@ -13,7 +16,6 @@ import (
 	cidlink "github.com/ipld/go-ipld-prime/linking/cid"
 	"golang.org/x/xerrors"
 
-	"github.com/filecoin-project/go-address"
 	"github.com/filecoin-project/go-fil-markets/pieceio/cario"
 	"github.com/filecoin-project/go-fil-markets/piecestore"
 	"github.com/filecoin-project/go-fil-markets/retrievalmarket"
@@ -21,8 +23,6 @@ import (
 	"github.com/filecoin-project/go-fil-markets/retrievalmarket/impl/blockunsealing"
 	"github.com/filecoin-project/go-fil-markets/retrievalmarket/impl/providerstates"
 	rmnet "github.com/filecoin-project/go-fil-markets/retrievalmarket/network"
-	"github.com/filecoin-project/go-statemachine/fsm"
-	"github.com/filecoin-project/specs-actors/actors/abi"
 )
 
 // ProviderDsPrefix is the datastore for the provider key

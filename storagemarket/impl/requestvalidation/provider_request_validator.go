@@ -2,12 +2,13 @@ package requestvalidation
 
 import (
 	datatransfer "github.com/filecoin-project/go-data-transfer"
-	"github.com/filecoin-project/go-fil-markets/storagemarket"
 	"github.com/filecoin-project/go-statestore"
 	"github.com/ipfs/go-cid"
 	"github.com/ipld/go-ipld-prime"
 	"github.com/libp2p/go-libp2p-core/peer"
 	"golang.org/x/xerrors"
+
+	"github.com/filecoin-project/go-fil-markets/storagemarket"
 )
 
 var _ datatransfer.RequestValidator = &ProviderRequestValidator{}

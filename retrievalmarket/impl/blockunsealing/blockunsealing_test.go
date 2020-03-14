@@ -7,6 +7,7 @@ import (
 	"math/rand"
 	"testing"
 
+	"github.com/filecoin-project/specs-actors/actors/abi"
 	"github.com/ipfs/go-datastore"
 	dss "github.com/ipfs/go-datastore/sync"
 	bstore "github.com/ipfs/go-ipfs-blockstore"
@@ -22,7 +23,6 @@ import (
 	"github.com/filecoin-project/go-fil-markets/retrievalmarket/impl/blockunsealing"
 	"github.com/filecoin-project/go-fil-markets/retrievalmarket/impl/testnodes"
 	tut "github.com/filecoin-project/go-fil-markets/shared_testutil"
-	"github.com/filecoin-project/specs-actors/actors/abi"
 )
 
 func TestNewLoaderWithUnsealing(t *testing.T) {
