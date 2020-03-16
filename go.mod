@@ -14,7 +14,6 @@ require (
 	github.com/hannahhoward/cbor-gen-for v0.0.0-20191218204337-9ab7b1bcc099
 	github.com/ipfs/go-block-format v0.0.2
 	github.com/ipfs/go-blockservice v0.1.3-0.20190908200855-f22eea50656c
-	github.com/ipfs/go-car v0.0.3-0.20200131220434-3f68f6ebd093
 	github.com/ipfs/go-cid v0.0.5
 	github.com/ipfs/go-datastore v0.1.1
 	github.com/ipfs/go-graphsync v0.0.4
@@ -29,6 +28,7 @@ require (
 	github.com/ipfs/go-log/v2 v2.0.2
 	github.com/ipfs/go-merkledag v0.2.4
 	github.com/ipfs/go-unixfs v0.2.2-0.20190827150610-868af2e9e5cb
+	github.com/ipld/go-car v0.0.5-0.20200316204026-3e2cf7af0fab
 	github.com/ipld/go-ipld-prime v0.0.2-0.20191108012745-28a82f04c785
 	github.com/ipld/go-ipld-prime-proto v0.0.0-20191113031812-e32bd156a1e5
 	github.com/jbenet/go-random v0.0.0-20190219211222-123a90aedc0c
