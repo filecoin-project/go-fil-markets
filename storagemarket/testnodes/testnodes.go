@@ -86,21 +86,21 @@ func (sma *StorageMarketState) AddDeal(deal storagemarket.StorageDeal) (shared.T
 
 // FakeCommonNode has the common methods for the storage & client node adapters
 type FakeCommonNode struct {
-	SMState                *StorageMarketState
-	EnsureFundsError       error
-	VerifySignatureFails   bool
-	GetBalanceError        error
-	MostRecentStateIDError error
+	SMState              *StorageMarketState
+	EnsureFundsError     error
+	VerifySignatureFails bool
+	GetBalanceError      error
+	GetChainHeadError    error
 }
 
 // GetChainHead returns the state id in the storage market state
 func (n *FakeCommonNode) GetChainHead(ctx context.Context) (shared.TipSetToken, abi.ChainEpoch, error) {
-	if n.MostRecentStateIDError == nil {
+	if n.GetChainHeadError == nil {
 		key, epoch := n.SMState.StateKey()
 		return key, epoch, nil
 	}
 
-	return []byte{}, 0, n.MostRecentStateIDError
+	return []byte{}, 0, n.GetChainHeadError
 }
 
 // AddFunds adds funds to the given actor in the storage market state

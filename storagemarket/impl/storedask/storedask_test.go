@@ -54,8 +54,8 @@ func TestStoredAsk(t *testing.T) {
 	t.Run("node errors", func(t *testing.T) {
 		spnStateIDErr := &testnodes.FakeProviderNode{
 			FakeCommonNode: testnodes.FakeCommonNode{
-				MostRecentStateIDError: errors.New("something went wrong"),
-				SMState:                testnodes.NewStorageMarketState(),
+				GetChainHeadError: errors.New("something went wrong"),
+				SMState:           testnodes.NewStorageMarketState(),
 			},
 		}
 		// should load cause ask is is still in data store

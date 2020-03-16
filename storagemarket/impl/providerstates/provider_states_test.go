@@ -568,11 +568,11 @@ func makeExecutor(ctx context.Context,
 		}
 
 		common := testnodes.FakeCommonNode{
-			SMState:                smstate,
-			MostRecentStateIDError: nodeParams.MostRecentStateIDError,
-			GetBalanceError:        nodeParams.ClientMarketBalanceError,
-			VerifySignatureFails:   nodeParams.VerifySignatureFails,
-			EnsureFundsError:       nodeParams.EnsureFundsError,
+			SMState:              smstate,
+			GetChainHeadError:    nodeParams.MostRecentStateIDError,
+			GetBalanceError:      nodeParams.ClientMarketBalanceError,
+			VerifySignatureFails: nodeParams.VerifySignatureFails,
+			EnsureFundsError:     nodeParams.EnsureFundsError,
 		}
 
 		node := &testnodes.FakeProviderNode{
