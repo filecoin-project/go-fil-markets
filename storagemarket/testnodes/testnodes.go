@@ -4,6 +4,8 @@ import (
 	"context"
 	"io"
 
+	"github.com/filecoin-project/go-fil-markets/shared"
+
 	"github.com/filecoin-project/go-address"
 	"github.com/filecoin-project/specs-actors/actors/abi"
 	"github.com/filecoin-project/specs-actors/actors/abi/big"
@@ -17,17 +19,10 @@ import (
 
 // Below fake node implementations
 
-// TestStateKey is just a stubbed state key that returns a preset height
-type TestStateKey struct{ Epoch abi.ChainEpoch }
-
-// Height returns the value specified by Epoch
-func (k *TestStateKey) Height() abi.ChainEpoch {
-	return k.Epoch
-}
-
 // StorageMarketState represents a state for the storage market that can be inspected
 // - methods on the provider nodes will affect this state
 type StorageMarketState struct {
+	TipSetToken  shared.TipSetToken
 	Epoch        abi.ChainEpoch
 	DealId       abi.DealID
 	Balances     map[address.Address]abi.TokenAmount
@@ -72,12 +67,12 @@ func (sma *StorageMarketState) Deals(addr address.Address) []storagemarket.Stora
 }
 
 // StateKey returns a state key with the storage market states set Epoch
-func (sma *StorageMarketState) StateKey() storagemarket.StateKey {
-	return &TestStateKey{sma.Epoch}
+func (sma *StorageMarketState) StateKey() (shared.TipSetToken, abi.ChainEpoch) {
+	return sma.TipSetToken, sma.Epoch
 }
 
 // AddDeal adds a deal to the current state of the storage market
-func (sma *StorageMarketState) AddDeal(deal storagemarket.StorageDeal) storagemarket.StateKey {
+func (sma *StorageMarketState) AddDeal(deal storagemarket.StorageDeal) (shared.TipSetToken, abi.ChainEpoch) {
 	for _, addr := range []address.Address{deal.Client, deal.Provider} {
 		if existing, ok := sma.StorageDeals[addr]; ok {
 			sma.StorageDeals[addr] = append(existing, deal)
@@ -85,24 +80,27 @@ func (sma *StorageMarketState) AddDeal(deal storagemarket.StorageDeal) storagema
 			sma.StorageDeals[addr] = []storagemarket.StorageDeal{deal}
 		}
 	}
+
 	return sma.StateKey()
 }
 
 // FakeCommonNode has the common methods for the storage & client node adapters
 type FakeCommonNode struct {
-	SMState                *StorageMarketState
-	EnsureFundsError       error
-	VerifySignatureFails   bool
-	GetBalanceError        error
-	MostRecentStateIDError error
+	SMState              *StorageMarketState
+	EnsureFundsError     error
+	VerifySignatureFails bool
+	GetBalanceError      error
+	GetChainHeadError    error
 }
 
-// MostRecentStateId returns the state id in the storage market state
-func (n *FakeCommonNode) MostRecentStateId(ctx context.Context) (storagemarket.StateKey, error) {
-	if n.MostRecentStateIDError == nil {
-		return n.SMState.StateKey(), nil
+// GetChainHead returns the state id in the storage market state
+func (n *FakeCommonNode) GetChainHead(ctx context.Context) (shared.TipSetToken, abi.ChainEpoch, error) {
+	if n.GetChainHeadError == nil {
+		key, epoch := n.SMState.StateKey()
+		return key, epoch, nil
 	}
-	return &TestStateKey{}, n.MostRecentStateIDError
+
+	return []byte{}, 0, n.GetChainHeadError
 }
 
 // AddFunds adds funds to the given actor in the storage market state

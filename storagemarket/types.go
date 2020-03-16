@@ -13,6 +13,7 @@ import (
 	"github.com/libp2p/go-libp2p-core/peer"
 
 	"github.com/filecoin-project/go-fil-markets/filestore"
+	"github.com/filecoin-project/go-fil-markets/shared"
 )
 
 //go:generate cbor-gen-for ClientDeal MinerDeal Balance SignedStorageAsk StorageAsk StorageDeal DataRef
@@ -95,10 +96,6 @@ type StorageAsk struct {
 }
 
 var StorageAskUndefined = StorageAsk{}
-
-type StateKey interface {
-	Height() abi.ChainEpoch
-}
 
 type MinerDeal struct {
 	market.ClientDealProposal
@@ -287,7 +284,7 @@ type StorageProvider interface {
 
 // Node dependencies for a StorageProvider
 type StorageProviderNode interface {
-	MostRecentStateId(ctx context.Context) (StateKey, error)
+	GetChainHead(ctx context.Context) (shared.TipSetToken, abi.ChainEpoch, error)
 
 	// Verify a signature against an address + data
 	VerifySignature(signature crypto.Signature, signer address.Address, plaintext []byte) bool
@@ -326,7 +323,7 @@ type DealSectorCommittedCallback func(err error)
 
 // Node dependencies for a StorageClient
 type StorageClientNode interface {
-	MostRecentStateId(ctx context.Context) (StateKey, error)
+	GetChainHead(ctx context.Context) (shared.TipSetToken, abi.ChainEpoch, error)
 
 	// Verify a signature against an address + data
 	VerifySignature(signature crypto.Signature, signer address.Address, plaintext []byte) bool

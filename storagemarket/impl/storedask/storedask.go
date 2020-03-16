@@ -60,14 +60,14 @@ func (s *StoredAsk) AddAsk(price abi.TokenAmount, duration abi.ChainEpoch) error
 		seqno = s.ask.Ask.SeqNo + 1
 	}
 
-	stateKey, err := s.spn.MostRecentStateId(context.TODO())
+	_, height, err := s.spn.GetChainHead(context.TODO())
 	if err != nil {
 		return err
 	}
 	ask := &storagemarket.StorageAsk{
 		Price:        price,
-		Timestamp:    stateKey.Height(),
-		Expiry:       stateKey.Height() + duration,
+		Timestamp:    height,
+		Expiry:       height + duration,
 		Miner:        s.actor,
 		SeqNo:        seqno,
 		MinPieceSize: defaultMinPieceSize,

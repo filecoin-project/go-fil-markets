@@ -58,14 +58,13 @@ func ValidateDealProposal(ctx fsm.Context, environment ProviderDealEnvironment, 
 		return ctx.Trigger(storagemarket.ProviderEventDealRejected, xerrors.Errorf("incorrect provider for deal"))
 	}
 
-	head, err := environment.Node().MostRecentStateId(ctx.Context())
-
+	_, height, err := environment.Node().GetChainHead(ctx.Context())
 	if err != nil {
 		return ctx.Trigger(storagemarket.ProviderEventNodeErrored, xerrors.Errorf("getting most recent state id: %w", err))
 	}
 
 	// TODO: set configurable value for how many epochs in the future StartEpoch must be
-	if head.Height() >= deal.Proposal.StartEpoch {
+	if height >= deal.Proposal.StartEpoch {
 		return ctx.Trigger(storagemarket.ProviderEventDealRejected, xerrors.Errorf("deal proposal already expired"))
 	}
 

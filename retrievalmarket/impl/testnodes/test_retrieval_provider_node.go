@@ -15,6 +15,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/filecoin-project/go-fil-markets/retrievalmarket"
+	"github.com/filecoin-project/go-fil-markets/shared"
 )
 
 type expectedVoucherKey struct {
@@ -116,6 +117,10 @@ func (trpn *TestRetrievalProviderNode) SavePaymentVoucher(
 // GetMinerWorker translates an address
 func (trpn *TestRetrievalProviderNode) GetMinerWorker(ctx context.Context, addr address.Address) (address.Address, error) {
 	return addr, nil
+}
+
+func (trpn *TestRetrievalProviderNode) GetChainHead(ctx context.Context) (shared.TipSetToken, abi.ChainEpoch, error) {
+	return []byte{42}, 0, nil
 }
 
 // --- Non-interface Functions
