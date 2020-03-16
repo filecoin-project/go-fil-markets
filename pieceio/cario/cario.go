@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"io"
 
-	"github.com/ipfs/go-car"
 	"github.com/ipfs/go-cid"
+	"github.com/ipld/go-car"
 	"github.com/ipld/go-ipld-prime"
 
 	"github.com/filecoin-project/go-fil-markets/pieceio"
