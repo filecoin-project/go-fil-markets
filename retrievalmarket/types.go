@@ -175,10 +175,11 @@ type RetrievalClient interface {
 
 // RetrievalClientNode are the node dependencies for a RetrievalClient
 type RetrievalClientNode interface {
+	GetChainHead(ctx context.Context) (shared.TipSetToken, abi.ChainEpoch, error)
 
 	// GetOrCreatePaymentChannel sets up a new payment channel if one does not exist
 	// between a client and a miner and insures the client has the given amount of funds available in the channel
-	GetOrCreatePaymentChannel(ctx context.Context, clientAddress address.Address, minerAddress address.Address, clientFundsAvailable abi.TokenAmount) (address.Address, error)
+	GetOrCreatePaymentChannel(ctx context.Context, clientAddress address.Address, minerAddress address.Address, clientFundsAvailable abi.TokenAmount, tok shared.TipSetToken) (address.Address, error)
 
 	// Allocate late creates a lane within a payment channel so that calls to
 	// CreatePaymentVoucher will automatically make vouchers only for the difference

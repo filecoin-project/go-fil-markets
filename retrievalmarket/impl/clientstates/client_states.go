@@ -20,7 +20,12 @@ type ClientDealEnvironment interface {
 
 // SetupPaymentChannel sets up a payment channel for a deal
 func SetupPaymentChannel(ctx fsm.Context, environment ClientDealEnvironment, deal rm.ClientDealState) error {
-	paych, err := environment.Node().GetOrCreatePaymentChannel(ctx.Context(), deal.ClientWallet, deal.MinerWallet, deal.TotalFunds)
+	tok, _, err := environment.Node().GetChainHead(ctx.Context())
+	if err != nil {
+		return ctx.Trigger(rm.ClientEventPaymentChannelErrored, err)
+	}
+
+	paych, err := environment.Node().GetOrCreatePaymentChannel(ctx.Context(), deal.ClientWallet, deal.MinerWallet, deal.TotalFunds, tok)
 	if err != nil {
 		return ctx.Trigger(rm.ClientEventPaymentChannelErrored, err)
 	}

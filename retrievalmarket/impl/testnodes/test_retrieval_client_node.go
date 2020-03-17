@@ -3,6 +3,8 @@ package testnodes
 import (
 	"context"
 
+	"github.com/filecoin-project/go-fil-markets/shared"
+
 	"github.com/filecoin-project/go-address"
 	"github.com/filecoin-project/specs-actors/actors/abi"
 	"github.com/filecoin-project/specs-actors/actors/builtin/paych"
@@ -56,7 +58,7 @@ func NewTestRetrievalClientNode(params TestRetrievalClientNodeParams) *TestRetri
 }
 
 // GetOrCreatePaymentChannel returns a mocked payment channel
-func (trcn *TestRetrievalClientNode) GetOrCreatePaymentChannel(ctx context.Context, clientAddress address.Address, minerAddress address.Address, clientFundsAvailable abi.TokenAmount) (address.Address, error) {
+func (trcn *TestRetrievalClientNode) GetOrCreatePaymentChannel(ctx context.Context, clientAddress address.Address, minerAddress address.Address, clientFundsAvailable abi.TokenAmount, tok shared.TipSetToken) (address.Address, error) {
 	if trcn.getCreatePaymentChannelRecorder != nil {
 		trcn.getCreatePaymentChannelRecorder(clientAddress, minerAddress, clientFundsAvailable)
 	}
@@ -77,4 +79,8 @@ func (trcn *TestRetrievalClientNode) CreatePaymentVoucher(ctx context.Context, p
 		trcn.createPaymentVoucherRecorder(trcn.voucher)
 	}
 	return trcn.voucher, trcn.voucherError
+}
+
+func (trcn *TestRetrievalClientNode) GetChainHead(ctx context.Context) (shared.TipSetToken, abi.ChainEpoch, error) {
+	return shared.TipSetToken{}, 0, nil
 }
