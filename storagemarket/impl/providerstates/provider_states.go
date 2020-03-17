@@ -154,7 +154,12 @@ func VerifyData(ctx fsm.Context, environment ProviderDealEnvironment, deal stora
 
 // PublishDeal publishes a deal on chain and sends the deal id back to the client
 func PublishDeal(ctx fsm.Context, environment ProviderDealEnvironment, deal storagemarket.MinerDeal) error {
-	waddr, err := environment.Node().GetMinerWorker(ctx.Context(), deal.Proposal.Provider)
+	tok, _, err := environment.Node().GetChainHead(ctx.Context())
+	if err != nil {
+		return ctx.Trigger(storagemarket.ProviderEventNodeErrored, xerrors.Errorf("acquiring chain head: %w", err))
+	}
+
+	waddr, err := environment.Node().GetMinerWorkerAddress(ctx.Context(), deal.Proposal.Provider, tok)
 	if err != nil {
 		return ctx.Trigger(storagemarket.ProviderEventNodeErrored, xerrors.Errorf("looking up miner worker: %w", err))
 	}

@@ -5,6 +5,8 @@ import (
 	"errors"
 	"testing"
 
+	"github.com/filecoin-project/go-fil-markets/shared"
+
 	"github.com/filecoin-project/go-address"
 	datatransfer "github.com/filecoin-project/go-data-transfer"
 	"github.com/filecoin-project/go-statemachine/fsm"
@@ -56,7 +58,7 @@ func TestVerifyProposal(t *testing.T) {
 
 func TestSignMinerData(t *testing.T) {
 	ctx := context.Background()
-	successLookup := func(context.Context, address.Address) (address.Address, error) {
+	successLookup := func(context.Context, address.Address, shared.TipSetToken) (address.Address, error) {
 		return address.TestAddress2, nil
 	}
 	successSign := func(context.Context, address.Address, []byte) (*crypto.Signature, error) {
@@ -82,7 +84,7 @@ func TestSignMinerData(t *testing.T) {
 		},
 		"worker lookup errors": {
 			data: shared_testutil.MakeTestStorageAsk(),
-			workerLookup: func(context.Context, address.Address) (address.Address, error) {
+			workerLookup: func(context.Context, address.Address, shared.TipSetToken) (address.Address, error) {
 				return address.Undef, errors.New("Something went wrong")
 			},
 			signBytes: successSign,
@@ -99,7 +101,7 @@ func TestSignMinerData(t *testing.T) {
 	}
 	for name, data := range tests {
 		t.Run(name, func(t *testing.T) {
-			_, err := providerutils.SignMinerData(ctx, data.data, address.TestAddress, data.workerLookup, data.signBytes)
+			_, err := providerutils.SignMinerData(ctx, data.data, address.TestAddress, shared.TipSetToken{}, data.workerLookup, data.signBytes)
 			require.Equal(t, err != nil, data.shouldErr)
 		})
 	}

@@ -229,7 +229,7 @@ func (n *FakeProviderNode) OnDealComplete(ctx context.Context, deal storagemarke
 }
 
 // GetMinerWorker returns the address specified by MinerAddr
-func (n *FakeProviderNode) GetMinerWorker(ctx context.Context, miner address.Address) (address.Address, error) {
+func (n *FakeProviderNode) GetMinerWorkerAddress(ctx context.Context, miner address.Address, tok shared.TipSetToken) (address.Address, error) {
 	if n.MinerWorkerError == nil {
 		return n.MinerAddr, nil
 	}
