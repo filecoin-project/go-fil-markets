@@ -74,7 +74,7 @@ func (trcn *TestRetrievalClientNode) AllocateLane(paymentChannel address.Address
 }
 
 // CreatePaymentVoucher creates a mock payment voucher based on a channel and lane
-func (trcn *TestRetrievalClientNode) CreatePaymentVoucher(ctx context.Context, paymentChannel address.Address, amount abi.TokenAmount, lane uint64) (*paych.SignedVoucher, error) {
+func (trcn *TestRetrievalClientNode) CreatePaymentVoucher(ctx context.Context, paymentChannel address.Address, amount abi.TokenAmount, lane uint64, tok shared.TipSetToken) (*paych.SignedVoucher, error) {
 	if trcn.createPaymentVoucherRecorder != nil {
 		trcn.createPaymentVoucherRecorder(trcn.voucher)
 	}

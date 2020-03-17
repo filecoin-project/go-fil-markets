@@ -61,7 +61,6 @@ func ProposeDeal(ctx fsm.Context, environment ClientDealEnvironment, deal rm.Cli
 
 // ProcessPaymentRequested processes a request for payment from the provider
 func ProcessPaymentRequested(ctx fsm.Context, environment ClientDealEnvironment, deal rm.ClientDealState) error {
-
 	// check that fundsSpent + paymentRequested <= totalFunds, or fail
 	if big.Add(deal.FundsSpent, deal.PaymentRequested).GreaterThan(deal.TotalFunds) {
 		expectedTotal := deal.TotalFunds.String()
@@ -79,10 +78,15 @@ func ProcessPaymentRequested(ctx fsm.Context, environment ClientDealEnvironment,
 		return ctx.Trigger(rm.ClientEventBadPaymentRequested, "too much money requested for bytes sent")
 	}
 
+	tok, _, err := environment.Node().GetChainHead(ctx.Context())
+	if err != nil {
+		return ctx.Trigger(rm.ClientEventCreateVoucherFailed, err)
+	}
+
 	// create payment voucher with node (or fail) for (fundsSpent + paymentRequested)
 	// use correct payCh + lane
 	// (node will do subtraction back to paymentRequested... slightly odd behavior but... well anyway)
-	voucher, err := environment.Node().CreatePaymentVoucher(ctx.Context(), deal.PaymentInfo.PayCh, big.Add(deal.FundsSpent, deal.PaymentRequested), deal.PaymentInfo.Lane)
+	voucher, err := environment.Node().CreatePaymentVoucher(ctx.Context(), deal.PaymentInfo.PayCh, big.Add(deal.FundsSpent, deal.PaymentRequested), deal.PaymentInfo.Lane, tok)
 	if err != nil {
 		return ctx.Trigger(rm.ClientEventCreateVoucherFailed, err)
 	}
