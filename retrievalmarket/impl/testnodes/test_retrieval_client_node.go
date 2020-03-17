@@ -8,6 +8,7 @@ import (
 	"github.com/filecoin-project/specs-actors/actors/builtin/paych"
 
 	"github.com/filecoin-project/go-fil-markets/retrievalmarket"
+	"github.com/filecoin-project/go-fil-markets/shared"
 )
 
 // TestRetrievalClientNode is a node adapter for a retrieval client whose responses
@@ -56,7 +57,7 @@ func NewTestRetrievalClientNode(params TestRetrievalClientNodeParams) *TestRetri
 }
 
 // GetOrCreatePaymentChannel returns a mocked payment channel
-func (trcn *TestRetrievalClientNode) GetOrCreatePaymentChannel(ctx context.Context, clientAddress address.Address, minerAddress address.Address, clientFundsAvailable abi.TokenAmount) (address.Address, error) {
+func (trcn *TestRetrievalClientNode) GetOrCreatePaymentChannel(ctx context.Context, clientAddress address.Address, minerAddress address.Address, clientFundsAvailable abi.TokenAmount, tok shared.TipSetToken) (address.Address, error) {
 	if trcn.getCreatePaymentChannelRecorder != nil {
 		trcn.getCreatePaymentChannelRecorder(clientAddress, minerAddress, clientFundsAvailable)
 	}
@@ -72,9 +73,13 @@ func (trcn *TestRetrievalClientNode) AllocateLane(paymentChannel address.Address
 }
 
 // CreatePaymentVoucher creates a mock payment voucher based on a channel and lane
-func (trcn *TestRetrievalClientNode) CreatePaymentVoucher(ctx context.Context, paymentChannel address.Address, amount abi.TokenAmount, lane uint64) (*paych.SignedVoucher, error) {
+func (trcn *TestRetrievalClientNode) CreatePaymentVoucher(ctx context.Context, paymentChannel address.Address, amount abi.TokenAmount, lane uint64, tok shared.TipSetToken) (*paych.SignedVoucher, error) {
 	if trcn.createPaymentVoucherRecorder != nil {
 		trcn.createPaymentVoucherRecorder(trcn.voucher)
 	}
 	return trcn.voucher, trcn.voucherError
+}
+
+func (trcn *TestRetrievalClientNode) GetChainHead(ctx context.Context) (shared.TipSetToken, abi.ChainEpoch, error) {
+	return shared.TipSetToken{}, 0, nil
 }
