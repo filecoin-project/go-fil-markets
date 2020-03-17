@@ -11,6 +11,7 @@ import (
 	"github.com/filecoin-project/specs-actors/actors/abi"
 	"github.com/ipfs/go-cid"
 	blockstore "github.com/ipfs/go-ipfs-blockstore"
+	"github.com/ipld/go-car"
 	"github.com/ipld/go-ipld-prime"
 
 	"github.com/filecoin-project/go-fil-markets/filestore"
@@ -23,7 +24,7 @@ type PreparedCar interface {
 
 type CarIO interface {
 	// WriteCar writes a given payload to a CAR file and into the passed IO stream
-	WriteCar(ctx context.Context, bs ReadStore, payloadCid cid.Cid, node ipld.Node, w io.Writer) error
+	WriteCar(ctx context.Context, bs ReadStore, payloadCid cid.Cid, node ipld.Node, w io.Writer, userOnNewCarBlocks ...car.OnNewCarBlockFunc) error
 
 	// PrepareCar prepares a car so that it's total size can be calculated without writing it to a file.
 	// It can then be written with PreparedCar.Dump
@@ -87,7 +88,7 @@ func (pio *pieceIO) GeneratePieceCommitment(rt abi.RegisteredProof, payloadCid c
 	return commitment, paddedSize, nil
 }
 
-func (pio *pieceIOWithStore) GeneratePieceCommitmentToFile(rt abi.RegisteredProof, payloadCid cid.Cid, selector ipld.Node) (cid.Cid, filestore.Path, abi.UnpaddedPieceSize, error) {
+func (pio *pieceIOWithStore) GeneratePieceCommitmentToFile(rt abi.RegisteredProof, payloadCid cid.Cid, selector ipld.Node, userOnNewCarBlocks ...car.OnNewCarBlockFunc) (cid.Cid, filestore.Path, abi.UnpaddedPieceSize, error) {
 	f, err := pio.store.CreateTemp()
 	if err != nil {
 		return cid.Undef, "", 0, err
@@ -96,7 +97,7 @@ func (pio *pieceIOWithStore) GeneratePieceCommitmentToFile(rt abi.RegisteredProo
 		f.Close()
 		_ = pio.store.Delete(f.Path())
 	}
-	err = pio.carIO.WriteCar(context.Background(), pio.bs, payloadCid, selector, f)
+	err = pio.carIO.WriteCar(context.Background(), pio.bs, payloadCid, selector, f, userOnNewCarBlocks...)
 	if err != nil {
 		cleanup()
 		return cid.Undef, "", 0, err
