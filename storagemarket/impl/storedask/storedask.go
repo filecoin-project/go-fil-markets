@@ -60,7 +60,9 @@ func (s *StoredAsk) AddAsk(price abi.TokenAmount, duration abi.ChainEpoch) error
 		seqno = s.ask.Ask.SeqNo + 1
 	}
 
-	_, height, err := s.spn.GetChainHead(context.TODO())
+	ctx := context.TODO()
+
+	_, height, err := s.spn.GetChainHead(ctx)
 	if err != nil {
 		return err
 	}
@@ -73,7 +75,12 @@ func (s *StoredAsk) AddAsk(price abi.TokenAmount, duration abi.ChainEpoch) error
 		MinPieceSize: defaultMinPieceSize,
 	}
 
-	sig, err := providerutils.SignMinerData(context.TODO(), ask, s.actor, s.spn.GetMinerWorker, s.spn.SignBytes)
+	tok, _, err := s.spn.GetChainHead(ctx)
+	if err != nil {
+		return err
+	}
+
+	sig, err := providerutils.SignMinerData(ctx, ask, s.actor, tok, s.spn.GetMinerWorkerAddress, s.spn.SignBytes)
 	if err != nil {
 		return err
 	}

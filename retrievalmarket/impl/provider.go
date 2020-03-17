@@ -171,7 +171,15 @@ func (p *provider) HandleQueryStream(stream rmnet.RetrievalQueryStream) {
 		MaxPaymentIntervalIncrease: p.paymentIntervalIncrease,
 	}
 
-	paymentAddress, err := p.node.GetMinerWorker(context.TODO(), p.minerAddress)
+	ctx := context.TODO()
+
+	tok, _, err := p.node.GetChainHead(ctx)
+	if err != nil {
+		log.Errorf("Retrieval query: GetChainHead: %s", err)
+		return
+	}
+
+	paymentAddress, err := p.node.GetMinerWorkerAddress(ctx, p.minerAddress, tok)
 	if err != nil {
 		log.Errorf("Retrieval query: Lookup Payment Address: %s", err)
 		answer.Status = retrievalmarket.QueryResponseError

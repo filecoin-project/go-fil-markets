@@ -115,7 +115,7 @@ func (trpn *TestRetrievalProviderNode) SavePaymentVoucher(
 }
 
 // GetMinerWorker translates an address
-func (trpn *TestRetrievalProviderNode) GetMinerWorker(ctx context.Context, addr address.Address) (address.Address, error) {
+func (trpn *TestRetrievalProviderNode) GetMinerWorkerAddress(ctx context.Context, addr address.Address, tok shared.TipSetToken) (address.Address, error) {
 	return addr, nil
 }
 

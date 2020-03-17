@@ -4,8 +4,6 @@ import (
 	"context"
 	"io"
 
-	"github.com/filecoin-project/go-fil-markets/shared"
-
 	"github.com/filecoin-project/go-address"
 	"github.com/filecoin-project/specs-actors/actors/abi"
 	"github.com/filecoin-project/specs-actors/actors/abi/big"
@@ -13,6 +11,7 @@ import (
 	"github.com/filecoin-project/specs-actors/actors/crypto"
 	"github.com/ipfs/go-cid"
 
+	"github.com/filecoin-project/go-fil-markets/shared"
 	"github.com/filecoin-project/go-fil-markets/shared_testutil"
 	"github.com/filecoin-project/go-fil-markets/storagemarket"
 )
@@ -229,7 +228,7 @@ func (n *FakeProviderNode) OnDealComplete(ctx context.Context, deal storagemarke
 }
 
 // GetMinerWorker returns the address specified by MinerAddr
-func (n *FakeProviderNode) GetMinerWorker(ctx context.Context, miner address.Address) (address.Address, error) {
+func (n *FakeProviderNode) GetMinerWorkerAddress(ctx context.Context, miner address.Address, tok shared.TipSetToken) (address.Address, error) {
 	if n.MinerWorkerError == nil {
 		return n.MinerAddr, nil
 	}

@@ -309,7 +309,7 @@ type StorageProviderNode interface {
 	OnDealComplete(ctx context.Context, deal MinerDeal, pieceSize abi.UnpaddedPieceSize, pieceReader io.Reader) error
 
 	// returns the worker address associated with a miner
-	GetMinerWorker(ctx context.Context, miner address.Address) (address.Address, error)
+	GetMinerWorkerAddress(ctx context.Context, addr address.Address, tok shared.TipSetToken) (address.Address, error)
 
 	// Signs bytes
 	SignBytes(ctx context.Context, signer address.Address, b []byte) (*crypto.Signature, error)

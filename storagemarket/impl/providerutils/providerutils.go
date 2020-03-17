@@ -13,6 +13,7 @@ import (
 	logging "github.com/ipfs/go-log/v2"
 	"golang.org/x/xerrors"
 
+	"github.com/filecoin-project/go-fil-markets/shared"
 	"github.com/filecoin-project/go-fil-markets/storagemarket"
 	"github.com/filecoin-project/go-fil-markets/storagemarket/impl/requestvalidation"
 )
@@ -41,19 +42,19 @@ func VerifyProposal(sdp market.ClientDealProposal, verifier VerifyFunc) error {
 }
 
 // WorkerLookupFunc is a function that can lookup a miner worker address from a storage miner actor
-type WorkerLookupFunc func(context.Context, address.Address) (address.Address, error)
+type WorkerLookupFunc func(context.Context, address.Address, shared.TipSetToken) (address.Address, error)
 
 // SignFunc is a function that can sign a set of bytes with a given address
 type SignFunc func(context.Context, address.Address, []byte) (*crypto.Signature, error)
 
 // SignMinerData signs the given data structure with a signature for the given address
-func SignMinerData(ctx context.Context, data interface{}, address address.Address, workerLookup WorkerLookupFunc, sign SignFunc) (*crypto.Signature, error) {
+func SignMinerData(ctx context.Context, data interface{}, address address.Address, tok shared.TipSetToken, workerLookup WorkerLookupFunc, sign SignFunc) (*crypto.Signature, error) {
 	msg, err := cborutil.Dump(data)
 	if err != nil {
 		return nil, xerrors.Errorf("serializing: %w", err)
 	}
 
-	worker, err := workerLookup(ctx, address)
+	worker, err := workerLookup(ctx, address, tok)
 	if err != nil {
 		return nil, err
 	}
