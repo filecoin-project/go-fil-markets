@@ -101,7 +101,8 @@ func (trpn *TestRetrievalProviderNode) SavePaymentVoucher(
 	paymentChannel address.Address,
 	voucher *paych.SignedVoucher,
 	proof []byte,
-	expectedAmount abi.TokenAmount) (abi.TokenAmount, error) {
+	expectedAmount abi.TokenAmount,
+	tok shared.TipSetToken) (abi.TokenAmount, error) {
 	key, err := trpn.toExpectedVoucherKey(paymentChannel, voucher, proof, expectedAmount)
 	if err != nil {
 		return abi.TokenAmount{}, err
