@@ -103,10 +103,15 @@ func ProcessPayment(ctx fsm.Context, environment ProviderDealEnvironment, deal r
 		return ctx.Trigger(rm.ProviderEventReadPaymentFailed, xerrors.Errorf("reading payment: %w", err))
 	}
 
+	tok, _, err := environment.Node().GetChainHead(ctx.Context())
+	if err != nil {
+		return ctx.Trigger(rm.ProviderEventSaveVoucherFailed, err)
+	}
+
 	// attempt to redeem voucher
 	// (totalSent * pricePerbyte) - fundsReceived
 	paymentOwed := big.Sub(big.Mul(abi.NewTokenAmount(int64(deal.TotalSent)), deal.PricePerByte), deal.FundsReceived)
-	received, err := environment.Node().SavePaymentVoucher(ctx.Context(), payment.PaymentChannel, payment.PaymentVoucher, nil, paymentOwed)
+	received, err := environment.Node().SavePaymentVoucher(ctx.Context(), payment.PaymentChannel, payment.PaymentVoucher, nil, paymentOwed, tok)
 	if err != nil {
 		return ctx.Trigger(rm.ProviderEventSaveVoucherFailed, err)
 	}
