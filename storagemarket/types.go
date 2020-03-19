@@ -99,12 +99,14 @@ var StorageAskUndefined = StorageAsk{}
 
 type MinerDeal struct {
 	market.ClientDealProposal
-	ProposalCid cid.Cid
-	Miner       peer.ID
-	Client      peer.ID
-	State       StorageDealStatus
-	PiecePath   filestore.Path
-	Message     string
+	ProposalCid      cid.Cid
+	Miner            peer.ID
+	Client           peer.ID
+	State            StorageDealStatus
+	PiecePath        filestore.Path
+	MetadataPath     filestore.Path
+	ConnectionClosed bool
+	Message          string
 
 	Ref *DataRef
 
@@ -175,6 +177,9 @@ const (
 
 	// ProviderEventPieceStoreErrored happens when an attempt to save data in the piece store errors
 	ProviderEventPieceStoreErrored
+
+	// ProviderEventReadMetadataErrored happens when an error occurs reading recorded piece metadata
+	ProviderEventReadMetadataErrored
 
 	// ProviderEventDealCompleted happens when a deal completes successfully
 	ProviderEventDealCompleted

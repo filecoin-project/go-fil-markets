@@ -45,8 +45,9 @@ var ProviderEvents = fsm.Events{
 		}),
 	fsm.Event(storagemarket.ProviderEventVerifiedData).
 		FromMany(storagemarket.StorageDealVerifyData, storagemarket.StorageDealWaitingForData).To(storagemarket.StorageDealPublishing).
-		Action(func(deal *storagemarket.MinerDeal, path filestore.Path) error {
+		Action(func(deal *storagemarket.MinerDeal, path filestore.Path, metadataPath filestore.Path) error {
 			deal.PiecePath = path
+			deal.MetadataPath = metadataPath
 			return nil
 		}),
 	fsm.Event(storagemarket.ProviderEventSendResponseFailed).
@@ -58,37 +59,43 @@ var ProviderEvents = fsm.Events{
 	fsm.Event(storagemarket.ProviderEventDealPublished).
 		From(storagemarket.StorageDealPublishing).To(storagemarket.StorageDealStaged).
 		Action(func(deal *storagemarket.MinerDeal, dealID abi.DealID) error {
+			deal.ConnectionClosed = true
 			deal.DealID = dealID
 			return nil
 		}),
 	fsm.Event(storagemarket.ProviderEventFileStoreErrored).
-		FromMany(storagemarket.StorageDealStaged, storagemarket.StorageDealSealing, storagemarket.StorageDealActive).To(storagemarket.StorageDealError).
+		FromMany(storagemarket.StorageDealStaged, storagemarket.StorageDealSealing, storagemarket.StorageDealActive).To(storagemarket.StorageDealFailing).
 		Action(func(deal *storagemarket.MinerDeal, err error) error {
 			deal.Message = xerrors.Errorf("accessing file store: %w", err).Error()
 			return nil
 		}),
-	fsm.Event(storagemarket.ProviderEventDealHandoffFailed).From(storagemarket.StorageDealStaged).To(storagemarket.StorageDealError).
+	fsm.Event(storagemarket.ProviderEventDealHandoffFailed).From(storagemarket.StorageDealStaged).To(storagemarket.StorageDealFailing).
 		Action(func(deal *storagemarket.MinerDeal, err error) error {
 			deal.Message = xerrors.Errorf("handing off deal to node: %w", err).Error()
 			return nil
 		}),
 	fsm.Event(storagemarket.ProviderEventDealHandedOff).From(storagemarket.StorageDealStaged).To(storagemarket.StorageDealSealing),
 	fsm.Event(storagemarket.ProviderEventDealActivationFailed).
-		From(storagemarket.StorageDealSealing).To(storagemarket.StorageDealError).
+		From(storagemarket.StorageDealSealing).To(storagemarket.StorageDealFailing).
 		Action(func(deal *storagemarket.MinerDeal, err error) error {
 			deal.Message = xerrors.Errorf("error activating deal: %w", err).Error()
 			return nil
 		}),
 	fsm.Event(storagemarket.ProviderEventDealActivated).From(storagemarket.StorageDealSealing).To(storagemarket.StorageDealActive),
-	fsm.Event(storagemarket.ProviderEventPieceStoreErrored).From(storagemarket.StorageDealActive).To(storagemarket.StorageDealError).
+	fsm.Event(storagemarket.ProviderEventPieceStoreErrored).From(storagemarket.StorageDealActive).To(storagemarket.StorageDealFailing).
 		Action(func(deal *storagemarket.MinerDeal, err error) error {
 			deal.Message = xerrors.Errorf("accessing piece store: %w", err).Error()
 			return nil
 		}),
 	fsm.Event(storagemarket.ProviderEventDealCompleted).From(storagemarket.StorageDealActive).To(storagemarket.StorageDealCompleted),
-	fsm.Event(storagemarket.ProviderEventUnableToLocatePiece).From(storagemarket.StorageDealActive).To(storagemarket.StorageDealError).
+	fsm.Event(storagemarket.ProviderEventUnableToLocatePiece).From(storagemarket.StorageDealActive).To(storagemarket.StorageDealFailing).
 		Action(func(deal *storagemarket.MinerDeal, dealID abi.DealID, err error) error {
 			deal.Message = xerrors.Errorf("locating piece for deal ID %d in sector: %w", deal.DealID, err).Error()
+			return nil
+		}),
+	fsm.Event(storagemarket.ProviderEventReadMetadataErrored).From(storagemarket.StorageDealActive).To(storagemarket.StorageDealFailing).
+		Action(func(deal *storagemarket.MinerDeal, err error) error {
+			deal.Message = xerrors.Errorf("error reading piece metadata: %w", err).Error()
 			return nil
 		}),
 	fsm.Event(storagemarket.ProviderEventFailed).From(storagemarket.StorageDealFailing).To(storagemarket.StorageDealError),

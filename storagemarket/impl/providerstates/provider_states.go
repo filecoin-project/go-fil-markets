@@ -35,13 +35,11 @@ type ProviderDealEnvironment interface {
 	Node() storagemarket.StorageProviderNode
 	Ask() storagemarket.StorageAsk
 	StartDataTransfer(ctx context.Context, to peer.ID, voucher datatransfer.Voucher, baseCid cid.Cid, selector ipld.Node) error
-	GeneratePieceCommitmentToFile(payloadCid cid.Cid, selector ipld.Node) (cid.Cid, filestore.Path, error)
+	GeneratePieceCommitmentToFile(payloadCid cid.Cid, selector ipld.Node) (cid.Cid, filestore.Path, filestore.Path, error)
 	SendSignedResponse(ctx context.Context, response *network.Response) error
 	Disconnect(proposalCid cid.Cid) error
-	OpenFile(path filestore.Path) (filestore.File, error)
-	DeleteFile(path filestore.Path) error
-	AddDealForPiece(pieceCID cid.Cid, dealInfo piecestore.DealInfo) error
-	AddPieceBlockLocations(pieceCID cid.Cid, blockLocations map[cid.Cid]piecestore.BlockLocation) error
+	FileStore() filestore.FileStore
+	PieceStore() piecestore.PieceStore
 }
 
 // ProviderStateEntryFunc is the signature for a StateEntryFunc in the provider FSM
@@ -139,7 +137,7 @@ func VerifyData(ctx fsm.Context, environment ProviderDealEnvironment, deal stora
 	allSelector := ssb.ExploreRecursive(selector.RecursionLimitNone(),
 		ssb.ExploreAll(ssb.ExploreRecursiveEdge())).Node()
 
-	pieceCid, path, err := environment.GeneratePieceCommitmentToFile(deal.Ref.Root, allSelector)
+	pieceCid, piecePath, metadataPath, err := environment.GeneratePieceCommitmentToFile(deal.Ref.Root, allSelector)
 	if err != nil {
 		return ctx.Trigger(storagemarket.ProviderEventGeneratePieceCIDFailed, err)
 	}
@@ -149,7 +147,7 @@ func VerifyData(ctx fsm.Context, environment ProviderDealEnvironment, deal stora
 		return ctx.Trigger(storagemarket.ProviderEventDealRejected, xerrors.Errorf("proposal CommP doesn't match calculated CommP"))
 	}
 
-	return ctx.Trigger(storagemarket.ProviderEventVerifiedData, path)
+	return ctx.Trigger(storagemarket.ProviderEventVerifiedData, piecePath, metadataPath)
 }
 
 // PublishDeal publishes a deal on chain and sends the deal id back to the client
@@ -202,7 +200,7 @@ func PublishDeal(ctx fsm.Context, environment ProviderDealEnvironment, deal stor
 
 // HandoffDeal hands off a published deal for sealing and commitment in a sector
 func HandoffDeal(ctx fsm.Context, environment ProviderDealEnvironment, deal storagemarket.MinerDeal) error {
-	file, err := environment.OpenFile(deal.PiecePath)
+	file, err := environment.FileStore().Open(deal.PiecePath)
 	if err != nil {
 		return ctx.Trigger(storagemarket.ProviderEventFileStoreErrored, xerrors.Errorf("reading piece at path %s: %w", deal.PiecePath, err))
 	}
@@ -249,24 +247,31 @@ func VerifyDealActivated(ctx fsm.Context, environment ProviderDealEnvironment, d
 // RecordPieceInfo records sector information about an activated deal so that the data
 // can be retrieved later
 func RecordPieceInfo(ctx fsm.Context, environment ProviderDealEnvironment, deal storagemarket.MinerDeal) error {
-	err := environment.DeleteFile(deal.PiecePath)
-	if err != nil {
-		return ctx.Trigger(storagemarket.ProviderEventFileStoreErrored, xerrors.Errorf("deleting piece at path %s: %w", deal.PiecePath, err))
-	}
 
 	sectorID, offset, length, err := environment.Node().LocatePieceForDealWithinSector(ctx.Context(), deal.DealID)
 	if err != nil {
 		return ctx.Trigger(storagemarket.ProviderEventUnableToLocatePiece, deal.DealID, err)
 	}
+
+	var blockLocations map[cid.Cid]piecestore.BlockLocation
+	if deal.MetadataPath != filestore.Path("") {
+		blockLocations, err = providerutils.LoadBlockLocations(environment.FileStore(), deal.MetadataPath)
+		if err != nil {
+			return ctx.Trigger(storagemarket.ProviderEventReadMetadataErrored, err)
+		}
+	} else {
+		blockLocations = map[cid.Cid]piecestore.BlockLocation{
+			deal.Ref.Root: {},
+		}
+	}
+
 	// TODO: Record actual block locations for all CIDs in piece by improving car writing
-	err = environment.AddPieceBlockLocations(deal.Proposal.PieceCID, map[cid.Cid]piecestore.BlockLocation{
-		deal.Ref.Root: {},
-	})
+	err = environment.PieceStore().AddPieceBlockLocations(deal.Proposal.PieceCID, blockLocations)
 	if err != nil {
 		return ctx.Trigger(storagemarket.ProviderEventPieceStoreErrored, xerrors.Errorf("adding piece block locations: %w", err))
 	}
 
-	err = environment.AddDealForPiece(deal.Proposal.PieceCID, piecestore.DealInfo{
+	err = environment.PieceStore().AddDealForPiece(deal.Proposal.PieceCID, piecestore.DealInfo{
 		DealID:   deal.DealID,
 		SectorID: sectorID,
 		Offset:   offset,
@@ -277,6 +282,17 @@ func RecordPieceInfo(ctx fsm.Context, environment ProviderDealEnvironment, deal 
 		return ctx.Trigger(storagemarket.ProviderEventPieceStoreErrored, xerrors.Errorf("adding deal info for piece: %w", err))
 	}
 
+	err = environment.FileStore().Delete(deal.PiecePath)
+	if err != nil {
+		log.Warnf("deleting piece at path %s: %w", deal.PiecePath, err)
+	}
+	if deal.MetadataPath != filestore.Path("") {
+		err := environment.FileStore().Delete(deal.MetadataPath)
+		if err != nil {
+			log.Warnf("deleting piece at path %s: %w", deal.MetadataPath, err)
+		}
+	}
+
 	return ctx.Trigger(storagemarket.ProviderEventDealCompleted)
 }
 
@@ -285,19 +301,33 @@ func FailDeal(ctx fsm.Context, environment ProviderDealEnvironment, deal storage
 
 	log.Warnf("deal %s failed: %s", deal.ProposalCid, deal.Message)
 
-	err := environment.SendSignedResponse(ctx.Context(), &network.Response{
-		State:    storagemarket.StorageDealFailing,
-		Message:  deal.Message,
-		Proposal: deal.ProposalCid,
-	})
+	if !deal.ConnectionClosed {
+		err := environment.SendSignedResponse(ctx.Context(), &network.Response{
+			State:    storagemarket.StorageDealFailing,
+			Message:  deal.Message,
+			Proposal: deal.ProposalCid,
+		})
 
-	if err != nil {
-		return ctx.Trigger(storagemarket.ProviderEventSendResponseFailed, err)
+		if err != nil {
+			return ctx.Trigger(storagemarket.ProviderEventSendResponseFailed, err)
+		}
+
+		if err := environment.Disconnect(deal.ProposalCid); err != nil {
+			log.Warnf("closing client connection: %+v", err)
+		}
 	}
 
-	if err := environment.Disconnect(deal.ProposalCid); err != nil {
-		log.Warnf("closing client connection: %+v", err)
+	if deal.PiecePath != filestore.Path("") {
+		err := environment.FileStore().Delete(deal.PiecePath)
+		if err != nil {
+			log.Warnf("deleting piece at path %s: %w", deal.PiecePath, err)
+		}
 	}
-
+	if deal.MetadataPath != filestore.Path("") {
+		err := environment.FileStore().Delete(deal.MetadataPath)
+		if err != nil {
+			log.Warnf("deleting piece at path %s: %w", deal.MetadataPath, err)
+		}
+	}
 	return ctx.Trigger(storagemarket.ProviderEventFailed)
 }

@@ -13,25 +13,40 @@ import (
 
 // TestPieceStore is piecestore who's query results are mocked
 type TestPieceStore struct {
-	piecesStubbed    map[cid.Cid]piecestore.PieceInfo
-	piecesExpected   map[cid.Cid]struct{}
-	piecesReceived   map[cid.Cid]struct{}
-	cidInfosStubbed  map[cid.Cid]piecestore.CIDInfo
-	cidInfosExpected map[cid.Cid]struct{}
-	cidInfosReceived map[cid.Cid]struct{}
+	addPieceBlockLocationsError error
+	addDealForPieceError        error
+	piecesStubbed               map[cid.Cid]piecestore.PieceInfo
+	piecesExpected              map[cid.Cid]struct{}
+	piecesReceived              map[cid.Cid]struct{}
+	cidInfosStubbed             map[cid.Cid]piecestore.CIDInfo
+	cidInfosExpected            map[cid.Cid]struct{}
+	cidInfosReceived            map[cid.Cid]struct{}
+}
+
+// TestPieceStoreParams sets parameters for a piece store
+type TestPieceStoreParams struct {
+	AddDealForPieceError        error
+	AddPieceBlockLocationsError error
 }
 
 var _ piecestore.PieceStore = &TestPieceStore{}
 
 // NewTestPieceStore creates a TestPieceStore
 func NewTestPieceStore() *TestPieceStore {
+	return NewTestPieceStoreWithParams(TestPieceStoreParams{})
+}
+
+// NewTestPieceStoreWithParams creates a TestPieceStore with the given parameters
+func NewTestPieceStoreWithParams(params TestPieceStoreParams) *TestPieceStore {
 	return &TestPieceStore{
-		piecesStubbed:    make(map[cid.Cid]piecestore.PieceInfo),
-		piecesExpected:   make(map[cid.Cid]struct{}),
-		piecesReceived:   make(map[cid.Cid]struct{}),
-		cidInfosStubbed:  make(map[cid.Cid]piecestore.CIDInfo),
-		cidInfosExpected: make(map[cid.Cid]struct{}),
-		cidInfosReceived: make(map[cid.Cid]struct{}),
+		addDealForPieceError:        params.AddDealForPieceError,
+		addPieceBlockLocationsError: params.AddPieceBlockLocationsError,
+		piecesStubbed:               make(map[cid.Cid]piecestore.PieceInfo),
+		piecesExpected:              make(map[cid.Cid]struct{}),
+		piecesReceived:              make(map[cid.Cid]struct{}),
+		cidInfosStubbed:             make(map[cid.Cid]piecestore.CIDInfo),
+		cidInfosExpected:            make(map[cid.Cid]struct{}),
+		cidInfosReceived:            make(map[cid.Cid]struct{}),
 	}
 }
 
@@ -75,14 +90,17 @@ func (tps *TestPieceStore) VerifyExpectations(t *testing.T) {
 	require.Equal(t, tps.cidInfosExpected, tps.cidInfosReceived)
 }
 
+// AddDealForPiece returns a preprogrammed error
 func (tps *TestPieceStore) AddDealForPiece(pieceCID cid.Cid, dealInfo piecestore.DealInfo) error {
-	panic("not implemented")
+	return tps.addDealForPieceError
 }
 
+// AddPieceBlockLocations returns a preprogrammed error
 func (tps *TestPieceStore) AddPieceBlockLocations(pieceCID cid.Cid, blockLocations map[cid.Cid]piecestore.BlockLocation) error {
-	panic("not implemented")
+	return tps.addPieceBlockLocationsError
 }
 
+// GetPieceInfo returns a piece info if it's been stubbed
 func (tps *TestPieceStore) GetPieceInfo(pieceCID cid.Cid) (piecestore.PieceInfo, error) {
 	tps.piecesReceived[pieceCID] = struct{}{}
 
@@ -97,6 +115,7 @@ func (tps *TestPieceStore) GetPieceInfo(pieceCID cid.Cid) (piecestore.PieceInfo,
 	return piecestore.PieceInfoUndefined, errors.New("GetPieceInfo failed")
 }
 
+// GetCIDInfo returns cid info if it's been stubbed
 func (tps *TestPieceStore) GetCIDInfo(c cid.Cid) (piecestore.CIDInfo, error) {
 	tps.cidInfosReceived[c] = struct{}{}
 

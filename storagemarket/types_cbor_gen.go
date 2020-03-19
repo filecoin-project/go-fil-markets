@@ -6,13 +6,12 @@ import (
 	"fmt"
 	"io"
 
+	"github.com/filecoin-project/go-fil-markets/filestore"
 	"github.com/filecoin-project/specs-actors/actors/abi"
 	"github.com/filecoin-project/specs-actors/actors/crypto"
 	"github.com/libp2p/go-libp2p-core/peer"
 	cbg "github.com/whyrusleeping/cbor-gen"
 	xerrors "golang.org/x/xerrors"
-
-	"github.com/filecoin-project/go-fil-markets/filestore"
 )
 
 var _ = xerrors.Errorf
@@ -234,7 +233,7 @@ func (t *MinerDeal) MarshalCBOR(w io.Writer) error {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	if _, err := w.Write([]byte{137}); err != nil {
+	if _, err := w.Write([]byte{138}); err != nil {
 		return err
 	}
 
@@ -290,6 +289,18 @@ func (t *MinerDeal) MarshalCBOR(w io.Writer) error {
 		return err
 	}
 
+	// t.MetadataPath (filestore.Path) (string)
+	if len(t.MetadataPath) > cbg.MaxLength {
+		return xerrors.Errorf("Value in field t.MetadataPath was too long")
+	}
+
+	if _, err := w.Write(cbg.CborEncodeMajorType(cbg.MajTextString, uint64(len(t.MetadataPath)))); err != nil {
+		return err
+	}
+	if _, err := w.Write([]byte(t.MetadataPath)); err != nil {
+		return err
+	}
+
 	// t.Message (string) (string)
 	if len(t.Message) > cbg.MaxLength {
 		return xerrors.Errorf("Value in field t.Message was too long")
@@ -325,7 +336,7 @@ func (t *MinerDeal) UnmarshalCBOR(r io.Reader) error {
 		return fmt.Errorf("cbor input should be of type array")
 	}
 
-	if extra != 9 {
+	if extra != 10 {
 		return fmt.Errorf("cbor input had wrong number of fields")
 	}
 
@@ -389,6 +400,16 @@ func (t *MinerDeal) UnmarshalCBOR(r io.Reader) error {
 		}
 
 		t.PiecePath = filestore.Path(sval)
+	}
+	// t.MetadataPath (filestore.Path) (string)
+
+	{
+		sval, err := cbg.ReadString(br)
+		if err != nil {
+			return err
+		}
+
+		t.MetadataPath = filestore.Path(sval)
 	}
 	// t.Message (string) (string)
 
