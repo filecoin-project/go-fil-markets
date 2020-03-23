@@ -109,7 +109,7 @@ func (n *FakeCommonNode) AddFunds(ctx context.Context, addr address.Address, amo
 }
 
 // EnsureFunds adds funds to the given actor in the storage market state to insure it has at least the given amount
-func (n *FakeCommonNode) EnsureFunds(ctx context.Context, addr, wallet address.Address, amount abi.TokenAmount) error {
+func (n *FakeCommonNode) EnsureFunds(ctx context.Context, addr, wallet address.Address, amount abi.TokenAmount, tok shared.TipSetToken) error {
 	if n.EnsureFundsError == nil {
 		balance := n.SMState.Balance(addr)
 		if balance.Available.LessThan(amount) {
@@ -120,7 +120,7 @@ func (n *FakeCommonNode) EnsureFunds(ctx context.Context, addr, wallet address.A
 }
 
 // GetBalance returns the funds in the storage market state
-func (n *FakeCommonNode) GetBalance(ctx context.Context, addr address.Address) (storagemarket.Balance, error) {
+func (n *FakeCommonNode) GetBalance(ctx context.Context, addr address.Address, tok shared.TipSetToken) (storagemarket.Balance, error) {
 	if n.GetBalanceError == nil {
 		return n.SMState.Balance(addr), nil
 	}
@@ -128,8 +128,8 @@ func (n *FakeCommonNode) GetBalance(ctx context.Context, addr address.Address) (
 }
 
 // VerifySignature just always returns true, for now
-func (n *FakeCommonNode) VerifySignature(signature crypto.Signature, addr address.Address, data []byte) bool {
-	return !n.VerifySignatureFails
+func (n *FakeCommonNode) VerifySignature(signature crypto.Signature, addr address.Address, data []byte, tok shared.TipSetToken) (bool, error) {
+	return !n.VerifySignatureFails, nil
 }
 
 // FakeClientNode implements functions specific to the StorageClientNode
@@ -144,7 +144,7 @@ type FakeClientNode struct {
 }
 
 // ListClientDeals just returns the deals in the storage market state
-func (n *FakeClientNode) ListClientDeals(ctx context.Context, addr address.Address) ([]storagemarket.StorageDeal, error) {
+func (n *FakeClientNode) ListClientDeals(ctx context.Context, addr address.Address, tok shared.TipSetToken) ([]storagemarket.StorageDeal, error) {
 	return n.SMState.Deals(addr), nil
 }
 
@@ -218,7 +218,7 @@ func (n *FakeProviderNode) PublishDeals(ctx context.Context, deal storagemarket.
 }
 
 // ListProviderDeals returns the deals in the storage market state
-func (n *FakeProviderNode) ListProviderDeals(ctx context.Context, addr address.Address) ([]storagemarket.StorageDeal, error) {
+func (n *FakeProviderNode) ListProviderDeals(ctx context.Context, addr address.Address, tok shared.TipSetToken) ([]storagemarket.StorageDeal, error) {
 	return n.SMState.Deals(addr), nil
 }
 
