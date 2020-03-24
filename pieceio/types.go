@@ -6,6 +6,7 @@ import (
 	"github.com/filecoin-project/specs-actors/actors/abi"
 	blocks "github.com/ipfs/go-block-format"
 	"github.com/ipfs/go-cid"
+	"github.com/ipld/go-car"
 	"github.com/ipld/go-ipld-prime"
 
 	"github.com/filecoin-project/go-fil-markets/filestore"
@@ -27,5 +28,5 @@ type PieceIO interface {
 
 type PieceIOWithStore interface {
 	PieceIO
-	GeneratePieceCommitmentToFile(rt abi.RegisteredProof, payloadCid cid.Cid, selector ipld.Node) (cid.Cid, filestore.Path, abi.UnpaddedPieceSize, error)
+	GeneratePieceCommitmentToFile(rt abi.RegisteredProof, payloadCid cid.Cid, selector ipld.Node, userOnNewCarBlocks ...car.OnNewCarBlockFunc) (cid.Cid, filestore.Path, abi.UnpaddedPieceSize, error)
 }

@@ -8,13 +8,20 @@ import (
 	cborutil "github.com/filecoin-project/go-cbor-util"
 	datatransfer "github.com/filecoin-project/go-data-transfer"
 	"github.com/filecoin-project/go-statemachine/fsm"
+	"github.com/filecoin-project/specs-actors/actors/abi"
 	"github.com/filecoin-project/specs-actors/actors/builtin/market"
 	"github.com/filecoin-project/specs-actors/actors/crypto"
+	"github.com/ipfs/go-cid"
 	logging "github.com/ipfs/go-log/v2"
+	"github.com/ipld/go-car"
+	"github.com/ipld/go-ipld-prime"
 	"golang.org/x/xerrors"
 
+	"github.com/filecoin-project/go-fil-markets/filestore"
+	"github.com/filecoin-project/go-fil-markets/piecestore"
 	"github.com/filecoin-project/go-fil-markets/shared"
 	"github.com/filecoin-project/go-fil-markets/storagemarket"
+	"github.com/filecoin-project/go-fil-markets/storagemarket/impl/blockrecorder"
 	"github.com/filecoin-project/go-fil-markets/storagemarket/impl/requestvalidation"
 )
 
@@ -99,4 +106,46 @@ func DataTransferSubscriber(deals EventReceiver) datatransfer.Subscriber {
 		default:
 		}
 	}
+}
+
+// CommPGenerator is a commP generating function that writes to a file
+type CommPGenerator func(abi.RegisteredProof, cid.Cid, ipld.Node, ...car.OnNewCarBlockFunc) (cid.Cid, filestore.Path, abi.UnpaddedPieceSize, error)
+
+// GeneratePieceCommitmentWithMetadata generates a piece commitment along with block metadata
+func GeneratePieceCommitmentWithMetadata(
+	fileStore filestore.FileStore,
+	commPGenerator CommPGenerator,
+	proofType abi.RegisteredProof,
+	payloadCid cid.Cid,
+	selector ipld.Node) (cid.Cid, filestore.Path, filestore.Path, error) {
+	metadataFile, err := fileStore.CreateTemp()
+	if err != nil {
+		return cid.Cid{}, "", "", err
+	}
+	blockRecorder := blockrecorder.RecordEachBlockTo(metadataFile)
+	pieceCid, path, _, err := commPGenerator(proofType, payloadCid, selector, blockRecorder)
+	_ = metadataFile.Close()
+	if err != nil {
+		_ = fileStore.Delete(metadataFile.Path())
+		return cid.Cid{}, "", "", err
+	}
+	return pieceCid, path, metadataFile.Path(), err
+}
+
+// LoadBlockLocations loads a metadata file then converts it to a map of cid -> blockLocation
+func LoadBlockLocations(fs filestore.FileStore, metadataPath filestore.Path) (map[cid.Cid]piecestore.BlockLocation, error) {
+	metadataFile, err := fs.Open(metadataPath)
+	if err != nil {
+		return nil, err
+	}
+	metadata, err := blockrecorder.ReadBlockMetadata(metadataFile)
+	_ = metadataFile.Close()
+	if err != nil {
+		return nil, err
+	}
+	blockLocations := make(map[cid.Cid]piecestore.BlockLocation, len(metadata))
+	for _, metadatum := range metadata {
+		blockLocations[metadatum.CID] = piecestore.BlockLocation{RelOffset: metadatum.Offset, BlockSize: metadatum.Size}
+	}
+	return blockLocations, nil
 }

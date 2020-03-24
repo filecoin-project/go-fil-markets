@@ -32,24 +32,38 @@ import (
 var ProviderDsPrefix = "/deals/provider"
 var _ storagemarket.StorageProvider = &Provider{}
 
+// Provider is a storage provider implementation
 type Provider struct {
 	net network.StorageMarketNetwork
 
 	proofType abi.RegisteredProof
 
-	spn          storagemarket.StorageProviderNode
-	fs           filestore.FileStore
-	pio          pieceio.PieceIOWithStore
-	pieceStore   piecestore.PieceStore
-	conns        *connmanager.ConnManager
-	storedAsk    *storedask.StoredAsk
-	actor        address.Address
-	dataTransfer datatransfer.Manager
+	spn                       storagemarket.StorageProviderNode
+	fs                        filestore.FileStore
+	pio                       pieceio.PieceIOWithStore
+	pieceStore                piecestore.PieceStore
+	conns                     *connmanager.ConnManager
+	storedAsk                 *storedask.StoredAsk
+	actor                     address.Address
+	dataTransfer              datatransfer.Manager
+	universalRetrievalEnabled bool
 
 	deals fsm.Group
 }
 
-func NewProvider(net network.StorageMarketNetwork, ds datastore.Batching, bs blockstore.Blockstore, fs filestore.FileStore, pieceStore piecestore.PieceStore, dataTransfer datatransfer.Manager, spn storagemarket.StorageProviderNode, minerAddress address.Address, rt abi.RegisteredProof) (storagemarket.StorageProvider, error) {
+// StorageProviderOption allows custom configuration of a storage provider
+type StorageProviderOption func(p *Provider)
+
+// EnableUniversalRetrieval causes a storage provider to track all CIDs in a piece,
+// so that any CID, not just the root, can be retrieved
+func EnableUniversalRetrieval() StorageProviderOption {
+	return func(p *Provider) {
+		p.universalRetrievalEnabled = true
+	}
+}
+
+// NewProvider returns a new storage provider
+func NewProvider(net network.StorageMarketNetwork, ds datastore.Batching, bs blockstore.Blockstore, fs filestore.FileStore, pieceStore piecestore.PieceStore, dataTransfer datatransfer.Manager, spn storagemarket.StorageProviderNode, minerAddress address.Address, rt abi.RegisteredProof, options ...StorageProviderOption) (storagemarket.StorageProvider, error) {
 	carIO := cario.NewCarIO()
 	pio := pieceio.NewPieceIOWithStore(carIO, fs, bs)
 
@@ -83,6 +97,10 @@ func NewProvider(net network.StorageMarketNetwork, ds datastore.Batching, bs blo
 	}
 
 	h.deals = deals
+
+	for _, option := range options {
+		option(h)
+	}
 
 	// register a data transfer event handler -- this will move deals from
 	// accepted to staged
@@ -160,31 +178,41 @@ func (p *Provider) ImportDataForDeal(ctx context.Context, propCid cid.Cid, data 
 	if err != nil {
 		return xerrors.Errorf("failed to create temp file for data import: %w", err)
 	}
+	cleanup := func() {
+		_ = tempfi.Close()
+		_ = p.fs.Delete(tempfi.Path())
+	}
 
 	n, err := io.Copy(tempfi, data)
 	if err != nil {
+		cleanup()
 		return xerrors.Errorf("importing deal data failed: %w", err)
 	}
+
 	_ = n // TODO: verify n?
 
 	pieceSize := uint64(tempfi.Size())
 
 	_, err = tempfi.Seek(0, io.SeekStart)
 	if err != nil {
+		cleanup()
 		return xerrors.Errorf("failed to seek through temp imported file: %w", err)
 	}
 
 	pieceCid, _, err := pieceio.GeneratePieceCommitment(p.proofType, tempfi, pieceSize)
 	if err != nil {
+		cleanup()
 		return xerrors.Errorf("failed to generate commP")
 	}
 
 	// Verify CommP matches
 	if !pieceCid.Equals(d.Proposal.PieceCID) {
+		cleanup()
 		return xerrors.Errorf("given data does not match expected commP (got: %x, expected %x)", pieceCid, d.Proposal.PieceCID)
 	}
 
-	return p.deals.Send(propCid, storagemarket.ProviderEventVerifiedData, tempfi.Path())
+	return p.deals.Send(propCid, storagemarket.ProviderEventVerifiedData, tempfi.Path(), filestore.Path(""))
+
 }
 
 func (p *Provider) ListAsks(addr address.Address) []*storagemarket.SignedStorageAsk {
@@ -262,25 +290,20 @@ func (p *providerDealEnvironment) StartDataTransfer(ctx context.Context, to peer
 	return err
 }
 
-func (p *providerDealEnvironment) GeneratePieceCommitmentToFile(payloadCid cid.Cid, selector ipld.Node) (cid.Cid, filestore.Path, error) {
-	pieceCid, path, _, err := p.p.pio.GeneratePieceCommitmentToFile(p.p.proofType, payloadCid, selector)
-	return pieceCid, path, err
+func (p *providerDealEnvironment) GeneratePieceCommitmentToFile(payloadCid cid.Cid, selector ipld.Node) (cid.Cid, filestore.Path, filestore.Path, error) {
+	if p.p.universalRetrievalEnabled {
+		return providerutils.GeneratePieceCommitmentWithMetadata(p.p.fs, p.p.pio.GeneratePieceCommitmentToFile, p.p.proofType, payloadCid, selector)
+	}
+	pieceCid, piecePath, _, err := p.p.pio.GeneratePieceCommitmentToFile(p.p.proofType, payloadCid, selector)
+	return pieceCid, piecePath, filestore.Path(""), err
 }
 
-func (p *providerDealEnvironment) OpenFile(path filestore.Path) (filestore.File, error) {
-	return p.p.fs.Open(path)
+func (p *providerDealEnvironment) FileStore() filestore.FileStore {
+	return p.p.fs
 }
 
-func (p *providerDealEnvironment) DeleteFile(path filestore.Path) error {
-	return p.p.fs.Delete(path)
-}
-
-func (p *providerDealEnvironment) AddDealForPiece(pieceCID cid.Cid, dealInfo piecestore.DealInfo) error {
-	return p.p.pieceStore.AddDealForPiece(pieceCID, dealInfo)
-}
-
-func (p *providerDealEnvironment) AddPieceBlockLocations(pieceCID cid.Cid, blockLocations map[cid.Cid]piecestore.BlockLocation) error {
-	return p.p.pieceStore.AddPieceBlockLocations(pieceCID, blockLocations)
+func (p *providerDealEnvironment) PieceStore() piecestore.PieceStore {
+	return p.p.pieceStore
 }
 
 func (p *providerDealEnvironment) SendSignedResponse(ctx context.Context, resp *network.Response) error {
@@ -315,3 +338,5 @@ func (p *providerDealEnvironment) SendSignedResponse(ctx context.Context, resp *
 func (p *providerDealEnvironment) Disconnect(proposalCid cid.Cid) error {
 	return p.p.conns.Disconnect(proposalCid)
 }
+
+var _ providerstates.ProviderDealEnvironment = &providerDealEnvironment{}

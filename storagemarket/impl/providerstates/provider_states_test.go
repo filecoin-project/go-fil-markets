@@ -1,8 +1,10 @@
 package providerstates_test
 
 import (
+	"bytes"
 	"context"
 	"errors"
+	"fmt"
 	"math/rand"
 	"testing"
 
@@ -22,6 +24,7 @@ import (
 	"github.com/filecoin-project/go-fil-markets/shared"
 	tut "github.com/filecoin-project/go-fil-markets/shared_testutil"
 	"github.com/filecoin-project/go-fil-markets/storagemarket"
+	"github.com/filecoin-project/go-fil-markets/storagemarket/impl/blockrecorder"
 	"github.com/filecoin-project/go-fil-markets/storagemarket/impl/providerstates"
 	"github.com/filecoin-project/go-fil-markets/storagemarket/network"
 	"github.com/filecoin-project/go-fil-markets/storagemarket/testnodes"
@@ -38,6 +41,8 @@ func TestValidateDealProposal(t *testing.T) {
 		nodeParams        nodeParams
 		dealParams        dealParams
 		environmentParams environmentParams
+		fileStoreParams   tut.TestFileStoreParams
+		pieceStoreParams  tut.TestPieceStoreParams
 		dealInspector     func(t *testing.T, deal storagemarket.MinerDeal)
 	}{
 		"succeeds": {
@@ -120,7 +125,7 @@ func TestValidateDealProposal(t *testing.T) {
 	}
 	for test, data := range tests {
 		t.Run(test, func(t *testing.T) {
-			runValidateDealProposal(t, data.nodeParams, data.environmentParams, data.dealParams, data.dealInspector)
+			runValidateDealProposal(t, data.nodeParams, data.environmentParams, data.dealParams, data.fileStoreParams, data.pieceStoreParams, data.dealInspector)
 		})
 	}
 }
@@ -134,6 +139,8 @@ func TestTransferData(t *testing.T) {
 		nodeParams        nodeParams
 		dealParams        dealParams
 		environmentParams environmentParams
+		fileStoreParams   tut.TestFileStoreParams
+		pieceStoreParams  tut.TestPieceStoreParams
 		dealInspector     func(t *testing.T, deal storagemarket.MinerDeal)
 	}{
 		"succeeds": {
@@ -163,7 +170,7 @@ func TestTransferData(t *testing.T) {
 	}
 	for test, data := range tests {
 		t.Run(test, func(t *testing.T) {
-			runTransferData(t, data.nodeParams, data.environmentParams, data.dealParams, data.dealInspector)
+			runTransferData(t, data.nodeParams, data.environmentParams, data.dealParams, data.fileStoreParams, data.pieceStoreParams, data.dealInspector)
 		})
 	}
 }
@@ -173,20 +180,25 @@ func TestVerifyData(t *testing.T) {
 	eventProcessor, err := fsm.NewEventProcessor(storagemarket.MinerDeal{}, "State", providerstates.ProviderEvents)
 	require.NoError(t, err)
 	expPath := filestore.Path("applesauce.txt")
+	expMetaPath := filestore.Path("somemetadata.txt")
 	runVerifyData := makeExecutor(ctx, eventProcessor, providerstates.VerifyData, storagemarket.StorageDealVerifyData)
 	tests := map[string]struct {
 		nodeParams        nodeParams
 		dealParams        dealParams
 		environmentParams environmentParams
+		fileStoreParams   tut.TestFileStoreParams
+		pieceStoreParams  tut.TestPieceStoreParams
 		dealInspector     func(t *testing.T, deal storagemarket.MinerDeal)
 	}{
 		"succeeds": {
 			environmentParams: environmentParams{
-				Path: expPath,
+				Path:         expPath,
+				MetadataPath: expMetaPath,
 			},
 			dealInspector: func(t *testing.T, deal storagemarket.MinerDeal) {
 				require.Equal(t, deal.State, storagemarket.StorageDealPublishing)
 				require.Equal(t, deal.PiecePath, expPath)
+				require.Equal(t, deal.MetadataPath, expMetaPath)
 			},
 		},
 		"generate piece CID fails": {
@@ -210,7 +222,7 @@ func TestVerifyData(t *testing.T) {
 	}
 	for test, data := range tests {
 		t.Run(test, func(t *testing.T) {
-			runVerifyData(t, data.nodeParams, data.environmentParams, data.dealParams, data.dealInspector)
+			runVerifyData(t, data.nodeParams, data.environmentParams, data.dealParams, data.fileStoreParams, data.pieceStoreParams, data.dealInspector)
 		})
 	}
 }
@@ -225,6 +237,8 @@ func TestPublishDeal(t *testing.T) {
 		nodeParams        nodeParams
 		dealParams        dealParams
 		environmentParams environmentParams
+		fileStoreParams   tut.TestFileStoreParams
+		pieceStoreParams  tut.TestPieceStoreParams
 		dealInspector     func(t *testing.T, deal storagemarket.MinerDeal)
 	}{
 		"succeeds": {
@@ -234,6 +248,7 @@ func TestPublishDeal(t *testing.T) {
 			dealInspector: func(t *testing.T, deal storagemarket.MinerDeal) {
 				require.Equal(t, deal.State, storagemarket.StorageDealStaged)
 				require.Equal(t, deal.DealID, expDealID)
+				require.Equal(t, deal.ConnectionClosed, true)
 			},
 		},
 		"get miner worker fails": {
@@ -275,7 +290,7 @@ func TestPublishDeal(t *testing.T) {
 	}
 	for test, data := range tests {
 		t.Run(test, func(t *testing.T) {
-			runPublishDeal(t, data.nodeParams, data.environmentParams, data.dealParams, data.dealInspector)
+			runPublishDeal(t, data.nodeParams, data.environmentParams, data.dealParams, data.fileStoreParams, data.pieceStoreParams, data.dealInspector)
 		})
 	}
 }
@@ -289,9 +304,18 @@ func TestHandoffDeal(t *testing.T) {
 		nodeParams        nodeParams
 		dealParams        dealParams
 		environmentParams environmentParams
+		fileStoreParams   tut.TestFileStoreParams
+		pieceStoreParams  tut.TestPieceStoreParams
 		dealInspector     func(t *testing.T, deal storagemarket.MinerDeal)
 	}{
 		"succeeds": {
+			dealParams: dealParams{
+				PiecePath: defaultPath,
+			},
+			fileStoreParams: tut.TestFileStoreParams{
+				Files:         []filestore.File{defaultDataFile},
+				ExpectedOpens: []filestore.Path{defaultPath},
+			},
 			dealInspector: func(t *testing.T, deal storagemarket.MinerDeal) {
 				require.Equal(t, deal.State, storagemarket.StorageDealSealing)
 			},
@@ -300,27 +324,31 @@ func TestHandoffDeal(t *testing.T) {
 			dealParams: dealParams{
 				PiecePath: filestore.Path("missing.txt"),
 			},
-			environmentParams: environmentParams{
-				OpenFileError: errors.New("file not found"),
-			},
 			dealInspector: func(t *testing.T, deal storagemarket.MinerDeal) {
-				require.Equal(t, deal.State, storagemarket.StorageDealError)
-				require.Equal(t, deal.Message, "accessing file store: reading piece at path missing.txt: file not found")
+				require.Equal(t, deal.State, storagemarket.StorageDealFailing)
+				require.Equal(t, deal.Message, fmt.Sprintf("accessing file store: reading piece at path missing.txt: %s", tut.TestErrNotFound.Error()))
 			},
 		},
 		"OnDealComplete errors": {
+			dealParams: dealParams{
+				PiecePath: defaultPath,
+			},
+			fileStoreParams: tut.TestFileStoreParams{
+				Files:         []filestore.File{defaultDataFile},
+				ExpectedOpens: []filestore.Path{defaultPath},
+			},
 			nodeParams: nodeParams{
 				OnDealCompleteError: errors.New("failed building sector"),
 			},
 			dealInspector: func(t *testing.T, deal storagemarket.MinerDeal) {
-				require.Equal(t, deal.State, storagemarket.StorageDealError)
+				require.Equal(t, deal.State, storagemarket.StorageDealFailing)
 				require.Equal(t, deal.Message, "handing off deal to node: failed building sector")
 			},
 		},
 	}
 	for test, data := range tests {
 		t.Run(test, func(t *testing.T) {
-			runHandoffDeal(t, data.nodeParams, data.environmentParams, data.dealParams, data.dealInspector)
+			runHandoffDeal(t, data.nodeParams, data.environmentParams, data.dealParams, data.fileStoreParams, data.pieceStoreParams, data.dealInspector)
 		})
 	}
 }
@@ -334,6 +362,8 @@ func TestVerifyDealActivated(t *testing.T) {
 		nodeParams        nodeParams
 		dealParams        dealParams
 		environmentParams environmentParams
+		fileStoreParams   tut.TestFileStoreParams
+		pieceStoreParams  tut.TestPieceStoreParams
 		dealInspector     func(t *testing.T, deal storagemarket.MinerDeal)
 	}{
 		"succeeds": {
@@ -346,7 +376,7 @@ func TestVerifyDealActivated(t *testing.T) {
 				DealCommittedSyncError: errors.New("couldn't check deal commitment"),
 			},
 			dealInspector: func(t *testing.T, deal storagemarket.MinerDeal) {
-				require.Equal(t, deal.State, storagemarket.StorageDealError)
+				require.Equal(t, deal.State, storagemarket.StorageDealFailing)
 				require.Equal(t, deal.Message, "error activating deal: couldn't check deal commitment")
 			},
 		},
@@ -355,14 +385,14 @@ func TestVerifyDealActivated(t *testing.T) {
 				DealCommittedAsyncError: errors.New("deal did not appear on chain"),
 			},
 			dealInspector: func(t *testing.T, deal storagemarket.MinerDeal) {
-				require.Equal(t, deal.State, storagemarket.StorageDealError)
+				require.Equal(t, deal.State, storagemarket.StorageDealFailing)
 				require.Equal(t, deal.Message, "error activating deal: deal did not appear on chain")
 			},
 		},
 	}
 	for test, data := range tests {
 		t.Run(test, func(t *testing.T) {
-			runVerifyDealActivated(t, data.nodeParams, data.environmentParams, data.dealParams, data.dealInspector)
+			runVerifyDealActivated(t, data.nodeParams, data.environmentParams, data.dealParams, data.fileStoreParams, data.pieceStoreParams, data.dealInspector)
 		})
 	}
 }
@@ -376,23 +406,34 @@ func TestRecordPieceInfo(t *testing.T) {
 		nodeParams        nodeParams
 		dealParams        dealParams
 		environmentParams environmentParams
+		fileStoreParams   tut.TestFileStoreParams
+		pieceStoreParams  tut.TestPieceStoreParams
 		dealInspector     func(t *testing.T, deal storagemarket.MinerDeal)
 	}{
 		"succeeds": {
+			dealParams: dealParams{
+				PiecePath: defaultPath,
+			},
+			fileStoreParams: tut.TestFileStoreParams{
+				Files:             []filestore.File{defaultDataFile},
+				ExpectedDeletions: []filestore.Path{defaultPath},
+			},
 			dealInspector: func(t *testing.T, deal storagemarket.MinerDeal) {
 				require.Equal(t, deal.State, storagemarket.StorageDealCompleted)
 			},
 		},
-		"file deletion errors": {
+		"succeeds w metadata": {
 			dealParams: dealParams{
-				PiecePath: filestore.Path("readonly.txt"),
+				PiecePath:    defaultPath,
+				MetadataPath: defaultMetadataPath,
 			},
-			environmentParams: environmentParams{
-				DeleteFileError: errors.New("file is read only"),
+			fileStoreParams: tut.TestFileStoreParams{
+				Files:             []filestore.File{defaultDataFile, defaultMetadataFile},
+				ExpectedOpens:     []filestore.Path{defaultMetadataPath},
+				ExpectedDeletions: []filestore.Path{defaultMetadataPath, defaultPath},
 			},
 			dealInspector: func(t *testing.T, deal storagemarket.MinerDeal) {
-				require.Equal(t, deal.State, storagemarket.StorageDealError)
-				require.Equal(t, deal.Message, "accessing file store: deleting piece at path readonly.txt: file is read only")
+				require.Equal(t, deal.State, storagemarket.StorageDealCompleted)
 			},
 		},
 		"locate piece fails": {
@@ -403,32 +444,41 @@ func TestRecordPieceInfo(t *testing.T) {
 				LocatePieceForDealWithinSectorError: errors.New("could not find piece"),
 			},
 			dealInspector: func(t *testing.T, deal storagemarket.MinerDeal) {
-				require.Equal(t, deal.State, storagemarket.StorageDealError)
+				require.Equal(t, deal.State, storagemarket.StorageDealFailing)
 				require.Equal(t, deal.Message, "locating piece for deal ID 1234 in sector: could not find piece")
 			},
 		},
+		"reading metadata fails": {
+			dealParams: dealParams{
+				MetadataPath: filestore.Path("Missing.txt"),
+			},
+			dealInspector: func(t *testing.T, deal storagemarket.MinerDeal) {
+				require.Equal(t, deal.State, storagemarket.StorageDealFailing)
+				require.Equal(t, deal.Message, fmt.Sprintf("error reading piece metadata: %s", tut.TestErrNotFound.Error()))
+			},
+		},
 		"add piece block locations errors": {
-			environmentParams: environmentParams{
+			pieceStoreParams: tut.TestPieceStoreParams{
 				AddPieceBlockLocationsError: errors.New("could not add block locations"),
 			},
 			dealInspector: func(t *testing.T, deal storagemarket.MinerDeal) {
-				require.Equal(t, deal.State, storagemarket.StorageDealError)
+				require.Equal(t, deal.State, storagemarket.StorageDealFailing)
 				require.Equal(t, deal.Message, "accessing piece store: adding piece block locations: could not add block locations")
 			},
 		},
 		"add deal for piece errors": {
-			environmentParams: environmentParams{
+			pieceStoreParams: tut.TestPieceStoreParams{
 				AddDealForPieceError: errors.New("could not add deal info"),
 			},
 			dealInspector: func(t *testing.T, deal storagemarket.MinerDeal) {
-				require.Equal(t, deal.State, storagemarket.StorageDealError)
+				require.Equal(t, deal.State, storagemarket.StorageDealFailing)
 				require.Equal(t, deal.Message, "accessing piece store: adding deal info for piece: could not add deal info")
 			},
 		},
 	}
 	for test, data := range tests {
 		t.Run(test, func(t *testing.T) {
-			runRecordPieceInfo(t, data.nodeParams, data.environmentParams, data.dealParams, data.dealInspector)
+			runRecordPieceInfo(t, data.nodeParams, data.environmentParams, data.dealParams, data.fileStoreParams, data.pieceStoreParams, data.dealInspector)
 		})
 	}
 }
@@ -442,9 +492,39 @@ func TestFailDeal(t *testing.T) {
 		nodeParams        nodeParams
 		dealParams        dealParams
 		environmentParams environmentParams
+		fileStoreParams   tut.TestFileStoreParams
+		pieceStoreParams  tut.TestPieceStoreParams
 		dealInspector     func(t *testing.T, deal storagemarket.MinerDeal)
 	}{
 		"succeeds": {
+			dealInspector: func(t *testing.T, deal storagemarket.MinerDeal) {
+				require.Equal(t, deal.State, storagemarket.StorageDealError)
+			},
+		},
+		"succeeds, skips response": {
+			environmentParams: environmentParams{
+				// no send response should happen, so this error should not prevent
+				// success
+				SendSignedResponseError: errors.New("could not send"),
+			},
+			dealParams: dealParams{
+				ConnectionClosed: true,
+			},
+			dealInspector: func(t *testing.T, deal storagemarket.MinerDeal) {
+				require.Equal(t, deal.State, storagemarket.StorageDealError)
+				// should not have additional error message
+				require.Equal(t, deal.Message, "")
+			},
+		},
+		"succeeds, file deletions": {
+			dealParams: dealParams{
+				PiecePath:    defaultPath,
+				MetadataPath: defaultMetadataPath,
+			},
+			fileStoreParams: tut.TestFileStoreParams{
+				Files:             []filestore.File{defaultDataFile, defaultMetadataFile},
+				ExpectedDeletions: []filestore.Path{defaultPath, defaultMetadataPath},
+			},
 			dealInspector: func(t *testing.T, deal storagemarket.MinerDeal) {
 				require.Equal(t, deal.State, storagemarket.StorageDealError)
 			},
@@ -461,7 +541,7 @@ func TestFailDeal(t *testing.T) {
 	}
 	for test, data := range tests {
 		t.Run(test, func(t *testing.T) {
-			runFailDeal(t, data.nodeParams, data.environmentParams, data.dealParams, data.dealInspector)
+			runFailDeal(t, data.nodeParams, data.environmentParams, data.dealParams, data.fileStoreParams, data.pieceStoreParams, data.dealInspector)
 		})
 	}
 }
@@ -475,6 +555,7 @@ var defaultStartEpoch = abi.ChainEpoch(200)
 var defaultEndEpoch = abi.ChainEpoch(400)
 var defaultPieceCid = tut.GenerateCids(1)[0]
 var defaultPath = filestore.Path("file.txt")
+var defaultMetadataPath = filestore.Path("metadataPath.txt")
 var defaultClientAddress = address.TestAddress
 var defaultProviderAddress = address.TestAddress2
 var defaultMinerAddr, _ = address.NewActorAddress([]byte("miner"))
@@ -490,6 +571,21 @@ var defaultAsk = storagemarket.StorageAsk{
 	Price:        abi.NewTokenAmount(10000000),
 	MinPieceSize: abi.PaddedPieceSize(256),
 }
+
+var testData = tut.NewTestIPLDTree()
+var dataBuf = new(bytes.Buffer)
+var blockLocationBuf = new(bytes.Buffer)
+var _ error = testData.DumpToCar(dataBuf, blockrecorder.RecordEachBlockTo(blockLocationBuf))
+var defaultDataFile = tut.NewTestFile(tut.TestFileParams{
+	Buffer: dataBuf,
+	Path:   defaultPath,
+	Size:   400,
+})
+var defaultMetadataFile = tut.NewTestFile(tut.TestFileParams{
+	Buffer: blockLocationBuf,
+	Path:   defaultMetadataPath,
+	Size:   400,
+})
 
 type nodeParams struct {
 	MinerAddr                           address.Address
@@ -513,6 +609,8 @@ type nodeParams struct {
 
 type dealParams struct {
 	PiecePath            filestore.Path
+	MetadataPath         filestore.Path
+	ConnectionClosed     bool
 	DealID               abi.DealID
 	DataRef              *storagemarket.DataRef
 	StoragePricePerEpoch abi.TokenAmount
@@ -522,25 +620,23 @@ type dealParams struct {
 }
 
 type environmentParams struct {
-	Address                     address.Address
-	Ask                         storagemarket.StorageAsk
-	DataTransferError           error
-	PieceCid                    cid.Cid
-	Path                        filestore.Path
-	GenerateCommPError          error
-	SendSignedResponseError     error
-	DisconnectError             error
-	File                        filestore.File
-	OpenFileError               error
-	DeleteFileError             error
-	AddDealForPieceError        error
-	AddPieceBlockLocationsError error
+	Address                 address.Address
+	Ask                     storagemarket.StorageAsk
+	DataTransferError       error
+	PieceCid                cid.Cid
+	Path                    filestore.Path
+	MetadataPath            filestore.Path
+	GenerateCommPError      error
+	SendSignedResponseError error
+	DisconnectError         error
 }
 
 type executor func(t *testing.T,
 	node nodeParams,
 	params environmentParams,
 	dealParams dealParams,
+	fileStoreParams tut.TestFileStoreParams,
+	pieceStoreParams tut.TestPieceStoreParams,
 	dealInspector func(t *testing.T, deal storagemarket.MinerDeal))
 
 func makeExecutor(ctx context.Context,
@@ -551,6 +647,8 @@ func makeExecutor(ctx context.Context,
 		nodeParams nodeParams,
 		params environmentParams,
 		dealParams dealParams,
+		fileStoreParams tut.TestFileStoreParams,
+		pieceStoreParams tut.TestPieceStoreParams,
 		dealInspector func(t *testing.T, deal storagemarket.MinerDeal)) {
 
 		smstate := testnodes.NewStorageMarketState()
@@ -630,29 +728,39 @@ func makeExecutor(ctx context.Context,
 		if dealParams.PiecePath != filestore.Path("") {
 			dealState.PiecePath = dealParams.PiecePath
 		}
+		if dealParams.MetadataPath != filestore.Path("") {
+			dealState.MetadataPath = dealParams.MetadataPath
+		}
+		if dealParams.ConnectionClosed {
+			dealState.ConnectionClosed = true
+		}
 		if dealParams.DealID != abi.DealID(0) {
 			dealState.DealID = dealParams.DealID
 		}
+		fs := tut.NewTestFileStore(fileStoreParams)
+		pieceStore := tut.NewTestPieceStoreWithParams(pieceStoreParams)
 		environment := &fakeEnvironment{
-			address:                     params.Address,
-			node:                        node,
-			ask:                         params.Ask,
-			dataTransferError:           params.DataTransferError,
-			pieceCid:                    params.PieceCid,
-			path:                        params.Path,
-			generateCommPError:          params.GenerateCommPError,
-			sendSignedResponseError:     params.SendSignedResponseError,
-			disconnectError:             params.DisconnectError,
-			openFileError:               params.OpenFileError,
-			deleteFileError:             params.DeleteFileError,
-			addDealForPieceError:        params.AddDealForPieceError,
-			addPieceBlockLocationsError: params.AddPieceBlockLocationsError,
+			address:                 params.Address,
+			node:                    node,
+			ask:                     params.Ask,
+			dataTransferError:       params.DataTransferError,
+			pieceCid:                params.PieceCid,
+			path:                    params.Path,
+			metadataPath:            params.MetadataPath,
+			generateCommPError:      params.GenerateCommPError,
+			sendSignedResponseError: params.SendSignedResponseError,
+			disconnectError:         params.DisconnectError,
+			fs:                      fs,
+			pieceStore:              pieceStore,
 		}
 		if environment.pieceCid == cid.Undef {
 			environment.pieceCid = defaultPieceCid
 		}
 		if environment.path == filestore.Path("") {
 			environment.path = defaultPath
+		}
+		if environment.metadataPath == filestore.Path("") {
+			environment.metadataPath = defaultMetadataPath
 		}
 		if environment.address == address.Undef {
 			environment.address = defaultProviderAddress
@@ -666,23 +774,24 @@ func makeExecutor(ctx context.Context,
 		require.NoError(t, err)
 		fsmCtx.ReplayEvents(t, dealState)
 		dealInspector(t, *dealState)
+		fs.VerifyExpectations(t)
+		pieceStore.VerifyExpectations(t)
 	}
 }
 
 type fakeEnvironment struct {
-	address                     address.Address
-	node                        storagemarket.StorageProviderNode
-	ask                         storagemarket.StorageAsk
-	dataTransferError           error
-	pieceCid                    cid.Cid
-	path                        filestore.Path
-	generateCommPError          error
-	sendSignedResponseError     error
-	disconnectError             error
-	openFileError               error
-	deleteFileError             error
-	addDealForPieceError        error
-	addPieceBlockLocationsError error
+	address                 address.Address
+	node                    storagemarket.StorageProviderNode
+	ask                     storagemarket.StorageAsk
+	dataTransferError       error
+	pieceCid                cid.Cid
+	path                    filestore.Path
+	metadataPath            filestore.Path
+	generateCommPError      error
+	sendSignedResponseError error
+	disconnectError         error
+	fs                      filestore.FileStore
+	pieceStore              piecestore.PieceStore
 }
 
 func (fe *fakeEnvironment) Address() address.Address {
@@ -701,8 +810,8 @@ func (fe *fakeEnvironment) StartDataTransfer(ctx context.Context, to peer.ID, vo
 	return fe.dataTransferError
 }
 
-func (fe *fakeEnvironment) GeneratePieceCommitmentToFile(payloadCid cid.Cid, selector ipld.Node) (cid.Cid, filestore.Path, error) {
-	return fe.pieceCid, fe.path, fe.generateCommPError
+func (fe *fakeEnvironment) GeneratePieceCommitmentToFile(payloadCid cid.Cid, selector ipld.Node) (cid.Cid, filestore.Path, filestore.Path, error) {
+	return fe.pieceCid, fe.path, fe.metadataPath, fe.generateCommPError
 }
 
 func (fe *fakeEnvironment) SendSignedResponse(ctx context.Context, response *network.Response) error {
@@ -713,49 +822,10 @@ func (fe *fakeEnvironment) Disconnect(proposalCid cid.Cid) error {
 	return fe.disconnectError
 }
 
-func (fe *fakeEnvironment) OpenFile(path filestore.Path) (filestore.File, error) {
-	return &fakeFile{}, fe.openFileError
+func (fe *fakeEnvironment) FileStore() filestore.FileStore {
+	return fe.fs
 }
 
-func (fe *fakeEnvironment) DeleteFile(path filestore.Path) error {
-	return fe.deleteFileError
-}
-
-func (fe *fakeEnvironment) AddDealForPiece(pieceCID cid.Cid, dealInfo piecestore.DealInfo) error {
-	return fe.addDealForPieceError
-}
-
-func (fe *fakeEnvironment) AddPieceBlockLocations(pieceCID cid.Cid, blockLocations map[cid.Cid]piecestore.BlockLocation) error {
-	return fe.addPieceBlockLocationsError
-}
-
-type fakeFile struct {
-}
-
-func (f *fakeFile) Path() filestore.Path {
-	panic("not implemented")
-}
-
-func (f *fakeFile) OsPath() filestore.OsPath {
-	panic("not implemented")
-}
-
-func (f *fakeFile) Size() int64 {
-	return 400
-}
-
-func (f *fakeFile) Close() error {
-	panic("not implemented")
-}
-
-func (f *fakeFile) Read(p []byte) (n int, err error) {
-	panic("not implemented")
-}
-
-func (f *fakeFile) Write(p []byte) (n int, err error) {
-	panic("not implemented")
-}
-
-func (f *fakeFile) Seek(offset int64, whence int) (int64, error) {
-	panic("not implemented")
+func (fe *fakeEnvironment) PieceStore() piecestore.PieceStore {
+	return fe.pieceStore
 }

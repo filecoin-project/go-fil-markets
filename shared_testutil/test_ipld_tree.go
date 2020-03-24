@@ -8,6 +8,7 @@ import (
 
 	blocks "github.com/ipfs/go-block-format"
 	"github.com/ipfs/go-cid"
+	"github.com/ipld/go-car"
 	"github.com/ipld/go-ipld-prime"
 
 	// to register multicodec
@@ -15,6 +16,8 @@ import (
 	"github.com/ipld/go-ipld-prime/fluent"
 	ipldfree "github.com/ipld/go-ipld-prime/impl/free"
 	cidlink "github.com/ipld/go-ipld-prime/linking/cid"
+	"github.com/ipld/go-ipld-prime/traversal/selector"
+	"github.com/ipld/go-ipld-prime/traversal/selector/builder"
 )
 
 // TestIPLDTree is a set of IPLD Data that forms a tree spread across some blocks
@@ -129,4 +132,19 @@ func (tt TestIPLDTree) Get(c cid.Cid) (blocks.Block, error) {
 		return nil, errors.New("No block found")
 	}
 	return blocks.NewBlockWithCid(data, c)
+}
+
+// DumpToCar puts the tree into a car file, with user configured functions
+func (tt TestIPLDTree) DumpToCar(out io.Writer, userOnNewCarBlocks ...car.OnNewCarBlockFunc) error {
+	ssb := builder.NewSelectorSpecBuilder(ipldfree.NodeBuilder())
+	node := ssb.ExploreRecursive(selector.RecursionLimitNone(), ssb.ExploreAll(ssb.ExploreRecursiveEdge())).Node()
+	ctx := context.Background()
+	sc := car.NewSelectiveCar(ctx, tt, []car.Dag{
+		car.Dag{
+			Root:     tt.RootNodeLnk.(cidlink.Link).Cid,
+			Selector: node,
+		},
+	})
+
+	return sc.Write(out, userOnNewCarBlocks...)
 }
