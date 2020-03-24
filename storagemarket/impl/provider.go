@@ -108,9 +108,7 @@ func NewProvider(net network.StorageMarketNetwork, ds datastore.Batching, bs blo
 
 	h.deals = deals
 
-	for _, option := range options {
-		option(h)
-	}
+	h.Configure(options...)
 
 	// register a data transfer event handler -- this will move deals from
 	// accepted to staged
@@ -283,6 +281,20 @@ func (p *Provider) HandleAskStream(s network.StorageAskStream) {
 		log.Errorf("failed to write ask response: %s", err)
 		return
 	}
+}
+
+func (p *Provider) Configure(options ...StorageProviderOption) {
+	for _, option := range options {
+		option(p)
+	}
+}
+
+func (p *Provider) DealAcceptanceBuffer() abi.ChainEpoch {
+	return p.dealAcceptanceBuffer
+}
+
+func (p *Provider) UniversalRetrievalEnabled() bool {
+	return p.universalRetrievalEnabled
 }
 
 type providerDealEnvironment struct {
