@@ -40,6 +40,7 @@ type ProviderDealEnvironment interface {
 	Disconnect(proposalCid cid.Cid) error
 	FileStore() filestore.FileStore
 	PieceStore() piecestore.PieceStore
+	DealAcceptanceBuffer() abi.ChainEpoch
 }
 
 // ProviderStateEntryFunc is the signature for a StateEntryFunc in the provider FSM
@@ -65,9 +66,8 @@ func ValidateDealProposal(ctx fsm.Context, environment ProviderDealEnvironment, 
 		return ctx.Trigger(storagemarket.ProviderEventNodeErrored, xerrors.Errorf("getting most recent state id: %w", err))
 	}
 
-	// TODO: set configurable value for how many epochs in the future StartEpoch must be
-	if height >= deal.Proposal.StartEpoch {
-		return ctx.Trigger(storagemarket.ProviderEventDealRejected, xerrors.Errorf("deal proposal already expired"))
+	if height > deal.Proposal.StartEpoch-environment.DealAcceptanceBuffer() {
+		return ctx.Trigger(storagemarket.ProviderEventDealRejected, xerrors.Errorf("deal start epoch is too soon or deal already expired"))
 	}
 
 	// TODO: check StorageCollateral

@@ -77,13 +77,21 @@ func TestValidateDealProposal(t *testing.T) {
 				require.Equal(t, deal.Message, "error calling node: getting most recent state id: couldn't get id")
 			},
 		},
-		"Height < StartEpoch": {
-			nodeParams: nodeParams{
-				Height: abi.ChainEpoch(250),
+		"CurrentHeight <= StartEpoch - DealAcceptanceBuffer() succeeds": {
+			environmentParams: environmentParams{DealAcceptanceBuffer: 10},
+			dealParams:        dealParams{StartEpoch: 200},
+			nodeParams:        nodeParams{Height: 190},
+			dealInspector: func(t *testing.T, deal storagemarket.MinerDeal) {
+				require.Equal(t, deal.State, storagemarket.StorageDealProposalAccepted)
 			},
+		},
+		"CurrentHeight > StartEpoch - DealAcceptanceBuffer() fails": {
+			environmentParams: environmentParams{DealAcceptanceBuffer: 10},
+			dealParams:        dealParams{StartEpoch: 200},
+			nodeParams:        nodeParams{Height: 191},
 			dealInspector: func(t *testing.T, deal storagemarket.MinerDeal) {
 				require.Equal(t, deal.State, storagemarket.StorageDealFailing)
-				require.Equal(t, deal.Message, "deal rejected: deal proposal already expired")
+				require.Equal(t, deal.Message, "deal rejected: deal start epoch is too soon or deal already expired")
 			},
 		},
 		"PricePerEpoch too low": {
@@ -629,6 +637,7 @@ type environmentParams struct {
 	GenerateCommPError      error
 	SendSignedResponseError error
 	DisconnectError         error
+	DealAcceptanceBuffer    int64
 }
 
 type executor func(t *testing.T,
@@ -750,6 +759,7 @@ func makeExecutor(ctx context.Context,
 			generateCommPError:      params.GenerateCommPError,
 			sendSignedResponseError: params.SendSignedResponseError,
 			disconnectError:         params.DisconnectError,
+			dealAcceptanceBuffer:    abi.ChainEpoch(params.DealAcceptanceBuffer),
 			fs:                      fs,
 			pieceStore:              pieceStore,
 		}
@@ -792,6 +802,7 @@ type fakeEnvironment struct {
 	disconnectError         error
 	fs                      filestore.FileStore
 	pieceStore              piecestore.PieceStore
+	dealAcceptanceBuffer    abi.ChainEpoch
 }
 
 func (fe *fakeEnvironment) Address() address.Address {
@@ -828,4 +839,8 @@ func (fe *fakeEnvironment) FileStore() filestore.FileStore {
 
 func (fe *fakeEnvironment) PieceStore() piecestore.PieceStore {
 	return fe.pieceStore
+}
+
+func (fe *fakeEnvironment) DealAcceptanceBuffer() abi.ChainEpoch {
+	return fe.dealAcceptanceBuffer
 }

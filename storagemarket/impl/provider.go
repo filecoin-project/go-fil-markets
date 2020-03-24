@@ -47,6 +47,7 @@ type Provider struct {
 	actor                     address.Address
 	dataTransfer              datatransfer.Manager
 	universalRetrievalEnabled bool
+	dealAcceptanceBuffer      abi.ChainEpoch
 
 	deals fsm.Group
 }
@@ -62,6 +63,14 @@ func EnableUniversalRetrieval() StorageProviderOption {
 	}
 }
 
+// DealAcceptanceBuffer allows a provider to set a buffer (in epochs) to account for the time
+// required for data transfer, deal verification, publishing, sealing, and committing.
+func DealAcceptanceBuffer(buffer abi.ChainEpoch) StorageProviderOption {
+	return func(p *Provider) {
+		p.dealAcceptanceBuffer = buffer
+	}
+}
+
 // NewProvider returns a new storage provider
 func NewProvider(net network.StorageMarketNetwork, ds datastore.Batching, bs blockstore.Blockstore, fs filestore.FileStore, pieceStore piecestore.PieceStore, dataTransfer datatransfer.Manager, spn storagemarket.StorageProviderNode, minerAddress address.Address, rt abi.RegisteredProof, options ...StorageProviderOption) (storagemarket.StorageProvider, error) {
 	carIO := cario.NewCarIO()
@@ -73,16 +82,17 @@ func NewProvider(net network.StorageMarketNetwork, ds datastore.Batching, bs blo
 	}
 
 	h := &Provider{
-		net:          net,
-		proofType:    rt,
-		spn:          spn,
-		fs:           fs,
-		pio:          pio,
-		pieceStore:   pieceStore,
-		conns:        connmanager.NewConnManager(),
-		storedAsk:    storedAsk,
-		actor:        minerAddress,
-		dataTransfer: dataTransfer,
+		net:                  net,
+		proofType:            rt,
+		spn:                  spn,
+		fs:                   fs,
+		pio:                  pio,
+		pieceStore:           pieceStore,
+		conns:                connmanager.NewConnManager(),
+		storedAsk:            storedAsk,
+		actor:                minerAddress,
+		dataTransfer:         dataTransfer,
+		dealAcceptanceBuffer: abi.ChainEpoch(100),
 	}
 
 	deals, err := fsm.New(namespace.Wrap(ds, datastore.NewKey(ProviderDsPrefix)), fsm.Parameters{
@@ -347,6 +357,10 @@ func (p *providerDealEnvironment) SendSignedResponse(ctx context.Context, resp *
 
 func (p *providerDealEnvironment) Disconnect(proposalCid cid.Cid) error {
 	return p.p.conns.Disconnect(proposalCid)
+}
+
+func (p *providerDealEnvironment) DealAcceptanceBuffer() abi.ChainEpoch {
+	return p.p.dealAcceptanceBuffer
 }
 
 var _ providerstates.ProviderDealEnvironment = &providerDealEnvironment{}
