@@ -52,7 +52,7 @@ func ValidateDealProposal(ctx fsm.Context, environment ProviderDealEnvironment, 
 		return ctx.Trigger(storagemarket.ProviderEventNodeErrored, xerrors.Errorf("getting most recent state id: %w", err))
 	}
 
-	if err := providerutils.VerifyProposal(deal.ClientDealProposal, tok, environment.Node().VerifySignature); err != nil {
+	if err := providerutils.VerifyProposal(ctx.Context(), deal.ClientDealProposal, tok, environment.Node().VerifySignature); err != nil {
 		return ctx.Trigger(storagemarket.ProviderEventDealRejected, xerrors.Errorf("verifying StorageDealProposal: %w", err))
 	}
 
@@ -252,7 +252,12 @@ func VerifyDealActivated(ctx fsm.Context, environment ProviderDealEnvironment, d
 // can be retrieved later
 func RecordPieceInfo(ctx fsm.Context, environment ProviderDealEnvironment, deal storagemarket.MinerDeal) error {
 
-	sectorID, offset, length, err := environment.Node().LocatePieceForDealWithinSector(ctx.Context(), deal.DealID)
+	tok, _, err := environment.Node().GetChainHead(ctx.Context())
+	if err != nil {
+		return ctx.Trigger(storagemarket.ProviderEventUnableToLocatePiece, deal.DealID, err)
+	}
+
+	sectorID, offset, length, err := environment.Node().LocatePieceForDealWithinSector(ctx.Context(), deal.DealID, tok)
 	if err != nil {
 		return ctx.Trigger(storagemarket.ProviderEventUnableToLocatePiece, deal.DealID, err)
 	}

@@ -4,6 +4,8 @@ import (
 	"context"
 	"io"
 
+	"github.com/filecoin-project/go-fil-markets/shared"
+
 	"github.com/filecoin-project/go-address"
 	cborutil "github.com/filecoin-project/go-cbor-util"
 	datatransfer "github.com/filecoin-project/go-data-transfer"
@@ -223,16 +225,16 @@ func (p *Provider) ListAsks(addr address.Address) []*storagemarket.SignedStorage
 	return nil
 }
 
-func (p *Provider) ListDeals(ctx context.Context) ([]storagemarket.StorageDeal, error) {
-	return p.spn.ListProviderDeals(ctx, p.actor)
+func (p *Provider) ListDeals(ctx context.Context, tok shared.TipSetToken) ([]storagemarket.StorageDeal, error) {
+	return p.spn.ListProviderDeals(ctx, p.actor, tok)
 }
 
 func (p *Provider) AddStorageCollateral(ctx context.Context, amount abi.TokenAmount) error {
 	return p.spn.AddFunds(ctx, p.actor, amount)
 }
 
-func (p *Provider) GetStorageCollateral(ctx context.Context) (storagemarket.Balance, error) {
-	return p.spn.GetBalance(ctx, p.actor)
+func (p *Provider) GetStorageCollateral(ctx context.Context, tok shared.TipSetToken) (storagemarket.Balance, error) {
+	return p.spn.GetBalance(ctx, p.actor, tok)
 }
 
 func (p *Provider) ListIncompleteDeals() ([]storagemarket.MinerDeal, error) {

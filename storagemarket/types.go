@@ -273,7 +273,7 @@ type StorageProvider interface {
 	ListAsks(addr address.Address) []*SignedStorageAsk
 
 	// ListDeals lists on-chain deals associated with this provider
-	ListDeals(ctx context.Context) ([]StorageDeal, error)
+	ListDeals(ctx context.Context, tok shared.TipSetToken) ([]StorageDeal, error)
 
 	// ListIncompleteDeals lists deals that are in progress or rejected
 	ListIncompleteDeals() ([]MinerDeal, error)
@@ -282,7 +282,7 @@ type StorageProvider interface {
 	AddStorageCollateral(ctx context.Context, amount abi.TokenAmount) error
 
 	// GetStorageCollateral returns the current collateral balance
-	GetStorageCollateral(ctx context.Context) (Balance, error)
+	GetStorageCollateral(ctx context.Context, tok shared.TipSetToken) (Balance, error)
 
 	ImportDataForDeal(ctx context.Context, propCid cid.Cid, data io.Reader) error
 }
@@ -292,7 +292,7 @@ type StorageProviderNode interface {
 	GetChainHead(ctx context.Context) (shared.TipSetToken, abi.ChainEpoch, error)
 
 	// Verify a signature against an address + data
-	VerifySignature(signature crypto.Signature, signer address.Address, plaintext []byte, tok shared.TipSetToken) (bool, error)
+	VerifySignature(ctx context.Context, signature crypto.Signature, signer address.Address, plaintext []byte, tok shared.TipSetToken) (bool, error)
 
 	// Adds funds with the StorageMinerActor for a storage participant.  Used by both providers and clients.
 	AddFunds(ctx context.Context, addr address.Address, amount abi.TokenAmount) error
@@ -321,7 +321,7 @@ type StorageProviderNode interface {
 
 	OnDealSectorCommitted(ctx context.Context, provider address.Address, dealID abi.DealID, cb DealSectorCommittedCallback) error
 
-	LocatePieceForDealWithinSector(ctx context.Context, dealID abi.DealID) (sectorID uint64, offset uint64, length uint64, err error)
+	LocatePieceForDealWithinSector(ctx context.Context, dealID abi.DealID, tok shared.TipSetToken) (sectorID uint64, offset uint64, length uint64, err error)
 }
 
 type DealSectorCommittedCallback func(err error)
@@ -331,7 +331,7 @@ type StorageClientNode interface {
 	GetChainHead(ctx context.Context) (shared.TipSetToken, abi.ChainEpoch, error)
 
 	// Verify a signature against an address + data
-	VerifySignature(signature crypto.Signature, signer address.Address, plaintext []byte, tok shared.TipSetToken) (bool, error)
+	VerifySignature(ctx context.Context, signature crypto.Signature, signer address.Address, plaintext []byte, tok shared.TipSetToken) (bool, error)
 
 	// Adds funds with the StorageMinerActor for a storage participant.  Used by both providers and clients.
 	AddFunds(ctx context.Context, addr address.Address, amount abi.TokenAmount) error
@@ -348,7 +348,7 @@ type StorageClientNode interface {
 	//GetProviderInfo(stateId StateID, addr Address) *StorageProviderInfo
 
 	// GetStorageProviders returns information about known miners
-	ListStorageProviders(ctx context.Context) ([]*StorageProviderInfo, error)
+	ListStorageProviders(ctx context.Context, tok shared.TipSetToken) ([]*StorageProviderInfo, error)
 
 	// Subscribes to storage market actor state changes for a given address.
 	// TODO: Should there be a timeout option for this?  In the case that we are waiting for funds to be deposited and it never happens?
@@ -365,7 +365,7 @@ type StorageClientNode interface {
 
 	OnDealSectorCommitted(ctx context.Context, provider address.Address, dealID abi.DealID, cb DealSectorCommittedCallback) error
 
-	ValidateAskSignature(ask *SignedStorageAsk) error
+	ValidateAskSignature(ctx context.Context, ask *SignedStorageAsk, tok shared.TipSetToken) (bool, error)
 }
 
 type StorageClientProofs interface {
@@ -406,10 +406,10 @@ type StorageClient interface {
 	Stop()
 
 	// ListProviders queries chain state and returns active storage providers
-	ListProviders(ctx context.Context) (<-chan StorageProviderInfo, error)
+	ListProviders(ctx context.Context, tok shared.TipSetToken) (<-chan StorageProviderInfo, error)
 
 	// ListDeals lists on-chain deals associated with this provider
-	ListDeals(ctx context.Context, addr address.Address) ([]StorageDeal, error)
+	ListDeals(ctx context.Context, addr address.Address, tok shared.TipSetToken) ([]StorageDeal, error)
 
 	// ListInProgressDeals lists deals that are in progress or rejected
 	ListInProgressDeals(ctx context.Context) ([]ClientDeal, error)
@@ -418,7 +418,7 @@ type StorageClient interface {
 	GetInProgressDeal(ctx context.Context, cid cid.Cid) (ClientDeal, error)
 
 	// GetAsk returns the current ask for a storage provider
-	GetAsk(ctx context.Context, info StorageProviderInfo) (*SignedStorageAsk, error)
+	GetAsk(ctx context.Context, info StorageProviderInfo, tok shared.TipSetToken) (*SignedStorageAsk, error)
 
 	//// FindStorageOffers lists providers and queries them to find offers that satisfy some criteria based on price, duration, etc.
 	//FindStorageOffers(criteria AskCriteria, limit uint) []*StorageOffer
@@ -427,7 +427,7 @@ type StorageClient interface {
 	ProposeStorageDeal(ctx context.Context, addr address.Address, info *StorageProviderInfo, data *DataRef, startEpoch abi.ChainEpoch, endEpoch abi.ChainEpoch, price abi.TokenAmount, collateral abi.TokenAmount, rt abi.RegisteredProof) (*ProposeStorageDealResult, error)
 
 	// GetPaymentEscrow returns the current funds available for deal payment
-	GetPaymentEscrow(ctx context.Context, addr address.Address) (Balance, error)
+	GetPaymentEscrow(ctx context.Context, addr address.Address, tok shared.TipSetToken) (Balance, error)
 
 	// AddStorageCollateral adds storage collateral
 	AddPaymentEscrow(ctx context.Context, addr address.Address, amount abi.TokenAmount) error

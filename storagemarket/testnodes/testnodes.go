@@ -128,7 +128,7 @@ func (n *FakeCommonNode) GetBalance(ctx context.Context, addr address.Address, t
 }
 
 // VerifySignature just always returns true, for now
-func (n *FakeCommonNode) VerifySignature(signature crypto.Signature, addr address.Address, data []byte, tok shared.TipSetToken) (bool, error) {
+func (n *FakeCommonNode) VerifySignature(ctx context.Context, signature crypto.Signature, addr address.Address, data []byte, tok shared.TipSetToken) (bool, error) {
 	return !n.VerifySignatureFails, nil
 }
 
@@ -149,7 +149,7 @@ func (n *FakeClientNode) ListClientDeals(ctx context.Context, addr address.Addre
 }
 
 // ListStorageProviders lists the providers in the storage market state
-func (n *FakeClientNode) ListStorageProviders(ctx context.Context) ([]*storagemarket.StorageProviderInfo, error) {
+func (n *FakeClientNode) ListStorageProviders(ctx context.Context, tok shared.TipSetToken) ([]*storagemarket.StorageProviderInfo, error) {
 	return n.SMState.Providers, nil
 }
 
@@ -180,8 +180,8 @@ func (n *FakeClientNode) OnDealSectorCommitted(ctx context.Context, provider add
 }
 
 // ValidateAskSignature returns the stubbed validation error
-func (n *FakeClientNode) ValidateAskSignature(ask *storagemarket.SignedStorageAsk) error {
-	return n.ValidationError
+func (n *FakeClientNode) ValidateAskSignature(ctx context.Context, ask *storagemarket.SignedStorageAsk, tok shared.TipSetToken) (bool, error) {
+	return n.ValidationError == nil, n.ValidationError
 }
 
 var _ storagemarket.StorageClientNode = (*FakeClientNode)(nil)
@@ -252,7 +252,7 @@ func (n *FakeProviderNode) OnDealSectorCommitted(ctx context.Context, provider a
 }
 
 // LocatePieceForDealWithinSector returns stubbed data for a pieces location in a sector
-func (n *FakeProviderNode) LocatePieceForDealWithinSector(ctx context.Context, dealID abi.DealID) (sectorID uint64, offset uint64, length uint64, err error) {
+func (n *FakeProviderNode) LocatePieceForDealWithinSector(ctx context.Context, dealID abi.DealID, tok shared.TipSetToken) (sectorID uint64, offset uint64, length uint64, err error) {
 	if n.LocatePieceForDealWithinSectorError == nil {
 		return n.PieceSectorID, 0, n.PieceLength, nil
 	}

@@ -21,6 +21,7 @@ import (
 	"github.com/filecoin-project/go-fil-markets/pieceio/cario"
 	"github.com/filecoin-project/go-fil-markets/retrievalmarket"
 	"github.com/filecoin-project/go-fil-markets/retrievalmarket/discovery"
+	"github.com/filecoin-project/go-fil-markets/shared"
 	"github.com/filecoin-project/go-fil-markets/storagemarket"
 	"github.com/filecoin-project/go-fil-markets/storagemarket/impl/clientstates"
 	"github.com/filecoin-project/go-fil-markets/storagemarket/impl/clientutils"
@@ -95,8 +96,8 @@ func (c *Client) Stop() {
 	_ = c.statemachines.Stop(context.TODO())
 }
 
-func (c *Client) ListProviders(ctx context.Context) (<-chan storagemarket.StorageProviderInfo, error) {
-	providers, err := c.node.ListStorageProviders(ctx)
+func (c *Client) ListProviders(ctx context.Context, tok shared.TipSetToken) (<-chan storagemarket.StorageProviderInfo, error) {
+	providers, err := c.node.ListStorageProviders(ctx, tok)
 	if err != nil {
 		return nil, err
 	}
@@ -117,8 +118,8 @@ func (c *Client) ListProviders(ctx context.Context) (<-chan storagemarket.Storag
 	return out, nil
 }
 
-func (c *Client) ListDeals(ctx context.Context, addr address.Address) ([]storagemarket.StorageDeal, error) {
-	return c.node.ListClientDeals(ctx, addr)
+func (c *Client) ListDeals(ctx context.Context, addr address.Address, tok shared.TipSetToken) ([]storagemarket.StorageDeal, error) {
+	return c.node.ListClientDeals(ctx, addr, tok)
 }
 
 func (c *Client) ListInProgressDeals(ctx context.Context) ([]storagemarket.ClientDeal, error) {
@@ -137,7 +138,7 @@ func (c *Client) GetInProgressDeal(ctx context.Context, cid cid.Cid) (storagemar
 	return out, nil
 }
 
-func (c *Client) GetAsk(ctx context.Context, info storagemarket.StorageProviderInfo) (*storagemarket.SignedStorageAsk, error) {
+func (c *Client) GetAsk(ctx context.Context, info storagemarket.StorageProviderInfo, tok shared.TipSetToken) (*storagemarket.SignedStorageAsk, error) {
 	s, err := c.net.NewAskStream(info.PeerID)
 	if err != nil {
 		return nil, xerrors.Errorf("failed to open stream to miner: %w", err)
@@ -161,7 +162,12 @@ func (c *Client) GetAsk(ctx context.Context, info storagemarket.StorageProviderI
 		return nil, xerrors.Errorf("got back ask for wrong miner")
 	}
 
-	if err := c.node.ValidateAskSignature(out.Ask); err != nil {
+	isValid, err := c.node.ValidateAskSignature(ctx, out.Ask, tok)
+	if err != nil {
+		return nil, err
+	}
+
+	if !isValid {
 		return nil, xerrors.Errorf("ask was not properly signed")
 	}
 
@@ -242,8 +248,8 @@ func (c *Client) ProposeStorageDeal(
 		})
 }
 
-func (c *Client) GetPaymentEscrow(ctx context.Context, addr address.Address) (storagemarket.Balance, error) {
-	return c.node.GetBalance(ctx, addr)
+func (c *Client) GetPaymentEscrow(ctx context.Context, addr address.Address, tok shared.TipSetToken) (storagemarket.Balance, error) {
+	return c.node.GetBalance(ctx, addr, tok)
 }
 
 func (c *Client) AddPaymentEscrow(ctx context.Context, addr address.Address, amount abi.TokenAmount) error {
