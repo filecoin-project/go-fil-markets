@@ -26,8 +26,13 @@ type ClientStateEntryFunc func(ctx fsm.Context, environment ClientDealEnvironmen
 
 // EnsureFunds attempts to ensure the client has enough funds for the deal being proposed
 func EnsureFunds(ctx fsm.Context, environment ClientDealEnvironment, deal storagemarket.ClientDeal) error {
+	tok, _, err := environment.Node().GetChainHead(ctx.Context())
+	if err != nil {
+		return ctx.Trigger(storagemarket.ClientEventEnsureFundsFailed, err)
+	}
+
 	if err := environment.Node().EnsureFunds(
-		ctx.Context(), deal.Proposal.Client, deal.Proposal.Client, deal.Proposal.ClientBalanceRequirement()); err != nil {
+		ctx.Context(), deal.Proposal.Client, deal.Proposal.Client, deal.Proposal.ClientBalanceRequirement(), tok); err != nil {
 		return ctx.Trigger(storagemarket.ClientEventEnsureFundsFailed, err)
 	}
 
@@ -51,7 +56,6 @@ func ProposeDeal(ctx fsm.Context, environment ClientDealEnvironment, deal storag
 
 // VerifyDealResponse reads and verifies the response from the provider to the proposed deal
 func VerifyDealResponse(ctx fsm.Context, environment ClientDealEnvironment, deal storagemarket.ClientDeal) error {
-
 	s, err := environment.DealStream(deal.ProposalCid)
 	if err != nil {
 		return ctx.Trigger(storagemarket.ClientEventDealStreamLookupErrored, err)
@@ -62,7 +66,12 @@ func VerifyDealResponse(ctx fsm.Context, environment ClientDealEnvironment, deal
 		return ctx.Trigger(storagemarket.ClientEventReadResponseFailed, err)
 	}
 
-	if err := clientutils.VerifyResponse(resp, deal.MinerWorker, environment.Node().VerifySignature); err != nil {
+	tok, _, err := environment.Node().GetChainHead(ctx.Context())
+	if err != nil {
+		return ctx.Trigger(storagemarket.ClientEventResponseVerificationFailed)
+	}
+
+	if err := clientutils.VerifyResponse(ctx.Context(), resp, deal.MinerWorker, tok, environment.Node().VerifySignature); err != nil {
 		return ctx.Trigger(storagemarket.ClientEventResponseVerificationFailed)
 	}
 

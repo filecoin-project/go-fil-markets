@@ -47,8 +47,12 @@ type ProviderStateEntryFunc func(ctx fsm.Context, environment ProviderDealEnviro
 
 // ValidateDealProposal validates a proposed deal against the provider criteria
 func ValidateDealProposal(ctx fsm.Context, environment ProviderDealEnvironment, deal storagemarket.MinerDeal) error {
+	tok, _, err := environment.Node().GetChainHead(ctx.Context())
+	if err != nil {
+		return ctx.Trigger(storagemarket.ProviderEventNodeErrored, xerrors.Errorf("getting most recent state id: %w", err))
+	}
 
-	if err := providerutils.VerifyProposal(deal.ClientDealProposal, environment.Node().VerifySignature); err != nil {
+	if err := providerutils.VerifyProposal(ctx.Context(), deal.ClientDealProposal, tok, environment.Node().VerifySignature); err != nil {
 		return ctx.Trigger(storagemarket.ProviderEventDealRejected, xerrors.Errorf("verifying StorageDealProposal: %w", err))
 	}
 
@@ -56,7 +60,7 @@ func ValidateDealProposal(ctx fsm.Context, environment ProviderDealEnvironment, 
 		return ctx.Trigger(storagemarket.ProviderEventDealRejected, xerrors.Errorf("incorrect provider for deal"))
 	}
 
-	_, height, err := environment.Node().GetChainHead(ctx.Context())
+	tok, height, err := environment.Node().GetChainHead(ctx.Context())
 	if err != nil {
 		return ctx.Trigger(storagemarket.ProviderEventNodeErrored, xerrors.Errorf("getting most recent state id: %w", err))
 	}
@@ -80,7 +84,7 @@ func ValidateDealProposal(ctx fsm.Context, environment ProviderDealEnvironment, 
 	}
 
 	// check market funds
-	clientMarketBalance, err := environment.Node().GetBalance(ctx.Context(), deal.Proposal.Client)
+	clientMarketBalance, err := environment.Node().GetBalance(ctx.Context(), deal.Proposal.Client, tok)
 	if err != nil {
 		return ctx.Trigger(storagemarket.ProviderEventNodeErrored, xerrors.Errorf("getting client market balance failed: %w", err))
 	}
@@ -163,7 +167,7 @@ func PublishDeal(ctx fsm.Context, environment ProviderDealEnvironment, deal stor
 	}
 
 	// TODO: check StorageCollateral (may be too large (or too small))
-	if err := environment.Node().EnsureFunds(ctx.Context(), deal.Proposal.Provider, waddr, deal.Proposal.ProviderCollateral); err != nil {
+	if err := environment.Node().EnsureFunds(ctx.Context(), deal.Proposal.Provider, waddr, deal.Proposal.ProviderCollateral, tok); err != nil {
 		return ctx.Trigger(storagemarket.ProviderEventNodeErrored, xerrors.Errorf("ensuring funds: %w", err))
 	}
 
@@ -248,7 +252,12 @@ func VerifyDealActivated(ctx fsm.Context, environment ProviderDealEnvironment, d
 // can be retrieved later
 func RecordPieceInfo(ctx fsm.Context, environment ProviderDealEnvironment, deal storagemarket.MinerDeal) error {
 
-	sectorID, offset, length, err := environment.Node().LocatePieceForDealWithinSector(ctx.Context(), deal.DealID)
+	tok, _, err := environment.Node().GetChainHead(ctx.Context())
+	if err != nil {
+		return ctx.Trigger(storagemarket.ProviderEventUnableToLocatePiece, deal.DealID, err)
+	}
+
+	sectorID, offset, length, err := environment.Node().LocatePieceForDealWithinSector(ctx.Context(), deal.DealID, tok)
 	if err != nil {
 		return ctx.Trigger(storagemarket.ProviderEventUnableToLocatePiece, deal.DealID, err)
 	}

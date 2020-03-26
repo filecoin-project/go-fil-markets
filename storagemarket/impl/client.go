@@ -96,7 +96,12 @@ func (c *Client) Stop() {
 }
 
 func (c *Client) ListProviders(ctx context.Context) (<-chan storagemarket.StorageProviderInfo, error) {
-	providers, err := c.node.ListStorageProviders(ctx)
+	tok, _, err := c.node.GetChainHead(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	providers, err := c.node.ListStorageProviders(ctx, tok)
 	if err != nil {
 		return nil, err
 	}
@@ -118,7 +123,12 @@ func (c *Client) ListProviders(ctx context.Context) (<-chan storagemarket.Storag
 }
 
 func (c *Client) ListDeals(ctx context.Context, addr address.Address) ([]storagemarket.StorageDeal, error) {
-	return c.node.ListClientDeals(ctx, addr)
+	tok, _, err := c.node.GetChainHead(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	return c.node.ListClientDeals(ctx, addr, tok)
 }
 
 func (c *Client) ListInProgressDeals(ctx context.Context) ([]storagemarket.ClientDeal, error) {
@@ -161,7 +171,17 @@ func (c *Client) GetAsk(ctx context.Context, info storagemarket.StorageProviderI
 		return nil, xerrors.Errorf("got back ask for wrong miner")
 	}
 
-	if err := c.node.ValidateAskSignature(out.Ask); err != nil {
+	tok, _, err := c.node.GetChainHead(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	isValid, err := c.node.ValidateAskSignature(ctx, out.Ask, tok)
+	if err != nil {
+		return nil, err
+	}
+
+	if !isValid {
 		return nil, xerrors.Errorf("ask was not properly signed")
 	}
 
@@ -243,7 +263,12 @@ func (c *Client) ProposeStorageDeal(
 }
 
 func (c *Client) GetPaymentEscrow(ctx context.Context, addr address.Address) (storagemarket.Balance, error) {
-	return c.node.GetBalance(ctx, addr)
+	tok, _, err := c.node.GetChainHead(ctx)
+	if err != nil {
+		return storagemarket.Balance{}, err
+	}
+
+	return c.node.GetBalance(ctx, addr, tok)
 }
 
 func (c *Client) AddPaymentEscrow(ctx context.Context, addr address.Address, amount abi.TokenAmount) error {

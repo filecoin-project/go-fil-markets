@@ -18,6 +18,7 @@ import (
 	"github.com/ipld/go-ipld-prime/traversal/selector/builder"
 	"github.com/stretchr/testify/require"
 
+	"github.com/filecoin-project/go-fil-markets/shared"
 	"github.com/filecoin-project/go-fil-markets/shared_testutil"
 	"github.com/filecoin-project/go-fil-markets/storagemarket"
 	"github.com/filecoin-project/go-fil-markets/storagemarket/impl/clientutils"
@@ -79,7 +80,9 @@ func TestVerifyResponse(t *testing.T) {
 	}{
 		"successful verification": {
 			sresponse: shared_testutil.MakeTestStorageNetworkSignedResponse(),
-			verifier:  func(crypto.Signature, address.Address, []byte) bool { return true },
+			verifier: func(context.Context, crypto.Signature, address.Address, []byte, shared.TipSetToken) (bool, error) {
+				return true, nil
+			},
 			shouldErr: false,
 		},
 		"bad response": {
@@ -87,18 +90,22 @@ func TestVerifyResponse(t *testing.T) {
 				Response:  network.Response{},
 				Signature: shared_testutil.MakeTestSignature(),
 			},
-			verifier:  func(crypto.Signature, address.Address, []byte) bool { return true },
+			verifier: func(context.Context, crypto.Signature, address.Address, []byte, shared.TipSetToken) (bool, error) {
+				return true, nil
+			},
 			shouldErr: true,
 		},
 		"verification fails": {
 			sresponse: shared_testutil.MakeTestStorageNetworkSignedResponse(),
-			verifier:  func(crypto.Signature, address.Address, []byte) bool { return false },
+			verifier: func(context.Context, crypto.Signature, address.Address, []byte, shared.TipSetToken) (bool, error) {
+				return false, nil
+			},
 			shouldErr: true,
 		},
 	}
 	for name, data := range tests {
 		t.Run(name, func(t *testing.T) {
-			err := clientutils.VerifyResponse(data.sresponse, address.TestAddress, data.verifier)
+			err := clientutils.VerifyResponse(context.Background(), data.sresponse, address.TestAddress, shared.TipSetToken{}, data.verifier)
 			require.Equal(t, err != nil, data.shouldErr)
 		})
 	}

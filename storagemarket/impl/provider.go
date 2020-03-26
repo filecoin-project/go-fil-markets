@@ -224,7 +224,12 @@ func (p *Provider) ListAsks(addr address.Address) []*storagemarket.SignedStorage
 }
 
 func (p *Provider) ListDeals(ctx context.Context) ([]storagemarket.StorageDeal, error) {
-	return p.spn.ListProviderDeals(ctx, p.actor)
+	tok, _, err := p.spn.GetChainHead(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	return p.spn.ListProviderDeals(ctx, p.actor, tok)
 }
 
 func (p *Provider) AddStorageCollateral(ctx context.Context, amount abi.TokenAmount) error {
@@ -232,7 +237,12 @@ func (p *Provider) AddStorageCollateral(ctx context.Context, amount abi.TokenAmo
 }
 
 func (p *Provider) GetStorageCollateral(ctx context.Context) (storagemarket.Balance, error) {
-	return p.spn.GetBalance(ctx, p.actor)
+	tok, _, err := p.spn.GetChainHead(ctx)
+	if err != nil {
+		return storagemarket.Balance{}, err
+	}
+
+	return p.spn.GetBalance(ctx, p.actor, tok)
 }
 
 func (p *Provider) ListIncompleteDeals() ([]storagemarket.MinerDeal, error) {

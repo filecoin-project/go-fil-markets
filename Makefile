@@ -4,7 +4,7 @@ all: build
 SUBMODULES=
 
 FFI_PATH:=./extern/filecoin-ffi/
-FFI_DEPS:=libfilecoin.a filecoin.pc filecoin.h
+FFI_DEPS:=libfilcrypto.a filcrypto.pc filcrypto.h
 FFI_DEPS:=$(addprefix $(FFI_PATH),$(FFI_DEPS))
 
 $(FFI_DEPS): .filecoin-build ;

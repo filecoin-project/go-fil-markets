@@ -32,19 +32,25 @@ var (
 )
 
 // VerifyFunc is a function that can validate a signature for a given address and bytes
-type VerifyFunc func(crypto.Signature, address.Address, []byte) bool
+type VerifyFunc func(context.Context, crypto.Signature, address.Address, []byte, shared.TipSetToken) (bool, error)
 
 // VerifyProposal verifies the signature on the given signed proposal matches
 // the client addres for the proposal, using the given signature verification function
-func VerifyProposal(sdp market.ClientDealProposal, verifier VerifyFunc) error {
+func VerifyProposal(ctx context.Context, sdp market.ClientDealProposal, tok shared.TipSetToken, verifier VerifyFunc) error {
 	b, err := cborutil.Dump(&sdp.Proposal)
 	if err != nil {
 		return err
 	}
-	verified := verifier(sdp.ClientSignature, sdp.Proposal.Client, b)
+
+	verified, err := verifier(ctx, sdp.ClientSignature, sdp.Proposal.Client, b, tok)
+	if err != nil {
+		return xerrors.Errorf("verifying: %w", err)
+	}
+
 	if !verified {
 		return xerrors.New("could not verify signature")
 	}
+
 	return nil
 }
 

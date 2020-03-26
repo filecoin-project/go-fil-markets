@@ -38,8 +38,10 @@ func TestVerifyProposal(t *testing.T) {
 		shouldErr bool
 	}{
 		"successful verification": {
-			proposal:  *shared_testutil.MakeTestClientDealProposal(),
-			verifier:  func(crypto.Signature, address.Address, []byte) bool { return true },
+			proposal: *shared_testutil.MakeTestClientDealProposal(),
+			verifier: func(context.Context, crypto.Signature, address.Address, []byte, shared.TipSetToken) (bool, error) {
+				return true, nil
+			},
 			shouldErr: false,
 		},
 		"bad proposal": {
@@ -47,18 +49,22 @@ func TestVerifyProposal(t *testing.T) {
 				Proposal:        market.DealProposal{},
 				ClientSignature: *shared_testutil.MakeTestSignature(),
 			},
-			verifier:  func(crypto.Signature, address.Address, []byte) bool { return true },
+			verifier: func(context.Context, crypto.Signature, address.Address, []byte, shared.TipSetToken) (bool, error) {
+				return true, nil
+			},
 			shouldErr: true,
 		},
 		"verification fails": {
-			proposal:  *shared_testutil.MakeTestClientDealProposal(),
-			verifier:  func(crypto.Signature, address.Address, []byte) bool { return false },
+			proposal: *shared_testutil.MakeTestClientDealProposal(),
+			verifier: func(context.Context, crypto.Signature, address.Address, []byte, shared.TipSetToken) (bool, error) {
+				return false, nil
+			},
 			shouldErr: true,
 		},
 	}
 	for name, data := range tests {
 		t.Run(name, func(t *testing.T) {
-			err := providerutils.VerifyProposal(data.proposal, data.verifier)
+			err := providerutils.VerifyProposal(context.Background(), data.proposal, shared.TipSetToken{}, data.verifier)
 			require.Equal(t, err != nil, data.shouldErr)
 		})
 	}

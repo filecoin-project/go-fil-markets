@@ -292,23 +292,23 @@ type StorageProviderNode interface {
 	GetChainHead(ctx context.Context) (shared.TipSetToken, abi.ChainEpoch, error)
 
 	// Verify a signature against an address + data
-	VerifySignature(signature crypto.Signature, signer address.Address, plaintext []byte) bool
+	VerifySignature(ctx context.Context, signature crypto.Signature, signer address.Address, plaintext []byte, tok shared.TipSetToken) (bool, error)
 
 	// Adds funds with the StorageMinerActor for a storage participant.  Used by both providers and clients.
 	AddFunds(ctx context.Context, addr address.Address, amount abi.TokenAmount) error
 
 	// Ensures that a storage market participant has a certain amount of available funds
 	// If additional funds are needed, they will be sent from the 'wallet' address
-	EnsureFunds(ctx context.Context, addr, wallet address.Address, amount abi.TokenAmount) error
+	EnsureFunds(ctx context.Context, addr, wallet address.Address, amount abi.TokenAmount, tok shared.TipSetToken) error
 
 	// GetBalance returns locked/unlocked for a storage participant.  Used by both providers and clients.
-	GetBalance(ctx context.Context, addr address.Address) (Balance, error)
+	GetBalance(ctx context.Context, addr address.Address, tok shared.TipSetToken) (Balance, error)
 
 	// Publishes deal on chain
 	PublishDeals(ctx context.Context, deal MinerDeal) (abi.DealID, cid.Cid, error)
 
 	// ListProviderDeals lists all deals associated with a storage provider
-	ListProviderDeals(ctx context.Context, addr address.Address) ([]StorageDeal, error)
+	ListProviderDeals(ctx context.Context, addr address.Address, tok shared.TipSetToken) ([]StorageDeal, error)
 
 	// Called when a deal is complete and on chain, and data has been transferred and is ready to be added to a sector
 	OnDealComplete(ctx context.Context, deal MinerDeal, pieceSize abi.UnpaddedPieceSize, pieceReader io.Reader) error
@@ -321,7 +321,7 @@ type StorageProviderNode interface {
 
 	OnDealSectorCommitted(ctx context.Context, provider address.Address, dealID abi.DealID, cb DealSectorCommittedCallback) error
 
-	LocatePieceForDealWithinSector(ctx context.Context, dealID abi.DealID) (sectorID uint64, offset uint64, length uint64, err error)
+	LocatePieceForDealWithinSector(ctx context.Context, dealID abi.DealID, tok shared.TipSetToken) (sectorID uint64, offset uint64, length uint64, err error)
 }
 
 type DealSectorCommittedCallback func(err error)
@@ -331,24 +331,24 @@ type StorageClientNode interface {
 	GetChainHead(ctx context.Context) (shared.TipSetToken, abi.ChainEpoch, error)
 
 	// Verify a signature against an address + data
-	VerifySignature(signature crypto.Signature, signer address.Address, plaintext []byte) bool
+	VerifySignature(ctx context.Context, signature crypto.Signature, signer address.Address, plaintext []byte, tok shared.TipSetToken) (bool, error)
 
 	// Adds funds with the StorageMinerActor for a storage participant.  Used by both providers and clients.
 	AddFunds(ctx context.Context, addr address.Address, amount abi.TokenAmount) error
 
-	EnsureFunds(ctx context.Context, addr, wallet address.Address, amount abi.TokenAmount) error
+	EnsureFunds(ctx context.Context, addr, wallet address.Address, amount abi.TokenAmount, tok shared.TipSetToken) error
 
 	// GetBalance returns locked/unlocked for a storage participant.  Used by both providers and clients.
-	GetBalance(ctx context.Context, addr address.Address) (Balance, error)
+	GetBalance(ctx context.Context, addr address.Address, tok shared.TipSetToken) (Balance, error)
 
 	//// ListClientDeals lists all on-chain deals associated with a storage client
-	ListClientDeals(ctx context.Context, addr address.Address) ([]StorageDeal, error)
+	ListClientDeals(ctx context.Context, addr address.Address, tok shared.TipSetToken) ([]StorageDeal, error)
 
 	// GetProviderInfo returns information about a single storage provider
 	//GetProviderInfo(stateId StateID, addr Address) *StorageProviderInfo
 
 	// GetStorageProviders returns information about known miners
-	ListStorageProviders(ctx context.Context) ([]*StorageProviderInfo, error)
+	ListStorageProviders(ctx context.Context, tok shared.TipSetToken) ([]*StorageProviderInfo, error)
 
 	// Subscribes to storage market actor state changes for a given address.
 	// TODO: Should there be a timeout option for this?  In the case that we are waiting for funds to be deposited and it never happens?
@@ -365,7 +365,7 @@ type StorageClientNode interface {
 
 	OnDealSectorCommitted(ctx context.Context, provider address.Address, dealID abi.DealID, cb DealSectorCommittedCallback) error
 
-	ValidateAskSignature(ask *SignedStorageAsk) error
+	ValidateAskSignature(ctx context.Context, ask *SignedStorageAsk, tok shared.TipSetToken) (bool, error)
 }
 
 type StorageClientProofs interface {

@@ -14,6 +14,7 @@ import (
 	"golang.org/x/xerrors"
 
 	"github.com/filecoin-project/go-fil-markets/pieceio"
+	"github.com/filecoin-project/go-fil-markets/shared"
 	"github.com/filecoin-project/go-fil-markets/storagemarket"
 	"github.com/filecoin-project/go-fil-markets/storagemarket/network"
 )
@@ -38,18 +39,23 @@ func CommP(ctx context.Context, pieceIO pieceio.PieceIO, rt abi.RegisteredProof,
 }
 
 // VerifyFunc is a function that can validate a signature for a given address and bytes
-type VerifyFunc func(crypto.Signature, address.Address, []byte) bool
+type VerifyFunc func(context.Context, crypto.Signature, address.Address, []byte, shared.TipSetToken) (bool, error)
 
 // VerifyResponse verifies the signature on the given signed response matches
 // the given miner address, using the given signature verification function
-func VerifyResponse(resp network.SignedResponse, minerAddr address.Address, verifier VerifyFunc) error {
+func VerifyResponse(ctx context.Context, resp network.SignedResponse, minerAddr address.Address, tok shared.TipSetToken, verifier VerifyFunc) error {
 	b, err := cborutil.Dump(&resp.Response)
 	if err != nil {
 		return err
 	}
-	verified := verifier(*resp.Signature, minerAddr, b)
+	verified, err := verifier(ctx, *resp.Signature, minerAddr, b, tok)
+	if err != nil {
+		return err
+	}
+
 	if !verified {
 		return xerrors.New("could not verify signature")
 	}
+
 	return nil
 }
