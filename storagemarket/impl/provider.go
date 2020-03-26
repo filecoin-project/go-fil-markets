@@ -30,6 +30,7 @@ import (
 )
 
 var ProviderDsPrefix = "/deals/provider"
+var DefaultDealAcceptanceBuffer = abi.ChainEpoch(100)
 var _ storagemarket.StorageProvider = &Provider{}
 
 // Provider is a storage provider implementation
@@ -92,7 +93,7 @@ func NewProvider(net network.StorageMarketNetwork, ds datastore.Batching, bs blo
 		storedAsk:            storedAsk,
 		actor:                minerAddress,
 		dataTransfer:         dataTransfer,
-		dealAcceptanceBuffer: abi.ChainEpoch(100),
+		dealAcceptanceBuffer: DefaultDealAcceptanceBuffer,
 	}
 
 	deals, err := fsm.New(namespace.Wrap(ds, datastore.NewKey(ProviderDsPrefix)), fsm.Parameters{
