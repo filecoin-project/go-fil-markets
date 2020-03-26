@@ -179,7 +179,8 @@ func (n *FakeClientNode) OnDealSectorCommitted(ctx context.Context, provider add
 	return n.DealCommittedSyncError
 }
 
-// ValidateAskSignature returns the stubbed validation error
+// ValidateAskSignature returns the stubbed validation error and a boolean value
+// communicating the validity of the provided signature
 func (n *FakeClientNode) ValidateAskSignature(ctx context.Context, ask *storagemarket.SignedStorageAsk, tok shared.TipSetToken) (bool, error) {
 	return n.ValidationError == nil, n.ValidationError
 }
