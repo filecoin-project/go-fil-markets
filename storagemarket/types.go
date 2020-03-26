@@ -273,7 +273,7 @@ type StorageProvider interface {
 	ListAsks(addr address.Address) []*SignedStorageAsk
 
 	// ListDeals lists on-chain deals associated with this provider
-	ListDeals(ctx context.Context, tok shared.TipSetToken) ([]StorageDeal, error)
+	ListDeals(ctx context.Context) ([]StorageDeal, error)
 
 	// ListIncompleteDeals lists deals that are in progress or rejected
 	ListIncompleteDeals() ([]MinerDeal, error)
@@ -282,7 +282,7 @@ type StorageProvider interface {
 	AddStorageCollateral(ctx context.Context, amount abi.TokenAmount) error
 
 	// GetStorageCollateral returns the current collateral balance
-	GetStorageCollateral(ctx context.Context, tok shared.TipSetToken) (Balance, error)
+	GetStorageCollateral(ctx context.Context) (Balance, error)
 
 	ImportDataForDeal(ctx context.Context, propCid cid.Cid, data io.Reader) error
 }
@@ -406,10 +406,10 @@ type StorageClient interface {
 	Stop()
 
 	// ListProviders queries chain state and returns active storage providers
-	ListProviders(ctx context.Context, tok shared.TipSetToken) (<-chan StorageProviderInfo, error)
+	ListProviders(ctx context.Context) (<-chan StorageProviderInfo, error)
 
 	// ListDeals lists on-chain deals associated with this provider
-	ListDeals(ctx context.Context, addr address.Address, tok shared.TipSetToken) ([]StorageDeal, error)
+	ListDeals(ctx context.Context, addr address.Address) ([]StorageDeal, error)
 
 	// ListInProgressDeals lists deals that are in progress or rejected
 	ListInProgressDeals(ctx context.Context) ([]ClientDeal, error)
@@ -418,7 +418,7 @@ type StorageClient interface {
 	GetInProgressDeal(ctx context.Context, cid cid.Cid) (ClientDeal, error)
 
 	// GetAsk returns the current ask for a storage provider
-	GetAsk(ctx context.Context, info StorageProviderInfo, tok shared.TipSetToken) (*SignedStorageAsk, error)
+	GetAsk(ctx context.Context, info StorageProviderInfo) (*SignedStorageAsk, error)
 
 	//// FindStorageOffers lists providers and queries them to find offers that satisfy some criteria based on price, duration, etc.
 	//FindStorageOffers(criteria AskCriteria, limit uint) []*StorageOffer
@@ -427,7 +427,7 @@ type StorageClient interface {
 	ProposeStorageDeal(ctx context.Context, addr address.Address, info *StorageProviderInfo, data *DataRef, startEpoch abi.ChainEpoch, endEpoch abi.ChainEpoch, price abi.TokenAmount, collateral abi.TokenAmount, rt abi.RegisteredProof) (*ProposeStorageDealResult, error)
 
 	// GetPaymentEscrow returns the current funds available for deal payment
-	GetPaymentEscrow(ctx context.Context, addr address.Address, tok shared.TipSetToken) (Balance, error)
+	GetPaymentEscrow(ctx context.Context, addr address.Address) (Balance, error)
 
 	// AddStorageCollateral adds storage collateral
 	AddPaymentEscrow(ctx context.Context, addr address.Address, amount abi.TokenAmount) error
