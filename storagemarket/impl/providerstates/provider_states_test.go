@@ -47,7 +47,7 @@ func TestValidateDealProposal(t *testing.T) {
 	}{
 		"succeeds": {
 			dealInspector: func(t *testing.T, deal storagemarket.MinerDeal) {
-				require.Equal(t, deal.State, storagemarket.StorageDealProposalAccepted)
+				require.Equal(t, storagemarket.StorageDealProposalAccepted, deal.State)
 			},
 		},
 		"verify signature fails": {
@@ -55,8 +55,8 @@ func TestValidateDealProposal(t *testing.T) {
 				VerifySignatureFails: true,
 			},
 			dealInspector: func(t *testing.T, deal storagemarket.MinerDeal) {
-				require.Equal(t, deal.State, storagemarket.StorageDealFailing)
-				require.Equal(t, deal.Message, "deal rejected: verifying StorageDealProposal: could not verify signature")
+				require.Equal(t, storagemarket.StorageDealFailing, deal.State)
+				require.Equal(t, "deal rejected: verifying StorageDealProposal: could not verify signature", deal.Message)
 			},
 		},
 		"provider address does not match": {
@@ -64,8 +64,8 @@ func TestValidateDealProposal(t *testing.T) {
 				Address: otherAddr,
 			},
 			dealInspector: func(t *testing.T, deal storagemarket.MinerDeal) {
-				require.Equal(t, deal.State, storagemarket.StorageDealFailing)
-				require.Equal(t, deal.Message, "deal rejected: incorrect provider for deal")
+				require.Equal(t, storagemarket.StorageDealFailing, deal.State)
+				require.Equal(t, "deal rejected: incorrect provider for deal", deal.Message)
 			},
 		},
 		"MostRecentStateID errors": {
@@ -73,17 +73,25 @@ func TestValidateDealProposal(t *testing.T) {
 				MostRecentStateIDError: errors.New("couldn't get id"),
 			},
 			dealInspector: func(t *testing.T, deal storagemarket.MinerDeal) {
-				require.Equal(t, deal.State, storagemarket.StorageDealFailing)
-				require.Equal(t, deal.Message, "error calling node: getting most recent state id: couldn't get id")
+				require.Equal(t, storagemarket.StorageDealFailing, deal.State)
+				require.Equal(t, "error calling node: getting most recent state id: couldn't get id", deal.Message)
 			},
 		},
-		"Height < StartEpoch": {
-			nodeParams: nodeParams{
-				Height: abi.ChainEpoch(250),
-			},
+		"CurrentHeight <= StartEpoch - DealAcceptanceBuffer() succeeds": {
+			environmentParams: environmentParams{DealAcceptanceBuffer: 10},
+			dealParams:        dealParams{StartEpoch: 200},
+			nodeParams:        nodeParams{Height: 190},
 			dealInspector: func(t *testing.T, deal storagemarket.MinerDeal) {
-				require.Equal(t, deal.State, storagemarket.StorageDealFailing)
-				require.Equal(t, deal.Message, "deal rejected: deal proposal already expired")
+				require.Equal(t, storagemarket.StorageDealProposalAccepted, deal.State)
+			},
+		},
+		"CurrentHeight > StartEpoch - DealAcceptanceBuffer() fails": {
+			environmentParams: environmentParams{DealAcceptanceBuffer: 10},
+			dealParams:        dealParams{StartEpoch: 200},
+			nodeParams:        nodeParams{Height: 191},
+			dealInspector: func(t *testing.T, deal storagemarket.MinerDeal) {
+				require.Equal(t, storagemarket.StorageDealFailing, deal.State)
+				require.Equal(t, "deal rejected: deal start epoch is too soon or deal already expired", deal.Message)
 			},
 		},
 		"PricePerEpoch too low": {
@@ -91,8 +99,8 @@ func TestValidateDealProposal(t *testing.T) {
 				StoragePricePerEpoch: abi.NewTokenAmount(5000),
 			},
 			dealInspector: func(t *testing.T, deal storagemarket.MinerDeal) {
-				require.Equal(t, deal.State, storagemarket.StorageDealFailing)
-				require.Equal(t, deal.Message, "deal rejected: storage price per epoch less than asking price: 5000 < 9765")
+				require.Equal(t, storagemarket.StorageDealFailing, deal.State)
+				require.Equal(t, "deal rejected: storage price per epoch less than asking price: 5000 < 9765", deal.Message)
 			},
 		},
 		"PieceSize < MinPieceSize": {
@@ -100,8 +108,8 @@ func TestValidateDealProposal(t *testing.T) {
 				PieceSize: abi.PaddedPieceSize(128),
 			},
 			dealInspector: func(t *testing.T, deal storagemarket.MinerDeal) {
-				require.Equal(t, deal.State, storagemarket.StorageDealFailing)
-				require.Equal(t, deal.Message, "deal rejected: piece size less than minimum required size: 128 < 256")
+				require.Equal(t, storagemarket.StorageDealFailing, deal.State)
+				require.Equal(t, "deal rejected: piece size less than minimum required size: 128 < 256", deal.Message)
 			},
 		},
 		"Get balance error": {
@@ -109,8 +117,8 @@ func TestValidateDealProposal(t *testing.T) {
 				ClientMarketBalanceError: errors.New("could not get balance"),
 			},
 			dealInspector: func(t *testing.T, deal storagemarket.MinerDeal) {
-				require.Equal(t, deal.State, storagemarket.StorageDealFailing)
-				require.Equal(t, deal.Message, "error calling node: getting client market balance failed: could not get balance")
+				require.Equal(t, storagemarket.StorageDealFailing, deal.State)
+				require.Equal(t, "error calling node: getting client market balance failed: could not get balance", deal.Message)
 			},
 		},
 		"Not enough funds": {
@@ -118,8 +126,8 @@ func TestValidateDealProposal(t *testing.T) {
 				ClientMarketBalance: abi.NewTokenAmount(150 * 10000),
 			},
 			dealInspector: func(t *testing.T, deal storagemarket.MinerDeal) {
-				require.Equal(t, deal.State, storagemarket.StorageDealFailing)
-				require.Equal(t, deal.Message, "deal rejected: clientMarketBalance.Available too small")
+				require.Equal(t, storagemarket.StorageDealFailing, deal.State)
+				require.Equal(t, "deal rejected: clientMarketBalance.Available too small", deal.Message)
 			},
 		},
 	}
@@ -145,7 +153,7 @@ func TestTransferData(t *testing.T) {
 	}{
 		"succeeds": {
 			dealInspector: func(t *testing.T, deal storagemarket.MinerDeal) {
-				require.Equal(t, deal.State, storagemarket.StorageDealTransferring)
+				require.Equal(t, storagemarket.StorageDealTransferring, deal.State)
 			},
 		},
 		"manual transfer": {
@@ -155,7 +163,7 @@ func TestTransferData(t *testing.T) {
 				},
 			},
 			dealInspector: func(t *testing.T, deal storagemarket.MinerDeal) {
-				require.Equal(t, deal.State, storagemarket.StorageDealWaitingForData)
+				require.Equal(t, storagemarket.StorageDealWaitingForData, deal.State)
 			},
 		},
 		"data transfer failure": {
@@ -163,8 +171,8 @@ func TestTransferData(t *testing.T) {
 				DataTransferError: errors.New("could not initiate"),
 			},
 			dealInspector: func(t *testing.T, deal storagemarket.MinerDeal) {
-				require.Equal(t, deal.State, storagemarket.StorageDealFailing)
-				require.Equal(t, deal.Message, "error transferring data: failed to open pull data channel: could not initiate")
+				require.Equal(t, storagemarket.StorageDealFailing, deal.State)
+				require.Equal(t, "error transferring data: failed to open pull data channel: could not initiate", deal.Message)
 			},
 		},
 	}
@@ -196,9 +204,9 @@ func TestVerifyData(t *testing.T) {
 				MetadataPath: expMetaPath,
 			},
 			dealInspector: func(t *testing.T, deal storagemarket.MinerDeal) {
-				require.Equal(t, deal.State, storagemarket.StorageDealPublishing)
-				require.Equal(t, deal.PiecePath, expPath)
-				require.Equal(t, deal.MetadataPath, expMetaPath)
+				require.Equal(t, storagemarket.StorageDealPublishing, deal.State)
+				require.Equal(t, expPath, deal.PiecePath)
+				require.Equal(t, expMetaPath, deal.MetadataPath)
 			},
 		},
 		"generate piece CID fails": {
@@ -206,8 +214,8 @@ func TestVerifyData(t *testing.T) {
 				GenerateCommPError: errors.New("could not generate CommP"),
 			},
 			dealInspector: func(t *testing.T, deal storagemarket.MinerDeal) {
-				require.Equal(t, deal.State, storagemarket.StorageDealFailing)
-				require.Equal(t, deal.Message, "generating piece committment: could not generate CommP")
+				require.Equal(t, storagemarket.StorageDealFailing, deal.State)
+				require.Equal(t, "generating piece committment: could not generate CommP", deal.Message)
 			},
 		},
 		"piece CIDs do not match": {
@@ -215,8 +223,8 @@ func TestVerifyData(t *testing.T) {
 				PieceCid: tut.GenerateCids(1)[0],
 			},
 			dealInspector: func(t *testing.T, deal storagemarket.MinerDeal) {
-				require.Equal(t, deal.State, storagemarket.StorageDealFailing)
-				require.Equal(t, deal.Message, "deal rejected: proposal CommP doesn't match calculated CommP")
+				require.Equal(t, storagemarket.StorageDealFailing, deal.State)
+				require.Equal(t, "deal rejected: proposal CommP doesn't match calculated CommP", deal.Message)
 			},
 		},
 	}
@@ -246,9 +254,9 @@ func TestPublishDeal(t *testing.T) {
 				PublishDealID: expDealID,
 			},
 			dealInspector: func(t *testing.T, deal storagemarket.MinerDeal) {
-				require.Equal(t, deal.State, storagemarket.StorageDealStaged)
-				require.Equal(t, deal.DealID, expDealID)
-				require.Equal(t, deal.ConnectionClosed, true)
+				require.Equal(t, storagemarket.StorageDealStaged, deal.State)
+				require.Equal(t, expDealID, deal.DealID)
+				require.Equal(t, true, deal.ConnectionClosed)
 			},
 		},
 		"get miner worker fails": {
@@ -256,8 +264,8 @@ func TestPublishDeal(t *testing.T) {
 				MinerWorkerError: errors.New("could not get worker"),
 			},
 			dealInspector: func(t *testing.T, deal storagemarket.MinerDeal) {
-				require.Equal(t, deal.State, storagemarket.StorageDealFailing)
-				require.Equal(t, deal.Message, "error calling node: looking up miner worker: could not get worker")
+				require.Equal(t, storagemarket.StorageDealFailing, deal.State)
+				require.Equal(t, "error calling node: looking up miner worker: could not get worker", deal.Message)
 			},
 		},
 		"ensureFunds errors": {
@@ -265,8 +273,8 @@ func TestPublishDeal(t *testing.T) {
 				EnsureFundsError: errors.New("not enough funds"),
 			},
 			dealInspector: func(t *testing.T, deal storagemarket.MinerDeal) {
-				require.Equal(t, deal.State, storagemarket.StorageDealFailing)
-				require.Equal(t, deal.Message, "error calling node: ensuring funds: not enough funds")
+				require.Equal(t, storagemarket.StorageDealFailing, deal.State)
+				require.Equal(t, "error calling node: ensuring funds: not enough funds", deal.Message)
 			},
 		},
 		"PublishDealsErrors errors": {
@@ -274,8 +282,8 @@ func TestPublishDeal(t *testing.T) {
 				PublishDealsError: errors.New("could not post to chain"),
 			},
 			dealInspector: func(t *testing.T, deal storagemarket.MinerDeal) {
-				require.Equal(t, deal.State, storagemarket.StorageDealFailing)
-				require.Equal(t, deal.Message, "error calling node: publishing deal: could not post to chain")
+				require.Equal(t, storagemarket.StorageDealFailing, deal.State)
+				require.Equal(t, "error calling node: publishing deal: could not post to chain", deal.Message)
 			},
 		},
 		"SendSignedResponse errors": {
@@ -283,8 +291,8 @@ func TestPublishDeal(t *testing.T) {
 				SendSignedResponseError: errors.New("could not send"),
 			},
 			dealInspector: func(t *testing.T, deal storagemarket.MinerDeal) {
-				require.Equal(t, deal.State, storagemarket.StorageDealError)
-				require.Equal(t, deal.Message, "sending response to deal: could not send")
+				require.Equal(t, storagemarket.StorageDealError, deal.State)
+				require.Equal(t, "sending response to deal: could not send", deal.Message)
 			},
 		},
 	}
@@ -317,7 +325,7 @@ func TestHandoffDeal(t *testing.T) {
 				ExpectedOpens: []filestore.Path{defaultPath},
 			},
 			dealInspector: func(t *testing.T, deal storagemarket.MinerDeal) {
-				require.Equal(t, deal.State, storagemarket.StorageDealSealing)
+				require.Equal(t, storagemarket.StorageDealSealing, deal.State)
 			},
 		},
 		"opening file errors": {
@@ -325,8 +333,8 @@ func TestHandoffDeal(t *testing.T) {
 				PiecePath: filestore.Path("missing.txt"),
 			},
 			dealInspector: func(t *testing.T, deal storagemarket.MinerDeal) {
-				require.Equal(t, deal.State, storagemarket.StorageDealFailing)
-				require.Equal(t, deal.Message, fmt.Sprintf("accessing file store: reading piece at path missing.txt: %s", tut.TestErrNotFound.Error()))
+				require.Equal(t, storagemarket.StorageDealFailing, deal.State)
+				require.Equal(t, fmt.Sprintf("accessing file store: reading piece at path missing.txt: %s", tut.TestErrNotFound.Error()), deal.Message)
 			},
 		},
 		"OnDealComplete errors": {
@@ -341,8 +349,8 @@ func TestHandoffDeal(t *testing.T) {
 				OnDealCompleteError: errors.New("failed building sector"),
 			},
 			dealInspector: func(t *testing.T, deal storagemarket.MinerDeal) {
-				require.Equal(t, deal.State, storagemarket.StorageDealFailing)
-				require.Equal(t, deal.Message, "handing off deal to node: failed building sector")
+				require.Equal(t, storagemarket.StorageDealFailing, deal.State)
+				require.Equal(t, "handing off deal to node: failed building sector", deal.Message)
 			},
 		},
 	}
@@ -368,7 +376,7 @@ func TestVerifyDealActivated(t *testing.T) {
 	}{
 		"succeeds": {
 			dealInspector: func(t *testing.T, deal storagemarket.MinerDeal) {
-				require.Equal(t, deal.State, storagemarket.StorageDealActive)
+				require.Equal(t, storagemarket.StorageDealActive, deal.State)
 			},
 		},
 		"sync error": {
@@ -376,8 +384,8 @@ func TestVerifyDealActivated(t *testing.T) {
 				DealCommittedSyncError: errors.New("couldn't check deal commitment"),
 			},
 			dealInspector: func(t *testing.T, deal storagemarket.MinerDeal) {
-				require.Equal(t, deal.State, storagemarket.StorageDealFailing)
-				require.Equal(t, deal.Message, "error activating deal: couldn't check deal commitment")
+				require.Equal(t, storagemarket.StorageDealFailing, deal.State)
+				require.Equal(t, "error activating deal: couldn't check deal commitment", deal.Message)
 			},
 		},
 		"async error": {
@@ -385,8 +393,8 @@ func TestVerifyDealActivated(t *testing.T) {
 				DealCommittedAsyncError: errors.New("deal did not appear on chain"),
 			},
 			dealInspector: func(t *testing.T, deal storagemarket.MinerDeal) {
-				require.Equal(t, deal.State, storagemarket.StorageDealFailing)
-				require.Equal(t, deal.Message, "error activating deal: deal did not appear on chain")
+				require.Equal(t, storagemarket.StorageDealFailing, deal.State)
+				require.Equal(t, "error activating deal: deal did not appear on chain", deal.Message)
 			},
 		},
 	}
@@ -419,7 +427,7 @@ func TestRecordPieceInfo(t *testing.T) {
 				ExpectedDeletions: []filestore.Path{defaultPath},
 			},
 			dealInspector: func(t *testing.T, deal storagemarket.MinerDeal) {
-				require.Equal(t, deal.State, storagemarket.StorageDealCompleted)
+				require.Equal(t, storagemarket.StorageDealCompleted, deal.State)
 			},
 		},
 		"succeeds w metadata": {
@@ -433,7 +441,7 @@ func TestRecordPieceInfo(t *testing.T) {
 				ExpectedDeletions: []filestore.Path{defaultMetadataPath, defaultPath},
 			},
 			dealInspector: func(t *testing.T, deal storagemarket.MinerDeal) {
-				require.Equal(t, deal.State, storagemarket.StorageDealCompleted)
+				require.Equal(t, storagemarket.StorageDealCompleted, deal.State)
 			},
 		},
 		"locate piece fails": {
@@ -444,8 +452,8 @@ func TestRecordPieceInfo(t *testing.T) {
 				LocatePieceForDealWithinSectorError: errors.New("could not find piece"),
 			},
 			dealInspector: func(t *testing.T, deal storagemarket.MinerDeal) {
-				require.Equal(t, deal.State, storagemarket.StorageDealFailing)
-				require.Equal(t, deal.Message, "locating piece for deal ID 1234 in sector: could not find piece")
+				require.Equal(t, storagemarket.StorageDealFailing, deal.State)
+				require.Equal(t, "locating piece for deal ID 1234 in sector: could not find piece", deal.Message)
 			},
 		},
 		"reading metadata fails": {
@@ -453,8 +461,8 @@ func TestRecordPieceInfo(t *testing.T) {
 				MetadataPath: filestore.Path("Missing.txt"),
 			},
 			dealInspector: func(t *testing.T, deal storagemarket.MinerDeal) {
-				require.Equal(t, deal.State, storagemarket.StorageDealFailing)
-				require.Equal(t, deal.Message, fmt.Sprintf("error reading piece metadata: %s", tut.TestErrNotFound.Error()))
+				require.Equal(t, storagemarket.StorageDealFailing, deal.State)
+				require.Equal(t, fmt.Sprintf("error reading piece metadata: %s", tut.TestErrNotFound.Error()), deal.Message)
 			},
 		},
 		"add piece block locations errors": {
@@ -462,8 +470,8 @@ func TestRecordPieceInfo(t *testing.T) {
 				AddPieceBlockLocationsError: errors.New("could not add block locations"),
 			},
 			dealInspector: func(t *testing.T, deal storagemarket.MinerDeal) {
-				require.Equal(t, deal.State, storagemarket.StorageDealFailing)
-				require.Equal(t, deal.Message, "accessing piece store: adding piece block locations: could not add block locations")
+				require.Equal(t, storagemarket.StorageDealFailing, deal.State)
+				require.Equal(t, "accessing piece store: adding piece block locations: could not add block locations", deal.Message)
 			},
 		},
 		"add deal for piece errors": {
@@ -471,8 +479,8 @@ func TestRecordPieceInfo(t *testing.T) {
 				AddDealForPieceError: errors.New("could not add deal info"),
 			},
 			dealInspector: func(t *testing.T, deal storagemarket.MinerDeal) {
-				require.Equal(t, deal.State, storagemarket.StorageDealFailing)
-				require.Equal(t, deal.Message, "accessing piece store: adding deal info for piece: could not add deal info")
+				require.Equal(t, storagemarket.StorageDealFailing, deal.State)
+				require.Equal(t, "accessing piece store: adding deal info for piece: could not add deal info", deal.Message)
 			},
 		},
 	}
@@ -498,7 +506,7 @@ func TestFailDeal(t *testing.T) {
 	}{
 		"succeeds": {
 			dealInspector: func(t *testing.T, deal storagemarket.MinerDeal) {
-				require.Equal(t, deal.State, storagemarket.StorageDealError)
+				require.Equal(t, storagemarket.StorageDealError, deal.State)
 			},
 		},
 		"succeeds, skips response": {
@@ -511,9 +519,9 @@ func TestFailDeal(t *testing.T) {
 				ConnectionClosed: true,
 			},
 			dealInspector: func(t *testing.T, deal storagemarket.MinerDeal) {
-				require.Equal(t, deal.State, storagemarket.StorageDealError)
+				require.Equal(t, storagemarket.StorageDealError, deal.State)
 				// should not have additional error message
-				require.Equal(t, deal.Message, "")
+				require.Equal(t, "", deal.Message)
 			},
 		},
 		"succeeds, file deletions": {
@@ -526,7 +534,7 @@ func TestFailDeal(t *testing.T) {
 				ExpectedDeletions: []filestore.Path{defaultPath, defaultMetadataPath},
 			},
 			dealInspector: func(t *testing.T, deal storagemarket.MinerDeal) {
-				require.Equal(t, deal.State, storagemarket.StorageDealError)
+				require.Equal(t, storagemarket.StorageDealError, deal.State)
 			},
 		},
 		"SendSignedResponse errors": {
@@ -534,8 +542,8 @@ func TestFailDeal(t *testing.T) {
 				SendSignedResponseError: errors.New("could not send"),
 			},
 			dealInspector: func(t *testing.T, deal storagemarket.MinerDeal) {
-				require.Equal(t, deal.State, storagemarket.StorageDealError)
-				require.Equal(t, deal.Message, "sending response to deal: could not send")
+				require.Equal(t, storagemarket.StorageDealError, deal.State)
+				require.Equal(t, "sending response to deal: could not send", deal.Message)
 			},
 		},
 	}
@@ -629,6 +637,7 @@ type environmentParams struct {
 	GenerateCommPError      error
 	SendSignedResponseError error
 	DisconnectError         error
+	DealAcceptanceBuffer    int64
 }
 
 type executor func(t *testing.T,
@@ -750,6 +759,7 @@ func makeExecutor(ctx context.Context,
 			generateCommPError:      params.GenerateCommPError,
 			sendSignedResponseError: params.SendSignedResponseError,
 			disconnectError:         params.DisconnectError,
+			dealAcceptanceBuffer:    abi.ChainEpoch(params.DealAcceptanceBuffer),
 			fs:                      fs,
 			pieceStore:              pieceStore,
 		}
@@ -792,6 +802,7 @@ type fakeEnvironment struct {
 	disconnectError         error
 	fs                      filestore.FileStore
 	pieceStore              piecestore.PieceStore
+	dealAcceptanceBuffer    abi.ChainEpoch
 }
 
 func (fe *fakeEnvironment) Address() address.Address {
@@ -828,4 +839,8 @@ func (fe *fakeEnvironment) FileStore() filestore.FileStore {
 
 func (fe *fakeEnvironment) PieceStore() piecestore.PieceStore {
 	return fe.pieceStore
+}
+
+func (fe *fakeEnvironment) DealAcceptanceBuffer() abi.ChainEpoch {
+	return fe.dealAcceptanceBuffer
 }
