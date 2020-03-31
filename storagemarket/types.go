@@ -272,10 +272,10 @@ type StorageProvider interface {
 	// ListAsks lists current asks
 	ListAsks(addr address.Address) []*SignedStorageAsk
 
-	// ListDeals lists on-chain deals associated with this provider
+	// ListDeals lists on-chain deals associated with this storage provider
 	ListDeals(ctx context.Context) ([]StorageDeal, error)
 
-	// ListLocalDeals lists deals that are in progress or rejected
+	// ListLocalDeals lists deals processed by this storage provider
 	ListLocalDeals() ([]MinerDeal, error)
 
 	// AddStorageCollateral adds storage collateral
@@ -341,7 +341,7 @@ type StorageClientNode interface {
 	// GetBalance returns locked/unlocked for a storage participant.  Used by both providers and clients.
 	GetBalance(ctx context.Context, addr address.Address, tok shared.TipSetToken) (Balance, error)
 
-	//// ListClientDeals lists all on-chain deals associated with a storage client
+	// ListClientDeals lists all on-chain deals associated with a storage client
 	ListClientDeals(ctx context.Context, addr address.Address, tok shared.TipSetToken) ([]StorageDeal, error)
 
 	// GetProviderInfo returns information about a single storage provider
@@ -408,10 +408,10 @@ type StorageClient interface {
 	// ListProviders queries chain state and returns active storage providers
 	ListProviders(ctx context.Context) (<-chan StorageProviderInfo, error)
 
-	// ListDeals lists on-chain deals associated with this provider
+	// ListDeals lists on-chain deals associated with this storage client
 	ListDeals(ctx context.Context, addr address.Address) ([]StorageDeal, error)
 
-	// ListLocalDeals lists deals that are in progress or rejected
+	// ListLocalDeals lists deals initiated by this storage client
 	ListLocalDeals(ctx context.Context) ([]ClientDeal, error)
 
 	// GetLocalDeal lists deals that are in progress or rejected
