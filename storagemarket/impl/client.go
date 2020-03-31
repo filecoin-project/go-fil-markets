@@ -139,7 +139,7 @@ func (c *Client) ListLocalDeals(ctx context.Context) ([]storagemarket.ClientDeal
 	return out, nil
 }
 
-func (c *Client) GetInProgressDeal(ctx context.Context, cid cid.Cid) (storagemarket.ClientDeal, error) {
+func (c *Client) GetLocalDeal(ctx context.Context, cid cid.Cid) (storagemarket.ClientDeal, error) {
 	var out storagemarket.ClientDeal
 	if err := c.statemachines.Get(cid).Get(&out); err != nil {
 		return storagemarket.ClientDeal{}, err

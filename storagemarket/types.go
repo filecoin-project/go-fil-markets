@@ -414,8 +414,8 @@ type StorageClient interface {
 	// ListLocalDeals lists deals that are in progress or rejected
 	ListLocalDeals(ctx context.Context) ([]ClientDeal, error)
 
-	// ListLocalDeals lists deals that are in progress or rejected
-	GetInProgressDeal(ctx context.Context, cid cid.Cid) (ClientDeal, error)
+	// GetLocalDeal lists deals that are in progress or rejected
+	GetLocalDeal(ctx context.Context, cid cid.Cid) (ClientDeal, error)
 
 	// GetAsk returns the current ask for a storage provider
 	GetAsk(ctx context.Context, info StorageProviderInfo) (*SignedStorageAsk, error)
