@@ -118,7 +118,7 @@ func TestMakeDeal(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Equal(t, cd.State, storagemarket.StorageDealActive)
 
-	providerDeals, err := provider.ListIncompleteDeals()
+	providerDeals, err := provider.ListLocalDeals()
 	assert.NoError(t, err)
 
 	pd := providerDeals[0]
@@ -212,7 +212,7 @@ func TestMakeDealOffline(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Equal(t, cd.State, storagemarket.StorageDealValidating)
 
-	providerDeals, err := provider.ListIncompleteDeals()
+	providerDeals, err := provider.ListLocalDeals()
 	assert.NoError(t, err)
 
 	pd := providerDeals[0]
@@ -232,7 +232,7 @@ func TestMakeDealOffline(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Equal(t, cd.State, storagemarket.StorageDealActive)
 
-	providerDeals, err = provider.ListIncompleteDeals()
+	providerDeals, err = provider.ListLocalDeals()
 	assert.NoError(t, err)
 
 	pd = providerDeals[0]

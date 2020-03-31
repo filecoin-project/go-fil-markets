@@ -275,8 +275,8 @@ type StorageProvider interface {
 	// ListDeals lists on-chain deals associated with this provider
 	ListDeals(ctx context.Context) ([]StorageDeal, error)
 
-	// ListIncompleteDeals lists deals that are in progress or rejected
-	ListIncompleteDeals() ([]MinerDeal, error)
+	// ListLocalDeals lists deals that are in progress or rejected
+	ListLocalDeals() ([]MinerDeal, error)
 
 	// AddStorageCollateral adds storage collateral
 	AddStorageCollateral(ctx context.Context, amount abi.TokenAmount) error
@@ -411,10 +411,10 @@ type StorageClient interface {
 	// ListDeals lists on-chain deals associated with this provider
 	ListDeals(ctx context.Context, addr address.Address) ([]StorageDeal, error)
 
-	// ListInProgressDeals lists deals that are in progress or rejected
-	ListInProgressDeals(ctx context.Context) ([]ClientDeal, error)
+	// ListLocalDeals lists deals that are in progress or rejected
+	ListLocalDeals(ctx context.Context) ([]ClientDeal, error)
 
-	// ListInProgressDeals lists deals that are in progress or rejected
+	// ListLocalDeals lists deals that are in progress or rejected
 	GetInProgressDeal(ctx context.Context, cid cid.Cid) (ClientDeal, error)
 
 	// GetAsk returns the current ask for a storage provider
