@@ -131,7 +131,7 @@ func (c *Client) ListDeals(ctx context.Context, addr address.Address) ([]storage
 	return c.node.ListClientDeals(ctx, addr, tok)
 }
 
-func (c *Client) ListInProgressDeals(ctx context.Context) ([]storagemarket.ClientDeal, error) {
+func (c *Client) ListLocalDeals(ctx context.Context) ([]storagemarket.ClientDeal, error) {
 	var out []storagemarket.ClientDeal
 	if err := c.statemachines.List(&out); err != nil {
 		return nil, err
@@ -139,7 +139,7 @@ func (c *Client) ListInProgressDeals(ctx context.Context) ([]storagemarket.Clien
 	return out, nil
 }
 
-func (c *Client) GetInProgressDeal(ctx context.Context, cid cid.Cid) (storagemarket.ClientDeal, error) {
+func (c *Client) GetLocalDeal(ctx context.Context, cid cid.Cid) (storagemarket.ClientDeal, error) {
 	var out storagemarket.ClientDeal
 	if err := c.statemachines.Get(cid).Get(&out); err != nil {
 		return storagemarket.ClientDeal{}, err

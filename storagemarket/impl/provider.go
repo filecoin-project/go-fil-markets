@@ -254,7 +254,7 @@ func (p *Provider) GetStorageCollateral(ctx context.Context) (storagemarket.Bala
 	return p.spn.GetBalance(ctx, p.actor, tok)
 }
 
-func (p *Provider) ListIncompleteDeals() ([]storagemarket.MinerDeal, error) {
+func (p *Provider) ListLocalDeals() ([]storagemarket.MinerDeal, error) {
 	var out []storagemarket.MinerDeal
 	if err := p.deals.List(&out); err != nil {
 		return nil, err

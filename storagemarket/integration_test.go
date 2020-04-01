@@ -114,11 +114,11 @@ func TestMakeDeal(t *testing.T) {
 
 	time.Sleep(time.Millisecond * 100)
 
-	cd, err := client.GetInProgressDeal(ctx, proposalCid)
+	cd, err := client.GetLocalDeal(ctx, proposalCid)
 	assert.NoError(t, err)
 	assert.Equal(t, cd.State, storagemarket.StorageDealActive)
 
-	providerDeals, err := provider.ListIncompleteDeals()
+	providerDeals, err := provider.ListLocalDeals()
 	assert.NoError(t, err)
 
 	pd := providerDeals[0]
@@ -208,11 +208,11 @@ func TestMakeDealOffline(t *testing.T) {
 
 	time.Sleep(time.Millisecond * 100)
 
-	cd, err := client.GetInProgressDeal(ctx, proposalCid)
+	cd, err := client.GetLocalDeal(ctx, proposalCid)
 	assert.NoError(t, err)
 	assert.Equal(t, cd.State, storagemarket.StorageDealValidating)
 
-	providerDeals, err := provider.ListIncompleteDeals()
+	providerDeals, err := provider.ListLocalDeals()
 	assert.NoError(t, err)
 
 	pd := providerDeals[0]
@@ -228,11 +228,11 @@ func TestMakeDealOffline(t *testing.T) {
 
 	time.Sleep(time.Millisecond * 100)
 
-	cd, err = client.GetInProgressDeal(ctx, proposalCid)
+	cd, err = client.GetLocalDeal(ctx, proposalCid)
 	assert.NoError(t, err)
 	assert.Equal(t, cd.State, storagemarket.StorageDealActive)
 
-	providerDeals, err = provider.ListIncompleteDeals()
+	providerDeals, err = provider.ListLocalDeals()
 	assert.NoError(t, err)
 
 	pd = providerDeals[0]
