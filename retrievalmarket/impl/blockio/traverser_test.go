@@ -6,7 +6,10 @@ import (
 	"testing"
 
 	blocks "github.com/ipfs/go-block-format"
+	ipldfree "github.com/ipld/go-ipld-prime/impl/free"
 	cidlink "github.com/ipld/go-ipld-prime/linking/cid"
+	"github.com/ipld/go-ipld-prime/traversal/selector"
+	"github.com/ipld/go-ipld-prime/traversal/selector/builder"
 	"github.com/stretchr/testify/require"
 
 	"github.com/filecoin-project/go-fil-markets/retrievalmarket/impl/blockio"
@@ -17,8 +20,13 @@ func TestTraverser(t *testing.T) {
 	ctx := context.Background()
 	testdata := tut.NewTestIPLDTree()
 
+	ssb := builder.NewSelectorSpecBuilder(ipldfree.NodeBuilder())
+	allSelector := ssb.ExploreRecursive(selector.RecursionLimitNone(), ssb.ExploreAll(ssb.ExploreRecursiveEdge()))
+	sel, err  := allSelector.Selector()
+	require.NoError(t, err)
+
 	t.Run("traverses correctly", func(t *testing.T) {
-		traverser := blockio.NewTraverser(testdata.RootNodeLnk)
+		traverser := blockio.NewTraverser(testdata.RootNodeLnk, sel)
 		traverser.Start(ctx)
 		checkTraverseSequence(ctx, t, traverser, []blocks.Block{
 			testdata.RootBlock,

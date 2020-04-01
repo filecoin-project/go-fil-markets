@@ -7,6 +7,7 @@ import (
 
 	"github.com/ipld/go-ipld-prime"
 	cidlink "github.com/ipld/go-ipld-prime/linking/cid"
+	"github.com/ipld/go-ipld-prime/traversal/selector"
 
 	"github.com/filecoin-project/go-fil-markets/retrievalmarket"
 )
@@ -22,20 +23,21 @@ type BlockReader interface {
 // allowing the next block to be read and then advancing no further
 type SelectorBlockReader struct {
 	root      ipld.Link
+	sel selector.Selector
 	loader    ipld.Loader
 	traverser *Traverser
 }
 
 // NewSelectorBlockReader returns a new Block reader starting at the given
 // root and using the given loader
-func NewSelectorBlockReader(root ipld.Link, loader ipld.Loader) BlockReader {
-	return &SelectorBlockReader{root, loader, nil}
+func NewSelectorBlockReader(root ipld.Link, sel selector.Selector, loader ipld.Loader) BlockReader {
+	return &SelectorBlockReader{root, sel, loader, nil}
 }
 
 // ReadBlock reads the next block in the IPLD traversal
 func (sr *SelectorBlockReader) ReadBlock(ctx context.Context) (retrievalmarket.Block, bool, error) {
 	if sr.traverser == nil {
-		sr.traverser = NewTraverser(sr.root)
+		sr.traverser = NewTraverser(sr.root, sr.sel)
 		sr.traverser.Start(ctx)
 	}
 	lnk, lnkCtx := sr.traverser.CurrentRequest(ctx)

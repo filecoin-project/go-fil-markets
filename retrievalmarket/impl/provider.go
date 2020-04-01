@@ -229,7 +229,12 @@ func (p *provider) newProviderDeal(stream rmnet.RetrievalDealStream) error {
 	p.dealStreams[pds.Identifier()] = stream
 
 	loaderWithUnsealing := blockunsealing.NewLoaderWithUnsealing(context.TODO(), p.bs, p.pieceStore, cario.NewCarIO(), p.node.UnsealSector)
-	br := blockio.NewSelectorBlockReader(cidlink.Link{Cid: dealProposal.PayloadCID}, loaderWithUnsealing.Load)
+
+	sel, err := allSelector()
+	if err != nil {
+		return err
+	}
+	br := blockio.NewSelectorBlockReader(cidlink.Link{Cid: dealProposal.PayloadCID}, sel, loaderWithUnsealing.Load)
 	p.blockReaders[pds.Identifier()] = br
 
 	// start the deal processing, synchronously so we can log the error and close the stream if it doesn't start

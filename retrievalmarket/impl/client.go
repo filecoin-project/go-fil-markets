@@ -148,7 +148,12 @@ func (c *client) Retrieve(ctx context.Context, payloadCID cid.Cid, params retrie
 	}
 
 	c.dealStreams[dealID] = s
-	c.blockVerifiers[dealID] = blockio.NewSelectorVerifier(cidlink.Link{Cid: dealState.DealProposal.PayloadCID})
+
+	sel, err := allSelector()
+	if err != nil {
+		return 0, err
+	}
+	c.blockVerifiers[dealID] = blockio.NewSelectorVerifier(cidlink.Link{Cid: dealState.DealProposal.PayloadCID}, sel)
 
 	err = c.stateMachines.Send(dealState.ID, retrievalmarket.ClientEventOpen)
 	if err != nil {
