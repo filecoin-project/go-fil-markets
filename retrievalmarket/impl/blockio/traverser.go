@@ -10,7 +10,6 @@ import (
 	free "github.com/ipld/go-ipld-prime/impl/free"
 	"github.com/ipld/go-ipld-prime/traversal"
 	"github.com/ipld/go-ipld-prime/traversal/selector"
-	"github.com/ipld/go-ipld-prime/traversal/selector/builder"
 )
 
 type state struct {
@@ -28,6 +27,7 @@ type nextResponse struct {
 // and waits for manual input (in the form of advance or error)
 type Traverser struct {
 	root           ipld.Link
+	selector       ipld.Node
 	currentLink    ipld.Link
 	currentContext ipld.LinkContext
 	isDone         bool
@@ -51,9 +51,10 @@ func (t *Traverser) checkState(ctx context.Context) {
 }
 
 // NewTraverser creates a new traverser
-func NewTraverser(root ipld.Link) *Traverser {
+func NewTraverser(root ipld.Link, selector ipld.Node) *Traverser {
 	return &Traverser{
 		root:         root,
+		selector:     selector,
 		awaitRequest: make(chan struct{}, 1),
 		stateChan:    make(chan state, 1),
 		responses:    make(chan nextResponse),
@@ -97,10 +98,8 @@ func (t *Traverser) Start(ctx context.Context) {
 			t.writeDone(ctx)
 			return
 		}
-		ssb := builder.NewSelectorSpecBuilder(free.NodeBuilder())
 
-		allSelector, err := ssb.ExploreRecursive(selector.RecursionLimitNone(),
-			ssb.ExploreAll(ssb.ExploreRecursiveEdge())).Selector()
+		sel, err := selector.ParseSelector(t.selector)
 		if err != nil {
 			t.writeDone(ctx)
 			return
@@ -111,7 +110,7 @@ func (t *Traverser) Start(ctx context.Context) {
 				LinkLoader:             loader,
 				LinkNodeBuilderChooser: chooser,
 			},
-		}.WalkAdv(nd, allSelector, func(traversal.Progress, ipld.Node, traversal.VisitReason) error { return nil })
+		}.WalkAdv(nd, sel, func(traversal.Progress, ipld.Node, traversal.VisitReason) error { return nil })
 		t.writeDone(ctx)
 	}()
 

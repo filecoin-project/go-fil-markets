@@ -5,6 +5,9 @@ import (
 	"testing"
 
 	blocks "github.com/ipfs/go-block-format"
+	ipldfree "github.com/ipld/go-ipld-prime/impl/free"
+	"github.com/ipld/go-ipld-prime/traversal/selector"
+	"github.com/ipld/go-ipld-prime/traversal/selector/builder"
 	"github.com/stretchr/testify/require"
 
 	"github.com/filecoin-project/go-fil-markets/retrievalmarket/impl/blockio"
@@ -15,8 +18,11 @@ func TestSelectorVerifier(t *testing.T) {
 	ctx := context.Background()
 	testdata := tut.NewTestIPLDTree()
 
+	ssb := builder.NewSelectorSpecBuilder(ipldfree.NodeBuilder())
+	sel := ssb.ExploreRecursive(selector.RecursionLimitNone(), ssb.ExploreAll(ssb.ExploreRecursiveEdge())).Node()
+
 	t.Run("verifies correctly", func(t *testing.T) {
-		verifier := blockio.NewSelectorVerifier(testdata.RootNodeLnk)
+		verifier := blockio.NewSelectorVerifier(testdata.RootNodeLnk, sel)
 		checkVerifySequence(ctx, t, verifier, false, []blocks.Block{
 			testdata.RootBlock,
 			testdata.LeafAlphaBlock,
@@ -29,15 +35,16 @@ func TestSelectorVerifier(t *testing.T) {
 			testdata.LeafAlphaBlock,
 		})
 	})
+
 	t.Run("fed incorrect block", func(t *testing.T) {
 		t.Run("right away", func(t *testing.T) {
-			verifier := blockio.NewSelectorVerifier(testdata.RootNodeLnk)
+			verifier := blockio.NewSelectorVerifier(testdata.RootNodeLnk, sel)
 			checkVerifySequence(ctx, t, verifier, true, []blocks.Block{
 				testdata.LeafAlphaBlock,
 			})
 		})
 		t.Run("in middle", func(t *testing.T) {
-			verifier := blockio.NewSelectorVerifier(testdata.RootNodeLnk)
+			verifier := blockio.NewSelectorVerifier(testdata.RootNodeLnk, sel)
 			checkVerifySequence(ctx, t, verifier, true, []blocks.Block{
 				testdata.RootBlock,
 				testdata.LeafAlphaBlock,
@@ -46,7 +53,7 @@ func TestSelectorVerifier(t *testing.T) {
 			})
 		})
 		t.Run("at end", func(t *testing.T) {
-			verifier := blockio.NewSelectorVerifier(testdata.RootNodeLnk)
+			verifier := blockio.NewSelectorVerifier(testdata.RootNodeLnk, sel)
 			checkVerifySequence(ctx, t, verifier, true, []blocks.Block{
 				testdata.RootBlock,
 				testdata.LeafAlphaBlock,

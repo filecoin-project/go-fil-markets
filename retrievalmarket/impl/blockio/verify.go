@@ -21,19 +21,20 @@ type BlockVerifier interface {
 // in the order they are traversed in a dag walk
 type SelectorVerifier struct {
 	root      ipld.Link
+	selector  ipld.Node
 	traverser *Traverser
 }
 
 // NewSelectorVerifier returns a new selector based block verifier
-func NewSelectorVerifier(root ipld.Link) BlockVerifier {
-	return &SelectorVerifier{root, nil}
+func NewSelectorVerifier(root ipld.Link, selector ipld.Node) BlockVerifier {
+	return &SelectorVerifier{root, selector, nil}
 }
 
 // Verify verifies that the given block is the next one needed for the current traversal
 // and returns true if the traversal is done
 func (sv *SelectorVerifier) Verify(ctx context.Context, blk blocks.Block) (done bool, err error) {
 	if sv.traverser == nil {
-		sv.traverser = NewTraverser(sv.root)
+		sv.traverser = NewTraverser(sv.root, sv.selector)
 		sv.traverser.Start(ctx)
 	}
 	if sv.traverser.IsComplete(ctx) {
