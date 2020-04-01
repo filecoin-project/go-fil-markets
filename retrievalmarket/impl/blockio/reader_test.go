@@ -20,9 +20,7 @@ func TestSelectorReader(t *testing.T) {
 	testdata := tut.NewTestIPLDTree()
 
 	ssb := builder.NewSelectorSpecBuilder(ipldfree.NodeBuilder())
-	allSelector := ssb.ExploreRecursive(selector.RecursionLimitNone(), ssb.ExploreAll(ssb.ExploreRecursiveEdge()))
-	sel, err  := allSelector.Selector()
-	require.NoError(t, err)
+	sel := ssb.ExploreRecursive(selector.RecursionLimitNone(), ssb.ExploreAll(ssb.ExploreRecursiveEdge())).Node()
 
 	t.Run("reads correctly", func(t *testing.T) {
 		reader := blockio.NewSelectorBlockReader(testdata.RootNodeLnk, sel, testdata.Loader)

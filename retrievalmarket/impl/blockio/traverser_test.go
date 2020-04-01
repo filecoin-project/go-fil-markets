@@ -21,9 +21,7 @@ func TestTraverser(t *testing.T) {
 	testdata := tut.NewTestIPLDTree()
 
 	ssb := builder.NewSelectorSpecBuilder(ipldfree.NodeBuilder())
-	allSelector := ssb.ExploreRecursive(selector.RecursionLimitNone(), ssb.ExploreAll(ssb.ExploreRecursiveEdge()))
-	sel, err  := allSelector.Selector()
-	require.NoError(t, err)
+	sel := ssb.ExploreRecursive(selector.RecursionLimitNone(), ssb.ExploreAll(ssb.ExploreRecursiveEdge())).Node()
 
 	t.Run("traverses correctly", func(t *testing.T) {
 		traverser := blockio.NewTraverser(testdata.RootNodeLnk, sel)

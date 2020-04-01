@@ -27,7 +27,7 @@ type nextResponse struct {
 // and waits for manual input (in the form of advance or error)
 type Traverser struct {
 	root           ipld.Link
-	selector       selector.Selector
+	selector       ipld.Node
 	currentLink    ipld.Link
 	currentContext ipld.LinkContext
 	isDone         bool
@@ -51,7 +51,7 @@ func (t *Traverser) checkState(ctx context.Context) {
 }
 
 // NewTraverser creates a new traverser
-func NewTraverser(root ipld.Link, selector selector.Selector) *Traverser {
+func NewTraverser(root ipld.Link, selector ipld.Node) *Traverser {
 	return &Traverser{
 		root:         root,
 		selector:     selector,
@@ -99,13 +99,18 @@ func (t *Traverser) Start(ctx context.Context) {
 			return
 		}
 
+		sel, err := selector.ParseSelector(t.selector)
+		if err != nil {
+			t.Error(ctx, err)
+			return
+		}
 		_ = traversal.Progress{
 			Cfg: &traversal.Config{
 				Ctx:                    ctx,
 				LinkLoader:             loader,
 				LinkNodeBuilderChooser: chooser,
 			},
-		}.WalkAdv(nd, t.selector, func(traversal.Progress, ipld.Node, traversal.VisitReason) error { return nil })
+		}.WalkAdv(nd, sel, func(traversal.Progress, ipld.Node, traversal.VisitReason) error { return nil })
 		t.writeDone(ctx)
 	}()
 

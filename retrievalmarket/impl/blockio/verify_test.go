@@ -19,9 +19,7 @@ func TestSelectorVerifier(t *testing.T) {
 	testdata := tut.NewTestIPLDTree()
 
 	ssb := builder.NewSelectorSpecBuilder(ipldfree.NodeBuilder())
-	allSelector := ssb.ExploreRecursive(selector.RecursionLimitNone(), ssb.ExploreAll(ssb.ExploreRecursiveEdge()))
-	sel, err  := allSelector.Selector()
-	require.NoError(t, err)
+	sel := ssb.ExploreRecursive(selector.RecursionLimitNone(), ssb.ExploreAll(ssb.ExploreRecursiveEdge())).Node()
 
 	t.Run("verifies correctly", func(t *testing.T) {
 		verifier := blockio.NewSelectorVerifier(testdata.RootNodeLnk, sel)

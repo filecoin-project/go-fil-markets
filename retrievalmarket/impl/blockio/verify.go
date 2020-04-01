@@ -7,7 +7,6 @@ import (
 	blocks "github.com/ipfs/go-block-format"
 	"github.com/ipld/go-ipld-prime"
 	cidlink "github.com/ipld/go-ipld-prime/linking/cid"
-	"github.com/ipld/go-ipld-prime/traversal/selector"
 
 	"github.com/filecoin-project/go-fil-markets/retrievalmarket"
 )
@@ -22,20 +21,20 @@ type BlockVerifier interface {
 // in the order they are traversed in a dag walk
 type SelectorVerifier struct {
 	root      ipld.Link
-	sel selector.Selector
+	selector  ipld.Node
 	traverser *Traverser
 }
 
 // NewSelectorVerifier returns a new selector based block verifier
-func NewSelectorVerifier(root ipld.Link, sel selector.Selector) BlockVerifier {
-	return &SelectorVerifier{root, sel, nil}
+func NewSelectorVerifier(root ipld.Link, selector ipld.Node) BlockVerifier {
+	return &SelectorVerifier{root, selector, nil}
 }
 
 // Verify verifies that the given block is the next one needed for the current traversal
 // and returns true if the traversal is done
 func (sv *SelectorVerifier) Verify(ctx context.Context, blk blocks.Block) (done bool, err error) {
 	if sv.traverser == nil {
-		sv.traverser = NewTraverser(sv.root, sv.sel)
+		sv.traverser = NewTraverser(sv.root, sv.selector)
 		sv.traverser.Start(ctx)
 	}
 	if sv.traverser.IsComplete(ctx) {

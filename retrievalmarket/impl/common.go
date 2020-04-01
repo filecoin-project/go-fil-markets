@@ -1,13 +1,15 @@
 package retrievalimpl
 
 import (
+	"github.com/ipld/go-ipld-prime"
 	ipldfree "github.com/ipld/go-ipld-prime/impl/free"
 	"github.com/ipld/go-ipld-prime/traversal/selector"
 	"github.com/ipld/go-ipld-prime/traversal/selector/builder"
 )
 
-func allSelector() (selector.Selector, error) {
+func allSelector() ipld.Node {
 	ssb := builder.NewSelectorSpecBuilder(ipldfree.NodeBuilder())
-	allSelector := ssb.ExploreRecursive(selector.RecursionLimitNone(), ssb.ExploreAll(ssb.ExploreRecursiveEdge()))
-	return allSelector.Selector()
+	return ssb.ExploreRecursive(selector.RecursionLimitNone(),
+		ssb.ExploreAll(ssb.ExploreRecursiveEdge())).
+		Node()
 }
