@@ -22,7 +22,7 @@ type BlockReader interface {
 // allowing the next block to be read and then advancing no further
 type SelectorBlockReader struct {
 	root      ipld.Link
-	sel		  ipld.Node
+	selector  ipld.Node
 	loader    ipld.Loader
 	traverser *Traverser
 }
@@ -37,7 +37,7 @@ func NewSelectorBlockReader(root ipld.Link, sel ipld.Node, loader ipld.Loader) B
 func (sr *SelectorBlockReader) ReadBlock(ctx context.Context) (retrievalmarket.Block, bool, error) {
 
 	if sr.traverser == nil {
-		sr.traverser = NewTraverser(sr.root, sr.sel)
+		sr.traverser = NewTraverser(sr.root, sr.selector)
 		sr.traverser.Start(ctx)
 	}
 	lnk, lnkCtx := sr.traverser.CurrentRequest(ctx)

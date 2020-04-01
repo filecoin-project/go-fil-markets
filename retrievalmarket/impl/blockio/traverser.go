@@ -101,7 +101,7 @@ func (t *Traverser) Start(ctx context.Context) {
 
 		sel, err := selector.ParseSelector(t.selector)
 		if err != nil {
-			t.Error(ctx, err)
+			t.writeDone(ctx)
 			return
 		}
 		_ = traversal.Progress{
