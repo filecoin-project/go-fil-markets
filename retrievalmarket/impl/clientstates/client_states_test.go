@@ -501,11 +501,8 @@ func makeDealState(status retrievalmarket.DealStatus) *retrievalmarket.ClientDea
 		FundsSpent:       defaultFundsSpent,
 		PaymentRequested: defaultPaymentRequested,
 		DealProposal: retrievalmarket.DealProposal{
-			ID: retrievalmarket.DealID(10),
-			Params: retrievalmarket.Params{
-				PricePerByte:            defaultPricePerByte,
-				PaymentIntervalIncrease: defaultIntervalIncrease,
-			},
+			ID:     retrievalmarket.DealID(10),
+			Params: retrievalmarket.NewParamsV0(defaultPricePerByte, 0, defaultIntervalIncrease),
 		},
 	}
 }

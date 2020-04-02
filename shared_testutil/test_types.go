@@ -82,11 +82,7 @@ func MakeTestDealProposal() retrievalmarket.DealProposal {
 	return retrievalmarket.DealProposal{
 		PayloadCID: cid,
 		ID:         retrievalmarket.DealID(rand.Uint64()),
-		Params: retrievalmarket.Params{
-			PricePerByte:            MakeTestTokenAmount(),
-			PaymentInterval:         rand.Uint64(),
-			PaymentIntervalIncrease: rand.Uint64(),
-		},
+		Params:     retrievalmarket.NewParamsV0(MakeTestTokenAmount(), rand.Uint64(), rand.Uint64()),
 	}
 }
 
