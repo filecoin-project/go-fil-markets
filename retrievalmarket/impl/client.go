@@ -90,7 +90,7 @@ func (c *client) FindProviders(payloadCID cid.Cid) []retrievalmarket.RetrievalPe
 	return peers
 }
 
-func (c *client) Query(ctx context.Context, p retrievalmarket.RetrievalPeer, payloadCID cid.Cid, params retrievalmarket.QueryParams) (retrievalmarket.QueryResponse, error) {
+func (c *client) Query(_ context.Context, p retrievalmarket.RetrievalPeer, payloadCID cid.Cid, params retrievalmarket.QueryParams) (retrievalmarket.QueryResponse, error) {
 	s, err := c.network.NewQueryStream(p.ID)
 	if err != nil {
 		log.Warn(err)
@@ -99,7 +99,8 @@ func (c *client) Query(ctx context.Context, p retrievalmarket.RetrievalPeer, pay
 	defer s.Close()
 
 	err = s.WriteQuery(retrievalmarket.Query{
-		PayloadCID: payloadCID,
+		PayloadCID:  payloadCID,
+		QueryParams: params,
 	})
 	if err != nil {
 		log.Warn(err)

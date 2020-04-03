@@ -5,10 +5,12 @@ import (
 
 	"github.com/filecoin-project/go-address"
 	"github.com/filecoin-project/specs-actors/actors/abi"
+	"github.com/ipfs/go-cid"
 	"github.com/ipfs/go-datastore"
 	dss "github.com/ipfs/go-datastore/sync"
 	bstore "github.com/ipfs/go-ipfs-blockstore"
 	"github.com/libp2p/go-libp2p-core/peer"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	"github.com/filecoin-project/go-fil-markets/piecestore"
@@ -21,9 +23,10 @@ import (
 
 func TestHandleQueryStream(t *testing.T) {
 
-	pcid := tut.GenerateCids(1)[0]
+	payloadCID := tut.GenerateCids(1)[0]
 	expectedPeer := peer.ID("somepeer")
 	expectedSize := uint64(1234)
+
 	expectedPieceCID := tut.GenerateCids(1)[0]
 	expectedCIDInfo := piecestore.CIDInfo{
 		PieceBlockLocations: []piecestore.PieceBlockLocation{
@@ -34,7 +37,7 @@ func TestHandleQueryStream(t *testing.T) {
 	}
 	expectedPiece := piecestore.PieceInfo{
 		Deals: []piecestore.DealInfo{
-			piecestore.DealInfo{
+			{
 				Length: expectedSize,
 			},
 		},
@@ -70,77 +73,112 @@ func TestHandleQueryStream(t *testing.T) {
 		net.ReceiveQueryStream(qs)
 	}
 
-	t.Run("it works", func(t *testing.T) {
-		qs := readWriteQueryStream()
-		err := qs.WriteQuery(retrievalmarket.Query{
-			PayloadCID: pcid,
+	testCases := []struct {
+		name    string
+		query   retrievalmarket.Query
+		expResp retrievalmarket.QueryResponse
+		expErr  string
+		expFunc func(t *testing.T, pieceStore *tut.TestPieceStore)
+	}{
+		{name: "When PieceCID is not provided and PayloadCID is found",
+			expFunc: func(t *testing.T, pieceStore *tut.TestPieceStore) {
+				pieceStore.ExpectCID(payloadCID, expectedCIDInfo)
+				pieceStore.ExpectPiece(expectedPieceCID, expectedPiece)
+			},
+			query: retrievalmarket.Query{PayloadCID: payloadCID},
+			expResp: retrievalmarket.QueryResponse{
+				Status:                     retrievalmarket.QueryResponseAvailable,
+				PieceCIDFound:              retrievalmarket.QueryItemUnavailable,
+				Size:                       expectedSize,
+				PaymentAddress:             expectedAddress,
+				MinPricePerByte:            expectedPricePerByte,
+				MaxPaymentInterval:         expectedPaymentInterval,
+				MaxPaymentIntervalIncrease: expectedPaymentIntervalIncrease,
+			},
+		},
+		{name: "When PieceCID is provided and both PieceCID and PayloadCID are found",
+			expFunc: func(t *testing.T, pieceStore *tut.TestPieceStore) {
+				loadPieceCIDS(t, pieceStore, payloadCID, expectedPieceCID)
+			},
+			query: retrievalmarket.Query{
+				PayloadCID:  payloadCID,
+				QueryParams: retrievalmarket.QueryParams{PieceCID: expectedPieceCID},
+			},
+			expResp: retrievalmarket.QueryResponse{
+				Status:                     retrievalmarket.QueryResponseAvailable,
+				PieceCIDFound:              retrievalmarket.QueryItemAvailable,
+				Size:                       expectedSize,
+				PaymentAddress:             expectedAddress,
+				MinPricePerByte:            expectedPricePerByte,
+				MaxPaymentInterval:         expectedPaymentInterval,
+				MaxPaymentIntervalIncrease: expectedPaymentIntervalIncrease,
+			},
+		},
+		{name: "When QueryParams has PieceCID and is missing",
+			expFunc: func(t *testing.T, ps *tut.TestPieceStore) {
+				loadPieceCIDS(t, ps, payloadCID, cid.Undef)
+				ps.ExpectCID(payloadCID, expectedCIDInfo)
+				ps.ExpectMissingPiece(expectedPieceCID)
+			},
+			query: retrievalmarket.Query{
+				PayloadCID:  payloadCID,
+				QueryParams: retrievalmarket.QueryParams{PieceCID: expectedPieceCID},
+			},
+			expResp: retrievalmarket.QueryResponse{
+				Status:                     retrievalmarket.QueryResponseUnavailable,
+				PieceCIDFound:              retrievalmarket.QueryItemUnavailable,
+				PaymentAddress:             expectedAddress,
+				MinPricePerByte:            expectedPricePerByte,
+				MaxPaymentInterval:         expectedPaymentInterval,
+				MaxPaymentIntervalIncrease: expectedPaymentIntervalIncrease,
+			},
+		},
+		{name: "When CID info not found",
+			expFunc: func(t *testing.T, ps *tut.TestPieceStore) {
+				ps.ExpectMissingCID(payloadCID)
+			},
+			query: retrievalmarket.Query{
+				PayloadCID:  payloadCID,
+				QueryParams: retrievalmarket.QueryParams{PieceCID: expectedPieceCID},
+			},
+			expResp: retrievalmarket.QueryResponse{
+				Status:                     retrievalmarket.QueryResponseUnavailable,
+				PieceCIDFound:              retrievalmarket.QueryItemUnavailable,
+				PaymentAddress:             expectedAddress,
+				MinPricePerByte:            expectedPricePerByte,
+				MaxPaymentInterval:         expectedPaymentInterval,
+				MaxPaymentIntervalIncrease: expectedPaymentIntervalIncrease,
+			},
+		},
+	}
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			qs := readWriteQueryStream()
+			err := qs.WriteQuery(tc.query)
+			require.NoError(t, err)
+			pieceStore := tut.NewTestPieceStore()
+			pieceStore.ExpectCID(payloadCID, expectedCIDInfo)
+			pieceStore.ExpectMissingPiece(expectedPieceCID)
+
+			tc.expFunc(t, pieceStore)
+
+			receiveStreamOnProvider(qs, pieceStore)
+
+			actualResp, err := qs.ReadQueryResponse()
+			pieceStore.VerifyExpectations(t)
+			if tc.expErr == "" {
+				assert.NoError(t, err)
+			} else {
+				assert.EqualError(t, err, tc.expErr)
+			}
+			assert.Equal(t, tc.expResp, actualResp)
 		})
-		require.NoError(t, err)
-		pieceStore := tut.NewTestPieceStore()
-
-		pieceStore.ExpectCID(pcid, expectedCIDInfo)
-		pieceStore.ExpectPiece(expectedPieceCID, expectedPiece)
-
-		receiveStreamOnProvider(qs, pieceStore)
-
-		response, err := qs.ReadQueryResponse()
-		pieceStore.VerifyExpectations(t)
-		require.NoError(t, err)
-		require.Equal(t, response.Status, retrievalmarket.QueryResponseAvailable)
-		require.Equal(t, response.Size, expectedSize)
-		require.Equal(t, response.PaymentAddress, expectedAddress)
-		require.Equal(t, response.MinPricePerByte, expectedPricePerByte)
-		require.Equal(t, response.MaxPaymentInterval, expectedPaymentInterval)
-		require.Equal(t, response.MaxPaymentIntervalIncrease, expectedPaymentIntervalIncrease)
-	})
-
-	t.Run("piece not found", func(t *testing.T) {
-		qs := readWriteQueryStream()
-		err := qs.WriteQuery(retrievalmarket.Query{
-			PayloadCID: pcid,
-		})
-		require.NoError(t, err)
-		pieceStore := tut.NewTestPieceStore()
-		pieceStore.ExpectCID(pcid, expectedCIDInfo)
-		pieceStore.ExpectMissingPiece(expectedPieceCID)
-
-		receiveStreamOnProvider(qs, pieceStore)
-
-		response, err := qs.ReadQueryResponse()
-		pieceStore.VerifyExpectations(t)
-		require.NoError(t, err)
-		require.Equal(t, response.Status, retrievalmarket.QueryResponseUnavailable)
-		require.Equal(t, response.PaymentAddress, expectedAddress)
-		require.Equal(t, response.MinPricePerByte, expectedPricePerByte)
-		require.Equal(t, response.MaxPaymentInterval, expectedPaymentInterval)
-		require.Equal(t, response.MaxPaymentIntervalIncrease, expectedPaymentIntervalIncrease)
-	})
-
-	t.Run("cid info not found", func(t *testing.T) {
-		qs := readWriteQueryStream()
-		err := qs.WriteQuery(retrievalmarket.Query{
-			PayloadCID: pcid,
-		})
-		require.NoError(t, err)
-		pieceStore := tut.NewTestPieceStore()
-		pieceStore.ExpectMissingCID(pcid)
-
-		receiveStreamOnProvider(qs, pieceStore)
-
-		response, err := qs.ReadQueryResponse()
-		pieceStore.VerifyExpectations(t)
-		require.NoError(t, err)
-		require.Equal(t, response.Status, retrievalmarket.QueryResponseUnavailable)
-		require.Equal(t, response.PaymentAddress, expectedAddress)
-		require.Equal(t, response.MinPricePerByte, expectedPricePerByte)
-		require.Equal(t, response.MaxPaymentInterval, expectedPaymentInterval)
-		require.Equal(t, response.MaxPaymentIntervalIncrease, expectedPaymentIntervalIncrease)
-	})
+	}
 
 	t.Run("error reading piece", func(t *testing.T) {
 		qs := readWriteQueryStream()
 		err := qs.WriteQuery(retrievalmarket.Query{
-			PayloadCID: pcid,
+			PayloadCID: payloadCID,
 		})
 		require.NoError(t, err)
 		pieceStore := tut.NewTestPieceStore()
@@ -173,15 +211,46 @@ func TestHandleQueryStream(t *testing.T) {
 			RespWriter: tut.FailResponseWriter,
 		})
 		err := qs.WriteQuery(retrievalmarket.Query{
-			PayloadCID: pcid,
+			PayloadCID: payloadCID,
 		})
 		require.NoError(t, err)
 		pieceStore := tut.NewTestPieceStore()
-		pieceStore.ExpectCID(pcid, expectedCIDInfo)
+		pieceStore.ExpectCID(payloadCID, expectedCIDInfo)
 		pieceStore.ExpectPiece(expectedPieceCID, expectedPiece)
 
 		receiveStreamOnProvider(qs, pieceStore)
 
 		pieceStore.VerifyExpectations(t)
 	})
+
+}
+
+// loadPieceCIDS sets expectations to receive expectedPieceCID and 3 other random PieceCIDs to
+// disinguish the case of a PayloadCID is found but the PieceCID is not
+func loadPieceCIDS(t *testing.T, pieceStore *tut.TestPieceStore, expPayloadCID, expectedPieceCID cid.Cid) {
+
+	otherPieceCIDs := tut.GenerateCids(3)
+	expectedSize := uint64(1234)
+
+	blockLocs := make([]piecestore.PieceBlockLocation, 4)
+	expectedPieceInfo := piecestore.PieceInfo{
+		PieceCID: expectedPieceCID,
+		Deals: []piecestore.DealInfo{
+			{
+				Length: expectedSize,
+			},
+		},
+	}
+
+	blockLocs[0] = piecestore.PieceBlockLocation{PieceCID: expectedPieceCID}
+	for i, pieceCID := range otherPieceCIDs {
+		blockLocs[i+1] = piecestore.PieceBlockLocation{PieceCID: pieceCID}
+		pi := expectedPieceInfo
+		pi.PieceCID = pieceCID
+	}
+	if expectedPieceCID != cid.Undef {
+		pieceStore.ExpectPiece(expectedPieceCID, expectedPieceInfo)
+	}
+	expectedCIDInfo := piecestore.CIDInfo{PieceBlockLocations: blockLocs}
+	pieceStore.ExpectCID(expPayloadCID, expectedCIDInfo)
 }
