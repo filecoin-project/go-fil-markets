@@ -51,73 +51,99 @@ func TestClient_Query(t *testing.T) {
 		MaxPaymentIntervalIncrease: 0,
 	}
 
-	testCases := []struct {
-		name    string
-		expErr  string
-		expResp retrievalmarket.QueryResponse
-		qBldr   tut.QueryStreamBuilder
-	}{
-		{name: "it works",
-			expResp: expectedQueryResponse,
-			qBldr: func(p peer.ID) (rmnet.RetrievalQueryStream, error) {
-				return tut.NewTestRetrievalQueryStream(tut.TestQueryStreamParams{
-					Writer:     tut.ExpectQueryWriter(t, expectedQuery, "queries should match"),
-					RespReader: tut.StubbedQueryResponseReader(expectedQueryResponse),
-				}), nil
-			},
-		},
-		{name: "when the stream returns error, returns error",
-			expErr:  "new query stream failed",
-			expResp: retrievalmarket.QueryResponseUndefined,
-			qBldr:   tut.FailNewQueryStream,
-		},
-		{name: "when ReadQueryResponse fails, returns error",
-			expErr:  "query response failed",
-			expResp: retrievalmarket.QueryResponseUndefined,
-			qBldr: func(p peer.ID) (network.RetrievalQueryStream, error) {
-				newStream := tut.NewTestRetrievalQueryStream(tut.TestQueryStreamParams{
-					PeerID:     p,
-					RespReader: tut.FailResponseReader,
-				})
-				return newStream, nil
-			},
-		},
-		{name: "when WriteQuery fails, returns error",
-			expErr:  "write query failed",
-			expResp: retrievalmarket.QueryResponseUndefined,
-			qBldr: func(p peer.ID) (network.RetrievalQueryStream, error) {
-				newStream := tut.NewTestRetrievalQueryStream(tut.TestQueryStreamParams{
-					PeerID: p,
-					Writer: tut.FailQueryWriter,
-				})
-				return newStream, nil
-			},
-		},
-	}
-
-	for _, tc := range testCases {
-		t.Run(tc.name, func(t *testing.T) {
-			net := tut.NewTestRetrievalMarketNetwork(tut.TestNetworkParams{
-				QueryStreamBuilder: tc.qBldr,
-			})
-			c, err := retrievalimpl.NewClient(
-				net,
-				bs,
-				testnodes.NewTestRetrievalClientNode(testnodes.TestRetrievalClientNodeParams{}),
-				&testPeerResolver{},
-				ds,
-				storedCounter)
-			require.NoError(t, err)
-
-			actualResp, err := c.Query(ctx, rpeer, pcid, retrievalmarket.QueryParams{})
-			if tc.expErr == "" {
-				assert.NoError(t, err)
-			} else {
-				assert.EqualError(t, err, tc.expErr)
-			}
-			assert.Equal(t, tc.expResp, actualResp)
+	t.Run("it works", func(t *testing.T) {
+		var qsb tut.QueryStreamBuilder = func(p peer.ID) (rmnet.RetrievalQueryStream, error) {
+			return tut.NewTestRetrievalQueryStream(tut.TestQueryStreamParams{
+				Writer:     tut.ExpectQueryWriter(t, expectedQuery, "queries should match"),
+				RespReader: tut.StubbedQueryResponseReader(expectedQueryResponse),
+			}), nil
+		}
+		net := tut.NewTestRetrievalMarketNetwork(tut.TestNetworkParams{
+			QueryStreamBuilder: tut.ExpectPeerOnQueryStreamBuilder(t, expectedPeer, qsb, "Peers should match"),
 		})
-	}
+		c, err := retrievalimpl.NewClient(
+			net,
+			bs,
+			testnodes.NewTestRetrievalClientNode(testnodes.TestRetrievalClientNodeParams{}),
+			&testPeerResolver{},
+			ds,
+			storedCounter)
+		require.NoError(t, err)
+
+		resp, err := c.Query(ctx, rpeer, pcid, retrievalmarket.QueryParams{})
+		require.NoError(t, err)
+		assert.NotNil(t, resp)
+		assert.Equal(t, expectedQueryResponse, resp)
+	})
+
+	t.Run("when the stream returns error, returns error", func(t *testing.T) {
+		net := tut.NewTestRetrievalMarketNetwork(tut.TestNetworkParams{
+			QueryStreamBuilder: tut.FailNewQueryStream,
+		})
+		c, err := retrievalimpl.NewClient(
+			net,
+			bs,
+			testnodes.NewTestRetrievalClientNode(testnodes.TestRetrievalClientNodeParams{}),
+			&testPeerResolver{},
+			ds,
+			storedCounter)
+		require.NoError(t, err)
+
+		_, err = c.Query(ctx, rpeer, pcid, retrievalmarket.QueryParams{})
+		assert.EqualError(t, err, "new query stream failed")
+	})
+
+	t.Run("when WriteQuery fails, returns error", func(t *testing.T) {
+
+		qsbuilder := func(p peer.ID) (network.RetrievalQueryStream, error) {
+			newStream := tut.NewTestRetrievalQueryStream(tut.TestQueryStreamParams{
+				PeerID: p,
+				Writer: tut.FailQueryWriter,
+			})
+			return newStream, nil
+		}
+
+		net := tut.NewTestRetrievalMarketNetwork(tut.TestNetworkParams{
+			QueryStreamBuilder: qsbuilder,
+		})
+		c, err := retrievalimpl.NewClient(
+			net,
+			bs,
+			testnodes.NewTestRetrievalClientNode(testnodes.TestRetrievalClientNodeParams{}),
+			&testPeerResolver{},
+			ds,
+			storedCounter)
+		require.NoError(t, err)
+
+		statusCode, err := c.Query(ctx, rpeer, pcid, retrievalmarket.QueryParams{})
+		assert.EqualError(t, err, "write query failed")
+		assert.Equal(t, retrievalmarket.QueryResponseUndefined, statusCode)
+	})
+
+	t.Run("when ReadQueryResponse fails, returns error", func(t *testing.T) {
+		qsbuilder := func(p peer.ID) (network.RetrievalQueryStream, error) {
+			newStream := tut.NewTestRetrievalQueryStream(tut.TestQueryStreamParams{
+				PeerID:     p,
+				RespReader: tut.FailResponseReader,
+			})
+			return newStream, nil
+		}
+		net := tut.NewTestRetrievalMarketNetwork(tut.TestNetworkParams{
+			QueryStreamBuilder: qsbuilder,
+		})
+		c, err := retrievalimpl.NewClient(
+			net,
+			bs,
+			testnodes.NewTestRetrievalClientNode(testnodes.TestRetrievalClientNodeParams{}),
+			&testPeerResolver{},
+			ds,
+			storedCounter)
+		require.NoError(t, err)
+
+		statusCode, err := c.Query(ctx, rpeer, pcid, retrievalmarket.QueryParams{})
+		assert.EqualError(t, err, "query response failed")
+		assert.Equal(t, retrievalmarket.QueryResponseUndefined, statusCode)
+	})
 }
 
 func TestClient_FindProviders(t *testing.T) {
