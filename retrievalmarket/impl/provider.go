@@ -284,7 +284,6 @@ func (p *provider) NextBlock(ctx context.Context, id retrievalmarket.ProviderDea
 	return br.ReadBlock(ctx)
 }
 
-// TODO: add pieceCID param
 func (p *provider) GetPieceSize(c cid.Cid) (uint64, error) {
 	pieceInfo, err := getPieceInfoFromCid(p.pieceStore, c, cid.Undef)
 	if err != nil {
@@ -312,7 +311,7 @@ func getPieceInfoFromCid(pieceStore piecestore.PieceStore, payloadCID, pieceCID 
 		lastErr = err
 	}
 	if lastErr == nil {
-		lastErr = fmt.Errorf("unknown PieceCID %s", pieceCID.String())
+		lastErr = fmt.Errorf("unknown pieceCID %s", pieceCID.String())
 	}
 	return piecestore.PieceInfoUndefined, xerrors.Errorf("could not locate piece: %w", lastErr)
 }

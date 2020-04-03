@@ -103,6 +103,7 @@ func (tps *TestPieceStore) AddPieceBlockLocations(pieceCID cid.Cid, blockLocatio
 // GetPieceInfo returns a piece info if it's been stubbed
 func (tps *TestPieceStore) GetPieceInfo(pieceCID cid.Cid) (piecestore.PieceInfo, error) {
 	tps.piecesReceived[pieceCID] = struct{}{}
+
 	pio, ok := tps.piecesStubbed[pieceCID]
 	if ok {
 		return pio, nil

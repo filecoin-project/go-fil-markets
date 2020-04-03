@@ -87,13 +87,9 @@ func TestHandleQueryStream(t *testing.T) {
 			},
 			query: retrievalmarket.Query{PayloadCID: payloadCID},
 			expResp: retrievalmarket.QueryResponse{
-				Status:                     retrievalmarket.QueryResponseAvailable,
-				PieceCIDFound:              retrievalmarket.QueryItemUnavailable,
-				Size:                       expectedSize,
-				PaymentAddress:             expectedAddress,
-				MinPricePerByte:            expectedPricePerByte,
-				MaxPaymentInterval:         expectedPaymentInterval,
-				MaxPaymentIntervalIncrease: expectedPaymentIntervalIncrease,
+				Status:        retrievalmarket.QueryResponseAvailable,
+				PieceCIDFound: retrievalmarket.QueryItemUnavailable,
+				Size:          expectedSize,
 			},
 		},
 		{name: "When PieceCID is provided and both PieceCID and PayloadCID are found",
@@ -105,13 +101,9 @@ func TestHandleQueryStream(t *testing.T) {
 				QueryParams: retrievalmarket.QueryParams{PieceCID: expectedPieceCID},
 			},
 			expResp: retrievalmarket.QueryResponse{
-				Status:                     retrievalmarket.QueryResponseAvailable,
-				PieceCIDFound:              retrievalmarket.QueryItemAvailable,
-				Size:                       expectedSize,
-				PaymentAddress:             expectedAddress,
-				MinPricePerByte:            expectedPricePerByte,
-				MaxPaymentInterval:         expectedPaymentInterval,
-				MaxPaymentIntervalIncrease: expectedPaymentIntervalIncrease,
+				Status:        retrievalmarket.QueryResponseAvailable,
+				PieceCIDFound: retrievalmarket.QueryItemAvailable,
+				Size:          expectedSize,
 			},
 		},
 		{name: "When QueryParams has PieceCID and is missing",
@@ -125,12 +117,8 @@ func TestHandleQueryStream(t *testing.T) {
 				QueryParams: retrievalmarket.QueryParams{PieceCID: expectedPieceCID},
 			},
 			expResp: retrievalmarket.QueryResponse{
-				Status:                     retrievalmarket.QueryResponseUnavailable,
-				PieceCIDFound:              retrievalmarket.QueryItemUnavailable,
-				PaymentAddress:             expectedAddress,
-				MinPricePerByte:            expectedPricePerByte,
-				MaxPaymentInterval:         expectedPaymentInterval,
-				MaxPaymentIntervalIncrease: expectedPaymentIntervalIncrease,
+				Status:        retrievalmarket.QueryResponseUnavailable,
+				PieceCIDFound: retrievalmarket.QueryItemUnavailable,
 			},
 		},
 		{name: "When CID info not found",
@@ -142,12 +130,8 @@ func TestHandleQueryStream(t *testing.T) {
 				QueryParams: retrievalmarket.QueryParams{PieceCID: expectedPieceCID},
 			},
 			expResp: retrievalmarket.QueryResponse{
-				Status:                     retrievalmarket.QueryResponseUnavailable,
-				PieceCIDFound:              retrievalmarket.QueryItemUnavailable,
-				PaymentAddress:             expectedAddress,
-				MinPricePerByte:            expectedPricePerByte,
-				MaxPaymentInterval:         expectedPaymentInterval,
-				MaxPaymentIntervalIncrease: expectedPaymentIntervalIncrease,
+				Status:        retrievalmarket.QueryResponseUnavailable,
+				PieceCIDFound: retrievalmarket.QueryItemUnavailable,
 			},
 		},
 	}
@@ -171,6 +155,11 @@ func TestHandleQueryStream(t *testing.T) {
 			} else {
 				assert.EqualError(t, err, tc.expErr)
 			}
+
+			tc.expResp.PaymentAddress = expectedAddress
+			tc.expResp.MinPricePerByte = expectedPricePerByte
+			tc.expResp.MaxPaymentInterval = expectedPaymentInterval
+			tc.expResp.MaxPaymentIntervalIncrease = expectedPaymentIntervalIncrease
 			assert.Equal(t, tc.expResp, actualResp)
 		})
 	}
