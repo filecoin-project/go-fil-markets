@@ -55,8 +55,8 @@ var ClientEvents = fsm.Events{
 		}),
 	fsm.Event(storagemarket.ClientEventDealRejected).
 		From(storagemarket.StorageDealValidating).To(storagemarket.StorageDealFailing).
-		Action(func(deal *storagemarket.ClientDeal, state storagemarket.StorageDealStatus) error {
-			deal.Message = xerrors.Errorf("deal wasn't accepted (State=%d)", state).Error()
+		Action(func(deal *storagemarket.ClientDeal, state storagemarket.StorageDealStatus, reason string) error {
+			deal.Message = xerrors.Errorf("deal failed: (State=%d) %s", state, reason).Error()
 			return nil
 		}),
 	fsm.Event(storagemarket.ClientEventDealAccepted).
