@@ -80,7 +80,7 @@ func VerifyDealResponse(ctx fsm.Context, environment ClientDealEnvironment, deal
 	}
 
 	if resp.Response.State != storagemarket.StorageDealProposalAccepted {
-		return ctx.Trigger(storagemarket.ClientEventDealRejected, resp.Response.State)
+		return ctx.Trigger(storagemarket.ClientEventDealRejected, resp.Response.State, resp.Response.Message)
 	}
 
 	if err := environment.CloseStream(deal.ProposalCid); err != nil {

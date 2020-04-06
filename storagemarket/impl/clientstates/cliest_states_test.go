@@ -185,12 +185,14 @@ func TestVerifyResponse(t *testing.T) {
 				State:          storagemarket.StorageDealProposalRejected,
 				Proposal:       proposalNd.Cid(),
 				PublishMessage: publishMessage,
+				Message:        "because reasons",
 			},
 			Signature: tut.MakeTestSignature(),
 		}))
+		expErr := fmt.Sprintf("deal failed: (State=%d) because reasons", storagemarket.StorageDealProposalRejected)
 		runVerifyResponse(t, node(false), nil, stream, nil, func(deal storagemarket.ClientDeal) {
 			require.Equal(t, deal.State, storagemarket.StorageDealFailing)
-			require.Equal(t, deal.Message, fmt.Sprintf("deal wasn't accepted (State=%d)", storagemarket.StorageDealProposalRejected))
+			require.Equal(t, expErr, deal.Message)
 		})
 	})
 
