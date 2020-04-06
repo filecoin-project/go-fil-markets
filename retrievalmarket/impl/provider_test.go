@@ -88,7 +88,7 @@ func TestHandleQueryStream(t *testing.T) {
 			query: retrievalmarket.Query{PayloadCID: payloadCID},
 			expResp: retrievalmarket.QueryResponse{
 				Status:        retrievalmarket.QueryResponseAvailable,
-				PieceCIDFound: retrievalmarket.QueryItemUnavailable,
+				PieceCIDFound: retrievalmarket.QueryItemAvailable,
 				Size:          expectedSize,
 			},
 		},
@@ -98,7 +98,7 @@ func TestHandleQueryStream(t *testing.T) {
 			},
 			query: retrievalmarket.Query{
 				PayloadCID:  payloadCID,
-				QueryParams: retrievalmarket.QueryParams{PieceCID: expectedPieceCID},
+				QueryParams: retrievalmarket.QueryParams{PieceCID: &expectedPieceCID},
 			},
 			expResp: retrievalmarket.QueryResponse{
 				Status:        retrievalmarket.QueryResponseAvailable,
@@ -114,7 +114,7 @@ func TestHandleQueryStream(t *testing.T) {
 			},
 			query: retrievalmarket.Query{
 				PayloadCID:  payloadCID,
-				QueryParams: retrievalmarket.QueryParams{PieceCID: expectedPieceCID},
+				QueryParams: retrievalmarket.QueryParams{PieceCID: &expectedPieceCID},
 			},
 			expResp: retrievalmarket.QueryResponse{
 				Status:        retrievalmarket.QueryResponseUnavailable,
@@ -127,7 +127,7 @@ func TestHandleQueryStream(t *testing.T) {
 			},
 			query: retrievalmarket.Query{
 				PayloadCID:  payloadCID,
-				QueryParams: retrievalmarket.QueryParams{PieceCID: expectedPieceCID},
+				QueryParams: retrievalmarket.QueryParams{PieceCID: &expectedPieceCID},
 			},
 			expResp: retrievalmarket.QueryResponse{
 				Status:        retrievalmarket.QueryResponseUnavailable,

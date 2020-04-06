@@ -3,7 +3,6 @@ package retrievalimpl
 import (
 	"context"
 	"errors"
-	"fmt"
 	"reflect"
 	"sync"
 
@@ -189,16 +188,17 @@ func (p *provider) HandleQueryStream(stream rmnet.RetrievalQueryStream) {
 	} else {
 		answer.PaymentAddress = paymentAddress
 
-		pieceInfo, err := getPieceInfoFromCid(p.pieceStore, query.PayloadCID, query.PieceCID)
+		pieceCID := cid.Undef
+		if query.PieceCID != nil {
+			pieceCID = *query.PieceCID
+		}
+		pieceInfo, err := getPieceInfoFromCid(p.pieceStore, query.PayloadCID, pieceCID)
 
 		if err == nil && len(pieceInfo.Deals) > 0 {
 			answer.Status = retrievalmarket.QueryResponseAvailable
 			// TODO: get price, look for already unsealed ref to reduce work
 			answer.Size = uint64(pieceInfo.Deals[0].Length) // TODO: verify on intermediate
-
-			if query.PieceCID != cid.Undef {
-				answer.PieceCIDFound = retrievalmarket.QueryItemAvailable
-			}
+			answer.PieceCIDFound = retrievalmarket.QueryItemAvailable
 		}
 
 		if err != nil && !xerrors.Is(err, retrievalmarket.ErrNotFound) {
@@ -304,14 +304,14 @@ func getPieceInfoFromCid(pieceStore piecestore.PieceStore, payloadCID, pieceCID 
 	for _, pieceBlockLocation := range cidInfo.PieceBlockLocations {
 		pieceInfo, err := pieceStore.GetPieceInfo(pieceBlockLocation.PieceCID)
 		if err == nil {
-			if pieceCID == cid.Undef || pieceInfo.PieceCID == pieceCID {
+			if pieceCID.Equals(cid.Undef) || pieceInfo.PieceCID.Equals(pieceCID) {
 				return pieceInfo, nil
 			}
 		}
 		lastErr = err
 	}
 	if lastErr == nil {
-		lastErr = fmt.Errorf("unknown pieceCID %s", pieceCID.String())
+		lastErr = xerrors.Errorf("unknown pieceCID %s", pieceCID.String())
 	}
 	return piecestore.PieceInfoUndefined, xerrors.Errorf("could not locate piece: %w", lastErr)
 }

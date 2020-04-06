@@ -373,7 +373,7 @@ const (
 // client is interested in, as well as specific parameters the client is seeking
 // for the retrieval deal
 type QueryParams struct {
-	PieceCID cid.Cid // optional, query if miner has this cid in this piece. some miners may not be able to respond.
+	PieceCID *cid.Cid // optional, query if miner has this cid in this piece. some miners may not be able to respond.
 	//Selector                   ipld.Node // optional, query if miner has this cid in this piece. some miners may not be able to respond.
 	//MaxPricePerByte            abi.TokenAmount    // optional, tell miner uninterested if more expensive than this
 	//MinPaymentInterval         uint64    // optional, tell miner uninterested unless payment interval is greater than this
