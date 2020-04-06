@@ -3,6 +3,7 @@ package storagemarket_test
 import (
 	"bytes"
 	"context"
+	"github.com/filecoin-project/go-fil-markets/pieceio"
 	"io/ioutil"
 	"reflect"
 	"testing"
@@ -201,6 +202,19 @@ func TestMakeDealOffline(t *testing.T) {
 		TransferType: storagemarket.TTManual,
 		Root:         payloadCid,
 	}
+
+	carBuf := new(bytes.Buffer)
+
+	err = cario.NewCarIO().WriteCar(ctx, td.Bs1, payloadCid, td.AllSelector, carBuf)
+	require.NoError(t, err)
+
+	commP, size, err := pieceio.GeneratePieceCommitment(abi.RegisteredProof_StackedDRG2KiBPoSt, carBuf, uint64(carBuf.Len()))
+
+	assert.NoError(t, err)
+
+	dataRef.PieceCid = &commP
+	dataRef.PieceSize = size
+
 	result, err := client.ProposeStorageDeal(ctx, providerAddr, &providerInfo, dataRef, abi.ChainEpoch(epoch+100), abi.ChainEpoch(epoch+20100), big.NewInt(1), big.NewInt(0), abi.RegisteredProof_StackedDRG2KiBPoSt)
 	assert.NoError(t, err)
 
@@ -218,8 +232,6 @@ func TestMakeDealOffline(t *testing.T) {
 	pd := providerDeals[0]
 	assert.True(t, pd.ProposalCid.Equals(proposalCid))
 	assert.Equal(t, pd.State, storagemarket.StorageDealWaitingForData)
-
-	carBuf := new(bytes.Buffer)
 
 	err = cario.NewCarIO().WriteCar(ctx, td.Bs1, payloadCid, td.AllSelector, carBuf)
 	require.NoError(t, err)

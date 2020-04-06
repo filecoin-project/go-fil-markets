@@ -395,8 +395,8 @@ type DataRef struct {
 	TransferType string
 	Root         cid.Cid
 
-	PieceCid  *cid.Cid // Optional, will be recomputed from the data if not given
-	PieceSize abi.UnpaddedPieceSize
+	PieceCid  *cid.Cid              // Optional for non-manual transfer, will be recomputed from the data if not given
+	PieceSize abi.UnpaddedPieceSize // Optional for non-manual transfer, will be recomputed from the data if not given
 }
 
 // The interface provided by the module to the outside world for storage clients.
