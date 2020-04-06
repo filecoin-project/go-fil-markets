@@ -24,6 +24,10 @@ func CommP(ctx context.Context, pieceIO pieceio.PieceIO, rt abi.RegisteredProof,
 	if data.PieceCid != nil {
 		return *data.PieceCid, data.PieceSize, nil
 	}
+
+	if data.TransferType == storagemarket.TTManual {
+		return cid.Undef, 0, xerrors.New("Piece CID and size must be set for manual transfer")
+	}
 	ssb := builder.NewSelectorSpecBuilder(ipldfree.NodeBuilder())
 
 	// entire DAG selector
