@@ -548,7 +548,7 @@ func NewParamsV1(pricePerByte abi.TokenAmount, paymentInterval uint64, paymentIn
 	}
 
 	return Params{
-		Selector:                &cbg.Deferred{buffer.Bytes()},
+		Selector:                &cbg.Deferred{Raw: buffer.Bytes()},
 		PricePerByte:            pricePerByte,
 		PaymentInterval:         paymentInterval,
 		PaymentIntervalIncrease: paymentIntervalIncrease,
