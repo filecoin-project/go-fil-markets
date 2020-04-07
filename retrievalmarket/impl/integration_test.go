@@ -11,7 +11,11 @@ import (
 	"github.com/filecoin-project/specs-actors/actors/abi/big"
 	"github.com/filecoin-project/specs-actors/actors/builtin/paych"
 	"github.com/ipfs/go-cid"
+	"github.com/ipld/go-ipld-prime"
+	ipldfree "github.com/ipld/go-ipld-prime/impl/free"
 	cidlink "github.com/ipld/go-ipld-prime/linking/cid"
+	"github.com/ipld/go-ipld-prime/traversal/selector"
+	"github.com/ipld/go-ipld-prime/traversal/selector/builder"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -124,12 +128,24 @@ func requireSetupTestClientAndProvider(bgCtx context.Context, t *testing.T, payC
 func TestClientCanMakeDealWithProvider(t *testing.T) {
 	// -------- SET UP PROVIDER
 
+	ssb := builder.NewSelectorSpecBuilder(ipldfree.NodeBuilder())
+
+	allSelector := ssb.ExploreRecursive(selector.RecursionLimitNone(),
+		ssb.ExploreAll(ssb.ExploreRecursiveEdge())).Node()
+
+	partialSelector := ssb.ExploreFields(func(specBuilder builder.ExploreFieldsSpecBuilder) {
+		specBuilder.Insert("Links", ssb.ExploreIndex(0, ssb.ExploreFields(func(specBuilder builder.ExploreFieldsSpecBuilder) {
+			specBuilder.Insert("Hash", ssb.Matcher())
+		})))
+	}).Node()
+
 	testCases := []struct {
-		name        string
-		filename    string
-		filesize    uint64
-		voucherAmts []abi.TokenAmount
-		unsealing   bool
+		name                string
+		filename            string
+		filesize            uint64
+		voucherAmts         []abi.TokenAmount
+		selector            ipld.Node
+		paramsV1, unsealing bool
 	}{
 		{name: "1 block file retrieval succeeds",
 			filename:    "lorem_under_1_block.txt",
@@ -151,6 +167,20 @@ func TestClientCanMakeDealWithProvider(t *testing.T) {
 			filesize:    19000,
 			voucherAmts: []abi.TokenAmount{abi.NewTokenAmount(10136000), abi.NewTokenAmount(9784000)},
 			unsealing:   true},
+		{name: "multi-block file retrieval succeeds with V1 params and allSelector",
+			filename:    "lorem.txt",
+			filesize:    19000,
+			voucherAmts: []abi.TokenAmount{abi.NewTokenAmount(10136000), abi.NewTokenAmount(9784000)},
+			paramsV1:    true,
+			selector:    allSelector,
+			unsealing:   false},
+		{name: "partial file retrieval succeeds with V1 params and selector recursion depth 1",
+			filename:    "lorem.txt",
+			filesize:    1024,
+			voucherAmts: []abi.TokenAmount{abi.NewTokenAmount(1944000)},
+			paramsV1:    true,
+			selector:    partialSelector,
+			unsealing:   false},
 	}
 
 	for i, testCase := range testCases {
@@ -285,7 +315,13 @@ CurrentInterval: %d
 			require.NoError(t, err)
 			require.Equal(t, retrievalmarket.QueryResponseAvailable, resp.Status)
 
-			rmParams := retrievalmarket.NewParamsV0(pricePerByte, paymentInterval, paymentIntervalIncrease)
+			var rmParams retrievalmarket.Params
+			if testCase.paramsV1 {
+				rmParams = retrievalmarket.NewParamsV1(pricePerByte, paymentInterval, paymentIntervalIncrease, testCase.selector)
+
+			} else {
+				rmParams = retrievalmarket.NewParamsV0(pricePerByte, paymentInterval, paymentIntervalIncrease)
+			}
 
 			// *** Retrieve the piece
 			did, err := client.Retrieve(bgCtx, payloadCID, rmParams, expectedTotal, retrievalPeer.ID, clientPaymentChannel, retrievalPeer.Address)
@@ -325,7 +361,7 @@ CurrentInterval: %d
 
 			// verify that the provider saved the same voucher values
 			providerNode.VerifyExpectations(t)
-			testData.VerifyFileTransferred(t, pieceLink, false)
+			testData.VerifyFileTransferred(t, pieceLink, false, testCase.filesize)
 		})
 	}
 

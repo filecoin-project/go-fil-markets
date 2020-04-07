@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"errors"
 	"io"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"testing"
@@ -198,7 +197,7 @@ func (ltd *Libp2pTestData) LoadUnixFSFile(t *testing.T, filename string, useSeco
 }
 
 // VerifyFileTransferred checks that the fixture file was sent from one node to the other.
-func (ltd *Libp2pTestData) VerifyFileTransferred(t *testing.T, link ipld.Link, useSecondNode bool) {
+func (ltd *Libp2pTestData) VerifyFileTransferred(t *testing.T, link ipld.Link, useSecondNode bool, readLen uint64) {
 	var dagService ipldformat.DAGService
 	if useSecondNode {
 		dagService = ltd.DagService2
@@ -220,9 +219,10 @@ func (ltd *Libp2pTestData) VerifyFileTransferred(t *testing.T, link ipld.Link, u
 	require.True(t, ok)
 
 	// Read the bytes for the UnixFS File
-	finalBytes, err := ioutil.ReadAll(fn)
+	finalBytes := make([]byte, readLen)
+	_, err = fn.Read(finalBytes)
 	require.NoError(t, err)
 
 	// verify original bytes match final bytes!
-	require.EqualValues(t, ltd.OrigBytes, finalBytes)
+	require.EqualValues(t, ltd.OrigBytes[:readLen], finalBytes)
 }
