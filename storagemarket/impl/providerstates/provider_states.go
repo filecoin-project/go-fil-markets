@@ -83,6 +83,11 @@ func ValidateDealProposal(ctx fsm.Context, environment ProviderDealEnvironment, 
 			xerrors.Errorf("piece size less than minimum required size: %d < %d", deal.Proposal.PieceSize, environment.Ask().MinPieceSize))
 	}
 
+	if deal.Proposal.PieceSize > environment.Ask().MaxPieceSize {
+		return ctx.Trigger(storagemarket.ProviderEventDealRejected,
+			xerrors.Errorf("piece size more than maximum allowed size: %d > %d", deal.Proposal.PieceSize, environment.Ask().MaxPieceSize))
+	}
+
 	// check market funds
 	clientMarketBalance, err := environment.Node().GetBalance(ctx.Context(), deal.Proposal.Client, tok)
 	if err != nil {

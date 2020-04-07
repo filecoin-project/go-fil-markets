@@ -96,7 +96,7 @@ func TestMakeDeal(t *testing.T) {
 		Address:    providerAddr,
 		Owner:      providerAddr,
 		Worker:     providerAddr,
-		SectorSize: 32,
+		SectorSize: 1 << 20,
 		PeerID:     td.Host2.ID(),
 	}
 
@@ -190,7 +190,7 @@ func TestMakeDealOffline(t *testing.T) {
 		Address:    providerAddr,
 		Owner:      providerAddr,
 		Worker:     providerAddr,
-		SectorSize: 32,
+		SectorSize: 1 << 20,
 		PeerID:     td.Host2.ID(),
 	}
 

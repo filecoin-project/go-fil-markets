@@ -2,6 +2,7 @@ package storageimpl
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/filecoin-project/go-address"
 	cborutil "github.com/filecoin-project/go-cbor-util"
@@ -205,7 +206,7 @@ func (c *Client) ProposeStorageDeal(
 	}
 
 	if uint64(pieceSize.Padded()) > info.SectorSize {
-		return nil, xerrors.New("Cannot propose a deal whose piece size is greater than sector size")
+		return nil, fmt.Errorf("cannot propose a deal whose piece size (%d) is greater than sector size (%d)", pieceSize.Padded(), info.SectorSize)
 	}
 
 	dealProposal := market.DealProposal{

@@ -89,6 +89,7 @@ type StorageAsk struct {
 	Price abi.TokenAmount
 
 	MinPieceSize abi.PaddedPieceSize
+	MaxPieceSize abi.PaddedPieceSize
 	Miner        address.Address
 	Timestamp    abi.ChainEpoch
 	Expiry       abi.ChainEpoch
@@ -267,7 +268,7 @@ type StorageProvider interface {
 
 	Stop() error
 
-	AddAsk(price abi.TokenAmount, duration abi.ChainEpoch) error
+	AddAsk(price abi.TokenAmount, duration abi.ChainEpoch, bounds ...abi.PaddedPieceSize) error
 
 	// ListAsks lists current asks
 	ListAsks(addr address.Address) []*SignedStorageAsk

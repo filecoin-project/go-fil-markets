@@ -3,6 +3,7 @@ package storedask
 import (
 	"bytes"
 	"context"
+	storageimpl "github.com/filecoin-project/go-fil-markets/storagemarket/impl"
 	"sync"
 
 	"github.com/filecoin-project/go-address"
@@ -21,6 +22,9 @@ var defaultPrice = abi.NewTokenAmount(500_000_000)
 
 const defaultDuration abi.ChainEpoch = 1000000
 const defaultMinPieceSize abi.PaddedPieceSize = 256
+
+// It would be nice to default this to the miner's sector size
+const defaultMaxPieceSize abi.PaddedPieceSize = 1 << 20
 
 type StoredAsk struct {
 	askLk sync.RWMutex
@@ -45,14 +49,14 @@ func NewStoredAsk(ds datastore.Batching, spn storagemarket.StorageProviderNode, 
 	if s.ask == nil {
 		// TODO: we should be fine with this state, and just say it means 'not actively accepting deals'
 		// for now... lets just set a price
-		if err := s.AddAsk(defaultPrice, defaultDuration); err != nil {
+		if err := s.AddAsk(defaultPrice, defaultDuration, nil); err != nil {
 			return nil, xerrors.Errorf("failed setting a default price: %w", err)
 		}
 	}
 	return s, nil
 }
 
-func (s *StoredAsk) AddAsk(price abi.TokenAmount, duration abi.ChainEpoch) error {
+func (s *StoredAsk) AddAsk(price abi.TokenAmount, duration abi.ChainEpoch, options ...storageimpl.StorageAskOption) error {
 	s.askLk.Lock()
 	defer s.askLk.Unlock()
 	var seqno uint64
@@ -73,6 +77,11 @@ func (s *StoredAsk) AddAsk(price abi.TokenAmount, duration abi.ChainEpoch) error
 		Miner:        s.actor,
 		SeqNo:        seqno,
 		MinPieceSize: defaultMinPieceSize,
+		MaxPieceSize: defaultMaxPieceSize,
+	}
+
+	for _, option := range options {
+		option(ask)
 	}
 
 	tok, _, err := s.spn.GetChainHead(ctx)
