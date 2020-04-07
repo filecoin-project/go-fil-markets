@@ -285,11 +285,7 @@ CurrentInterval: %d
 			require.NoError(t, err)
 			require.Equal(t, retrievalmarket.QueryResponseAvailable, resp.Status)
 
-			rmParams := retrievalmarket.Params{
-				PricePerByte:            pricePerByte,
-				PaymentInterval:         paymentInterval,
-				PaymentIntervalIncrease: paymentIntervalIncrease,
-			}
+			rmParams := retrievalmarket.NewParamsV0(pricePerByte, paymentInterval, paymentIntervalIncrease)
 
 			// *** Retrieve the piece
 			did, err := client.Retrieve(bgCtx, payloadCID, rmParams, expectedTotal, retrievalPeer.ID, clientPaymentChannel, retrievalPeer.Address)

@@ -36,7 +36,7 @@ require (
 	github.com/libp2p/go-libp2p-core v0.3.0
 	github.com/multiformats/go-multihash v0.0.13
 	github.com/stretchr/testify v1.4.0
-	github.com/whyrusleeping/cbor-gen v0.0.0-20200206220010-03c9665e2a66
+	github.com/whyrusleeping/cbor-gen v0.0.0-20200402171437-3d27c146c105
 	golang.org/x/net v0.0.0-20190724013045-ca1201d0de80
 	golang.org/x/xerrors v0.0.0-20191204190536-9bdfabe68543
 )

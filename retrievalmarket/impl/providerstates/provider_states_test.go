@@ -47,11 +47,7 @@ func TestReceiveDeal(t *testing.T) {
 	proposal := retrievalmarket.DealProposal{
 		ID:         retrievalmarket.DealID(10),
 		PayloadCID: expectedPiece,
-		Params: retrievalmarket.Params{
-			PricePerByte:            defaultPricePerByte,
-			PaymentInterval:         defaultCurrentInterval,
-			PaymentIntervalIncrease: defaultIntervalIncrease,
-		},
+		Params:     retrievalmarket.NewParamsV0(defaultPricePerByte, defaultCurrentInterval, defaultIntervalIncrease),
 	}
 
 	blankDealState := func() *retrievalmarket.ProviderDealState {
@@ -465,12 +461,8 @@ func makeDealState(status retrievalmarket.DealStatus) *retrievalmarket.ProviderD
 		CurrentInterval: defaultCurrentInterval,
 		FundsReceived:   defaultFundsReceived,
 		DealProposal: retrievalmarket.DealProposal{
-			ID: dealID,
-			Params: retrievalmarket.Params{
-				PricePerByte:            defaultPricePerByte,
-				PaymentInterval:         defaultCurrentInterval,
-				PaymentIntervalIncrease: defaultIntervalIncrease,
-			},
+			ID:     dealID,
+			Params: retrievalmarket.NewParamsV0(defaultPricePerByte, defaultCurrentInterval, defaultIntervalIncrease),
 		},
 	}
 }

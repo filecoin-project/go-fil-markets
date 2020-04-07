@@ -1,6 +1,7 @@
 package retrievalmarket
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"fmt"
@@ -11,7 +12,10 @@ import (
 	"github.com/filecoin-project/specs-actors/actors/abi/big"
 	"github.com/filecoin-project/specs-actors/actors/builtin/paych"
 	"github.com/ipfs/go-cid"
+	"github.com/ipld/go-ipld-prime"
+	"github.com/ipld/go-ipld-prime/encoding/dagcbor"
 	"github.com/libp2p/go-libp2p-core/peer"
+	cbg "github.com/whyrusleeping/cbor-gen"
 
 	"github.com/filecoin-project/go-fil-markets/shared"
 )
@@ -520,7 +524,7 @@ func IsTerminalStatus(status DealStatus) bool {
 
 // Params are the parameters requested for a retrieval deal proposal
 type Params struct {
-	//Selector                ipld.Node // V1
+	Selector                *cbg.Deferred // V1
 	PricePerByte            abi.TokenAmount
 	PaymentInterval         uint64 // when to request payment
 	PaymentIntervalIncrease uint64 //
@@ -529,6 +533,22 @@ type Params struct {
 // NewParamsV0 generates parameters for a retrieval deal, which is always a whole piece deal
 func NewParamsV0(pricePerByte abi.TokenAmount, paymentInterval uint64, paymentIntervalIncrease uint64) Params {
 	return Params{
+		PricePerByte:            pricePerByte,
+		PaymentInterval:         paymentInterval,
+		PaymentIntervalIncrease: paymentIntervalIncrease,
+	}
+}
+
+// NewParamsV1 generates parameters for a retrieval deal, including a selector
+func NewParamsV1(pricePerByte abi.TokenAmount, paymentInterval uint64, paymentIntervalIncrease uint64, sel ipld.Node) Params {
+	var buffer bytes.Buffer
+	err := dagcbor.Encoder(sel, &buffer)
+	if err != nil {
+		return Params{}
+	}
+
+	return Params{
+		Selector:                &cbg.Deferred{Raw: buffer.Bytes()},
 		PricePerByte:            pricePerByte,
 		PaymentInterval:         paymentInterval,
 		PaymentIntervalIncrease: paymentIntervalIncrease,
