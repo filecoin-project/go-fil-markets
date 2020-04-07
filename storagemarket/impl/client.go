@@ -204,6 +204,10 @@ func (c *Client) ProposeStorageDeal(
 		return nil, xerrors.Errorf("computing commP failed: %w", err)
 	}
 
+	if uint64(pieceSize.Padded()) > info.SectorSize {
+		return nil, xerrors.New("Cannot propose a deal whose piece size is greater than sector size")
+	}
+
 	dealProposal := market.DealProposal{
 		PieceCID:             commP,
 		PieceSize:            pieceSize.Padded(),
