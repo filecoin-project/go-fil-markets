@@ -39,6 +39,7 @@ func TestClientCanMakeQueryToProvider(t *testing.T) {
 	})
 
 	t.Run("when piece is not found, returns unavailable", func(t *testing.T) {
+		expectedQR.PieceCIDFound = retrievalmarket.QueryItemUnavailable
 		expectedQR.Status = retrievalmarket.QueryResponseUnavailable
 		expectedQR.Size = 0
 		actualQR, err := client.Query(bgCtx, retrievalPeer, missingPiece, retrievalmarket.QueryParams{})

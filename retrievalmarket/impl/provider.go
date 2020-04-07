@@ -166,6 +166,7 @@ func (p *provider) HandleQueryStream(stream rmnet.RetrievalQueryStream) {
 
 	answer := retrievalmarket.QueryResponse{
 		Status:                     retrievalmarket.QueryResponseUnavailable,
+		PieceCIDFound:              retrievalmarket.QueryItemUnavailable,
 		MinPricePerByte:            p.pricePerByte,
 		MaxPaymentInterval:         p.paymentInterval,
 		MaxPaymentIntervalIncrease: p.paymentIntervalIncrease,
@@ -186,12 +187,18 @@ func (p *provider) HandleQueryStream(stream rmnet.RetrievalQueryStream) {
 		answer.Message = err.Error()
 	} else {
 		answer.PaymentAddress = paymentAddress
-		pieceInfo, err := getPieceInfoFromCid(p.pieceStore, query.PayloadCID)
+
+		pieceCID := cid.Undef
+		if query.PieceCID != nil {
+			pieceCID = *query.PieceCID
+		}
+		pieceInfo, err := getPieceInfoFromCid(p.pieceStore, query.PayloadCID, pieceCID)
 
 		if err == nil && len(pieceInfo.Deals) > 0 {
 			answer.Status = retrievalmarket.QueryResponseAvailable
 			// TODO: get price, look for already unsealed ref to reduce work
 			answer.Size = uint64(pieceInfo.Deals[0].Length) // TODO: verify on intermediate
+			answer.PieceCIDFound = retrievalmarket.QueryItemAvailable
 		}
 
 		if err != nil && !xerrors.Is(err, retrievalmarket.ErrNotFound) {
@@ -199,6 +206,7 @@ func (p *provider) HandleQueryStream(stream rmnet.RetrievalQueryStream) {
 			answer.Status = retrievalmarket.QueryResponseError
 			answer.Message = err.Error()
 		}
+
 	}
 	if err := stream.WriteQueryResponse(answer); err != nil {
 		log.Errorf("Retrieval query: WriteCborRPC: %s", err)
@@ -277,7 +285,7 @@ func (p *provider) NextBlock(ctx context.Context, id retrievalmarket.ProviderDea
 }
 
 func (p *provider) GetPieceSize(c cid.Cid) (uint64, error) {
-	pieceInfo, err := getPieceInfoFromCid(p.pieceStore, c)
+	pieceInfo, err := getPieceInfoFromCid(p.pieceStore, c, cid.Undef)
 	if err != nil {
 		return 0, err
 	}
@@ -287,8 +295,8 @@ func (p *provider) GetPieceSize(c cid.Cid) (uint64, error) {
 	return pieceInfo.Deals[0].Length, nil
 }
 
-func getPieceInfoFromCid(pieceStore piecestore.PieceStore, c cid.Cid) (piecestore.PieceInfo, error) {
-	cidInfo, err := pieceStore.GetCIDInfo(c)
+func getPieceInfoFromCid(pieceStore piecestore.PieceStore, payloadCID, pieceCID cid.Cid) (piecestore.PieceInfo, error) {
+	cidInfo, err := pieceStore.GetCIDInfo(payloadCID)
 	if err != nil {
 		return piecestore.PieceInfoUndefined, xerrors.Errorf("get cid info: %w", err)
 	}
@@ -296,9 +304,14 @@ func getPieceInfoFromCid(pieceStore piecestore.PieceStore, c cid.Cid) (piecestor
 	for _, pieceBlockLocation := range cidInfo.PieceBlockLocations {
 		pieceInfo, err := pieceStore.GetPieceInfo(pieceBlockLocation.PieceCID)
 		if err == nil {
-			return pieceInfo, nil
+			if pieceCID.Equals(cid.Undef) || pieceInfo.PieceCID.Equals(pieceCID) {
+				return pieceInfo, nil
+			}
 		}
 		lastErr = err
+	}
+	if lastErr == nil {
+		lastErr = xerrors.Errorf("unknown pieceCID %s", pieceCID.String())
 	}
 	return piecestore.PieceInfoUndefined, xerrors.Errorf("could not locate piece: %w", lastErr)
 }

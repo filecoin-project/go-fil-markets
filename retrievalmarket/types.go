@@ -373,7 +373,7 @@ const (
 // client is interested in, as well as specific parameters the client is seeking
 // for the retrieval deal
 type QueryParams struct {
-	//PayloadCID                 cid.Cid   // optional, query if miner has this cid in this piece. some miners may not be able to respond.
+	PieceCID *cid.Cid // optional, query if miner has this cid in this piece. some miners may not be able to respond.
 	//Selector                   ipld.Node // optional, query if miner has this cid in this piece. some miners may not be able to respond.
 	//MaxPricePerByte            abi.TokenAmount    // optional, tell miner uninterested if more expensive than this
 	//MinPaymentInterval         uint64    // optional, tell miner uninterested unless payment interval is greater than this
@@ -383,8 +383,8 @@ type QueryParams struct {
 // Query is a query to a given provider to determine information about a piece
 // they may have available for retrieval
 type Query struct {
-	PayloadCID cid.Cid // V0
-	// QueryParams        // V1
+	PayloadCID  cid.Cid // V0
+	QueryParams         // V1
 }
 
 // QueryUndefined is a query with no values
@@ -397,8 +397,8 @@ func NewQueryV0(payloadCID cid.Cid) Query {
 
 // QueryResponse is a miners response to a given retrieval query
 type QueryResponse struct {
-	Status QueryResponseStatus
-	//PayloadCIDFound QueryItemStatus // V1 - if a PayloadCid was requested, the result
+	Status        QueryResponseStatus
+	PieceCIDFound QueryItemStatus // V1 - if a PieceCID was requested, the result
 	//SelectorFound   QueryItemStatus // V1 - if a Selector was requested, the result
 
 	Size uint64 // Total size of piece in bytes
