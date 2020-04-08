@@ -525,6 +525,7 @@ func IsTerminalStatus(status DealStatus) bool {
 // Params are the parameters requested for a retrieval deal proposal
 type Params struct {
 	Selector                *cbg.Deferred // V1
+	PieceCID                *cid.Cid
 	PricePerByte            abi.TokenAmount
 	PaymentInterval         uint64 // when to request payment
 	PaymentIntervalIncrease uint64 //
@@ -540,7 +541,7 @@ func NewParamsV0(pricePerByte abi.TokenAmount, paymentInterval uint64, paymentIn
 }
 
 // NewParamsV1 generates parameters for a retrieval deal, including a selector
-func NewParamsV1(pricePerByte abi.TokenAmount, paymentInterval uint64, paymentIntervalIncrease uint64, sel ipld.Node) Params {
+func NewParamsV1(pricePerByte abi.TokenAmount, paymentInterval uint64, paymentIntervalIncrease uint64, sel ipld.Node, pieceCid *cid.Cid) Params {
 	var buffer bytes.Buffer
 	err := dagcbor.Encoder(sel, &buffer)
 	if err != nil {
@@ -549,6 +550,7 @@ func NewParamsV1(pricePerByte abi.TokenAmount, paymentInterval uint64, paymentIn
 
 	return Params{
 		Selector:                &cbg.Deferred{Raw: buffer.Bytes()},
+		PieceCID:                pieceCid,
 		PricePerByte:            pricePerByte,
 		PaymentInterval:         paymentInterval,
 		PaymentIntervalIncrease: paymentIntervalIncrease,

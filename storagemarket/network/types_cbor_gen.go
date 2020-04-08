@@ -51,7 +51,7 @@ func (t *AskRequest) UnmarshalCBOR(r io.Reader) error {
 	{
 
 		if err := t.Miner.UnmarshalCBOR(br); err != nil {
-			return err
+			return xerrors.Errorf("unmarshaling t.Miner: %w", err)
 		}
 
 	}
@@ -105,7 +105,7 @@ func (t *AskResponse) UnmarshalCBOR(r io.Reader) error {
 		} else {
 			t.Ask = new(storagemarket.SignedStorageAsk)
 			if err := t.Ask.UnmarshalCBOR(br); err != nil {
-				return err
+				return xerrors.Errorf("unmarshaling t.Ask pointer: %w", err)
 			}
 		}
 
@@ -165,7 +165,7 @@ func (t *Proposal) UnmarshalCBOR(r io.Reader) error {
 		} else {
 			t.DealProposal = new(market.ClientDealProposal)
 			if err := t.DealProposal.UnmarshalCBOR(br); err != nil {
-				return err
+				return xerrors.Errorf("unmarshaling t.DealProposal pointer: %w", err)
 			}
 		}
 
@@ -186,7 +186,7 @@ func (t *Proposal) UnmarshalCBOR(r io.Reader) error {
 		} else {
 			t.Piece = new(storagemarket.DataRef)
 			if err := t.Piece.UnmarshalCBOR(br); err != nil {
-				return err
+				return xerrors.Errorf("unmarshaling t.Piece pointer: %w", err)
 			}
 		}
 
@@ -204,6 +204,7 @@ func (t *Response) MarshalCBOR(w io.Writer) error {
 	}
 
 	// t.State (uint64) (uint64)
+
 	if _, err := w.Write(cbg.CborEncodeMajorType(cbg.MajUnsignedInt, uint64(t.State))); err != nil {
 		return err
 	}
@@ -258,14 +259,18 @@ func (t *Response) UnmarshalCBOR(r io.Reader) error {
 
 	// t.State (uint64) (uint64)
 
-	maj, extra, err = cbg.CborReadHeader(br)
-	if err != nil {
-		return err
+	{
+
+		maj, extra, err = cbg.CborReadHeader(br)
+		if err != nil {
+			return err
+		}
+		if maj != cbg.MajUnsignedInt {
+			return fmt.Errorf("wrong type for uint64 field")
+		}
+		t.State = uint64(extra)
+
 	}
-	if maj != cbg.MajUnsignedInt {
-		return fmt.Errorf("wrong type for uint64 field")
-	}
-	t.State = uint64(extra)
 	// t.Message (string) (string)
 
 	{
@@ -356,7 +361,7 @@ func (t *SignedResponse) UnmarshalCBOR(r io.Reader) error {
 	{
 
 		if err := t.Response.UnmarshalCBOR(br); err != nil {
-			return err
+			return xerrors.Errorf("unmarshaling t.Response: %w", err)
 		}
 
 	}
@@ -376,7 +381,7 @@ func (t *SignedResponse) UnmarshalCBOR(r io.Reader) error {
 		} else {
 			t.Signature = new(crypto.Signature)
 			if err := t.Signature.UnmarshalCBOR(br); err != nil {
-				return err
+				return xerrors.Errorf("unmarshaling t.Signature pointer: %w", err)
 			}
 		}
 

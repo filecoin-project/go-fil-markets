@@ -15,6 +15,7 @@ import (
 type TestPieceStore struct {
 	addPieceBlockLocationsError error
 	addDealForPieceError        error
+	getPieceInfoError           error
 	piecesStubbed               map[cid.Cid]piecestore.PieceInfo
 	piecesExpected              map[cid.Cid]struct{}
 	piecesReceived              map[cid.Cid]struct{}
@@ -27,6 +28,7 @@ type TestPieceStore struct {
 type TestPieceStoreParams struct {
 	AddDealForPieceError        error
 	AddPieceBlockLocationsError error
+	GetPieceInfoError           error
 }
 
 var _ piecestore.PieceStore = &TestPieceStore{}
@@ -41,6 +43,7 @@ func NewTestPieceStoreWithParams(params TestPieceStoreParams) *TestPieceStore {
 	return &TestPieceStore{
 		addDealForPieceError:        params.AddDealForPieceError,
 		addPieceBlockLocationsError: params.AddPieceBlockLocationsError,
+		getPieceInfoError:           params.GetPieceInfoError,
 		piecesStubbed:               make(map[cid.Cid]piecestore.PieceInfo),
 		piecesExpected:              make(map[cid.Cid]struct{}),
 		piecesReceived:              make(map[cid.Cid]struct{}),
@@ -102,6 +105,10 @@ func (tps *TestPieceStore) AddPieceBlockLocations(pieceCID cid.Cid, blockLocatio
 
 // GetPieceInfo returns a piece info if it's been stubbed
 func (tps *TestPieceStore) GetPieceInfo(pieceCID cid.Cid) (piecestore.PieceInfo, error) {
+	if tps.getPieceInfoError != nil {
+		return piecestore.PieceInfoUndefined, tps.getPieceInfoError
+	}
+
 	tps.piecesReceived[pieceCID] = struct{}{}
 
 	pio, ok := tps.piecesStubbed[pieceCID]

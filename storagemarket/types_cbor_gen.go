@@ -37,6 +37,7 @@ func (t *ClientDeal) MarshalCBOR(w io.Writer) error {
 	}
 
 	// t.State (uint64) (uint64)
+
 	if _, err := w.Write(cbg.CborEncodeMajorType(cbg.MajUnsignedInt, uint64(t.State))); err != nil {
 		return err
 	}
@@ -59,6 +60,7 @@ func (t *ClientDeal) MarshalCBOR(w io.Writer) error {
 	}
 
 	// t.DealID (abi.DealID) (uint64)
+
 	if _, err := w.Write(cbg.CborEncodeMajorType(cbg.MajUnsignedInt, uint64(t.DealID))); err != nil {
 		return err
 	}
@@ -115,7 +117,7 @@ func (t *ClientDeal) UnmarshalCBOR(r io.Reader) error {
 	{
 
 		if err := t.ClientDealProposal.UnmarshalCBOR(br); err != nil {
-			return err
+			return xerrors.Errorf("unmarshaling t.ClientDealProposal: %w", err)
 		}
 
 	}
@@ -133,14 +135,18 @@ func (t *ClientDeal) UnmarshalCBOR(r io.Reader) error {
 	}
 	// t.State (uint64) (uint64)
 
-	maj, extra, err = cbg.CborReadHeader(br)
-	if err != nil {
-		return err
+	{
+
+		maj, extra, err = cbg.CborReadHeader(br)
+		if err != nil {
+			return err
+		}
+		if maj != cbg.MajUnsignedInt {
+			return fmt.Errorf("wrong type for uint64 field")
+		}
+		t.State = uint64(extra)
+
 	}
-	if maj != cbg.MajUnsignedInt {
-		return fmt.Errorf("wrong type for uint64 field")
-	}
-	t.State = uint64(extra)
 	// t.Miner (peer.ID) (string)
 
 	{
@@ -156,20 +162,24 @@ func (t *ClientDeal) UnmarshalCBOR(r io.Reader) error {
 	{
 
 		if err := t.MinerWorker.UnmarshalCBOR(br); err != nil {
-			return err
+			return xerrors.Errorf("unmarshaling t.MinerWorker: %w", err)
 		}
 
 	}
 	// t.DealID (abi.DealID) (uint64)
 
-	maj, extra, err = cbg.CborReadHeader(br)
-	if err != nil {
-		return err
+	{
+
+		maj, extra, err = cbg.CborReadHeader(br)
+		if err != nil {
+			return err
+		}
+		if maj != cbg.MajUnsignedInt {
+			return fmt.Errorf("wrong type for uint64 field")
+		}
+		t.DealID = abi.DealID(extra)
+
 	}
-	if maj != cbg.MajUnsignedInt {
-		return fmt.Errorf("wrong type for uint64 field")
-	}
-	t.DealID = abi.DealID(extra)
 	// t.DataRef (storagemarket.DataRef) (struct)
 
 	{
@@ -186,7 +196,7 @@ func (t *ClientDeal) UnmarshalCBOR(r io.Reader) error {
 		} else {
 			t.DataRef = new(DataRef)
 			if err := t.DataRef.UnmarshalCBOR(br); err != nil {
-				return err
+				return xerrors.Errorf("unmarshaling t.DataRef pointer: %w", err)
 			}
 		}
 
@@ -273,6 +283,7 @@ func (t *MinerDeal) MarshalCBOR(w io.Writer) error {
 	}
 
 	// t.State (uint64) (uint64)
+
 	if _, err := w.Write(cbg.CborEncodeMajorType(cbg.MajUnsignedInt, uint64(t.State))); err != nil {
 		return err
 	}
@@ -324,9 +335,11 @@ func (t *MinerDeal) MarshalCBOR(w io.Writer) error {
 	}
 
 	// t.DealID (abi.DealID) (uint64)
+
 	if _, err := w.Write(cbg.CborEncodeMajorType(cbg.MajUnsignedInt, uint64(t.DealID))); err != nil {
 		return err
 	}
+
 	return nil
 }
 
@@ -350,7 +363,7 @@ func (t *MinerDeal) UnmarshalCBOR(r io.Reader) error {
 	{
 
 		if err := t.ClientDealProposal.UnmarshalCBOR(br); err != nil {
-			return err
+			return xerrors.Errorf("unmarshaling t.ClientDealProposal: %w", err)
 		}
 
 	}
@@ -388,14 +401,18 @@ func (t *MinerDeal) UnmarshalCBOR(r io.Reader) error {
 	}
 	// t.State (uint64) (uint64)
 
-	maj, extra, err = cbg.CborReadHeader(br)
-	if err != nil {
-		return err
+	{
+
+		maj, extra, err = cbg.CborReadHeader(br)
+		if err != nil {
+			return err
+		}
+		if maj != cbg.MajUnsignedInt {
+			return fmt.Errorf("wrong type for uint64 field")
+		}
+		t.State = uint64(extra)
+
 	}
-	if maj != cbg.MajUnsignedInt {
-		return fmt.Errorf("wrong type for uint64 field")
-	}
-	t.State = uint64(extra)
 	// t.PiecePath (filestore.Path) (string)
 
 	{
@@ -459,21 +476,25 @@ func (t *MinerDeal) UnmarshalCBOR(r io.Reader) error {
 		} else {
 			t.Ref = new(DataRef)
 			if err := t.Ref.UnmarshalCBOR(br); err != nil {
-				return err
+				return xerrors.Errorf("unmarshaling t.Ref pointer: %w", err)
 			}
 		}
 
 	}
 	// t.DealID (abi.DealID) (uint64)
 
-	maj, extra, err = cbg.CborReadHeader(br)
-	if err != nil {
-		return err
+	{
+
+		maj, extra, err = cbg.CborReadHeader(br)
+		if err != nil {
+			return err
+		}
+		if maj != cbg.MajUnsignedInt {
+			return fmt.Errorf("wrong type for uint64 field")
+		}
+		t.DealID = abi.DealID(extra)
+
 	}
-	if maj != cbg.MajUnsignedInt {
-		return fmt.Errorf("wrong type for uint64 field")
-	}
-	t.DealID = abi.DealID(extra)
 	return nil
 }
 
@@ -518,7 +539,7 @@ func (t *Balance) UnmarshalCBOR(r io.Reader) error {
 	{
 
 		if err := t.Locked.UnmarshalCBOR(br); err != nil {
-			return err
+			return xerrors.Errorf("unmarshaling t.Locked: %w", err)
 		}
 
 	}
@@ -527,7 +548,7 @@ func (t *Balance) UnmarshalCBOR(r io.Reader) error {
 	{
 
 		if err := t.Available.UnmarshalCBOR(br); err != nil {
-			return err
+			return xerrors.Errorf("unmarshaling t.Available: %w", err)
 		}
 
 	}
@@ -586,7 +607,7 @@ func (t *SignedStorageAsk) UnmarshalCBOR(r io.Reader) error {
 		} else {
 			t.Ask = new(StorageAsk)
 			if err := t.Ask.UnmarshalCBOR(br); err != nil {
-				return err
+				return xerrors.Errorf("unmarshaling t.Ask pointer: %w", err)
 			}
 		}
 
@@ -607,7 +628,7 @@ func (t *SignedStorageAsk) UnmarshalCBOR(r io.Reader) error {
 		} else {
 			t.Signature = new(crypto.Signature)
 			if err := t.Signature.UnmarshalCBOR(br); err != nil {
-				return err
+				return xerrors.Errorf("unmarshaling t.Signature pointer: %w", err)
 			}
 		}
 
@@ -630,6 +651,7 @@ func (t *StorageAsk) MarshalCBOR(w io.Writer) error {
 	}
 
 	// t.MinPieceSize (abi.PaddedPieceSize) (uint64)
+
 	if _, err := w.Write(cbg.CborEncodeMajorType(cbg.MajUnsignedInt, uint64(t.MinPieceSize))); err != nil {
 		return err
 	}
@@ -662,9 +684,11 @@ func (t *StorageAsk) MarshalCBOR(w io.Writer) error {
 	}
 
 	// t.SeqNo (uint64) (uint64)
+
 	if _, err := w.Write(cbg.CborEncodeMajorType(cbg.MajUnsignedInt, uint64(t.SeqNo))); err != nil {
 		return err
 	}
+
 	return nil
 }
 
@@ -688,26 +712,30 @@ func (t *StorageAsk) UnmarshalCBOR(r io.Reader) error {
 	{
 
 		if err := t.Price.UnmarshalCBOR(br); err != nil {
-			return err
+			return xerrors.Errorf("unmarshaling t.Price: %w", err)
 		}
 
 	}
 	// t.MinPieceSize (abi.PaddedPieceSize) (uint64)
 
-	maj, extra, err = cbg.CborReadHeader(br)
-	if err != nil {
-		return err
+	{
+
+		maj, extra, err = cbg.CborReadHeader(br)
+		if err != nil {
+			return err
+		}
+		if maj != cbg.MajUnsignedInt {
+			return fmt.Errorf("wrong type for uint64 field")
+		}
+		t.MinPieceSize = abi.PaddedPieceSize(extra)
+
 	}
-	if maj != cbg.MajUnsignedInt {
-		return fmt.Errorf("wrong type for uint64 field")
-	}
-	t.MinPieceSize = abi.PaddedPieceSize(extra)
 	// t.Miner (address.Address) (struct)
 
 	{
 
 		if err := t.Miner.UnmarshalCBOR(br); err != nil {
-			return err
+			return xerrors.Errorf("unmarshaling t.Miner: %w", err)
 		}
 
 	}
@@ -763,14 +791,18 @@ func (t *StorageAsk) UnmarshalCBOR(r io.Reader) error {
 	}
 	// t.SeqNo (uint64) (uint64)
 
-	maj, extra, err = cbg.CborReadHeader(br)
-	if err != nil {
-		return err
+	{
+
+		maj, extra, err = cbg.CborReadHeader(br)
+		if err != nil {
+			return err
+		}
+		if maj != cbg.MajUnsignedInt {
+			return fmt.Errorf("wrong type for uint64 field")
+		}
+		t.SeqNo = uint64(extra)
+
 	}
-	if maj != cbg.MajUnsignedInt {
-		return fmt.Errorf("wrong type for uint64 field")
-	}
-	t.SeqNo = uint64(extra)
 	return nil
 }
 
@@ -815,7 +847,7 @@ func (t *StorageDeal) UnmarshalCBOR(r io.Reader) error {
 	{
 
 		if err := t.DealProposal.UnmarshalCBOR(br); err != nil {
-			return err
+			return xerrors.Errorf("unmarshaling t.DealProposal: %w", err)
 		}
 
 	}
@@ -824,7 +856,7 @@ func (t *StorageDeal) UnmarshalCBOR(r io.Reader) error {
 	{
 
 		if err := t.DealState.UnmarshalCBOR(br); err != nil {
-			return err
+			return xerrors.Errorf("unmarshaling t.DealState: %w", err)
 		}
 
 	}
@@ -871,9 +903,11 @@ func (t *DataRef) MarshalCBOR(w io.Writer) error {
 	}
 
 	// t.PieceSize (abi.UnpaddedPieceSize) (uint64)
+
 	if _, err := w.Write(cbg.CborEncodeMajorType(cbg.MajUnsignedInt, uint64(t.PieceSize))); err != nil {
 		return err
 	}
+
 	return nil
 }
 
@@ -940,13 +974,17 @@ func (t *DataRef) UnmarshalCBOR(r io.Reader) error {
 	}
 	// t.PieceSize (abi.UnpaddedPieceSize) (uint64)
 
-	maj, extra, err = cbg.CborReadHeader(br)
-	if err != nil {
-		return err
+	{
+
+		maj, extra, err = cbg.CborReadHeader(br)
+		if err != nil {
+			return err
+		}
+		if maj != cbg.MajUnsignedInt {
+			return fmt.Errorf("wrong type for uint64 field")
+		}
+		t.PieceSize = abi.UnpaddedPieceSize(extra)
+
 	}
-	if maj != cbg.MajUnsignedInt {
-		return fmt.Errorf("wrong type for uint64 field")
-	}
-	t.PieceSize = abi.UnpaddedPieceSize(extra)
 	return nil
 }

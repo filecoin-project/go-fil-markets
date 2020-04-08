@@ -236,7 +236,7 @@ func (p *provider) newProviderDeal(stream rmnet.RetrievalDealStream) error {
 
 	p.dealStreams[pds.Identifier()] = stream
 
-	loaderWithUnsealing := blockunsealing.NewLoaderWithUnsealing(context.TODO(), p.bs, p.pieceStore, cario.NewCarIO(), p.node.UnsealSector)
+	loaderWithUnsealing := blockunsealing.NewLoaderWithUnsealing(context.TODO(), p.bs, p.pieceStore, cario.NewCarIO(), p.node.UnsealSector, dealProposal.PieceCID)
 
 	br := blockio.NewSelectorBlockReader(cidlink.Link{Cid: dealProposal.PayloadCID}, allSelector(), loaderWithUnsealing.Load)
 	p.blockReaders[pds.Identifier()] = br

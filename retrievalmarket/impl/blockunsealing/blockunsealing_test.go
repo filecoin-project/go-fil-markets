@@ -3,6 +3,7 @@ package blockunsealing_test
 import (
 	"bytes"
 	"context"
+	"fmt"
 	"io/ioutil"
 	"math/rand"
 	"testing"
@@ -101,9 +102,34 @@ func TestNewLoaderWithUnsealing(t *testing.T) {
 		bs := setupBlockStore(t)
 		unsealer := testnodes.NewTestRetrievalProviderNode()
 		pieceStore := tut.NewTestPieceStore()
-		loaderWithUnsealing := blockunsealing.NewLoaderWithUnsealing(ctx, bs, pieceStore, cio, unsealer.UnsealSector)
+		loaderWithUnsealing := blockunsealing.NewLoaderWithUnsealing(ctx, bs, pieceStore, cio, unsealer.UnsealSector, nil)
 		checkSuccessLoad(t, loaderWithUnsealing, testdata.RootNodeLnk)
 		unsealer.VerifyExpectations(t)
+	})
+
+	t.Run("when caller has provided a PieceCID", func(t *testing.T) {
+		t.Run("succeeds if it can locate the piece", func(t *testing.T) {
+			bs := setupBlockStore(t)
+			unsealer := testnodes.NewTestRetrievalProviderNode()
+			unsealer.ExpectUnseal(deal1.SectorID, deal1.Offset, deal1.Length, carData)
+			pieceStore := tut.NewTestPieceStore()
+			pieceStore.ExpectCID(testdata.MiddleMapBlock.Cid(), cidInfo)
+			pieceStore.ExpectPiece(pieceCID, piece)
+			loaderWithUnsealing := blockunsealing.NewLoaderWithUnsealing(ctx, bs, pieceStore, cio, unsealer.UnsealSector, &pieceCID)
+			checkSuccessLoad(t, loaderWithUnsealing, testdata.MiddleMapNodeLnk)
+			unsealer.VerifyExpectations(t)
+		})
+
+		t.Run("fails if it cannot locate the piece", func(t *testing.T) {
+			bs := setupBlockStore(t)
+			unsealer := testnodes.NewTestRetrievalProviderNode()
+			pieceStore := tut.NewTestPieceStoreWithParams(tut.TestPieceStoreParams{GetPieceInfoError: fmt.Errorf("not found")})
+			loaderWithUnsealing := blockunsealing.NewLoaderWithUnsealing(ctx, bs, pieceStore, cio, unsealer.UnsealSector, &pieceCID)
+			_, err := loaderWithUnsealing.Load(testdata.MiddleMapNodeLnk, ipld.LinkContext{})
+			require.Error(t, err)
+			unsealer.VerifyExpectations(t)
+			pieceStore.VerifyExpectations(t)
+		})
 	})
 
 	t.Run("when intermediate blockstore does not have block", func(t *testing.T) {
@@ -114,7 +140,7 @@ func TestNewLoaderWithUnsealing(t *testing.T) {
 			pieceStore := tut.NewTestPieceStore()
 			pieceStore.ExpectCID(testdata.MiddleMapBlock.Cid(), cidInfo)
 			pieceStore.ExpectPiece(pieceCID, piece)
-			loaderWithUnsealing := blockunsealing.NewLoaderWithUnsealing(ctx, bs, pieceStore, cio, unsealer.UnsealSector)
+			loaderWithUnsealing := blockunsealing.NewLoaderWithUnsealing(ctx, bs, pieceStore, cio, unsealer.UnsealSector, nil)
 			checkSuccessLoad(t, loaderWithUnsealing, testdata.MiddleMapNodeLnk)
 			unsealer.VerifyExpectations(t)
 			pieceStore.VerifyExpectations(t)
@@ -128,7 +154,7 @@ func TestNewLoaderWithUnsealing(t *testing.T) {
 			pieceStore := tut.NewTestPieceStore()
 			pieceStore.ExpectCID(testdata.MiddleMapBlock.Cid(), cidInfo)
 			pieceStore.ExpectPiece(pieceCID, piece)
-			loaderWithUnsealing := blockunsealing.NewLoaderWithUnsealing(ctx, bs, pieceStore, cio, unsealer.UnsealSector)
+			loaderWithUnsealing := blockunsealing.NewLoaderWithUnsealing(ctx, bs, pieceStore, cio, unsealer.UnsealSector, nil)
 			checkSuccessLoad(t, loaderWithUnsealing, testdata.MiddleMapNodeLnk)
 			unsealer.VerifyExpectations(t)
 			pieceStore.VerifyExpectations(t)
@@ -144,7 +170,7 @@ func TestNewLoaderWithUnsealing(t *testing.T) {
 			pieceStore.ExpectCID(testdata.MiddleMapBlock.Cid(), cidInfo)
 			pieceStore.ExpectPiece(pieceCID, piece)
 			pieceStore.ExpectPiece(pieceCID2, piece2)
-			loaderWithUnsealing := blockunsealing.NewLoaderWithUnsealing(ctx, bs, pieceStore, cio, unsealer.UnsealSector)
+			loaderWithUnsealing := blockunsealing.NewLoaderWithUnsealing(ctx, bs, pieceStore, cio, unsealer.UnsealSector, nil)
 			checkSuccessLoad(t, loaderWithUnsealing, testdata.MiddleMapNodeLnk)
 			unsealer.VerifyExpectations(t)
 			pieceStore.VerifyExpectations(t)
@@ -158,7 +184,7 @@ func TestNewLoaderWithUnsealing(t *testing.T) {
 			pieceStore.ExpectCID(testdata.MiddleMapBlock.Cid(), cidInfo)
 			pieceStore.ExpectMissingPiece(pieceCID)
 			pieceStore.ExpectPiece(pieceCID2, piece2)
-			loaderWithUnsealing := blockunsealing.NewLoaderWithUnsealing(ctx, bs, pieceStore, cio, unsealer.UnsealSector)
+			loaderWithUnsealing := blockunsealing.NewLoaderWithUnsealing(ctx, bs, pieceStore, cio, unsealer.UnsealSector, nil)
 			checkSuccessLoad(t, loaderWithUnsealing, testdata.MiddleMapNodeLnk)
 			unsealer.VerifyExpectations(t)
 			pieceStore.VerifyExpectations(t)
@@ -174,7 +200,7 @@ func TestNewLoaderWithUnsealing(t *testing.T) {
 			pieceStore.ExpectCID(testdata.MiddleMapBlock.Cid(), cidInfo)
 			pieceStore.ExpectPiece(pieceCID, piece)
 			pieceStore.ExpectPiece(pieceCID2, piece2)
-			loaderWithUnsealing := blockunsealing.NewLoaderWithUnsealing(ctx, bs, pieceStore, cio, unsealer.UnsealSector)
+			loaderWithUnsealing := blockunsealing.NewLoaderWithUnsealing(ctx, bs, pieceStore, cio, unsealer.UnsealSector, nil)
 			_, err := loaderWithUnsealing.Load(testdata.MiddleMapNodeLnk, ipld.LinkContext{})
 			require.Error(t, err)
 			unsealer.VerifyExpectations(t)
@@ -186,7 +212,7 @@ func TestNewLoaderWithUnsealing(t *testing.T) {
 			unsealer := testnodes.NewTestRetrievalProviderNode()
 			pieceStore := tut.NewTestPieceStore()
 			pieceStore.ExpectMissingCID(testdata.MiddleMapBlock.Cid())
-			loaderWithUnsealing := blockunsealing.NewLoaderWithUnsealing(ctx, bs, pieceStore, cio, unsealer.UnsealSector)
+			loaderWithUnsealing := blockunsealing.NewLoaderWithUnsealing(ctx, bs, pieceStore, cio, unsealer.UnsealSector, nil)
 			_, err := loaderWithUnsealing.Load(testdata.MiddleMapNodeLnk, ipld.LinkContext{})
 			require.Error(t, err)
 			unsealer.VerifyExpectations(t)
@@ -200,7 +226,7 @@ func TestNewLoaderWithUnsealing(t *testing.T) {
 			pieceStore.ExpectCID(testdata.MiddleMapBlock.Cid(), cidInfo)
 			pieceStore.ExpectMissingPiece(pieceCID)
 			pieceStore.ExpectMissingPiece(pieceCID2)
-			loaderWithUnsealing := blockunsealing.NewLoaderWithUnsealing(ctx, bs, pieceStore, cio, unsealer.UnsealSector)
+			loaderWithUnsealing := blockunsealing.NewLoaderWithUnsealing(ctx, bs, pieceStore, cio, unsealer.UnsealSector, nil)
 			_, err := loaderWithUnsealing.Load(testdata.MiddleMapNodeLnk, ipld.LinkContext{})
 			require.Error(t, err)
 			unsealer.VerifyExpectations(t)
@@ -217,7 +243,7 @@ func TestNewLoaderWithUnsealing(t *testing.T) {
 			pieceStore := tut.NewTestPieceStore()
 			pieceStore.ExpectCID(testdata.MiddleMapBlock.Cid(), cidInfo)
 			pieceStore.ExpectPiece(pieceCID, piece)
-			loaderWithUnsealing := blockunsealing.NewLoaderWithUnsealing(ctx, bs, pieceStore, cio, unsealer.UnsealSector)
+			loaderWithUnsealing := blockunsealing.NewLoaderWithUnsealing(ctx, bs, pieceStore, cio, unsealer.UnsealSector, nil)
 			_, err = loaderWithUnsealing.Load(testdata.MiddleMapNodeLnk, ipld.LinkContext{})
 			require.Error(t, err)
 			unsealer.VerifyExpectations(t)
