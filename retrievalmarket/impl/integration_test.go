@@ -317,7 +317,7 @@ CurrentInterval: %d
 
 			var rmParams retrievalmarket.Params
 			if testCase.paramsV1 {
-				rmParams = retrievalmarket.NewParamsV1(pricePerByte, paymentInterval, paymentIntervalIncrease, testCase.selector)
+				rmParams = retrievalmarket.NewParamsV1(pricePerByte, paymentInterval, paymentIntervalIncrease, testCase.selector, nil)
 
 			} else {
 				rmParams = retrievalmarket.NewParamsV0(pricePerByte, paymentInterval, paymentIntervalIncrease)
