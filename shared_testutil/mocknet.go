@@ -14,7 +14,6 @@ import (
 	dss "github.com/ipfs/go-datastore/sync"
 	"github.com/ipfs/go-graphsync"
 	graphsyncimpl "github.com/ipfs/go-graphsync/impl"
-	"github.com/ipfs/go-graphsync/ipldbridge"
 	"github.com/ipfs/go-graphsync/network"
 	bstore "github.com/ipfs/go-ipfs-blockstore"
 	chunk "github.com/ipfs/go-ipfs-chunker"
@@ -56,8 +55,6 @@ type Libp2pTestData struct {
 	Storer2        ipld.Storer
 	Host1          host.Host
 	Host2          host.Host
-	Bridge1        ipldbridge.IPLDBridge
-	Bridge2        ipldbridge.IPLDBridge
 	AllSelector    ipld.Node
 	OrigBytes      []byte
 }
@@ -131,11 +128,8 @@ func NewLibp2pTestData(ctx context.Context, t *testing.T) *Libp2pTestData {
 	err = mn.LinkAll()
 	require.NoError(t, err)
 
-	testData.Bridge1 = ipldbridge.NewIPLDBridge()
-	testData.Bridge2 = ipldbridge.NewIPLDBridge()
-
-	testData.GraphSync1 = graphsyncimpl.New(ctx, network.NewFromLibp2pHost(testData.Host1), testData.Bridge1, testData.Loader1, testData.Storer1)
-	testData.GraphSync2 = graphsyncimpl.New(ctx, network.NewFromLibp2pHost(testData.Host2), testData.Bridge2, testData.Loader2, testData.Storer2)
+	testData.GraphSync1 = graphsyncimpl.New(ctx, network.NewFromLibp2pHost(testData.Host1), testData.Loader1, testData.Storer1)
+	testData.GraphSync2 = graphsyncimpl.New(ctx, network.NewFromLibp2pHost(testData.Host2), testData.Loader2, testData.Storer2)
 
 	// create a selector for the whole UnixFS dag
 	ssb := builder.NewSelectorSpecBuilder(ipldfree.NodeBuilder())
