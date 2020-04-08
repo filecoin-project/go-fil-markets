@@ -13,6 +13,7 @@ import (
 	"github.com/ipfs/go-datastore"
 	"github.com/ipfs/go-datastore/namespace"
 	blockstore "github.com/ipfs/go-ipfs-blockstore"
+	"github.com/ipld/go-ipld-prime"
 	cidlink "github.com/ipld/go-ipld-prime/linking/cid"
 	"golang.org/x/xerrors"
 
@@ -238,7 +239,18 @@ func (p *provider) newProviderDeal(stream rmnet.RetrievalDealStream) error {
 
 	loaderWithUnsealing := blockunsealing.NewLoaderWithUnsealing(context.TODO(), p.bs, p.pieceStore, cario.NewCarIO(), p.node.UnsealSector, dealProposal.PieceCID)
 
-	br := blockio.NewSelectorBlockReader(cidlink.Link{Cid: dealProposal.PayloadCID}, allSelector(), loaderWithUnsealing.Load)
+	// validate the selector, if provided
+	var sel ipld.Node
+	if dealProposal.Params.Selector != nil {
+		sel, err = retrievalmarket.DecodeNode(dealProposal.Params.Selector)
+		if err != nil {
+			return xerrors.Errorf("selector is invalid: %w", err)
+		}
+	} else {
+		sel = allSelector()
+	}
+
+	br := blockio.NewSelectorBlockReader(cidlink.Link{Cid: dealProposal.PayloadCID}, sel, loaderWithUnsealing.Load)
 	p.blockReaders[pds.Identifier()] = br
 
 	// start the deal processing, synchronously so we can log the error and close the stream if it doesn't start

@@ -112,6 +112,7 @@ func (c *client) Query(_ context.Context, p retrievalmarket.RetrievalPeer, paylo
 
 // Retrieve begins the process of requesting the data referred to by payloadCID, after a deal is accepted
 func (c *client) Retrieve(ctx context.Context, payloadCID cid.Cid, params retrievalmarket.Params, totalFunds abi.TokenAmount, miner peer.ID, clientWallet address.Address, minerWallet address.Address) (retrievalmarket.DealID, error) {
+	var err error
 	next, err := c.storedCounter.Next()
 	if err != nil {
 		return 0, err
@@ -150,7 +151,15 @@ func (c *client) Retrieve(ctx context.Context, payloadCID cid.Cid, params retrie
 
 	c.dealStreams[dealID] = s
 
-	c.blockVerifiers[dealID] = blockio.NewSelectorVerifier(cidlink.Link{Cid: dealState.DealProposal.PayloadCID}, allSelector())
+	sel := allSelector()
+	if params.Selector != nil {
+		sel, err = retrievalmarket.DecodeNode(params.Selector)
+		if err != nil {
+			return 0, xerrors.Errorf("selector is invalid: %w", err)
+		}
+	}
+
+	c.blockVerifiers[dealID] = blockio.NewSelectorVerifier(cidlink.Link{Cid: dealState.DealProposal.PayloadCID}, sel)
 
 	err = c.stateMachines.Send(dealState.ID, retrievalmarket.ClientEventOpen)
 	if err != nil {
