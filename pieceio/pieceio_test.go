@@ -7,7 +7,7 @@ import (
 	"io"
 	"testing"
 
-	"github.com/filecoin-project/go-sectorbuilder"
+	"github.com/filecoin-project/sector-storage/ffiwrapper"
 	"github.com/filecoin-project/specs-actors/actors/abi"
 	"github.com/ipfs/go-cid"
 	dag "github.com/ipfs/go-merkledag"
@@ -175,7 +175,7 @@ func Test_StoreRestoreMemoryBuffer(t *testing.T) {
 	_, err = tmpFile.Read(buf)
 	require.NoError(t, err)
 	buffer := bytes.NewBuffer(buf)
-	secondCommitment, err := sectorbuilder.GeneratePieceCIDFromFile(abi.RegisteredProof_StackedDRG2KiBPoSt, buffer, paddedSize)
+	secondCommitment, err := ffiwrapper.GeneratePieceCIDFromFile(abi.RegisteredProof_StackedDRG2KiBPoSt, buffer, paddedSize)
 	require.NoError(t, err)
 	require.Equal(t, commitment, secondCommitment)
 }

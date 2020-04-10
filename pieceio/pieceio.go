@@ -7,7 +7,7 @@ import (
 	"sync"
 
 	"github.com/filecoin-project/go-padreader"
-	"github.com/filecoin-project/go-sectorbuilder"
+	"github.com/filecoin-project/sector-storage/ffiwrapper"
 	"github.com/filecoin-project/specs-actors/actors/abi"
 	"github.com/ipfs/go-cid"
 	blockstore "github.com/ipfs/go-ipfs-blockstore"
@@ -119,7 +119,7 @@ func (pio *pieceIOWithStore) GeneratePieceCommitmentToFile(rt abi.RegisteredProo
 
 func GeneratePieceCommitment(rt abi.RegisteredProof, rd io.Reader, pieceSize uint64) (cid.Cid, abi.UnpaddedPieceSize, error) {
 	paddedReader, paddedSize := padreader.New(rd, pieceSize)
-	commitment, err := sectorbuilder.GeneratePieceCIDFromFile(rt, paddedReader, paddedSize)
+	commitment, err := ffiwrapper.GeneratePieceCIDFromFile(rt, paddedReader, paddedSize)
 	if err != nil {
 		return cid.Undef, 0, err
 	}
