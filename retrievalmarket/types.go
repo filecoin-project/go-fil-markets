@@ -70,8 +70,23 @@ const (
 	// ClientEventAllocateLaneErrored means there was a failure creating a lane in a payment channel
 	ClientEventAllocateLaneErrored
 
-	// ClientEventPaymentChannelCreated means a payment channel has successfully been created
+	// ClientEventPaymentChannelCreateInitiated means the request to create a payment channel was
+	// successful and we are waiting for it to appear on chain
+	ClientEventPaymentChannelCreateInitiated
+
+	// ClientEventPaymentChannelCreated means a payment channel has been created
 	ClientEventPaymentChannelCreated
+
+	// ClientEventPaymentChannelReady means the newly created payment channel is ready for the
+	// deal to begin
+	ClientEventPaymentChannelReady
+
+	// ClientEventPaymentChannelAddingFunds means the request to add funds to a payment channel was
+	// successful and we are waiting for the funds to be sent
+	ClientEventPaymentChannelAddingFunds
+
+	// 	ClientEventPaymentChannelFundsAdded means funds have been added to the payment channel
+	ClientEventPaymentChannelFundsAdded
 
 	// ClientEventWriteDealProposalErrored means a network error writing a deal proposal
 	ClientEventWriteDealProposalErrored
@@ -183,7 +198,7 @@ type RetrievalClientNode interface {
 
 	// GetOrCreatePaymentChannel sets up a new payment channel if one does not exist
 	// between a client and a miner and insures the client has the given amount of funds available in the channel
-	GetOrCreatePaymentChannel(ctx context.Context, clientAddress address.Address, minerAddress address.Address, clientFundsAvailable abi.TokenAmount, tok shared.TipSetToken) (address.Address, error)
+	GetOrCreatePaymentChannel(ctx context.Context, clientAddress address.Address, minerAddress address.Address, clientFundsAvailable abi.TokenAmount, tok shared.TipSetToken) (address.Address, cid.Cid, error)
 
 	// Allocate late creates a lane within a payment channel so that calls to
 	// CreatePaymentVoucher will automatically make vouchers only for the difference
@@ -437,9 +452,17 @@ const (
 	// DealStatusNew is a deal that nothing has happened with yet
 	DealStatusNew DealStatus = iota
 
-	// DealStatusPaymentChannelCreated is a deal status that has a payment channel
+	// DealStatusPaymentChannelCreating is the status set while waiting for the
+	// payment channel creation to complete
+	DealStatusPaymentChannelCreating
+
+	// DealStatusPaymentChannelAddingFunds is the status when we are waiting for funds
+	// to finish being sent to the payment channel
+	DealStatusPaymentChannelAddingFunds
+
+	// DealStatusPaymentChannelReady is a deal status that has a payment channel
 	// & lane setup
-	DealStatusPaymentChannelCreated
+	DealStatusPaymentChannelReady
 
 	// DealStatusAccepted means a deal has been accepted by a provider
 	// and its is ready to proceed with retrieval
@@ -487,7 +510,7 @@ const (
 // DealStatuses maps deal status to a human readable representation
 var DealStatuses = map[DealStatus]string{
 	DealStatusNew:                    "DealStatusNew",
-	DealStatusPaymentChannelCreated:  "DealStatusPaymentChannelCreated",
+	DealStatusPaymentChannelCreating:  "DealStatusPaymentChannelCreating",
 	DealStatusAccepted:               "DealStatusAccepted",
 	DealStatusFailed:                 "DealStatusFailed",
 	DealStatusRejected:               "DealStatusRejected",

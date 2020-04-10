@@ -17,7 +17,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/filecoin-project/go-fil-markets/retrievalmarket"
-	clientstates "github.com/filecoin-project/go-fil-markets/retrievalmarket/impl/clientstates"
+	"github.com/filecoin-project/go-fil-markets/retrievalmarket/impl/clientstates"
 	"github.com/filecoin-project/go-fil-markets/retrievalmarket/impl/testnodes"
 	rmnet "github.com/filecoin-project/go-fil-markets/retrievalmarket/network"
 	testnet "github.com/filecoin-project/go-fil-markets/shared_testutil"
@@ -71,17 +71,15 @@ func TestSetupPaymentChannel(t *testing.T) {
 		fsmCtx.ReplayEvents(t, dealState)
 	}
 
-	t.Run("it works", func(t *testing.T) {
-		dealState := makeDealState(retrievalmarket.DealStatusAccepted)
+	t.Run("payment channel create initiated", func(t *testing.T) {
 		envParams := testnodes.TestRetrievalClientNodeParams{
-			PayCh: expectedPayCh,
-			Lane:  expectedLane,
+			PayCh:                  address.Undef,
+			CreatePaychCID:          testnet.GenerateCids(1)[0],
 		}
+		dealState := makeDealState(retrievalmarket.DealStatusAccepted)
 		runSetupPaymentChannel(t, envParams, dealState)
-		require.Empty(t, dealState.Message)
-		require.Equal(t, dealState.Status, retrievalmarket.DealStatusPaymentChannelCreated)
-		require.Equal(t, dealState.PaymentInfo.PayCh, expectedPayCh)
-		require.Equal(t, dealState.PaymentInfo.Lane, expectedLane)
+		require.NotEmpty(t, dealState.Message)
+		require.Equal(t, dealState.Status, retrievalmarket.DealStatusPaymentChannelCreating)
 	})
 
 	t.Run("when create payment channel fails", func(t *testing.T) {

@@ -3,6 +3,7 @@ package clientstates
 import (
 	"context"
 
+	"github.com/filecoin-project/go-address"
 	"github.com/filecoin-project/go-statemachine/fsm"
 	"github.com/filecoin-project/specs-actors/actors/abi"
 	"github.com/filecoin-project/specs-actors/actors/abi/big"
@@ -25,15 +26,18 @@ func SetupPaymentChannel(ctx fsm.Context, environment ClientDealEnvironment, dea
 		return ctx.Trigger(rm.ClientEventPaymentChannelErrored, err)
 	}
 
-	paych, err := environment.Node().GetOrCreatePaymentChannel(ctx.Context(), deal.ClientWallet, deal.MinerWallet, deal.TotalFunds, tok)
+	paych, msgCID, err := environment.Node().GetOrCreatePaymentChannel(ctx.Context(), deal.ClientWallet, deal.MinerWallet, deal.TotalFunds, tok)
 	if err != nil {
 		return ctx.Trigger(rm.ClientEventPaymentChannelErrored, err)
 	}
-	lane, err := environment.Node().AllocateLane(paych)
-	if err != nil {
-		return ctx.Trigger(rm.ClientEventAllocateLaneErrored, err)
+	if paych == address.Undef  {
+		return ctx.Trigger(rm.ClientEventPaymentChannelCreateInitiated)
 	}
-	return ctx.Trigger(rm.ClientEventPaymentChannelCreated, paych, lane)
+	//lane, err := environment.Node().AllocateLane(paych)
+	//if err != nil {
+	//	return ctx.Trigger(rm.ClientEventAllocateLaneErrored, err)
+	//}
+	return ctx.Trigger(rm.ClientEventPaymentChannelAddingFunds, paych, msgCID)
 }
 
 // ProposeDeal sends the proposal to the other party

@@ -6,6 +6,7 @@ import (
 	"github.com/filecoin-project/go-address"
 	"github.com/filecoin-project/specs-actors/actors/abi"
 	"github.com/filecoin-project/specs-actors/actors/builtin/paych"
+	"github.com/ipfs/go-cid"
 
 	"github.com/filecoin-project/go-fil-markets/retrievalmarket"
 	"github.com/filecoin-project/go-fil-markets/shared"
@@ -16,6 +17,7 @@ import (
 type TestRetrievalClientNode struct {
 	payCh        address.Address
 	payChErr     error
+	createPaychMsgCID, addFundsMsgCID cid.Cid
 	lane         uint64
 	laneError    error
 	voucher      *paych.SignedVoucher
@@ -30,6 +32,7 @@ type TestRetrievalClientNode struct {
 type TestRetrievalClientNodeParams struct {
 	PayCh                  address.Address
 	PayChErr               error
+	CreatePaychCID, AddFundsCID cid.Cid
 	Lane                   uint64
 	LaneError              error
 	Voucher                *paych.SignedVoucher
@@ -57,11 +60,11 @@ func NewTestRetrievalClientNode(params TestRetrievalClientNodeParams) *TestRetri
 }
 
 // GetOrCreatePaymentChannel returns a mocked payment channel
-func (trcn *TestRetrievalClientNode) GetOrCreatePaymentChannel(ctx context.Context, clientAddress address.Address, minerAddress address.Address, clientFundsAvailable abi.TokenAmount, tok shared.TipSetToken) (address.Address, error) {
+func (trcn *TestRetrievalClientNode) GetOrCreatePaymentChannel(ctx context.Context, clientAddress address.Address, minerAddress address.Address, clientFundsAvailable abi.TokenAmount, tok shared.TipSetToken) (address.Address, cid.Cid, error) {
 	if trcn.getCreatePaymentChannelRecorder != nil {
 		trcn.getCreatePaymentChannelRecorder(clientAddress, minerAddress, clientFundsAvailable)
 	}
-	return trcn.payCh, trcn.payChErr
+	return trcn.payCh, trcn.createPaychMsgCID, trcn.payChErr
 }
 
 // AllocateLane creates a mock lane on a payment channel
