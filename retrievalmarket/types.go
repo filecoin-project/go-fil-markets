@@ -55,6 +55,7 @@ type ClientDealState struct {
 	CurrentInterval  uint64
 	PaymentRequested abi.TokenAmount
 	FundsSpent       abi.TokenAmount
+	WaitMsgCID       *cid.Cid // the CID of any message the client deal is waiting for
 }
 
 // ClientEvent is an event that occurs in a deal lifecycle on the client
@@ -209,6 +210,14 @@ type RetrievalClientNode interface {
 	// given payment channel so that all the payment vouchers in the lane add up
 	// to the given amount (so the payment voucher will be for the difference)
 	CreatePaymentVoucher(ctx context.Context, paymentChannel address.Address, amount abi.TokenAmount, lane uint64, tok shared.TipSetToken) (*paych.SignedVoucher, error)
+
+	// WaitForPaymentChannelAddFunds waits for a message on chain that funds have
+	// been sent to a payment channel
+	WaitForPaymentChannelAddFunds(messageCID cid.Cid) error
+
+	// WaitForPaymentChannelCreation waits for a message on chain that a
+	// payment channel has been created
+	WaitForPaymentChannelCreation(messageCID cid.Cid) (address.Address, error)
 }
 
 // ProviderDealState is the current state of a deal from the point of view
@@ -460,6 +469,9 @@ const (
 	// to finish being sent to the payment channel
 	DealStatusPaymentChannelAddingFunds
 
+	// DealStatusPaymentChannelAllocatingLane is the status during lane allocation
+	DealStatusPaymentChannelAllocatingLane
+
 	// DealStatusPaymentChannelReady is a deal status that has a payment channel
 	// & lane setup
 	DealStatusPaymentChannelReady
@@ -510,7 +522,7 @@ const (
 // DealStatuses maps deal status to a human readable representation
 var DealStatuses = map[DealStatus]string{
 	DealStatusNew:                    "DealStatusNew",
-	DealStatusPaymentChannelCreating:  "DealStatusPaymentChannelCreating",
+	DealStatusPaymentChannelCreating: "DealStatusPaymentChannelCreating",
 	DealStatusAccepted:               "DealStatusAccepted",
 	DealStatusFailed:                 "DealStatusFailed",
 	DealStatusRejected:               "DealStatusRejected",

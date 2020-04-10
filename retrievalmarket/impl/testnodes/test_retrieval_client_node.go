@@ -15,13 +15,14 @@ import (
 // TestRetrievalClientNode is a node adapter for a retrieval client whose responses
 // are stubbed
 type TestRetrievalClientNode struct {
-	payCh        address.Address
-	payChErr     error
+	addFundsOnly                      bool // set this to true if the payment channel is expected to have been created already
+	payCh                             address.Address
+	payChErr                          error
 	createPaychMsgCID, addFundsMsgCID cid.Cid
-	lane         uint64
-	laneError    error
-	voucher      *paych.SignedVoucher
-	voucherError error
+	lane                              uint64
+	laneError                         error
+	voucher                           *paych.SignedVoucher
+	voucherError                      error
 
 	allocateLaneRecorder            func(address.Address)
 	createPaymentVoucherRecorder    func(voucher *paych.SignedVoucher)
@@ -30,16 +31,17 @@ type TestRetrievalClientNode struct {
 
 // TestRetrievalClientNodeParams are parameters for initializing a TestRetrievalClientNode
 type TestRetrievalClientNodeParams struct {
-	PayCh                  address.Address
-	PayChErr               error
+	PayCh                       address.Address
+	PayChErr                    error
 	CreatePaychCID, AddFundsCID cid.Cid
-	Lane                   uint64
-	LaneError              error
-	Voucher                *paych.SignedVoucher
-	VoucherError           error
-	AllocateLaneRecorder   func(address.Address)
-	PaymentVoucherRecorder func(voucher *paych.SignedVoucher)
-	PaymentChannelRecorder func(address.Address, address.Address, abi.TokenAmount)
+	Lane                        uint64
+	LaneError                   error
+	Voucher                     *paych.SignedVoucher
+	VoucherError                error
+	AllocateLaneRecorder        func(address.Address)
+	PaymentVoucherRecorder      func(voucher *paych.SignedVoucher)
+	PaymentChannelRecorder      func(address.Address, address.Address, abi.TokenAmount)
+	AddFundsOnly                bool
 }
 
 var _ retrievalmarket.RetrievalClientNode = &TestRetrievalClientNode{}
@@ -47,6 +49,7 @@ var _ retrievalmarket.RetrievalClientNode = &TestRetrievalClientNode{}
 // NewTestRetrievalClientNode instantiates a new TestRetrievalClientNode based ont he given params
 func NewTestRetrievalClientNode(params TestRetrievalClientNodeParams) *TestRetrievalClientNode {
 	return &TestRetrievalClientNode{
+		addFundsOnly:                    params.AddFundsOnly,
 		payCh:                           params.PayCh,
 		payChErr:                        params.PayChErr,
 		lane:                            params.Lane,
@@ -56,6 +59,8 @@ func NewTestRetrievalClientNode(params TestRetrievalClientNodeParams) *TestRetri
 		allocateLaneRecorder:            params.AllocateLaneRecorder,
 		createPaymentVoucherRecorder:    params.PaymentVoucherRecorder,
 		getCreatePaymentChannelRecorder: params.PaymentChannelRecorder,
+		createPaychMsgCID:               params.CreatePaychCID,
+		addFundsMsgCID:                  params.AddFundsCID,
 	}
 }
 
@@ -64,7 +69,11 @@ func (trcn *TestRetrievalClientNode) GetOrCreatePaymentChannel(ctx context.Conte
 	if trcn.getCreatePaymentChannelRecorder != nil {
 		trcn.getCreatePaymentChannelRecorder(clientAddress, minerAddress, clientFundsAvailable)
 	}
-	return trcn.payCh, trcn.createPaychMsgCID, trcn.payChErr
+	var payCh address.Address
+	if trcn.addFundsOnly {
+		payCh = trcn.payCh
+	}
+	return payCh, trcn.createPaychMsgCID, trcn.payChErr
 }
 
 // AllocateLane creates a mock lane on a payment channel
@@ -85,4 +94,11 @@ func (trcn *TestRetrievalClientNode) CreatePaymentVoucher(ctx context.Context, p
 
 func (trcn *TestRetrievalClientNode) GetChainHead(ctx context.Context) (shared.TipSetToken, abi.ChainEpoch, error) {
 	return shared.TipSetToken{}, 0, nil
+}
+func (trcn *TestRetrievalClientNode) WaitForPaymentChannelAddFunds(messageCID cid.Cid) error {
+	return nil
+}
+
+func (trcn *TestRetrievalClientNode) WaitForPaymentChannelCreation(messageCID cid.Cid) (address.Address, error) {
+	return trcn.payCh, nil
 }

@@ -79,7 +79,12 @@ func requireSetupTestClientAndProvider(bgCtx context.Context, t *testing.T, payC
 	retrievalmarket.RetrievalProvider) {
 	testData := tut.NewLibp2pTestData(bgCtx, t)
 	nw1 := rmnet.NewFromLibp2pHost(testData.Host1)
-	rcNode1 := testnodes.NewTestRetrievalClientNode(testnodes.TestRetrievalClientNodeParams{PayCh: payChAddr})
+	cids := tut.GenerateCids(2)
+	rcNode1 := testnodes.NewTestRetrievalClientNode(testnodes.TestRetrievalClientNodeParams{
+		PayCh:          payChAddr,
+		CreatePaychCID: cids[0],
+		AddFundsCID:    cids[1],
+	})
 	client, err := retrievalimpl.NewClient(nw1, testData.Bs1, rcNode1, &testPeerResolver{}, testData.Ds1, testData.StoredCounter1)
 	require.NoError(t, err)
 	nw2 := rmnet.NewFromLibp2pHost(testData.Host2)
@@ -389,6 +394,7 @@ func setupClient(
 	paymentVoucherRecorder := func(v *paych.SignedVoucher) {
 		createdVoucher = *v
 	}
+	cids := tut.GenerateCids(2)
 	clientNode := testnodes.NewTestRetrievalClientNode(testnodes.TestRetrievalClientNodeParams{
 		PayCh:                  clientPaymentChannel,
 		Lane:                   expectedVoucher.Lane,
@@ -396,6 +402,8 @@ func setupClient(
 		PaymentChannelRecorder: paymentChannelRecorder,
 		AllocateLaneRecorder:   laneRecorder,
 		PaymentVoucherRecorder: paymentVoucherRecorder,
+		CreatePaychCID:         cids[0],
+		AddFundsCID:            cids[1],
 	})
 	client, err := retrievalimpl.NewClient(nw1, testData.Bs1, clientNode, &testPeerResolver{}, testData.Ds1, testData.StoredCounter1)
 	return &createdChan, &newLaneAddr, &createdVoucher, client, err

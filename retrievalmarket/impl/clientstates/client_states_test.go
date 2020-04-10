@@ -66,20 +66,32 @@ func TestSetupPaymentChannel(t *testing.T) {
 		node := testnodes.NewTestRetrievalClientNode(params)
 		environment := &fakeEnvironment{node, ds, 0, nil}
 		fsmCtx := fsmtest.NewTestContext(ctx, eventMachine)
-		err := clientstates.SetupPaymentChannel(fsmCtx, environment, *dealState)
+		err := clientstates.SetupPaymentChannelStart(fsmCtx, environment, *dealState)
 		require.NoError(t, err)
 		fsmCtx.ReplayEvents(t, dealState)
 	}
 
 	t.Run("payment channel create initiated", func(t *testing.T) {
 		envParams := testnodes.TestRetrievalClientNodeParams{
-			PayCh:                  address.Undef,
-			CreatePaychCID:          testnet.GenerateCids(1)[0],
+			PayCh:          address.Undef,
+			CreatePaychCID: testnet.GenerateCids(1)[0],
 		}
 		dealState := makeDealState(retrievalmarket.DealStatusAccepted)
 		runSetupPaymentChannel(t, envParams, dealState)
-		require.NotEmpty(t, dealState.Message)
+		require.Empty(t, dealState.Message)
 		require.Equal(t, dealState.Status, retrievalmarket.DealStatusPaymentChannelCreating)
+	})
+
+	t.Run("payment channel needs funds added", func(t *testing.T) {
+		envParams := testnodes.TestRetrievalClientNodeParams{
+			AddFundsOnly:   true,
+			PayCh:          expectedPayCh,
+			CreatePaychCID: testnet.GenerateCids(1)[0],
+		}
+		dealState := makeDealState(retrievalmarket.DealStatusPaymentChannelReady)
+		runSetupPaymentChannel(t, envParams, dealState)
+		require.Empty(t, dealState.Message)
+		require.Equal(t, dealState.Status, retrievalmarket.DealStatusPaymentChannelAddingFunds)
 	})
 
 	t.Run("when create payment channel fails", func(t *testing.T) {
@@ -94,17 +106,18 @@ func TestSetupPaymentChannel(t *testing.T) {
 		require.Equal(t, dealState.Status, retrievalmarket.DealStatusFailed)
 	})
 
-	t.Run("when allocate lane fails", func(t *testing.T) {
-		dealState := makeDealState(retrievalmarket.DealStatusAccepted)
-		envParams := testnodes.TestRetrievalClientNodeParams{
-			PayCh:     expectedPayCh,
-			Lane:      expectedLane,
-			LaneError: errors.New("Something went wrong"),
-		}
-		runSetupPaymentChannel(t, envParams, dealState)
-		require.NotEmpty(t, dealState.Message)
-		require.Equal(t, dealState.Status, retrievalmarket.DealStatusFailed)
-	})
+	// TODO: find the right place for this test
+	//t.Run("when allocate lane fails", func(t *testing.T) {
+	//	dealState := makeDealState(retrievalmarket.ClientEventPaymentChannelAddingFunds)
+	//	envParams := testnodes.TestRetrievalClientNodeParams{
+	//		PayCh:     expectedPayCh,
+	//		Lane:      expectedLane,
+	//		LaneError: errors.New("Something went wrong"),
+	//	}
+	//	runSetupPaymentChannel(t, envParams, dealState)
+	//	require.NotEmpty(t, dealState.Message)
+	//	require.Equal(t, dealState.Status, retrievalmarket.DealStatusFailed)
+	//})
 }
 
 func TestProposeDeal(t *testing.T) {

@@ -37,17 +37,13 @@ var ClientEvents = fsm.Events{
 	fsm.Event(rm.ClientEventPaymentChannelCreateInitiated).
 		From(rm.DealStatusAccepted).To(rm.DealStatusPaymentChannelCreating).
 		Action(func(deal *rm.ClientDealState, msgCID cid.Cid) error {
-			// WaitForPaychCreate, triggers ClientEventPaymentChannelCreated
+			deal.WaitMsgCID = &msgCID
 			return nil
-	}),
-	fsm.Event(rm.ClientEventPaymentChannelCreated).
-		From(rm.DealStatusPaymentChannelCreating).ToNoChange().
-		Action(func(deal *rm.ClientDealState, paych address.Address) error {
-			// AllocateLane, triggers ClientEventPaymentChannelReady
-			return nil
-	}),
+		}),
+	fsm.Event(rm.ClientEventPaymentChannelAddingFunds).
+		From(rm.DealStatusPaymentChannelReady).To(rm.DealStatusPaymentChannelAddingFunds),
 	fsm.Event(rm.ClientEventPaymentChannelReady).
-		FromMany(rm.DealStatusPaymentChannelCreating, rm.ClientEventPaymentChannelFundsAdded).
+		FromMany(rm.DealStatusPaymentChannelCreating, rm.DealStatusPaymentChannelAddingFunds).
 		To(rm.DealStatusPaymentChannelReady).
 		Action(func(deal *rm.ClientDealState, payCh address.Address, lane uint64) error {
 			deal.PaymentInfo = &rm.PaymentInfo{
@@ -56,12 +52,6 @@ var ClientEvents = fsm.Events{
 			}
 			return nil
 		}),
-	fsm.Event(rm.ClientEventPaymentChannelAddingFunds).
-		From(rm.DealStatusPaymentChannelReady).To(rm.DealStatusPaymentChannelAddingFunds).
-		Action(func(deal *rm.ClientDealState, paych address.Address, msgCID cid.Cid) error {
-			// WaitForPaychAddFunds, triggers ClientEventPaychFundsAdded
-			return nil
-	}),
 	fsm.Event(rm.ClientEventAllocateLaneErrored).
 		From(rm.DealStatusAccepted).To(rm.DealStatusFailed).
 		Action(func(deal *rm.ClientDealState, err error) error {
@@ -182,9 +172,9 @@ var ClientEvents = fsm.Events{
 // ClientStateEntryFuncs are the handlers for different states in a retrieval client
 var ClientStateEntryFuncs = fsm.StateEntryFuncs{
 	rm.DealStatusNew:                       ProposeDeal,
-	rm.DealStatusAccepted:                  SetupPaymentChannel,
-	rm.DealStatusPaymentChannelCreating:    ProcessNextResponse,
-	rm.DealStatusPaymentChannelAddingFunds: ProcessNextResponse,
+	rm.DealStatusAccepted:                  SetupPaymentChannelStart,
+	rm.DealStatusPaymentChannelCreating:    WaitForPaymentChannelCreate,
+	rm.DealStatusPaymentChannelAddingFunds: WaitForPaymentChannelAddFunds,
 	rm.DealStatusPaymentChannelReady:       ProcessNextResponse,
 	rm.DealStatusOngoing:                   ProcessNextResponse,
 	rm.DealStatusBlocksComplete:            ProcessNextResponse,
