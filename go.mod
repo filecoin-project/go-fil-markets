@@ -7,10 +7,10 @@ require (
 	github.com/filecoin-project/go-cbor-util v0.0.0-20191219014500-08c40a1e63a2
 	github.com/filecoin-project/go-data-transfer v0.0.0-20200408061858-82c58b423ca6
 	github.com/filecoin-project/go-padreader v0.0.0-20200210211231-548257017ca6
-	github.com/filecoin-project/go-sectorbuilder v0.0.2-0.20200326160829-51775363aa18
 	github.com/filecoin-project/go-statemachine v0.0.0-20200226041606-2074af6d51d9
 	github.com/filecoin-project/go-statestore v0.1.0
-	github.com/filecoin-project/specs-actors v0.0.0-20200226200336-94c9b92b2775
+	github.com/filecoin-project/sector-storage v0.0.0-20200411000242-61616264b16d
+	github.com/filecoin-project/specs-actors v0.0.0-20200409043918-e569f4a2f504
 	github.com/hannahhoward/cbor-gen-for v0.0.0-20191218204337-9ab7b1bcc099
 	github.com/ipfs/go-block-format v0.0.2
 	github.com/ipfs/go-blockservice v0.1.3
@@ -22,10 +22,10 @@ require (
 	github.com/ipfs/go-ipfs-chunker v0.0.1
 	github.com/ipfs/go-ipfs-ds-help v0.1.1
 	github.com/ipfs/go-ipfs-exchange-offline v0.0.1
-	github.com/ipfs/go-ipfs-files v0.0.4
+	github.com/ipfs/go-ipfs-files v0.0.7
 	github.com/ipfs/go-ipld-cbor v0.0.4
 	github.com/ipfs/go-ipld-format v0.0.2
-	github.com/ipfs/go-log/v2 v2.0.2
+	github.com/ipfs/go-log/v2 v2.0.3
 	github.com/ipfs/go-merkledag v0.2.4
 	github.com/ipfs/go-unixfs v0.2.2-0.20190827150610-868af2e9e5cb
 	github.com/ipld/go-car v0.0.5-0.20200316204026-3e2cf7af0fab
