@@ -89,10 +89,26 @@ type StorageAsk struct {
 	Price abi.TokenAmount
 
 	MinPieceSize abi.PaddedPieceSize
+	MaxPieceSize abi.PaddedPieceSize
 	Miner        address.Address
 	Timestamp    abi.ChainEpoch
 	Expiry       abi.ChainEpoch
 	SeqNo        uint64
+}
+
+// StorageAskOption allows custom configuration of a storage ask
+type StorageAskOption func(*StorageAsk)
+
+func MinPieceSize(minPieceSize abi.PaddedPieceSize) StorageAskOption {
+	return func(sa *StorageAsk) {
+		sa.MinPieceSize = minPieceSize
+	}
+}
+
+func MaxPieceSize(maxPieceSize abi.PaddedPieceSize) StorageAskOption {
+	return func(sa *StorageAsk) {
+		sa.MaxPieceSize = maxPieceSize
+	}
 }
 
 var StorageAskUndefined = StorageAsk{}
@@ -267,7 +283,7 @@ type StorageProvider interface {
 
 	Stop() error
 
-	AddAsk(price abi.TokenAmount, duration abi.ChainEpoch) error
+	AddAsk(price abi.TokenAmount, duration abi.ChainEpoch, options ...StorageAskOption) error
 
 	// ListAsks lists current asks
 	ListAsks(addr address.Address) []*SignedStorageAsk

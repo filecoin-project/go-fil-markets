@@ -2,6 +2,7 @@ package storageimpl
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/filecoin-project/go-address"
 	cborutil "github.com/filecoin-project/go-cbor-util"
@@ -202,6 +203,10 @@ func (c *Client) ProposeStorageDeal(
 	commP, pieceSize, err := clientutils.CommP(ctx, c.pio, rt, data)
 	if err != nil {
 		return nil, xerrors.Errorf("computing commP failed: %w", err)
+	}
+
+	if uint64(pieceSize.Padded()) > info.SectorSize {
+		return nil, fmt.Errorf("cannot propose a deal whose piece size (%d) is greater than sector size (%d)", pieceSize.Padded(), info.SectorSize)
 	}
 
 	dealProposal := market.DealProposal{

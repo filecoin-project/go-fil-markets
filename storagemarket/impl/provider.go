@@ -262,8 +262,8 @@ func (p *Provider) ListLocalDeals() ([]storagemarket.MinerDeal, error) {
 	return out, nil
 }
 
-func (p *Provider) AddAsk(price abi.TokenAmount, duration abi.ChainEpoch) error {
-	return p.storedAsk.AddAsk(price, duration)
+func (p *Provider) AddAsk(price abi.TokenAmount, duration abi.ChainEpoch, options ...storagemarket.StorageAskOption) error {
+	return p.storedAsk.AddAsk(price, duration, options...)
 }
 
 func (p *Provider) HandleAskStream(s network.StorageAskStream) {

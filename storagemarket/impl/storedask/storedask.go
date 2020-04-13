@@ -22,6 +22,9 @@ var defaultPrice = abi.NewTokenAmount(500_000_000)
 const defaultDuration abi.ChainEpoch = 1000000
 const defaultMinPieceSize abi.PaddedPieceSize = 256
 
+// It would be nice to default this to the miner's sector size
+const defaultMaxPieceSize abi.PaddedPieceSize = 1 << 20
+
 type StoredAsk struct {
 	askLk sync.RWMutex
 	ask   *storagemarket.SignedStorageAsk
@@ -52,7 +55,7 @@ func NewStoredAsk(ds datastore.Batching, spn storagemarket.StorageProviderNode, 
 	return s, nil
 }
 
-func (s *StoredAsk) AddAsk(price abi.TokenAmount, duration abi.ChainEpoch) error {
+func (s *StoredAsk) AddAsk(price abi.TokenAmount, duration abi.ChainEpoch, options ...storagemarket.StorageAskOption) error {
 	s.askLk.Lock()
 	defer s.askLk.Unlock()
 	var seqno uint64
@@ -73,6 +76,11 @@ func (s *StoredAsk) AddAsk(price abi.TokenAmount, duration abi.ChainEpoch) error
 		Miner:        s.actor,
 		SeqNo:        seqno,
 		MinPieceSize: defaultMinPieceSize,
+		MaxPieceSize: defaultMaxPieceSize,
+	}
+
+	for _, option := range options {
+		option(ask)
 	}
 
 	tok, _, err := s.spn.GetChainHead(ctx)
