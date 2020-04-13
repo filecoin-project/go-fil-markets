@@ -29,7 +29,7 @@ var ClientEvents = fsm.Events{
 	fsm.Event(rm.ClientEventOpen).
 		From(rm.DealStatusNew).ToNoChange(),
 	fsm.Event(rm.ClientEventPaymentChannelErrored).
-		From(rm.DealStatusAccepted).To(rm.DealStatusFailed).
+		From(rm.DealStatusPaymentChannelCreating).To(rm.DealStatusFailed).
 		Action(func(deal *rm.ClientDealState, err error) error {
 			deal.Message = xerrors.Errorf("getting payment channel: %w", err).Error()
 			return nil
@@ -41,7 +41,7 @@ var ClientEvents = fsm.Events{
 			return nil
 		}),
 	fsm.Event(rm.ClientEventPaymentChannelAddingFunds).
-		From(rm.DealStatusPaymentChannelReady).To(rm.DealStatusPaymentChannelAddingFunds),
+		FromMany(rm.DealStatusOngoing, rm.DealStatusPaymentChannelReady).To(rm.DealStatusPaymentChannelAddingFunds),
 	fsm.Event(rm.ClientEventPaymentChannelReady).
 		FromMany(rm.DealStatusPaymentChannelCreating, rm.DealStatusPaymentChannelAddingFunds).
 		To(rm.DealStatusPaymentChannelReady).
@@ -53,9 +53,15 @@ var ClientEvents = fsm.Events{
 			return nil
 		}),
 	fsm.Event(rm.ClientEventAllocateLaneErrored).
-		From(rm.DealStatusAccepted).To(rm.DealStatusFailed).
+		From(rm.DealStatusPaymentChannelCreating).To(rm.DealStatusFailed).
 		Action(func(deal *rm.ClientDealState, err error) error {
 			deal.Message = xerrors.Errorf("allocating payment lane: %w", err).Error()
+			return nil
+		}),
+	fsm.Event(rm.ClientEventPaymentChannelAddFundsErrored).
+		From(rm.DealStatusPaymentChannelAddingFunds).To(rm.DealStatusFailed).
+		Action(func(deal *rm.ClientDealState, err error) error {
+			deal.Message = xerrors.Errorf("wait for add funds: %w", err).Error()
 			return nil
 		}),
 	fsm.Event(rm.ClientEventWriteDealProposalErrored).

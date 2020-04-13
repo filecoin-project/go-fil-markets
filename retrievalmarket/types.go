@@ -75,19 +75,17 @@ const (
 	// successful and we are waiting for it to appear on chain
 	ClientEventPaymentChannelCreateInitiated
 
-	// ClientEventPaymentChannelCreated means a payment channel has been created
-	ClientEventPaymentChannelCreated
-
 	// ClientEventPaymentChannelReady means the newly created payment channel is ready for the
 	// deal to begin
 	ClientEventPaymentChannelReady
 
 	// ClientEventPaymentChannelAddingFunds means the request to add funds to a payment channel was
-	// successful and we are waiting for the funds to be sent
+	// sent and we are waiting for the funds to be added to the payment channel
 	ClientEventPaymentChannelAddingFunds
 
-	// 	ClientEventPaymentChannelFundsAdded means funds have been added to the payment channel
-	ClientEventPaymentChannelFundsAdded
+	// ClientEventPaymentChannelAddingFunds means that adding funds to the payment channel
+	// failed
+	ClientEventPaymentChannelAddFundsErrored
 
 	// ClientEventWriteDealProposalErrored means a network error writing a deal proposal
 	ClientEventWriteDealProposalErrored

@@ -2,6 +2,7 @@ package testnodes
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/filecoin-project/go-address"
 	"github.com/filecoin-project/specs-actors/actors/abi"
@@ -15,14 +16,14 @@ import (
 // TestRetrievalClientNode is a node adapter for a retrieval client whose responses
 // are stubbed
 type TestRetrievalClientNode struct {
-	addFundsOnly                      bool // set this to true if the payment channel is expected to have been created already
-	payCh                             address.Address
-	payChErr                          error
-	createPaychMsgCID, addFundsMsgCID cid.Cid
-	lane                              uint64
-	laneError                         error
-	voucher                           *paych.SignedVoucher
-	voucherError                      error
+	addFundsOnly                            bool // set this to true to test adding funds to an existing payment channel
+	payCh                                   address.Address
+	payChErr                                error
+	createPaychMsgCID, addFundsMsgCID       cid.Cid
+	lane                                    uint64
+	laneError                               error
+	voucher                                 *paych.SignedVoucher
+	voucherError, waitCreateErr, waitAddErr error
 
 	allocateLaneRecorder            func(address.Address)
 	createPaymentVoucherRecorder    func(voucher *paych.SignedVoucher)
@@ -31,27 +32,30 @@ type TestRetrievalClientNode struct {
 
 // TestRetrievalClientNodeParams are parameters for initializing a TestRetrievalClientNode
 type TestRetrievalClientNodeParams struct {
-	PayCh                       address.Address
-	PayChErr                    error
-	CreatePaychCID, AddFundsCID cid.Cid
-	Lane                        uint64
-	LaneError                   error
-	Voucher                     *paych.SignedVoucher
-	VoucherError                error
-	AllocateLaneRecorder        func(address.Address)
-	PaymentVoucherRecorder      func(voucher *paych.SignedVoucher)
-	PaymentChannelRecorder      func(address.Address, address.Address, abi.TokenAmount)
-	AddFundsOnly                bool
+	PayCh                                  address.Address
+	PayChErr                               error
+	CreatePaychCID, AddFundsCID            cid.Cid
+	Lane                                   uint64
+	LaneError                              error
+	Voucher                                *paych.SignedVoucher
+	VoucherError                           error
+	AllocateLaneRecorder                   func(address.Address)
+	PaymentVoucherRecorder                 func(voucher *paych.SignedVoucher)
+	PaymentChannelRecorder                 func(address.Address, address.Address, abi.TokenAmount)
+	AddFundsOnly                           bool
+	WaitForAddFundsErr, WaitForChCreateErr error
 }
 
 var _ retrievalmarket.RetrievalClientNode = &TestRetrievalClientNode{}
 
-// NewTestRetrievalClientNode instantiates a new TestRetrievalClientNode based ont he given params
+// NewTestRetrievalClientNode initializes a new TestRetrievalClientNode based on the given params
 func NewTestRetrievalClientNode(params TestRetrievalClientNodeParams) *TestRetrievalClientNode {
 	return &TestRetrievalClientNode{
 		addFundsOnly:                    params.AddFundsOnly,
 		payCh:                           params.PayCh,
 		payChErr:                        params.PayChErr,
+		waitCreateErr:                   params.WaitForChCreateErr,
+		waitAddErr:                      params.WaitForAddFundsErr,
 		lane:                            params.Lane,
 		laneError:                       params.LaneError,
 		voucher:                         params.Voucher,
@@ -96,9 +100,15 @@ func (trcn *TestRetrievalClientNode) GetChainHead(ctx context.Context) (shared.T
 	return shared.TipSetToken{}, 0, nil
 }
 func (trcn *TestRetrievalClientNode) WaitForPaymentChannelAddFunds(messageCID cid.Cid) error {
-	return nil
+	if messageCID != trcn.addFundsMsgCID {
+		return fmt.Errorf("expected messageCID: %s does not match actual: %s", trcn.addFundsMsgCID, messageCID)
+	}
+	return trcn.waitAddErr
 }
 
 func (trcn *TestRetrievalClientNode) WaitForPaymentChannelCreation(messageCID cid.Cid) (address.Address, error) {
-	return trcn.payCh, nil
+	if messageCID != trcn.createPaychMsgCID {
+		return address.Undef, fmt.Errorf("expected messageCID: %s does not match actual: %s", trcn.createPaychMsgCID, messageCID)
+	}
+	return trcn.payCh, trcn.waitCreateErr
 }
