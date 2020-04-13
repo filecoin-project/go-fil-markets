@@ -72,21 +72,6 @@ func DealAcceptanceBuffer(buffer abi.ChainEpoch) StorageProviderOption {
 	}
 }
 
-// StorageAskOption allows custom configuration of a storage ask
-type StorageAskOption func(*storagemarket.StorageAsk)
-
-func MinPieceSize(minPieceSize abi.PaddedPieceSize) StorageAskOption {
-	return func(sa *storagemarket.StorageAsk) {
-		sa.MinPieceSize = minPieceSize
-	}
-}
-
-func MaxPieceSize(maxPieceSize abi.PaddedPieceSize) StorageAskOption {
-	return func(sa *storagemarket.StorageAsk) {
-		sa.MaxPieceSize = maxPieceSize
-	}
-}
-
 // NewProvider returns a new storage provider
 func NewProvider(net network.StorageMarketNetwork, ds datastore.Batching, bs blockstore.Blockstore, fs filestore.FileStore, pieceStore piecestore.PieceStore, dataTransfer datatransfer.Manager, spn storagemarket.StorageProviderNode, minerAddress address.Address, rt abi.RegisteredProof, options ...StorageProviderOption) (storagemarket.StorageProvider, error) {
 	carIO := cario.NewCarIO()
@@ -277,8 +262,8 @@ func (p *Provider) ListLocalDeals() ([]storagemarket.MinerDeal, error) {
 	return out, nil
 }
 
-func (p *Provider) AddAsk(price abi.TokenAmount, duration abi.ChainEpoch, options ...StorageAskOption) error {
-	return p.storedAsk.AddAsk(price, duration, bounds)
+func (p *Provider) AddAsk(price abi.TokenAmount, duration abi.ChainEpoch, options ...storagemarket.StorageAskOption) error {
+	return p.storedAsk.AddAsk(price, duration, options...)
 }
 
 func (p *Provider) HandleAskStream(s network.StorageAskStream) {

@@ -3,7 +3,6 @@ package storedask
 import (
 	"bytes"
 	"context"
-	storageimpl "github.com/filecoin-project/go-fil-markets/storagemarket/impl"
 	"sync"
 
 	"github.com/filecoin-project/go-address"
@@ -49,14 +48,14 @@ func NewStoredAsk(ds datastore.Batching, spn storagemarket.StorageProviderNode, 
 	if s.ask == nil {
 		// TODO: we should be fine with this state, and just say it means 'not actively accepting deals'
 		// for now... lets just set a price
-		if err := s.AddAsk(defaultPrice, defaultDuration, nil); err != nil {
+		if err := s.AddAsk(defaultPrice, defaultDuration); err != nil {
 			return nil, xerrors.Errorf("failed setting a default price: %w", err)
 		}
 	}
 	return s, nil
 }
 
-func (s *StoredAsk) AddAsk(price abi.TokenAmount, duration abi.ChainEpoch, options ...storageimpl.StorageAskOption) error {
+func (s *StoredAsk) AddAsk(price abi.TokenAmount, duration abi.ChainEpoch, options ...storagemarket.StorageAskOption) error {
 	s.askLk.Lock()
 	defer s.askLk.Unlock()
 	var seqno uint64

@@ -10,6 +10,7 @@ import (
 	dss "github.com/ipfs/go-datastore/sync"
 	"github.com/stretchr/testify/require"
 
+	"github.com/filecoin-project/go-fil-markets/storagemarket"
 	"github.com/filecoin-project/go-fil-markets/storagemarket/impl/storedask"
 	"github.com/filecoin-project/go-fil-markets/storagemarket/testnodes"
 )
@@ -32,11 +33,13 @@ func TestStoredAsk(t *testing.T) {
 		require.NotNil(t, ask)
 	})
 	t.Run("setting ask price", func(t *testing.T) {
-		err := storedAsk.AddAsk(testPrice, testDuration, nil)
+		minPieceSize := abi.PaddedPieceSize(1024)
+		err := storedAsk.AddAsk(testPrice, testDuration, storagemarket.MinPieceSize(minPieceSize))
 		require.NoError(t, err)
 		ask := storedAsk.GetAsk(actor)
 		require.Equal(t, ask.Ask.Price, testPrice)
 		require.Equal(t, ask.Ask.Expiry-ask.Ask.Timestamp, testDuration)
+		require.Equal(t, ask.Ask.MinPieceSize, minPieceSize)
 	})
 	t.Run("querying incorrect address", func(t *testing.T) {
 		otherAddr, err := address.NewActorAddress([]byte("other"))
@@ -61,7 +64,7 @@ func TestStoredAsk(t *testing.T) {
 		// should load cause ask is is still in data store
 		storedAskError, err := storedask.NewStoredAsk(ds, spnStateIDErr, actor)
 		require.NoError(t, err)
-		err = storedAskError.AddAsk(testPrice, testDuration, nil)
+		err = storedAskError.AddAsk(testPrice, testDuration)
 		require.Error(t, err)
 
 		spnMinerWorkerErr := &testnodes.FakeProviderNode{
@@ -73,7 +76,7 @@ func TestStoredAsk(t *testing.T) {
 		// should load cause ask is is still in data store
 		storedAskError, err = storedask.NewStoredAsk(ds, spnMinerWorkerErr, actor)
 		require.NoError(t, err)
-		err = storedAskError.AddAsk(testPrice, testDuration, nil)
+		err = storedAskError.AddAsk(testPrice, testDuration)
 		require.Error(t, err)
 
 		spnSignBytesErr := &testnodes.FakeProviderNode{
@@ -85,7 +88,7 @@ func TestStoredAsk(t *testing.T) {
 		// should load cause ask is is still in data store
 		storedAskError, err = storedask.NewStoredAsk(ds, spnSignBytesErr, actor)
 		require.NoError(t, err)
-		err = storedAskError.AddAsk(testPrice, testDuration, nil)
+		err = storedAskError.AddAsk(testPrice, testDuration)
 		require.Error(t, err)
 	})
 }
