@@ -29,9 +29,9 @@ var ClientEvents = fsm.Events{
 	fsm.Event(rm.ClientEventOpen).
 		From(rm.DealStatusNew).ToNoChange(),
 	fsm.Event(rm.ClientEventPaymentChannelErrored).
-		From(rm.DealStatusPaymentChannelCreating).To(rm.DealStatusFailed).
+		FromMany(rm.DealStatusAccepted, rm.DealStatusPaymentChannelCreating).To(rm.DealStatusFailed).
 		Action(func(deal *rm.ClientDealState, err error) error {
-			deal.Message = xerrors.Errorf("getting payment channel: %w", err).Error()
+			deal.Message = xerrors.Errorf("creating/getting payment channel: %w", err).Error()
 			return nil
 		}),
 	fsm.Event(rm.ClientEventPaymentChannelCreateInitiated).
