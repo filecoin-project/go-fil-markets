@@ -219,6 +219,21 @@ func TestWaitForPaymentChannelAddFunds(t *testing.T) {
 		assert.Equal(t, dealState.Status, retrievalmarket.DealStatusFailed)
 		assert.Equal(t, uint64(0), dealState.PaymentInfo.Lane)
 	})
+	t.Run("if AllocateLane fails", func(t *testing.T) {
+		dealState := makeDealState(retrievalmarket.DealStatusPaymentChannelAddingFunds)
+		dealState.WaitMsgCID = &msgCID
+		params := testnodes.TestRetrievalClientNodeParams{
+			AddFundsOnly: true,
+			PayCh:        expectedPayCh,
+			AddFundsCID:  msgCID,
+			LaneError:    errors.New("boom"),
+			Lane:         expectedLane,
+		}
+		runWaitForPaychAddFunds(t, params, dealState)
+		assert.Contains(t, dealState.Message, "boom")
+		assert.Equal(t, dealState.Status, retrievalmarket.DealStatusFailed)
+		assert.Equal(t, uint64(0), dealState.PaymentInfo.Lane)
+	})
 }
 
 func TestProposeDeal(t *testing.T) {

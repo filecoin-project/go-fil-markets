@@ -60,7 +60,7 @@ var ClientEvents = fsm.Events{
 			return nil
 		}),
 	fsm.Event(rm.ClientEventAllocateLaneErrored).
-		From(rm.DealStatusPaymentChannelCreating).To(rm.DealStatusFailed).
+		FromMany(rm.DealStatusPaymentChannelCreating, rm.DealStatusPaymentChannelAddingFunds).To(rm.DealStatusFailed).
 		Action(func(deal *rm.ClientDealState, err error) error {
 			deal.Message = xerrors.Errorf("allocating payment lane: %w", err).Error()
 			return nil
