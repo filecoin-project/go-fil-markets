@@ -74,10 +74,12 @@ func (trcn *TestRetrievalClientNode) GetOrCreatePaymentChannel(ctx context.Conte
 		trcn.getCreatePaymentChannelRecorder(clientAddress, minerAddress, clientFundsAvailable)
 	}
 	var payCh address.Address
+	msgCID := trcn.createPaychMsgCID
 	if trcn.addFundsOnly {
 		payCh = trcn.payCh
+		msgCID = trcn.addFundsMsgCID
 	}
-	return payCh, trcn.createPaychMsgCID, trcn.payChErr
+	return payCh, msgCID, trcn.payChErr
 }
 
 // AllocateLane creates a mock lane on a payment channel

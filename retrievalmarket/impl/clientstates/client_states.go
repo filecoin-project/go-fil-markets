@@ -35,7 +35,7 @@ func SetupPaymentChannelStart(ctx fsm.Context, environment ClientDealEnvironment
 		return ctx.Trigger(rm.ClientEventPaymentChannelCreateInitiated, msgCID)
 	}
 
-	return ctx.Trigger(rm.ClientEventPaymentChannelAddingFunds)
+	return ctx.Trigger(rm.ClientEventPaymentChannelAddingFunds, msgCID, paych)
 }
 
 // WaitForPaymentChannelCreate waits for payment channel creation to be posted on chain,
@@ -60,7 +60,11 @@ func WaitForPaymentChannelAddFunds(ctx fsm.Context, environment ClientDealEnviro
 	if err != nil {
 		return ctx.Trigger(rm.ClientEventPaymentChannelAddFundsErrored, err)
 	}
-	return ctx.Trigger(rm.ClientEventPaymentChannelReady, deal.PaymentInfo.PayCh, deal.PaymentInfo.Lane)
+	lane, err := environment.Node().AllocateLane(deal.PaymentInfo.PayCh)
+	if err != nil {
+		return ctx.Trigger(rm.ClientEventAllocateLaneErrored, err)
+	}
+	return ctx.Trigger(rm.ClientEventPaymentChannelReady, deal.PaymentInfo.PayCh, lane)
 }
 
 // ProposeDeal sends the proposal to the other party
@@ -174,7 +178,7 @@ func ProcessNextResponse(ctx fsm.Context, environment ClientDealEnvironment, dea
 		return ctx.Trigger(rm.ClientEventEarlyTermination)
 	case rm.DealStatusFundsNeeded:
 		return ctx.Trigger(rm.ClientEventPaymentRequested, totalProcessed, response.PaymentOwed)
-	case rm.DealStatusOngoing, rm.DealStatusPaymentChannelReady:
+	case rm.DealStatusOngoing:
 		return ctx.Trigger(rm.ClientEventBlocksReceived, totalProcessed)
 	default:
 		return ctx.Trigger(rm.ClientEventUnknownResponseReceived)

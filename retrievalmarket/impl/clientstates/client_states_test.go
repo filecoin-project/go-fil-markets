@@ -89,7 +89,7 @@ func TestSetupPaymentChannel(t *testing.T) {
 			PayCh:          expectedPayCh,
 			CreatePaychCID: testnet.GenerateCids(1)[0],
 		}
-		dealState := makeDealState(retrievalmarket.DealStatusPaymentChannelReady)
+		dealState := makeDealState(retrievalmarket.DealStatusAccepted)
 		runSetupPaymentChannel(t, envParams, dealState)
 		require.Empty(t, dealState.Message)
 		require.Equal(t, dealState.Status, retrievalmarket.DealStatusPaymentChannelAddingFunds)

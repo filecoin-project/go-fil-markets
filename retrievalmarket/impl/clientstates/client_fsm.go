@@ -41,7 +41,14 @@ var ClientEvents = fsm.Events{
 			return nil
 		}),
 	fsm.Event(rm.ClientEventPaymentChannelAddingFunds).
-		FromMany(rm.DealStatusOngoing, rm.DealStatusPaymentChannelReady).To(rm.DealStatusPaymentChannelAddingFunds),
+		FromMany(rm.DealStatusAccepted).To(rm.DealStatusPaymentChannelAddingFunds).
+		Action(func(deal *rm.ClientDealState, msgCID cid.Cid, payCh address.Address) error {
+			deal.WaitMsgCID = &msgCID
+			deal.PaymentInfo = &rm.PaymentInfo{
+				PayCh: payCh,
+			}
+			return nil
+		}),
 	fsm.Event(rm.ClientEventPaymentChannelReady).
 		FromMany(rm.DealStatusPaymentChannelCreating, rm.DealStatusPaymentChannelAddingFunds).
 		To(rm.DealStatusPaymentChannelReady).
