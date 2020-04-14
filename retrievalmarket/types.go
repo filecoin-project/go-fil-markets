@@ -71,16 +71,16 @@ const (
 	// ClientEventAllocateLaneErrored means there was a failure creating a lane in a payment channel
 	ClientEventAllocateLaneErrored
 
-	// ClientEventPaymentChannelCreateInitiated means the request to create a payment channel was
-	// successful and we are waiting for it to appear on chain
+	// ClientEventPaymentChannelCreateInitiated means we are waiting for a message to
+	// create a payment channel to appear on chain
 	ClientEventPaymentChannelCreateInitiated
 
 	// ClientEventPaymentChannelReady means the newly created payment channel is ready for the
-	// deal to begin
+	// deal to resume
 	ClientEventPaymentChannelReady
 
-	// ClientEventPaymentChannelAddingFunds means the request to add funds to a payment channel was
-	// sent and we are waiting for the funds to be added to the payment channel
+	// ClientEventPaymentChannelAddingFunds mean we are waiting for funds to be
+	// added to a payment channel
 	ClientEventPaymentChannelAddingFunds
 
 	// ClientEventPaymentChannelAddingFunds means that adding funds to the payment channel
@@ -519,20 +519,22 @@ const (
 
 // DealStatuses maps deal status to a human readable representation
 var DealStatuses = map[DealStatus]string{
-	DealStatusNew:                    "DealStatusNew",
-	DealStatusPaymentChannelCreating: "DealStatusPaymentChannelCreating",
-	DealStatusAccepted:               "DealStatusAccepted",
-	DealStatusFailed:                 "DealStatusFailed",
-	DealStatusRejected:               "DealStatusRejected",
-	DealStatusFundsNeeded:            "DealStatusFundsNeeded",
-	DealStatusOngoing:                "DealStatusOngoing",
-	DealStatusFundsNeededLastPayment: "DealStatusFundsNeededLastPayment",
-	DealStatusCompleted:              "DealStatusCompleted",
-	DealStatusDealNotFound:           "DealStatusDealNotFound",
-	DealStatusVerified:               "DealStatusVerified",
-	DealStatusErrored:                "DealStatusErrored",
-	DealStatusBlocksComplete:         "DealStatusBlocksComplete",
-	DealStatusFinalizing:             "DealStatusFinalizing",
+	DealStatusNew:                       "DealStatusNew",
+	DealStatusPaymentChannelCreating:    "DealStatusPaymentChannelCreating",
+	DealStatusPaymentChannelAddingFunds: "DealStatusPaymentChannelAddingFunds",
+	DealStatusPaymentChannelReady:       "DealStatusPaymentChannelReady",
+	DealStatusAccepted:                  "DealStatusAccepted",
+	DealStatusFailed:                    "DealStatusFailed",
+	DealStatusRejected:                  "DealStatusRejected",
+	DealStatusFundsNeeded:               "DealStatusFundsNeeded",
+	DealStatusOngoing:                   "DealStatusOngoing",
+	DealStatusFundsNeededLastPayment:    "DealStatusFundsNeededLastPayment",
+	DealStatusCompleted:                 "DealStatusCompleted",
+	DealStatusDealNotFound:              "DealStatusDealNotFound",
+	DealStatusVerified:                  "DealStatusVerified",
+	DealStatusErrored:                   "DealStatusErrored",
+	DealStatusBlocksComplete:            "DealStatusBlocksComplete",
+	DealStatusFinalizing:                "DealStatusFinalizing",
 }
 
 // IsTerminalError returns true if this status indicates processing of this deal
