@@ -58,7 +58,6 @@ func TestSetupPaymentChannel(t *testing.T) {
 	ctx := context.Background()
 	ds := testnet.NewTestRetrievalDealStream(testnet.TestDealStreamParams{})
 	expectedPayCh := address.TestAddress2
-	expectedLane := uint64(10)
 	eventMachine, err := fsm.NewEventProcessor(retrievalmarket.ClientDealState{}, "Status", clientstates.ClientEvents)
 	require.NoError(t, err)
 	runSetupPaymentChannel := func(t *testing.T,
@@ -79,8 +78,8 @@ func TestSetupPaymentChannel(t *testing.T) {
 		}
 		dealState := makeDealState(retrievalmarket.DealStatusAccepted)
 		runSetupPaymentChannel(t, envParams, dealState)
-		require.Empty(t, dealState.Message)
-		require.Equal(t, dealState.Status, retrievalmarket.DealStatusPaymentChannelCreating)
+		assert.Empty(t, dealState.Message)
+		assert.Equal(t, dealState.Status, retrievalmarket.DealStatusPaymentChannelCreating)
 	})
 
 	t.Run("payment channel needs funds added", func(t *testing.T) {
@@ -92,7 +91,8 @@ func TestSetupPaymentChannel(t *testing.T) {
 		dealState := makeDealState(retrievalmarket.DealStatusAccepted)
 		runSetupPaymentChannel(t, envParams, dealState)
 		require.Empty(t, dealState.Message)
-		require.Equal(t, dealState.Status, retrievalmarket.DealStatusPaymentChannelAddingFunds)
+		require.Equal(t, retrievalmarket.DealStatusPaymentChannelAddingFunds, dealState.Status)
+		require.Equal(t, expectedPayCh, dealState.PaymentInfo.PayCh)
 	})
 
 	t.Run("when create payment channel fails", func(t *testing.T) {
@@ -100,7 +100,6 @@ func TestSetupPaymentChannel(t *testing.T) {
 		envParams := testnodes.TestRetrievalClientNodeParams{
 			PayCh:    address.Undef,
 			PayChErr: errors.New("Something went wrong"),
-			Lane:     expectedLane,
 		}
 		runSetupPaymentChannel(t, envParams, dealState)
 		require.NotEmpty(t, dealState.Message)
@@ -138,8 +137,9 @@ func TestWaitForPaymentChannelCreate(t *testing.T) {
 		}
 		runWaitForPaychCreate(t, params, dealState)
 		require.Empty(t, dealState.Message)
-		assert.Equal(t, dealState.Status, retrievalmarket.DealStatusPaymentChannelReady)
-		assert.Equal(t, expectedLane, dealState.PaymentInfo.Lane)
+		require.Equal(t, dealState.Status, retrievalmarket.DealStatusPaymentChannelReady)
+		require.Equal(t, expectedLane, dealState.PaymentInfo.Lane)
+		require.Equal(t, expectedPayCh, dealState.PaymentInfo.PayCh)
 	})
 	t.Run("if Wait fails", func(t *testing.T) {
 		dealState := makeDealState(retrievalmarket.DealStatusPaymentChannelCreating)
@@ -150,8 +150,8 @@ func TestWaitForPaymentChannelCreate(t *testing.T) {
 			WaitForChCreateErr: errors.New("boom"),
 		}
 		runWaitForPaychCreate(t, params, dealState)
-		assert.Contains(t, dealState.Message, "boom")
-		assert.Equal(t, dealState.Status, retrievalmarket.DealStatusFailed)
+		require.Contains(t, dealState.Message, "boom")
+		require.Equal(t, dealState.Status, retrievalmarket.DealStatusFailed)
 	})
 
 	t.Run("if AllocateLane fails", func(t *testing.T) {
@@ -163,8 +163,8 @@ func TestWaitForPaymentChannelCreate(t *testing.T) {
 			LaneError:      errors.New("boom"),
 		}
 		runWaitForPaychCreate(t, params, dealState)
-		assert.Contains(t, dealState.Message, "boom")
-		assert.Equal(t, dealState.Status, retrievalmarket.DealStatusFailed)
+		require.Contains(t, dealState.Message, "boom")
+		require.Equal(t, dealState.Status, retrievalmarket.DealStatusFailed)
 	})
 }
 
@@ -172,6 +172,7 @@ func TestWaitForPaymentChannelAddFunds(t *testing.T) {
 	ctx := context.Background()
 	ds := testnet.NewTestRetrievalDealStream(testnet.TestDealStreamParams{})
 	expectedPayCh := address.TestAddress2
+	expectedLane := uint64(99)
 	eventMachine, err := fsm.NewEventProcessor(retrievalmarket.ClientDealState{}, "Status", clientstates.ClientEvents)
 	require.NoError(t, err)
 	runWaitForPaychAddFunds := func(t *testing.T,
@@ -188,15 +189,20 @@ func TestWaitForPaymentChannelAddFunds(t *testing.T) {
 
 	t.Run("it works", func(t *testing.T) {
 		dealState := makeDealState(retrievalmarket.DealStatusPaymentChannelAddingFunds)
+		dealState.PaymentInfo.PayCh = expectedPayCh
 		dealState.WaitMsgCID = &msgCID
+
 		params := testnodes.TestRetrievalClientNodeParams{
 			AddFundsOnly: true,
 			PayCh:        expectedPayCh,
 			AddFundsCID:  msgCID,
+			Lane:         expectedLane,
 		}
 		runWaitForPaychAddFunds(t, params, dealState)
 		require.Empty(t, dealState.Message)
-		assert.Equal(t, dealState.Status, retrievalmarket.DealStatusPaymentChannelReady)
+		assert.Equal(t, retrievalmarket.DealStatusPaymentChannelReady, dealState.Status)
+		assert.Equal(t, expectedLane, dealState.PaymentInfo.Lane)
+		assert.Equal(t, expectedPayCh, dealState.PaymentInfo.PayCh)
 	})
 	t.Run("if Wait fails", func(t *testing.T) {
 		dealState := makeDealState(retrievalmarket.DealStatusPaymentChannelAddingFunds)
@@ -206,10 +212,12 @@ func TestWaitForPaymentChannelAddFunds(t *testing.T) {
 			PayCh:              expectedPayCh,
 			AddFundsCID:        msgCID,
 			WaitForAddFundsErr: errors.New("boom"),
+			Lane:               expectedLane,
 		}
 		runWaitForPaychAddFunds(t, params, dealState)
 		assert.Contains(t, dealState.Message, "boom")
 		assert.Equal(t, dealState.Status, retrievalmarket.DealStatusFailed)
+		assert.Equal(t, uint64(0), dealState.PaymentInfo.Lane)
 	})
 }
 
@@ -591,13 +599,10 @@ var defaultPaymentRequested = abi.NewTokenAmount(500000)
 
 func makeDealState(status retrievalmarket.DealStatus) *retrievalmarket.ClientDealState {
 	return &retrievalmarket.ClientDealState{
-		TotalFunds:   defaultTotalFunds,
-		MinerWallet:  address.TestAddress,
-		ClientWallet: address.TestAddress2,
-		PaymentInfo: &retrievalmarket.PaymentInfo{
-			PayCh: address.TestAddress2,
-			Lane:  uint64(10),
-		},
+		TotalFunds:       defaultTotalFunds,
+		MinerWallet:      address.TestAddress,
+		ClientWallet:     address.TestAddress2,
+		PaymentInfo:      &retrievalmarket.PaymentInfo{},
 		Status:           status,
 		BytesPaidFor:     defaultBytesPaidFor,
 		TotalReceived:    defaultTotalReceived,
