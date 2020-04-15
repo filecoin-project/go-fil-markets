@@ -79,7 +79,12 @@ func requireSetupTestClientAndProvider(bgCtx context.Context, t *testing.T, payC
 	retrievalmarket.RetrievalProvider) {
 	testData := tut.NewLibp2pTestData(bgCtx, t)
 	nw1 := rmnet.NewFromLibp2pHost(testData.Host1)
-	rcNode1 := testnodes.NewTestRetrievalClientNode(testnodes.TestRetrievalClientNodeParams{PayCh: payChAddr})
+	cids := tut.GenerateCids(2)
+	rcNode1 := testnodes.NewTestRetrievalClientNode(testnodes.TestRetrievalClientNodeParams{
+		PayCh:          payChAddr,
+		CreatePaychCID: cids[0],
+		AddFundsCID:    cids[1],
+	})
 	client, err := retrievalimpl.NewClient(nw1, testData.Bs1, rcNode1, &testPeerResolver{}, testData.Ds1, testData.StoredCounter1)
 	require.NoError(t, err)
 	nw2 := rmnet.NewFromLibp2pHost(testData.Host2)
@@ -140,18 +145,23 @@ func TestClientCanMakeDealWithProvider(t *testing.T) {
 	}).Node()
 
 	testCases := []struct {
-		name                string
-		filename            string
-		filesize            uint64
-		voucherAmts         []abi.TokenAmount
-		selector            ipld.Node
-		paramsV1, unsealing bool
+		name                          string
+		filename                      string
+		filesize                      uint64
+		voucherAmts                   []abi.TokenAmount
+		selector                      ipld.Node
+		paramsV1, unsealing, addFunds bool
 	}{
 		{name: "1 block file retrieval succeeds",
 			filename:    "lorem_under_1_block.txt",
 			filesize:    410,
 			voucherAmts: []abi.TokenAmount{abi.NewTokenAmount(410000)},
 			unsealing:   false},
+		{name: "1 block file retrieval succeeds with existing payment channel",
+			filename:    "lorem_under_1_block.txt",
+			filesize:    410,
+			voucherAmts: []abi.TokenAmount{abi.NewTokenAmount(410000)},
+			unsealing:   false, addFunds: true},
 		{name: "1 block file retrieval succeeds with unsealing",
 			filename:    "lorem_under_1_block.txt",
 			filesize:    410,
@@ -267,7 +277,7 @@ func TestClientCanMakeDealWithProvider(t *testing.T) {
 			// ------- SET UP CLIENT
 			nw1 := rmnet.NewFromLibp2pHost(testData.Host1)
 
-			createdChan, newLaneAddr, createdVoucher, client, err := setupClient(clientPaymentChannel, expectedVoucher, nw1, testData)
+			createdChan, newLaneAddr, createdVoucher, client, err := setupClient(clientPaymentChannel, expectedVoucher, nw1, testData, testCase.addFunds)
 			require.NoError(t, err)
 
 			clientDealStateChan := make(chan retrievalmarket.ClientDealState)
@@ -371,10 +381,14 @@ func setupClient(
 	clientPaymentChannel address.Address,
 	expectedVoucher *paych.SignedVoucher,
 	nw1 rmnet.RetrievalMarketNetwork,
-	testData *tut.Libp2pTestData) (*pmtChan,
+	testData *tut.Libp2pTestData,
+	addFunds bool,
+) (
+	*pmtChan,
 	*address.Address,
 	*paych.SignedVoucher,
-	retrievalmarket.RetrievalClient, error) {
+	retrievalmarket.RetrievalClient,
+	error) {
 	var createdChan pmtChan
 	paymentChannelRecorder := func(client, miner address.Address, amt abi.TokenAmount) {
 		createdChan = pmtChan{client, miner, amt}
@@ -389,13 +403,17 @@ func setupClient(
 	paymentVoucherRecorder := func(v *paych.SignedVoucher) {
 		createdVoucher = *v
 	}
+	cids := tut.GenerateCids(2)
 	clientNode := testnodes.NewTestRetrievalClientNode(testnodes.TestRetrievalClientNodeParams{
+		AddFundsOnly:           addFunds,
 		PayCh:                  clientPaymentChannel,
 		Lane:                   expectedVoucher.Lane,
 		Voucher:                expectedVoucher,
 		PaymentChannelRecorder: paymentChannelRecorder,
 		AllocateLaneRecorder:   laneRecorder,
 		PaymentVoucherRecorder: paymentVoucherRecorder,
+		CreatePaychCID:         cids[0],
+		AddFundsCID:            cids[1],
 	})
 	client, err := retrievalimpl.NewClient(nw1, testData.Bs1, clientNode, &testPeerResolver{}, testData.Ds1, testData.StoredCounter1)
 	return &createdChan, &newLaneAddr, &createdVoucher, client, err

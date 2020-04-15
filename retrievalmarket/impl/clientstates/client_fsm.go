@@ -7,6 +7,7 @@ import (
 	"github.com/filecoin-project/go-statemachine/fsm"
 	"github.com/filecoin-project/specs-actors/actors/abi"
 	"github.com/filecoin-project/specs-actors/actors/abi/big"
+	"github.com/ipfs/go-cid"
 	"golang.org/x/xerrors"
 
 	rm "github.com/filecoin-project/go-fil-markets/retrievalmarket"
@@ -28,24 +29,46 @@ var ClientEvents = fsm.Events{
 	fsm.Event(rm.ClientEventOpen).
 		From(rm.DealStatusNew).ToNoChange(),
 	fsm.Event(rm.ClientEventPaymentChannelErrored).
-		From(rm.DealStatusAccepted).To(rm.DealStatusFailed).
+		FromMany(rm.DealStatusAccepted, rm.DealStatusPaymentChannelCreating).To(rm.DealStatusFailed).
 		Action(func(deal *rm.ClientDealState, err error) error {
-			deal.Message = xerrors.Errorf("getting payment channel: %w", err).Error()
+			deal.Message = xerrors.Errorf("get or create payment channel: %w", err).Error()
 			return nil
 		}),
-	fsm.Event(rm.ClientEventAllocateLaneErrored).
-		From(rm.DealStatusAccepted).To(rm.DealStatusFailed).
-		Action(func(deal *rm.ClientDealState, err error) error {
-			deal.Message = xerrors.Errorf("allocating payment lane: %w", err).Error()
+	fsm.Event(rm.ClientEventPaymentChannelCreateInitiated).
+		From(rm.DealStatusAccepted).To(rm.DealStatusPaymentChannelCreating).
+		Action(func(deal *rm.ClientDealState, msgCID cid.Cid) error {
+			deal.WaitMsgCID = &msgCID
 			return nil
 		}),
-	fsm.Event(rm.ClientEventPaymentChannelCreated).
-		From(rm.DealStatusAccepted).To(rm.DealStatusPaymentChannelCreated).
+	fsm.Event(rm.ClientEventPaymentChannelAddingFunds).
+		FromMany(rm.DealStatusAccepted).To(rm.DealStatusPaymentChannelAddingFunds).
+		Action(func(deal *rm.ClientDealState, msgCID cid.Cid, payCh address.Address) error {
+			deal.WaitMsgCID = &msgCID
+			deal.PaymentInfo = &rm.PaymentInfo{
+				PayCh: payCh,
+			}
+			return nil
+		}),
+	fsm.Event(rm.ClientEventPaymentChannelReady).
+		FromMany(rm.DealStatusPaymentChannelCreating, rm.DealStatusPaymentChannelAddingFunds).
+		To(rm.DealStatusPaymentChannelReady).
 		Action(func(deal *rm.ClientDealState, payCh address.Address, lane uint64) error {
 			deal.PaymentInfo = &rm.PaymentInfo{
 				PayCh: payCh,
 				Lane:  lane,
 			}
+			return nil
+		}),
+	fsm.Event(rm.ClientEventAllocateLaneErrored).
+		FromMany(rm.DealStatusPaymentChannelCreating, rm.DealStatusPaymentChannelAddingFunds).To(rm.DealStatusFailed).
+		Action(func(deal *rm.ClientDealState, err error) error {
+			deal.Message = xerrors.Errorf("allocating payment lane: %w", err).Error()
+			return nil
+		}),
+	fsm.Event(rm.ClientEventPaymentChannelAddFundsErrored).
+		From(rm.DealStatusPaymentChannelAddingFunds).To(rm.DealStatusFailed).
+		Action(func(deal *rm.ClientDealState, err error) error {
+			deal.Message = xerrors.Errorf("wait for add funds: %w", err).Error()
 			return nil
 		}),
 	fsm.Event(rm.ClientEventWriteDealProposalErrored).
@@ -123,50 +146,52 @@ var ClientEvents = fsm.Events{
 			return nil
 		}),
 	fsm.Event(rm.ClientEventConsumeBlockFailed).
-		FromMany(rm.DealStatusPaymentChannelCreated, rm.DealStatusOngoing).To(rm.DealStatusFailed).
+		FromMany(rm.DealStatusPaymentChannelReady, rm.DealStatusOngoing).To(rm.DealStatusFailed).
 		Action(func(deal *rm.ClientDealState, err error) error {
 			deal.Message = xerrors.Errorf("consuming block: %w", err).Error()
 			return nil
 		}),
 	fsm.Event(rm.ClientEventLastPaymentRequested).
-		FromMany(rm.DealStatusPaymentChannelCreated,
+		FromMany(rm.DealStatusPaymentChannelReady,
 			rm.DealStatusOngoing,
 			rm.DealStatusBlocksComplete).To(rm.DealStatusFundsNeededLastPayment).
 		Action(recordPaymentOwed),
 	fsm.Event(rm.ClientEventAllBlocksReceived).
-		FromMany(rm.DealStatusPaymentChannelCreated,
+		FromMany(rm.DealStatusPaymentChannelReady,
 			rm.DealStatusOngoing,
 			rm.DealStatusBlocksComplete).To(rm.DealStatusBlocksComplete).
 		Action(recordProcessed),
 	fsm.Event(rm.ClientEventComplete).
-		FromMany(rm.DealStatusPaymentChannelCreated,
+		FromMany(rm.DealStatusPaymentChannelReady,
 			rm.DealStatusOngoing,
 			rm.DealStatusBlocksComplete,
 			rm.DealStatusFinalizing).To(rm.DealStatusCompleted).
 		Action(recordProcessed),
 	fsm.Event(rm.ClientEventEarlyTermination).
-		FromMany(rm.DealStatusPaymentChannelCreated, rm.DealStatusOngoing).To(rm.DealStatusFailed).
+		FromMany(rm.DealStatusPaymentChannelReady, rm.DealStatusOngoing).To(rm.DealStatusFailed).
 		Action(func(deal *rm.ClientDealState) error {
 			deal.Message = "received complete status before all blocks received"
 			return nil
 		}),
 	fsm.Event(rm.ClientEventPaymentRequested).
-		FromMany(rm.DealStatusPaymentChannelCreated, rm.DealStatusOngoing).To(rm.DealStatusFundsNeeded).
+		FromMany(rm.DealStatusPaymentChannelReady, rm.DealStatusOngoing).To(rm.DealStatusFundsNeeded).
 		Action(recordPaymentOwed),
 	fsm.Event(rm.ClientEventBlocksReceived).
-		From(rm.DealStatusPaymentChannelCreated).To(rm.DealStatusOngoing).
+		From(rm.DealStatusPaymentChannelReady).To(rm.DealStatusOngoing).
 		From(rm.DealStatusOngoing).ToNoChange().
 		Action(recordProcessed),
 }
 
 // ClientStateEntryFuncs are the handlers for different states in a retrieval client
 var ClientStateEntryFuncs = fsm.StateEntryFuncs{
-	rm.DealStatusNew:                    ProposeDeal,
-	rm.DealStatusAccepted:               SetupPaymentChannel,
-	rm.DealStatusPaymentChannelCreated:  ProcessNextResponse,
-	rm.DealStatusOngoing:                ProcessNextResponse,
-	rm.DealStatusBlocksComplete:         ProcessNextResponse,
-	rm.DealStatusFundsNeeded:            ProcessPaymentRequested,
-	rm.DealStatusFundsNeededLastPayment: ProcessPaymentRequested,
-	rm.DealStatusFinalizing:             Finalize,
+	rm.DealStatusNew:                       ProposeDeal,
+	rm.DealStatusAccepted:                  SetupPaymentChannelStart,
+	rm.DealStatusPaymentChannelCreating:    WaitForPaymentChannelCreate,
+	rm.DealStatusPaymentChannelAddingFunds: WaitForPaymentChannelAddFunds,
+	rm.DealStatusPaymentChannelReady:       ProcessNextResponse,
+	rm.DealStatusOngoing:                   ProcessNextResponse,
+	rm.DealStatusBlocksComplete:            ProcessNextResponse,
+	rm.DealStatusFundsNeeded:               ProcessPaymentRequested,
+	rm.DealStatusFundsNeededLastPayment:    ProcessPaymentRequested,
+	rm.DealStatusFinalizing:                Finalize,
 }

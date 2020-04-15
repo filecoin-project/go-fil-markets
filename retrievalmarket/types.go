@@ -55,6 +55,7 @@ type ClientDealState struct {
 	CurrentInterval  uint64
 	PaymentRequested abi.TokenAmount
 	FundsSpent       abi.TokenAmount
+	WaitMsgCID       *cid.Cid // the CID of any message the client deal is waiting for
 }
 
 // ClientEvent is an event that occurs in a deal lifecycle on the client
@@ -70,8 +71,21 @@ const (
 	// ClientEventAllocateLaneErrored means there was a failure creating a lane in a payment channel
 	ClientEventAllocateLaneErrored
 
-	// ClientEventPaymentChannelCreated means a payment channel has successfully been created
-	ClientEventPaymentChannelCreated
+	// ClientEventPaymentChannelCreateInitiated means we are waiting for a message to
+	// create a payment channel to appear on chain
+	ClientEventPaymentChannelCreateInitiated
+
+	// ClientEventPaymentChannelReady means the newly created payment channel is ready for the
+	// deal to resume
+	ClientEventPaymentChannelReady
+
+	// ClientEventPaymentChannelAddingFunds mean we are waiting for funds to be
+	// added to a payment channel
+	ClientEventPaymentChannelAddingFunds
+
+	// ClientEventPaymentChannelAddingFunds means that adding funds to the payment channel
+	// failed
+	ClientEventPaymentChannelAddFundsErrored
 
 	// ClientEventWriteDealProposalErrored means a network error writing a deal proposal
 	ClientEventWriteDealProposalErrored
@@ -183,7 +197,7 @@ type RetrievalClientNode interface {
 
 	// GetOrCreatePaymentChannel sets up a new payment channel if one does not exist
 	// between a client and a miner and insures the client has the given amount of funds available in the channel
-	GetOrCreatePaymentChannel(ctx context.Context, clientAddress address.Address, minerAddress address.Address, clientFundsAvailable abi.TokenAmount, tok shared.TipSetToken) (address.Address, error)
+	GetOrCreatePaymentChannel(ctx context.Context, clientAddress address.Address, minerAddress address.Address, clientFundsAvailable abi.TokenAmount, tok shared.TipSetToken) (address.Address, cid.Cid, error)
 
 	// Allocate late creates a lane within a payment channel so that calls to
 	// CreatePaymentVoucher will automatically make vouchers only for the difference
@@ -194,6 +208,14 @@ type RetrievalClientNode interface {
 	// given payment channel so that all the payment vouchers in the lane add up
 	// to the given amount (so the payment voucher will be for the difference)
 	CreatePaymentVoucher(ctx context.Context, paymentChannel address.Address, amount abi.TokenAmount, lane uint64, tok shared.TipSetToken) (*paych.SignedVoucher, error)
+
+	// WaitForPaymentChannelAddFunds waits for a message on chain that funds have
+	// been sent to a payment channel
+	WaitForPaymentChannelAddFunds(messageCID cid.Cid) error
+
+	// WaitForPaymentChannelCreation waits for a message on chain that a
+	// payment channel has been created
+	WaitForPaymentChannelCreation(messageCID cid.Cid) (address.Address, error)
 }
 
 // ProviderDealState is the current state of a deal from the point of view
@@ -437,9 +459,20 @@ const (
 	// DealStatusNew is a deal that nothing has happened with yet
 	DealStatusNew DealStatus = iota
 
-	// DealStatusPaymentChannelCreated is a deal status that has a payment channel
+	// DealStatusPaymentChannelCreating is the status set while waiting for the
+	// payment channel creation to complete
+	DealStatusPaymentChannelCreating
+
+	// DealStatusPaymentChannelAddingFunds is the status when we are waiting for funds
+	// to finish being sent to the payment channel
+	DealStatusPaymentChannelAddingFunds
+
+	// DealStatusPaymentChannelAllocatingLane is the status during lane allocation
+	DealStatusPaymentChannelAllocatingLane
+
+	// DealStatusPaymentChannelReady is a deal status that has a payment channel
 	// & lane setup
-	DealStatusPaymentChannelCreated
+	DealStatusPaymentChannelReady
 
 	// DealStatusAccepted means a deal has been accepted by a provider
 	// and its is ready to proceed with retrieval
@@ -486,20 +519,22 @@ const (
 
 // DealStatuses maps deal status to a human readable representation
 var DealStatuses = map[DealStatus]string{
-	DealStatusNew:                    "DealStatusNew",
-	DealStatusPaymentChannelCreated:  "DealStatusPaymentChannelCreated",
-	DealStatusAccepted:               "DealStatusAccepted",
-	DealStatusFailed:                 "DealStatusFailed",
-	DealStatusRejected:               "DealStatusRejected",
-	DealStatusFundsNeeded:            "DealStatusFundsNeeded",
-	DealStatusOngoing:                "DealStatusOngoing",
-	DealStatusFundsNeededLastPayment: "DealStatusFundsNeededLastPayment",
-	DealStatusCompleted:              "DealStatusCompleted",
-	DealStatusDealNotFound:           "DealStatusDealNotFound",
-	DealStatusVerified:               "DealStatusVerified",
-	DealStatusErrored:                "DealStatusErrored",
-	DealStatusBlocksComplete:         "DealStatusBlocksComplete",
-	DealStatusFinalizing:             "DealStatusFinalizing",
+	DealStatusNew:                       "DealStatusNew",
+	DealStatusPaymentChannelCreating:    "DealStatusPaymentChannelCreating",
+	DealStatusPaymentChannelAddingFunds: "DealStatusPaymentChannelAddingFunds",
+	DealStatusPaymentChannelReady:       "DealStatusPaymentChannelReady",
+	DealStatusAccepted:                  "DealStatusAccepted",
+	DealStatusFailed:                    "DealStatusFailed",
+	DealStatusRejected:                  "DealStatusRejected",
+	DealStatusFundsNeeded:               "DealStatusFundsNeeded",
+	DealStatusOngoing:                   "DealStatusOngoing",
+	DealStatusFundsNeededLastPayment:    "DealStatusFundsNeededLastPayment",
+	DealStatusCompleted:                 "DealStatusCompleted",
+	DealStatusDealNotFound:              "DealStatusDealNotFound",
+	DealStatusVerified:                  "DealStatusVerified",
+	DealStatusErrored:                   "DealStatusErrored",
+	DealStatusBlocksComplete:            "DealStatusBlocksComplete",
+	DealStatusFinalizing:                "DealStatusFinalizing",
 }
 
 // IsTerminalError returns true if this status indicates processing of this deal

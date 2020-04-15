@@ -3,6 +3,7 @@ package clientstates
 import (
 	"context"
 
+	"github.com/filecoin-project/go-address"
 	"github.com/filecoin-project/go-statemachine/fsm"
 	"github.com/filecoin-project/specs-actors/actors/abi"
 	"github.com/filecoin-project/specs-actors/actors/abi/big"
@@ -18,22 +19,52 @@ type ClientDealEnvironment interface {
 	ConsumeBlock(context.Context, rm.DealID, rm.Block) (uint64, bool, error)
 }
 
-// SetupPaymentChannel sets up a payment channel for a deal
-func SetupPaymentChannel(ctx fsm.Context, environment ClientDealEnvironment, deal rm.ClientDealState) error {
+// SetupPaymentChannelStart initiates setting up a payment channel for a deal
+func SetupPaymentChannelStart(ctx fsm.Context, environment ClientDealEnvironment, deal rm.ClientDealState) error {
 	tok, _, err := environment.Node().GetChainHead(ctx.Context())
 	if err != nil {
 		return ctx.Trigger(rm.ClientEventPaymentChannelErrored, err)
 	}
 
-	paych, err := environment.Node().GetOrCreatePaymentChannel(ctx.Context(), deal.ClientWallet, deal.MinerWallet, deal.TotalFunds, tok)
+	paych, msgCID, err := environment.Node().GetOrCreatePaymentChannel(ctx.Context(), deal.ClientWallet, deal.MinerWallet, deal.TotalFunds, tok)
 	if err != nil {
 		return ctx.Trigger(rm.ClientEventPaymentChannelErrored, err)
 	}
+
+	if paych == address.Undef {
+		return ctx.Trigger(rm.ClientEventPaymentChannelCreateInitiated, msgCID)
+	}
+
+	return ctx.Trigger(rm.ClientEventPaymentChannelAddingFunds, msgCID, paych)
+}
+
+// WaitForPaymentChannelCreate waits for payment channel creation to be posted on chain,
+//  allocates a lane for vouchers, then signals that the payment channel is ready
+func WaitForPaymentChannelCreate(ctx fsm.Context, environment ClientDealEnvironment, deal rm.ClientDealState) error {
+	paych, err := environment.Node().WaitForPaymentChannelCreation(*deal.WaitMsgCID)
+	if err != nil {
+		return ctx.Trigger(rm.ClientEventPaymentChannelErrored, err)
+	}
+
 	lane, err := environment.Node().AllocateLane(paych)
 	if err != nil {
 		return ctx.Trigger(rm.ClientEventAllocateLaneErrored, err)
 	}
-	return ctx.Trigger(rm.ClientEventPaymentChannelCreated, paych, lane)
+	return ctx.Trigger(rm.ClientEventPaymentChannelReady, paych, lane)
+}
+
+// WaitForPaymentChannelAddFunds waits for funds to be added to an existing payment channel, then
+// signals that payment channel is ready again
+func WaitForPaymentChannelAddFunds(ctx fsm.Context, environment ClientDealEnvironment, deal rm.ClientDealState) error {
+	err := environment.Node().WaitForPaymentChannelAddFunds(*deal.WaitMsgCID)
+	if err != nil {
+		return ctx.Trigger(rm.ClientEventPaymentChannelAddFundsErrored, err)
+	}
+	lane, err := environment.Node().AllocateLane(deal.PaymentInfo.PayCh)
+	if err != nil {
+		return ctx.Trigger(rm.ClientEventAllocateLaneErrored, err)
+	}
+	return ctx.Trigger(rm.ClientEventPaymentChannelReady, deal.PaymentInfo.PayCh, lane)
 }
 
 // ProposeDeal sends the proposal to the other party
