@@ -204,7 +204,7 @@ func TestVerifyData(t *testing.T) {
 				MetadataPath: expMetaPath,
 			},
 			dealInspector: func(t *testing.T, deal storagemarket.MinerDeal) {
-				require.Equal(t, storagemarket.StorageDealPublishing, deal.State)
+				require.Equal(t, storagemarket.StorageDealEnsureProviderFunds, deal.State)
 				require.Equal(t, expPath, deal.PiecePath)
 				require.Equal(t, expMetaPath, deal.MetadataPath)
 			},
@@ -235,6 +235,50 @@ func TestVerifyData(t *testing.T) {
 	}
 }
 
+func TestEnsureProviderFunds(t *testing.T) {
+	ctx := context.Background()
+	eventProcessor, err := fsm.NewEventProcessor(storagemarket.MinerDeal{}, "State", providerstates.ProviderEvents)
+	require.NoError(t, err)
+	runEnsureProviderFunds := makeExecutor(ctx, eventProcessor, providerstates.EnsureProviderFunds, storagemarket.StorageDealEnsureProviderFunds)
+	tests := map[string]struct {
+		nodeParams        nodeParams
+		dealParams        dealParams
+		environmentParams environmentParams
+		fileStoreParams   tut.TestFileStoreParams
+		pieceStoreParams  tut.TestPieceStoreParams
+		dealInspector     func(t *testing.T, deal storagemarket.MinerDeal)
+	}{
+		"succeeds": {
+			dealInspector: func(t *testing.T, deal storagemarket.MinerDeal) {
+				require.Equal(t, storagemarket.StorageDealPublishing, deal.State)
+			},
+		},
+		"get miner worker fails": {
+			nodeParams: nodeParams{
+				MinerWorkerError: errors.New("could not get worker"),
+			},
+			dealInspector: func(t *testing.T, deal storagemarket.MinerDeal) {
+				require.Equal(t, storagemarket.StorageDealFailing, deal.State)
+				require.Equal(t, "error calling node: looking up miner worker: could not get worker", deal.Message)
+			},
+		},
+		"ensureFunds errors": {
+			nodeParams: nodeParams{
+				EnsureFundsError: errors.New("not enough funds"),
+			},
+			dealInspector: func(t *testing.T, deal storagemarket.MinerDeal) {
+				require.Equal(t, storagemarket.StorageDealFailing, deal.State)
+				require.Equal(t, "error calling node: ensuring funds: not enough funds", deal.Message)
+			},
+		},
+	}
+	for test, data := range tests {
+		t.Run(test, func(t *testing.T) {
+			runEnsureProviderFunds(t, data.nodeParams, data.environmentParams, data.dealParams, data.fileStoreParams, data.pieceStoreParams, data.dealInspector)
+		})
+	}
+}
+
 func TestPublishDeal(t *testing.T) {
 	ctx := context.Background()
 	eventProcessor, err := fsm.NewEventProcessor(storagemarket.MinerDeal{}, "State", providerstates.ProviderEvents)
@@ -257,24 +301,6 @@ func TestPublishDeal(t *testing.T) {
 				require.Equal(t, storagemarket.StorageDealStaged, deal.State)
 				require.Equal(t, expDealID, deal.DealID)
 				require.Equal(t, true, deal.ConnectionClosed)
-			},
-		},
-		"get miner worker fails": {
-			nodeParams: nodeParams{
-				MinerWorkerError: errors.New("could not get worker"),
-			},
-			dealInspector: func(t *testing.T, deal storagemarket.MinerDeal) {
-				require.Equal(t, storagemarket.StorageDealFailing, deal.State)
-				require.Equal(t, "error calling node: looking up miner worker: could not get worker", deal.Message)
-			},
-		},
-		"ensureFunds errors": {
-			nodeParams: nodeParams{
-				EnsureFundsError: errors.New("not enough funds"),
-			},
-			dealInspector: func(t *testing.T, deal storagemarket.MinerDeal) {
-				require.Equal(t, storagemarket.StorageDealFailing, deal.State)
-				require.Equal(t, "error calling node: ensuring funds: not enough funds", deal.Message)
 			},
 		},
 		"PublishDealsErrors errors": {

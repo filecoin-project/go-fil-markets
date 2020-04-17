@@ -12,15 +12,21 @@ import (
 // ClientEvents are the events that can happen in a storage client
 var ClientEvents = fsm.Events{
 	fsm.Event(storagemarket.ClientEventOpen).
-		From(storagemarket.StorageDealUnknown).ToNoChange(),
+		From(storagemarket.StorageDealUnknown).To(storagemarket.StorageDealEnsureClientFunds),
+	fsm.Event(storagemarket.ClientEventFundingInitiated).
+		From(storagemarket.StorageDealEnsureClientFunds).To(storagemarket.StorageDealClientFunding).
+		Action(func(deal *storagemarket.ClientDeal, mcid cid.Cid) error {
+			deal.AddFundsCid = mcid
+			return nil
+		}),
 	fsm.Event(storagemarket.ClientEventEnsureFundsFailed).
-		From(storagemarket.StorageDealUnknown).To(storagemarket.StorageDealFailing).
+		From(storagemarket.StorageDealClientFunding).To(storagemarket.StorageDealFailing).
 		Action(func(deal *storagemarket.ClientDeal, err error) error {
 			deal.Message = xerrors.Errorf("adding market funds failed: %w", err).Error()
 			return nil
 		}),
 	fsm.Event(storagemarket.ClientEventFundsEnsured).
-		From(storagemarket.StorageDealUnknown).To(storagemarket.StorageDealFundsEnsured),
+		FromMany(storagemarket.StorageDealEnsureClientFunds, storagemarket.StorageDealClientFunding).To(storagemarket.StorageDealFundsEnsured),
 	fsm.Event(storagemarket.ClientEventWriteProposalFailed).
 		From(storagemarket.StorageDealFundsEnsured).To(storagemarket.StorageDealError).
 		Action(func(deal *storagemarket.ClientDeal, err error) error {
@@ -97,10 +103,11 @@ var ClientEvents = fsm.Events{
 
 // ClientStateEntryFuncs are the handlers for different states in a storage client
 var ClientStateEntryFuncs = fsm.StateEntryFuncs{
-	storagemarket.StorageDealUnknown:          EnsureFunds,
-	storagemarket.StorageDealFundsEnsured:     ProposeDeal,
-	storagemarket.StorageDealValidating:       VerifyDealResponse,
-	storagemarket.StorageDealProposalAccepted: ValidateDealPublished,
-	storagemarket.StorageDealSealing:          VerifyDealActivated,
-	storagemarket.StorageDealFailing:          FailDeal,
+	storagemarket.StorageDealEnsureClientFunds: EnsureClientFunds,
+	storagemarket.StorageDealClientFunding:     WaitForFunding,
+	storagemarket.StorageDealFundsEnsured:      ProposeDeal,
+	storagemarket.StorageDealValidating:        VerifyDealResponse,
+	storagemarket.StorageDealProposalAccepted:  ValidateDealPublished,
+	storagemarket.StorageDealSealing:           VerifyDealActivated,
+	storagemarket.StorageDealFailing:           FailDeal,
 }
