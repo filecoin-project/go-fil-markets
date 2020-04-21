@@ -40,6 +40,7 @@ require (
 	github.com/whyrusleeping/cbor-gen v0.0.0-20200402171437-3d27c146c105
 	golang.org/x/net v0.0.0-20190724013045-ca1201d0de80
 	golang.org/x/xerrors v0.0.0-20191204190536-9bdfabe68543
+	gotest.tools v2.2.0+incompatible
 )
 
 replace github.com/filecoin-project/filecoin-ffi => ./extern/filecoin-ffi
