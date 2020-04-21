@@ -34,7 +34,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"golang.org/x/net/context"
 
-	"github.com/filecoin-project/go-fil-markets/storedcounter"
+	"github.com/filecoin-project/go-storedcounter"
 )
 
 type Libp2pTestData struct {

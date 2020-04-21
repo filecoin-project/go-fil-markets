@@ -21,7 +21,7 @@ import (
 	"github.com/filecoin-project/go-fil-markets/retrievalmarket/network"
 	rmnet "github.com/filecoin-project/go-fil-markets/retrievalmarket/network"
 	tut "github.com/filecoin-project/go-fil-markets/shared_testutil"
-	"github.com/filecoin-project/go-fil-markets/storedcounter"
+	"github.com/filecoin-project/go-storedcounter"
 )
 
 func TestClient_Query(t *testing.T) {
