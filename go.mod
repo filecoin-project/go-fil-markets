@@ -9,6 +9,7 @@ require (
 	github.com/filecoin-project/go-padreader v0.0.0-20200210211231-548257017ca6
 	github.com/filecoin-project/go-statemachine v0.0.0-20200226041606-2074af6d51d9
 	github.com/filecoin-project/go-statestore v0.1.0
+	github.com/filecoin-project/go-storedcounter v0.0.0-20200421200003-1c99c62e8a5b
 	github.com/filecoin-project/sector-storage v0.0.0-20200411000242-61616264b16d
 	github.com/filecoin-project/specs-actors v0.0.0-20200409043918-e569f4a2f504
 	github.com/hannahhoward/cbor-gen-for v0.0.0-20191218204337-9ab7b1bcc099
@@ -35,7 +36,7 @@ require (
 	github.com/libp2p/go-libp2p v0.6.0
 	github.com/libp2p/go-libp2p-core v0.5.0
 	github.com/multiformats/go-multihash v0.0.13
-	github.com/stretchr/testify v1.4.0
+	github.com/stretchr/testify v1.5.1
 	github.com/whyrusleeping/cbor-gen v0.0.0-20200402171437-3d27c146c105
 	golang.org/x/net v0.0.0-20190724013045-ca1201d0de80
 	golang.org/x/xerrors v0.0.0-20191204190536-9bdfabe68543

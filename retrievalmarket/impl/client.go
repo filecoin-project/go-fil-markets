@@ -22,7 +22,7 @@ import (
 	"github.com/filecoin-project/go-fil-markets/retrievalmarket/impl/blockio"
 	"github.com/filecoin-project/go-fil-markets/retrievalmarket/impl/clientstates"
 	rmnet "github.com/filecoin-project/go-fil-markets/retrievalmarket/network"
-	"github.com/filecoin-project/go-fil-markets/storedcounter"
+	"github.com/filecoin-project/go-storedcounter"
 )
 
 var log = logging.Logger("retrieval")
