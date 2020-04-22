@@ -89,7 +89,6 @@ jobs:
           name: make test
           environment:
             GOTESTSUM_JUNITFILE: /tmp/test-reports/<< parameters.test-suite-name >>/junit.xml
-            GOTESTSUM_FORMAT: << parameters.gotestsum-format >>
           command: |
             mkdir -p /tmp/test-reports/<< parameters.test-suite-name >>
             make test
