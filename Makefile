@@ -35,3 +35,4 @@ test: build
 clean:
 	rm -f .filecoin-build
 	rm -f .update-modules
+	rm -f coverage.txt
