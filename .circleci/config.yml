@@ -65,26 +65,10 @@ jobs:
       executor:
         type: executor
         default: golang
-      go-test-flags:
-        type: string
-        default: "-timeout 5m"
-        description: Flags passed to go test.
-      packages:
-        type: string
-        default: "./..."
-        description: Import paths of packages to be tested.
       test-suite-name:
         type: string
         default: unit
         description: Test suite name to report to CircleCI.
-      gotestsum-format:
-        type: string
-        default: short
-        description: gotestsum format. https://github.com/gotestyourself/gotestsum#format
-      coverage:
-        type: string
-        default: -coverprofile=coverage.txt
-        description: Coverage flag. Set to the empty string to disable.
       codecov-upload:
         type: boolean
         default: true
@@ -99,21 +83,16 @@ jobs:
       - restore_cache:
           name: restore go mod cache
           key: v1-go-deps-{{ arch }}-{{ checksum "/home/circleci/project/go.mod" }}
-      - run:
-          command: make build
       - go/install-gotestsum:
           gobin: $HOME/.local/bin
       - run:
-          name: go test
+          name: make test
           environment:
             GOTESTSUM_JUNITFILE: /tmp/test-reports/<< parameters.test-suite-name >>/junit.xml
             GOTESTSUM_FORMAT: << parameters.gotestsum-format >>
           command: |
             mkdir -p /tmp/test-reports/<< parameters.test-suite-name >>
-            gotestsum -- \
-              << parameters.coverage >> \
-              << parameters.go-test-flags >> \
-              << parameters.packages >>
+            make test
           no_output_timeout: 30m
       - store_test_results:
           path: /tmp/test-reports

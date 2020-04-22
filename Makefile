@@ -29,6 +29,9 @@ SUBMODULES+=filestore
 
 build: $(SUBMODULES)
 
+test: build
+	gotestsum -- -coverprofile=coverage.txt -timeout 5m ./...
+
 clean:
 	rm -f .filecoin-build
 	rm -f .update-modules
