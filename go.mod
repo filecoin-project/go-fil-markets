@@ -11,7 +11,7 @@ require (
 	github.com/filecoin-project/go-statestore v0.1.0
 	github.com/filecoin-project/go-storedcounter v0.0.0-20200421200003-1c99c62e8a5b
 	github.com/filecoin-project/sector-storage v0.0.0-20200411000242-61616264b16d
-	github.com/filecoin-project/specs-actors v0.0.0-20200409043918-e569f4a2f504
+	github.com/filecoin-project/specs-actors v1.0.0
 	github.com/hannahhoward/cbor-gen-for v0.0.0-20191218204337-9ab7b1bcc099
 	github.com/ipfs/go-block-format v0.0.2
 	github.com/ipfs/go-blockservice v0.1.3
@@ -37,7 +37,7 @@ require (
 	github.com/libp2p/go-libp2p-core v0.5.0
 	github.com/multiformats/go-multihash v0.0.13
 	github.com/stretchr/testify v1.5.1
-	github.com/whyrusleeping/cbor-gen v0.0.0-20200402171437-3d27c146c105
+	github.com/whyrusleeping/cbor-gen v0.0.0-20200414195334-429a0b5e922e
 	golang.org/x/net v0.0.0-20190724013045-ca1201d0de80
 	golang.org/x/xerrors v0.0.0-20191204190536-9bdfabe68543
 	gotest.tools v2.2.0+incompatible
