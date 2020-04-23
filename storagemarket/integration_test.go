@@ -3,7 +3,6 @@ package storagemarket_test
 import (
 	"bytes"
 	"context"
-	"github.com/filecoin-project/go-fil-markets/pieceio"
 	"io/ioutil"
 	"reflect"
 	"testing"
@@ -22,6 +21,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/filecoin-project/go-fil-markets/filestore"
+	"github.com/filecoin-project/go-fil-markets/pieceio"
 	"github.com/filecoin-project/go-fil-markets/pieceio/cario"
 	"github.com/filecoin-project/go-fil-markets/piecestore"
 	"github.com/filecoin-project/go-fil-markets/retrievalmarket/discovery"
@@ -84,6 +84,13 @@ func TestMakeDeal(t *testing.T) {
 	)
 	assert.NoError(t, err)
 
+	// set up a subscriber
+	dealChan := make(chan *storagemarket.MinerDeal)
+	subscriber := func(event storagemarket.ProviderEvent, deal *storagemarket.MinerDeal) {
+		dealChan <- deal
+	}
+	_ = provider.SubscribeToEvents(subscriber)
+
 	// set ask price where we'll accept any price
 	err = provider.AddAsk(big.NewInt(0), 50_000)
 	assert.NoError(t, err)
@@ -115,16 +122,32 @@ func TestMakeDeal(t *testing.T) {
 
 	time.Sleep(time.Millisecond * 100)
 
+	ctx, canc := context.WithTimeout(context.Background(), 100*time.Millisecond)
+	defer canc()
+	var seenDeal *storagemarket.MinerDeal
+	select {
+	case seenDeal = <-dealChan:
+	case <-ctx.Done():
+		t.Fatalf("never saw event")
+	}
+
+	// check a couple of things to make sure we're getting the whole deal
+	assert.Equal(t, storagemarket.StorageDealValidating, seenDeal.State)
+	assert.Equal(t, td.Host1.ID(), seenDeal.Client)
+	assert.Empty(t, seenDeal.Message)
+	assert.Equal(t, proposalCid, seenDeal.ProposalCid)
+	assert.Equal(t, providerAddr, seenDeal.ClientDealProposal.Proposal.Provider)
+
 	cd, err := client.GetLocalDeal(ctx, proposalCid)
 	assert.NoError(t, err)
-	assert.Equal(t, cd.State, storagemarket.StorageDealActive)
+	assert.Equal(t, int(storagemarket.StorageDealActive), int(cd.State))
 
 	providerDeals, err := provider.ListLocalDeals()
 	assert.NoError(t, err)
 
 	pd := providerDeals[0]
 	assert.True(t, pd.ProposalCid.Equals(proposalCid))
-	assert.Equal(t, pd.State, storagemarket.StorageDealCompleted)
+	assert.Equal(t, int(storagemarket.StorageDealCompleted), int(pd.State))
 }
 
 func TestMakeDealOffline(t *testing.T) {
