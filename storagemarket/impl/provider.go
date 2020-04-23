@@ -320,7 +320,6 @@ func (p *Provider) dispatch(eventName fsm.EventName, deal fsm.StateType) {
 	}
 	pubSubEvt := internalEvent{evt, &realDeal}
 
-	// because pubSub uses a thread lock
 	go func() {
 		if err := p.pubSub.Publish(pubSubEvt); err != nil {
 			log.Errorf("failed to publish event %d", evt)
