@@ -277,6 +277,9 @@ type StorageDeal struct {
 	market.DealState
 }
 
+// Subscriber is a callback that is called when events are emitted
+type ProviderSubscriber func(event ProviderEvent, deal *MinerDeal)
+
 // StorageProvider is the interface provided for storage providers
 type StorageProvider interface {
 	Start(ctx context.Context) error
@@ -301,6 +304,8 @@ type StorageProvider interface {
 	GetStorageCollateral(ctx context.Context) (Balance, error)
 
 	ImportDataForDeal(ctx context.Context, propCid cid.Cid, data io.Reader) error
+
+	SubscribeToEvents(subscriber ProviderSubscriber) shared.Unsubscribe
 }
 
 // Node dependencies for a StorageProvider
