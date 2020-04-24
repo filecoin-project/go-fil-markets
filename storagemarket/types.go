@@ -278,7 +278,7 @@ type StorageDeal struct {
 }
 
 // Subscriber is a callback that is called when events are emitted
-type ProviderSubscriber func(event ProviderEvent, deal *MinerDeal)
+type ProviderSubscriber func(event ProviderEvent, deal MinerDeal)
 
 // StorageProvider is the interface provided for storage providers
 type StorageProvider interface {

@@ -318,18 +318,16 @@ func (p *Provider) dispatch(eventName fsm.EventName, deal fsm.StateType) {
 	if !ok {
 		log.Errorf("not a deal %v", deal)
 	}
-	pubSubEvt := internalEvent{evt, &realDeal}
+	pubSubEvt := internalEvent{evt, realDeal}
 
-	go func() {
-		if err := p.pubSub.Publish(pubSubEvt); err != nil {
-			log.Errorf("failed to publish event %d", evt)
-		}
-	}()
+	if err := p.pubSub.Publish(pubSubEvt); err != nil {
+		log.Errorf("failed to publish event %d", evt)
+	}
 }
 
 type internalEvent struct {
 	evt  storagemarket.ProviderEvent
-	deal *storagemarket.MinerDeal
+	deal storagemarket.MinerDeal
 }
 
 func dispatcher(evt pubsub.Event, subscriberFn pubsub.SubscriberFn) error {

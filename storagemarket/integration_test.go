@@ -85,8 +85,8 @@ func TestMakeDeal(t *testing.T) {
 	assert.NoError(t, err)
 
 	// set up a subscriber
-	dealChan := make(chan *storagemarket.MinerDeal)
-	subscriber := func(event storagemarket.ProviderEvent, deal *storagemarket.MinerDeal) {
+	dealChan := make(chan storagemarket.MinerDeal)
+	subscriber := func(event storagemarket.ProviderEvent, deal storagemarket.MinerDeal) {
 		dealChan <- deal
 	}
 	_ = provider.SubscribeToEvents(subscriber)
@@ -124,15 +124,31 @@ func TestMakeDeal(t *testing.T) {
 
 	ctx, canc := context.WithTimeout(context.Background(), 100*time.Millisecond)
 	defer canc()
-	var seenDeal *storagemarket.MinerDeal
-	select {
-	case seenDeal = <-dealChan:
-	case <-ctx.Done():
-		t.Fatalf("never saw event")
+	var seenDeal storagemarket.MinerDeal
+	var actualStates []storagemarket.StorageDealStatus
+	for seenDeal.State != storagemarket.StorageDealCompleted {
+		select {
+		case seenDeal = <-dealChan:
+			actualStates = append(actualStates, seenDeal.State)
+		case <-ctx.Done():
+			t.Fatalf("never saw event")
+		}
 	}
 
+	expectedStates := []storagemarket.StorageDealStatus{
+		storagemarket.StorageDealValidating,
+		storagemarket.StorageDealProposalAccepted,
+		storagemarket.StorageDealTransferring,
+		storagemarket.StorageDealVerifyData,
+		storagemarket.StorageDealPublishing,
+		storagemarket.StorageDealStaged,
+		storagemarket.StorageDealSealing,
+		storagemarket.StorageDealActive,
+		storagemarket.StorageDealCompleted,
+	}
+	assert.Equal(t, expectedStates, actualStates)
+
 	// check a couple of things to make sure we're getting the whole deal
-	assert.Equal(t, storagemarket.StorageDealValidating, seenDeal.State)
 	assert.Equal(t, td.Host1.ID(), seenDeal.Client)
 	assert.Empty(t, seenDeal.Message)
 	assert.Equal(t, proposalCid, seenDeal.ProposalCid)

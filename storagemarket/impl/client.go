@@ -42,7 +42,6 @@ type Client struct {
 	// implementation, there's no validation or events on the client side
 	dataTransfer datatransfer.Manager
 	bs           blockstore.Blockstore
-	//fs           filestore.FileStore
 	pio          pieceio.PieceIO
 	discovery    *discovery.Local
 
