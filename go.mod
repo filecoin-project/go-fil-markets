@@ -13,6 +13,7 @@ require (
 	github.com/filecoin-project/sector-storage v0.0.0-20200411000242-61616264b16d
 	github.com/filecoin-project/specs-actors v1.0.0
 	github.com/hannahhoward/cbor-gen-for v0.0.0-20191218204337-9ab7b1bcc099
+	github.com/hannahhoward/go-pubsub v0.0.0-20200423002714-8d62886cc36e
 	github.com/ipfs/go-block-format v0.0.2
 	github.com/ipfs/go-blockservice v0.1.3
 	github.com/ipfs/go-cid v0.0.5

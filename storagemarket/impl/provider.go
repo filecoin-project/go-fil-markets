@@ -9,6 +9,7 @@ import (
 	datatransfer "github.com/filecoin-project/go-data-transfer"
 	"github.com/filecoin-project/go-statemachine/fsm"
 	"github.com/filecoin-project/specs-actors/actors/abi"
+	"github.com/hannahhoward/go-pubsub"
 	"github.com/ipfs/go-cid"
 	"github.com/ipfs/go-datastore"
 	"github.com/ipfs/go-datastore/namespace"
@@ -21,6 +22,7 @@ import (
 	"github.com/filecoin-project/go-fil-markets/pieceio"
 	"github.com/filecoin-project/go-fil-markets/pieceio/cario"
 	"github.com/filecoin-project/go-fil-markets/piecestore"
+	"github.com/filecoin-project/go-fil-markets/shared"
 	"github.com/filecoin-project/go-fil-markets/storagemarket"
 	"github.com/filecoin-project/go-fil-markets/storagemarket/impl/connmanager"
 	"github.com/filecoin-project/go-fil-markets/storagemarket/impl/providerstates"
@@ -49,6 +51,7 @@ type Provider struct {
 	dataTransfer              datatransfer.Manager
 	universalRetrievalEnabled bool
 	dealAcceptanceBuffer      abi.ChainEpoch
+	pubSub                    *pubsub.PubSub
 
 	deals fsm.Group
 }
@@ -94,6 +97,7 @@ func NewProvider(net network.StorageMarketNetwork, ds datastore.Batching, bs blo
 		actor:                minerAddress,
 		dataTransfer:         dataTransfer,
 		dealAcceptanceBuffer: DefaultDealAcceptanceBuffer,
+		pubSub:               pubsub.New(dispatcher),
 	}
 
 	deals, err := fsm.New(namespace.Wrap(ds, datastore.NewKey(ProviderDsPrefix)), fsm.Parameters{
@@ -102,6 +106,7 @@ func NewProvider(net network.StorageMarketNetwork, ds datastore.Batching, bs blo
 		StateKeyField:   "State",
 		Events:          providerstates.ProviderEvents,
 		StateEntryFuncs: providerstates.ProviderStateEntryFuncs,
+		Notifier:        h.dispatch,
 	})
 	if err != nil {
 		return nil, err
@@ -297,6 +302,51 @@ func (p *Provider) DealAcceptanceBuffer() abi.ChainEpoch {
 func (p *Provider) UniversalRetrievalEnabled() bool {
 	return p.universalRetrievalEnabled
 }
+
+func (p *Provider) SubscribeToEvents(subscriber storagemarket.ProviderSubscriber) shared.Unsubscribe {
+	return shared.Unsubscribe(p.pubSub.Subscribe(subscriber))
+}
+
+// dispatch puts the fsm event into a form that pubSub can consume,
+// then publishes the event
+func (p *Provider) dispatch(eventName fsm.EventName, deal fsm.StateType) {
+	evt, ok := eventName.(storagemarket.ProviderEvent)
+	if !ok {
+		log.Errorf("dropped bad event %s", eventName)
+	}
+	realDeal, ok := deal.(storagemarket.MinerDeal)
+	if !ok {
+		log.Errorf("not a deal %v", deal)
+	}
+	pubSubEvt := internalEvent{evt, realDeal}
+
+	if err := p.pubSub.Publish(pubSubEvt); err != nil {
+		log.Errorf("failed to publish event %d", evt)
+	}
+}
+
+type internalEvent struct {
+	evt  storagemarket.ProviderEvent
+	deal storagemarket.MinerDeal
+}
+
+func dispatcher(evt pubsub.Event, subscriberFn pubsub.SubscriberFn) error {
+	ie, ok := evt.(internalEvent)
+	if !ok {
+		return xerrors.New("wrong type of event")
+	}
+	cb, ok := subscriberFn.(storagemarket.ProviderSubscriber)
+	if !ok {
+		return xerrors.New("wrong type of event")
+	}
+	log.Infof("dispatcher called with valid evt %d", ie.evt)
+	cb(ie.evt, ie.deal)
+	return nil
+}
+
+// -------
+// providerDealEnvironment
+// -------
 
 type providerDealEnvironment struct {
 	p *Provider

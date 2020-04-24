@@ -17,7 +17,6 @@ import (
 	logging "github.com/ipfs/go-log/v2"
 	"golang.org/x/xerrors"
 
-	"github.com/filecoin-project/go-fil-markets/filestore"
 	"github.com/filecoin-project/go-fil-markets/pieceio"
 	"github.com/filecoin-project/go-fil-markets/pieceio/cario"
 	"github.com/filecoin-project/go-fil-markets/retrievalmarket"
@@ -43,7 +42,6 @@ type Client struct {
 	// implementation, there's no validation or events on the client side
 	dataTransfer datatransfer.Manager
 	bs           blockstore.Blockstore
-	fs           filestore.FileStore
 	pio          pieceio.PieceIO
 	discovery    *discovery.Local
 
