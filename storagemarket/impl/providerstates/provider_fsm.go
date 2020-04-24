@@ -58,7 +58,19 @@ var ProviderEvents = fsm.Events{
 			return nil
 		}),
 	fsm.Event(storagemarket.ProviderEventFunded).
-		FromMany(storagemarket.StorageDealProviderFunding, storagemarket.StorageDealEnsureProviderFunds).To(storagemarket.StorageDealPublishing),
+		FromMany(storagemarket.StorageDealProviderFunding, storagemarket.StorageDealEnsureProviderFunds).To(storagemarket.StorageDealPublish),
+	fsm.Event(storagemarket.ProviderEventDealPublishInitiated).
+		From(storagemarket.StorageDealPublish).To(storagemarket.StorageDealPublishing).
+		Action(func(deal *storagemarket.MinerDeal, publishCid cid.Cid) error {
+			deal.PublishCid = publishCid
+			return nil
+		}),
+	fsm.Event(storagemarket.ProviderEventDealPublishError).
+		From(storagemarket.StorageDealPublishing).To(storagemarket.StorageDealFailing).
+		Action(func(deal *storagemarket.MinerDeal, err error) error {
+			deal.Message = xerrors.Errorf("PublishStorageDeal error: %w", err).Error()
+			return nil
+		}),
 	fsm.Event(storagemarket.ProviderEventSendResponseFailed).
 		FromMany(storagemarket.StorageDealPublishing, storagemarket.StorageDealFailing).To(storagemarket.StorageDealError).
 		Action(func(deal *storagemarket.MinerDeal, err error) error {
@@ -117,7 +129,8 @@ var ProviderStateEntryFuncs = fsm.StateEntryFuncs{
 	storagemarket.StorageDealVerifyData:          VerifyData,
 	storagemarket.StorageDealEnsureProviderFunds: EnsureProviderFunds,
 	storagemarket.StorageDealProviderFunding:     WaitForFunding,
-	storagemarket.StorageDealPublishing:          PublishDeal,
+	storagemarket.StorageDealPublish:             PublishDeal,
+	storagemarket.StorageDealPublishing:          WaitForPublish,
 	storagemarket.StorageDealStaged:              HandoffDeal,
 	storagemarket.StorageDealSealing:             VerifyDealActivated,
 	storagemarket.StorageDealActive:              RecordPieceInfo,

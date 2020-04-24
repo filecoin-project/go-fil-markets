@@ -14,7 +14,9 @@ import (
 	fsmtest "github.com/filecoin-project/go-statemachine/fsm/testutil"
 	"github.com/filecoin-project/specs-actors/actors/abi"
 	"github.com/filecoin-project/specs-actors/actors/builtin/market"
+	"github.com/filecoin-project/specs-actors/actors/runtime/exitcode"
 	"github.com/ipfs/go-cid"
+	"github.com/ipfs/go-log/v2"
 	"github.com/ipld/go-ipld-prime"
 	"github.com/libp2p/go-libp2p-core/peer"
 	"github.com/stretchr/testify/require"
@@ -250,7 +252,7 @@ func TestEnsureProviderFunds(t *testing.T) {
 	}{
 		"succeeds": {
 			dealInspector: func(t *testing.T, deal storagemarket.MinerDeal) {
-				require.Equal(t, storagemarket.StorageDealPublishing, deal.State)
+				require.Equal(t, storagemarket.StorageDealPublish, deal.State)
 			},
 		},
 		"get miner worker fails": {
@@ -283,8 +285,7 @@ func TestPublishDeal(t *testing.T) {
 	ctx := context.Background()
 	eventProcessor, err := fsm.NewEventProcessor(storagemarket.MinerDeal{}, "State", providerstates.ProviderEvents)
 	require.NoError(t, err)
-	runPublishDeal := makeExecutor(ctx, eventProcessor, providerstates.PublishDeal, storagemarket.StorageDealPublishing)
-	expDealID := abi.DealID(rand.Uint64())
+	runPublishDeal := makeExecutor(ctx, eventProcessor, providerstates.PublishDeal, storagemarket.StorageDealPublish)
 	tests := map[string]struct {
 		nodeParams        nodeParams
 		dealParams        dealParams
@@ -294,13 +295,8 @@ func TestPublishDeal(t *testing.T) {
 		dealInspector     func(t *testing.T, deal storagemarket.MinerDeal)
 	}{
 		"succeeds": {
-			nodeParams: nodeParams{
-				PublishDealID: expDealID,
-			},
 			dealInspector: func(t *testing.T, deal storagemarket.MinerDeal) {
-				require.Equal(t, storagemarket.StorageDealStaged, deal.State)
-				require.Equal(t, expDealID, deal.DealID)
-				require.Equal(t, true, deal.ConnectionClosed)
+				require.Equal(t, storagemarket.StorageDealPublishing, deal.State)
 			},
 		},
 		"PublishDealsErrors errors": {
@@ -312,7 +308,59 @@ func TestPublishDeal(t *testing.T) {
 				require.Equal(t, "error calling node: publishing deal: could not post to chain", deal.Message)
 			},
 		},
+	}
+	for test, data := range tests {
+		t.Run(test, func(t *testing.T) {
+			runPublishDeal(t, data.nodeParams, data.environmentParams, data.dealParams, data.fileStoreParams, data.pieceStoreParams, data.dealInspector)
+		})
+	}
+}
+
+func TestWaitForPublish(t *testing.T) {
+	log.SetDebugLogging()
+
+	ctx := context.Background()
+	eventProcessor, err := fsm.NewEventProcessor(storagemarket.MinerDeal{}, "State", providerstates.ProviderEvents)
+	require.NoError(t, err)
+	runWaitForPublish := makeExecutor(ctx, eventProcessor, providerstates.WaitForPublish, storagemarket.StorageDealPublishing)
+	expDealID := abi.DealID(rand.Uint64())
+
+	psdReturn := market.PublishStorageDealsReturn{IDs: []abi.DealID{expDealID}}
+	psdReturnBytes := bytes.NewBuffer([]byte{})
+	err = psdReturn.MarshalCBOR(psdReturnBytes)
+	require.NoError(t, err)
+
+	tests := map[string]struct {
+		nodeParams        nodeParams
+		dealParams        dealParams
+		environmentParams environmentParams
+		fileStoreParams   tut.TestFileStoreParams
+		pieceStoreParams  tut.TestPieceStoreParams
+		dealInspector     func(t *testing.T, deal storagemarket.MinerDeal)
+	}{
+		"succeeds": {
+			nodeParams: nodeParams{
+				WaitForMessageRetBytes: psdReturnBytes.Bytes(),
+			},
+			dealInspector: func(t *testing.T, deal storagemarket.MinerDeal) {
+				require.Equal(t, storagemarket.StorageDealStaged, deal.State)
+				require.Equal(t, expDealID, deal.DealID)
+				require.Equal(t, true, deal.ConnectionClosed)
+			},
+		},
+		"PublishStorageDeal errors": {
+			nodeParams: nodeParams{
+				WaitForMessageExitCode: exitcode.SysErrForbidden,
+			},
+			dealInspector: func(t *testing.T, deal storagemarket.MinerDeal) {
+				require.Equal(t, storagemarket.StorageDealFailing, deal.State)
+				require.Equal(t, "PublishStorageDeal error: PublishStorageDeals exit code: SysErrForbidden(8)", deal.Message)
+			},
+		},
 		"SendSignedResponse errors": {
+			nodeParams: nodeParams{
+				WaitForMessageRetBytes: psdReturnBytes.Bytes(),
+			},
 			environmentParams: environmentParams{
 				SendSignedResponseError: errors.New("could not send"),
 			},
@@ -324,7 +372,7 @@ func TestPublishDeal(t *testing.T) {
 	}
 	for test, data := range tests {
 		t.Run(test, func(t *testing.T) {
-			runPublishDeal(t, data.nodeParams, data.environmentParams, data.dealParams, data.fileStoreParams, data.pieceStoreParams, data.dealInspector)
+			runWaitForPublish(t, data.nodeParams, data.environmentParams, data.dealParams, data.fileStoreParams, data.pieceStoreParams, data.dealInspector)
 		})
 	}
 }
@@ -634,12 +682,15 @@ type nodeParams struct {
 	MostRecentStateIDError              error
 	PieceLength                         uint64
 	PieceSectorID                       uint64
-	PublishDealID                       abi.DealID
 	PublishDealsError                   error
 	OnDealCompleteError                 error
 	LocatePieceForDealWithinSectorError error
 	DealCommittedSyncError              error
 	DealCommittedAsyncError             error
+	WaitForMessageBlocks                bool
+	WaitForMessageError                 error
+	WaitForMessageExitCode              exitcode.ExitCode
+	WaitForMessageRetBytes              []byte
 }
 
 type dealParams struct {
@@ -702,11 +753,15 @@ func makeExecutor(ctx context.Context,
 		}
 
 		common := testnodes.FakeCommonNode{
-			SMState:              smstate,
-			GetChainHeadError:    nodeParams.MostRecentStateIDError,
-			GetBalanceError:      nodeParams.ClientMarketBalanceError,
-			VerifySignatureFails: nodeParams.VerifySignatureFails,
-			EnsureFundsError:     nodeParams.EnsureFundsError,
+			SMState:                smstate,
+			GetChainHeadError:      nodeParams.MostRecentStateIDError,
+			GetBalanceError:        nodeParams.ClientMarketBalanceError,
+			VerifySignatureFails:   nodeParams.VerifySignatureFails,
+			EnsureFundsError:       nodeParams.EnsureFundsError,
+			WaitForMessageBlocks:   nodeParams.WaitForMessageBlocks,
+			WaitForMessageError:    nodeParams.WaitForMessageError,
+			WaitForMessageExitCode: nodeParams.WaitForMessageExitCode,
+			WaitForMessageRetBytes: nodeParams.WaitForMessageRetBytes,
 		}
 
 		node := &testnodes.FakeProviderNode{
@@ -715,7 +770,6 @@ func makeExecutor(ctx context.Context,
 			MinerWorkerError:                    nodeParams.MinerWorkerError,
 			PieceLength:                         nodeParams.PieceLength,
 			PieceSectorID:                       nodeParams.PieceSectorID,
-			PublishDealID:                       nodeParams.PublishDealID,
 			PublishDealsError:                   nodeParams.PublishDealsError,
 			OnDealCompleteError:                 nodeParams.OnDealCompleteError,
 			LocatePieceForDealWithinSectorError: nodeParams.LocatePieceForDealWithinSectorError,

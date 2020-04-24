@@ -88,13 +88,16 @@ func (sma *StorageMarketState) AddDeal(deal storagemarket.StorageDeal) (shared.T
 // FakeCommonNode has the common methods for the storage & client node adapters
 type FakeCommonNode struct {
 	SMState              *StorageMarketState
-	BlockOnMessageWait   bool
 	AddFundsCid          cid.Cid
 	EnsureFundsError     error
 	VerifySignatureFails bool
 	GetBalanceError      error
 	GetChainHeadError    error
-	WaitForMessageExit   exitcode.ExitCode
+
+	WaitForMessageBlocks   bool
+	WaitForMessageError    error
+	WaitForMessageExitCode exitcode.ExitCode
+	WaitForMessageRetBytes []byte
 }
 
 // GetChainHead returns the state id in the storage market state
@@ -126,10 +129,15 @@ func (n *FakeCommonNode) EnsureFunds(ctx context.Context, addr, wallet address.A
 }
 
 func (n *FakeCommonNode) WaitForMessage(mcid cid.Cid, confidence int64, onCompletion func(exitcode.ExitCode, []byte) error) error {
-	if n.BlockOnMessageWait {
+	if n.WaitForMessageError != nil {
+		return n.WaitForMessageError
+	}
+
+	if n.WaitForMessageBlocks {
 		time.Sleep(5 * time.Second)
 	}
-	return onCompletion(n.WaitForMessageExit, nil)
+
+	return onCompletion(n.WaitForMessageExitCode, n.WaitForMessageRetBytes)
 }
 
 // GetBalance returns the funds in the storage market state
@@ -226,9 +234,9 @@ func (n *FakeProviderNode) PublishDeals(ctx context.Context, deal storagemarket.
 
 		n.SMState.AddDeal(sd)
 
-		return n.PublishDealID, shared_testutil.GenerateCids(1)[0], nil
+		return 0, shared_testutil.GenerateCids(1)[0], nil
 	}
-	return abi.DealID(0), cid.Undef, n.PublishDealsError
+	return 0, cid.Undef, n.PublishDealsError
 }
 
 // ListProviderDeals returns the deals in the storage market state

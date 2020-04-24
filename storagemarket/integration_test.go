@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"io/ioutil"
+	"math/rand"
 	"reflect"
 	"testing"
 	"time"
@@ -13,6 +14,7 @@ import (
 	graphsync "github.com/filecoin-project/go-data-transfer/impl/graphsync"
 	"github.com/filecoin-project/specs-actors/actors/abi"
 	"github.com/filecoin-project/specs-actors/actors/abi/big"
+	"github.com/filecoin-project/specs-actors/actors/builtin/market"
 	"github.com/ipfs/go-cid"
 	"github.com/ipld/go-ipld-prime"
 	cidlink "github.com/ipld/go-ipld-prime/linking/cid"
@@ -50,7 +52,7 @@ func TestMakeDeal(t *testing.T) {
 	result := h.ProposeStorageDeal(t, &storagemarket.DataRef{TransferType: storagemarket.TTGraphsync, Root: h.PayloadCid})
 	proposalCid := result.ProposalCid
 
-	time.Sleep(time.Millisecond * 100)
+	time.Sleep(time.Millisecond * 200)
 
 	ctx, canc := context.WithTimeout(context.Background(), 100*time.Millisecond)
 	defer canc()
@@ -160,7 +162,7 @@ func TestMakeDealNonBlocking(t *testing.T) {
 	h.ClientNode.AddFundsCid = testCids[0]
 	h.Client.Run(ctx)
 
-	h.ProviderNode.BlockOnMessageWait = true
+	h.ProviderNode.WaitForMessageBlocks = true
 	h.ProviderNode.AddFundsCid = testCids[1]
 	err := h.Provider.Start(ctx)
 	assert.NoError(t, err)
@@ -207,13 +209,22 @@ func newHarness(t *testing.T, ctx context.Context) *harness {
 		ClientAddr:     address.TestAddress,
 	}
 
+	expDealID := abi.DealID(rand.Uint64())
+	psdReturn := market.PublishStorageDealsReturn{IDs: []abi.DealID{expDealID}}
+	psdReturnBytes := bytes.NewBuffer([]byte{})
+	err := psdReturn.MarshalCBOR(psdReturnBytes)
+	assert.NoError(t, err)
+
 	providerAddr := address.TestAddress2
 	tempPath, err := ioutil.TempDir("", "storagemarket_test")
 	assert.NoError(t, err)
 	ps := piecestore.NewPieceStore(td.Ds2)
 	providerNode := &testnodes.FakeProviderNode{
-		FakeCommonNode: testnodes.FakeCommonNode{SMState: smState, BlockOnMessageWait: true},
-		MinerAddr:      providerAddr,
+		FakeCommonNode: testnodes.FakeCommonNode{
+			SMState:                smState,
+			WaitForMessageRetBytes: psdReturnBytes.Bytes(),
+		},
+		MinerAddr: providerAddr,
 	}
 	fs, err := filestore.NewLocalFileStore(filestore.OsPath(tempPath))
 	assert.NoError(t, err)

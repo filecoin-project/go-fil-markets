@@ -52,7 +52,8 @@ const (
 	StorageDealEnsureClientFunds   // Ensuring that client funds are sufficient
 	StorageDealProviderFunding     // Waiting for funds to appear in Provider balance
 	StorageDealClientFunding       // Waiting for funds to appear in Client balance
-	StorageDealPublishing          // Publishing deal to chain
+	StorageDealPublish             // Publishing deal to chain
+	StorageDealPublishing          // Waiting for deal to appear on chain
 	StorageDealError               // deal failed with an unexpected error
 	StorageDealCompleted           // on provider side, indicates deal is active and info for retrieval is recorded
 )
@@ -127,6 +128,7 @@ type MinerDeal struct {
 	market.ClientDealProposal
 	ProposalCid      cid.Cid
 	AddFundsCid      cid.Cid
+	PublishCid       cid.Cid
 	Miner            peer.ID
 	Client           peer.ID
 	State            StorageDealStatus
@@ -189,8 +191,14 @@ const (
 	// ProviderEventSendResponseFailed happens when a response cannot be sent to a deal
 	ProviderEventSendResponseFailed
 
-	// ProviderEventDealPublished happens when a deal is succesfully published
+	// ProviderEventDealPublishInitiated happens when a provider has sent a PublishStorageDeals message to the chain
+	ProviderEventDealPublishInitiated
+
+	// ProviderEventDealPublished happens when a deal is successfully published
 	ProviderEventDealPublished
+
+	// ProviderEventDealPublishError happens when PublishStorageDeals returns a non-ok exit code
+	ProviderEventDealPublishError
 
 	// ProviderEventFileStoreErrored happens when an error occurs accessing the filestore
 	ProviderEventFileStoreErrored
