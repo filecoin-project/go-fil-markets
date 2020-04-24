@@ -237,11 +237,11 @@ func TestVerifyData(t *testing.T) {
 	}
 }
 
-func TestEnsureProviderFunds(t *testing.T) {
+func TestWaitForFunding(t *testing.T) {
 	ctx := context.Background()
 	eventProcessor, err := fsm.NewEventProcessor(storagemarket.MinerDeal{}, "State", providerstates.ProviderEvents)
 	require.NoError(t, err)
-	runEnsureProviderFunds := makeExecutor(ctx, eventProcessor, providerstates.EnsureProviderFunds, storagemarket.StorageDealEnsureProviderFunds)
+	runWaitForFunding := makeExecutor(ctx, eventProcessor, providerstates.WaitForFunding, storagemarket.StorageDealProviderFunding)
 	tests := map[string]struct {
 		nodeParams        nodeParams
 		dealParams        dealParams
@@ -251,8 +251,61 @@ func TestEnsureProviderFunds(t *testing.T) {
 		dealInspector     func(t *testing.T, deal storagemarket.MinerDeal)
 	}{
 		"succeeds": {
+			nodeParams: nodeParams{
+				WaitForMessageExitCode: exitcode.Ok,
+				WaitForMessageRetBytes: []byte{},
+			},
 			dealInspector: func(t *testing.T, deal storagemarket.MinerDeal) {
 				require.Equal(t, storagemarket.StorageDealPublish, deal.State)
+			},
+		},
+		"AddFunds returns non-ok exit code": {
+			nodeParams: nodeParams{
+				WaitForMessageExitCode: exitcode.ErrInsufficientFunds,
+				WaitForMessageRetBytes: []byte{},
+			},
+			dealInspector: func(t *testing.T, deal storagemarket.MinerDeal) {
+				require.Equal(t, storagemarket.StorageDealFailing, deal.State)
+				require.Equal(t, fmt.Sprintf("error calling node: AddFunds exit code: %s", exitcode.ErrInsufficientFunds), deal.Message)
+			},
+		},
+	}
+	for test, data := range tests {
+		t.Run(test, func(t *testing.T) {
+			runWaitForFunding(t, data.nodeParams, data.environmentParams, data.dealParams, data.fileStoreParams, data.pieceStoreParams, data.dealInspector)
+		})
+	}
+}
+
+func TestEnsureProviderFunds(t *testing.T) {
+	ctx := context.Background()
+	eventProcessor, err := fsm.NewEventProcessor(storagemarket.MinerDeal{}, "State", providerstates.ProviderEvents)
+	require.NoError(t, err)
+	runEnsureProviderFunds := makeExecutor(ctx, eventProcessor, providerstates.EnsureProviderFunds, storagemarket.StorageDealEnsureProviderFunds)
+	cids := tut.GenerateCids(1)
+	tests := map[string]struct {
+		nodeParams        nodeParams
+		dealParams        dealParams
+		environmentParams environmentParams
+		fileStoreParams   tut.TestFileStoreParams
+		pieceStoreParams  tut.TestPieceStoreParams
+		dealInspector     func(t *testing.T, deal storagemarket.MinerDeal)
+	}{
+		"succeeds immediately": {
+			dealInspector: func(t *testing.T, deal storagemarket.MinerDeal) {
+				require.Equal(t, storagemarket.StorageDealPublish, deal.State)
+			},
+		},
+		"succeeds by sending an AddBalance message": {
+			dealParams: dealParams{
+				ProviderCollateral: abi.NewTokenAmount(1),
+			},
+			nodeParams: nodeParams{
+				AddFundsCid: cids[0],
+			},
+			dealInspector: func(t *testing.T, deal storagemarket.MinerDeal) {
+				require.Equal(t, storagemarket.StorageDealProviderFunding, deal.State)
+				require.Equal(t, cids[0], deal.AddFundsCid)
 			},
 		},
 		"get miner worker fails": {
@@ -323,12 +376,7 @@ func TestWaitForPublish(t *testing.T) {
 	eventProcessor, err := fsm.NewEventProcessor(storagemarket.MinerDeal{}, "State", providerstates.ProviderEvents)
 	require.NoError(t, err)
 	runWaitForPublish := makeExecutor(ctx, eventProcessor, providerstates.WaitForPublish, storagemarket.StorageDealPublishing)
-	expDealID := abi.DealID(rand.Uint64())
-
-	psdReturn := market.PublishStorageDealsReturn{IDs: []abi.DealID{expDealID}}
-	psdReturnBytes := bytes.NewBuffer([]byte{})
-	err = psdReturn.MarshalCBOR(psdReturnBytes)
-	require.NoError(t, err)
+	expDealID, psdReturnBytes := generatePublishDealsReturn(t)
 
 	tests := map[string]struct {
 		nodeParams        nodeParams
@@ -340,7 +388,7 @@ func TestWaitForPublish(t *testing.T) {
 	}{
 		"succeeds": {
 			nodeParams: nodeParams{
-				WaitForMessageRetBytes: psdReturnBytes.Bytes(),
+				WaitForMessageRetBytes: psdReturnBytes,
 			},
 			dealInspector: func(t *testing.T, deal storagemarket.MinerDeal) {
 				require.Equal(t, storagemarket.StorageDealStaged, deal.State)
@@ -359,7 +407,7 @@ func TestWaitForPublish(t *testing.T) {
 		},
 		"SendSignedResponse errors": {
 			nodeParams: nodeParams{
-				WaitForMessageRetBytes: psdReturnBytes.Bytes(),
+				WaitForMessageRetBytes: psdReturnBytes,
 			},
 			environmentParams: environmentParams{
 				SendSignedResponseError: errors.New("could not send"),
@@ -670,6 +718,17 @@ var defaultMetadataFile = tut.NewTestFile(tut.TestFileParams{
 	Size:   400,
 })
 
+func generatePublishDealsReturn(t *testing.T) (abi.DealID, []byte) {
+	dealId := abi.DealID(rand.Uint64())
+
+	psdReturn := market.PublishStorageDealsReturn{IDs: []abi.DealID{dealId}}
+	psdReturnBytes := bytes.NewBuffer([]byte{})
+	err := psdReturn.MarshalCBOR(psdReturnBytes)
+	require.NoError(t, err)
+
+	return dealId, psdReturnBytes.Bytes()
+}
+
 type nodeParams struct {
 	MinerAddr                           address.Address
 	MinerWorkerError                    error
@@ -678,6 +737,7 @@ type nodeParams struct {
 	TipSetToken                         shared.TipSetToken
 	ClientMarketBalance                 abi.TokenAmount
 	ClientMarketBalanceError            error
+	AddFundsCid                         cid.Cid
 	VerifySignatureFails                bool
 	MostRecentStateIDError              error
 	PieceLength                         uint64
@@ -700,6 +760,7 @@ type dealParams struct {
 	DealID               abi.DealID
 	DataRef              *storagemarket.DataRef
 	StoragePricePerEpoch abi.TokenAmount
+	ProviderCollateral   abi.TokenAmount
 	PieceSize            abi.PaddedPieceSize
 	StartEpoch           abi.ChainEpoch
 	EndEpoch             abi.ChainEpoch
@@ -758,6 +819,7 @@ func makeExecutor(ctx context.Context,
 			GetBalanceError:        nodeParams.ClientMarketBalanceError,
 			VerifySignatureFails:   nodeParams.VerifySignatureFails,
 			EnsureFundsError:       nodeParams.EnsureFundsError,
+			AddFundsCid:            nodeParams.AddFundsCid,
 			WaitForMessageBlocks:   nodeParams.WaitForMessageBlocks,
 			WaitForMessageError:    nodeParams.WaitForMessageError,
 			WaitForMessageExitCode: nodeParams.WaitForMessageExitCode,
@@ -794,6 +856,9 @@ func makeExecutor(ctx context.Context,
 		}
 		if !dealParams.StoragePricePerEpoch.Nil() {
 			proposal.StoragePricePerEpoch = dealParams.StoragePricePerEpoch
+		}
+		if !dealParams.ProviderCollateral.Nil() {
+			proposal.ProviderCollateral = dealParams.ProviderCollateral
 		}
 		if dealParams.StartEpoch != abi.ChainEpoch(0) {
 			proposal.StartEpoch = dealParams.StartEpoch

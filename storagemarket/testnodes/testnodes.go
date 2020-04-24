@@ -3,7 +3,6 @@ package testnodes
 import (
 	"context"
 	"io"
-	"time"
 
 	"github.com/filecoin-project/go-address"
 	"github.com/filecoin-project/specs-actors/actors/abi"
@@ -134,7 +133,8 @@ func (n *FakeCommonNode) WaitForMessage(mcid cid.Cid, confidence int64, onComple
 	}
 
 	if n.WaitForMessageBlocks {
-		time.Sleep(5 * time.Second)
+		// just leave the test node in this state to simulate a long operation
+		return nil
 	}
 
 	return onCompletion(n.WaitForMessageExitCode, n.WaitForMessageRetBytes)

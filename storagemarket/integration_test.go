@@ -73,6 +73,7 @@ func TestMakeDeal(t *testing.T) {
 		storagemarket.StorageDealTransferring,
 		storagemarket.StorageDealVerifyData,
 		storagemarket.StorageDealEnsureProviderFunds,
+		storagemarket.StorageDealPublish,
 		storagemarket.StorageDealPublishing,
 		storagemarket.StorageDealStaged,
 		storagemarket.StorageDealSealing,
