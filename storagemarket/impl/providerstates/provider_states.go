@@ -210,8 +210,7 @@ func PublishDeal(ctx fsm.Context, environment ProviderDealEnvironment, deal stor
 		Ref:                deal.Ref,
 	}
 
-	// TODO: PublishDeals does not return the deal id, change API
-	_, mcid, err := environment.Node().PublishDeals(ctx.Context(), smDeal)
+	mcid, err := environment.Node().PublishDeals(ctx.Context(), smDeal)
 	if err != nil {
 		return ctx.Trigger(storagemarket.ProviderEventNodeErrored, xerrors.Errorf("publishing deal: %w", err))
 	}

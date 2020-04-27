@@ -369,8 +369,8 @@ type StorageProviderNode interface {
 
 	GetChainHead(ctx context.Context) (shared.TipSetToken, abi.ChainEpoch, error)
 
-	// Publishes deal on chain
-	PublishDeals(ctx context.Context, deal MinerDeal) (abi.DealID, cid.Cid, error)
+	// Publishes deal on chain, returns the message cid, but does not wait for message to appear
+	PublishDeals(ctx context.Context, deal MinerDeal) (cid.Cid, error)
 
 	// ListProviderDeals lists all deals associated with a storage provider
 	ListProviderDeals(ctx context.Context, addr address.Address, tok shared.TipSetToken) ([]StorageDeal, error)

@@ -225,7 +225,7 @@ type FakeProviderNode struct {
 }
 
 // PublishDeals simulates publishing a deal by adding it to the storage market state
-func (n *FakeProviderNode) PublishDeals(ctx context.Context, deal storagemarket.MinerDeal) (abi.DealID, cid.Cid, error) {
+func (n *FakeProviderNode) PublishDeals(ctx context.Context, deal storagemarket.MinerDeal) (cid.Cid, error) {
 	if n.PublishDealsError == nil {
 		sd := storagemarket.StorageDeal{
 			DealProposal: deal.Proposal,
@@ -234,9 +234,9 @@ func (n *FakeProviderNode) PublishDeals(ctx context.Context, deal storagemarket.
 
 		n.SMState.AddDeal(sd)
 
-		return 0, shared_testutil.GenerateCids(1)[0], nil
+		return shared_testutil.GenerateCids(1)[0], nil
 	}
-	return 0, cid.Undef, n.PublishDealsError
+	return cid.Undef, n.PublishDealsError
 }
 
 // ListProviderDeals returns the deals in the storage market state
