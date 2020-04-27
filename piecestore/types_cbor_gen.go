@@ -85,9 +85,11 @@ func (t *PieceInfo) UnmarshalCBOR(r io.Reader) error {
 	if maj != cbg.MajArray {
 		return fmt.Errorf("expected cbor array")
 	}
+
 	if extra > 0 {
 		t.Deals = make([]DealInfo, extra)
 	}
+
 	for i := 0; i < int(extra); i++ {
 
 		var v DealInfo
@@ -415,9 +417,11 @@ func (t *CIDInfo) UnmarshalCBOR(r io.Reader) error {
 	if maj != cbg.MajArray {
 		return fmt.Errorf("expected cbor array")
 	}
+
 	if extra > 0 {
 		t.PieceBlockLocations = make([]PieceBlockLocation, extra)
 	}
+
 	for i := 0; i < int(extra); i++ {
 
 		var v PieceBlockLocation
