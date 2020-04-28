@@ -1,6 +1,7 @@
 package providerstates
 
 import (
+	"bytes"
 	"context"
 
 	"github.com/filecoin-project/go-address"
@@ -9,6 +10,8 @@ import (
 	"github.com/filecoin-project/go-statemachine/fsm"
 	"github.com/filecoin-project/specs-actors/actors/abi"
 	"github.com/filecoin-project/specs-actors/actors/abi/big"
+	"github.com/filecoin-project/specs-actors/actors/builtin/market"
+	"github.com/filecoin-project/specs-actors/actors/runtime/exitcode"
 	"github.com/ipfs/go-cid"
 	logging "github.com/ipfs/go-log/v2"
 	"github.com/ipld/go-ipld-prime"
@@ -159,23 +162,46 @@ func VerifyData(ctx fsm.Context, environment ProviderDealEnvironment, deal stora
 	return ctx.Trigger(storagemarket.ProviderEventVerifiedData, piecePath, metadataPath)
 }
 
-// PublishDeal publishes a deal on chain and sends the deal id back to the client
-func PublishDeal(ctx fsm.Context, environment ProviderDealEnvironment, deal storagemarket.MinerDeal) error {
-	tok, _, err := environment.Node().GetChainHead(ctx.Context())
+func EnsureProviderFunds(ctx fsm.Context, environment ProviderDealEnvironment, deal storagemarket.MinerDeal) error {
+	node := environment.Node()
+
+	tok, _, err := node.GetChainHead(ctx.Context())
 	if err != nil {
 		return ctx.Trigger(storagemarket.ProviderEventNodeErrored, xerrors.Errorf("acquiring chain head: %w", err))
 	}
 
-	waddr, err := environment.Node().GetMinerWorkerAddress(ctx.Context(), deal.Proposal.Provider, tok)
+	waddr, err := node.GetMinerWorkerAddress(ctx.Context(), deal.Proposal.Provider, tok)
 	if err != nil {
 		return ctx.Trigger(storagemarket.ProviderEventNodeErrored, xerrors.Errorf("looking up miner worker: %w", err))
 	}
 
-	// TODO: check StorageCollateral (may be too large (or too small))
-	if err := environment.Node().EnsureFunds(ctx.Context(), deal.Proposal.Provider, waddr, deal.Proposal.ProviderCollateral, tok); err != nil {
+	mcid, err := node.EnsureFunds(ctx.Context(), deal.Proposal.Provider, waddr, deal.Proposal.ProviderCollateral, tok)
+
+	if err != nil {
 		return ctx.Trigger(storagemarket.ProviderEventNodeErrored, xerrors.Errorf("ensuring funds: %w", err))
 	}
 
+	// if no message was sent, and there was no error, it was instantaneous
+	if mcid == cid.Undef {
+		return ctx.Trigger(storagemarket.ProviderEventFunded)
+	}
+
+	return ctx.Trigger(storagemarket.ProviderEventFundingInitiated, mcid)
+}
+
+func WaitForFunding(ctx fsm.Context, environment ProviderDealEnvironment, deal storagemarket.MinerDeal) error {
+	node := environment.Node()
+
+	return node.WaitForMessage(deal.AddFundsCid, storagemarket.ChainConfidence, func(code exitcode.ExitCode, bytes []byte) error {
+		if code == exitcode.Ok {
+			return ctx.Trigger(storagemarket.ProviderEventFunded)
+		}
+		return ctx.Trigger(storagemarket.ProviderEventNodeErrored, xerrors.Errorf("AddFunds exit code: %w", code))
+	})
+}
+
+// PublishDeal sends a message to publish a deal on chain
+func PublishDeal(ctx fsm.Context, environment ProviderDealEnvironment, deal storagemarket.MinerDeal) error {
 	smDeal := storagemarket.MinerDeal{
 		Client:             deal.Client,
 		ClientDealProposal: deal.ClientDealProposal,
@@ -184,27 +210,43 @@ func PublishDeal(ctx fsm.Context, environment ProviderDealEnvironment, deal stor
 		Ref:                deal.Ref,
 	}
 
-	dealID, mcid, err := environment.Node().PublishDeals(ctx.Context(), smDeal)
+	mcid, err := environment.Node().PublishDeals(ctx.Context(), smDeal)
 	if err != nil {
 		return ctx.Trigger(storagemarket.ProviderEventNodeErrored, xerrors.Errorf("publishing deal: %w", err))
 	}
 
-	err = environment.SendSignedResponse(ctx.Context(), &network.Response{
-		State: storagemarket.StorageDealProposalAccepted,
+	return ctx.Trigger(storagemarket.ProviderEventDealPublishInitiated, mcid)
+}
 
-		Proposal:       deal.ProposalCid,
-		PublishMessage: &mcid,
+// WaitForPublish waits for the publish message on chain and sends the deal id back to the client
+func WaitForPublish(ctx fsm.Context, environment ProviderDealEnvironment, deal storagemarket.MinerDeal) error {
+	return environment.Node().WaitForMessage(deal.PublishCid, storagemarket.ChainConfidence, func(code exitcode.ExitCode, retBytes []byte) error {
+		if code == exitcode.Ok {
+			var retval market.PublishStorageDealsReturn
+			err := retval.UnmarshalCBOR(bytes.NewReader(retBytes))
+			if err != nil {
+				return err
+			}
+
+			err = environment.SendSignedResponse(ctx.Context(), &network.Response{
+				State:          storagemarket.StorageDealProposalAccepted,
+				Proposal:       deal.ProposalCid,
+				PublishMessage: &deal.PublishCid,
+			})
+
+			if err != nil {
+				return ctx.Trigger(storagemarket.ProviderEventSendResponseFailed, err)
+			}
+
+			if err := environment.Disconnect(deal.ProposalCid); err != nil {
+				log.Warnf("closing client connection: %+v", err)
+			}
+
+			return ctx.Trigger(storagemarket.ProviderEventDealPublished, retval.IDs[0])
+		}
+
+		return ctx.Trigger(storagemarket.ProviderEventDealPublishError, xerrors.Errorf("PublishStorageDeals exit code: %w", code))
 	})
-
-	if err != nil {
-		return ctx.Trigger(storagemarket.ProviderEventSendResponseFailed, err)
-	}
-
-	if err := environment.Disconnect(deal.ProposalCid); err != nil {
-		log.Warnf("closing client connection: %+v", err)
-	}
-
-	return ctx.Trigger(storagemarket.ProviderEventDealPublished, dealID)
 }
 
 // HandoffDeal hands off a published deal for sealing and commitment in a sector

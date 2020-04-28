@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"io/ioutil"
+	"math/rand"
 	"reflect"
 	"testing"
 	"time"
@@ -13,6 +14,7 @@ import (
 	graphsync "github.com/filecoin-project/go-data-transfer/impl/graphsync"
 	"github.com/filecoin-project/specs-actors/actors/abi"
 	"github.com/filecoin-project/specs-actors/actors/abi/big"
+	"github.com/filecoin-project/specs-actors/actors/builtin/market"
 	"github.com/ipfs/go-cid"
 	"github.com/ipld/go-ipld-prime"
 	cidlink "github.com/ipld/go-ipld-prime/linking/cid"
@@ -35,24 +37,195 @@ import (
 
 func TestMakeDeal(t *testing.T) {
 	ctx := context.Background()
+	h := newHarness(t, ctx)
+	h.Client.Run(ctx)
+	err := h.Provider.Start(ctx)
+	assert.NoError(t, err)
+
+	// set up a subscriber
+	dealChan := make(chan storagemarket.MinerDeal)
+	subscriber := func(event storagemarket.ProviderEvent, deal storagemarket.MinerDeal) {
+		dealChan <- deal
+	}
+	_ = h.Provider.SubscribeToEvents(subscriber)
+
+	result := h.ProposeStorageDeal(t, &storagemarket.DataRef{TransferType: storagemarket.TTGraphsync, Root: h.PayloadCid})
+	proposalCid := result.ProposalCid
+
+	time.Sleep(time.Millisecond * 200)
+
+	ctx, canc := context.WithTimeout(context.Background(), 100*time.Millisecond)
+	defer canc()
+	var seenDeal storagemarket.MinerDeal
+	var actualStates []storagemarket.StorageDealStatus
+	for seenDeal.State != storagemarket.StorageDealCompleted {
+		select {
+		case seenDeal = <-dealChan:
+			actualStates = append(actualStates, seenDeal.State)
+		case <-ctx.Done():
+			t.Fatalf("never saw event")
+		}
+	}
+
+	expectedStates := []storagemarket.StorageDealStatus{
+		storagemarket.StorageDealValidating,
+		storagemarket.StorageDealProposalAccepted,
+		storagemarket.StorageDealTransferring,
+		storagemarket.StorageDealVerifyData,
+		storagemarket.StorageDealEnsureProviderFunds,
+		storagemarket.StorageDealPublish,
+		storagemarket.StorageDealPublishing,
+		storagemarket.StorageDealStaged,
+		storagemarket.StorageDealSealing,
+		storagemarket.StorageDealActive,
+		storagemarket.StorageDealCompleted,
+	}
+	assert.Equal(t, expectedStates, actualStates)
+
+	// check a couple of things to make sure we're getting the whole deal
+	assert.Equal(t, h.TestData.Host1.ID(), seenDeal.Client)
+	assert.Empty(t, seenDeal.Message)
+	assert.Equal(t, proposalCid, seenDeal.ProposalCid)
+	assert.Equal(t, h.ProviderAddr, seenDeal.ClientDealProposal.Proposal.Provider)
+
+	cd, err := h.Client.GetLocalDeal(ctx, proposalCid)
+	assert.NoError(t, err)
+	assert.Equal(t, storagemarket.StorageDealActive, cd.State)
+
+	providerDeals, err := h.Provider.ListLocalDeals()
+	assert.NoError(t, err)
+
+	pd := providerDeals[0]
+	assert.Equal(t, pd.ProposalCid, proposalCid)
+	assert.Equal(t, storagemarket.StorageDealCompleted, pd.State)
+}
+
+func TestMakeDealOffline(t *testing.T) {
+	ctx := context.Background()
+	h := newHarness(t, ctx)
+	h.Client.Run(ctx)
+
+	carBuf := new(bytes.Buffer)
+
+	err := cario.NewCarIO().WriteCar(ctx, h.TestData.Bs1, h.PayloadCid, h.TestData.AllSelector, carBuf)
+	require.NoError(t, err)
+
+	commP, size, err := pieceio.GeneratePieceCommitment(abi.RegisteredProof_StackedDRG2KiBPoSt, carBuf, uint64(carBuf.Len()))
+	assert.NoError(t, err)
+
+	dataRef := &storagemarket.DataRef{
+		TransferType: storagemarket.TTManual,
+		Root:         h.PayloadCid,
+		PieceCid:     &commP,
+		PieceSize:    size,
+	}
+
+	result := h.ProposeStorageDeal(t, dataRef)
+	proposalCid := result.ProposalCid
+
+	time.Sleep(time.Millisecond * 100)
+
+	cd, err := h.Client.GetLocalDeal(ctx, proposalCid)
+	assert.NoError(t, err)
+	assert.Equal(t, storagemarket.StorageDealValidating, cd.State)
+
+	providerDeals, err := h.Provider.ListLocalDeals()
+	assert.NoError(t, err)
+
+	pd := providerDeals[0]
+	assert.True(t, pd.ProposalCid.Equals(proposalCid))
+	assert.Equal(t, storagemarket.StorageDealWaitingForData, pd.State)
+
+	err = cario.NewCarIO().WriteCar(ctx, h.TestData.Bs1, h.PayloadCid, h.TestData.AllSelector, carBuf)
+	require.NoError(t, err)
+	err = h.Provider.ImportDataForDeal(ctx, pd.ProposalCid, carBuf)
+	require.NoError(t, err)
+
+	time.Sleep(time.Millisecond * 100)
+
+	cd, err = h.Client.GetLocalDeal(ctx, proposalCid)
+	assert.NoError(t, err)
+	assert.Equal(t, storagemarket.StorageDealActive, cd.State)
+
+	providerDeals, err = h.Provider.ListLocalDeals()
+	assert.NoError(t, err)
+
+	pd = providerDeals[0]
+	assert.True(t, pd.ProposalCid.Equals(proposalCid))
+	assert.Equal(t, storagemarket.StorageDealCompleted, pd.State)
+}
+
+func TestMakeDealNonBlocking(t *testing.T) {
+	ctx := context.Background()
+	h := newHarness(t, ctx)
+	testCids := shared_testutil.GenerateCids(2)
+
+	h.ClientNode.AddFundsCid = testCids[0]
+	h.Client.Run(ctx)
+
+	h.ProviderNode.WaitForMessageBlocks = true
+	h.ProviderNode.AddFundsCid = testCids[1]
+	err := h.Provider.Start(ctx)
+	assert.NoError(t, err)
+
+	result := h.ProposeStorageDeal(t, &storagemarket.DataRef{TransferType: storagemarket.TTGraphsync, Root: h.PayloadCid})
+
+	time.Sleep(time.Millisecond * 500)
+
+	cd, err := h.Client.GetLocalDeal(ctx, result.ProposalCid)
+	assert.NoError(t, err)
+	assert.Equal(t, storagemarket.StorageDealValidating, cd.State)
+
+	providerDeals, err := h.Provider.ListLocalDeals()
+	assert.NoError(t, err)
+
+	// Provider should be blocking on waiting for funds to appear on chain
+	pd := providerDeals[0]
+	assert.Equal(t, result.ProposalCid, pd.ProposalCid)
+	assert.Equal(t, storagemarket.StorageDealProviderFunding, pd.State)
+}
+
+type harness struct {
+	Ctx          context.Context
+	Epoch        abi.ChainEpoch
+	PayloadCid   cid.Cid
+	ProviderAddr address.Address
+	Client       storagemarket.StorageClient
+	ClientNode   *testnodes.FakeClientNode
+	Provider     storagemarket.StorageProvider
+	ProviderNode *testnodes.FakeProviderNode
+	ProviderInfo storagemarket.StorageProviderInfo
+	TestData     *shared_testutil.Libp2pTestData
+}
+
+func newHarness(t *testing.T, ctx context.Context) *harness {
 	epoch := abi.ChainEpoch(100)
-	nodeCommon := testnodes.FakeCommonNode{SMState: testnodes.NewStorageMarketState()}
 	td := shared_testutil.NewLibp2pTestData(ctx, t)
 	rootLink := td.LoadUnixFSFile(t, "payload.txt", false)
 	payloadCid := rootLink.(cidlink.Link).Cid
 
+	smState := testnodes.NewStorageMarketState()
 	clientNode := testnodes.FakeClientNode{
-		FakeCommonNode: nodeCommon,
+		FakeCommonNode: testnodes.FakeCommonNode{SMState: smState},
 		ClientAddr:     address.TestAddress,
 	}
+
+	expDealID := abi.DealID(rand.Uint64())
+	psdReturn := market.PublishStorageDealsReturn{IDs: []abi.DealID{expDealID}}
+	psdReturnBytes := bytes.NewBuffer([]byte{})
+	err := psdReturn.MarshalCBOR(psdReturnBytes)
+	assert.NoError(t, err)
 
 	providerAddr := address.TestAddress2
 	tempPath, err := ioutil.TempDir("", "storagemarket_test")
 	assert.NoError(t, err)
 	ps := piecestore.NewPieceStore(td.Ds2)
-	providerNode := testnodes.FakeProviderNode{
-		FakeCommonNode: nodeCommon,
-		MinerAddr:      providerAddr,
+	providerNode := &testnodes.FakeProviderNode{
+		FakeCommonNode: testnodes.FakeCommonNode{
+			SMState:                smState,
+			WaitForMessageRetBytes: psdReturnBytes.Bytes(),
+		},
+		MinerAddr: providerAddr,
 	}
 	fs, err := filestore.NewLocalFileStore(filestore.OsPath(tempPath))
 	assert.NoError(t, err)
@@ -78,18 +251,11 @@ func TestMakeDeal(t *testing.T) {
 		fs,
 		ps,
 		dt2,
-		&providerNode,
+		providerNode,
 		providerAddr,
 		abi.RegisteredProof_StackedDRG2KiBPoSt,
 	)
 	assert.NoError(t, err)
-
-	// set up a subscriber
-	dealChan := make(chan storagemarket.MinerDeal)
-	subscriber := func(event storagemarket.ProviderEvent, deal storagemarket.MinerDeal) {
-		dealChan <- deal
-	}
-	_ = provider.SubscribeToEvents(subscriber)
 
 	// set ask price where we'll accept any price
 	err = provider.AddAsk(big.NewInt(0), 50_000)
@@ -107,188 +273,34 @@ func TestMakeDeal(t *testing.T) {
 		PeerID:     td.Host2.ID(),
 	}
 
-	var proposalCid cid.Cid
-
-	// make a deal
-	client.Run(ctx)
-	dataRef := &storagemarket.DataRef{
-		TransferType: storagemarket.TTGraphsync,
-		Root:         payloadCid,
+	return &harness{
+		Ctx:          ctx,
+		Epoch:        epoch,
+		PayloadCid:   payloadCid,
+		ProviderAddr: providerAddr,
+		Client:       client,
+		ClientNode:   &clientNode,
+		Provider:     provider,
+		ProviderNode: providerNode,
+		ProviderInfo: providerInfo,
+		TestData:     td,
 	}
-	result, err := client.ProposeStorageDeal(ctx, providerAddr, &providerInfo, dataRef, abi.ChainEpoch(epoch+100), abi.ChainEpoch(epoch+20100), big.NewInt(1), big.NewInt(0), abi.RegisteredProof_StackedDRG2KiBPoSt)
-	assert.NoError(t, err)
-
-	proposalCid = result.ProposalCid
-
-	time.Sleep(time.Millisecond * 100)
-
-	ctx, canc := context.WithTimeout(context.Background(), 100*time.Millisecond)
-	defer canc()
-	var seenDeal storagemarket.MinerDeal
-	var actualStates []storagemarket.StorageDealStatus
-	for seenDeal.State != storagemarket.StorageDealCompleted {
-		select {
-		case seenDeal = <-dealChan:
-			actualStates = append(actualStates, seenDeal.State)
-		case <-ctx.Done():
-			t.Fatalf("never saw event")
-		}
-	}
-
-	expectedStates := []storagemarket.StorageDealStatus{
-		storagemarket.StorageDealValidating,
-		storagemarket.StorageDealProposalAccepted,
-		storagemarket.StorageDealTransferring,
-		storagemarket.StorageDealVerifyData,
-		storagemarket.StorageDealPublishing,
-		storagemarket.StorageDealStaged,
-		storagemarket.StorageDealSealing,
-		storagemarket.StorageDealActive,
-		storagemarket.StorageDealCompleted,
-	}
-	assert.Equal(t, expectedStates, actualStates)
-
-	// check a couple of things to make sure we're getting the whole deal
-	assert.Equal(t, td.Host1.ID(), seenDeal.Client)
-	assert.Empty(t, seenDeal.Message)
-	assert.Equal(t, proposalCid, seenDeal.ProposalCid)
-	assert.Equal(t, providerAddr, seenDeal.ClientDealProposal.Proposal.Provider)
-
-	cd, err := client.GetLocalDeal(ctx, proposalCid)
-	assert.NoError(t, err)
-	assert.Equal(t, int(storagemarket.StorageDealActive), int(cd.State))
-
-	providerDeals, err := provider.ListLocalDeals()
-	assert.NoError(t, err)
-
-	pd := providerDeals[0]
-	assert.True(t, pd.ProposalCid.Equals(proposalCid))
-	assert.Equal(t, int(storagemarket.StorageDealCompleted), int(pd.State))
 }
 
-func TestMakeDealOffline(t *testing.T) {
-	ctx := context.Background()
-	epoch := abi.ChainEpoch(100)
-	nodeCommon := testnodes.FakeCommonNode{SMState: testnodes.NewStorageMarketState()}
-	td := shared_testutil.NewLibp2pTestData(ctx, t)
-	rootLink := td.LoadUnixFSFile(t, "payload.txt", false)
-	payloadCid := rootLink.(cidlink.Link).Cid
-
-	clientNode := testnodes.FakeClientNode{
-		FakeCommonNode: nodeCommon,
-		ClientAddr:     address.TestAddress,
-	}
-
-	providerAddr := address.TestAddress2
-	tempPath, err := ioutil.TempDir("", "storagemarket_test")
-	assert.NoError(t, err)
-	ps := piecestore.NewPieceStore(td.Ds2)
-	providerNode := testnodes.FakeProviderNode{
-		FakeCommonNode: nodeCommon,
-		MinerAddr:      providerAddr,
-	}
-	fs, err := filestore.NewLocalFileStore(filestore.OsPath(tempPath))
-	assert.NoError(t, err)
-
-	// create provider and client
-	dt1 := graphsync.NewGraphSyncDataTransfer(td.Host1, td.GraphSync1)
-	require.NoError(t, dt1.RegisterVoucherType(reflect.TypeOf(&requestvalidation.StorageDataTransferVoucher{}), &fakeDTValidator{}))
-
-	client, err := storageimpl.NewClient(
-		network.NewFromLibp2pHost(td.Host1),
-		td.Bs1,
-		dt1,
-		discovery.NewLocal(td.Ds1),
-		td.Ds1,
-		&clientNode,
-	)
-	require.NoError(t, err)
-	dt2 := graphsync.NewGraphSyncDataTransfer(td.Host2, td.GraphSync2)
-	provider, err := storageimpl.NewProvider(
-		network.NewFromLibp2pHost(td.Host2),
-		td.Ds1,
-		td.Bs2,
-		fs,
-		ps,
-		dt2,
-		&providerNode,
-		providerAddr,
+func (h *harness) ProposeStorageDeal(t *testing.T, dataRef *storagemarket.DataRef) *storagemarket.ProposeStorageDealResult {
+	result, err := h.Client.ProposeStorageDeal(
+		h.Ctx,
+		h.ProviderAddr,
+		&h.ProviderInfo,
+		dataRef,
+		h.Epoch+100,
+		h.Epoch+20100,
+		big.NewInt(1),
+		big.NewInt(0),
 		abi.RegisteredProof_StackedDRG2KiBPoSt,
 	)
 	assert.NoError(t, err)
-
-	// set ask price where we'll accept any price
-	err = provider.AddAsk(big.NewInt(0), 50_000)
-	assert.NoError(t, err)
-
-	err = provider.Start(ctx)
-	assert.NoError(t, err)
-
-	// Closely follows the MinerInfo struct in the spec
-	providerInfo := storagemarket.StorageProviderInfo{
-		Address:    providerAddr,
-		Owner:      providerAddr,
-		Worker:     providerAddr,
-		SectorSize: 1 << 20,
-		PeerID:     td.Host2.ID(),
-	}
-
-	var proposalCid cid.Cid
-
-	// make a deal
-	client.Run(ctx)
-	dataRef := &storagemarket.DataRef{
-		TransferType: storagemarket.TTManual,
-		Root:         payloadCid,
-	}
-
-	carBuf := new(bytes.Buffer)
-
-	err = cario.NewCarIO().WriteCar(ctx, td.Bs1, payloadCid, td.AllSelector, carBuf)
-	require.NoError(t, err)
-
-	commP, size, err := pieceio.GeneratePieceCommitment(abi.RegisteredProof_StackedDRG2KiBPoSt, carBuf, uint64(carBuf.Len()))
-
-	assert.NoError(t, err)
-
-	dataRef.PieceCid = &commP
-	dataRef.PieceSize = size
-
-	result, err := client.ProposeStorageDeal(ctx, providerAddr, &providerInfo, dataRef, abi.ChainEpoch(epoch+100), abi.ChainEpoch(epoch+20100), big.NewInt(1), big.NewInt(0), abi.RegisteredProof_StackedDRG2KiBPoSt)
-	assert.NoError(t, err)
-
-	proposalCid = result.ProposalCid
-
-	time.Sleep(time.Millisecond * 100)
-
-	cd, err := client.GetLocalDeal(ctx, proposalCid)
-	assert.NoError(t, err)
-	assert.Equal(t, cd.State, storagemarket.StorageDealValidating)
-
-	providerDeals, err := provider.ListLocalDeals()
-	assert.NoError(t, err)
-
-	pd := providerDeals[0]
-	assert.True(t, pd.ProposalCid.Equals(proposalCid))
-	assert.Equal(t, pd.State, storagemarket.StorageDealWaitingForData)
-
-	err = cario.NewCarIO().WriteCar(ctx, td.Bs1, payloadCid, td.AllSelector, carBuf)
-	require.NoError(t, err)
-	err = provider.ImportDataForDeal(ctx, pd.ProposalCid, carBuf)
-	require.NoError(t, err)
-
-	time.Sleep(time.Millisecond * 100)
-
-	cd, err = client.GetLocalDeal(ctx, proposalCid)
-	assert.NoError(t, err)
-	assert.Equal(t, cd.State, storagemarket.StorageDealActive)
-
-	providerDeals, err = provider.ListLocalDeals()
-	assert.NoError(t, err)
-
-	pd = providerDeals[0]
-	assert.True(t, pd.ProposalCid.Equals(proposalCid))
-	assert.Equal(t, pd.State, storagemarket.StorageDealCompleted)
+	return result
 }
 
 type fakeDTValidator struct{}

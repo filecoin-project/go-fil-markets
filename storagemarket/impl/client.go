@@ -11,6 +11,7 @@ import (
 	"github.com/filecoin-project/specs-actors/actors/abi"
 	"github.com/filecoin-project/specs-actors/actors/abi/big"
 	"github.com/filecoin-project/specs-actors/actors/builtin/market"
+	"github.com/filecoin-project/specs-actors/actors/runtime/exitcode"
 	"github.com/ipfs/go-cid"
 	"github.com/ipfs/go-datastore"
 	blockstore "github.com/ipfs/go-ipfs-blockstore"
@@ -275,7 +276,27 @@ func (c *Client) GetPaymentEscrow(ctx context.Context, addr address.Address) (st
 }
 
 func (c *Client) AddPaymentEscrow(ctx context.Context, addr address.Address, amount abi.TokenAmount) error {
-	return c.node.AddFunds(ctx, addr, amount)
+	done := make(chan error)
+
+	mcid, err := c.node.AddFunds(ctx, addr, amount)
+	if err != nil {
+		return err
+	}
+
+	err = c.node.WaitForMessage(mcid, storagemarket.ChainConfidence, func(code exitcode.ExitCode, bytes []byte) error {
+		if code == exitcode.Ok {
+			done <- nil
+		} else {
+			done <- xerrors.Errorf("AddFunds error, exit code: %w", code)
+		}
+		return nil
+	})
+
+	if err != nil {
+		return err
+	}
+
+	return <-done
 }
 
 type clientDealEnvironment struct {

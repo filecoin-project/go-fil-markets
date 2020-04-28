@@ -3,6 +3,7 @@ package providerstates
 import (
 	"github.com/filecoin-project/go-statemachine/fsm"
 	"github.com/filecoin-project/specs-actors/actors/abi"
+	"github.com/ipfs/go-cid"
 	"golang.org/x/xerrors"
 
 	"github.com/filecoin-project/go-fil-markets/filestore"
@@ -44,10 +45,30 @@ var ProviderEvents = fsm.Events{
 			return nil
 		}),
 	fsm.Event(storagemarket.ProviderEventVerifiedData).
-		FromMany(storagemarket.StorageDealVerifyData, storagemarket.StorageDealWaitingForData).To(storagemarket.StorageDealPublishing).
+		FromMany(storagemarket.StorageDealVerifyData, storagemarket.StorageDealWaitingForData).To(storagemarket.StorageDealEnsureProviderFunds).
 		Action(func(deal *storagemarket.MinerDeal, path filestore.Path, metadataPath filestore.Path) error {
 			deal.PiecePath = path
 			deal.MetadataPath = metadataPath
+			return nil
+		}),
+	fsm.Event(storagemarket.ProviderEventFundingInitiated).
+		From(storagemarket.StorageDealEnsureProviderFunds).To(storagemarket.StorageDealProviderFunding).
+		Action(func(deal *storagemarket.MinerDeal, mcid cid.Cid) error {
+			deal.AddFundsCid = mcid
+			return nil
+		}),
+	fsm.Event(storagemarket.ProviderEventFunded).
+		FromMany(storagemarket.StorageDealProviderFunding, storagemarket.StorageDealEnsureProviderFunds).To(storagemarket.StorageDealPublish),
+	fsm.Event(storagemarket.ProviderEventDealPublishInitiated).
+		From(storagemarket.StorageDealPublish).To(storagemarket.StorageDealPublishing).
+		Action(func(deal *storagemarket.MinerDeal, publishCid cid.Cid) error {
+			deal.PublishCid = publishCid
+			return nil
+		}),
+	fsm.Event(storagemarket.ProviderEventDealPublishError).
+		From(storagemarket.StorageDealPublishing).To(storagemarket.StorageDealFailing).
+		Action(func(deal *storagemarket.MinerDeal, err error) error {
+			deal.Message = xerrors.Errorf("PublishStorageDeal error: %w", err).Error()
 			return nil
 		}),
 	fsm.Event(storagemarket.ProviderEventSendResponseFailed).
@@ -103,12 +124,15 @@ var ProviderEvents = fsm.Events{
 
 // ProviderStateEntryFuncs are the handlers for different states in a storage client
 var ProviderStateEntryFuncs = fsm.StateEntryFuncs{
-	storagemarket.StorageDealValidating:       ValidateDealProposal,
-	storagemarket.StorageDealProposalAccepted: TransferData,
-	storagemarket.StorageDealVerifyData:       VerifyData,
-	storagemarket.StorageDealPublishing:       PublishDeal,
-	storagemarket.StorageDealStaged:           HandoffDeal,
-	storagemarket.StorageDealSealing:          VerifyDealActivated,
-	storagemarket.StorageDealActive:           RecordPieceInfo,
-	storagemarket.StorageDealFailing:          FailDeal,
+	storagemarket.StorageDealValidating:          ValidateDealProposal,
+	storagemarket.StorageDealProposalAccepted:    TransferData,
+	storagemarket.StorageDealVerifyData:          VerifyData,
+	storagemarket.StorageDealEnsureProviderFunds: EnsureProviderFunds,
+	storagemarket.StorageDealProviderFunding:     WaitForFunding,
+	storagemarket.StorageDealPublish:             PublishDeal,
+	storagemarket.StorageDealPublishing:          WaitForPublish,
+	storagemarket.StorageDealStaged:              HandoffDeal,
+	storagemarket.StorageDealSealing:             VerifyDealActivated,
+	storagemarket.StorageDealActive:              RecordPieceInfo,
+	storagemarket.StorageDealFailing:             FailDeal,
 }

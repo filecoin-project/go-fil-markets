@@ -9,6 +9,7 @@ import (
 	"github.com/filecoin-project/specs-actors/actors/abi/big"
 	"github.com/filecoin-project/specs-actors/actors/builtin/market"
 	"github.com/filecoin-project/specs-actors/actors/crypto"
+	"github.com/filecoin-project/specs-actors/actors/runtime/exitcode"
 	"github.com/ipfs/go-cid"
 
 	"github.com/filecoin-project/go-fil-markets/shared"
@@ -86,10 +87,16 @@ func (sma *StorageMarketState) AddDeal(deal storagemarket.StorageDeal) (shared.T
 // FakeCommonNode has the common methods for the storage & client node adapters
 type FakeCommonNode struct {
 	SMState              *StorageMarketState
+	AddFundsCid          cid.Cid
 	EnsureFundsError     error
 	VerifySignatureFails bool
 	GetBalanceError      error
 	GetChainHeadError    error
+
+	WaitForMessageBlocks   bool
+	WaitForMessageError    error
+	WaitForMessageExitCode exitcode.ExitCode
+	WaitForMessageRetBytes []byte
 }
 
 // GetChainHead returns the state id in the storage market state
@@ -103,20 +110,34 @@ func (n *FakeCommonNode) GetChainHead(ctx context.Context) (shared.TipSetToken, 
 }
 
 // AddFunds adds funds to the given actor in the storage market state
-func (n *FakeCommonNode) AddFunds(ctx context.Context, addr address.Address, amount abi.TokenAmount) error {
+func (n *FakeCommonNode) AddFunds(ctx context.Context, addr address.Address, amount abi.TokenAmount) (cid.Cid, error) {
 	n.SMState.AddFunds(addr, amount)
-	return nil
+	return n.AddFundsCid, nil
 }
 
 // EnsureFunds adds funds to the given actor in the storage market state to insure it has at least the given amount
-func (n *FakeCommonNode) EnsureFunds(ctx context.Context, addr, wallet address.Address, amount abi.TokenAmount, tok shared.TipSetToken) error {
+func (n *FakeCommonNode) EnsureFunds(ctx context.Context, addr, wallet address.Address, amount abi.TokenAmount, tok shared.TipSetToken) (cid.Cid, error) {
 	if n.EnsureFundsError == nil {
 		balance := n.SMState.Balance(addr)
 		if balance.Available.LessThan(amount) {
-			n.SMState.AddFunds(addr, big.Sub(amount, balance.Available))
+			return n.AddFunds(ctx, addr, big.Sub(amount, balance.Available))
 		}
 	}
-	return n.EnsureFundsError
+
+	return cid.Undef, n.EnsureFundsError
+}
+
+func (n *FakeCommonNode) WaitForMessage(mcid cid.Cid, confidence int64, onCompletion func(exitcode.ExitCode, []byte) error) error {
+	if n.WaitForMessageError != nil {
+		return n.WaitForMessageError
+	}
+
+	if n.WaitForMessageBlocks {
+		// just leave the test node in this state to simulate a long operation
+		return nil
+	}
+
+	return onCompletion(n.WaitForMessageExitCode, n.WaitForMessageRetBytes)
 }
 
 // GetBalance returns the funds in the storage market state
@@ -204,7 +225,7 @@ type FakeProviderNode struct {
 }
 
 // PublishDeals simulates publishing a deal by adding it to the storage market state
-func (n *FakeProviderNode) PublishDeals(ctx context.Context, deal storagemarket.MinerDeal) (abi.DealID, cid.Cid, error) {
+func (n *FakeProviderNode) PublishDeals(ctx context.Context, deal storagemarket.MinerDeal) (cid.Cid, error) {
 	if n.PublishDealsError == nil {
 		sd := storagemarket.StorageDeal{
 			DealProposal: deal.Proposal,
@@ -213,9 +234,9 @@ func (n *FakeProviderNode) PublishDeals(ctx context.Context, deal storagemarket.
 
 		n.SMState.AddDeal(sd)
 
-		return n.PublishDealID, shared_testutil.GenerateCids(1)[0], nil
+		return shared_testutil.GenerateCids(1)[0], nil
 	}
-	return abi.DealID(0), cid.Undef, n.PublishDealsError
+	return cid.Undef, n.PublishDealsError
 }
 
 // ListProviderDeals returns the deals in the storage market state

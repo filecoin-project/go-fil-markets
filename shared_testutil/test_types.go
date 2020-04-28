@@ -113,6 +113,9 @@ func MakeTestDealPayment() retrievalmarket.DealPayment {
 
 // MakeTestUnsignedDealProposal generates a deal proposal with no signature
 func MakeTestUnsignedDealProposal() market.DealProposal {
+	start := uint64(rand.Int31())
+	end := start + uint64(rand.Int31())
+
 	return market.DealProposal{
 		PieceCID:  GenerateCids(1)[0],
 		PieceSize: abi.PaddedPieceSize(rand.Int63()),
@@ -120,8 +123,8 @@ func MakeTestUnsignedDealProposal() market.DealProposal {
 		Client:   address.TestAddress,
 		Provider: address.TestAddress2,
 
-		StartEpoch: abi.ChainEpoch(rand.Int63()),
-		EndEpoch:   abi.ChainEpoch(rand.Int63()),
+		StartEpoch: abi.ChainEpoch(start),
+		EndEpoch:   abi.ChainEpoch(end),
 
 		StoragePricePerEpoch: MakeTestTokenAmount(),
 		ProviderCollateral:   MakeTestTokenAmount(),
