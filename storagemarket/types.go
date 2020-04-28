@@ -8,6 +8,7 @@ import (
 	"github.com/filecoin-project/specs-actors/actors/abi"
 	"github.com/filecoin-project/specs-actors/actors/builtin/market"
 	"github.com/filecoin-project/specs-actors/actors/crypto"
+	"github.com/filecoin-project/specs-actors/actors/runtime/exitcode"
 	"github.com/ipfs/go-cid"
 	cbor "github.com/ipfs/go-ipld-cbor"
 	"github.com/libp2p/go-libp2p-core/peer"
@@ -20,6 +21,7 @@ import (
 
 const DealProtocolID = "/fil/storage/mk/1.0.1"
 const AskProtocolID = "/fil/storage/ask/1.0.1"
+const ChainConfidence = 10
 
 type Balance struct {
 	Locked    abi.TokenAmount
@@ -41,14 +43,19 @@ const (
 
 	// Internal
 
-	StorageDealFundsEnsured   // Deposited funds as neccesary to create a deal, ready to move forward
-	StorageDealValidating     // Verifying that deal parameters are good
-	StorageDealTransferring   // Moving data
-	StorageDealWaitingForData // Manual transfer
-	StorageDealVerifyData     // Verify transferred data - generate CAR / piece data
-	StorageDealPublishing     // Publishing deal to chain
-	StorageDealError          // deal failed with an unexpected error
-	StorageDealCompleted      // on provider side, indicates deal is active and info for retrieval is recorded
+	StorageDealFundsEnsured        // Deposited funds as neccesary to create a deal, ready to move forward
+	StorageDealValidating          // Verifying that deal parameters are good
+	StorageDealTransferring        // Moving data
+	StorageDealWaitingForData      // Manual transfer
+	StorageDealVerifyData          // Verify transferred data - generate CAR / piece data
+	StorageDealEnsureProviderFunds // Ensuring that provider collateral is sufficient
+	StorageDealEnsureClientFunds   // Ensuring that client funds are sufficient
+	StorageDealProviderFunding     // Waiting for funds to appear in Provider balance
+	StorageDealClientFunding       // Waiting for funds to appear in Client balance
+	StorageDealPublish             // Publishing deal to chain
+	StorageDealPublishing          // Waiting for deal to appear on chain
+	StorageDealError               // deal failed with an unexpected error
+	StorageDealCompleted           // on provider side, indicates deal is active and info for retrieval is recorded
 )
 
 var DealStates = []string{
@@ -67,6 +74,10 @@ var DealStates = []string{
 	"StorageDealTransferring",
 	"StorageDealWaitingForData",
 	"StorageDealVerifyData",
+	"StorageDealEnsureProviderFunds",
+	"StorageDealEnsureClientFunds",
+	"StorageDealProviderFunding",
+	"StorageDealClientFunding",
 	"StorageDealPublishing",
 	"StorageDealError",
 	"StorageDealCompleted",
@@ -116,6 +127,8 @@ var StorageAskUndefined = StorageAsk{}
 type MinerDeal struct {
 	market.ClientDealProposal
 	ProposalCid      cid.Cid
+	AddFundsCid      cid.Cid
+	PublishCid       cid.Cid
 	Miner            peer.ID
 	Client           peer.ID
 	State            StorageDealStatus
@@ -148,6 +161,15 @@ const (
 	// meaning the provider must wait until it receives data manually
 	ProviderEventWaitingForManualData
 
+	// ProviderEventInsufficientFunds indicates not enough funds available for a deal
+	ProviderEventInsufficientFunds
+
+	// ProviderEventFundingInitiated indicates provider collateral funding has been initiated
+	ProviderEventFundingInitiated
+
+	// ProviderEventFunded indicates provider collateral has appeared in the storage market balance
+	ProviderEventFunded
+
 	// ProviderEventDataTransferFailed happens when an error occurs transferring data
 	ProviderEventDataTransferFailed
 
@@ -169,8 +191,14 @@ const (
 	// ProviderEventSendResponseFailed happens when a response cannot be sent to a deal
 	ProviderEventSendResponseFailed
 
-	// ProviderEventDealPublished happens when a deal is succesfully published
+	// ProviderEventDealPublishInitiated happens when a provider has sent a PublishStorageDeals message to the chain
+	ProviderEventDealPublishInitiated
+
+	// ProviderEventDealPublished happens when a deal is successfully published
 	ProviderEventDealPublished
+
+	// ProviderEventDealPublishError happens when PublishStorageDeals returns a non-ok exit code
+	ProviderEventDealPublishError
 
 	// ProviderEventFileStoreErrored happens when an error occurs accessing the filestore
 	ProviderEventFileStoreErrored
@@ -207,6 +235,7 @@ const (
 type ClientDeal struct {
 	market.ClientDealProposal
 	ProposalCid    cid.Cid
+	AddFundsCid    cid.Cid
 	State          StorageDealStatus
 	Miner          peer.ID
 	MinerWorker    address.Address
@@ -224,6 +253,9 @@ const (
 
 	// ClientEventEnsureFundsFailed happens when attempting to ensure the client has enough funds available fails
 	ClientEventEnsureFundsFailed
+
+	// ClientEventFundsInitiated happens when a client has sent a message adding funds to its balance
+	ClientEventFundingInitiated
 
 	// ClientEventFundsEnsured happens when a client successfully ensures it has funds for a deal
 	ClientEventFundsEnsured
@@ -277,6 +309,11 @@ type StorageDeal struct {
 	market.DealState
 }
 
+type DealSectorCommittedCallback func(err error)
+type FundsAddedCallback func(err error)
+type DealsPublishedCallback func(err error)
+type MessagePublishedCallback func(mcid cid.Cid, err error)
+
 // Subscriber is a callback that is called when events are emitted
 type ProviderSubscriber func(event ProviderEvent, deal MinerDeal)
 
@@ -308,25 +345,32 @@ type StorageProvider interface {
 	SubscribeToEvents(subscriber ProviderSubscriber) shared.Unsubscribe
 }
 
-// Node dependencies for a StorageProvider
-type StorageProviderNode interface {
-	GetChainHead(ctx context.Context) (shared.TipSetToken, abi.ChainEpoch, error)
-
-	// Verify a signature against an address + data
-	VerifySignature(ctx context.Context, signature crypto.Signature, signer address.Address, plaintext []byte, tok shared.TipSetToken) (bool, error)
-
+type StorageFunds interface {
 	// Adds funds with the StorageMinerActor for a storage participant.  Used by both providers and clients.
-	AddFunds(ctx context.Context, addr address.Address, amount abi.TokenAmount) error
+	AddFunds(ctx context.Context, addr address.Address, amount abi.TokenAmount) (cid.Cid, error)
 
 	// Ensures that a storage market participant has a certain amount of available funds
 	// If additional funds are needed, they will be sent from the 'wallet' address
-	EnsureFunds(ctx context.Context, addr, wallet address.Address, amount abi.TokenAmount, tok shared.TipSetToken) error
+	// callback is immediately called if sufficient funds are available
+	EnsureFunds(ctx context.Context, addr, wallet address.Address, amount abi.TokenAmount, tok shared.TipSetToken) (cid.Cid, error)
 
 	// GetBalance returns locked/unlocked for a storage participant.  Used by both providers and clients.
 	GetBalance(ctx context.Context, addr address.Address, tok shared.TipSetToken) (Balance, error)
 
-	// Publishes deal on chain
-	PublishDeals(ctx context.Context, deal MinerDeal) (abi.DealID, cid.Cid, error)
+	// Verify a signature against an address + data
+	VerifySignature(ctx context.Context, signature crypto.Signature, signer address.Address, plaintext []byte, tok shared.TipSetToken) (bool, error)
+
+	WaitForMessage(mcid cid.Cid, confidence int64, onCompletion func(exitcode.ExitCode, []byte) error) error
+}
+
+// Node dependencies for a StorageProvider
+type StorageProviderNode interface {
+	StorageFunds
+
+	GetChainHead(ctx context.Context) (shared.TipSetToken, abi.ChainEpoch, error)
+
+	// Publishes deal on chain, returns the message cid, but does not wait for message to appear
+	PublishDeals(ctx context.Context, deal MinerDeal) (cid.Cid, error)
 
 	// ListProviderDeals lists all deals associated with a storage provider
 	ListProviderDeals(ctx context.Context, addr address.Address, tok shared.TipSetToken) ([]StorageDeal, error)
@@ -345,22 +389,11 @@ type StorageProviderNode interface {
 	LocatePieceForDealWithinSector(ctx context.Context, dealID abi.DealID, tok shared.TipSetToken) (sectorID uint64, offset uint64, length uint64, err error)
 }
 
-type DealSectorCommittedCallback func(err error)
-
 // Node dependencies for a StorageClient
 type StorageClientNode interface {
+	StorageFunds
+
 	GetChainHead(ctx context.Context) (shared.TipSetToken, abi.ChainEpoch, error)
-
-	// Verify a signature against an address + data
-	VerifySignature(ctx context.Context, signature crypto.Signature, signer address.Address, plaintext []byte, tok shared.TipSetToken) (bool, error)
-
-	// Adds funds with the StorageMinerActor for a storage participant.  Used by both providers and clients.
-	AddFunds(ctx context.Context, addr address.Address, amount abi.TokenAmount) error
-
-	EnsureFunds(ctx context.Context, addr, wallet address.Address, amount abi.TokenAmount, tok shared.TipSetToken) error
-
-	// GetBalance returns locked/unlocked for a storage participant.  Used by both providers and clients.
-	GetBalance(ctx context.Context, addr address.Address, tok shared.TipSetToken) (Balance, error)
 
 	// ListClientDeals lists all on-chain deals associated with a storage client
 	ListClientDeals(ctx context.Context, addr address.Address, tok shared.TipSetToken) ([]StorageDeal, error)

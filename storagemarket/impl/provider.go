@@ -9,6 +9,7 @@ import (
 	datatransfer "github.com/filecoin-project/go-data-transfer"
 	"github.com/filecoin-project/go-statemachine/fsm"
 	"github.com/filecoin-project/specs-actors/actors/abi"
+	"github.com/filecoin-project/specs-actors/actors/runtime/exitcode"
 	"github.com/hannahhoward/go-pubsub"
 	"github.com/ipfs/go-cid"
 	"github.com/ipfs/go-datastore"
@@ -247,7 +248,27 @@ func (p *Provider) ListDeals(ctx context.Context) ([]storagemarket.StorageDeal, 
 }
 
 func (p *Provider) AddStorageCollateral(ctx context.Context, amount abi.TokenAmount) error {
-	return p.spn.AddFunds(ctx, p.actor, amount)
+	done := make(chan error)
+
+	mcid, err := p.spn.AddFunds(ctx, p.actor, amount)
+	if err != nil {
+		return err
+	}
+
+	err = p.spn.WaitForMessage(mcid, storagemarket.ChainConfidence, func(code exitcode.ExitCode, bytes []byte) error {
+		if code == exitcode.Ok {
+			done <- nil
+		} else {
+			done <- xerrors.Errorf("AddFunds error, exit code: %w", code)
+		}
+		return nil
+	})
+
+	if err != nil {
+		return err
+	}
+
+	return <-done
 }
 
 func (p *Provider) GetStorageCollateral(ctx context.Context) (storagemarket.Balance, error) {
