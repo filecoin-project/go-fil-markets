@@ -5,7 +5,7 @@ import (
 	"testing"
 
 	blocks "github.com/ipfs/go-block-format"
-	ipldfree "github.com/ipld/go-ipld-prime/impl/free"
+	basicnode "github.com/ipld/go-ipld-prime/node/basic"
 	"github.com/ipld/go-ipld-prime/traversal/selector"
 	"github.com/ipld/go-ipld-prime/traversal/selector/builder"
 	"github.com/stretchr/testify/require"
@@ -18,7 +18,7 @@ func TestSelectorVerifier(t *testing.T) {
 	ctx := context.Background()
 	testdata := tut.NewTestIPLDTree()
 
-	ssb := builder.NewSelectorSpecBuilder(ipldfree.NodeBuilder())
+	ssb := builder.NewSelectorSpecBuilder(basicnode.Style.Any)
 	sel := ssb.ExploreRecursive(selector.RecursionLimitNone(), ssb.ExploreAll(ssb.ExploreRecursiveEdge())).Node()
 
 	t.Run("verifies correctly", func(t *testing.T) {

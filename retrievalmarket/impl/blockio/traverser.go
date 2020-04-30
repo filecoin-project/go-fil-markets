@@ -7,7 +7,7 @@ import (
 
 	"github.com/ipld/go-ipld-prime"
 	dagpb "github.com/ipld/go-ipld-prime-proto"
-	free "github.com/ipld/go-ipld-prime/impl/free"
+	basicnode "github.com/ipld/go-ipld-prime/node/basic"
 	"github.com/ipld/go-ipld-prime/traversal"
 	"github.com/ipld/go-ipld-prime/traversal/selector"
 )
@@ -77,8 +77,8 @@ func (t *Traverser) Start(ctx context.Context) {
 	case t.awaitRequest <- struct{}{}:
 	}
 	go func() {
-		var chooser traversal.NodeBuilderChooser = dagpb.AddDagPBSupportToChooser(func(ipld.Link, ipld.LinkContext) ipld.NodeBuilder {
-			return free.NodeBuilder()
+		var chooser traversal.LinkTargetNodeStyleChooser = dagpb.AddDagPBSupportToChooser(func(ipld.Link, ipld.LinkContext) (ipld.NodeStyle, error) {
+			return basicnode.Style.Any, nil
 		})
 		loader := func(lnk ipld.Link, lnkCtx ipld.LinkContext) (io.Reader, error) {
 			select {
@@ -93,12 +93,18 @@ func (t *Traverser) Start(ctx context.Context) {
 				return response.input, response.err
 			}
 		}
-		nd, err := t.root.Load(ctx, ipld.LinkContext{}, chooser(t.root, ipld.LinkContext{}), loader)
+		style, err := chooser(t.root, ipld.LinkContext{})
 		if err != nil {
 			t.writeDone(ctx)
 			return
 		}
-
+		builder := style.NewBuilder()
+		err = t.root.Load(ctx, ipld.LinkContext{}, builder, loader)
+		if err != nil {
+			t.writeDone(ctx)
+			return
+		}
+		nd := builder.Build()
 		sel, err := selector.ParseSelector(t.selector)
 		if err != nil {
 			t.writeDone(ctx)
@@ -106,9 +112,9 @@ func (t *Traverser) Start(ctx context.Context) {
 		}
 		_ = traversal.Progress{
 			Cfg: &traversal.Config{
-				Ctx:                    ctx,
-				LinkLoader:             loader,
-				LinkNodeBuilderChooser: chooser,
+				Ctx:                        ctx,
+				LinkLoader:                 loader,
+				LinkTargetNodeStyleChooser: chooser,
 			},
 		}.WalkAdv(nd, sel, func(traversal.Progress, ipld.Node, traversal.VisitReason) error { return nil })
 		t.writeDone(ctx)

@@ -16,13 +16,13 @@ import (
 	"github.com/ipfs/go-cid"
 	"github.com/ipld/go-car"
 	"github.com/ipld/go-ipld-prime"
-	ipldfree "github.com/ipld/go-ipld-prime/impl/free"
+	basicnode "github.com/ipld/go-ipld-prime/node/basic"
 	"github.com/ipld/go-ipld-prime/traversal/selector/builder"
 	"github.com/libp2p/go-libp2p-core/peer"
 	"github.com/stretchr/testify/require"
 
-	"github.com/filecoin-project/go-fil-markets/shared"
 	"github.com/filecoin-project/go-fil-markets/filestore"
+	"github.com/filecoin-project/go-fil-markets/shared"
 	"github.com/filecoin-project/go-fil-markets/shared_testutil"
 	"github.com/filecoin-project/go-fil-markets/storagemarket"
 	"github.com/filecoin-project/go-fil-markets/storagemarket/impl/blockrecorder"
@@ -201,7 +201,7 @@ func TestCommPGenerationWithMetadata(t *testing.T) {
 	tempFilePath := filestore.Path("applesauce.jpg")
 	tempFile := shared_testutil.NewTestFile(shared_testutil.TestFileParams{Path: tempFilePath})
 	payloadCid := shared_testutil.GenerateCids(1)[0]
-	ssb := builder.NewSelectorSpecBuilder(ipldfree.NodeBuilder())
+	ssb := builder.NewSelectorSpecBuilder(basicnode.Style.Any)
 	selector := ssb.ExploreAll(ssb.Matcher()).Node()
 	proofType := abi.RegisteredProof_StackedDRG2KiBPoSt
 	pieceCid := shared_testutil.GenerateCids(1)[0]

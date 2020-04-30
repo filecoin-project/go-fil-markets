@@ -25,8 +25,8 @@ import (
 	"github.com/ipfs/go-unixfs/importer/balanced"
 	"github.com/ipfs/go-unixfs/importer/helpers"
 	"github.com/ipld/go-ipld-prime"
-	ipldfree "github.com/ipld/go-ipld-prime/impl/free"
 	cidlink "github.com/ipld/go-ipld-prime/linking/cid"
+	basicnode "github.com/ipld/go-ipld-prime/node/basic"
 	"github.com/ipld/go-ipld-prime/traversal/selector"
 	"github.com/ipld/go-ipld-prime/traversal/selector/builder"
 	"github.com/libp2p/go-libp2p-core/host"
@@ -38,25 +38,27 @@ import (
 )
 
 type Libp2pTestData struct {
-	Ctx            context.Context
-	Ds1            datastore.Batching
-	Ds2            datastore.Batching
-	StoredCounter1 *storedcounter.StoredCounter
-	StoredCounter2 *storedcounter.StoredCounter
-	Bs1            bstore.Blockstore
-	Bs2            bstore.Blockstore
-	DagService1    ipldformat.DAGService
-	DagService2    ipldformat.DAGService
-	GraphSync1     graphsync.GraphExchange
-	GraphSync2     graphsync.GraphExchange
-	Loader1        ipld.Loader
-	Loader2        ipld.Loader
-	Storer1        ipld.Storer
-	Storer2        ipld.Storer
-	Host1          host.Host
-	Host2          host.Host
-	AllSelector    ipld.Node
-	OrigBytes      []byte
+	Ctx              context.Context
+	Ds1              datastore.Batching
+	Ds2              datastore.Batching
+	DTStoredCounter1 *storedcounter.StoredCounter
+	DTStoredCounter2 *storedcounter.StoredCounter
+	StoredCounter1   *storedcounter.StoredCounter
+	StoredCounter2   *storedcounter.StoredCounter
+	Bs1              bstore.Blockstore
+	Bs2              bstore.Blockstore
+	DagService1      ipldformat.DAGService
+	DagService2      ipldformat.DAGService
+	GraphSync1       graphsync.GraphExchange
+	GraphSync2       graphsync.GraphExchange
+	Loader1          ipld.Loader
+	Loader2          ipld.Loader
+	Storer1          ipld.Storer
+	Storer2          ipld.Storer
+	Host1            host.Host
+	Host2            host.Host
+	AllSelector      ipld.Node
+	OrigBytes        []byte
 }
 
 func NewLibp2pTestData(ctx context.Context, t *testing.T) *Libp2pTestData {
@@ -97,6 +99,9 @@ func NewLibp2pTestData(ctx context.Context, t *testing.T) *Libp2pTestData {
 	testData.Ds1 = dss.MutexWrap(datastore.NewMapDatastore())
 	testData.Ds2 = dss.MutexWrap(datastore.NewMapDatastore())
 
+	testData.DTStoredCounter1 = storedcounter.New(testData.Ds1, datastore.NewKey("nextDTID"))
+	testData.DTStoredCounter2 = storedcounter.New(testData.Ds2, datastore.NewKey("nextDTID"))
+
 	testData.StoredCounter1 = storedcounter.New(testData.Ds1, datastore.NewKey("nextDealID"))
 	testData.StoredCounter2 = storedcounter.New(testData.Ds2, datastore.NewKey("nextDealID"))
 
@@ -132,7 +137,7 @@ func NewLibp2pTestData(ctx context.Context, t *testing.T) *Libp2pTestData {
 	testData.GraphSync2 = graphsyncimpl.New(ctx, network.NewFromLibp2pHost(testData.Host2), testData.Loader2, testData.Storer2)
 
 	// create a selector for the whole UnixFS dag
-	ssb := builder.NewSelectorSpecBuilder(ipldfree.NodeBuilder())
+	ssb := builder.NewSelectorSpecBuilder(basicnode.Style.Any)
 
 	testData.AllSelector = ssb.ExploreRecursive(selector.RecursionLimitNone(),
 		ssb.ExploreAll(ssb.ExploreRecursiveEdge())).Node()
