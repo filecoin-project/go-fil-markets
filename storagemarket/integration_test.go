@@ -58,7 +58,7 @@ func TestMakeDeal(t *testing.T) {
 	assert.NoError(t, err)
 
 	// create provider and client
-	dt1 := graphsync.NewGraphSyncDataTransfer(td.Host1, td.GraphSync1)
+	dt1 := graphsync.NewGraphSyncDataTransfer(td.Host1, td.GraphSync1, td.DTStoredCounter1)
 	require.NoError(t, dt1.RegisterVoucherType(reflect.TypeOf(&requestvalidation.StorageDataTransferVoucher{}), &fakeDTValidator{}))
 
 	client, err := storageimpl.NewClient(
@@ -70,7 +70,7 @@ func TestMakeDeal(t *testing.T) {
 		&clientNode,
 	)
 	require.NoError(t, err)
-	dt2 := graphsync.NewGraphSyncDataTransfer(td.Host2, td.GraphSync2)
+	dt2 := graphsync.NewGraphSyncDataTransfer(td.Host2, td.GraphSync2, td.DTStoredCounter2)
 	provider, err := storageimpl.NewProvider(
 		network.NewFromLibp2pHost(td.Host2),
 		td.Ds2,
@@ -191,7 +191,7 @@ func TestMakeDealOffline(t *testing.T) {
 	assert.NoError(t, err)
 
 	// create provider and client
-	dt1 := graphsync.NewGraphSyncDataTransfer(td.Host1, td.GraphSync1)
+	dt1 := graphsync.NewGraphSyncDataTransfer(td.Host1, td.GraphSync1, td.DTStoredCounter1)
 	require.NoError(t, dt1.RegisterVoucherType(reflect.TypeOf(&requestvalidation.StorageDataTransferVoucher{}), &fakeDTValidator{}))
 
 	client, err := storageimpl.NewClient(
@@ -203,7 +203,7 @@ func TestMakeDealOffline(t *testing.T) {
 		&clientNode,
 	)
 	require.NoError(t, err)
-	dt2 := graphsync.NewGraphSyncDataTransfer(td.Host2, td.GraphSync2)
+	dt2 := graphsync.NewGraphSyncDataTransfer(td.Host2, td.GraphSync2, td.DTStoredCounter2)
 	provider, err := storageimpl.NewProvider(
 		network.NewFromLibp2pHost(td.Host2),
 		td.Ds1,

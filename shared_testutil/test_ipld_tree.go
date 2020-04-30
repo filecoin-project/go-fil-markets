@@ -12,10 +12,10 @@ import (
 	"github.com/ipld/go-ipld-prime"
 
 	// to register multicodec
-	_ "github.com/ipld/go-ipld-prime/encoding/dagjson"
+	_ "github.com/ipld/go-ipld-prime/codec/dagjson"
 	"github.com/ipld/go-ipld-prime/fluent"
-	ipldfree "github.com/ipld/go-ipld-prime/impl/free"
 	cidlink "github.com/ipld/go-ipld-prime/linking/cid"
+	basicnode "github.com/ipld/go-ipld-prime/node/basic"
 	"github.com/ipld/go-ipld-prime/traversal/selector"
 	"github.com/ipld/go-ipld-prime/traversal/selector/builder"
 )
@@ -44,7 +44,6 @@ type TestIPLDTree struct {
 // NewTestIPLDTree returns a fake tree of nodes, spread across 5 blocks
 func NewTestIPLDTree() TestIPLDTree {
 	var storage = make(map[ipld.Link][]byte)
-	var fnb = fluent.WrapNodeBuilder(ipldfree.NodeBuilder()) // just for the other fixture building
 	encode := func(n ipld.Node) (ipld.Node, ipld.Link) {
 		lb := cidlink.LinkBuilder{Prefix: cid.Prefix{
 			Version:  1,
@@ -68,31 +67,44 @@ func NewTestIPLDTree() TestIPLDTree {
 	}
 
 	var (
-		leafAlpha, leafAlphaLnk         = encode(fnb.CreateString("alpha"))
+		leafAlpha, leafAlphaLnk         = encode(fluent.MustBuild(basicnode.Style.String, func(na fluent.NodeAssembler) { na.AssignString("alpha") }))
 		leafAlphaBlock, _               = blocks.NewBlockWithCid(storage[leafAlphaLnk], leafAlphaLnk.(cidlink.Link).Cid)
-		leafBeta, leafBetaLnk           = encode(fnb.CreateString("beta"))
+		leafBeta, leafBetaLnk           = encode(fluent.MustBuild(basicnode.Style.String, func(na fluent.NodeAssembler) { na.AssignString("beta") }))
 		leafBetaBlock, _                = blocks.NewBlockWithCid(storage[leafBetaLnk], leafBetaLnk.(cidlink.Link).Cid)
-		middleMapNode, middleMapNodeLnk = encode(fnb.CreateMap(func(mb fluent.MapBuilder, knb fluent.NodeBuilder, vnb fluent.NodeBuilder) {
-			mb.Insert(knb.CreateString("foo"), vnb.CreateBool(true))
-			mb.Insert(knb.CreateString("bar"), vnb.CreateBool(false))
-			mb.Insert(knb.CreateString("nested"), vnb.CreateMap(func(mb fluent.MapBuilder, knb fluent.NodeBuilder, vnb fluent.NodeBuilder) {
-				mb.Insert(knb.CreateString("alink"), vnb.CreateLink(leafAlphaLnk))
-				mb.Insert(knb.CreateString("nonlink"), vnb.CreateString("zoo"))
-			}))
+		middleMapNode, middleMapNodeLnk = encode(fluent.MustBuildMap(basicnode.Style.Map, 3, func(ma fluent.MapAssembler) {
+			nva := ma.AssembleEntry("foo")
+			nva.AssignBool(true)
+			nva = ma.AssembleEntry("bar")
+			nva.AssignBool(false)
+			nva = ma.AssembleEntry("nested")
+			nva.CreateMap(2, func(ma fluent.MapAssembler) {
+				nva := ma.AssembleEntry("alink")
+				nva.AssignLink(leafAlphaLnk)
+				nva = ma.AssembleEntry("nonlink")
+				nva.AssignString("zoo")
+			})
 		}))
 		middleMapBlock, _                 = blocks.NewBlockWithCid(storage[middleMapNodeLnk], middleMapNodeLnk.(cidlink.Link).Cid)
-		middleListNode, middleListNodeLnk = encode(fnb.CreateList(func(lb fluent.ListBuilder, vnb fluent.NodeBuilder) {
-			lb.Append(vnb.CreateLink(leafAlphaLnk))
-			lb.Append(vnb.CreateLink(leafAlphaLnk))
-			lb.Append(vnb.CreateLink(leafBetaLnk))
-			lb.Append(vnb.CreateLink(leafAlphaLnk))
+		middleListNode, middleListNodeLnk = encode(fluent.MustBuildList(basicnode.Style.List, 4, func(la fluent.ListAssembler) {
+			nva := la.AssembleValue()
+			nva.AssignLink(leafAlphaLnk)
+			nva = la.AssembleValue()
+			nva.AssignLink(leafAlphaLnk)
+			nva = la.AssembleValue()
+			nva.AssignLink(leafBetaLnk)
+			nva = la.AssembleValue()
+			nva.AssignLink(leafAlphaLnk)
 		}))
 		middleListBlock, _    = blocks.NewBlockWithCid(storage[middleListNodeLnk], middleListNodeLnk.(cidlink.Link).Cid)
-		rootNode, rootNodeLnk = encode(fnb.CreateMap(func(mb fluent.MapBuilder, knb fluent.NodeBuilder, vnb fluent.NodeBuilder) {
-			mb.Insert(knb.CreateString("plain"), vnb.CreateString("olde string"))
-			mb.Insert(knb.CreateString("linkedString"), vnb.CreateLink(leafAlphaLnk))
-			mb.Insert(knb.CreateString("linkedMap"), vnb.CreateLink(middleMapNodeLnk))
-			mb.Insert(knb.CreateString("linkedList"), vnb.CreateLink(middleListNodeLnk))
+		rootNode, rootNodeLnk = encode(fluent.MustBuildMap(basicnode.Style.Map, 4, func(ma fluent.MapAssembler) {
+			nva := ma.AssembleEntry("plain")
+			nva.AssignString("olde string")
+			nva = ma.AssembleEntry("linkedString")
+			nva.AssignLink(leafAlphaLnk)
+			nva = ma.AssembleEntry("linkedMap")
+			nva.AssignLink(middleMapNodeLnk)
+			nva = ma.AssembleEntry("linkedList")
+			nva.AssignLink(middleListNodeLnk)
 		}))
 		rootBlock, _ = blocks.NewBlockWithCid(storage[rootNodeLnk], rootNodeLnk.(cidlink.Link).Cid)
 	)
@@ -136,7 +148,7 @@ func (tt TestIPLDTree) Get(c cid.Cid) (blocks.Block, error) {
 
 // DumpToCar puts the tree into a car file, with user configured functions
 func (tt TestIPLDTree) DumpToCar(out io.Writer, userOnNewCarBlocks ...car.OnNewCarBlockFunc) error {
-	ssb := builder.NewSelectorSpecBuilder(ipldfree.NodeBuilder())
+	ssb := builder.NewSelectorSpecBuilder(basicnode.Style.Any)
 	node := ssb.ExploreRecursive(selector.RecursionLimitNone(), ssb.ExploreAll(ssb.ExploreRecursiveEdge())).Node()
 	ctx := context.Background()
 	sc := car.NewSelectiveCar(ctx, tt, []car.Dag{

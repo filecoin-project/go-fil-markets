@@ -5,7 +5,7 @@ go 1.13
 require (
 	github.com/filecoin-project/go-address v0.0.2-0.20200218010043-eb9bb40ed5be
 	github.com/filecoin-project/go-cbor-util v0.0.0-20191219014500-08c40a1e63a2
-	github.com/filecoin-project/go-data-transfer v0.0.0-20200408061858-82c58b423ca6
+	github.com/filecoin-project/go-data-transfer v0.0.0-20200428210122-58a5a7c2aff1
 	github.com/filecoin-project/go-padreader v0.0.0-20200210211231-548257017ca6
 	github.com/filecoin-project/go-statemachine v0.0.0-20200226041606-2074af6d51d9
 	github.com/filecoin-project/go-statestore v0.1.0
@@ -18,21 +18,21 @@ require (
 	github.com/ipfs/go-blockservice v0.1.3
 	github.com/ipfs/go-cid v0.0.5
 	github.com/ipfs/go-datastore v0.4.4
-	github.com/ipfs/go-graphsync v0.0.6-0.20200408061628-e1a98fc64c42
+	github.com/ipfs/go-graphsync v0.0.6-0.20200428204348-97a8cf76a482
 	github.com/ipfs/go-ipfs-blockstore v0.1.4
 	github.com/ipfs/go-ipfs-blocksutil v0.0.1
-	github.com/ipfs/go-ipfs-chunker v0.0.1
+	github.com/ipfs/go-ipfs-chunker v0.0.5
 	github.com/ipfs/go-ipfs-ds-help v0.1.1
 	github.com/ipfs/go-ipfs-exchange-offline v0.0.1
-	github.com/ipfs/go-ipfs-files v0.0.7
+	github.com/ipfs/go-ipfs-files v0.0.8
 	github.com/ipfs/go-ipld-cbor v0.0.4
-	github.com/ipfs/go-ipld-format v0.0.2
+	github.com/ipfs/go-ipld-format v0.2.0
 	github.com/ipfs/go-log/v2 v2.0.3
-	github.com/ipfs/go-merkledag v0.2.4
-	github.com/ipfs/go-unixfs v0.2.2-0.20190827150610-868af2e9e5cb
-	github.com/ipld/go-car v0.0.5-0.20200316204026-3e2cf7af0fab
-	github.com/ipld/go-ipld-prime v0.0.2-0.20191108012745-28a82f04c785
-	github.com/ipld/go-ipld-prime-proto v0.0.0-20191113031812-e32bd156a1e5
+	github.com/ipfs/go-merkledag v0.3.1
+	github.com/ipfs/go-unixfs v0.2.4
+	github.com/ipld/go-car v0.1.1-0.20200429200904-c222d793c339
+	github.com/ipld/go-ipld-prime v0.0.2-0.20200428162820-8b59dc292b8e
+	github.com/ipld/go-ipld-prime-proto v0.0.0-20200428191222-c1ffdadc01e1
 	github.com/jbenet/go-random v0.0.0-20190219211222-123a90aedc0c
 	github.com/libp2p/go-libp2p v0.6.0
 	github.com/libp2p/go-libp2p-core v0.5.0

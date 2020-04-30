@@ -12,7 +12,7 @@ import (
 	"github.com/ipfs/go-cid"
 	dag "github.com/ipfs/go-merkledag"
 	dstest "github.com/ipfs/go-merkledag/test"
-	ipldfree "github.com/ipld/go-ipld-prime/impl/free"
+	basicnode "github.com/ipld/go-ipld-prime/node/basic"
 	"github.com/ipld/go-ipld-prime/traversal/selector"
 	"github.com/ipld/go-ipld-prime/traversal/selector/builder"
 	"github.com/stretchr/testify/mock"
@@ -62,7 +62,7 @@ func Test_ThereAndBackAgain(t *testing.T) {
 	_ = dserv.Add(ctx, nd2)
 	_ = dserv.Add(ctx, nd3)
 
-	ssb := builder.NewSelectorSpecBuilder(ipldfree.NodeBuilder())
+	ssb := builder.NewSelectorSpecBuilder(basicnode.Style.Any)
 	node := ssb.ExploreFields(func(efsb builder.ExploreFieldsSpecBuilder) {
 		efsb.Insert("Links",
 			ssb.ExploreIndex(1, ssb.ExploreRecursive(selector.RecursionLimitNone(), ssb.ExploreAll(ssb.ExploreRecursiveEdge()))))
@@ -150,7 +150,7 @@ func Test_StoreRestoreMemoryBuffer(t *testing.T) {
 	_ = dserv.Add(ctx, nd2)
 	_ = dserv.Add(ctx, nd3)
 
-	ssb := builder.NewSelectorSpecBuilder(ipldfree.NodeBuilder())
+	ssb := builder.NewSelectorSpecBuilder(basicnode.Style.Any)
 	node := ssb.ExploreFields(func(efsb builder.ExploreFieldsSpecBuilder) {
 		efsb.Insert("Links",
 			ssb.ExploreIndex(1, ssb.ExploreRecursive(selector.RecursionLimitNone(), ssb.ExploreAll(ssb.ExploreRecursiveEdge()))))
@@ -215,7 +215,7 @@ func Test_PieceCommitmentEquivalenceMemoryFile(t *testing.T) {
 	_ = dserv.Add(ctx, nd2)
 	_ = dserv.Add(ctx, nd3)
 
-	ssb := builder.NewSelectorSpecBuilder(ipldfree.NodeBuilder())
+	ssb := builder.NewSelectorSpecBuilder(basicnode.Style.Any)
 	node := ssb.ExploreFields(func(efsb builder.ExploreFieldsSpecBuilder) {
 		efsb.Insert("Links",
 			ssb.ExploreIndex(1, ssb.ExploreRecursive(selector.RecursionLimitNone(), ssb.ExploreAll(ssb.ExploreRecursiveEdge()))))
@@ -262,7 +262,7 @@ func Test_Failures(t *testing.T) {
 	_ = dserv.Add(ctx, nd2)
 	_ = dserv.Add(ctx, nd3)
 
-	ssb := builder.NewSelectorSpecBuilder(ipldfree.NodeBuilder())
+	ssb := builder.NewSelectorSpecBuilder(basicnode.Style.Any)
 	node := ssb.ExploreFields(func(efsb builder.ExploreFieldsSpecBuilder) {
 		efsb.Insert("Links",
 			ssb.ExploreIndex(1, ssb.ExploreRecursive(selector.RecursionLimitNone(), ssb.ExploreAll(ssb.ExploreRecursiveEdge()))))
