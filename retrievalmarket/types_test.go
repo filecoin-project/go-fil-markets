@@ -5,8 +5,8 @@ import (
 	"testing"
 
 	"github.com/filecoin-project/specs-actors/actors/abi"
-	"github.com/ipld/go-ipld-prime/encoding/dagcbor"
-	ipldfree "github.com/ipld/go-ipld-prime/impl/free"
+	"github.com/ipld/go-ipld-prime/codec/dagcbor"
+	basicnode "github.com/ipld/go-ipld-prime/node/basic"
 	"github.com/ipld/go-ipld-prime/traversal/selector"
 	"github.com/ipld/go-ipld-prime/traversal/selector/builder"
 	"github.com/stretchr/testify/assert"
@@ -18,7 +18,7 @@ import (
 func TestParamsMarshalUnmarshal(t *testing.T) {
 	pieceCid := tut.GenerateCids(1)[0]
 
-	ssb := builder.NewSelectorSpecBuilder(ipldfree.NodeBuilder())
+	ssb := builder.NewSelectorSpecBuilder(basicnode.Style.Any)
 	node := ssb.ExploreRecursive(selector.RecursionLimitNone(), ssb.ExploreAll(ssb.ExploreRecursiveEdge())).Node()
 	params := retrievalmarket.NewParamsV1(abi.NewTokenAmount(123), 456, 789, node, &pieceCid)
 
@@ -32,7 +32,9 @@ func TestParamsMarshalUnmarshal(t *testing.T) {
 
 	assert.Equal(t, params, *unmarshalled)
 
-	sel, err := dagcbor.Decoder(ipldfree.NodeBuilder(), bytes.NewBuffer(unmarshalled.Selector.Raw))
+	nb := basicnode.Style.Any.NewBuilder()
+	err = dagcbor.Decoder(nb, bytes.NewBuffer(unmarshalled.Selector.Raw))
 	assert.NoError(t, err)
+	sel := nb.Build()
 	assert.Equal(t, sel, node)
 }

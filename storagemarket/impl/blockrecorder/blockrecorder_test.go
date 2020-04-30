@@ -7,8 +7,8 @@ import (
 
 	blocks "github.com/ipfs/go-block-format"
 	"github.com/ipld/go-car"
-	ipldfree "github.com/ipld/go-ipld-prime/impl/free"
 	cidlink "github.com/ipld/go-ipld-prime/linking/cid"
+	basicnode "github.com/ipld/go-ipld-prime/node/basic"
 	"github.com/ipld/go-ipld-prime/traversal/selector"
 	"github.com/ipld/go-ipld-prime/traversal/selector/builder"
 	"github.com/stretchr/testify/require"
@@ -19,7 +19,7 @@ import (
 
 func TestBlockRecording(t *testing.T) {
 	testData := shared_testutil.NewTestIPLDTree()
-	ssb := builder.NewSelectorSpecBuilder(ipldfree.NodeBuilder())
+	ssb := builder.NewSelectorSpecBuilder(basicnode.Style.Any)
 	node := ssb.ExploreFields(func(efsb builder.ExploreFieldsSpecBuilder) {
 		efsb.Insert("linkedMap",
 			ssb.ExploreRecursive(selector.RecursionLimitNone(), ssb.ExploreAll(ssb.ExploreRecursiveEdge())))
