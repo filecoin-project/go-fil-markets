@@ -157,6 +157,7 @@ func (p *Provider) receiveDeal(s network.StorageDealStream) error {
 
 	deal := &storagemarket.MinerDeal{
 		Client:             s.RemotePeer(),
+		Miner:              p.net.ID(),
 		ClientDealProposal: *proposal.DealProposal,
 		ProposalCid:        proposalNd.Cid(),
 		State:              storagemarket.StorageDealUnknown,
