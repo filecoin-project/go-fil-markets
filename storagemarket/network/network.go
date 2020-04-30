@@ -38,4 +38,5 @@ type StorageMarketNetwork interface {
 	NewDealStream(peer.ID) (StorageDealStream, error)
 	SetDelegate(StorageReceiver) error
 	StopHandlingRequests() error
+	ID() peer.ID
 }

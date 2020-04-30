@@ -83,3 +83,7 @@ func (impl *libp2pStorageMarketNetwork) handleNewDealStream(s network.Stream) {
 	ds := &dealStream{remotePID, s, buffered}
 	impl.receiver.HandleDealStream(ds)
 }
+
+func (impl *libp2pStorageMarketNetwork) ID() peer.ID {
+	return impl.host.ID()
+}
