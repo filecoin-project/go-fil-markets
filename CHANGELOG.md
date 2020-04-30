@@ -35,3 +35,11 @@ Hotfix release
 # Changelog
 
 - Upgrade spec-actors to 0.3.0
+
+# go-fil-markets 0.1.2
+
+Hotfix release
+
+# Changelog
+
+- Upgrade transitive dependencies go-ipld-prime, go-graphsync, go-data-transfer to use new, faster NodeAssembler approach in go-ipld-prime

@@ -13,7 +13,7 @@ import (
 	"github.com/filecoin-project/specs-actors/actors/crypto"
 	"github.com/ipfs/go-cid"
 	ipld "github.com/ipld/go-ipld-prime"
-	ipldfree "github.com/ipld/go-ipld-prime/impl/free"
+	basicnode "github.com/ipld/go-ipld-prime/node/basic"
 	"github.com/ipld/go-ipld-prime/traversal/selector"
 	"github.com/ipld/go-ipld-prime/traversal/selector/builder"
 	"github.com/stretchr/testify/require"
@@ -48,7 +48,7 @@ func TestCommP(t *testing.T) {
 			TransferType: storagemarket.TTGraphsync,
 			Root:         root,
 		}
-		ssb := builder.NewSelectorSpecBuilder(ipldfree.NodeBuilder())
+		ssb := builder.NewSelectorSpecBuilder(basicnode.Style.Any)
 		allSelector := ssb.ExploreRecursive(selector.RecursionLimitNone(),
 			ssb.ExploreAll(ssb.ExploreRecursiveEdge())).Node()
 		t.Run("when pieceIO succeeds", func(t *testing.T) {

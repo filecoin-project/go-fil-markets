@@ -4,12 +4,17 @@ import (
 	"bytes"
 
 	"github.com/ipld/go-ipld-prime"
-	"github.com/ipld/go-ipld-prime/encoding/dagcbor"
-	ipldfree "github.com/ipld/go-ipld-prime/impl/free"
+	"github.com/ipld/go-ipld-prime/codec/dagcbor"
+	basicnode "github.com/ipld/go-ipld-prime/node/basic"
 	cbg "github.com/whyrusleeping/cbor-gen"
 )
 
 func DecodeNode(defnode *cbg.Deferred) (ipld.Node, error) {
 	reader := bytes.NewReader(defnode.Raw)
-	return dagcbor.Decoder(ipldfree.NodeBuilder(), reader)
+	nb := basicnode.Style.Any.NewBuilder()
+	err := dagcbor.Decoder(nb, reader)
+	if err != nil {
+		return nil, err
+	}
+	return nb.Build(), nil
 }

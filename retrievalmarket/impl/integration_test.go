@@ -12,8 +12,8 @@ import (
 	"github.com/filecoin-project/specs-actors/actors/builtin/paych"
 	"github.com/ipfs/go-cid"
 	"github.com/ipld/go-ipld-prime"
-	ipldfree "github.com/ipld/go-ipld-prime/impl/free"
 	cidlink "github.com/ipld/go-ipld-prime/linking/cid"
+	basicnode "github.com/ipld/go-ipld-prime/node/basic"
 	"github.com/ipld/go-ipld-prime/traversal/selector"
 	"github.com/ipld/go-ipld-prime/traversal/selector/builder"
 	"github.com/stretchr/testify/assert"
@@ -85,7 +85,7 @@ func requireSetupTestClientAndProvider(bgCtx context.Context, t *testing.T, payC
 		CreatePaychCID: cids[0],
 		AddFundsCID:    cids[1],
 	})
-	client, err := retrievalimpl.NewClient(nw1, testData.Bs1, rcNode1, &testPeerResolver{}, testData.Ds1, testData.StoredCounter1)
+	client, err := retrievalimpl.NewClient(nw1, testData.Bs1, rcNode1, &testPeerResolver{}, testData.Ds1, testData.RetrievalStoredCounter1)
 	require.NoError(t, err)
 	nw2 := rmnet.NewFromLibp2pHost(testData.Host2)
 	providerNode := testnodes.NewTestRetrievalProviderNode()
@@ -133,7 +133,7 @@ func requireSetupTestClientAndProvider(bgCtx context.Context, t *testing.T, payC
 func TestClientCanMakeDealWithProvider(t *testing.T) {
 	// -------- SET UP PROVIDER
 
-	ssb := builder.NewSelectorSpecBuilder(ipldfree.NodeBuilder())
+	ssb := builder.NewSelectorSpecBuilder(basicnode.Style.Any)
 
 	allSelector := ssb.ExploreRecursive(selector.RecursionLimitNone(),
 		ssb.ExploreAll(ssb.ExploreRecursiveEdge())).Node()
@@ -415,7 +415,7 @@ func setupClient(
 		CreatePaychCID:         cids[0],
 		AddFundsCID:            cids[1],
 	})
-	client, err := retrievalimpl.NewClient(nw1, testData.Bs1, clientNode, &testPeerResolver{}, testData.Ds1, testData.StoredCounter1)
+	client, err := retrievalimpl.NewClient(nw1, testData.Bs1, clientNode, &testPeerResolver{}, testData.Ds1, testData.RetrievalStoredCounter1)
 	return &createdChan, &newLaneAddr, &createdVoucher, client, err
 }
 
