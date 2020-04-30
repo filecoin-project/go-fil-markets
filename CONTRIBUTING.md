@@ -20,22 +20,28 @@ If editing README.md, please conform to the [standard readme specification](http
 
 ### PR Process
 
-Active development of `go-fil-markets` occurs on the `development` branch. All PRs should be made to the `development` branch, which is the default branch on Github.
+Active development of `go-fil-markets` occurs on the `master` branch. All PRs should be made to the `master` branch, which is the default branch on Github.
 
-Before a PR can be merged to `development`, it must:
+Before a PR can be merged to `master`, it must:
 1. Pass continuous integration.
-1. Be rebased and up to date with the development branch
+1. Be rebased and up to date with the `master` branch
 1. Be approved by at least two maintainers
 
-When merging normal PRs to development, always use squash and merge to maintain a linear commit history.
+When merging normal PRs to `master`, always use squash and merge to maintain a linear commit history.
 
 ### Release Process
 
-The `master` branch is consider our production branch, and should always be up to date with the latest tagged release.
+When creating a new full release, branch off master with a branch named release/*version-number*, where *version-number* is the ultimate tag you intend to create.
 
-There are two ways to update `master`. The first is to cut a new full release by making a PR from `development` to `master` with the latest changes from development. When the PR is merged, it MUST be merged via a merge commit. At this point, make a new tagged version release and seperately, make a second PR back to `development` from `master` once the release is verified as ready to go, to get the merge commit in development. (maintaining a shared commit history). Only a lead maintainer may merge to `master`.
+Continue to develop on master and merge commits to your release branch as neccesary till the release is ready.
 
-The second way to update `master` is to hotfix it. Hot fixes are branched off `master` and merged directly back into `master` to fix critical bugs in a production release. When a creating a hotfix, create a PR to `master` and once approved, merge with `master` then create a seperate PR to merge `master` back to `development` with the hotfix to maintain the shared commit history
+When the release is ready, tag it, then merge the branch back into master so that it is part of the version history of master. Delete the release branch.
+
+### Hotfix Process
+
+Hot-fixes operate just like release branches, except they are branched off an existing tag and should be named hotfix/*version-number*. When ready, they receive their own tag and then are merged back to master, then deleted.
+
+For external reference, his git flow and release process is essentially the [OneFlow git workflow](https://www.endoflineblog.com/oneflow-a-git-branching-model-and-workflow)
 
 Following the release of Filecoin Mainnet, this library will following a semantic versioning scheme for tagged releases.
 
