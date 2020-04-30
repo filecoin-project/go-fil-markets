@@ -38,27 +38,27 @@ import (
 )
 
 type Libp2pTestData struct {
-	Ctx              context.Context
-	Ds1              datastore.Batching
-	Ds2              datastore.Batching
-	DTStoredCounter1 *storedcounter.StoredCounter
-	DTStoredCounter2 *storedcounter.StoredCounter
-	StoredCounter1   *storedcounter.StoredCounter
-	StoredCounter2   *storedcounter.StoredCounter
-	Bs1              bstore.Blockstore
-	Bs2              bstore.Blockstore
-	DagService1      ipldformat.DAGService
-	DagService2      ipldformat.DAGService
-	GraphSync1       graphsync.GraphExchange
-	GraphSync2       graphsync.GraphExchange
-	Loader1          ipld.Loader
-	Loader2          ipld.Loader
-	Storer1          ipld.Storer
-	Storer2          ipld.Storer
-	Host1            host.Host
-	Host2            host.Host
-	AllSelector      ipld.Node
-	OrigBytes        []byte
+	Ctx                     context.Context
+	Ds1                     datastore.Batching
+	Ds2                     datastore.Batching
+	DTStoredCounter1        *storedcounter.StoredCounter
+	DTStoredCounter2        *storedcounter.StoredCounter
+	RetrievalStoredCounter1 *storedcounter.StoredCounter
+	RetrievalStoredCounter2 *storedcounter.StoredCounter
+	Bs1                     bstore.Blockstore
+	Bs2                     bstore.Blockstore
+	DagService1             ipldformat.DAGService
+	DagService2             ipldformat.DAGService
+	GraphSync1              graphsync.GraphExchange
+	GraphSync2              graphsync.GraphExchange
+	Loader1                 ipld.Loader
+	Loader2                 ipld.Loader
+	Storer1                 ipld.Storer
+	Storer2                 ipld.Storer
+	Host1                   host.Host
+	Host2                   host.Host
+	AllSelector             ipld.Node
+	OrigBytes               []byte
 }
 
 func NewLibp2pTestData(ctx context.Context, t *testing.T) *Libp2pTestData {
@@ -102,8 +102,8 @@ func NewLibp2pTestData(ctx context.Context, t *testing.T) *Libp2pTestData {
 	testData.DTStoredCounter1 = storedcounter.New(testData.Ds1, datastore.NewKey("nextDTID"))
 	testData.DTStoredCounter2 = storedcounter.New(testData.Ds2, datastore.NewKey("nextDTID"))
 
-	testData.StoredCounter1 = storedcounter.New(testData.Ds1, datastore.NewKey("nextDealID"))
-	testData.StoredCounter2 = storedcounter.New(testData.Ds2, datastore.NewKey("nextDealID"))
+	testData.RetrievalStoredCounter1 = storedcounter.New(testData.Ds1, datastore.NewKey("nextDealID"))
+	testData.RetrievalStoredCounter2 = storedcounter.New(testData.Ds2, datastore.NewKey("nextDealID"))
 
 	// make a bstore and dag service
 	testData.Bs1 = bstore.NewBlockstore(testData.Ds1)
