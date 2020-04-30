@@ -3,6 +3,7 @@ package storagemarket_test
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"io/ioutil"
 	"math/rand"
 	"reflect"
@@ -44,7 +45,18 @@ func TestMakeDeal(t *testing.T) {
 
 	// set up a subscriber
 	dealChan := make(chan storagemarket.MinerDeal)
+	var checkedUnmarshalling bool
 	subscriber := func(event storagemarket.ProviderEvent, deal storagemarket.MinerDeal) {
+		if !checkedUnmarshalling {
+			// test that deal created can marshall and unmarshalled
+			jsonBytes, err := json.Marshal(deal)
+			require.NoError(t, err)
+			var unmarhalledDeal storagemarket.MinerDeal
+			err = json.Unmarshal(jsonBytes, &unmarhalledDeal)
+			require.NoError(t, err)
+			require.Equal(t, deal, unmarhalledDeal)
+			checkedUnmarshalling = true
+		}
 		dealChan <- deal
 	}
 	_ = h.Provider.SubscribeToEvents(subscriber)
