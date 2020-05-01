@@ -11,8 +11,8 @@ import (
 	"github.com/filecoin-project/specs-actors/actors/abi"
 	"github.com/filecoin-project/specs-actors/actors/abi/big"
 	"github.com/filecoin-project/specs-actors/actors/builtin/market"
-	"github.com/hannahhoward/go-pubsub"
 	"github.com/filecoin-project/specs-actors/actors/runtime/exitcode"
+	"github.com/hannahhoward/go-pubsub"
 	"github.com/ipfs/go-cid"
 	"github.com/ipfs/go-datastore"
 	blockstore "github.com/ipfs/go-ipfs-blockstore"
@@ -302,8 +302,8 @@ func (c *Client) AddPaymentEscrow(ctx context.Context, addr address.Address, amo
 	return <-done
 }
 
-func (c *Client) SubscribeToEvents(sub storagemarket.ClientSubscriber) shared.Unsubscribe {
-	return shared.Unsubscribe(c.pubSub.Subscribe(sub))
+func (c *Client) SubscribeToEvents(subscriber storagemarket.ClientSubscriber) shared.Unsubscribe {
+	return shared.Unsubscribe(c.pubSub.Subscribe(subscriber))
 }
 
 func (c *Client) dispatch(eventName fsm.EventName, deal fsm.StateType) {
@@ -342,7 +342,7 @@ func clientDispatcher(evt pubsub.Event, fn pubsub.SubscriberFn) error {
 }
 
 // -------
-// providerDealEnvironment
+// clientDealEnvironment
 // -------
 
 type clientDealEnvironment struct {

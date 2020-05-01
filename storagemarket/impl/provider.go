@@ -359,7 +359,7 @@ func providerDispatcher(evt pubsub.Event, fn pubsub.SubscriberFn) error {
 	}
 	cb, ok := fn.(storagemarket.ProviderSubscriber)
 	if !ok {
-		return xerrors.New("wrong type of event")
+		return xerrors.New("wrong type of callback")
 	}
 	log.Infof("providerDispatcher called with valid evt %d", ie.evt)
 	cb(ie.evt, ie.deal)

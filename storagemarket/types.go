@@ -488,5 +488,4 @@ type StorageClient interface {
 	AddPaymentEscrow(ctx context.Context, addr address.Address, amount abi.TokenAmount) error
 
 	SubscribeToEvents(subscriber ClientSubscriber) shared.Unsubscribe
-
 }

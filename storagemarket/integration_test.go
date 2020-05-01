@@ -71,7 +71,6 @@ func TestMakeDeal(t *testing.T) {
 	err = h.Provider.AddAsk(big.NewInt(0), 50_000)
 	assert.NoError(t, err)
 
-
 	result := h.ProposeStorageDeal(t, &storagemarket.DataRef{TransferType: storagemarket.TTGraphsync, Root: h.PayloadCid})
 	proposalCid := result.ProposalCid
 
