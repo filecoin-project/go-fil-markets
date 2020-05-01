@@ -44,22 +44,33 @@ func TestMakeDeal(t *testing.T) {
 	assert.NoError(t, err)
 
 	// set up a subscriber
-	dealChan := make(chan storagemarket.MinerDeal)
+	providerDealChan := make(chan storagemarket.MinerDeal)
 	var checkedUnmarshalling bool
 	subscriber := func(event storagemarket.ProviderEvent, deal storagemarket.MinerDeal) {
 		if !checkedUnmarshalling {
 			// test that deal created can marshall and unmarshalled
 			jsonBytes, err := json.Marshal(deal)
 			require.NoError(t, err)
-			var unmarhalledDeal storagemarket.MinerDeal
-			err = json.Unmarshal(jsonBytes, &unmarhalledDeal)
+			var unmDeal storagemarket.MinerDeal
+			err = json.Unmarshal(jsonBytes, &unmDeal)
 			require.NoError(t, err)
-			require.Equal(t, deal, unmarhalledDeal)
+			require.Equal(t, deal, unmDeal)
 			checkedUnmarshalling = true
 		}
-		dealChan <- deal
+		providerDealChan <- deal
 	}
 	_ = h.Provider.SubscribeToEvents(subscriber)
+
+	clientDealChan := make(chan storagemarket.ClientDeal)
+	clientSubscriber := func(event storagemarket.ClientEvent, deal storagemarket.ClientDeal) {
+		clientDealChan <- deal
+	}
+	_ = h.Client.SubscribeToEvents(clientSubscriber)
+
+	// set ask price where we'll accept any price
+	err = h.Provider.AddAsk(big.NewInt(0), 50_000)
+	assert.NoError(t, err)
+
 
 	result := h.ProposeStorageDeal(t, &storagemarket.DataRef{TransferType: storagemarket.TTGraphsync, Root: h.PayloadCid})
 	proposalCid := result.ProposalCid
@@ -68,18 +79,22 @@ func TestMakeDeal(t *testing.T) {
 
 	ctx, canc := context.WithTimeout(context.Background(), 100*time.Millisecond)
 	defer canc()
-	var seenDeal storagemarket.MinerDeal
-	var actualStates []storagemarket.StorageDealStatus
-	for seenDeal.State != storagemarket.StorageDealCompleted {
+	var providerSeenDeal storagemarket.MinerDeal
+	var clientSeenDeal storagemarket.ClientDeal
+	var providerstates, clientstates []storagemarket.StorageDealStatus
+	for providerSeenDeal.State != storagemarket.StorageDealCompleted ||
+		clientSeenDeal.State != storagemarket.StorageDealActive {
 		select {
-		case seenDeal = <-dealChan:
-			actualStates = append(actualStates, seenDeal.State)
+		case clientSeenDeal = <-clientDealChan:
+			clientstates = append(clientstates, clientSeenDeal.State)
+		case providerSeenDeal = <-providerDealChan:
+			providerstates = append(providerstates, providerSeenDeal.State)
 		case <-ctx.Done():
-			t.Fatalf("never saw event")
+			t.Fatalf("never saw all events: %d, %d", clientSeenDeal.State, providerSeenDeal.State)
 		}
 	}
 
-	expectedStates := []storagemarket.StorageDealStatus{
+	expProviderStates := []storagemarket.StorageDealStatus{
 		storagemarket.StorageDealValidating,
 		storagemarket.StorageDealProposalAccepted,
 		storagemarket.StorageDealTransferring,
@@ -92,13 +107,25 @@ func TestMakeDeal(t *testing.T) {
 		storagemarket.StorageDealActive,
 		storagemarket.StorageDealCompleted,
 	}
-	assert.Equal(t, expectedStates, actualStates)
+
+	expClientStates := []storagemarket.StorageDealStatus{
+		storagemarket.StorageDealEnsureClientFunds,
+		//storagemarket.StorageDealClientFunding,  // skipped because funds available
+		storagemarket.StorageDealFundsEnsured,
+		storagemarket.StorageDealValidating,
+		storagemarket.StorageDealProposalAccepted,
+		storagemarket.StorageDealSealing,
+		storagemarket.StorageDealActive,
+	}
+
+	assert.Equal(t, expProviderStates, providerstates)
+	assert.Equal(t, expClientStates, clientstates)
 
 	// check a couple of things to make sure we're getting the whole deal
-	assert.Equal(t, h.TestData.Host1.ID(), seenDeal.Client)
-	assert.Empty(t, seenDeal.Message)
-	assert.Equal(t, proposalCid, seenDeal.ProposalCid)
-	assert.Equal(t, h.ProviderAddr, seenDeal.ClientDealProposal.Proposal.Provider)
+	assert.Equal(t, h.TestData.Host1.ID(), providerSeenDeal.Client)
+	assert.Empty(t, providerSeenDeal.Message)
+	assert.Equal(t, proposalCid, providerSeenDeal.ProposalCid)
+	assert.Equal(t, h.ProviderAddr, providerSeenDeal.ClientDealProposal.Proposal.Provider)
 
 	cd, err := h.Client.GetLocalDeal(ctx, proposalCid)
 	assert.NoError(t, err)

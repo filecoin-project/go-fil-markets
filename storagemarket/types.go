@@ -316,6 +316,7 @@ type MessagePublishedCallback func(mcid cid.Cid, err error)
 
 // Subscriber is a callback that is called when events are emitted
 type ProviderSubscriber func(event ProviderEvent, deal MinerDeal)
+type ClientSubscriber func(event ClientEvent, deal ClientDeal)
 
 // StorageProvider is the interface provided for storage providers
 type StorageProvider interface {
@@ -485,4 +486,7 @@ type StorageClient interface {
 
 	// AddStorageCollateral adds storage collateral
 	AddPaymentEscrow(ctx context.Context, addr address.Address, amount abi.TokenAmount) error
+
+	SubscribeToEvents(subscriber ClientSubscriber) shared.Unsubscribe
+
 }
