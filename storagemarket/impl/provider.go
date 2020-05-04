@@ -98,7 +98,7 @@ func NewProvider(net network.StorageMarketNetwork, ds datastore.Batching, bs blo
 		actor:                minerAddress,
 		dataTransfer:         dataTransfer,
 		dealAcceptanceBuffer: DefaultDealAcceptanceBuffer,
-		pubSub:               pubsub.New(dispatcher),
+		pubSub:               pubsub.New(providerDispatcher),
 	}
 
 	deals, err := fsm.New(namespace.Wrap(ds, datastore.NewKey(ProviderDsPrefix)), fsm.Parameters{
@@ -338,30 +338,30 @@ func (p *Provider) dispatch(eventName fsm.EventName, deal fsm.StateType) {
 	}
 	realDeal, ok := deal.(storagemarket.MinerDeal)
 	if !ok {
-		log.Errorf("not a deal %v", deal)
+		log.Errorf("not a MinerDeal %v", deal)
 	}
-	pubSubEvt := internalEvent{evt, realDeal}
+	pubSubEvt := internalProviderEvent{evt, realDeal}
 
 	if err := p.pubSub.Publish(pubSubEvt); err != nil {
 		log.Errorf("failed to publish event %d", evt)
 	}
 }
 
-type internalEvent struct {
+type internalProviderEvent struct {
 	evt  storagemarket.ProviderEvent
 	deal storagemarket.MinerDeal
 }
 
-func dispatcher(evt pubsub.Event, subscriberFn pubsub.SubscriberFn) error {
-	ie, ok := evt.(internalEvent)
+func providerDispatcher(evt pubsub.Event, fn pubsub.SubscriberFn) error {
+	ie, ok := evt.(internalProviderEvent)
 	if !ok {
 		return xerrors.New("wrong type of event")
 	}
-	cb, ok := subscriberFn.(storagemarket.ProviderSubscriber)
+	cb, ok := fn.(storagemarket.ProviderSubscriber)
 	if !ok {
-		return xerrors.New("wrong type of event")
+		return xerrors.New("wrong type of callback")
 	}
-	log.Infof("dispatcher called with valid evt %d", ie.evt)
+	log.Infof("providerDispatcher called with valid evt %d", ie.evt)
 	cb(ie.evt, ie.deal)
 	return nil
 }

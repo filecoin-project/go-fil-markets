@@ -139,7 +139,7 @@ func (tt TestIPLDTree) DumpToCar(out io.Writer, userOnNewCarBlocks ...car.OnNewC
 	node := ssb.ExploreRecursive(selector.RecursionLimitNone(), ssb.ExploreAll(ssb.ExploreRecursiveEdge())).Node()
 	ctx := context.Background()
 	sc := car.NewSelectiveCar(ctx, tt, []car.Dag{
-		car.Dag{
+		{
 			Root:     tt.RootNodeLnk.(cidlink.Link).Cid,
 			Selector: node,
 		},

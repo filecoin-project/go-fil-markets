@@ -12,6 +12,7 @@ import (
 	"github.com/filecoin-project/specs-actors/actors/abi/big"
 	"github.com/filecoin-project/specs-actors/actors/builtin/market"
 	"github.com/filecoin-project/specs-actors/actors/runtime/exitcode"
+	"github.com/hannahhoward/go-pubsub"
 	"github.com/ipfs/go-cid"
 	"github.com/ipfs/go-datastore"
 	blockstore "github.com/ipfs/go-ipfs-blockstore"
@@ -22,6 +23,7 @@ import (
 	"github.com/filecoin-project/go-fil-markets/pieceio/cario"
 	"github.com/filecoin-project/go-fil-markets/retrievalmarket"
 	"github.com/filecoin-project/go-fil-markets/retrievalmarket/discovery"
+	"github.com/filecoin-project/go-fil-markets/shared"
 	"github.com/filecoin-project/go-fil-markets/storagemarket"
 	"github.com/filecoin-project/go-fil-markets/storagemarket/impl/clientstates"
 	"github.com/filecoin-project/go-fil-markets/storagemarket/impl/clientutils"
@@ -46,8 +48,8 @@ type Client struct {
 	pio          pieceio.PieceIO
 	discovery    *discovery.Local
 
-	node storagemarket.StorageClientNode
-
+	node          storagemarket.StorageClientNode
+	pubSub        *pubsub.PubSub
 	statemachines fsm.Group
 	conns         *connmanager.ConnManager
 }
@@ -70,8 +72,8 @@ func NewClient(
 		pio:          pio,
 		discovery:    discovery,
 		node:         scn,
-
-		conns: connmanager.NewConnManager(),
+		pubSub:       pubsub.New(clientDispatcher),
+		conns:        connmanager.NewConnManager(),
 	}
 
 	statemachines, err := fsm.New(ds, fsm.Parameters{
@@ -80,6 +82,7 @@ func NewClient(
 		StateKeyField:   "State",
 		Events:          clientstates.ClientEvents,
 		StateEntryFuncs: clientstates.ClientStateEntryFuncs,
+		Notifier:        c.dispatch,
 	})
 	if err != nil {
 		return nil, err
@@ -298,6 +301,49 @@ func (c *Client) AddPaymentEscrow(ctx context.Context, addr address.Address, amo
 
 	return <-done
 }
+
+func (c *Client) SubscribeToEvents(subscriber storagemarket.ClientSubscriber) shared.Unsubscribe {
+	return shared.Unsubscribe(c.pubSub.Subscribe(subscriber))
+}
+
+func (c *Client) dispatch(eventName fsm.EventName, deal fsm.StateType) {
+	evt, ok := eventName.(storagemarket.ClientEvent)
+	if !ok {
+		log.Errorf("dropped bad event %s", eventName)
+	}
+	realDeal, ok := deal.(storagemarket.ClientDeal)
+	if !ok {
+		log.Errorf("not a ClientDeal %v", deal)
+	}
+	pubSubEvt := internalClientEvent{evt, realDeal}
+
+	if err := c.pubSub.Publish(pubSubEvt); err != nil {
+		log.Errorf("failed to publish event %d", evt)
+	}
+}
+
+type internalClientEvent struct {
+	evt  storagemarket.ClientEvent
+	deal storagemarket.ClientDeal
+}
+
+func clientDispatcher(evt pubsub.Event, fn pubsub.SubscriberFn) error {
+	ie, ok := evt.(internalClientEvent)
+	if !ok {
+		return xerrors.New("wrong type of event")
+	}
+	cb, ok := fn.(storagemarket.ClientSubscriber)
+	if !ok {
+		return xerrors.New("wrong type of event")
+	}
+	log.Infof("clientDispatcher called with valid evt %d", ie.evt)
+	cb(ie.evt, ie.deal)
+	return nil
+}
+
+// -------
+// clientDealEnvironment
+// -------
 
 type clientDealEnvironment struct {
 	c *Client
