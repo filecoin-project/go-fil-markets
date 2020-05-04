@@ -11,7 +11,10 @@ import (
 	blocksutil "github.com/ipfs/go-ipfs-blocksutil"
 	"github.com/jbenet/go-random"
 	"github.com/libp2p/go-libp2p-core/peer"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/filecoin-project/go-fil-markets/storagemarket"
 )
 
 var blockGenerator = blocksutil.NewBlockGenerator()
@@ -93,4 +96,13 @@ func TestVoucherEquality(t *testing.T, a, b *paych.SignedVoucher) {
 	bB, err := cborutil.Dump(b)
 	require.NoError(t, err)
 	require.True(t, bytes.Equal(aB, bB))
+}
+
+// AssertDealState asserts equality of StorageDealStatus but with better error messaging
+func AssertDealState(t *testing.T, expected storagemarket.StorageDealStatus, actual storagemarket.StorageDealStatus) {
+	assert.Equal(t, expected, actual,
+		"Unexpected deal status\nexpected: %s (%d)\nactual  : %s (%d)",
+		storagemarket.DealStates[expected], expected,
+		storagemarket.DealStates[actual], actual,
+	)
 }

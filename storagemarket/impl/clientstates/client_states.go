@@ -1,15 +1,21 @@
 package clientstates
 
 import (
+	"context"
+
+	datatransfer "github.com/filecoin-project/go-data-transfer"
 	"github.com/filecoin-project/go-statemachine/fsm"
 	"github.com/filecoin-project/specs-actors/actors/runtime/exitcode"
 	"github.com/ipfs/go-cid"
 	logging "github.com/ipfs/go-log/v2"
-	peer "github.com/libp2p/go-libp2p-core/peer"
+	"github.com/ipld/go-ipld-prime"
+	"github.com/libp2p/go-libp2p-core/peer"
 	"golang.org/x/xerrors"
 
+	"github.com/filecoin-project/go-fil-markets/shared"
 	"github.com/filecoin-project/go-fil-markets/storagemarket"
 	"github.com/filecoin-project/go-fil-markets/storagemarket/impl/clientutils"
+	"github.com/filecoin-project/go-fil-markets/storagemarket/impl/requestvalidation"
 	"github.com/filecoin-project/go-fil-markets/storagemarket/network"
 )
 
@@ -23,6 +29,7 @@ type ClientDealEnvironment interface {
 	TagConnection(proposalCid cid.Cid) error
 	ReadDealResponse(proposalCid cid.Cid) (network.SignedResponse, error)
 	CloseStream(proposalCid cid.Cid) error
+	StartDataTransfer(ctx context.Context, to peer.ID, voucher datatransfer.Voucher, baseCid cid.Cid, selector ipld.Node) error
 }
 
 // ClientStateEntryFunc is the type for all state entry functions on a storage client
@@ -81,6 +88,50 @@ func ProposeDeal(ctx fsm.Context, environment ClientDealEnvironment, deal storag
 	}
 
 	return ctx.Trigger(storagemarket.ClientEventDealProposed)
+}
+
+func WaitingForDataRequest(ctx fsm.Context, environment ClientDealEnvironment, deal storagemarket.ClientDeal) error {
+	resp, err := environment.ReadDealResponse(deal.ProposalCid)
+	if err != nil {
+		return ctx.Trigger(storagemarket.ClientEventReadResponseFailed, err)
+	}
+
+	tok, _, err := environment.Node().GetChainHead(ctx.Context())
+	if err != nil {
+		return ctx.Trigger(storagemarket.ClientEventResponseVerificationFailed)
+	}
+
+	if err := clientutils.VerifyResponse(ctx.Context(), resp, deal.MinerWorker, tok, environment.Node().VerifySignature); err != nil {
+		return ctx.Trigger(storagemarket.ClientEventResponseVerificationFailed)
+	}
+
+	if resp.Response.State != storagemarket.StorageDealWaitingForData {
+		return ctx.Trigger(storagemarket.ClientEventUnexpectedDealState, resp.Response.State)
+	}
+
+	if deal.DataRef.TransferType == storagemarket.TTManual {
+		log.Infof("manual data transfer for deal %s", deal.ProposalCid)
+
+		// Temporary, we will move to a query/response protocol to check on deal status
+		return ctx.Trigger(storagemarket.ClientEventDataTransferComplete)
+	}
+
+	log.Infof("sending data for a deal %s", deal.ProposalCid)
+
+	// initiate a push data transfer. This will complete asynchronously and the
+	// completion of the data transfer will trigger a change in deal state
+	err = environment.StartDataTransfer(ctx.Context(),
+		deal.Miner,
+		&requestvalidation.StorageDataTransferVoucher{Proposal: deal.ProposalCid},
+		deal.DataRef.Root,
+		shared.AllSelector(),
+	)
+
+	if err != nil {
+		return ctx.Trigger(storagemarket.ClientEventDataTransferFailed, xerrors.Errorf("failed to open push data channel: %w", err))
+	}
+
+	return ctx.Trigger(storagemarket.ClientEventDataTransferInitiated)
 }
 
 // VerifyDealResponse reads and verifies the response from the provider to the proposed deal

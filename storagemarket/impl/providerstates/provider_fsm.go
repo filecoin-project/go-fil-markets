@@ -26,18 +26,16 @@ var ProviderEvents = fsm.Events{
 		}),
 	fsm.Event(storagemarket.ProviderEventDealDeciding).
 		From(storagemarket.StorageDealValidating).To(storagemarket.StorageDealAcceptWait),
-	fsm.Event(storagemarket.ProviderEventDealAccepted).
-		From(storagemarket.StorageDealAcceptWait).To(storagemarket.StorageDealProposalAccepted),
-	fsm.Event(storagemarket.ProviderEventWaitingForManualData).
-		From(storagemarket.StorageDealProposalAccepted).To(storagemarket.StorageDealWaitingForData),
+	fsm.Event(storagemarket.ProviderEventDataRequested).
+		From(storagemarket.StorageDealAcceptWait).To(storagemarket.StorageDealWaitingForData),
 	fsm.Event(storagemarket.ProviderEventDataTransferFailed).
-		FromMany(storagemarket.StorageDealProposalAccepted, storagemarket.StorageDealTransferring).To(storagemarket.StorageDealFailing).
+		From(storagemarket.StorageDealTransferring).To(storagemarket.StorageDealFailing).
 		Action(func(deal *storagemarket.MinerDeal, err error) error {
 			deal.Message = xerrors.Errorf("error transferring data: %w", err).Error()
 			return nil
 		}),
 	fsm.Event(storagemarket.ProviderEventDataTransferInitiated).
-		From(storagemarket.StorageDealProposalAccepted).To(storagemarket.StorageDealTransferring),
+		From(storagemarket.StorageDealWaitingForData).To(storagemarket.StorageDealTransferring),
 	fsm.Event(storagemarket.ProviderEventDataTransferCompleted).
 		From(storagemarket.StorageDealTransferring).To(storagemarket.StorageDealVerifyData),
 	fsm.Event(storagemarket.ProviderEventGeneratePieceCIDFailed).
@@ -128,7 +126,6 @@ var ProviderEvents = fsm.Events{
 var ProviderStateEntryFuncs = fsm.StateEntryFuncs{
 	storagemarket.StorageDealValidating:          ValidateDealProposal,
 	storagemarket.StorageDealAcceptWait:          DecideOnProposal,
-	storagemarket.StorageDealProposalAccepted:    TransferData,
 	storagemarket.StorageDealVerifyData:          VerifyData,
 	storagemarket.StorageDealEnsureProviderFunds: EnsureProviderFunds,
 	storagemarket.StorageDealProviderFunding:     WaitForFunding,

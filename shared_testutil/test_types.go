@@ -141,14 +141,20 @@ func MakeTestClientDealProposal() *market.ClientDealProposal {
 }
 
 // MakeTestDataRef returns a storage market data ref
-func MakeTestDataRef() *storagemarket.DataRef {
-	return &storagemarket.DataRef{
+func MakeTestDataRef(manualXfer bool) *storagemarket.DataRef {
+	out := &storagemarket.DataRef{
 		Root: GenerateCids(1)[0],
 	}
+
+	if manualXfer {
+		out.TransferType = storagemarket.TTManual
+	}
+
+	return out
 }
 
 // MakeTestClientDeal returns a storage market client deal
-func MakeTestClientDeal(state storagemarket.StorageDealStatus, clientDealProposal *market.ClientDealProposal) (*storagemarket.ClientDeal, error) {
+func MakeTestClientDeal(state storagemarket.StorageDealStatus, clientDealProposal *market.ClientDealProposal, manualXfer bool) (*storagemarket.ClientDeal, error) {
 	proposalNd, err := cborutil.AsIpld(clientDealProposal)
 
 	if err != nil {
@@ -165,7 +171,7 @@ func MakeTestClientDeal(state storagemarket.StorageDealStatus, clientDealProposa
 		State:              state,
 		Miner:              p,
 		MinerWorker:        address.TestAddress2,
-		DataRef:            MakeTestDataRef(),
+		DataRef:            MakeTestDataRef(manualXfer),
 	}, nil
 }
 

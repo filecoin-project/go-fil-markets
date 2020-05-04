@@ -17,6 +17,7 @@ import (
 	"github.com/ipfs/go-datastore"
 	blockstore "github.com/ipfs/go-ipfs-blockstore"
 	logging "github.com/ipfs/go-log/v2"
+	"github.com/ipld/go-ipld-prime"
 	"github.com/libp2p/go-libp2p-core/peer"
 	"golang.org/x/xerrors"
 
@@ -29,6 +30,7 @@ import (
 	"github.com/filecoin-project/go-fil-markets/storagemarket/impl/clientstates"
 	"github.com/filecoin-project/go-fil-markets/storagemarket/impl/clientutils"
 	"github.com/filecoin-project/go-fil-markets/storagemarket/impl/connmanager"
+	"github.com/filecoin-project/go-fil-markets/storagemarket/impl/dtutils"
 	"github.com/filecoin-project/go-fil-markets/storagemarket/network"
 )
 
@@ -39,11 +41,6 @@ var _ storagemarket.StorageClient = &Client{}
 type Client struct {
 	net network.StorageMarketNetwork
 
-	// dataTransfer
-	// TODO: once the data transfer module is complete, the
-	// client will listen to events on the data transfer module
-	// Because we are using only a fake DAGService
-	// implementation, there's no validation or events on the client side
 	dataTransfer datatransfer.Manager
 	bs           blockstore.Blockstore
 	pio          pieceio.PieceIO
@@ -89,6 +86,10 @@ func NewClient(
 		return nil, err
 	}
 	c.statemachines = statemachines
+
+	// register a data transfer event handler -- this will send events to the state machines based on DT events
+	dataTransfer.SubscribeToEvents(dtutils.ClientDataTransferSubscriber(statemachines))
+
 	return c, nil
 }
 
@@ -385,4 +386,7 @@ func (c *clientDealEnvironment) CloseStream(proposalCid cid.Cid) error {
 	return c.c.conns.Disconnect(proposalCid)
 }
 
-var _ clientstates.ClientDealEnvironment = &clientDealEnvironment{}
+func (c *clientDealEnvironment) StartDataTransfer(ctx context.Context, to peer.ID, voucher datatransfer.Voucher, baseCid cid.Cid, selector ipld.Node) error {
+	_, err := c.c.dataTransfer.OpenPushDataChannel(ctx, to, voucher, baseCid, selector)
+	return err
+}

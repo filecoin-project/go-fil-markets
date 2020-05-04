@@ -92,14 +92,19 @@ func TestMakeDeal(t *testing.T) {
 		case providerSeenDeal = <-providerDealChan:
 			providerstates = append(providerstates, providerSeenDeal.State)
 		case <-ctx.Done():
-			t.Fatalf("never saw all events: %d, %d", clientSeenDeal.State, providerSeenDeal.State)
+			t.Fatalf("deal incomplete, client deal state: %s (%d), provider deal state: %s (%d)",
+				storagemarket.DealStates[clientSeenDeal.State],
+				clientSeenDeal.State,
+				storagemarket.DealStates[providerSeenDeal.State],
+				providerSeenDeal.State,
+			)
 		}
 	}
 
 	expProviderStates := []storagemarket.StorageDealStatus{
 		storagemarket.StorageDealValidating,
 		storagemarket.StorageDealAcceptWait,
-		storagemarket.StorageDealProposalAccepted,
+		storagemarket.StorageDealWaitingForData,
 		storagemarket.StorageDealTransferring,
 		storagemarket.StorageDealVerifyData,
 		storagemarket.StorageDealEnsureProviderFunds,
@@ -115,6 +120,8 @@ func TestMakeDeal(t *testing.T) {
 		storagemarket.StorageDealEnsureClientFunds,
 		//storagemarket.StorageDealClientFunding,  // skipped because funds available
 		storagemarket.StorageDealFundsEnsured,
+		storagemarket.StorageDealWaitingForDataRequest,
+		storagemarket.StorageDealTransferring,
 		storagemarket.StorageDealValidating,
 		storagemarket.StorageDealProposalAccepted,
 		storagemarket.StorageDealSealing,
@@ -132,14 +139,14 @@ func TestMakeDeal(t *testing.T) {
 
 	cd, err := h.Client.GetLocalDeal(ctx, proposalCid)
 	assert.NoError(t, err)
-	assert.Equal(t, storagemarket.StorageDealActive, cd.State)
+	shared_testutil.AssertDealState(t, storagemarket.StorageDealActive, cd.State)
 
 	providerDeals, err := h.Provider.ListLocalDeals()
 	assert.NoError(t, err)
 
 	pd := providerDeals[0]
 	assert.Equal(t, pd.ProposalCid, proposalCid)
-	assert.Equal(t, storagemarket.StorageDealCompleted, pd.State)
+	shared_testutil.AssertDealState(t, storagemarket.StorageDealCompleted, pd.State)
 }
 
 func TestMakeDealOffline(t *testing.T) {
@@ -169,14 +176,14 @@ func TestMakeDealOffline(t *testing.T) {
 
 	cd, err := h.Client.GetLocalDeal(ctx, proposalCid)
 	assert.NoError(t, err)
-	assert.Equal(t, storagemarket.StorageDealValidating, cd.State)
+	shared_testutil.AssertDealState(t, storagemarket.StorageDealValidating, cd.State)
 
 	providerDeals, err := h.Provider.ListLocalDeals()
 	assert.NoError(t, err)
 
 	pd := providerDeals[0]
 	assert.True(t, pd.ProposalCid.Equals(proposalCid))
-	assert.Equal(t, storagemarket.StorageDealWaitingForData, pd.State)
+	shared_testutil.AssertDealState(t, storagemarket.StorageDealWaitingForData, pd.State)
 
 	err = cario.NewCarIO().WriteCar(ctx, h.TestData.Bs1, h.PayloadCid, shared.AllSelector(), carBuf)
 	require.NoError(t, err)
@@ -187,14 +194,14 @@ func TestMakeDealOffline(t *testing.T) {
 
 	cd, err = h.Client.GetLocalDeal(ctx, proposalCid)
 	assert.NoError(t, err)
-	assert.Equal(t, storagemarket.StorageDealActive, cd.State)
+	shared_testutil.AssertDealState(t, storagemarket.StorageDealActive, cd.State)
 
 	providerDeals, err = h.Provider.ListLocalDeals()
 	assert.NoError(t, err)
 
 	pd = providerDeals[0]
 	assert.True(t, pd.ProposalCid.Equals(proposalCid))
-	assert.Equal(t, storagemarket.StorageDealCompleted, pd.State)
+	shared_testutil.AssertDealState(t, storagemarket.StorageDealCompleted, pd.State)
 }
 
 func TestMakeDealNonBlocking(t *testing.T) {
@@ -216,7 +223,7 @@ func TestMakeDealNonBlocking(t *testing.T) {
 
 	cd, err := h.Client.GetLocalDeal(ctx, result.ProposalCid)
 	assert.NoError(t, err)
-	assert.Equal(t, storagemarket.StorageDealValidating, cd.State)
+	shared_testutil.AssertDealState(t, storagemarket.StorageDealValidating, cd.State)
 
 	providerDeals, err := h.Provider.ListLocalDeals()
 	assert.NoError(t, err)
@@ -224,7 +231,7 @@ func TestMakeDealNonBlocking(t *testing.T) {
 	// Provider should be blocking on waiting for funds to appear on chain
 	pd := providerDeals[0]
 	assert.Equal(t, result.ProposalCid, pd.ProposalCid)
-	assert.Equal(t, storagemarket.StorageDealProviderFunding, pd.State)
+	shared_testutil.AssertDealState(t, storagemarket.StorageDealProviderFunding, pd.State)
 }
 
 type harness struct {
@@ -288,6 +295,8 @@ func newHarness(t *testing.T, ctx context.Context) *harness {
 	require.NoError(t, err)
 
 	dt2 := graphsync.NewGraphSyncDataTransfer(td.Host2, td.GraphSync2, td.DTStoredCounter2)
+	require.NoError(t, dt2.RegisterVoucherType(&requestvalidation.StorageDataTransferVoucher{}, &fakeDTValidator{}))
+
 	storedAsk, err := storedask.NewStoredAsk(td.Ds2, datastore.NewKey("latest-ask"), providerNode, providerAddr)
 	assert.NoError(t, err)
 	provider, err := storageimpl.NewProvider(

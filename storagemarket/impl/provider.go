@@ -25,6 +25,7 @@ import (
 	"github.com/filecoin-project/go-fil-markets/shared"
 	"github.com/filecoin-project/go-fil-markets/storagemarket"
 	"github.com/filecoin-project/go-fil-markets/storagemarket/impl/connmanager"
+	"github.com/filecoin-project/go-fil-markets/storagemarket/impl/dtutils"
 	"github.com/filecoin-project/go-fil-markets/storagemarket/impl/providerstates"
 	"github.com/filecoin-project/go-fil-markets/storagemarket/impl/providerutils"
 	"github.com/filecoin-project/go-fil-markets/storagemarket/network"
@@ -131,9 +132,8 @@ func NewProvider(net network.StorageMarketNetwork, ds datastore.Batching, bs blo
 
 	h.Configure(options...)
 
-	// register a data transfer event handler -- this will move deals from
-	// accepted to staged
-	dataTransfer.SubscribeToEvents(providerutils.DataTransferSubscriber(deals))
+	// register a data transfer event handler -- this will send events to the state machines based on DT events
+	dataTransfer.SubscribeToEvents(dtutils.ProviderDataTransferSubscriber(deals))
 
 	return h, nil
 }
