@@ -53,11 +53,15 @@ func EnsureClientFunds(ctx fsm.Context, environment ClientDealEnvironment, deal 
 func WaitForFunding(ctx fsm.Context, environment ClientDealEnvironment, deal storagemarket.ClientDeal) error {
 	node := environment.Node()
 
-	return node.WaitForMessage(deal.AddFundsCid, storagemarket.ChainConfidence, func(code exitcode.ExitCode, bytes []byte) error {
-		if code == exitcode.Ok {
-			return ctx.Trigger(storagemarket.ClientEventFundsEnsured)
+	return node.WaitForMessage(ctx.Context(), deal.AddFundsCid, func(code exitcode.ExitCode, bytes []byte, err error) error {
+		if err != nil {
+			return ctx.Trigger(storagemarket.ClientEventEnsureFundsFailed, xerrors.Errorf("AddFunds err: %w", err))
 		}
-		return ctx.Trigger(storagemarket.ClientEventEnsureFundsFailed, xerrors.Errorf("AddFunds exit code: %w", code))
+		if code != exitcode.Ok {
+			return ctx.Trigger(storagemarket.ClientEventEnsureFundsFailed, xerrors.Errorf("AddFunds exit code: %s", code.String()))
+		}
+		return ctx.Trigger(storagemarket.ClientEventFundsEnsured)
+
 	})
 }
 

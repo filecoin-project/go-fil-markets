@@ -256,11 +256,13 @@ func (p *Provider) AddStorageCollateral(ctx context.Context, amount abi.TokenAmo
 		return err
 	}
 
-	err = p.spn.WaitForMessage(mcid, storagemarket.ChainConfidence, func(code exitcode.ExitCode, bytes []byte) error {
-		if code == exitcode.Ok {
-			done <- nil
+	err = p.spn.WaitForMessage(ctx, mcid, func(code exitcode.ExitCode, bytes []byte, err error) error {
+		if err != nil {
+			done <- xerrors.Errorf("AddFunds errored: %w", err)
+		} else if code != exitcode.Ok {
+			done <- xerrors.Errorf("AddFunds error, exit code: %s", code.String())
 		} else {
-			done <- xerrors.Errorf("AddFunds error, exit code: %w", code)
+			done <- nil
 		}
 		return nil
 	})

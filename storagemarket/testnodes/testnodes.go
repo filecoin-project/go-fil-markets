@@ -93,10 +93,11 @@ type FakeCommonNode struct {
 	GetBalanceError      error
 	GetChainHeadError    error
 
-	WaitForMessageBlocks   bool
-	WaitForMessageError    error
-	WaitForMessageExitCode exitcode.ExitCode
-	WaitForMessageRetBytes []byte
+	WaitForMessageBlocks    bool
+	WaitForMessageError     error
+	WaitForMessageExitCode  exitcode.ExitCode
+	WaitForMessageRetBytes  []byte
+	WaitForMessageNodeError error
 }
 
 // GetChainHead returns the state id in the storage market state
@@ -127,7 +128,7 @@ func (n *FakeCommonNode) EnsureFunds(ctx context.Context, addr, wallet address.A
 	return cid.Undef, n.EnsureFundsError
 }
 
-func (n *FakeCommonNode) WaitForMessage(mcid cid.Cid, confidence int64, onCompletion func(exitcode.ExitCode, []byte) error) error {
+func (n *FakeCommonNode) WaitForMessage(ctx context.Context, mcid cid.Cid, onCompletion func(exitcode.ExitCode, []byte, error) error) error {
 	if n.WaitForMessageError != nil {
 		return n.WaitForMessageError
 	}
@@ -137,7 +138,7 @@ func (n *FakeCommonNode) WaitForMessage(mcid cid.Cid, confidence int64, onComple
 		return nil
 	}
 
-	return onCompletion(n.WaitForMessageExitCode, n.WaitForMessageRetBytes)
+	return onCompletion(n.WaitForMessageExitCode, n.WaitForMessageRetBytes, n.WaitForMessageNodeError)
 }
 
 // GetBalance returns the funds in the storage market state
