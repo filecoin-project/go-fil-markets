@@ -43,3 +43,11 @@ Hotfix release
 # Changelog
 
 - Upgrade transitive dependencies go-ipld-prime, go-graphsync, go-data-transfer to use new, faster NodeAssembler approach in go-ipld-prime
+
+# go-fil-markets 0.1.3
+
+Hotfix release
+
+# Changelog
+
+- Upgrade transitive dependencies go-graphsync and go-data-transfer to fix a critical graphsync bug
