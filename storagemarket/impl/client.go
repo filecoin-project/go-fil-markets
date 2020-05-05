@@ -286,7 +286,7 @@ func (c *Client) AddPaymentEscrow(ctx context.Context, addr address.Address, amo
 		return err
 	}
 
-	err = c.node.WaitForMessage(mcid, func(code exitcode.ExitCode, bytes []byte, err error) error {
+	err = c.node.WaitForMessage(ctx, mcid, func(code exitcode.ExitCode, bytes []byte, err error) error {
 		if err != nil {
 			done <- xerrors.Errorf("AddFunds errored: %w", err)
 		} else if code != exitcode.Ok {

@@ -360,7 +360,7 @@ type StorageFunds interface {
 	// Verify a signature against an address + data
 	VerifySignature(ctx context.Context, signature crypto.Signature, signer address.Address, plaintext []byte, tok shared.TipSetToken) (bool, error)
 
-	WaitForMessage(mcid cid.Cid, onCompletion func(exitcode.ExitCode, []byte, error) error) error
+	WaitForMessage(ctx context.Context, mcid cid.Cid, onCompletion func(exitcode.ExitCode, []byte, error) error) error
 }
 
 // Node dependencies for a StorageProvider

@@ -53,7 +53,7 @@ func EnsureClientFunds(ctx fsm.Context, environment ClientDealEnvironment, deal 
 func WaitForFunding(ctx fsm.Context, environment ClientDealEnvironment, deal storagemarket.ClientDeal) error {
 	node := environment.Node()
 
-	return node.WaitForMessage(deal.AddFundsCid, func(code exitcode.ExitCode, bytes []byte, err error) error {
+	return node.WaitForMessage(ctx.Context(), deal.AddFundsCid, func(code exitcode.ExitCode, bytes []byte, err error) error {
 		if err != nil {
 			return ctx.Trigger(storagemarket.ClientEventEnsureFundsFailed, xerrors.Errorf("AddFunds err: %w", err))
 		}

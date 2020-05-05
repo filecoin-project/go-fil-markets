@@ -128,7 +128,7 @@ func (n *FakeCommonNode) EnsureFunds(ctx context.Context, addr, wallet address.A
 	return cid.Undef, n.EnsureFundsError
 }
 
-func (n *FakeCommonNode) WaitForMessage(mcid cid.Cid, onCompletion func(exitcode.ExitCode, []byte, error) error) error {
+func (n *FakeCommonNode) WaitForMessage(ctx context.Context, mcid cid.Cid, onCompletion func(exitcode.ExitCode, []byte, error) error) error {
 	if n.WaitForMessageError != nil {
 		return n.WaitForMessageError
 	}
