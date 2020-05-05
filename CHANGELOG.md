@@ -51,3 +51,11 @@ Hotfix release
 # Changelog
 
 - Upgrade transitive dependencies go-graphsync and go-data-transfer to fix a critical graphsync bug
+
+# go-fil-markets 0.2.0
+
+- See previous hotfixes which include major update of go-ipld-prime for speed
+- We have seperated all calls to submit messages to chain from calls to actually
+wait to see those messages on chain -- this allows us track whether we've already made the submission should the module restart
+- Set Miner peer.ID on MinerDeal to fix a bug with JSON serialization
+- Add an interface for listening to events on deals in the StorageClient
