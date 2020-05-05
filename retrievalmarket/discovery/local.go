@@ -19,7 +19,7 @@ func NewLocal(ds datastore.Batching) *Local {
 }
 
 func (l *Local) AddPeer(cid cid.Cid, peer retrievalmarket.RetrievalPeer) error {
-	key := dshelp.CidToDsKey(cid)
+	key := dshelp.MultihashToDsKey(cid.Hash())
 	exists, err := l.ds.Has(key)
 	if err != nil {
 		return err
@@ -64,7 +64,7 @@ func hasPeer(peerList []retrievalmarket.RetrievalPeer, peer retrievalmarket.Retr
 }
 
 func (l *Local) GetPeers(payloadCID cid.Cid) ([]retrievalmarket.RetrievalPeer, error) {
-	entry, err := l.ds.Get(dshelp.CidToDsKey(payloadCID))
+	entry, err := l.ds.Get(dshelp.MultihashToDsKey(payloadCID.Hash()))
 	if err == datastore.ErrNotFound {
 		return []retrievalmarket.RetrievalPeer{}, nil
 	}
