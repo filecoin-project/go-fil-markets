@@ -6,7 +6,6 @@ import (
 	"encoding/json"
 	"io/ioutil"
 	"math/rand"
-	"reflect"
 	"testing"
 	"time"
 
@@ -270,7 +269,7 @@ func newHarness(t *testing.T, ctx context.Context) *harness {
 
 	// create provider and client
 	dt1 := graphsync.NewGraphSyncDataTransfer(td.Host1, td.GraphSync1, td.DTStoredCounter1)
-	require.NoError(t, dt1.RegisterVoucherType(reflect.TypeOf(&requestvalidation.StorageDataTransferVoucher{}), &fakeDTValidator{}))
+	require.NoError(t, dt1.RegisterVoucherType(&requestvalidation.StorageDataTransferVoucher{}, &fakeDTValidator{}))
 
 	client, err := storageimpl.NewClient(
 		network.NewFromLibp2pHost(td.Host1),
