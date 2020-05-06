@@ -57,29 +57,30 @@ const (
 	StorageDealCompleted           // on provider side, indicates deal is active and info for retrieval is recorded
 )
 
-var DealStates = []string{
-	"StorageDealUnknown",
-	"StorageDealProposalNotFound",
-	"StorageDealProposalRejected",
-	"StorageDealProposalAccepted",
-	"StorageDealStaged",
-	"StorageDealSealing",
-	"StorageDealActive",
-	"StorageDealFailing",
-	"StorageDealNotFound",
-
-	"StorageDealFundsEnsured",
-	"StorageDealValidating",
-	"StorageDealTransferring",
-	"StorageDealWaitingForData",
-	"StorageDealVerifyData",
-	"StorageDealEnsureProviderFunds",
-	"StorageDealEnsureClientFunds",
-	"StorageDealProviderFunding",
-	"StorageDealClientFunding",
-	"StorageDealPublishing",
-	"StorageDealError",
-	"StorageDealCompleted",
+// DealStates maps StorageDealStatus codes to string names
+var DealStates = map[StorageDealStatus]string{
+	StorageDealUnknown:             "StorageDealUnknown",
+	StorageDealProposalNotFound:    "StorageDealProposalNotFound",
+	StorageDealProposalRejected:    "StorageDealProposalRejected",
+	StorageDealProposalAccepted:    "StorageDealProposalAccepted",
+	StorageDealStaged:              "StorageDealStaged",
+	StorageDealSealing:             "StorageDealSealing",
+	StorageDealActive:              "StorageDealActive",
+	StorageDealFailing:             "StorageDealFailing",
+	StorageDealNotFound:            "StorageDealNotFound",
+	StorageDealFundsEnsured:        "StorageDealFundsEnsured",
+	StorageDealValidating:          "StorageDealValidating",
+	StorageDealTransferring:        "StorageDealTransferring",
+	StorageDealWaitingForData:      "StorageDealWaitingForData",
+	StorageDealVerifyData:          "StorageDealVerifyData",
+	StorageDealEnsureProviderFunds: "StorageDealEnsureProviderFunds",
+	StorageDealEnsureClientFunds:   "StorageDealEnsureClientFunds",
+	StorageDealProviderFunding:     "StorageDealProviderFunding",
+	StorageDealClientFunding:       "StorageDealClientFunding",
+	StorageDealPublish:             "StorageDealPublish",
+	StorageDealPublishing:          "StorageDealPublishing",
+	StorageDealError:               "StorageDealError",
+	StorageDealCompleted:           "StorageDealCompleted",
 }
 
 func init() {
@@ -231,6 +232,38 @@ const (
 	ProviderEventFailed
 )
 
+// ProviderEvents maps provider event codes to string names
+var ProviderEvents = map[ProviderEvent]string{
+	ProviderEventOpen:                   "ProviderEventOpen",
+	ProviderEventNodeErrored:            "ProviderEventNodeErrored",
+	ProviderEventDealRejected:           "ProviderEventDealRejected",
+	ProviderEventDealAccepted:           "ProviderEventDealAccepted",
+	ProviderEventWaitingForManualData:   "ProviderEventWaitingForManualData",
+	ProviderEventInsufficientFunds:      "ProviderEventInsufficientFunds",
+	ProviderEventFundingInitiated:       "ProviderEventFundingInitiated",
+	ProviderEventFunded:                 "ProviderEventFunded",
+	ProviderEventDataTransferFailed:     "ProviderEventDataTransferFailed",
+	ProviderEventDataTransferInitiated:  "ProviderEventDataTransferInitiated",
+	ProviderEventDataTransferCompleted:  "ProviderEventDataTransferCompleted",
+	ProviderEventManualDataReceived:     "ProviderEventManualDataReceived",
+	ProviderEventGeneratePieceCIDFailed: "ProviderEventGeneratePieceCIDFailed",
+	ProviderEventVerifiedData:           "ProviderEventVerifiedData",
+	ProviderEventSendResponseFailed:     "ProviderEventSendResponseFailed",
+	ProviderEventDealPublishInitiated:   "ProviderEventDealPublishInitiated",
+	ProviderEventDealPublished:          "ProviderEventDealPublished",
+	ProviderEventDealPublishError:       "ProviderEventDealPublishError",
+	ProviderEventFileStoreErrored:       "ProviderEventFileStoreErrored",
+	ProviderEventDealHandoffFailed:      "ProviderEventDealHandoffFailed",
+	ProviderEventDealHandedOff:          "ProviderEventDealHandedOff",
+	ProviderEventDealActivationFailed:   "ProviderEventDealActivationFailed",
+	ProviderEventUnableToLocatePiece:    "ProviderEventUnableToLocatePiece",
+	ProviderEventDealActivated:          "ProviderEventDealActivated",
+	ProviderEventPieceStoreErrored:      "ProviderEventPieceStoreErrored",
+	ProviderEventReadMetadataErrored:    "ProviderEventReadMetadataErrored",
+	ProviderEventDealCompleted:          "ProviderEventDealCompleted",
+	ProviderEventFailed:                 "ProviderEventFailed",
+}
+
 type ClientDeal struct {
 	market.ClientDealProposal
 	ProposalCid    cid.Cid
@@ -253,7 +286,7 @@ const (
 	// ClientEventEnsureFundsFailed happens when attempting to ensure the client has enough funds available fails
 	ClientEventEnsureFundsFailed
 
-	// ClientEventFundsInitiated happens when a client has sent a message adding funds to its balance
+	// ClientEventFundingInitiated happens when a client has sent a message adding funds to its balance
 	ClientEventFundingInitiated
 
 	// ClientEventFundsEnsured happens when a client successfully ensures it has funds for a deal
@@ -301,6 +334,28 @@ const (
 	// ClientEventFailed happens when a deal terminates in failure
 	ClientEventFailed
 )
+
+// ClientEvents maps client event codes to string names
+var ClientEvents = map[ClientEvent]string{
+	ClientEventOpen:                       "ClientEventOpen",
+	ClientEventEnsureFundsFailed:          "ClientEventEnsureFundsFailed",
+	ClientEventFundingInitiated:           "ClientEventFundingInitiated",
+	ClientEventFundsEnsured:               "ClientEventFundsEnsured",
+	ClientEventWriteProposalFailed:        "ClientEventWriteProposalFailed",
+	ClientEventDealProposed:               "ClientEventDealProposed",
+	ClientEventDealStreamLookupErrored:    "ClientEventDealStreamLookupErrored",
+	ClientEventReadResponseFailed:         "ClientEventReadResponseFailed",
+	ClientEventResponseVerificationFailed: "ClientEventResponseVerificationFailed",
+	ClientEventResponseDealDidNotMatch:    "ClientEventResponseDealDidNotMatch",
+	ClientEventStreamCloseError:           "ClientEventStreamCloseError",
+	ClientEventDealRejected:               "ClientEventDealRejected",
+	ClientEventDealAccepted:               "ClientEventDealAccepted",
+	ClientEventDealPublishFailed:          "ClientEventDealPublishFailed",
+	ClientEventDealPublished:              "ClientEventDealPublished",
+	ClientEventDealActivationFailed:       "ClientEventDealActivationFailed",
+	ClientEventDealActivated:              "ClientEventDealActivated",
+	ClientEventFailed:                     "ClientEventFailed",
+}
 
 // StorageDeal is a local combination of a proposal and a current deal state
 type StorageDeal struct {
