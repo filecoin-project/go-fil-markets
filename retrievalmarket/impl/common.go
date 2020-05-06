@@ -7,7 +7,7 @@ import (
 	"github.com/ipld/go-ipld-prime/traversal/selector/builder"
 )
 
-func allSelector() ipld.Node {
+func AllSelector() ipld.Node {
 	ssb := builder.NewSelectorSpecBuilder(basicnode.Style.Any)
 	return ssb.ExploreRecursive(selector.RecursionLimitNone(),
 		ssb.ExploreAll(ssb.ExploreRecursiveEdge())).

@@ -238,7 +238,8 @@ type harness struct {
 func newHarness(t *testing.T, ctx context.Context) *harness {
 	epoch := abi.ChainEpoch(100)
 	td := shared_testutil.NewLibp2pTestData(ctx, t)
-	rootLink := td.LoadUnixFSFile(t, "payload.txt", false)
+	fpath := filepath.Join("storagemarket","fixtures","payload.txt")
+	rootLink := td.LoadUnixFSFile(t, fpath, false)
 	payloadCid := rootLink.(cidlink.Link).Cid
 
 	smState := testnodes.NewStorageMarketState()

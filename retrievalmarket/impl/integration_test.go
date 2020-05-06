@@ -3,6 +3,7 @@ package retrievalimpl_test
 import (
 	"bytes"
 	"context"
+	"path/filepath"
 	"testing"
 	"time"
 
@@ -85,7 +86,7 @@ func requireSetupTestClientAndProvider(bgCtx context.Context, t *testing.T, payC
 		CreatePaychCID: cids[0],
 		AddFundsCID:    cids[1],
 	})
-	client, err := retrievalimpl.NewClient(nw1, testData.Bs1, rcNode1, &testPeerResolver{}, testData.Ds1, testData.RetrievalStoredCounter1)
+	client, err := retrievalimpl.NewClient(nw1, testData.Bs1, rcNode1, &tut.TestPeerResolver{}, testData.Ds1, testData.RetrievalStoredCounter1)
 	require.NoError(t, err)
 	nw2 := rmnet.NewFromLibp2pHost(testData.Host2)
 	providerNode := testnodes.NewTestRetrievalProviderNode()
@@ -177,7 +178,7 @@ func TestClientCanMakeDealWithProvider(t *testing.T) {
 			filesize:    19000,
 			voucherAmts: []abi.TokenAmount{abi.NewTokenAmount(10136000), abi.NewTokenAmount(9784000)},
 			unsealing:   true},
-		{name: "multi-block file retrieval succeeds with V1 params and allSelector",
+		{name: "multi-block file retrieval succeeds with V1 params and AllSelector",
 			filename:    "lorem.txt",
 			filesize:    19000,
 			voucherAmts: []abi.TokenAmount{abi.NewTokenAmount(10136000), abi.NewTokenAmount(9784000)},
@@ -203,7 +204,10 @@ func TestClientCanMakeDealWithProvider(t *testing.T) {
 
 			// Inject a unixFS file on the provider side to its blockstore
 			// obtained via `ls -laf` on this file
-			pieceLink := testData.LoadUnixFSFile(t, testCase.filename, true)
+
+			fpath := filepath.Join("retrievalmarket","impl","fixtures",testCase.filename)
+
+			pieceLink := testData.LoadUnixFSFile(t, fpath, true)
 			c, ok := pieceLink.(cidlink.Link)
 			require.True(t, ok)
 			payloadCID := c.Cid
@@ -415,7 +419,7 @@ func setupClient(
 		CreatePaychCID:         cids[0],
 		AddFundsCID:            cids[1],
 	})
-	client, err := retrievalimpl.NewClient(nw1, testData.Bs1, clientNode, &testPeerResolver{}, testData.Ds1, testData.RetrievalStoredCounter1)
+	client, err := retrievalimpl.NewClient(nw1, testData.Bs1, clientNode, &tut.TestPeerResolver{}, testData.Ds1, testData.RetrievalStoredCounter1)
 	return &createdChan, &newLaneAddr, &createdVoucher, client, err
 }
 

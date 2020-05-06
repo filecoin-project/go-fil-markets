@@ -151,7 +151,7 @@ func (c *client) Retrieve(ctx context.Context, payloadCID cid.Cid, params retrie
 
 	c.dealStreams[dealID] = s
 
-	sel := allSelector()
+	sel := AllSelector()
 	if params.Selector != nil {
 		sel, err = retrievalmarket.DecodeNode(params.Selector)
 		if err != nil {
@@ -207,15 +207,15 @@ func (c *client) SubscribeToEvents(subscriber retrievalmarket.ClientSubscriber) 
 }
 
 // V1
-func (c *client) AddMoreFunds(id retrievalmarket.DealID, amount abi.TokenAmount) error {
+func (c *client) AddMoreFunds(retrievalmarket.DealID, abi.TokenAmount) error {
 	panic("not implemented")
 }
 
-func (c *client) CancelDeal(id retrievalmarket.DealID) error {
+func (c *client) CancelDeal(retrievalmarket.DealID) error {
 	panic("not implemented")
 }
 
-func (c *client) RetrievalStatus(id retrievalmarket.DealID) {
+func (c *client) RetrievalStatus(retrievalmarket.DealID) {
 	panic("not implemented")
 }
 
@@ -237,12 +237,12 @@ func (c *client) ConsumeBlock(ctx context.Context, dealID retrievalmarket.DealID
 		return 0, false, err
 	}
 
-	cid, err := prefix.Sum(block.Data)
+	scid, err := prefix.Sum(block.Data)
 	if err != nil {
 		return 0, false, err
 	}
 
-	blk, err := blocks.NewBlockWithCid(block.Data, cid)
+	blk, err := blocks.NewBlockWithCid(block.Data, scid)
 	if err != nil {
 		return 0, false, err
 	}

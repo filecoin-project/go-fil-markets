@@ -5,7 +5,9 @@ import (
 	"errors"
 	"io"
 	"os"
+	"path"
 	"path/filepath"
+	"runtime"
 	"testing"
 
 	blocks "github.com/ipfs/go-block-format"
@@ -68,7 +70,7 @@ func NewLibp2pTestData(ctx context.Context, t *testing.T) *Libp2pTestData {
 		return func(lnk ipld.Link, lnkCtx ipld.LinkContext) (io.Reader, error) {
 			c, ok := lnk.(cidlink.Link)
 			if !ok {
-				return nil, errors.New("Incorrect Link Type")
+				return nil, errors.New("incorrect Link Type")
 			}
 			// read block from one store
 			block, err := bs.Get(c.Cid)
@@ -85,7 +87,7 @@ func NewLibp2pTestData(ctx context.Context, t *testing.T) *Libp2pTestData {
 			var committer ipld.StoreCommitter = func(lnk ipld.Link) error {
 				c, ok := lnk.(cidlink.Link)
 				if !ok {
-					return errors.New("Incorrect Link Type")
+					return errors.New("incorrect Link Type")
 				}
 				block, err := blocks.NewBlockWithCid(buf.Bytes(), c.Cid)
 				if err != nil {
@@ -151,13 +153,13 @@ const unixfsLinksPerLevel = 1024
 // LoadUnixFSFile injects the fixture `filename` into the given blockstore from the
 // fixtures directory. If useSecondNode is true, fixture is injected to the second node;
 // otherwise the first node gets it
-func (ltd *Libp2pTestData) LoadUnixFSFile(t *testing.T, filename string, useSecondNode bool) ipld.Link {
+func (ltd *Libp2pTestData) LoadUnixFSFile(t *testing.T, fixturesPath string, useSecondNode bool) ipld.Link {
 
 	// read in a fixture file
-	path, err := filepath.Abs(filepath.Join("fixtures", filename))
+	fpath, err := filepath.Abs(filepath.Join(thisDir(t), "..",fixturesPath))
 	require.NoError(t, err)
 
-	f, err := os.Open(path)
+	f, err := os.Open(fpath)
 	require.NoError(t, err)
 
 	var buf bytes.Buffer
@@ -195,6 +197,12 @@ func (ltd *Libp2pTestData) LoadUnixFSFile(t *testing.T, filename string, useSeco
 	return cidlink.Link{Cid: nd.Cid()}
 }
 
+func thisDir(t *testing.T) string {
+	_, fname, _, ok := runtime.Caller(1)
+	require.True(t, ok)
+	return path.Dir(fname)
+}
+
 // VerifyFileTransferred checks that the fixture file was sent from one node to the other.
 func (ltd *Libp2pTestData) VerifyFileTransferred(t *testing.T, link ipld.Link, useSecondNode bool, readLen uint64) {
 	var dagService ipldformat.DAGService
@@ -220,7 +228,9 @@ func (ltd *Libp2pTestData) VerifyFileTransferred(t *testing.T, link ipld.Link, u
 	// Read the bytes for the UnixFS File
 	finalBytes := make([]byte, readLen)
 	_, err = fn.Read(finalBytes)
-	require.NoError(t, err)
+	if err != nil {
+		require.Equal(t, "EOF", err.Error())
+	}
 
 	// verify original bytes match final bytes!
 	require.EqualValues(t, ltd.OrigBytes[:readLen], finalBytes)

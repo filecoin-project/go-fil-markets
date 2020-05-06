@@ -7,7 +7,6 @@ import (
 
 	"github.com/filecoin-project/go-address"
 	"github.com/filecoin-project/specs-actors/actors/abi"
-	"github.com/ipfs/go-cid"
 	"github.com/ipfs/go-datastore"
 	dss "github.com/ipfs/go-datastore/sync"
 	bstore "github.com/ipfs/go-ipfs-blockstore"
@@ -65,7 +64,7 @@ func TestClient_Query(t *testing.T) {
 			net,
 			bs,
 			testnodes.NewTestRetrievalClientNode(testnodes.TestRetrievalClientNodeParams{}),
-			&testPeerResolver{},
+			&tut.TestPeerResolver{},
 			ds,
 			storedCounter)
 		require.NoError(t, err)
@@ -84,7 +83,7 @@ func TestClient_Query(t *testing.T) {
 			net,
 			bs,
 			testnodes.NewTestRetrievalClientNode(testnodes.TestRetrievalClientNodeParams{}),
-			&testPeerResolver{},
+			&tut.TestPeerResolver{},
 			ds,
 			storedCounter)
 		require.NoError(t, err)
@@ -110,7 +109,7 @@ func TestClient_Query(t *testing.T) {
 			net,
 			bs,
 			testnodes.NewTestRetrievalClientNode(testnodes.TestRetrievalClientNodeParams{}),
-			&testPeerResolver{},
+			&tut.TestPeerResolver{},
 			ds,
 			storedCounter)
 		require.NoError(t, err)
@@ -135,7 +134,7 @@ func TestClient_Query(t *testing.T) {
 			net,
 			bs,
 			testnodes.NewTestRetrievalClientNode(testnodes.TestRetrievalClientNodeParams{}),
-			&testPeerResolver{},
+			&tut.TestPeerResolver{},
 			ds,
 			storedCounter)
 		require.NoError(t, err)
@@ -164,7 +163,7 @@ func TestClient_FindProviders(t *testing.T) {
 
 	t.Run("when providers are found, returns providers", func(t *testing.T) {
 		peers := tut.RequireGenerateRetrievalPeers(t, 3)
-		testResolver := testPeerResolver{peers: peers}
+		testResolver := tut.TestPeerResolver{Peers: peers}
 
 		c, err := retrievalimpl.NewClient(net, bs, &testnodes.TestRetrievalClientNode{}, &testResolver, ds, storedCounter)
 		require.NoError(t, err)
@@ -174,7 +173,7 @@ func TestClient_FindProviders(t *testing.T) {
 	})
 
 	t.Run("when there is an error, returns empty provider list", func(t *testing.T) {
-		testResolver := testPeerResolver{peers: []retrievalmarket.RetrievalPeer{}, resolverError: errors.New("boom")}
+		testResolver := tut.TestPeerResolver{Peers: []retrievalmarket.RetrievalPeer{}, ResolverError: errors.New("boom")}
 		c, err := retrievalimpl.NewClient(net, bs, &testnodes.TestRetrievalClientNode{}, &testResolver, ds, storedCounter)
 		require.NoError(t, err)
 
@@ -183,22 +182,11 @@ func TestClient_FindProviders(t *testing.T) {
 	})
 
 	t.Run("when there are no providers", func(t *testing.T) {
-		testResolver := testPeerResolver{peers: []retrievalmarket.RetrievalPeer{}}
+		testResolver := tut.TestPeerResolver{Peers: []retrievalmarket.RetrievalPeer{}}
 		c, err := retrievalimpl.NewClient(net, bs, &testnodes.TestRetrievalClientNode{}, &testResolver, ds, storedCounter)
 		require.NoError(t, err)
 
 		testCid := tut.GenerateCids(1)[0]
 		assert.Len(t, c.FindProviders(testCid), 0)
 	})
-}
-
-type testPeerResolver struct {
-	peers         []retrievalmarket.RetrievalPeer
-	resolverError error
-}
-
-var _ retrievalmarket.PeerResolver = &testPeerResolver{}
-
-func (tpr testPeerResolver) GetPeers(cid.Cid) ([]retrievalmarket.RetrievalPeer, error) {
-	return tpr.peers, tpr.resolverError
 }

@@ -247,7 +247,7 @@ func (p *provider) newProviderDeal(stream rmnet.RetrievalDealStream) error {
 			return xerrors.Errorf("selector is invalid: %w", err)
 		}
 	} else {
-		sel = allSelector()
+		sel = AllSelector()
 	}
 
 	br := blockio.NewSelectorBlockReader(cidlink.Link{Cid: dealProposal.PayloadCID}, sel, loaderWithUnsealing.Load)
