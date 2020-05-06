@@ -1,9 +1,9 @@
 package requestvalidation
 
 import (
-	"bytes"
 	"errors"
 
+	datatransfer "github.com/filecoin-project/go-data-transfer"
 	"github.com/ipfs/go-cid"
 
 	"github.com/filecoin-project/go-fil-markets/storagemarket"
@@ -46,23 +46,7 @@ type StorageDataTransferVoucher struct {
 	Proposal cid.Cid
 }
 
-// ToBytes converts the StorageDataTransferVoucher to raw bytes
-func (dv *StorageDataTransferVoucher) ToBytes() ([]byte, error) {
-	var buf bytes.Buffer
-	err := dv.MarshalCBOR(&buf)
-	if err != nil {
-		return nil, err
-	}
-	return buf.Bytes(), nil
-}
-
-// FromBytes converts the StorageDataTransferVoucher to raw bytes
-func (dv *StorageDataTransferVoucher) FromBytes(raw []byte) error {
-	r := bytes.NewReader(raw)
-	return dv.UnmarshalCBOR(r)
-}
-
 // Type is the unique string identifier for a StorageDataTransferVoucher
-func (dv *StorageDataTransferVoucher) Type() string {
+func (dv *StorageDataTransferVoucher) Type() datatransfer.TypeIdentifier {
 	return "StorageDataTransferVoucher"
 }

@@ -1,12 +1,12 @@
 package requestvalidation_test
 
 import (
-	"fmt"
 	"math/rand"
 	"testing"
 
 	"github.com/filecoin-project/go-address"
 	cborutil "github.com/filecoin-project/go-cbor-util"
+	datatransfer "github.com/filecoin-project/go-data-transfer"
 	"github.com/filecoin-project/go-statestore"
 	"github.com/filecoin-project/specs-actors/actors/builtin/market"
 	"github.com/filecoin-project/specs-actors/actors/crypto"
@@ -26,15 +26,7 @@ var blockGenerator = blocksutil.NewBlockGenerator()
 type wrongDTType struct {
 }
 
-func (wrongDTType) ToBytes() ([]byte, error) {
-	return []byte{}, nil
-}
-
-func (wrongDTType) FromBytes([]byte) error {
-	return fmt.Errorf("not implemented")
-}
-
-func (wrongDTType) Type() string {
+func (wrongDTType) Type() datatransfer.TypeIdentifier {
 	return "WrongDTTYPE"
 }
 
