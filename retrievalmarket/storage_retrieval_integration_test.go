@@ -31,6 +31,7 @@ import (
 	retrievalimpl "github.com/filecoin-project/go-fil-markets/retrievalmarket/impl"
 	testnodes2 "github.com/filecoin-project/go-fil-markets/retrievalmarket/impl/testnodes"
 	rmnet "github.com/filecoin-project/go-fil-markets/retrievalmarket/network"
+	"github.com/filecoin-project/go-fil-markets/shared"
 	"github.com/filecoin-project/go-fil-markets/shared_testutil"
 	tut "github.com/filecoin-project/go-fil-markets/shared_testutil"
 	"github.com/filecoin-project/go-fil-markets/storagemarket"
@@ -112,7 +113,7 @@ func TestStorageRetrieval(t *testing.T) {
 	// testing V1 only
 	rmParams := retrievalmarket.NewParamsV1(rh.RetrievalParams.PricePerByte,
 		rh.RetrievalParams.PaymentInterval,
-		rh.RetrievalParams.PaymentIntervalIncrease, retrievalimpl.AllSelector(), nil)
+		rh.RetrievalParams.PaymentIntervalIncrease, shared.AllSelector(), nil)
 
 	voucherAmts := []abi.TokenAmount{abi.NewTokenAmount(10136000), abi.NewTokenAmount(9784000)}
 	proof := []byte("")
@@ -336,7 +337,7 @@ func newRetrievalHarness(ctx context.Context, t *testing.T, sh *storageHarness, 
 	cio := cario.NewCarIO()
 
 	var buf bytes.Buffer
-	require.NoError(t, cio.WriteCar(sh.Ctx, sh.TestData.Bs2, payloadCID, sh.TestData.AllSelector, &buf))
+	require.NoError(t, cio.WriteCar(sh.Ctx, sh.TestData.Bs2, payloadCID, shared.AllSelector(), &buf))
 	carData := buf.Bytes()
 	sectorID := uint64(100000)
 	offset := uint64(1000)

@@ -16,8 +16,8 @@ import (
 	"github.com/ipld/go-ipld-prime/fluent"
 	cidlink "github.com/ipld/go-ipld-prime/linking/cid"
 	basicnode "github.com/ipld/go-ipld-prime/node/basic"
-	"github.com/ipld/go-ipld-prime/traversal/selector"
-	"github.com/ipld/go-ipld-prime/traversal/selector/builder"
+
+	"github.com/filecoin-project/go-fil-markets/shared"
 )
 
 // TestIPLDTree is a set of IPLD Data that forms a tree spread across some blocks
@@ -135,13 +135,11 @@ func (tt TestIPLDTree) Get(c cid.Cid) (blocks.Block, error) {
 
 // DumpToCar puts the tree into a car file, with user configured functions
 func (tt TestIPLDTree) DumpToCar(out io.Writer, userOnNewCarBlocks ...car.OnNewCarBlockFunc) error {
-	ssb := builder.NewSelectorSpecBuilder(basicnode.Style.Any)
-	node := ssb.ExploreRecursive(selector.RecursionLimitNone(), ssb.ExploreAll(ssb.ExploreRecursiveEdge())).Node()
 	ctx := context.Background()
 	sc := car.NewSelectiveCar(ctx, tt, []car.Dag{
 		{
 			Root:     tt.RootNodeLnk.(cidlink.Link).Cid,
-			Selector: node,
+			Selector: shared.AllSelector(),
 		},
 	})
 

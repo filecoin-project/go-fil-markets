@@ -22,6 +22,8 @@ import (
 	"github.com/filecoin-project/go-fil-markets/retrievalmarket/impl/blockio"
 	"github.com/filecoin-project/go-fil-markets/retrievalmarket/impl/clientstates"
 	rmnet "github.com/filecoin-project/go-fil-markets/retrievalmarket/network"
+	"github.com/filecoin-project/go-fil-markets/shared"
+
 	"github.com/filecoin-project/go-storedcounter"
 )
 
@@ -151,7 +153,7 @@ func (c *client) Retrieve(ctx context.Context, payloadCID cid.Cid, params retrie
 
 	c.dealStreams[dealID] = s
 
-	sel := AllSelector()
+	sel := shared.AllSelector()
 	if params.Selector != nil {
 		sel, err = retrievalmarket.DecodeNode(params.Selector)
 		if err != nil {

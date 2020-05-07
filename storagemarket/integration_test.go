@@ -28,6 +28,7 @@ import (
 	"github.com/filecoin-project/go-fil-markets/pieceio/cario"
 	"github.com/filecoin-project/go-fil-markets/piecestore"
 	"github.com/filecoin-project/go-fil-markets/retrievalmarket/discovery"
+	"github.com/filecoin-project/go-fil-markets/shared"
 	"github.com/filecoin-project/go-fil-markets/shared_testutil"
 	"github.com/filecoin-project/go-fil-markets/storagemarket"
 	storageimpl "github.com/filecoin-project/go-fil-markets/storagemarket/impl"
@@ -145,7 +146,7 @@ func TestMakeDealOffline(t *testing.T) {
 
 	carBuf := new(bytes.Buffer)
 
-	err := cario.NewCarIO().WriteCar(ctx, h.TestData.Bs1, h.PayloadCid, h.TestData.AllSelector, carBuf)
+	err := cario.NewCarIO().WriteCar(ctx, h.TestData.Bs1, h.PayloadCid, shared.AllSelector(), carBuf)
 	require.NoError(t, err)
 
 	commP, size, err := pieceio.GeneratePieceCommitment(abi.RegisteredProof_StackedDRG2KiBPoSt, carBuf, uint64(carBuf.Len()))
@@ -174,7 +175,7 @@ func TestMakeDealOffline(t *testing.T) {
 	assert.True(t, pd.ProposalCid.Equals(proposalCid))
 	assert.Equal(t, storagemarket.StorageDealWaitingForData, pd.State)
 
-	err = cario.NewCarIO().WriteCar(ctx, h.TestData.Bs1, h.PayloadCid, h.TestData.AllSelector, carBuf)
+	err = cario.NewCarIO().WriteCar(ctx, h.TestData.Bs1, h.PayloadCid, shared.AllSelector(), carBuf)
 	require.NoError(t, err)
 	err = h.Provider.ImportDataForDeal(ctx, pd.ProposalCid, carBuf)
 	require.NoError(t, err)

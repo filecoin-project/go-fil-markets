@@ -24,6 +24,7 @@ import (
 	"github.com/filecoin-project/go-fil-markets/retrievalmarket/impl/blockunsealing"
 	"github.com/filecoin-project/go-fil-markets/retrievalmarket/impl/providerstates"
 	rmnet "github.com/filecoin-project/go-fil-markets/retrievalmarket/network"
+	"github.com/filecoin-project/go-fil-markets/shared"
 )
 
 // ProviderDsPrefix is the datastore for the provider key
@@ -247,7 +248,7 @@ func (p *provider) newProviderDeal(stream rmnet.RetrievalDealStream) error {
 			return xerrors.Errorf("selector is invalid: %w", err)
 		}
 	} else {
-		sel = AllSelector()
+		sel = shared.AllSelector()
 	}
 
 	br := blockio.NewSelectorBlockReader(cidlink.Link{Cid: dealProposal.PayloadCID}, sel, loaderWithUnsealing.Load)

@@ -28,9 +28,6 @@ import (
 	"github.com/ipfs/go-unixfs/importer/helpers"
 	"github.com/ipld/go-ipld-prime"
 	cidlink "github.com/ipld/go-ipld-prime/linking/cid"
-	basicnode "github.com/ipld/go-ipld-prime/node/basic"
-	"github.com/ipld/go-ipld-prime/traversal/selector"
-	"github.com/ipld/go-ipld-prime/traversal/selector/builder"
 	"github.com/libp2p/go-libp2p-core/host"
 	mocknet "github.com/libp2p/go-libp2p/p2p/net/mock"
 	"github.com/stretchr/testify/require"
@@ -59,7 +56,6 @@ type Libp2pTestData struct {
 	Storer2                 ipld.Storer
 	Host1                   host.Host
 	Host2                   host.Host
-	AllSelector             ipld.Node
 	OrigBytes               []byte
 }
 
@@ -138,12 +134,6 @@ func NewLibp2pTestData(ctx context.Context, t *testing.T) *Libp2pTestData {
 	testData.GraphSync1 = graphsyncimpl.New(ctx, network.NewFromLibp2pHost(testData.Host1), testData.Loader1, testData.Storer1)
 	testData.GraphSync2 = graphsyncimpl.New(ctx, network.NewFromLibp2pHost(testData.Host2), testData.Loader2, testData.Storer2)
 
-	// create a selector for the whole UnixFS dag
-	ssb := builder.NewSelectorSpecBuilder(basicnode.Style.Any)
-
-	testData.AllSelector = ssb.ExploreRecursive(selector.RecursionLimitNone(),
-		ssb.ExploreAll(ssb.ExploreRecursiveEdge())).Node()
-
 	return testData
 }
 
@@ -156,7 +146,7 @@ const unixfsLinksPerLevel = 1024
 func (ltd *Libp2pTestData) LoadUnixFSFile(t *testing.T, fixturesPath string, useSecondNode bool) ipld.Link {
 
 	// read in a fixture file
-	fpath, err := filepath.Abs(filepath.Join(thisDir(t), "..",fixturesPath))
+	fpath, err := filepath.Abs(filepath.Join(thisDir(t), "..", fixturesPath))
 	require.NoError(t, err)
 
 	f, err := os.Open(fpath)

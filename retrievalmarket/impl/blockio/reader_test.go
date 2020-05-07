@@ -6,12 +6,10 @@ import (
 
 	blocks "github.com/ipfs/go-block-format"
 	"github.com/ipfs/go-cid"
-	basicnode "github.com/ipld/go-ipld-prime/node/basic"
-	"github.com/ipld/go-ipld-prime/traversal/selector"
-	"github.com/ipld/go-ipld-prime/traversal/selector/builder"
 	"github.com/stretchr/testify/require"
 
 	"github.com/filecoin-project/go-fil-markets/retrievalmarket/impl/blockio"
+	"github.com/filecoin-project/go-fil-markets/shared"
 	tut "github.com/filecoin-project/go-fil-markets/shared_testutil"
 )
 
@@ -19,11 +17,8 @@ func TestSelectorReader(t *testing.T) {
 	ctx := context.Background()
 	testdata := tut.NewTestIPLDTree()
 
-	ssb := builder.NewSelectorSpecBuilder(basicnode.Style.Any)
-	sel := ssb.ExploreRecursive(selector.RecursionLimitNone(), ssb.ExploreAll(ssb.ExploreRecursiveEdge())).Node()
-
 	t.Run("reads correctly", func(t *testing.T) {
-		reader := blockio.NewSelectorBlockReader(testdata.RootNodeLnk, sel, testdata.Loader)
+		reader := blockio.NewSelectorBlockReader(testdata.RootNodeLnk, shared.AllSelector(), testdata.Loader)
 
 		checkReadSequence(ctx, t, reader, []blocks.Block{
 			testdata.RootBlock,

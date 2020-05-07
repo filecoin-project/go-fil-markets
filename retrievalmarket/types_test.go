@@ -7,20 +7,18 @@ import (
 	"github.com/filecoin-project/specs-actors/actors/abi"
 	"github.com/ipld/go-ipld-prime/codec/dagcbor"
 	basicnode "github.com/ipld/go-ipld-prime/node/basic"
-	"github.com/ipld/go-ipld-prime/traversal/selector"
-	"github.com/ipld/go-ipld-prime/traversal/selector/builder"
 	"github.com/stretchr/testify/assert"
 
 	"github.com/filecoin-project/go-fil-markets/retrievalmarket"
+	"github.com/filecoin-project/go-fil-markets/shared"
 	tut "github.com/filecoin-project/go-fil-markets/shared_testutil"
 )
 
 func TestParamsMarshalUnmarshal(t *testing.T) {
 	pieceCid := tut.GenerateCids(1)[0]
 
-	ssb := builder.NewSelectorSpecBuilder(basicnode.Style.Any)
-	node := ssb.ExploreRecursive(selector.RecursionLimitNone(), ssb.ExploreAll(ssb.ExploreRecursiveEdge())).Node()
-	params := retrievalmarket.NewParamsV1(abi.NewTokenAmount(123), 456, 789, node, &pieceCid)
+	allSelector := shared.AllSelector()
+	params := retrievalmarket.NewParamsV1(abi.NewTokenAmount(123), 456, 789, allSelector, &pieceCid)
 
 	buf := new(bytes.Buffer)
 	err := params.MarshalCBOR(buf)
@@ -36,5 +34,5 @@ func TestParamsMarshalUnmarshal(t *testing.T) {
 	err = dagcbor.Decoder(nb, bytes.NewBuffer(unmarshalled.Selector.Raw))
 	assert.NoError(t, err)
 	sel := nb.Build()
-	assert.Equal(t, sel, node)
+	assert.Equal(t, sel, allSelector)
 }

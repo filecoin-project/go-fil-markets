@@ -8,9 +8,6 @@ import (
 	"github.com/filecoin-project/specs-actors/actors/abi"
 	"github.com/filecoin-project/specs-actors/actors/crypto"
 	"github.com/ipfs/go-cid"
-	basicnode "github.com/ipld/go-ipld-prime/node/basic"
-	"github.com/ipld/go-ipld-prime/traversal/selector"
-	"github.com/ipld/go-ipld-prime/traversal/selector/builder"
 	"golang.org/x/xerrors"
 
 	"github.com/filecoin-project/go-fil-markets/pieceio"
@@ -28,13 +25,8 @@ func CommP(ctx context.Context, pieceIO pieceio.PieceIO, rt abi.RegisteredProof,
 	if data.TransferType == storagemarket.TTManual {
 		return cid.Undef, 0, xerrors.New("Piece CID and size must be set for manual transfer")
 	}
-	ssb := builder.NewSelectorSpecBuilder(basicnode.Style.Any)
 
-	// entire DAG selector
-	allSelector := ssb.ExploreRecursive(selector.RecursionLimitNone(),
-		ssb.ExploreAll(ssb.ExploreRecursiveEdge())).Node()
-
-	commp, paddedSize, err := pieceIO.GeneratePieceCommitment(rt, data.Root, allSelector)
+	commp, paddedSize, err := pieceIO.GeneratePieceCommitment(rt, data.Root, shared.AllSelector())
 	if err != nil {
 		return cid.Undef, 0, xerrors.Errorf("generating CommP: %w", err)
 	}

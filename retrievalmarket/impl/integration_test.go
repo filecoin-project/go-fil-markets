@@ -26,6 +26,7 @@ import (
 	retrievalimpl "github.com/filecoin-project/go-fil-markets/retrievalmarket/impl"
 	"github.com/filecoin-project/go-fil-markets/retrievalmarket/impl/testnodes"
 	rmnet "github.com/filecoin-project/go-fil-markets/retrievalmarket/network"
+	"github.com/filecoin-project/go-fil-markets/shared"
 	tut "github.com/filecoin-project/go-fil-markets/shared_testutil"
 )
 
@@ -205,7 +206,7 @@ func TestClientCanMakeDealWithProvider(t *testing.T) {
 			// Inject a unixFS file on the provider side to its blockstore
 			// obtained via `ls -laf` on this file
 
-			fpath := filepath.Join("retrievalmarket","impl","fixtures",testCase.filename)
+			fpath := filepath.Join("retrievalmarket", "impl", "fixtures", testCase.filename)
 
 			pieceLink := testData.LoadUnixFSFile(t, fpath, true)
 			c, ok := pieceLink.(cidlink.Link)
@@ -230,7 +231,7 @@ func TestClientCanMakeDealWithProvider(t *testing.T) {
 			if testCase.unsealing {
 				cio := cario.NewCarIO()
 				var buf bytes.Buffer
-				err := cio.WriteCar(bgCtx, testData.Bs2, payloadCID, testData.AllSelector, &buf)
+				err := cio.WriteCar(bgCtx, testData.Bs2, payloadCID, shared.AllSelector(), &buf)
 				require.NoError(t, err)
 				carData := buf.Bytes()
 				sectorID := uint64(100000)
