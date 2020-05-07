@@ -6,7 +6,6 @@ import (
 	"io/ioutil"
 	"math/rand"
 	"path/filepath"
-	"reflect"
 	"testing"
 	"time"
 
@@ -146,7 +145,7 @@ func TestStorageRetrieval(t *testing.T) {
 	defer cancel()
 	var providerDealState retrievalmarket.ProviderDealState
 	select {
-	case <-bgCtx.Done():
+	case <-ctxTimeout.Done():
 		t.Error("provider never saw completed deal")
 		t.FailNow()
 	case providerDealState = <-providerDealStateChan:
@@ -208,7 +207,7 @@ func newStorageHarness(ctx context.Context, t *testing.T) *storageHarness {
 
 	// create provider and client
 	dt1 := graphsyncimpl.NewGraphSyncDataTransfer(td.Host1, td.GraphSync1, td.DTStoredCounter1)
-	require.NoError(t, dt1.RegisterVoucherType(reflect.TypeOf(&requestvalidation.StorageDataTransferVoucher{}), &fakeDTValidator{}))
+	require.NoError(t, dt1.RegisterVoucherType(&requestvalidation.StorageDataTransferVoucher{}, &fakeDTValidator{}))
 
 	client, err := stormkt.NewClient(
 		stornet.NewFromLibp2pHost(td.Host1),
@@ -329,8 +328,9 @@ func newRetrievalHarness(ctx context.Context, t *testing.T, sh *storageHarness, 
 
 	nw1 := rmnet.NewFromLibp2pHost(sh.TestData.Host1)
 	client, err := retrievalimpl.NewClient(nw1, sh.TestData.Bs1, clientNode, &tut.TestPeerResolver{}, sh.TestData.Ds1, sh.TestData.RetrievalStoredCounter1)
+	require.NoError(t, err)
 
-	payloadCID := deal.DataRef.Root // TODO: is this right?
+	payloadCID := deal.DataRef.Root
 	providerPaymentAddr := deal.MinerWorker
 	providerNode := testnodes2.NewTestRetrievalProviderNode()
 	cio := cario.NewCarIO()
@@ -409,4 +409,3 @@ func (v *fakeDTValidator) ValidatePush(sender peer.ID, voucher datatransfer.Vouc
 func (v *fakeDTValidator) ValidatePull(receiver peer.ID, voucher datatransfer.Voucher, baseCid cid.Cid, selector ipld.Node) error {
 	return nil
 }
-

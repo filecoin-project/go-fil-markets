@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"io/ioutil"
 	"math/rand"
+	"path/filepath"
 	"testing"
 	"time"
 
@@ -238,7 +239,7 @@ type harness struct {
 func newHarness(t *testing.T, ctx context.Context) *harness {
 	epoch := abi.ChainEpoch(100)
 	td := shared_testutil.NewLibp2pTestData(ctx, t)
-	fpath := filepath.Join("storagemarket","fixtures","payload.txt")
+	fpath := filepath.Join("storagemarket", "fixtures", "payload.txt")
 	rootLink := td.LoadUnixFSFile(t, fpath, false)
 	payloadCid := rootLink.(cidlink.Link).Cid
 
