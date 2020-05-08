@@ -46,12 +46,9 @@ jobs:
     steps:
       - install-deps
       - prepare
-    run:
-      name: check for diffs from cbor-gen
-      command:
-        go generate ./...
-        git --no-pager diff
-        git --no-pager diff --quiet
+      - run: go generate ./...
+      - run: git --no-pager diff
+      - run: git --no-pager diff --quiet
   build-all:
     executor: golang
     steps:
