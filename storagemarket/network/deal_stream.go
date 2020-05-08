@@ -45,7 +45,7 @@ func (d *dealStream) WriteDealResponse(dr storagemarket.SignedResponse) error {
 }
 
 func (d *dealStream) Close() error {
-	return d.rw.Close()
+	return d.rw.Reset()
 }
 
 func (d *dealStream) RemotePeer() peer.ID {

@@ -373,9 +373,5 @@ func (c *clientDealEnvironment) WriteDealProposal(p peer.ID, proposal storagemar
 		return err
 	}
 	err = s.WriteDealProposal(proposal)
-	closeErr := s.Close()
-	if closeErr != nil {
-		log.Warnf("error closing stream: %w", closeErr)
-	}
 	return err
 }

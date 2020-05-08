@@ -431,10 +431,6 @@ func (p *providerDealEnvironment) SendSignedResponse(ctx context.Context, client
 	}
 
 	err = s.WriteDealResponse(signedResponse)
-	closeErr := s.Close()
-	if closeErr != nil {
-		log.Warnf("Error closing stream: %w", closeErr)
-	}
 	return err
 }
 
