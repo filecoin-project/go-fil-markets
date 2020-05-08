@@ -41,6 +41,17 @@ jobs:
       - go/mod-download
       - go/mod-tidy-check
 
+  cbor-gen-check:
+    executor: golang
+    steps:
+      - install-deps
+      - prepare
+    run:
+      name: check for diffs from cbor-gen
+      command:
+        go generate ./...
+        git --no-pager diff
+        git --no-pager diff --quiet
   build-all:
     executor: golang
     steps:
@@ -161,4 +172,5 @@ workflows:
           args: "--new-from-rev origin/master"
       - test
       - mod-tidy-check
+      - cbor-gen-check
       - build-all
