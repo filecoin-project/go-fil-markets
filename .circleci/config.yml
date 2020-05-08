@@ -46,7 +46,7 @@ jobs:
     steps:
       - install-deps
       - prepare
-      - go/install: {package: github.com/hannahhoward/cbor-gen-for}
+      - run: go install github.com/hannahhoward/cbor-gen-for
       - run: go generate ./...
       - run: git --no-pager diff
       - run: git --no-pager diff --quiet
