@@ -54,7 +54,7 @@ var ProviderEvents = fsm.Events{
 	fsm.Event(storagemarket.ProviderEventFundingInitiated).
 		From(storagemarket.StorageDealEnsureProviderFunds).To(storagemarket.StorageDealProviderFunding).
 		Action(func(deal *storagemarket.MinerDeal, mcid cid.Cid) error {
-			deal.AddFundsCid = mcid
+			deal.AddFundsCid = &mcid
 			return nil
 		}),
 	fsm.Event(storagemarket.ProviderEventFunded).
@@ -62,7 +62,7 @@ var ProviderEvents = fsm.Events{
 	fsm.Event(storagemarket.ProviderEventDealPublishInitiated).
 		From(storagemarket.StorageDealPublish).To(storagemarket.StorageDealPublishing).
 		Action(func(deal *storagemarket.MinerDeal, publishCid cid.Cid) error {
-			deal.PublishCid = publishCid
+			deal.PublishCid = &publishCid
 			return nil
 		}),
 	fsm.Event(storagemarket.ProviderEventDealPublishError).

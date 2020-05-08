@@ -16,7 +16,7 @@ var ClientEvents = fsm.Events{
 	fsm.Event(storagemarket.ClientEventFundingInitiated).
 		From(storagemarket.StorageDealEnsureClientFunds).To(storagemarket.StorageDealClientFunding).
 		Action(func(deal *storagemarket.ClientDeal, mcid cid.Cid) error {
-			deal.AddFundsCid = mcid
+			deal.AddFundsCid = &mcid
 			return nil
 		}),
 	fsm.Event(storagemarket.ClientEventEnsureFundsFailed).
@@ -34,17 +34,11 @@ var ClientEvents = fsm.Events{
 			return nil
 		}),
 	fsm.Event(storagemarket.ClientEventDealProposed).
-		From(storagemarket.StorageDealFundsEnsured).To(storagemarket.StorageDealValidating),
-	fsm.Event(storagemarket.ClientEventDealStreamLookupErrored).
-		FromAny().To(storagemarket.StorageDealFailing).
-		Action(func(deal *storagemarket.ClientDeal, err error) error {
-			deal.Message = xerrors.Errorf("miner connection error: %w", err).Error()
-			return nil
-		}),
-	fsm.Event(storagemarket.ClientEventReadResponseFailed).
-		From(storagemarket.StorageDealValidating).To(storagemarket.StorageDealError).
-		Action(func(deal *storagemarket.ClientDeal, err error) error {
-			deal.Message = xerrors.Errorf("error reading Response message: %w", err).Error()
+		From(storagemarket.StorageDealFundsEnsured).To(storagemarket.StorageDealWaitingForResponse),
+	fsm.Event(storagemarket.ClientEventReceiveResponse).
+		From(storagemarket.StorageDealWaitingForResponse).To(storagemarket.StorageDealValidating).
+		Action(func(deal *storagemarket.ClientDeal, response storagemarket.SignedResponse) error {
+			deal.LastResponse = &response
 			return nil
 		}),
 	fsm.Event(storagemarket.ClientEventResponseVerificationFailed).

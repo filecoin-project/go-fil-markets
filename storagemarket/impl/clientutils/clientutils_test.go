@@ -19,7 +19,6 @@ import (
 	"github.com/filecoin-project/go-fil-markets/shared_testutil"
 	"github.com/filecoin-project/go-fil-markets/storagemarket"
 	"github.com/filecoin-project/go-fil-markets/storagemarket/impl/clientutils"
-	"github.com/filecoin-project/go-fil-markets/storagemarket/network"
 )
 
 func TestCommP(t *testing.T) {
@@ -69,7 +68,7 @@ func TestCommP(t *testing.T) {
 
 func TestVerifyResponse(t *testing.T) {
 	tests := map[string]struct {
-		sresponse network.SignedResponse
+		sresponse storagemarket.SignedResponse
 		verifier  clientutils.VerifyFunc
 		shouldErr bool
 	}{
@@ -81,8 +80,8 @@ func TestVerifyResponse(t *testing.T) {
 			shouldErr: false,
 		},
 		"bad response": {
-			sresponse: network.SignedResponse{
-				Response:  network.Response{},
+			sresponse: storagemarket.SignedResponse{
+				Response:  storagemarket.ProposalResponse{},
 				Signature: shared_testutil.MakeTestSignature(),
 			},
 			verifier: func(context.Context, crypto.Signature, address.Address, []byte, shared.TipSetToken) (bool, error) {

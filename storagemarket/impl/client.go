@@ -17,6 +17,7 @@ import (
 	"github.com/ipfs/go-datastore"
 	blockstore "github.com/ipfs/go-ipfs-blockstore"
 	logging "github.com/ipfs/go-log/v2"
+	"github.com/libp2p/go-libp2p-core/peer"
 	"golang.org/x/xerrors"
 
 	"github.com/filecoin-project/go-fil-markets/pieceio"
@@ -92,6 +93,7 @@ func NewClient(
 }
 
 func (c *Client) Run(ctx context.Context) {
+	_ = c.net.SetDelegate(c)
 }
 
 func (c *Client) Stop() {
@@ -156,7 +158,7 @@ func (c *Client) GetAsk(ctx context.Context, info storagemarket.StorageProviderI
 		return nil, xerrors.Errorf("failed to open stream to miner: %w", err)
 	}
 
-	request := network.AskRequest{Miner: info.Address}
+	request := storagemarket.AskRequest{Miner: info.Address}
 	if err := s.WriteAskRequest(request); err != nil {
 		return nil, xerrors.Errorf("failed to send ask request: %w", err)
 	}
@@ -247,15 +249,6 @@ func (c *Client) ProposeStorageDeal(
 		return nil, xerrors.Errorf("setting up deal tracking: %w", err)
 	}
 
-	s, err := c.net.NewDealStream(info.PeerID)
-	if err != nil {
-		return nil, xerrors.Errorf("connecting to storage provider failed: %w", err)
-	}
-	err = c.conns.AddStream(deal.ProposalCid, s)
-	if err != nil {
-		return nil, err
-	}
-
 	err = c.statemachines.Send(deal.ProposalCid, storagemarket.ClientEventOpen)
 	if err != nil {
 		return nil, xerrors.Errorf("initializing state machine: %w", err)
@@ -308,6 +301,25 @@ func (c *Client) SubscribeToEvents(subscriber storagemarket.ClientSubscriber) sh
 	return shared.Unsubscribe(c.pubSub.Subscribe(subscriber))
 }
 
+func (c *Client) HandleAskStream(s network.StorageAskStream) {
+	s.Close()
+}
+
+func (c *Client) HandleDealStream(s network.StorageDealStream) {
+	defer s.Close()
+	log.Info("Handling storage deal proposal!")
+
+	response, err := s.ReadDealResponse()
+	if err != nil {
+		log.Errorf("%+v", err)
+		return
+	}
+	err = c.statemachines.Send(response.Response.Proposal, storagemarket.ClientEventReceiveResponse, response)
+	if err != nil {
+		log.Errorf("%+v", err)
+	}
+}
+
 func (c *Client) dispatch(eventName fsm.EventName, deal fsm.StateType) {
 	evt, ok := eventName.(storagemarket.ClientEvent)
 	if !ok {
@@ -355,10 +367,15 @@ func (c *clientDealEnvironment) Node() storagemarket.StorageClientNode {
 	return c.c.node
 }
 
-func (c *clientDealEnvironment) DealStream(proposalCid cid.Cid) (network.StorageDealStream, error) {
-	return c.c.conns.DealStream(proposalCid)
-}
-
-func (c *clientDealEnvironment) CloseStream(proposalCid cid.Cid) error {
-	return c.c.conns.Disconnect(proposalCid)
+func (c *clientDealEnvironment) WriteDealProposal(p peer.ID, proposal storagemarket.ProposalRequest) error {
+	s, err := c.c.net.NewDealStream(p)
+	if err != nil {
+		return err
+	}
+	err = s.WriteDealProposal(proposal)
+	closeErr := s.Close()
+	if closeErr != nil {
+		log.Warnf("error closing stream: %w", closeErr)
+	}
+	return err
 }

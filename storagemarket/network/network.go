@@ -1,26 +1,27 @@
 package network
 
 import (
+	"github.com/filecoin-project/go-fil-markets/storagemarket"
 	"github.com/libp2p/go-libp2p-core/peer"
 )
 
 // StorageAskStream is a stream for reading/writing requests &
 // responses on the Storage Ask protocol
 type StorageAskStream interface {
-	ReadAskRequest() (AskRequest, error)
-	WriteAskRequest(AskRequest) error
-	ReadAskResponse() (AskResponse, error)
-	WriteAskResponse(AskResponse) error
+	ReadAskRequest() (storagemarket.AskRequest, error)
+	WriteAskRequest(storagemarket.AskRequest) error
+	ReadAskResponse() (storagemarket.AskResponse, error)
+	WriteAskResponse(storagemarket.AskResponse) error
 	Close() error
 }
 
 // StorageDealStream is a stream for reading and writing requests
 // and responses on the storage deal protocol
 type StorageDealStream interface {
-	ReadDealProposal() (Proposal, error)
-	WriteDealProposal(Proposal) error
-	ReadDealResponse() (SignedResponse, error)
-	WriteDealResponse(SignedResponse) error
+	ReadDealProposal() (storagemarket.ProposalRequest, error)
+	WriteDealProposal(storagemarket.ProposalRequest) error
+	ReadDealResponse() (storagemarket.SignedResponse, error)
+	WriteDealResponse(storagemarket.SignedResponse) error
 	RemotePeer() peer.ID
 	Close() error
 }

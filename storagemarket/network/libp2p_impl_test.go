@@ -10,6 +10,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/filecoin-project/go-fil-markets/shared_testutil"
+	"github.com/filecoin-project/go-fil-markets/storagemarket"
 	"github.com/filecoin-project/go-fil-markets/storagemarket/network"
 )
 
@@ -45,7 +46,7 @@ func TestAskStreamSendReceiveAskRequest(t *testing.T) {
 	require.NoError(t, fromNetwork.SetDelegate(tr))
 
 	// host2 gets receiver
-	achan := make(chan network.AskRequest)
+	achan := make(chan storagemarket.AskRequest)
 	tr2 := &testReceiver{t: t, askStreamHandler: func(s network.StorageAskStream) {
 		readq, err := s.ReadAskRequest()
 		require.NoError(t, err)
@@ -69,7 +70,7 @@ func TestAskStreamSendReceiveAskResponse(t *testing.T) {
 	require.NoError(t, fromNetwork.SetDelegate(tr))
 
 	// host2 gets receiver
-	achan := make(chan network.AskResponse)
+	achan := make(chan storagemarket.AskResponse)
 	tr2 := &testReceiver{t: t, askStreamHandler: func(s network.StorageAskStream) {
 		a, err := s.ReadAskResponse()
 		require.NoError(t, err)
@@ -107,7 +108,7 @@ func TestAskStreamSendReceiveMultipleSuccessful(t *testing.T) {
 	qs, err := nw1.NewAskStream(td.Host2.ID())
 	require.NoError(t, err)
 
-	var resp network.AskResponse
+	var resp storagemarket.AskResponse
 	go require.NoError(t, qs.WriteAskRequest(shared_testutil.MakeTestStorageAskRequest()))
 	resp, err = qs.ReadAskResponse()
 	require.NoError(t, err)
@@ -132,7 +133,7 @@ func TestDealStreamSendReceiveDealProposal(t *testing.T) {
 	tr := &testReceiver{t: t}
 	require.NoError(t, fromNetwork.SetDelegate(tr))
 
-	dchan := make(chan network.Proposal)
+	dchan := make(chan storagemarket.ProposalRequest)
 	tr2 := &testReceiver{
 		t: t,
 		dealStreamHandler: func(s network.StorageDealStream) {
@@ -156,7 +157,7 @@ func TestDealStreamSendReceiveDealResponse(t *testing.T) {
 	tr := &testReceiver{t: t}
 	require.NoError(t, fromNetwork.SetDelegate(tr))
 
-	drChan := make(chan network.SignedResponse)
+	drChan := make(chan storagemarket.SignedResponse)
 	tr2 := &testReceiver{
 		t: t,
 		dealStreamHandler: func(s network.StorageDealStream) {
@@ -230,7 +231,7 @@ func TestLibp2pStorageMarketNetwork_StopHandlingRequests(t *testing.T) {
 	require.NoError(t, fromNetwork.SetDelegate(tr))
 
 	// host2 gets receiver
-	achan := make(chan network.AskRequest)
+	achan := make(chan storagemarket.AskRequest)
 	tr2 := &testReceiver{t: t, askStreamHandler: func(s network.StorageAskStream) {
 		readar, err := s.ReadAskRequest()
 		require.NoError(t, err)
@@ -245,7 +246,7 @@ func TestLibp2pStorageMarketNetwork_StopHandlingRequests(t *testing.T) {
 }
 
 // assertDealProposalReceived performs the verification that a deal proposal is received
-func assertDealProposalReceived(inCtx context.Context, t *testing.T, fromNetwork network.StorageMarketNetwork, toPeer peer.ID, inChan chan network.Proposal) {
+func assertDealProposalReceived(inCtx context.Context, t *testing.T, fromNetwork network.StorageMarketNetwork, toPeer peer.ID, inChan chan storagemarket.ProposalRequest) {
 	ctx, cancel := context.WithTimeout(inCtx, 10*time.Second)
 	defer cancel()
 
@@ -256,7 +257,7 @@ func assertDealProposalReceived(inCtx context.Context, t *testing.T, fromNetwork
 	dp := shared_testutil.MakeTestStorageNetworkProposal()
 	require.NoError(t, qs1.WriteDealProposal(dp))
 
-	var dealReceived network.Proposal
+	var dealReceived storagemarket.ProposalRequest
 	select {
 	case <-ctx.Done():
 		t.Error("deal proposal not received")
@@ -266,7 +267,7 @@ func assertDealProposalReceived(inCtx context.Context, t *testing.T, fromNetwork
 	assert.Equal(t, dp, dealReceived)
 }
 
-func assertDealResponseReceived(parentCtx context.Context, t *testing.T, fromNetwork network.StorageMarketNetwork, toPeer peer.ID, inChan chan network.SignedResponse) {
+func assertDealResponseReceived(parentCtx context.Context, t *testing.T, fromNetwork network.StorageMarketNetwork, toPeer peer.ID, inChan chan storagemarket.SignedResponse) {
 	ctx, cancel := context.WithTimeout(parentCtx, 10*time.Second)
 	defer cancel()
 
@@ -276,7 +277,7 @@ func assertDealResponseReceived(parentCtx context.Context, t *testing.T, fromNet
 	dr := shared_testutil.MakeTestStorageNetworkSignedResponse()
 	require.NoError(t, ds1.WriteDealResponse(dr))
 
-	var responseReceived network.SignedResponse
+	var responseReceived storagemarket.SignedResponse
 	select {
 	case <-ctx.Done():
 		t.Error("response not received")
@@ -286,8 +287,8 @@ func assertDealResponseReceived(parentCtx context.Context, t *testing.T, fromNet
 	assert.Equal(t, dr, responseReceived)
 }
 
-// assertAskRequestReceived performs the verification that a AskRequest is received
-func assertAskRequestReceived(inCtx context.Context, t *testing.T, fromNetwork network.StorageMarketNetwork, toHost peer.ID, achan chan network.AskRequest) {
+// assertAskRequestReceived performs the verification that a storagemarket.AskRequest is received
+func assertAskRequestReceived(inCtx context.Context, t *testing.T, fromNetwork network.StorageMarketNetwork, toHost peer.ID, achan chan storagemarket.AskRequest) {
 	ctx, cancel := context.WithTimeout(inCtx, 10*time.Second)
 	defer cancel()
 
@@ -298,7 +299,7 @@ func assertAskRequestReceived(inCtx context.Context, t *testing.T, fromNetwork n
 	a := shared_testutil.MakeTestStorageAskRequest()
 	require.NoError(t, as1.WriteAskRequest(a))
 
-	var ina network.AskRequest
+	var ina storagemarket.AskRequest
 	select {
 	case <-ctx.Done():
 		t.Error("msg not received")
@@ -308,11 +309,11 @@ func assertAskRequestReceived(inCtx context.Context, t *testing.T, fromNetwork n
 	assert.Equal(t, a.Miner, ina.Miner)
 }
 
-// assertAskResponseReceived performs the verification that a AskResponse is received
+// assertAskResponseReceived performs the verification that a storagemarket.AskResponse is received
 func assertAskResponseReceived(inCtx context.Context, t *testing.T,
 	fromNetwork network.StorageMarketNetwork,
 	toHost peer.ID,
-	achan chan network.AskResponse) {
+	achan chan storagemarket.AskResponse) {
 	ctx, cancel := context.WithTimeout(inCtx, 10*time.Second)
 	defer cancel()
 
@@ -325,7 +326,7 @@ func assertAskResponseReceived(inCtx context.Context, t *testing.T,
 	require.NoError(t, as1.WriteAskResponse(ar))
 
 	// read queryresponse
-	var inar network.AskResponse
+	var inar storagemarket.AskResponse
 	select {
 	case <-ctx.Done():
 		t.Error("msg not received")
