@@ -24,7 +24,6 @@ import (
 	"github.com/filecoin-project/go-fil-markets/storagemarket"
 	"github.com/filecoin-project/go-fil-markets/storagemarket/impl/providerutils"
 	"github.com/filecoin-project/go-fil-markets/storagemarket/impl/requestvalidation"
-	"github.com/filecoin-project/go-fil-markets/storagemarket/network"
 )
 
 var log = logging.Logger("providerstates")
@@ -37,8 +36,7 @@ type ProviderDealEnvironment interface {
 	Ask() storagemarket.StorageAsk
 	StartDataTransfer(ctx context.Context, to peer.ID, voucher datatransfer.Voucher, baseCid cid.Cid, selector ipld.Node) error
 	GeneratePieceCommitmentToFile(payloadCid cid.Cid, selector ipld.Node) (cid.Cid, filestore.Path, filestore.Path, error)
-	SendSignedResponse(ctx context.Context, response *network.Response) error
-	Disconnect(proposalCid cid.Cid) error
+	SendSignedResponse(ctx context.Context, client peer.ID, response *storagemarket.ProposalResponse) error
 	FileStore() filestore.FileStore
 	PieceStore() piecestore.PieceStore
 	DealAcceptanceBuffer() abi.ChainEpoch
@@ -179,7 +177,7 @@ func EnsureProviderFunds(ctx fsm.Context, environment ProviderDealEnvironment, d
 func WaitForFunding(ctx fsm.Context, environment ProviderDealEnvironment, deal storagemarket.MinerDeal) error {
 	node := environment.Node()
 
-	return node.WaitForMessage(ctx.Context(), deal.AddFundsCid, func(code exitcode.ExitCode, bytes []byte, err error) error {
+	return node.WaitForMessage(ctx.Context(), *deal.AddFundsCid, func(code exitcode.ExitCode, bytes []byte, err error) error {
 		if err != nil {
 			return ctx.Trigger(storagemarket.ProviderEventNodeErrored, xerrors.Errorf("AddFunds errored: %w", err))
 		}
@@ -210,7 +208,7 @@ func PublishDeal(ctx fsm.Context, environment ProviderDealEnvironment, deal stor
 
 // WaitForPublish waits for the publish message on chain and sends the deal id back to the client
 func WaitForPublish(ctx fsm.Context, environment ProviderDealEnvironment, deal storagemarket.MinerDeal) error {
-	return environment.Node().WaitForMessage(ctx.Context(), deal.PublishCid, func(code exitcode.ExitCode, retBytes []byte, err error) error {
+	return environment.Node().WaitForMessage(ctx.Context(), *deal.PublishCid, func(code exitcode.ExitCode, retBytes []byte, err error) error {
 		if err != nil {
 			return ctx.Trigger(storagemarket.ProviderEventDealPublishError, xerrors.Errorf("PublishStorageDeals errored: %w", err))
 		}
@@ -223,18 +221,14 @@ func WaitForPublish(ctx fsm.Context, environment ProviderDealEnvironment, deal s
 			return ctx.Trigger(storagemarket.ProviderEventDealPublishError, xerrors.Errorf("PublishStorageDeals error unmarshalling result: %w", err))
 		}
 
-		err = environment.SendSignedResponse(ctx.Context(), &network.Response{
+		err = environment.SendSignedResponse(ctx.Context(), deal.Client, &storagemarket.ProposalResponse{
 			State:          storagemarket.StorageDealProposalAccepted,
 			Proposal:       deal.ProposalCid,
-			PublishMessage: &deal.PublishCid,
+			PublishMessage: deal.PublishCid,
 		})
 
 		if err != nil {
 			return ctx.Trigger(storagemarket.ProviderEventSendResponseFailed, err)
-		}
-
-		if err := environment.Disconnect(deal.ProposalCid); err != nil {
-			log.Warnf("closing client connection: %+v", err)
 		}
 
 		return ctx.Trigger(storagemarket.ProviderEventDealPublished, retval.IDs[0])
@@ -351,7 +345,7 @@ func FailDeal(ctx fsm.Context, environment ProviderDealEnvironment, deal storage
 	log.Warnf("deal %s failed: %s", deal.ProposalCid, deal.Message)
 
 	if !deal.ConnectionClosed {
-		err := environment.SendSignedResponse(ctx.Context(), &network.Response{
+		err := environment.SendSignedResponse(ctx.Context(), deal.Client, &storagemarket.ProposalResponse{
 			State:    storagemarket.StorageDealFailing,
 			Message:  deal.Message,
 			Proposal: deal.ProposalCid,
@@ -359,10 +353,6 @@ func FailDeal(ctx fsm.Context, environment ProviderDealEnvironment, deal storage
 
 		if err != nil {
 			return ctx.Trigger(storagemarket.ProviderEventSendResponseFailed, err)
-		}
-
-		if err := environment.Disconnect(deal.ProposalCid); err != nil {
-			log.Warnf("closing client connection: %+v", err)
 		}
 	}
 

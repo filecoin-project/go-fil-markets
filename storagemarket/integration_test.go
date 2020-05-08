@@ -112,6 +112,7 @@ func TestMakeDeal(t *testing.T) {
 		storagemarket.StorageDealEnsureClientFunds,
 		//storagemarket.StorageDealClientFunding,  // skipped because funds available
 		storagemarket.StorageDealFundsEnsured,
+		storagemarket.StorageDealWaitingForResponse,
 		storagemarket.StorageDealValidating,
 		storagemarket.StorageDealProposalAccepted,
 		storagemarket.StorageDealSealing,
@@ -166,7 +167,7 @@ func TestMakeDealOffline(t *testing.T) {
 
 	cd, err := h.Client.GetLocalDeal(ctx, proposalCid)
 	assert.NoError(t, err)
-	assert.Equal(t, storagemarket.StorageDealValidating, cd.State)
+	assert.Equal(t, storagemarket.StorageDealWaitingForResponse, cd.State)
 
 	providerDeals, err := h.Provider.ListLocalDeals()
 	assert.NoError(t, err)
@@ -213,7 +214,7 @@ func TestMakeDealNonBlocking(t *testing.T) {
 
 	cd, err := h.Client.GetLocalDeal(ctx, result.ProposalCid)
 	assert.NoError(t, err)
-	assert.Equal(t, storagemarket.StorageDealValidating, cd.State)
+	assert.Equal(t, storagemarket.StorageDealWaitingForResponse, cd.State)
 
 	providerDeals, err := h.Provider.ListLocalDeals()
 	assert.NoError(t, err)

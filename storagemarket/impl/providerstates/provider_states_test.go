@@ -28,7 +28,6 @@ import (
 	"github.com/filecoin-project/go-fil-markets/storagemarket"
 	"github.com/filecoin-project/go-fil-markets/storagemarket/impl/blockrecorder"
 	"github.com/filecoin-project/go-fil-markets/storagemarket/impl/providerstates"
-	"github.com/filecoin-project/go-fil-markets/storagemarket/network"
 	"github.com/filecoin-project/go-fil-markets/storagemarket/testnodes"
 )
 
@@ -305,7 +304,7 @@ func TestEnsureProviderFunds(t *testing.T) {
 			},
 			dealInspector: func(t *testing.T, deal storagemarket.MinerDeal) {
 				require.Equal(t, storagemarket.StorageDealProviderFunding, deal.State)
-				require.Equal(t, cids[0], deal.AddFundsCid)
+				require.Equal(t, &cids[0], deal.AddFundsCid)
 			},
 		},
 		"get miner worker fails": {
@@ -880,6 +879,8 @@ func makeExecutor(ctx context.Context,
 		dealState, err := tut.MakeTestMinerDeal(initialState,
 			signedProposal, dataRef)
 		require.NoError(t, err)
+		dealState.AddFundsCid = &tut.GenerateCids(1)[0]
+		dealState.PublishCid = &tut.GenerateCids(1)[0]
 		if dealParams.PiecePath != filestore.Path("") {
 			dealState.PiecePath = dealParams.PiecePath
 		}
@@ -904,7 +905,6 @@ func makeExecutor(ctx context.Context,
 			metadataPath:            params.MetadataPath,
 			generateCommPError:      params.GenerateCommPError,
 			sendSignedResponseError: params.SendSignedResponseError,
-			disconnectError:         params.DisconnectError,
 			dealAcceptanceBuffer:    abi.ChainEpoch(params.DealAcceptanceBuffer),
 			fs:                      fs,
 			pieceStore:              pieceStore,
@@ -945,7 +945,6 @@ type fakeEnvironment struct {
 	metadataPath            filestore.Path
 	generateCommPError      error
 	sendSignedResponseError error
-	disconnectError         error
 	fs                      filestore.FileStore
 	pieceStore              piecestore.PieceStore
 	dealAcceptanceBuffer    abi.ChainEpoch
@@ -971,12 +970,8 @@ func (fe *fakeEnvironment) GeneratePieceCommitmentToFile(payloadCid cid.Cid, sel
 	return fe.pieceCid, fe.path, fe.metadataPath, fe.generateCommPError
 }
 
-func (fe *fakeEnvironment) SendSignedResponse(ctx context.Context, response *network.Response) error {
+func (fe *fakeEnvironment) SendSignedResponse(ctx context.Context, client peer.ID, response *storagemarket.ProposalResponse) error {
 	return fe.sendSignedResponseError
-}
-
-func (fe *fakeEnvironment) Disconnect(proposalCid cid.Cid) error {
-	return fe.disconnectError
 }
 
 func (fe *fakeEnvironment) FileStore() filestore.FileStore {

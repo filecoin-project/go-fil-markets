@@ -16,7 +16,6 @@ import (
 
 	"github.com/filecoin-project/go-fil-markets/retrievalmarket"
 	"github.com/filecoin-project/go-fil-markets/storagemarket"
-	smnet "github.com/filecoin-project/go-fil-markets/storagemarket/network"
 )
 
 // MakeTestSignedVoucher generates a random SignedVoucher that has all non-zero fields
@@ -213,8 +212,8 @@ func MakeTestSignedStorageAsk() *storagemarket.SignedStorageAsk {
 
 // MakeTestStorageNetworkProposal generates a proposal that can be sent over the
 // network to a provider
-func MakeTestStorageNetworkProposal() smnet.Proposal {
-	return smnet.Proposal{
+func MakeTestStorageNetworkProposal() storagemarket.ProposalRequest {
+	return storagemarket.ProposalRequest{
 		DealProposal: MakeTestClientDealProposal(),
 		Piece:        &storagemarket.DataRef{Root: GenerateCids(1)[0]},
 	}
@@ -222,8 +221,8 @@ func MakeTestStorageNetworkProposal() smnet.Proposal {
 
 // MakeTestStorageNetworkResponse generates a response to a proposal sent over
 // the network
-func MakeTestStorageNetworkResponse() smnet.Response {
-	return smnet.Response{
+func MakeTestStorageNetworkResponse() storagemarket.ProposalResponse {
+	return storagemarket.ProposalResponse{
 		State:          storagemarket.StorageDealSealing,
 		Proposal:       GenerateCids(1)[0],
 		PublishMessage: &(GenerateCids(1)[0]),
@@ -232,23 +231,23 @@ func MakeTestStorageNetworkResponse() smnet.Response {
 
 // MakeTestStorageNetworkSignedResponse generates a response to a proposal sent over
 // the network that is signed
-func MakeTestStorageNetworkSignedResponse() smnet.SignedResponse {
-	return smnet.SignedResponse{
+func MakeTestStorageNetworkSignedResponse() storagemarket.SignedResponse {
+	return storagemarket.SignedResponse{
 		Response:  MakeTestStorageNetworkResponse(),
 		Signature: MakeTestSignature(),
 	}
 }
 
 // MakeTestStorageAskRequest generates a request to get a provider's ask
-func MakeTestStorageAskRequest() smnet.AskRequest {
-	return smnet.AskRequest{
+func MakeTestStorageAskRequest() storagemarket.AskRequest {
+	return storagemarket.AskRequest{
 		Miner: address.TestAddress2,
 	}
 }
 
 // MakeTestStorageAskResponse generates a response to an ask request
-func MakeTestStorageAskResponse() smnet.AskResponse {
-	return smnet.AskResponse{
+func MakeTestStorageAskResponse() storagemarket.AskResponse {
+	return storagemarket.AskResponse{
 		Ask: MakeTestSignedStorageAsk(),
 	}
 }

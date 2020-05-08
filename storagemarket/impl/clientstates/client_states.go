@@ -5,12 +5,11 @@ import (
 	"github.com/filecoin-project/specs-actors/actors/runtime/exitcode"
 	"github.com/ipfs/go-cid"
 	logging "github.com/ipfs/go-log/v2"
+	peer "github.com/libp2p/go-libp2p-core/peer"
 	"golang.org/x/xerrors"
 
 	"github.com/filecoin-project/go-fil-markets/storagemarket"
 	"github.com/filecoin-project/go-fil-markets/storagemarket/impl/clientutils"
-	"github.com/filecoin-project/go-fil-markets/storagemarket/network"
-	smnet "github.com/filecoin-project/go-fil-markets/storagemarket/network"
 )
 
 var log = logging.Logger("storagemarket_impl")
@@ -19,8 +18,7 @@ var log = logging.Logger("storagemarket_impl")
 // dependencies from the storage client environment
 type ClientDealEnvironment interface {
 	Node() storagemarket.StorageClientNode
-	DealStream(proposalCid cid.Cid) (smnet.StorageDealStream, error)
-	CloseStream(proposalCid cid.Cid) error
+	WriteDealProposal(p peer.ID, proposal storagemarket.ProposalRequest) error
 }
 
 // ClientStateEntryFunc is the type for all state entry functions on a storage client
@@ -53,7 +51,7 @@ func EnsureClientFunds(ctx fsm.Context, environment ClientDealEnvironment, deal 
 func WaitForFunding(ctx fsm.Context, environment ClientDealEnvironment, deal storagemarket.ClientDeal) error {
 	node := environment.Node()
 
-	return node.WaitForMessage(ctx.Context(), deal.AddFundsCid, func(code exitcode.ExitCode, bytes []byte, err error) error {
+	return node.WaitForMessage(ctx.Context(), *deal.AddFundsCid, func(code exitcode.ExitCode, bytes []byte, err error) error {
 		if err != nil {
 			return ctx.Trigger(storagemarket.ClientEventEnsureFundsFailed, xerrors.Errorf("AddFunds err: %w", err))
 		}
@@ -67,13 +65,9 @@ func WaitForFunding(ctx fsm.Context, environment ClientDealEnvironment, deal sto
 
 // ProposeDeal sends the deal proposal to the provider
 func ProposeDeal(ctx fsm.Context, environment ClientDealEnvironment, deal storagemarket.ClientDeal) error {
-	s, err := environment.DealStream(deal.ProposalCid)
-	if err != nil {
-		return ctx.Trigger(storagemarket.ClientEventDealStreamLookupErrored, err)
-	}
 
-	proposal := network.Proposal{DealProposal: &deal.ClientDealProposal, Piece: deal.DataRef}
-	if err := s.WriteDealProposal(proposal); err != nil {
+	proposal := storagemarket.ProposalRequest{DealProposal: &deal.ClientDealProposal, Piece: deal.DataRef}
+	if err := environment.WriteDealProposal(deal.Miner, proposal); err != nil {
 		return ctx.Trigger(storagemarket.ClientEventWriteProposalFailed, err)
 	}
 
@@ -82,16 +76,8 @@ func ProposeDeal(ctx fsm.Context, environment ClientDealEnvironment, deal storag
 
 // VerifyDealResponse reads and verifies the response from the provider to the proposed deal
 func VerifyDealResponse(ctx fsm.Context, environment ClientDealEnvironment, deal storagemarket.ClientDeal) error {
-	s, err := environment.DealStream(deal.ProposalCid)
-	if err != nil {
-		return ctx.Trigger(storagemarket.ClientEventDealStreamLookupErrored, err)
-	}
 
-	resp, err := s.ReadDealResponse()
-	if err != nil {
-		return ctx.Trigger(storagemarket.ClientEventReadResponseFailed, err)
-	}
-
+	resp := *deal.LastResponse
 	tok, _, err := environment.Node().GetChainHead(ctx.Context())
 	if err != nil {
 		return ctx.Trigger(storagemarket.ClientEventResponseVerificationFailed)
@@ -107,10 +93,6 @@ func VerifyDealResponse(ctx fsm.Context, environment ClientDealEnvironment, deal
 
 	if resp.Response.State != storagemarket.StorageDealProposalAccepted {
 		return ctx.Trigger(storagemarket.ClientEventDealRejected, resp.Response.State, resp.Response.Message)
-	}
-
-	if err := environment.CloseStream(deal.ProposalCid); err != nil {
-		return ctx.Trigger(storagemarket.ClientEventStreamCloseError, err)
 	}
 
 	return ctx.Trigger(storagemarket.ClientEventDealAccepted, resp.Response.PublishMessage)
@@ -146,10 +128,6 @@ func VerifyDealActivated(ctx fsm.Context, environment ClientDealEnvironment, dea
 
 // FailDeal cleans up a failing deal
 func FailDeal(ctx fsm.Context, environment ClientDealEnvironment, deal storagemarket.ClientDeal) error {
-
-	if err := environment.CloseStream(deal.ProposalCid); err != nil {
-		return ctx.Trigger(storagemarket.ClientEventStreamCloseError, err)
-	}
 
 	// TODO: store in some sort of audit log
 	log.Errorf("deal %s failed: %s", deal.ProposalCid, deal.Message)
