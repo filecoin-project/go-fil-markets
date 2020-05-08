@@ -4,6 +4,7 @@ import (
 	"errors"
 	"testing"
 
+	"github.com/ipfs/go-cid"
 	"github.com/libp2p/go-libp2p-core/peer"
 	"github.com/stretchr/testify/require"
 
@@ -639,3 +640,14 @@ func FailStorageResponseWriter(smnet.SignedResponse) error {
 func FailStorageResponseReader() (smnet.SignedResponse, error) {
 	return smnet.SignedResponseUndefined, errors.New("read response failed")
 }
+
+// TestPeerResolver provides a fake retrievalmarket PeerResolver
+type TestPeerResolver struct {
+	Peers         []rm.RetrievalPeer
+	ResolverError error
+}
+
+func (tpr TestPeerResolver) GetPeers(cid.Cid) ([]rm.RetrievalPeer, error) {
+	return tpr.Peers, tpr.ResolverError
+}
+var _ rm.PeerResolver = &TestPeerResolver{}

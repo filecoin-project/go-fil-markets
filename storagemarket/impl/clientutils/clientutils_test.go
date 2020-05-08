@@ -12,10 +12,7 @@ import (
 	"github.com/filecoin-project/specs-actors/actors/abi"
 	"github.com/filecoin-project/specs-actors/actors/crypto"
 	"github.com/ipfs/go-cid"
-	ipld "github.com/ipld/go-ipld-prime"
-	basicnode "github.com/ipld/go-ipld-prime/node/basic"
-	"github.com/ipld/go-ipld-prime/traversal/selector"
-	"github.com/ipld/go-ipld-prime/traversal/selector/builder"
+	"github.com/ipld/go-ipld-prime"
 	"github.com/stretchr/testify/require"
 
 	"github.com/filecoin-project/go-fil-markets/shared"
@@ -48,9 +45,7 @@ func TestCommP(t *testing.T) {
 			TransferType: storagemarket.TTGraphsync,
 			Root:         root,
 		}
-		ssb := builder.NewSelectorSpecBuilder(basicnode.Style.Any)
-		allSelector := ssb.ExploreRecursive(selector.RecursionLimitNone(),
-			ssb.ExploreAll(ssb.ExploreRecursiveEdge())).Node()
+		allSelector := shared.AllSelector()
 		t.Run("when pieceIO succeeds", func(t *testing.T) {
 			pieceCid := shared_testutil.GenerateCids(1)[0]
 			pieceSize := abi.UnpaddedPieceSize(rand.Uint64())

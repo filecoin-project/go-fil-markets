@@ -1,4 +1,4 @@
-package retrievalimpl
+package shared
 
 import (
 	"github.com/ipld/go-ipld-prime"
@@ -7,7 +7,8 @@ import (
 	"github.com/ipld/go-ipld-prime/traversal/selector/builder"
 )
 
-func allSelector() ipld.Node {
+// entire DAG selector
+func AllSelector() ipld.Node {
 	ssb := builder.NewSelectorSpecBuilder(basicnode.Style.Any)
 	return ssb.ExploreRecursive(selector.RecursionLimitNone(),
 		ssb.ExploreAll(ssb.ExploreRecursiveEdge())).

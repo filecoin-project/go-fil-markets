@@ -15,14 +15,12 @@ import (
 	"github.com/ipfs/go-cid"
 	logging "github.com/ipfs/go-log/v2"
 	"github.com/ipld/go-ipld-prime"
-	basicnode "github.com/ipld/go-ipld-prime/node/basic"
-	"github.com/ipld/go-ipld-prime/traversal/selector"
-	"github.com/ipld/go-ipld-prime/traversal/selector/builder"
 	"github.com/libp2p/go-libp2p-core/peer"
 	"golang.org/x/xerrors"
 
 	"github.com/filecoin-project/go-fil-markets/filestore"
 	"github.com/filecoin-project/go-fil-markets/piecestore"
+	"github.com/filecoin-project/go-fil-markets/shared"
 	"github.com/filecoin-project/go-fil-markets/storagemarket"
 	"github.com/filecoin-project/go-fil-markets/storagemarket/impl/providerutils"
 	"github.com/filecoin-project/go-fil-markets/storagemarket/impl/requestvalidation"
@@ -115,13 +113,6 @@ func TransferData(ctx fsm.Context, environment ProviderDealEnvironment, deal sto
 		return ctx.Trigger(storagemarket.ProviderEventWaitingForManualData)
 	}
 
-	ssb := builder.NewSelectorSpecBuilder(basicnode.Style.Any)
-
-	// this is the selector for "get the whole DAG"
-	// TODO: support storage deals with custom payload selectors
-	allSelector := ssb.ExploreRecursive(selector.RecursionLimitNone(),
-		ssb.ExploreAll(ssb.ExploreRecursiveEdge())).Node()
-
 	log.Infof("fetching data for a deal %s", deal.ProposalCid)
 
 	// initiate a pull data transfer. This will complete asynchronously and the
@@ -131,7 +122,7 @@ func TransferData(ctx fsm.Context, environment ProviderDealEnvironment, deal sto
 		deal.Client,
 		&requestvalidation.StorageDataTransferVoucher{Proposal: deal.ProposalCid},
 		deal.Ref.Root,
-		allSelector,
+		shared.AllSelector(),
 	)
 
 	if err != nil {
@@ -144,12 +135,8 @@ func TransferData(ctx fsm.Context, environment ProviderDealEnvironment, deal sto
 // VerifyData verifies that data received for a deal matches the pieceCID
 // in the proposal
 func VerifyData(ctx fsm.Context, environment ProviderDealEnvironment, deal storagemarket.MinerDeal) error {
-	// entire DAG selector
-	ssb := builder.NewSelectorSpecBuilder(basicnode.Style.Any)
-	allSelector := ssb.ExploreRecursive(selector.RecursionLimitNone(),
-		ssb.ExploreAll(ssb.ExploreRecursiveEdge())).Node()
 
-	pieceCid, piecePath, metadataPath, err := environment.GeneratePieceCommitmentToFile(deal.Ref.Root, allSelector)
+	pieceCid, piecePath, metadataPath, err := environment.GeneratePieceCommitmentToFile(deal.Ref.Root, shared.AllSelector())
 	if err != nil {
 		return ctx.Trigger(storagemarket.ProviderEventGeneratePieceCIDFailed, err)
 	}

@@ -14,15 +14,13 @@ import (
 	bstore "github.com/ipfs/go-ipfs-blockstore"
 	"github.com/ipld/go-ipld-prime"
 	cidlink "github.com/ipld/go-ipld-prime/linking/cid"
-	basicnode "github.com/ipld/go-ipld-prime/node/basic"
-	"github.com/ipld/go-ipld-prime/traversal/selector"
-	"github.com/ipld/go-ipld-prime/traversal/selector/builder"
 	"github.com/stretchr/testify/require"
 
 	"github.com/filecoin-project/go-fil-markets/pieceio/cario"
 	"github.com/filecoin-project/go-fil-markets/piecestore"
 	"github.com/filecoin-project/go-fil-markets/retrievalmarket/impl/blockunsealing"
 	"github.com/filecoin-project/go-fil-markets/retrievalmarket/impl/testnodes"
+	"github.com/filecoin-project/go-fil-markets/shared"
 	tut "github.com/filecoin-project/go-fil-markets/shared_testutil"
 )
 
@@ -30,11 +28,8 @@ func TestNewLoaderWithUnsealing(t *testing.T) {
 	ctx := context.Background()
 	cio := cario.NewCarIO()
 	testdata := tut.NewTestIPLDTree()
-	ssb := builder.NewSelectorSpecBuilder(basicnode.Style.Any)
-	allSelector := ssb.ExploreRecursive(selector.RecursionLimitNone(),
-		ssb.ExploreAll(ssb.ExploreRecursiveEdge())).Node()
 	var carBuffer bytes.Buffer
-	err := cio.WriteCar(ctx, testdata, testdata.RootNodeLnk.(cidlink.Link).Cid, allSelector, &carBuffer)
+	err := cio.WriteCar(ctx, testdata, testdata.RootNodeLnk.(cidlink.Link).Cid, shared.AllSelector(), &carBuffer)
 	require.NoError(t, err)
 	carData := carBuffer.Bytes()
 

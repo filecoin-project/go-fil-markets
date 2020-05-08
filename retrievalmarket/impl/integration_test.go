@@ -3,6 +3,7 @@ package retrievalimpl_test
 import (
 	"bytes"
 	"context"
+	"path/filepath"
 	"testing"
 	"time"
 
@@ -14,7 +15,6 @@ import (
 	"github.com/ipld/go-ipld-prime"
 	cidlink "github.com/ipld/go-ipld-prime/linking/cid"
 	basicnode "github.com/ipld/go-ipld-prime/node/basic"
-	"github.com/ipld/go-ipld-prime/traversal/selector"
 	"github.com/ipld/go-ipld-prime/traversal/selector/builder"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -25,6 +25,7 @@ import (
 	retrievalimpl "github.com/filecoin-project/go-fil-markets/retrievalmarket/impl"
 	"github.com/filecoin-project/go-fil-markets/retrievalmarket/impl/testnodes"
 	rmnet "github.com/filecoin-project/go-fil-markets/retrievalmarket/network"
+	"github.com/filecoin-project/go-fil-markets/shared"
 	tut "github.com/filecoin-project/go-fil-markets/shared_testutil"
 )
 
@@ -85,7 +86,7 @@ func requireSetupTestClientAndProvider(bgCtx context.Context, t *testing.T, payC
 		CreatePaychCID: cids[0],
 		AddFundsCID:    cids[1],
 	})
-	client, err := retrievalimpl.NewClient(nw1, testData.Bs1, rcNode1, &testPeerResolver{}, testData.Ds1, testData.RetrievalStoredCounter1)
+	client, err := retrievalimpl.NewClient(nw1, testData.Bs1, rcNode1, &tut.TestPeerResolver{}, testData.Ds1, testData.RetrievalStoredCounter1)
 	require.NoError(t, err)
 	nw2 := rmnet.NewFromLibp2pHost(testData.Host2)
 	providerNode := testnodes.NewTestRetrievalProviderNode()
@@ -135,9 +136,6 @@ func TestClientCanMakeDealWithProvider(t *testing.T) {
 
 	ssb := builder.NewSelectorSpecBuilder(basicnode.Style.Any)
 
-	allSelector := ssb.ExploreRecursive(selector.RecursionLimitNone(),
-		ssb.ExploreAll(ssb.ExploreRecursiveEdge())).Node()
-
 	partialSelector := ssb.ExploreFields(func(specBuilder builder.ExploreFieldsSpecBuilder) {
 		specBuilder.Insert("Links", ssb.ExploreIndex(0, ssb.ExploreFields(func(specBuilder builder.ExploreFieldsSpecBuilder) {
 			specBuilder.Insert("Hash", ssb.Matcher())
@@ -177,12 +175,12 @@ func TestClientCanMakeDealWithProvider(t *testing.T) {
 			filesize:    19000,
 			voucherAmts: []abi.TokenAmount{abi.NewTokenAmount(10136000), abi.NewTokenAmount(9784000)},
 			unsealing:   true},
-		{name: "multi-block file retrieval succeeds with V1 params and allSelector",
+		{name: "multi-block file retrieval succeeds with V1 params and AllSelector",
 			filename:    "lorem.txt",
 			filesize:    19000,
 			voucherAmts: []abi.TokenAmount{abi.NewTokenAmount(10136000), abi.NewTokenAmount(9784000)},
 			paramsV1:    true,
-			selector:    allSelector,
+			selector:    shared.AllSelector(),
 			unsealing:   false},
 		{name: "partial file retrieval succeeds with V1 params and selector recursion depth 1",
 			filename:    "lorem.txt",
@@ -203,7 +201,10 @@ func TestClientCanMakeDealWithProvider(t *testing.T) {
 
 			// Inject a unixFS file on the provider side to its blockstore
 			// obtained via `ls -laf` on this file
-			pieceLink := testData.LoadUnixFSFile(t, testCase.filename, true)
+
+			fpath := filepath.Join("retrievalmarket", "impl", "fixtures", testCase.filename)
+
+			pieceLink := testData.LoadUnixFSFile(t, fpath, true)
 			c, ok := pieceLink.(cidlink.Link)
 			require.True(t, ok)
 			payloadCID := c.Cid
@@ -226,7 +227,7 @@ func TestClientCanMakeDealWithProvider(t *testing.T) {
 			if testCase.unsealing {
 				cio := cario.NewCarIO()
 				var buf bytes.Buffer
-				err := cio.WriteCar(bgCtx, testData.Bs2, payloadCID, testData.AllSelector, &buf)
+				err := cio.WriteCar(bgCtx, testData.Bs2, payloadCID, shared.AllSelector(), &buf)
 				require.NoError(t, err)
 				carData := buf.Bytes()
 				sectorID := uint64(100000)
@@ -415,7 +416,7 @@ func setupClient(
 		CreatePaychCID:         cids[0],
 		AddFundsCID:            cids[1],
 	})
-	client, err := retrievalimpl.NewClient(nw1, testData.Bs1, clientNode, &testPeerResolver{}, testData.Ds1, testData.RetrievalStoredCounter1)
+	client, err := retrievalimpl.NewClient(nw1, testData.Bs1, clientNode, &tut.TestPeerResolver{}, testData.Ds1, testData.RetrievalStoredCounter1)
 	return &createdChan, &newLaneAddr, &createdVoucher, client, err
 }
 
