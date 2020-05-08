@@ -54,8 +54,18 @@ Hotfix release
 
 # go-fil-markets 0.2.0
 
+# Changelog
+
 - See previous hotfixes which include major update of go-ipld-prime for speed
 - We have seperated all calls to submit messages to chain from calls to actually
 wait to see those messages on chain -- this allows us track whether we've already made the submission should the module restart
 - Set Miner peer.ID on MinerDeal to fix a bug with JSON serialization
 - Add an interface for listening to events on deals in the StorageClient
+
+# go-fil-markets 0.2.1
+
+# Changelog
+
+- Update to data transfer 0.3.0
+- Bug fixes for status maps
+- Move to not keeping deal streams open in storage market
