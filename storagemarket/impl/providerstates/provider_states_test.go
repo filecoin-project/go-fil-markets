@@ -28,6 +28,7 @@ import (
 	"github.com/filecoin-project/go-fil-markets/storagemarket"
 	"github.com/filecoin-project/go-fil-markets/storagemarket/impl/blockrecorder"
 	"github.com/filecoin-project/go-fil-markets/storagemarket/impl/providerstates"
+	"github.com/filecoin-project/go-fil-markets/storagemarket/network"
 	"github.com/filecoin-project/go-fil-markets/storagemarket/testnodes"
 )
 
@@ -905,6 +906,7 @@ func makeExecutor(ctx context.Context,
 			metadataPath:            params.MetadataPath,
 			generateCommPError:      params.GenerateCommPError,
 			sendSignedResponseError: params.SendSignedResponseError,
+			disconnectError:         params.DisconnectError,
 			dealAcceptanceBuffer:    abi.ChainEpoch(params.DealAcceptanceBuffer),
 			fs:                      fs,
 			pieceStore:              pieceStore,
@@ -945,6 +947,7 @@ type fakeEnvironment struct {
 	metadataPath            filestore.Path
 	generateCommPError      error
 	sendSignedResponseError error
+	disconnectError         error
 	fs                      filestore.FileStore
 	pieceStore              piecestore.PieceStore
 	dealAcceptanceBuffer    abi.ChainEpoch
@@ -970,8 +973,12 @@ func (fe *fakeEnvironment) GeneratePieceCommitmentToFile(payloadCid cid.Cid, sel
 	return fe.pieceCid, fe.path, fe.metadataPath, fe.generateCommPError
 }
 
-func (fe *fakeEnvironment) SendSignedResponse(ctx context.Context, client peer.ID, response *storagemarket.ProposalResponse) error {
+func (fe *fakeEnvironment) SendSignedResponse(ctx context.Context, response *network.Response) error {
 	return fe.sendSignedResponseError
+}
+
+func (fe *fakeEnvironment) Disconnect(proposalCid cid.Cid) error {
+	return fe.disconnectError
 }
 
 func (fe *fakeEnvironment) FileStore() filestore.FileStore {

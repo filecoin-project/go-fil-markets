@@ -28,6 +28,7 @@ import (
 	"github.com/filecoin-project/go-fil-markets/storagemarket/impl/blockrecorder"
 	"github.com/filecoin-project/go-fil-markets/storagemarket/impl/providerutils"
 	"github.com/filecoin-project/go-fil-markets/storagemarket/impl/requestvalidation"
+	"github.com/filecoin-project/go-fil-markets/storagemarket/network"
 )
 
 func TestVerifyProposal(t *testing.T) {
@@ -90,7 +91,7 @@ func TestSignMinerData(t *testing.T) {
 			shouldErr:    false,
 		},
 		"cbor dump errors": {
-			data:         &storagemarket.ProposalResponse{},
+			data:         &network.Response{},
 			workerLookup: successLookup,
 			signBytes:    successSign,
 			shouldErr:    true,

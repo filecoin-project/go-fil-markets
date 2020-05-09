@@ -4,7 +4,6 @@ import (
 	"bufio"
 
 	cborutil "github.com/filecoin-project/go-cbor-util"
-	"github.com/filecoin-project/go-fil-markets/storagemarket"
 	"github.com/libp2p/go-libp2p-core/mux"
 	"github.com/libp2p/go-libp2p-core/peer"
 )
@@ -17,34 +16,34 @@ type askStream struct {
 
 var _ StorageAskStream = (*askStream)(nil)
 
-func (as *askStream) ReadAskRequest() (storagemarket.AskRequest, error) {
-	var a storagemarket.AskRequest
+func (as *askStream) ReadAskRequest() (AskRequest, error) {
+	var a AskRequest
 
 	if err := a.UnmarshalCBOR(as.buffered); err != nil {
 		log.Warn(err)
-		return storagemarket.AskRequestUndefined, err
+		return AskRequestUndefined, err
 
 	}
 
 	return a, nil
 }
 
-func (as *askStream) WriteAskRequest(q storagemarket.AskRequest) error {
+func (as *askStream) WriteAskRequest(q AskRequest) error {
 	return cborutil.WriteCborRPC(as.rw, &q)
 }
 
-func (as *askStream) ReadAskResponse() (storagemarket.AskResponse, error) {
-	var resp storagemarket.AskResponse
+func (as *askStream) ReadAskResponse() (AskResponse, error) {
+	var resp AskResponse
 
 	if err := resp.UnmarshalCBOR(as.buffered); err != nil {
 		log.Warn(err)
-		return storagemarket.AskResponseUndefined, err
+		return AskResponseUndefined, err
 	}
 
 	return resp, nil
 }
 
-func (as *askStream) WriteAskResponse(qr storagemarket.AskResponse) error {
+func (as *askStream) WriteAskResponse(qr AskResponse) error {
 	return cborutil.WriteCborRPC(as.rw, &qr)
 }
 

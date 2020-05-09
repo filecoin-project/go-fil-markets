@@ -13,6 +13,7 @@ import (
 	"github.com/filecoin-project/go-fil-markets/pieceio"
 	"github.com/filecoin-project/go-fil-markets/shared"
 	"github.com/filecoin-project/go-fil-markets/storagemarket"
+	"github.com/filecoin-project/go-fil-markets/storagemarket/network"
 )
 
 // CommP calculates the commP for a given dataref
@@ -38,7 +39,7 @@ type VerifyFunc func(context.Context, crypto.Signature, address.Address, []byte,
 
 // VerifyResponse verifies the signature on the given signed response matches
 // the given miner address, using the given signature verification function
-func VerifyResponse(ctx context.Context, resp storagemarket.SignedResponse, minerAddr address.Address, tok shared.TipSetToken, verifier VerifyFunc) error {
+func VerifyResponse(ctx context.Context, resp network.SignedResponse, minerAddr address.Address, tok shared.TipSetToken, verifier VerifyFunc) error {
 	b, err := cborutil.Dump(&resp.Response)
 	if err != nil {
 		return err

@@ -10,7 +10,6 @@ import (
 
 	rm "github.com/filecoin-project/go-fil-markets/retrievalmarket"
 	rmnet "github.com/filecoin-project/go-fil-markets/retrievalmarket/network"
-	"github.com/filecoin-project/go-fil-markets/storagemarket"
 	smnet "github.com/filecoin-project/go-fil-markets/storagemarket/network"
 )
 
@@ -506,16 +505,16 @@ func StubbedDealPaymentReader(payment rm.DealPayment) DealPaymentReader {
 }
 
 // StorageDealProposalReader is a function to mock reading deal proposals.
-type StorageDealProposalReader func() (storagemarket.ProposalRequest, error)
+type StorageDealProposalReader func() (smnet.Proposal, error)
 
 // StorageDealResponseReader is a function to mock reading deal responses.
-type StorageDealResponseReader func() (storagemarket.SignedResponse, error)
+type StorageDealResponseReader func() (smnet.SignedResponse, error)
 
 // StorageDealResponseWriter is a function to mock writing deal responses.
-type StorageDealResponseWriter func(storagemarket.SignedResponse) error
+type StorageDealResponseWriter func(smnet.SignedResponse) error
 
 // StorageDealProposalWriter is a function to mock writing deal proposals.
-type StorageDealProposalWriter func(storagemarket.ProposalRequest) error
+type StorageDealProposalWriter func(smnet.Proposal) error
 
 // TestStorageDealStream is a retrieval deal stream with predefined
 // stubbed behavior.
@@ -563,22 +562,22 @@ func NewTestStorageDealStream(params TestStorageDealStreamParams) smnet.StorageD
 }
 
 // ReadDealProposal calls the mocked deal proposal reader function.
-func (tsds *TestStorageDealStream) ReadDealProposal() (storagemarket.ProposalRequest, error) {
+func (tsds *TestStorageDealStream) ReadDealProposal() (smnet.Proposal, error) {
 	return tsds.proposalReader()
 }
 
 // WriteDealProposal calls the mocked deal proposal writer function.
-func (tsds *TestStorageDealStream) WriteDealProposal(dealProposal storagemarket.ProposalRequest) error {
+func (tsds *TestStorageDealStream) WriteDealProposal(dealProposal smnet.Proposal) error {
 	return tsds.proposalWriter(dealProposal)
 }
 
 // ReadDealResponse calls the mocked deal response reader function.
-func (tsds *TestStorageDealStream) ReadDealResponse() (storagemarket.SignedResponse, error) {
+func (tsds *TestStorageDealStream) ReadDealResponse() (smnet.SignedResponse, error) {
 	return tsds.responseReader()
 }
 
 // WriteDealResponse calls the mocked deal response writer function.
-func (tsds *TestStorageDealStream) WriteDealResponse(dealResponse storagemarket.SignedResponse) error {
+func (tsds *TestStorageDealStream) WriteDealResponse(dealResponse smnet.SignedResponse) error {
 	return tsds.responseWriter(dealResponse)
 }
 
@@ -589,57 +588,57 @@ func (tsds TestStorageDealStream) RemotePeer() peer.ID { return tsds.p }
 func (tsds TestStorageDealStream) Close() error { return nil }
 
 // TrivialStorageDealProposalReader succeeds trivially, returning an empty proposal.
-func TrivialStorageDealProposalReader() (storagemarket.ProposalRequest, error) {
-	return storagemarket.ProposalRequest{}, nil
+func TrivialStorageDealProposalReader() (smnet.Proposal, error) {
+	return smnet.Proposal{}, nil
 }
 
 // TrivialStorageDealResponseReader succeeds trivially, returning an empty deal response.
-func TrivialStorageDealResponseReader() (storagemarket.SignedResponse, error) {
-	return storagemarket.SignedResponse{}, nil
+func TrivialStorageDealResponseReader() (smnet.SignedResponse, error) {
+	return smnet.SignedResponse{}, nil
 }
 
 // TrivialStorageDealProposalWriter succeeds trivially, returning no error.
-func TrivialStorageDealProposalWriter(storagemarket.ProposalRequest) error {
+func TrivialStorageDealProposalWriter(smnet.Proposal) error {
 	return nil
 }
 
 // TrivialStorageDealResponseWriter succeeds trivially, returning no error.
-func TrivialStorageDealResponseWriter(storagemarket.SignedResponse) error {
+func TrivialStorageDealResponseWriter(smnet.SignedResponse) error {
 	return nil
 }
 
 // StubbedStorageProposalReader returns the given proposal when called
-func StubbedStorageProposalReader(proposal storagemarket.ProposalRequest) StorageDealProposalReader {
-	return func() (storagemarket.ProposalRequest, error) {
+func StubbedStorageProposalReader(proposal smnet.Proposal) StorageDealProposalReader {
+	return func() (smnet.Proposal, error) {
 		return proposal, nil
 	}
 }
 
 // StubbedStorageResponseReader returns the given deal response when called
-func StubbedStorageResponseReader(response storagemarket.SignedResponse) StorageDealResponseReader {
-	return func() (storagemarket.SignedResponse, error) {
+func StubbedStorageResponseReader(response smnet.SignedResponse) StorageDealResponseReader {
+	return func() (smnet.SignedResponse, error) {
 		return response, nil
 	}
 }
 
 // FailStorageProposalWriter always fails
-func FailStorageProposalWriter(storagemarket.ProposalRequest) error {
+func FailStorageProposalWriter(smnet.Proposal) error {
 	return errors.New("write proposal failed")
 }
 
 // FailStorageProposalReader always fails
-func FailStorageProposalReader() (storagemarket.ProposalRequest, error) {
-	return storagemarket.ProposalRequestUndefined, errors.New("read proposal failed")
+func FailStorageProposalReader() (smnet.Proposal, error) {
+	return smnet.ProposalUndefined, errors.New("read proposal failed")
 }
 
 // FailStorageResponseWriter always fails
-func FailStorageResponseWriter(storagemarket.SignedResponse) error {
+func FailStorageResponseWriter(smnet.SignedResponse) error {
 	return errors.New("write proposal failed")
 }
 
 // FailStorageResponseReader always fails
-func FailStorageResponseReader() (storagemarket.SignedResponse, error) {
-	return storagemarket.SignedResponseUndefined, errors.New("read response failed")
+func FailStorageResponseReader() (smnet.SignedResponse, error) {
+	return smnet.SignedResponseUndefined, errors.New("read response failed")
 }
 
 // TestPeerResolver provides a fake retrievalmarket PeerResolver
@@ -651,5 +650,4 @@ type TestPeerResolver struct {
 func (tpr TestPeerResolver) GetPeers(cid.Cid) ([]rm.RetrievalPeer, error) {
 	return tpr.Peers, tpr.ResolverError
 }
-
 var _ rm.PeerResolver = &TestPeerResolver{}
