@@ -69,3 +69,10 @@ wait to see those messages on chain -- this allows us track whether we've alread
 - Update to data transfer 0.3.0
 - Bug fixes for status maps
 - Move to not keeping deal streams open in storage market
+
+# go-fil-markets 0.2.2
+
+# Changelog
+
+- V26 Params update
+- Revert closing streams do to incompatibilities
