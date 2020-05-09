@@ -93,7 +93,6 @@ func NewClient(
 }
 
 func (c *Client) Run(ctx context.Context) {
-	_ = c.net.SetDelegate(c)
 }
 
 func (c *Client) Stop() {
@@ -158,7 +157,7 @@ func (c *Client) GetAsk(ctx context.Context, info storagemarket.StorageProviderI
 		return nil, xerrors.Errorf("failed to open stream to miner: %w", err)
 	}
 
-	request := storagemarket.AskRequest{Miner: info.Address}
+	request := network.AskRequest{Miner: info.Address}
 	if err := s.WriteAskRequest(request); err != nil {
 		return nil, xerrors.Errorf("failed to send ask request: %w", err)
 	}
@@ -301,25 +300,6 @@ func (c *Client) SubscribeToEvents(subscriber storagemarket.ClientSubscriber) sh
 	return shared.Unsubscribe(c.pubSub.Subscribe(subscriber))
 }
 
-func (c *Client) HandleAskStream(s network.StorageAskStream) {
-	s.Close()
-}
-
-func (c *Client) HandleDealStream(s network.StorageDealStream) {
-	defer s.Close()
-	log.Info("Handling storage deal proposal!")
-
-	response, err := s.ReadDealResponse()
-	if err != nil {
-		log.Errorf("%+v", err)
-		return
-	}
-	err = c.statemachines.Send(response.Response.Proposal, storagemarket.ClientEventReceiveResponse, response)
-	if err != nil {
-		log.Errorf("%+v", err)
-	}
-}
-
 func (c *Client) dispatch(eventName fsm.EventName, deal fsm.StateType) {
 	evt, ok := eventName.(storagemarket.ClientEvent)
 	if !ok {
@@ -367,11 +347,29 @@ func (c *clientDealEnvironment) Node() storagemarket.StorageClientNode {
 	return c.c.node
 }
 
-func (c *clientDealEnvironment) WriteDealProposal(p peer.ID, proposal storagemarket.ProposalRequest) error {
+func (c *clientDealEnvironment) WriteDealProposal(p peer.ID, proposalCid cid.Cid, proposal network.Proposal) error {
 	s, err := c.c.net.NewDealStream(p)
+	if err != nil {
+		return err
+	}
+	err = c.c.conns.AddStream(proposalCid, s)
 	if err != nil {
 		return err
 	}
 	err = s.WriteDealProposal(proposal)
 	return err
 }
+
+func (c *clientDealEnvironment) ReadDealResponse(proposalCid cid.Cid) (network.SignedResponse, error) {
+	s, err := c.c.conns.DealStream(proposalCid)
+	if err != nil {
+		return network.SignedResponseUndefined, err
+	}
+	return s.ReadDealResponse()
+}
+
+func (c *clientDealEnvironment) CloseStream(proposalCid cid.Cid) error {
+	return c.c.conns.Disconnect(proposalCid)
+}
+
+var _ clientstates.ClientDealEnvironment = &clientDealEnvironment{}

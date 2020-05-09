@@ -139,8 +139,9 @@ func (p *Provider) HandleDealStream(s network.StorageDealStream) {
 	err := p.receiveDeal(s)
 	if err != nil {
 		log.Errorf("%+v", err)
+		s.Close()
+		return
 	}
-	s.Close()
 }
 
 func (p *Provider) receiveDeal(s network.StorageDealStream) error {
@@ -164,6 +165,10 @@ func (p *Provider) receiveDeal(s network.StorageDealStream) error {
 	}
 
 	err = p.deals.Begin(proposalNd.Cid(), deal)
+	if err != nil {
+		return err
+	}
+	err = p.conns.AddStream(proposalNd.Cid(), s)
 	if err != nil {
 		return err
 	}
@@ -298,7 +303,7 @@ func (p *Provider) HandleAskStream(s network.StorageAskStream) {
 		return
 	}
 
-	resp := storagemarket.AskResponse{
+	resp := network.AskResponse{
 		Ask: p.storedAsk.GetAsk(ar.Miner),
 	}
 
@@ -408,7 +413,11 @@ func (p *providerDealEnvironment) PieceStore() piecestore.PieceStore {
 	return p.p.pieceStore
 }
 
-func (p *providerDealEnvironment) SendSignedResponse(ctx context.Context, client peer.ID, resp *storagemarket.ProposalResponse) error {
+func (p *providerDealEnvironment) SendSignedResponse(ctx context.Context, resp *network.Response) error {
+	s, err := p.p.conns.DealStream(resp.Proposal)
+	if err != nil {
+		return xerrors.Errorf("couldn't send response: %w", err)
+	}
 
 	tok, _, err := p.p.spn.GetChainHead(ctx)
 	if err != nil {
@@ -420,18 +429,21 @@ func (p *providerDealEnvironment) SendSignedResponse(ctx context.Context, client
 		return xerrors.Errorf("failed to sign response message: %w", err)
 	}
 
-	signedResponse := storagemarket.SignedResponse{
+	signedResponse := network.SignedResponse{
 		Response:  *resp,
 		Signature: sig,
 	}
 
-	s, err := p.p.net.NewDealStream(client)
-	if err != nil {
-		return err
-	}
-
 	err = s.WriteDealResponse(signedResponse)
+	if err != nil {
+		// Assume client disconnected
+		_ = p.p.conns.Disconnect(resp.Proposal)
+	}
 	return err
+}
+
+func (p *providerDealEnvironment) Disconnect(proposalCid cid.Cid) error {
+	return p.p.conns.Disconnect(proposalCid)
 }
 
 func (p *providerDealEnvironment) DealAcceptanceBuffer() abi.ChainEpoch {

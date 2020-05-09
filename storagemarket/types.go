@@ -17,7 +17,7 @@ import (
 	"github.com/filecoin-project/go-fil-markets/shared"
 )
 
-//go:generate cbor-gen-for ClientDeal MinerDeal Balance SignedStorageAsk StorageAsk StorageDeal DataRef AskRequest AskResponse ProposalRequest ProposalResponse SignedResponse
+//go:generate cbor-gen-for ClientDeal MinerDeal Balance SignedStorageAsk StorageAsk StorageDeal DataRef
 
 const DealProtocolID = "/fil/storage/mk/1.0.1"
 const AskProtocolID = "/fil/storage/ask/1.0.1"
@@ -46,7 +46,6 @@ const (
 	StorageDealValidating          // Verifying that deal parameters are good
 	StorageDealTransferring        // Moving data
 	StorageDealWaitingForData      // Manual transfer
-	StorageDealWaitingForResponse  // Waiting for a response from the provider
 	StorageDealVerifyData          // Verify transferred data - generate CAR / piece data
 	StorageDealEnsureProviderFunds // Ensuring that provider collateral is sufficient
 	StorageDealEnsureClientFunds   // Ensuring that client funds are sufficient
@@ -73,7 +72,6 @@ var DealStates = map[StorageDealStatus]string{
 	StorageDealValidating:          "StorageDealValidating",
 	StorageDealTransferring:        "StorageDealTransferring",
 	StorageDealWaitingForData:      "StorageDealWaitingForData",
-	StorageDealWaitingForResponse:  "StorageDealWaitingForResponse",
 	StorageDealVerifyData:          "StorageDealVerifyData",
 	StorageDealEnsureProviderFunds: "StorageDealEnsureProviderFunds",
 	StorageDealEnsureClientFunds:   "StorageDealEnsureClientFunds",
@@ -277,7 +275,6 @@ type ClientDeal struct {
 	DataRef        *DataRef
 	Message        string
 	PublishMessage *cid.Cid
-	LastResponse   *SignedResponse
 }
 
 type ClientEvent uint64
@@ -301,8 +298,8 @@ const (
 	// ClientEventDealProposed happens when a new proposal is sent to a provider
 	ClientEventDealProposed
 
-	// ClientEventReceiveResponse happens when a new deal response is received
-	ClientEventReceiveResponse
+	// ClientEventDealStreamLookupErrored the deal stream for a deal could not be found
+	ClientEventDealStreamLookupErrored
 
 	// ClientEventReadResponseFailed means a network error occurred reading a deal response
 	ClientEventReadResponseFailed
@@ -346,7 +343,8 @@ var ClientEvents = map[ClientEvent]string{
 	ClientEventFundsEnsured:               "ClientEventFundsEnsured",
 	ClientEventWriteProposalFailed:        "ClientEventWriteProposalFailed",
 	ClientEventDealProposed:               "ClientEventDealProposed",
-	ClientEventReceiveResponse:            "ClientEventReceiveResponse",
+	ClientEventDealStreamLookupErrored:    "ClientEventDealStreamLookupErrored",
+	ClientEventReadResponseFailed:         "ClientEventReadResponseFailed",
 	ClientEventResponseVerificationFailed: "ClientEventResponseVerificationFailed",
 	ClientEventResponseDealDidNotMatch:    "ClientEventResponseDealDidNotMatch",
 	ClientEventStreamCloseError:           "ClientEventStreamCloseError",
@@ -545,49 +543,3 @@ type StorageClient interface {
 
 	SubscribeToEvents(subscriber ClientSubscriber) shared.Unsubscribe
 }
-
-// ProposalRequest is the data sent over the network from client to provider when proposing
-// a deal
-type ProposalRequest struct {
-	DealProposal *market.ClientDealProposal
-
-	Piece *DataRef
-}
-
-var ProposalRequestUndefined = ProposalRequest{}
-
-// ProposalResponse is a response to a proposal sent over the network
-type ProposalResponse struct {
-	State StorageDealStatus
-
-	// DealProposalRejected
-	Message  string
-	Proposal cid.Cid
-
-	// StorageDealProposalAccepted
-	PublishMessage *cid.Cid
-}
-
-// SignedResponse is a response that is signed
-type SignedResponse struct {
-	Response ProposalResponse
-
-	Signature *crypto.Signature
-}
-
-var SignedResponseUndefined = SignedResponse{}
-
-// AskRequest is a request for current ask parameters for a given miner
-type AskRequest struct {
-	Miner address.Address
-}
-
-var AskRequestUndefined = AskRequest{}
-
-// AskResponse is the response sent over the network in response
-// to an ask request
-type AskResponse struct {
-	Ask *SignedStorageAsk
-}
-
-var AskResponseUndefined = AskResponse{}

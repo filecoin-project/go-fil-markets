@@ -24,6 +24,7 @@ import (
 	"github.com/filecoin-project/go-fil-markets/storagemarket"
 	"github.com/filecoin-project/go-fil-markets/storagemarket/impl/providerutils"
 	"github.com/filecoin-project/go-fil-markets/storagemarket/impl/requestvalidation"
+	"github.com/filecoin-project/go-fil-markets/storagemarket/network"
 )
 
 var log = logging.Logger("providerstates")
@@ -36,7 +37,8 @@ type ProviderDealEnvironment interface {
 	Ask() storagemarket.StorageAsk
 	StartDataTransfer(ctx context.Context, to peer.ID, voucher datatransfer.Voucher, baseCid cid.Cid, selector ipld.Node) error
 	GeneratePieceCommitmentToFile(payloadCid cid.Cid, selector ipld.Node) (cid.Cid, filestore.Path, filestore.Path, error)
-	SendSignedResponse(ctx context.Context, client peer.ID, response *storagemarket.ProposalResponse) error
+	SendSignedResponse(ctx context.Context, response *network.Response) error
+	Disconnect(proposalCid cid.Cid) error
 	FileStore() filestore.FileStore
 	PieceStore() piecestore.PieceStore
 	DealAcceptanceBuffer() abi.ChainEpoch
@@ -221,7 +223,7 @@ func WaitForPublish(ctx fsm.Context, environment ProviderDealEnvironment, deal s
 			return ctx.Trigger(storagemarket.ProviderEventDealPublishError, xerrors.Errorf("PublishStorageDeals error unmarshalling result: %w", err))
 		}
 
-		err = environment.SendSignedResponse(ctx.Context(), deal.Client, &storagemarket.ProposalResponse{
+		err = environment.SendSignedResponse(ctx.Context(), &network.Response{
 			State:          storagemarket.StorageDealProposalAccepted,
 			Proposal:       deal.ProposalCid,
 			PublishMessage: deal.PublishCid,
@@ -229,6 +231,10 @@ func WaitForPublish(ctx fsm.Context, environment ProviderDealEnvironment, deal s
 
 		if err != nil {
 			return ctx.Trigger(storagemarket.ProviderEventSendResponseFailed, err)
+		}
+
+		if err := environment.Disconnect(deal.ProposalCid); err != nil {
+			log.Warnf("closing client connection: %+v", err)
 		}
 
 		return ctx.Trigger(storagemarket.ProviderEventDealPublished, retval.IDs[0])
@@ -345,7 +351,7 @@ func FailDeal(ctx fsm.Context, environment ProviderDealEnvironment, deal storage
 	log.Warnf("deal %s failed: %s", deal.ProposalCid, deal.Message)
 
 	if !deal.ConnectionClosed {
-		err := environment.SendSignedResponse(ctx.Context(), deal.Client, &storagemarket.ProposalResponse{
+		err := environment.SendSignedResponse(ctx.Context(), &network.Response{
 			State:    storagemarket.StorageDealFailing,
 			Message:  deal.Message,
 			Proposal: deal.ProposalCid,
@@ -353,6 +359,10 @@ func FailDeal(ctx fsm.Context, environment ProviderDealEnvironment, deal storage
 
 		if err != nil {
 			return ctx.Trigger(storagemarket.ProviderEventSendResponseFailed, err)
+		}
+
+		if err := environment.Disconnect(deal.ProposalCid); err != nil {
+			log.Warnf("closing client connection: %+v", err)
 		}
 	}
 
