@@ -18,9 +18,11 @@ import (
 	"github.com/ipld/go-ipld-prime"
 	"github.com/libp2p/go-libp2p-core/peer"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 
 	tut "github.com/filecoin-project/go-fil-markets/shared_testutil"
 	"github.com/filecoin-project/go-fil-markets/storagemarket"
+	storageimpl "github.com/filecoin-project/go-fil-markets/storagemarket/impl"
 	"github.com/filecoin-project/go-fil-markets/storagemarket/impl/clientstates"
 	smnet "github.com/filecoin-project/go-fil-markets/storagemarket/network"
 	"github.com/filecoin-project/go-fil-markets/storagemarket/testnodes"
@@ -334,6 +336,18 @@ func TestFailDeal(t *testing.T) {
 			},
 		})
 	})
+}
+
+func TestFinalityStates(t *testing.T) {
+	group, err := storageimpl.NewClientStateMachine(nil, &fakeEnvironment{}, nil)
+	require.NoError(t, err)
+
+	for _, status := range []storagemarket.StorageDealStatus{
+		storagemarket.StorageDealActive,
+		storagemarket.StorageDealError,
+	} {
+		require.True(t, group.IsTerminated(storagemarket.ClientDeal{State: status}))
+	}
 }
 
 type envParams struct {

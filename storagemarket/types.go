@@ -236,6 +236,9 @@ const (
 
 	// ProviderEventFailed indicates a deal has failed and should no longer be processed
 	ProviderEventFailed
+
+	// ProviderEventRestart is used to resume the deal after a state machine shutdown
+	ProviderEventRestart
 )
 
 // ProviderEvents maps provider event codes to string names
@@ -269,6 +272,7 @@ var ProviderEvents = map[ProviderEvent]string{
 	ProviderEventReadMetadataErrored:    "ProviderEventReadMetadataErrored",
 	ProviderEventDealCompleted:          "ProviderEventDealCompleted",
 	ProviderEventFailed:                 "ProviderEventFailed",
+	ProviderEventRestart:                "ProviderEventRestart",
 }
 
 type ClientDeal struct {
@@ -350,6 +354,9 @@ const (
 
 	// ClientEventFailed happens when a deal terminates in failure
 	ClientEventFailed
+
+	// ClientEventRestart is used to resume the deal after a state machine shutdown
+	ClientEventRestart
 )
 
 // ClientEvents maps client event codes to string names

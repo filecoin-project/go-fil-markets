@@ -74,14 +74,11 @@ func NewClient(
 		conns:        connmanager.NewConnManager(),
 	}
 
-	statemachines, err := fsm.New(ds, fsm.Parameters{
-		Environment:     &clientDealEnvironment{c},
-		StateType:       storagemarket.ClientDeal{},
-		StateKeyField:   "State",
-		Events:          clientstates.ClientEvents,
-		StateEntryFuncs: clientstates.ClientStateEntryFuncs,
-		Notifier:        c.dispatch,
-	})
+	statemachines, err := NewClientStateMachine(
+		ds,
+		&clientDealEnvironment{c},
+		c.dispatch,
+	)
 	if err != nil {
 		return nil, err
 	}
@@ -315,6 +312,18 @@ func (c *Client) dispatch(eventName fsm.EventName, deal fsm.StateType) {
 	if err := c.pubSub.Publish(pubSubEvt); err != nil {
 		log.Errorf("failed to publish event %d", evt)
 	}
+}
+
+func NewClientStateMachine(ds datastore.Datastore, env fsm.Environment, notifier fsm.Notifier) (fsm.Group, error) {
+	return fsm.New(ds, fsm.Parameters{
+		Environment:     env,
+		StateType:       storagemarket.ClientDeal{},
+		StateKeyField:   "State",
+		Events:          clientstates.ClientEvents,
+		StateEntryFuncs: clientstates.ClientStateEntryFuncs,
+		FinalityStates:  clientstates.ClientFinalityStates,
+		Notifier:        notifier,
+	})
 }
 
 type internalClientEvent struct {

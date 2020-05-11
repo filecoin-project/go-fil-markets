@@ -120,6 +120,7 @@ var ProviderEvents = fsm.Events{
 			return nil
 		}),
 	fsm.Event(storagemarket.ProviderEventFailed).From(storagemarket.StorageDealFailing).To(storagemarket.StorageDealError),
+	fsm.Event(storagemarket.ProviderEventRestart).FromAny().ToNoChange(),
 }
 
 // ProviderStateEntryFuncs are the handlers for different states in a storage client
@@ -135,4 +136,9 @@ var ProviderStateEntryFuncs = fsm.StateEntryFuncs{
 	storagemarket.StorageDealSealing:             VerifyDealActivated,
 	storagemarket.StorageDealActive:              RecordPieceInfo,
 	storagemarket.StorageDealFailing:             FailDeal,
+}
+
+var ProviderFinalityStates = []fsm.StateKey{
+	storagemarket.StorageDealError,
+	storagemarket.StorageDealCompleted,
 }

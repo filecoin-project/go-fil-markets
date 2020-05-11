@@ -70,7 +70,6 @@ func WaitForFunding(ctx fsm.Context, environment ClientDealEnvironment, deal sto
 			return ctx.Trigger(storagemarket.ClientEventEnsureFundsFailed, xerrors.Errorf("AddFunds exit code: %s", code.String()))
 		}
 		return ctx.Trigger(storagemarket.ClientEventFundsEnsured)
-
 	})
 }
 

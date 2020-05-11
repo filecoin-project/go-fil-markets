@@ -7,20 +7,19 @@ import (
 	"io/ioutil"
 	"math/rand"
 	"path/filepath"
+	"sync"
 	"testing"
 	"time"
 
 	"github.com/filecoin-project/go-address"
-	datatransfer "github.com/filecoin-project/go-data-transfer"
 	graphsync "github.com/filecoin-project/go-data-transfer/impl/graphsync"
 	"github.com/filecoin-project/specs-actors/actors/abi"
 	"github.com/filecoin-project/specs-actors/actors/abi/big"
 	"github.com/filecoin-project/specs-actors/actors/builtin/market"
 	"github.com/ipfs/go-cid"
 	"github.com/ipfs/go-datastore"
-	"github.com/ipld/go-ipld-prime"
+	logging "github.com/ipfs/go-log/v2"
 	cidlink "github.com/ipld/go-ipld-prime/linking/cid"
-	"github.com/libp2p/go-libp2p-core/peer"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -38,6 +37,8 @@ import (
 	"github.com/filecoin-project/go-fil-markets/storagemarket/network"
 	"github.com/filecoin-project/go-fil-markets/storagemarket/testnodes"
 )
+
+var log = logging.Logger("integration_test")
 
 func TestMakeDeal(t *testing.T) {
 	ctx := context.Background()
@@ -234,6 +235,57 @@ func TestMakeDealNonBlocking(t *testing.T) {
 	shared_testutil.AssertDealState(t, storagemarket.StorageDealProviderFunding, pd.State)
 }
 
+func TestRestartClient(t *testing.T) {
+	logging.SetDebugLogging()
+	ctx := context.Background()
+	h := newHarness(t, ctx)
+
+	h.Client.Run(ctx)
+	err := h.Provider.Start(ctx)
+	assert.NoError(t, err)
+
+	// set ask price where we'll accept any price
+	err = h.Provider.AddAsk(big.NewInt(0), 50_000)
+	assert.NoError(t, err)
+
+	wg := sync.WaitGroup{}
+	wg.Add(1)
+
+	result := h.ProposeStorageDeal(t, &storagemarket.DataRef{TransferType: storagemarket.TTGraphsync, Root: h.PayloadCid})
+	proposalCid := result.ProposalCid
+
+	_ = h.Client.SubscribeToEvents(func(event storagemarket.ClientEvent, deal storagemarket.ClientDeal) {
+		log.Debugf("Client event: %s\n", storagemarket.ClientEvents[event])
+	})
+
+	_ = h.Provider.SubscribeToEvents(func(event storagemarket.ProviderEvent, deal storagemarket.MinerDeal) {
+		log.Debugf("Provider event: %s\n", storagemarket.ProviderEvents[event])
+
+		// stop the client at some non-terminal state
+		if event == storagemarket.ProviderEventVerifiedData {
+			h.Client.Stop()
+			wg.Done()
+		}
+	})
+
+	wg.Wait()
+
+	//unsubClient()
+	//unsubProvider()
+
+	cd, err := h.Client.GetLocalDeal(ctx, proposalCid)
+	assert.NoError(t, err)
+	assert.NotEqual(t, storagemarket.StorageDealActive, cd.State)
+	//shared_testutil.AssertDealState(t, storagemarket.StorageDealActive, cd.State)
+
+	providerDeals, err := h.Provider.ListLocalDeals()
+	assert.NoError(t, err)
+
+	pd := providerDeals[0]
+	assert.Equal(t, pd.ProposalCid, proposalCid)
+	shared_testutil.AssertDealState(t, storagemarket.StorageDealCompleted, pd.State)
+}
+
 type harness struct {
 	Ctx          context.Context
 	Epoch        abi.ChainEpoch
@@ -282,7 +334,7 @@ func newHarness(t *testing.T, ctx context.Context) *harness {
 
 	// create provider and client
 	dt1 := graphsync.NewGraphSyncDataTransfer(td.Host1, td.GraphSync1, td.DTStoredCounter1)
-	require.NoError(t, dt1.RegisterVoucherType(&requestvalidation.StorageDataTransferVoucher{}, &fakeDTValidator{}))
+	require.NoError(t, dt1.RegisterVoucherType(&requestvalidation.StorageDataTransferVoucher{}, &shared_testutil.FakeDTValidator{}))
 
 	client, err := storageimpl.NewClient(
 		network.NewFromLibp2pHost(td.Host1),
@@ -295,7 +347,7 @@ func newHarness(t *testing.T, ctx context.Context) *harness {
 	require.NoError(t, err)
 
 	dt2 := graphsync.NewGraphSyncDataTransfer(td.Host2, td.GraphSync2, td.DTStoredCounter2)
-	require.NoError(t, dt2.RegisterVoucherType(&requestvalidation.StorageDataTransferVoucher{}, &fakeDTValidator{}))
+	require.NoError(t, dt2.RegisterVoucherType(&requestvalidation.StorageDataTransferVoucher{}, &shared_testutil.FakeDTValidator{}))
 
 	storedAsk, err := storedask.NewStoredAsk(td.Ds2, datastore.NewKey("latest-ask"), providerNode, providerAddr)
 	assert.NoError(t, err)
@@ -358,15 +410,3 @@ func (h *harness) ProposeStorageDeal(t *testing.T, dataRef *storagemarket.DataRe
 	assert.NoError(t, err)
 	return result
 }
-
-type fakeDTValidator struct{}
-
-func (v *fakeDTValidator) ValidatePush(sender peer.ID, voucher datatransfer.Voucher, baseCid cid.Cid, selector ipld.Node) error {
-	return nil
-}
-
-func (v *fakeDTValidator) ValidatePull(receiver peer.ID, voucher datatransfer.Voucher, baseCid cid.Cid, selector ipld.Node) error {
-	return nil
-}
-
-var _ datatransfer.RequestValidator = (*fakeDTValidator)(nil)
