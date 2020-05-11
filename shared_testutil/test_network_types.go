@@ -524,6 +524,7 @@ type TestStorageDealStream struct {
 	proposalWriter StorageDealProposalWriter
 	responseReader StorageDealResponseReader
 	responseWriter StorageDealResponseWriter
+	tags           map[string]struct{}
 }
 
 // TestStorageDealStreamParams are parameters used to setup a TestStorageDealStream.
@@ -538,13 +539,14 @@ type TestStorageDealStreamParams struct {
 
 // NewTestStorageDealStream returns a new TestStorageDealStream with the
 // behavior specified by the paramaters, or default behaviors if not specified.
-func NewTestStorageDealStream(params TestStorageDealStreamParams) smnet.StorageDealStream {
+func NewTestStorageDealStream(params TestStorageDealStreamParams) *TestStorageDealStream {
 	stream := TestStorageDealStream{
 		p:              params.PeerID,
 		proposalReader: TrivialStorageDealProposalReader,
 		proposalWriter: TrivialStorageDealProposalWriter,
 		responseReader: TrivialStorageDealResponseReader,
 		responseWriter: TrivialStorageDealResponseWriter,
+		tags:           make(map[string]struct{}),
 	}
 	if params.ProposalReader != nil {
 		stream.proposalReader = params.ProposalReader
@@ -586,6 +588,23 @@ func (tsds TestStorageDealStream) RemotePeer() peer.ID { return tsds.p }
 
 // Close closes the stream (does nothing for mocked stream)
 func (tsds TestStorageDealStream) Close() error { return nil }
+
+// TagProtectedConnection preserves this connection as higher priority than others
+func (tsds TestStorageDealStream) TagProtectedConnection(identifier string) {
+	tsds.tags[identifier] = struct{}{}
+}
+
+// UntagProtectedConnection removes the given tag on this connection, increasing
+// the likelyhood it will be cleaned up
+func (tsds TestStorageDealStream) UntagProtectedConnection(identifier string) {
+	delete(tsds.tags, identifier)
+}
+
+// AssertConnectionTagged verifies a connection was tagged with the given identifier
+func (tsds TestStorageDealStream) AssertConnectionTagged(t *testing.T, identifier string) {
+	_, ok := tsds.tags[identifier]
+	require.True(t, ok)
+}
 
 // TrivialStorageDealProposalReader succeeds trivially, returning an empty proposal.
 func TrivialStorageDealProposalReader() (smnet.Proposal, error) {
@@ -650,4 +669,5 @@ type TestPeerResolver struct {
 func (tpr TestPeerResolver) GetPeers(cid.Cid) ([]rm.RetrievalPeer, error) {
 	return tpr.Peers, tpr.ResolverError
 }
+
 var _ rm.PeerResolver = &TestPeerResolver{}

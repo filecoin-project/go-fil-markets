@@ -442,7 +442,21 @@ func (p *providerDealEnvironment) SendSignedResponse(ctx context.Context, resp *
 	return err
 }
 
+func (p *providerDealEnvironment) TagConnection(proposalCid cid.Cid) error {
+	s, err := p.p.conns.DealStream(proposalCid)
+	if err != nil {
+		return err
+	}
+	s.TagProtectedConnection(proposalCid.String())
+	return nil
+}
+
 func (p *providerDealEnvironment) Disconnect(proposalCid cid.Cid) error {
+	s, err := p.p.conns.DealStream(proposalCid)
+	if err != nil {
+		return err
+	}
+	s.UntagProtectedConnection(proposalCid.String())
 	return p.p.conns.Disconnect(proposalCid)
 }
 

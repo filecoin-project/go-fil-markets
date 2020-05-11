@@ -43,7 +43,7 @@ func (impl *libp2pStorageMarketNetwork) NewDealStream(id peer.ID) (StorageDealSt
 		return nil, err
 	}
 	buffered := bufio.NewReaderSize(s, 16)
-	return &dealStream{p: id, rw: s, buffered: buffered}, nil
+	return &dealStream{p: id, rw: s, buffered: buffered, host: impl.host}, nil
 }
 
 func (impl *libp2pStorageMarketNetwork) SetDelegate(r StorageReceiver) error {
@@ -80,7 +80,7 @@ func (impl *libp2pStorageMarketNetwork) handleNewDealStream(s network.Stream) {
 	}
 	remotePID := s.Conn().RemotePeer()
 	buffered := bufio.NewReaderSize(s, 16)
-	ds := &dealStream{remotePID, s, buffered}
+	ds := &dealStream{remotePID, impl.host, s, buffered}
 	impl.receiver.HandleDealStream(ds)
 }
 

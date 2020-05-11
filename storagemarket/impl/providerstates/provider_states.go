@@ -38,6 +38,7 @@ type ProviderDealEnvironment interface {
 	StartDataTransfer(ctx context.Context, to peer.ID, voucher datatransfer.Voucher, baseCid cid.Cid, selector ipld.Node) error
 	GeneratePieceCommitmentToFile(payloadCid cid.Cid, selector ipld.Node) (cid.Cid, filestore.Path, filestore.Path, error)
 	SendSignedResponse(ctx context.Context, response *network.Response) error
+	TagConnection(proposalCid cid.Cid) error
 	Disconnect(proposalCid cid.Cid) error
 	FileStore() filestore.FileStore
 	PieceStore() piecestore.PieceStore
@@ -99,6 +100,11 @@ func ValidateDealProposal(ctx fsm.Context, environment ProviderDealEnvironment, 
 	// but it's a decent first filter
 	if clientMarketBalance.Available.LessThan(deal.Proposal.TotalStorageFee()) {
 		return ctx.Trigger(storagemarket.ProviderEventDealRejected, xerrors.New("clientMarketBalance.Available too small"))
+	}
+
+	if err := environment.TagConnection(deal.ProposalCid); err != nil {
+		// some conns may not support tagging, just log
+		log.Warnf("Error tagging deal connection: %w", err)
 	}
 
 	// TODO: Send intent to accept

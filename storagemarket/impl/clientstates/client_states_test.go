@@ -86,15 +86,17 @@ func TestProposeDeal(t *testing.T) {
 	clientDealProposal := tut.MakeTestClientDealProposal()
 	runProposeDeal := makeExecutor(ctx, eventProcessor, clientstates.ProposeDeal, storagemarket.StorageDealFundsEnsured, clientDealProposal)
 
-	dealStream := func(writer tut.StorageDealProposalWriter) smnet.StorageDealStream {
+	dealStream := func(writer tut.StorageDealProposalWriter) *tut.TestStorageDealStream {
 		return tut.NewTestStorageDealStream(tut.TestStorageDealStreamParams{
 			ProposalWriter: writer,
 		})
 	}
 
 	t.Run("succeeds", func(t *testing.T) {
-		runProposeDeal(t, makeNode(nodeParams{}), dealStream(tut.TrivialStorageDealProposalWriter), nil, func(deal storagemarket.ClientDeal) {
+		ds := dealStream(tut.TrivialStorageDealProposalWriter)
+		runProposeDeal(t, makeNode(nodeParams{}), ds, nil, func(deal storagemarket.ClientDeal) {
 			require.Equal(t, storagemarket.StorageDealValidating, deal.State)
+			ds.AssertConnectionTagged(t, deal.ProposalCid.String())
 		})
 	})
 
@@ -370,6 +372,12 @@ func (fe *fakeEnvironment) WriteDealProposal(p peer.ID, proposalCid cid.Cid, pro
 func (fe *fakeEnvironment) ReadDealResponse(proposalCid cid.Cid) (smnet.SignedResponse, error) {
 	return fe.dealStream.ReadDealResponse()
 }
+
+func (fe *fakeEnvironment) TagConnection(proposalCid cid.Cid) error {
+	fe.dealStream.TagProtectedConnection(proposalCid.String())
+	return nil
+}
+
 func (fe *fakeEnvironment) CloseStream(proposalCid cid.Cid) error {
 	return fe.closeStreamErr
 }

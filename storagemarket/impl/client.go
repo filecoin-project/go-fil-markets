@@ -368,7 +368,21 @@ func (c *clientDealEnvironment) ReadDealResponse(proposalCid cid.Cid) (network.S
 	return s.ReadDealResponse()
 }
 
+func (c *clientDealEnvironment) TagConnection(proposalCid cid.Cid) error {
+	s, err := c.c.conns.DealStream(proposalCid)
+	if err != nil {
+		return err
+	}
+	s.TagProtectedConnection(proposalCid.String())
+	return nil
+}
+
 func (c *clientDealEnvironment) CloseStream(proposalCid cid.Cid) error {
+	s, err := c.c.conns.DealStream(proposalCid)
+	if err != nil {
+		return err
+	}
+	s.UntagProtectedConnection(proposalCid.String())
 	return c.c.conns.Disconnect(proposalCid)
 }
 

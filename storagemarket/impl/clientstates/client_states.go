@@ -20,6 +20,7 @@ var log = logging.Logger("storagemarket_impl")
 type ClientDealEnvironment interface {
 	Node() storagemarket.StorageClientNode
 	WriteDealProposal(p peer.ID, proposalCid cid.Cid, proposal network.Proposal) error
+	TagConnection(proposalCid cid.Cid) error
 	ReadDealResponse(proposalCid cid.Cid) (network.SignedResponse, error)
 	CloseStream(proposalCid cid.Cid) error
 }
@@ -72,6 +73,11 @@ func ProposeDeal(ctx fsm.Context, environment ClientDealEnvironment, deal storag
 	proposal := network.Proposal{DealProposal: &deal.ClientDealProposal, Piece: deal.DataRef}
 	if err := environment.WriteDealProposal(deal.Miner, deal.ProposalCid, proposal); err != nil {
 		return ctx.Trigger(storagemarket.ClientEventWriteProposalFailed, err)
+	}
+
+	if err := environment.TagConnection(deal.ProposalCid); err != nil {
+		// some conns may not support tagging, just log
+		log.Warnf("Error tagging deal connection: %w", err)
 	}
 
 	return ctx.Trigger(storagemarket.ClientEventDealProposed)

@@ -48,6 +48,9 @@ func TestValidateDealProposal(t *testing.T) {
 		dealInspector     func(t *testing.T, deal storagemarket.MinerDeal)
 	}{
 		"succeeds": {
+			environmentParams: environmentParams{
+				TagsProposal: true,
+			},
 			dealInspector: func(t *testing.T, deal storagemarket.MinerDeal) {
 				require.Equal(t, storagemarket.StorageDealProposalAccepted, deal.State)
 			},
@@ -80,7 +83,7 @@ func TestValidateDealProposal(t *testing.T) {
 			},
 		},
 		"CurrentHeight <= StartEpoch - DealAcceptanceBuffer() succeeds": {
-			environmentParams: environmentParams{DealAcceptanceBuffer: 10},
+			environmentParams: environmentParams{DealAcceptanceBuffer: 10, TagsProposal: true},
 			dealParams:        dealParams{StartEpoch: 200},
 			nodeParams:        nodeParams{Height: 190},
 			dealInspector: func(t *testing.T, deal storagemarket.MinerDeal) {
@@ -777,6 +780,7 @@ type environmentParams struct {
 	SendSignedResponseError error
 	DisconnectError         error
 	DealAcceptanceBuffer    int64
+	TagsProposal            bool
 }
 
 type executor func(t *testing.T,
@@ -896,7 +900,13 @@ func makeExecutor(ctx context.Context,
 		}
 		fs := tut.NewTestFileStore(fileStoreParams)
 		pieceStore := tut.NewTestPieceStoreWithParams(pieceStoreParams)
+		expectedTags := make(map[string]struct{})
+		if params.TagsProposal {
+			expectedTags[dealState.ProposalCid.String()] = struct{}{}
+		}
 		environment := &fakeEnvironment{
+			expectedTags:            expectedTags,
+			receivedTags:            make(map[string]struct{}),
 			address:                 params.Address,
 			node:                    node,
 			ask:                     params.Ask,
@@ -934,6 +944,7 @@ func makeExecutor(ctx context.Context,
 		dealInspector(t, *dealState)
 		fs.VerifyExpectations(t)
 		pieceStore.VerifyExpectations(t)
+		environment.VerifyExpectations(t)
 	}
 }
 
@@ -951,6 +962,8 @@ type fakeEnvironment struct {
 	fs                      filestore.FileStore
 	pieceStore              piecestore.PieceStore
 	dealAcceptanceBuffer    abi.ChainEpoch
+	expectedTags            map[string]struct{}
+	receivedTags            map[string]struct{}
 }
 
 func (fe *fakeEnvironment) Address() address.Address {
@@ -975,6 +988,15 @@ func (fe *fakeEnvironment) GeneratePieceCommitmentToFile(payloadCid cid.Cid, sel
 
 func (fe *fakeEnvironment) SendSignedResponse(ctx context.Context, response *network.Response) error {
 	return fe.sendSignedResponseError
+}
+
+func (fe *fakeEnvironment) TagConnection(proposalCid cid.Cid) error {
+	fe.receivedTags[proposalCid.String()] = struct{}{}
+	return nil
+}
+
+func (fe *fakeEnvironment) VerifyExpectations(t *testing.T) {
+	require.Equal(t, fe.expectedTags, fe.receivedTags)
 }
 
 func (fe *fakeEnvironment) Disconnect(proposalCid cid.Cid) error {
