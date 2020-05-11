@@ -22,6 +22,8 @@ type StorageDealStream interface {
 	ReadDealResponse() (SignedResponse, error)
 	WriteDealResponse(SignedResponse) error
 	RemotePeer() peer.ID
+	TagProtectedConnection(identifier string)
+	UntagProtectedConnection(identifier string)
 	Close() error
 }
 

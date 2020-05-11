@@ -4,12 +4,17 @@ import (
 	"bufio"
 
 	cborutil "github.com/filecoin-project/go-cbor-util"
+	"github.com/libp2p/go-libp2p-core/host"
 	"github.com/libp2p/go-libp2p-core/mux"
 	"github.com/libp2p/go-libp2p-core/peer"
 )
 
+// TagPriority is the priority for deal streams -- they should generally be preserved above all else
+const TagPriority = 100
+
 type dealStream struct {
 	p        peer.ID
+	host     host.Host
 	rw       mux.MuxedStream
 	buffered *bufio.Reader
 }
@@ -49,4 +54,12 @@ func (d *dealStream) Close() error {
 
 func (d *dealStream) RemotePeer() peer.ID {
 	return d.p
+}
+
+func (d *dealStream) TagProtectedConnection(identifier string) {
+	d.host.ConnManager().TagPeer(d.p, identifier, TagPriority)
+}
+
+func (d *dealStream) UntagProtectedConnection(identifier string) {
+	d.host.ConnManager().UntagPeer(d.p, identifier)
 }
