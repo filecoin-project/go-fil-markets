@@ -98,39 +98,6 @@ func newMinerDeal(clientID peer.ID, state storagemarket.StorageDealStatus) (stor
 	}, nil
 }
 
-func TestClientRequestValidation(t *testing.T) {
-	ds := dss.MutexWrap(datastore.NewMapDatastore())
-	state := statestore.New(namespace.Wrap(ds, datastore.NewKey("/deals/client")))
-
-	crv := rv.NewClientRequestValidator(state)
-	minerID := peer.ID("fakepeerid")
-	block := blockGenerator.Next()
-
-	t.Run("ValidatePush fails", func(t *testing.T) {
-		if !xerrors.Is(crv.ValidatePush(minerID, wrongDTType{}, block.Cid(), nil), rv.ErrNoPushAccepted) {
-			t.Fatal("Push should fail for the client request validator for storage deals")
-		}
-	})
-
-	AssertValidatesPulls(t, crv, minerID, state)
-}
-
-func TestProviderRequestValidation(t *testing.T) {
-	ds := dss.MutexWrap(datastore.NewMapDatastore())
-	state := statestore.New(namespace.Wrap(ds, datastore.NewKey("/deals/client")))
-
-	mrv := rv.NewProviderRequestValidator(state)
-	clientID := peer.ID("fakepeerid")
-	block := blockGenerator.Next()
-	t.Run("ValidatePull fails", func(t *testing.T) {
-		if !xerrors.Is(mrv.ValidatePull(clientID, wrongDTType{}, block.Cid(), nil), rv.ErrNoPullAccepted) {
-			t.Fatal("Pull should fail for the provider request validator for storage deals")
-		}
-	})
-
-	AssertPushValidator(t, mrv, clientID, state)
-}
-
 func TestUnifiedRequestValidator(t *testing.T) {
 	ds := dss.MutexWrap(datastore.NewMapDatastore())
 	state := statestore.New(namespace.Wrap(ds, datastore.NewKey("/deals/client")))
