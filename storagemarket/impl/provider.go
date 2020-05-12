@@ -249,7 +249,7 @@ func (p *Provider) ListDeals(ctx context.Context) ([]storagemarket.StorageDeal, 
 }
 
 func (p *Provider) AddStorageCollateral(ctx context.Context, amount abi.TokenAmount) error {
-	done := make(chan error)
+	done := make(chan error, 1)
 
 	mcid, err := p.spn.AddFunds(ctx, p.actor, amount)
 	if err != nil {
