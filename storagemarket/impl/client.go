@@ -271,7 +271,7 @@ func (c *Client) GetPaymentEscrow(ctx context.Context, addr address.Address) (st
 }
 
 func (c *Client) AddPaymentEscrow(ctx context.Context, addr address.Address, amount abi.TokenAmount) error {
-	done := make(chan error)
+	done := make(chan error, 1)
 
 	mcid, err := c.node.AddFunds(ctx, addr, amount)
 	if err != nil {
