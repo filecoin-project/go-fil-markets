@@ -76,3 +76,9 @@ wait to see those messages on chain -- this allows us track whether we've alread
 
 - V26 Params update
 - Revert closing streams do to incompatibilities
+
+# go-fil-markets 0.2.3
+
+# Changelog
+
+- Update our network layer to hold connections open for storage deals to prevent stream resets
