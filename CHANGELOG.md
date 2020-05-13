@@ -82,3 +82,11 @@ wait to see those messages on chain -- this allows us track whether we've alread
 # Changelog
 
 - Update our network layer to hold connections open for storage deals to prevent stream resets
+
+# go-fil-markets 0.2.4
+
+# Changelog
+
+- Go-Filecoin compatiblity release
+- Changed data transfer request validator to operate as unified validator
+- Minor bug fixes
