@@ -146,8 +146,10 @@ func VerifyDealActivated(ctx fsm.Context, environment ClientDealEnvironment, dea
 // FailDeal cleans up a failing deal
 func FailDeal(ctx fsm.Context, environment ClientDealEnvironment, deal storagemarket.ClientDeal) error {
 
-	if err := environment.CloseStream(deal.ProposalCid); err != nil {
-		return ctx.Trigger(storagemarket.ClientEventStreamCloseError, err)
+	if !deal.ConnectionClosed {
+		if err := environment.CloseStream(deal.ProposalCid); err != nil {
+			return ctx.Trigger(storagemarket.ClientEventStreamCloseError, err)
+		}
 	}
 
 	// TODO: store in some sort of audit log
