@@ -22,6 +22,14 @@ func NewUnifiedRequestValidator(acceptsPushes bool, acceptsPulls bool, deals *st
 	}
 }
 
+func (v *UnifiedRequestValidator) SetAcceptPushes(acceptsPushes bool) {
+	v.acceptsPushes = acceptsPushes
+}
+
+func (v *UnifiedRequestValidator) SetAcceptPulls(acceptsPulls bool) {
+	v.acceptsPulls = acceptsPulls
+}
+
 func (v *UnifiedRequestValidator) ValidatePush(sender peer.ID, voucher datatransfer.Voucher, baseCid cid.Cid, selector ipld.Node) error {
 	if !v.acceptsPushes {
 		return ErrNoPushAccepted
