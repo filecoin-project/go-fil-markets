@@ -266,15 +266,16 @@ var ProviderEvents = map[ProviderEvent]string{
 
 type ClientDeal struct {
 	market.ClientDealProposal
-	ProposalCid    cid.Cid
-	AddFundsCid    *cid.Cid
-	State          StorageDealStatus
-	Miner          peer.ID
-	MinerWorker    address.Address
-	DealID         abi.DealID
-	DataRef        *DataRef
-	Message        string
-	PublishMessage *cid.Cid
+	ProposalCid      cid.Cid
+	AddFundsCid      *cid.Cid
+	State            StorageDealStatus
+	Miner            peer.ID
+	MinerWorker      address.Address
+	DealID           abi.DealID
+	DataRef          *DataRef
+	Message          string
+	PublishMessage   *cid.Cid
+	ConnectionClosed bool
 }
 
 type ClientEvent uint64

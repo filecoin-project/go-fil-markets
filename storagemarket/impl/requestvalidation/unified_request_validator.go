@@ -9,33 +9,39 @@ import (
 )
 
 type UnifiedRequestValidator struct {
-	acceptsPushes bool
-	acceptsPulls  bool
-	deals         *statestore.StateStore
+	pushDeals *statestore.StateStore
+	pullDeals *statestore.StateStore
 }
 
-func NewUnifiedRequestValidator(acceptsPushes bool, acceptsPulls bool, deals *statestore.StateStore) *UnifiedRequestValidator {
+func NewUnifiedRequestValidator(pushDeals *statestore.StateStore, pullDeals *statestore.StateStore) *UnifiedRequestValidator {
 	return &UnifiedRequestValidator{
-		acceptsPushes: acceptsPushes,
-		acceptsPulls:  acceptsPulls,
-		deals:         deals,
+		pushDeals: pushDeals,
+		pullDeals: pullDeals,
 	}
+}
+
+func (v *UnifiedRequestValidator) SetPushDeals(pushDeals *statestore.StateStore) {
+	v.pushDeals = pushDeals
+}
+
+func (v *UnifiedRequestValidator) SetAcceptPulls(pullDeals *statestore.StateStore) {
+	v.pullDeals = pullDeals
 }
 
 func (v *UnifiedRequestValidator) ValidatePush(sender peer.ID, voucher datatransfer.Voucher, baseCid cid.Cid, selector ipld.Node) error {
-	if !v.acceptsPushes {
+	if v.pushDeals == nil {
 		return ErrNoPushAccepted
 	}
 
-	return ValidatePush(v.deals, sender, voucher, baseCid, selector)
+	return ValidatePush(v.pushDeals, sender, voucher, baseCid, selector)
 }
 
 func (v *UnifiedRequestValidator) ValidatePull(receiver peer.ID, voucher datatransfer.Voucher, baseCid cid.Cid, selector ipld.Node) error {
-	if !v.acceptsPulls {
+	if v.pullDeals == nil {
 		return ErrNoPullAccepted
 	}
 
-	return ValidatePull(v.deals, receiver, voucher, baseCid, selector)
+	return ValidatePull(v.pullDeals, receiver, voucher, baseCid, selector)
 }
 
 var _ datatransfer.RequestValidator = &UnifiedRequestValidator{}

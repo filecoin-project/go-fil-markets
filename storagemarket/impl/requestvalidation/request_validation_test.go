@@ -106,7 +106,7 @@ func TestUnifiedRequestValidator(t *testing.T) {
 	block := blockGenerator.Next()
 
 	t.Run("which only accepts pulls", func(t *testing.T) {
-		urv := rv.NewUnifiedRequestValidator(false, true, state)
+		urv := rv.NewUnifiedRequestValidator(nil, state)
 
 		t.Run("ValidatePush fails", func(t *testing.T) {
 			if !xerrors.Is(urv.ValidatePush(minerID, wrongDTType{}, block.Cid(), nil), rv.ErrNoPushAccepted) {
@@ -118,7 +118,7 @@ func TestUnifiedRequestValidator(t *testing.T) {
 	})
 
 	t.Run("which only accepts pushes", func(t *testing.T) {
-		urv := rv.NewUnifiedRequestValidator(true, false, state)
+		urv := rv.NewUnifiedRequestValidator(state, nil)
 
 		t.Run("ValidatePull fails", func(t *testing.T) {
 			if !xerrors.Is(urv.ValidatePull(clientID, wrongDTType{}, block.Cid(), nil), rv.ErrNoPullAccepted) {
@@ -130,7 +130,7 @@ func TestUnifiedRequestValidator(t *testing.T) {
 	})
 
 	t.Run("which accepts pushes and pulls", func(t *testing.T) {
-		urv := rv.NewUnifiedRequestValidator(true, true, state)
+		urv := rv.NewUnifiedRequestValidator(state, state)
 
 		AssertValidatesPulls(t, urv, minerID, state)
 		AssertPushValidator(t, urv, clientID, state)
