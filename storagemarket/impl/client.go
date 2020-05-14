@@ -330,7 +330,6 @@ func clientDispatcher(evt pubsub.Event, fn pubsub.SubscriberFn) error {
 	if !ok {
 		return xerrors.New("wrong type of event")
 	}
-	log.Infof("clientDispatcher called with valid evt %d", ie.evt)
 	cb(ie.evt, ie.deal)
 	return nil
 }
