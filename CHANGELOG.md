@@ -90,3 +90,10 @@ wait to see those messages on chain -- this allows us track whether we've alread
 - Go-Filecoin compatiblity release
 - Changed data transfer request validator to operate as unified validator
 - Minor bug fixes
+
+# go-fil-markets 0.2.5
+
+# Changelog
+
+- Change data transfer request validator to support multiple stores
+- Fix bug with deals failing before proposal is sent (causing connection close error)
