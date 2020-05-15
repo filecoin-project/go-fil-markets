@@ -14,6 +14,7 @@ type Local struct {
 	ds datastore.Datastore
 }
 
+// TODO: remove hard coding of local discovery namespace here #256
 func NewLocal(ds datastore.Batching) *Local {
 	return &Local{ds: namespace.Wrap(ds, datastore.NewKey("/deals/local"))}
 }
