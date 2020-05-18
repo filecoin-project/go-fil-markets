@@ -64,7 +64,7 @@ wait to see those messages on chain -- this allows us track whether we've alread
 
 # go-fil-markets 0.2.1
 
-# Changelog
+### Changelog
 
 - Update to data transfer 0.3.0
 - Bug fixes for status maps
@@ -72,20 +72,20 @@ wait to see those messages on chain -- this allows us track whether we've alread
 
 # go-fil-markets 0.2.2
 
-# Changelog
+### Changelog
 
 - V26 Params update
 - Revert closing streams do to incompatibilities
 
 # go-fil-markets 0.2.3
 
-# Changelog
+### Changelog
 
 - Update our network layer to hold connections open for storage deals to prevent stream resets
 
 # go-fil-markets 0.2.4
 
-# Changelog
+### Changelog
 
 - Go-Filecoin compatiblity release
 - Changed data transfer request validator to operate as unified validator
@@ -93,7 +93,13 @@ wait to see those messages on chain -- this allows us track whether we've alread
 
 # go-fil-markets 0.2.5
 
-# Changelog
+### Changelog
 
 - Change data transfer request validator to support multiple stores
 - Fix bug with deals failing before proposal is sent (causing connection close error)
+
+# go-fil-markets 0.2.6
+### Changelog
+* remove namespace wrapping for datastores associated with markets except where unique keys
+ are stored. In such case it removes all but the last part of a prefix (such as "pieces" or
+  "cid-infos")
