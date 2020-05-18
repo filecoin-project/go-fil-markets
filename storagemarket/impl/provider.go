@@ -32,7 +32,7 @@ import (
 	"github.com/filecoin-project/go-fil-markets/storagemarket/network"
 )
 
-var ProviderDsPrefix = "/deals/provider"
+var ProviderDsPrefix = "/provider"
 var DefaultDealAcceptanceBuffer = abi.ChainEpoch(100)
 var _ storagemarket.StorageProvider = &Provider{}
 

@@ -3,7 +3,6 @@ package discovery
 import (
 	"github.com/ipfs/go-cid"
 	"github.com/ipfs/go-datastore"
-	"github.com/ipfs/go-datastore/namespace"
 	dshelp "github.com/ipfs/go-ipfs-ds-help"
 	cbor "github.com/ipfs/go-ipld-cbor"
 
@@ -15,7 +14,7 @@ type Local struct {
 }
 
 func NewLocal(ds datastore.Batching) *Local {
-	return &Local{ds: namespace.Wrap(ds, datastore.NewKey("/deals/local"))}
+	return &Local{ds: ds}
 }
 
 func (l *Local) AddPeer(cid cid.Cid, peer retrievalmarket.RetrievalPeer) error {

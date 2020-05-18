@@ -11,7 +11,6 @@ import (
 	blocks "github.com/ipfs/go-block-format"
 	"github.com/ipfs/go-cid"
 	"github.com/ipfs/go-datastore"
-	"github.com/ipfs/go-datastore/namespace"
 	blockstore "github.com/ipfs/go-ipfs-blockstore"
 	logging "github.com/ipfs/go-log/v2"
 	cidlink "github.com/ipld/go-ipld-prime/linking/cid"
@@ -45,9 +44,6 @@ type client struct {
 
 var _ retrievalmarket.RetrievalClient = &client{}
 
-// ClientDsPrefix is the datastore for the client retrievals key
-var ClientDsPrefix = "/retrievals/client"
-
 // NewClient creates a new retrieval client
 func NewClient(
 	network rmnet.RetrievalMarketNetwork,
@@ -66,7 +62,7 @@ func NewClient(
 		dealStreams:    make(map[retrievalmarket.DealID]rmnet.RetrievalDealStream),
 		blockVerifiers: make(map[retrievalmarket.DealID]blockio.BlockVerifier),
 	}
-	stateMachines, err := fsm.New(namespace.Wrap(ds, datastore.NewKey(ClientDsPrefix)), fsm.Parameters{
+	stateMachines, err := fsm.New(ds, fsm.Parameters{
 		Environment:     c,
 		StateType:       retrievalmarket.ClientDealState{},
 		StateKeyField:   "Status",
