@@ -60,7 +60,6 @@ var DefaultPaymentInterval = uint64(1 << 20)
 // set to to 1Mb if the miner does not explicitly set it otherwise
 var DefaultPaymentIntervalIncrease = uint64(1 << 20)
 
-// TODO: Remove hard coding of datastore prefix #256
 // NewProvider returns a new retrieval provider
 func NewProvider(minerAddress address.Address, node retrievalmarket.RetrievalProviderNode, network rmnet.RetrievalMarketNetwork, pieceStore piecestore.PieceStore, bs blockstore.Blockstore, ds datastore.Batching) (retrievalmarket.RetrievalProvider, error) {
 

@@ -48,7 +48,6 @@ var _ retrievalmarket.RetrievalClient = &client{}
 // ClientDsPrefix is the datastore for the client retrievals key
 var ClientDsPrefix = "/client"
 
-// TODO: Remove hard coding of datastore prefix #256
 // NewClient creates a new retrieval client
 func NewClient(
 	network rmnet.RetrievalMarketNetwork,
