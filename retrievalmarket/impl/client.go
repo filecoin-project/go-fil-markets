@@ -46,7 +46,7 @@ type client struct {
 var _ retrievalmarket.RetrievalClient = &client{}
 
 // ClientDsPrefix is the datastore for the client retrievals key
-var ClientDsPrefix = "/retrievals/client"
+var ClientDsPrefix = "/client"
 
 // TODO: Remove hard coding of datastore prefix #256
 // NewClient creates a new retrieval client

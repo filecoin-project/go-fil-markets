@@ -32,7 +32,7 @@ import (
 	"github.com/filecoin-project/go-fil-markets/storagemarket/network"
 )
 
-var ProviderDsPrefix = "/deals/provider"
+var ProviderDsPrefix = "/provider"
 var DefaultDealAcceptanceBuffer = abi.ChainEpoch(100)
 var _ storagemarket.StorageProvider = &Provider{}
 
@@ -76,7 +76,8 @@ func DealAcceptanceBuffer(buffer abi.ChainEpoch) StorageProviderOption {
 	}
 }
 
-// TODO Remove hard coded datastore root for provider #256-- can still seperate out deals and stored ask, but base for this module should be set by node
+// TODO Remove hard coded datastore root for provider #256-- can still separate out deals and stored ask,
+// but base for this module should be set by node
 
 // NewProvider returns a new storage provider
 func NewProvider(net network.StorageMarketNetwork, ds datastore.Batching, bs blockstore.Blockstore, fs filestore.FileStore, pieceStore piecestore.PieceStore, dataTransfer datatransfer.Manager, spn storagemarket.StorageProviderNode, minerAddress address.Address, rt abi.RegisteredProof, options ...StorageProviderOption) (storagemarket.StorageProvider, error) {

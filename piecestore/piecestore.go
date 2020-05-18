@@ -8,13 +8,10 @@ import (
 )
 
 // DSPiecePrefix is the name space for storing piece infos
-var DSPiecePrefix = "/storagemarket/pieces"
+var DSPiecePrefix = "/pieces"
 
 // DSCIDPrefix is the name space for storing CID infos
-var DSCIDPrefix = "/storagemarket/cid-infos"
-
-// TODO: Remove hard coding of datastore prefix #256
-// (ok to take a single base and wrap with pieces and cid-infos but the root of it should be passed from the node)
+var DSCIDPrefix = "/cid-infos"
 
 // NewPieceStore returns a new piecestore based on the given datastore
 func NewPieceStore(ds datastore.Batching) PieceStore {

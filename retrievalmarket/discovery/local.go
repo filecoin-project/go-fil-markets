@@ -16,7 +16,7 @@ type Local struct {
 
 // TODO: remove hard coding of local discovery namespace here #256
 func NewLocal(ds datastore.Batching) *Local {
-	return &Local{ds: namespace.Wrap(ds, datastore.NewKey("/deals/local"))}
+	return &Local{ds: namespace.Wrap(ds, datastore.NewKey("/local"))}
 }
 
 func (l *Local) AddPeer(cid cid.Cid, peer retrievalmarket.RetrievalPeer) error {

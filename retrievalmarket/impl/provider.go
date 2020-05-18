@@ -28,7 +28,7 @@ import (
 )
 
 // ProviderDsPrefix is the datastore for the provider key
-var ProviderDsPrefix = "/retrievals/provider"
+var ProviderDsPrefix = "/provider"
 
 type provider struct {
 	bs                      blockstore.Blockstore
