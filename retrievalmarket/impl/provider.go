@@ -11,7 +11,6 @@ import (
 	"github.com/filecoin-project/specs-actors/actors/abi"
 	"github.com/ipfs/go-cid"
 	"github.com/ipfs/go-datastore"
-	"github.com/ipfs/go-datastore/namespace"
 	blockstore "github.com/ipfs/go-ipfs-blockstore"
 	"github.com/ipld/go-ipld-prime"
 	cidlink "github.com/ipld/go-ipld-prime/linking/cid"
@@ -26,9 +25,6 @@ import (
 	rmnet "github.com/filecoin-project/go-fil-markets/retrievalmarket/network"
 	"github.com/filecoin-project/go-fil-markets/shared"
 )
-
-// ProviderDsPrefix is the datastore for the provider key
-var ProviderDsPrefix = "/provider"
 
 type provider struct {
 	bs                      blockstore.Blockstore
@@ -75,7 +71,7 @@ func NewProvider(minerAddress address.Address, node retrievalmarket.RetrievalPro
 		dealStreams:             make(map[retrievalmarket.ProviderDealIdentifier]rmnet.RetrievalDealStream),
 		blockReaders:            make(map[retrievalmarket.ProviderDealIdentifier]blockio.BlockReader),
 	}
-	statemachines, err := fsm.New(namespace.Wrap(ds, datastore.NewKey(ProviderDsPrefix)), fsm.Parameters{
+	statemachines, err := fsm.New(ds, fsm.Parameters{
 		Environment:     p,
 		StateType:       retrievalmarket.ProviderDealState{},
 		StateKeyField:   "Status",
