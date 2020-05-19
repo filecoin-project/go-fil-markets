@@ -17,6 +17,8 @@ import (
 	"github.com/filecoin-project/specs-actors/actors/abi/big"
 	"github.com/filecoin-project/specs-actors/actors/builtin/market"
 	"github.com/ipfs/go-cid"
+	"github.com/ipfs/go-datastore"
+	"github.com/ipfs/go-datastore/namespace"
 	"github.com/ipld/go-ipld-prime"
 	cidlink "github.com/ipld/go-ipld-prime/linking/cid"
 	"github.com/libp2p/go-libp2p-core/peer"
@@ -279,14 +281,14 @@ func newHarness(t *testing.T, ctx context.Context) *harness {
 		td.Bs1,
 		dt1,
 		discovery.NewLocal(td.Ds1),
-		td.Ds1,
+		namespace.Wrap(td.Ds1, datastore.NewKey("/client")),
 		&clientNode,
 	)
 	require.NoError(t, err)
 	dt2 := graphsync.NewGraphSyncDataTransfer(td.Host2, td.GraphSync2, td.DTStoredCounter2)
 	provider, err := storageimpl.NewProvider(
 		network.NewFromLibp2pHost(td.Host2),
-		td.Ds2,
+		namespace.Wrap(td.Ds2, datastore.NewKey("/provider")),
 		td.Bs2,
 		fs,
 		ps,
