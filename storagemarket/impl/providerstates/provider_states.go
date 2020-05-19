@@ -3,6 +3,7 @@ package providerstates
 import (
 	"bytes"
 	"context"
+	"fmt"
 
 	"github.com/filecoin-project/go-address"
 	datatransfer "github.com/filecoin-project/go-data-transfer"
@@ -118,7 +119,7 @@ func DecideOnProposal(ctx fsm.Context, environment ProviderDealEnvironment, deal
 	}
 
 	if !accept {
-		return ctx.Trigger(storagemarket.ProviderEventDealRejected, reason)
+		return ctx.Trigger(storagemarket.ProviderEventDealRejected, fmt.Errorf(reason))
 	}
 
 	return ctx.Trigger(storagemarket.ProviderEventDealAccepted)

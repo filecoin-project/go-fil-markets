@@ -19,7 +19,7 @@ var ProviderEvents = fsm.Events{
 			return nil
 		}),
 	fsm.Event(storagemarket.ProviderEventDealRejected).
-		FromMany(storagemarket.StorageDealValidating, storagemarket.StorageDealVerifyData).To(storagemarket.StorageDealFailing).
+		FromMany(storagemarket.StorageDealValidating, storagemarket.StorageDealVerifyData, storagemarket.StorageDealAcceptWait).To(storagemarket.StorageDealFailing).
 		Action(func(deal *storagemarket.MinerDeal, err error) error {
 			deal.Message = xerrors.Errorf("deal rejected: %w", err).Error()
 			return nil
