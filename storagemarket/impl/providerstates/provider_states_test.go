@@ -52,7 +52,7 @@ func TestValidateDealProposal(t *testing.T) {
 				TagsProposal: true,
 			},
 			dealInspector: func(t *testing.T, deal storagemarket.MinerDeal) {
-				require.Equal(t, storagemarket.StorageDealProposalAccepted, deal.State)
+				require.Equal(t, storagemarket.StorageDealAcceptWait, deal.State)
 			},
 		},
 		"verify signature fails": {
@@ -87,7 +87,7 @@ func TestValidateDealProposal(t *testing.T) {
 			dealParams:        dealParams{StartEpoch: 200},
 			nodeParams:        nodeParams{Height: 190},
 			dealInspector: func(t *testing.T, deal storagemarket.MinerDeal) {
-				require.Equal(t, storagemarket.StorageDealProposalAccepted, deal.State)
+				require.Equal(t, storagemarket.StorageDealAcceptWait, deal.State)
 			},
 		},
 		"CurrentHeight > StartEpoch - DealAcceptanceBuffer() fails": {
