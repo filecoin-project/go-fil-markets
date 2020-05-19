@@ -36,12 +36,6 @@ var ClientEvents = fsm.Events{
 		}),
 	fsm.Event(storagemarket.ClientEventDealProposed).
 		From(storagemarket.StorageDealFundsEnsured).To(storagemarket.StorageDealWaitingForDataRequest),
-	fsm.Event(storagemarket.ClientEventDealStreamLookupErrored).
-		FromAny().To(storagemarket.StorageDealFailing).
-		Action(func(deal *storagemarket.ClientDeal, err error) error {
-			deal.Message = xerrors.Errorf("miner connection error: %w", err).Error()
-			return nil
-		}),
 	fsm.Event(storagemarket.ClientEventReadResponseFailed).
 		FromMany(storagemarket.StorageDealWaitingForDataRequest, storagemarket.StorageDealValidating).To(storagemarket.StorageDealError).
 		Action(func(deal *storagemarket.ClientDeal, err error) error {

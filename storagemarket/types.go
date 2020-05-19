@@ -315,9 +315,6 @@ const (
 	// ClientEventDataTransferFailed happens the client can't initiate a push data transfer to the provider
 	ClientEventDataTransferFailed
 
-	// ClientEventDealStreamLookupErrored the deal stream for a deal could not be found
-	ClientEventDealStreamLookupErrored
-
 	// ClientEventReadResponseFailed means a network error occurred reading a deal response
 	ClientEventReadResponseFailed
 
@@ -366,7 +363,6 @@ var ClientEvents = map[ClientEvent]string{
 	ClientEventDataTransferInitiated:      "ClientEventDataTransferInitiated",
 	ClientEventDataTransferComplete:       "ClientEventDataTransferComplete",
 	ClientEventDataTransferFailed:         "ClientEventDataTransferFailed",
-	ClientEventDealStreamLookupErrored:    "ClientEventDealStreamLookupErrored",
 	ClientEventReadResponseFailed:         "ClientEventReadResponseFailed",
 	ClientEventResponseVerificationFailed: "ClientEventResponseVerificationFailed",
 	ClientEventResponseDealDidNotMatch:    "ClientEventResponseDealDidNotMatch",
