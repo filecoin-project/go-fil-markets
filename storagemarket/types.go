@@ -44,6 +44,7 @@ const (
 
 	StorageDealFundsEnsured        // Deposited funds as neccesary to create a deal, ready to move forward
 	StorageDealValidating          // Verifying that deal parameters are good
+	StorageDealAcceptWait          // Deciding whether or not to accept the deal
 	StorageDealTransferring        // Moving data
 	StorageDealWaitingForData      // Manual transfer
 	StorageDealVerifyData          // Verify transferred data - generate CAR / piece data
@@ -63,6 +64,7 @@ var DealStates = map[StorageDealStatus]string{
 	StorageDealProposalNotFound:    "StorageDealProposalNotFound",
 	StorageDealProposalRejected:    "StorageDealProposalRejected",
 	StorageDealProposalAccepted:    "StorageDealProposalAccepted",
+	StorageDealAcceptWait:          "StorageDealAcceptWait",
 	StorageDealStaged:              "StorageDealStaged",
 	StorageDealSealing:             "StorageDealSealing",
 	StorageDealActive:              "StorageDealActive",
@@ -151,6 +153,9 @@ const (
 	// ProviderEventNodeErrored indicates an error happened talking to the node implementation
 	ProviderEventNodeErrored
 
+	// ProviderEventDealDeciding happens when a deal is being decided on by the miner
+	ProviderEventDealDeciding
+
 	// ProviderEventDealRejected happens when a deal proposal is rejected for not meeting criteria
 	ProviderEventDealRejected
 
@@ -238,6 +243,7 @@ var ProviderEvents = map[ProviderEvent]string{
 	ProviderEventNodeErrored:            "ProviderEventNodeErrored",
 	ProviderEventDealRejected:           "ProviderEventDealRejected",
 	ProviderEventDealAccepted:           "ProviderEventDealAccepted",
+	ProviderEventDealDeciding:           "ProviderEventDealDeciding",
 	ProviderEventWaitingForManualData:   "ProviderEventWaitingForManualData",
 	ProviderEventInsufficientFunds:      "ProviderEventInsufficientFunds",
 	ProviderEventFundingInitiated:       "ProviderEventFundingInitiated",
@@ -443,6 +449,8 @@ type StorageProviderNode interface {
 	OnDealSectorCommitted(ctx context.Context, provider address.Address, dealID abi.DealID, cb DealSectorCommittedCallback) error
 
 	LocatePieceForDealWithinSector(ctx context.Context, dealID abi.DealID, tok shared.TipSetToken) (sectorID uint64, offset uint64, length uint64, err error)
+
+	DecideOnProposal(ctx context.Context, deal MinerDeal) (bool, string, error)
 }
 
 // Node dependencies for a StorageClient

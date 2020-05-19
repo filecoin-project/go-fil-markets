@@ -24,8 +24,10 @@ var ProviderEvents = fsm.Events{
 			deal.Message = xerrors.Errorf("deal rejected: %w", err).Error()
 			return nil
 		}),
+	fsm.Event(storagemarket.ProviderEventDealDeciding).
+		From(storagemarket.StorageDealValidating).To(storagemarket.StorageDealAcceptWait),
 	fsm.Event(storagemarket.ProviderEventDealAccepted).
-		From(storagemarket.StorageDealValidating).To(storagemarket.StorageDealProposalAccepted),
+		From(storagemarket.StorageDealAcceptWait).To(storagemarket.StorageDealProposalAccepted),
 	fsm.Event(storagemarket.ProviderEventWaitingForManualData).
 		From(storagemarket.StorageDealProposalAccepted).To(storagemarket.StorageDealWaitingForData),
 	fsm.Event(storagemarket.ProviderEventDataTransferFailed).
@@ -125,6 +127,7 @@ var ProviderEvents = fsm.Events{
 // ProviderStateEntryFuncs are the handlers for different states in a storage client
 var ProviderStateEntryFuncs = fsm.StateEntryFuncs{
 	storagemarket.StorageDealValidating:          ValidateDealProposal,
+	storagemarket.StorageDealAcceptWait:          DecideOnProposal,
 	storagemarket.StorageDealProposalAccepted:    TransferData,
 	storagemarket.StorageDealVerifyData:          VerifyData,
 	storagemarket.StorageDealEnsureProviderFunds: EnsureProviderFunds,

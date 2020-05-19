@@ -108,6 +108,19 @@ func ValidateDealProposal(ctx fsm.Context, environment ProviderDealEnvironment, 
 	}
 
 	// TODO: Send intent to accept
+	return ctx.Trigger(storagemarket.ProviderEventDealDeciding)
+}
+
+func DecideOnProposal(ctx fsm.Context, environment ProviderDealEnvironment, deal storagemarket.MinerDeal) error {
+	accept, reason, err := environment.Node().DecideOnProposal(ctx.Context(), deal)
+	if err != nil {
+		return xerrors.Errorf("failed to decide on proposal: %w", err)
+	}
+
+	if !accept {
+		return ctx.Trigger(storagemarket.ProviderEventDealRejected, reason)
+	}
+
 	return ctx.Trigger(storagemarket.ProviderEventDealAccepted)
 }
 
