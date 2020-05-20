@@ -11,12 +11,13 @@ import (
 
 	"github.com/filecoin-project/go-address"
 	datatransfer "github.com/filecoin-project/go-data-transfer"
-	"github.com/filecoin-project/go-data-transfer/impl/graphsync"
+	graphsyncimpl "github.com/filecoin-project/go-data-transfer/impl/graphsync"
 	"github.com/filecoin-project/specs-actors/actors/abi"
 	"github.com/filecoin-project/specs-actors/actors/abi/big"
 	"github.com/filecoin-project/specs-actors/actors/builtin/market"
 	"github.com/filecoin-project/specs-actors/actors/builtin/paych"
 	"github.com/ipfs/go-cid"
+	"github.com/ipfs/go-datastore"
 	"github.com/ipld/go-ipld-prime"
 	cidlink "github.com/ipld/go-ipld-prime/linking/cid"
 	"github.com/libp2p/go-libp2p-core/peer"
@@ -37,6 +38,7 @@ import (
 	"github.com/filecoin-project/go-fil-markets/storagemarket"
 	stormkt "github.com/filecoin-project/go-fil-markets/storagemarket/impl"
 	"github.com/filecoin-project/go-fil-markets/storagemarket/impl/requestvalidation"
+	"github.com/filecoin-project/go-fil-markets/storagemarket/impl/storedask"
 	stornet "github.com/filecoin-project/go-fil-markets/storagemarket/network"
 	"github.com/filecoin-project/go-fil-markets/storagemarket/testnodes"
 )
@@ -220,6 +222,8 @@ func newStorageHarness(ctx context.Context, t *testing.T) *storageHarness {
 	)
 	require.NoError(t, err)
 	dt2 := graphsyncimpl.NewGraphSyncDataTransfer(td.Host2, td.GraphSync2, td.DTStoredCounter2)
+	storedAsk, err := storedask.NewStoredAsk(td.Ds2, datastore.NewKey("latest-ask"), providerNode, providerAddr)
+	require.NoError(t, err)
 	provider, err := stormkt.NewProvider(
 		stornet.NewFromLibp2pHost(td.Host2),
 		td.Ds2,
@@ -230,6 +234,7 @@ func newStorageHarness(ctx context.Context, t *testing.T) *storageHarness {
 		providerNode,
 		providerAddr,
 		abi.RegisteredProof_StackedDRG2KiBPoSt,
+		storedAsk,
 	)
 	require.NoError(t, err)
 

@@ -23,7 +23,7 @@ func TestStoredAsk(t *testing.T) {
 		},
 	}
 	actor := address.TestAddress2
-	storedAsk, err := storedask.NewStoredAsk(ds, spn, actor)
+	storedAsk, err := storedask.NewStoredAsk(ds, datastore.NewKey("latest-ask"), spn, actor)
 	require.NoError(t, err)
 
 	testPrice := abi.NewTokenAmount(1000000000)
@@ -48,7 +48,7 @@ func TestStoredAsk(t *testing.T) {
 		require.Nil(t, ask)
 	})
 	t.Run("reloading stored ask from disk", func(t *testing.T) {
-		storedAsk2, err := storedask.NewStoredAsk(ds, spn, actor)
+		storedAsk2, err := storedask.NewStoredAsk(ds, datastore.NewKey("latest-ask"), spn, actor)
 		require.NoError(t, err)
 		ask := storedAsk2.GetAsk(actor)
 		require.Equal(t, ask.Ask.Price, testPrice)
@@ -62,7 +62,7 @@ func TestStoredAsk(t *testing.T) {
 			},
 		}
 		// should load cause ask is is still in data store
-		storedAskError, err := storedask.NewStoredAsk(ds, spnStateIDErr, actor)
+		storedAskError, err := storedask.NewStoredAsk(ds, datastore.NewKey("latest-ask"), spnStateIDErr, actor)
 		require.NoError(t, err)
 		err = storedAskError.AddAsk(testPrice, testDuration)
 		require.Error(t, err)
@@ -74,7 +74,7 @@ func TestStoredAsk(t *testing.T) {
 			MinerWorkerError: errors.New("something went wrong"),
 		}
 		// should load cause ask is is still in data store
-		storedAskError, err = storedask.NewStoredAsk(ds, spnMinerWorkerErr, actor)
+		storedAskError, err = storedask.NewStoredAsk(ds, datastore.NewKey("latest-ask"), spnMinerWorkerErr, actor)
 		require.NoError(t, err)
 		err = storedAskError.AddAsk(testPrice, testDuration)
 		require.Error(t, err)
@@ -86,7 +86,7 @@ func TestStoredAsk(t *testing.T) {
 			SignBytesError: errors.New("something went wrong"),
 		}
 		// should load cause ask is is still in data store
-		storedAskError, err = storedask.NewStoredAsk(ds, spnSignBytesErr, actor)
+		storedAskError, err = storedask.NewStoredAsk(ds, datastore.NewKey("latest-ask"), spnSignBytesErr, actor)
 		require.NoError(t, err)
 		err = storedAskError.AddAsk(testPrice, testDuration)
 		require.Error(t, err)
