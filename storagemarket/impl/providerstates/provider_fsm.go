@@ -72,7 +72,7 @@ var ProviderEvents = fsm.Events{
 			return nil
 		}),
 	fsm.Event(storagemarket.ProviderEventSendResponseFailed).
-		FromMany(storagemarket.StorageDealPublishing, storagemarket.StorageDealFailing).To(storagemarket.StorageDealError).
+		FromMany(storagemarket.StorageDealAcceptWait, storagemarket.StorageDealPublishing, storagemarket.StorageDealFailing).To(storagemarket.StorageDealError).
 		Action(func(deal *storagemarket.MinerDeal, err error) error {
 			deal.Message = xerrors.Errorf("sending response to deal: %w", err).Error()
 			return nil

@@ -51,7 +51,7 @@ func TestValidateDealProposal(t *testing.T) {
 				TagsProposal: true,
 			},
 			dealInspector: func(t *testing.T, deal storagemarket.MinerDeal, env *fakeEnvironment) {
-				tut.AssertDealState(t, StorageDealAcceptWait, deal.State)
+				tut.AssertDealState(t, storagemarket.StorageDealAcceptWait, deal.State)
 			},
 		},
 		"verify signature fails": {
@@ -86,7 +86,7 @@ func TestValidateDealProposal(t *testing.T) {
 			dealParams:        dealParams{StartEpoch: 200},
 			nodeParams:        nodeParams{Height: 190},
 			dealInspector: func(t *testing.T, deal storagemarket.MinerDeal, env *fakeEnvironment) {
-				tut.AssertDealState(t, StorageDealAcceptWait, deal.State)
+				tut.AssertDealState(t, storagemarket.StorageDealAcceptWait, deal.State)
 			},
 		},
 		"CurrentHeight > StartEpoch - DealAcceptanceBuffer() fails": {
@@ -153,10 +153,10 @@ func TestDecideOnProposal(t *testing.T) {
 		environmentParams environmentParams
 		fileStoreParams   tut.TestFileStoreParams
 		pieceStoreParams  tut.TestPieceStoreParams
-		dealInspector     func(t *testing.T, deal storagemarket.MinerDeal)
+		dealInspector     func(t *testing.T, deal storagemarket.MinerDeal, env *fakeEnvironment)
 	}{
 		"succeeds": {
-			dealInspector: func(t *testing.T, deal storagemarket.MinerDeal) {
+			dealInspector: func(t *testing.T, deal storagemarket.MinerDeal, env *fakeEnvironment) {
 				tut.AssertDealState(t, storagemarket.StorageDealWaitingForData, deal.State)
 			},
 		},
@@ -165,7 +165,7 @@ func TestDecideOnProposal(t *testing.T) {
 				RejectDeal:   true,
 				RejectReason: "I just don't like it",
 			},
-			dealInspector: func(t *testing.T, deal storagemarket.MinerDeal) {
+			dealInspector: func(t *testing.T, deal storagemarket.MinerDeal, env *fakeEnvironment) {
 				tut.AssertDealState(t, storagemarket.StorageDealFailing, deal.State)
 				require.Equal(t, "deal rejected: I just don't like it", deal.Message)
 			},
@@ -174,9 +174,18 @@ func TestDecideOnProposal(t *testing.T) {
 			environmentParams: environmentParams{
 				DecisionError: errors.New("I can't make up my mind"),
 			},
-			dealInspector: func(t *testing.T, deal storagemarket.MinerDeal) {
+			dealInspector: func(t *testing.T, deal storagemarket.MinerDeal, env *fakeEnvironment) {
 				tut.AssertDealState(t, storagemarket.StorageDealFailing, deal.State)
 				require.Equal(t, "error calling node: custom deal decision logic failed: I can't make up my mind", deal.Message)
+			},
+		},
+		"SendSignedResponse errors": {
+			environmentParams: environmentParams{
+				SendSignedResponseError: errors.New("could not send"),
+			},
+			dealInspector: func(t *testing.T, deal storagemarket.MinerDeal, env *fakeEnvironment) {
+				tut.AssertDealState(t, storagemarket.StorageDealError, deal.State)
+				require.Equal(t, "sending response to deal: could not send", deal.Message)
 			},
 		},
 	}
@@ -1020,4 +1029,8 @@ func (fe *fakeEnvironment) PieceStore() piecestore.PieceStore {
 
 func (fe *fakeEnvironment) DealAcceptanceBuffer() abi.ChainEpoch {
 	return fe.dealAcceptanceBuffer
+}
+
+func (fe *fakeEnvironment) RunCustomDecisionLogic(context.Context, storagemarket.MinerDeal) (bool, string, error) {
+	return !fe.rejectDeal, fe.rejectReason, fe.decisionError
 }
