@@ -282,8 +282,4 @@ func (n *FakeProviderNode) LocatePieceForDealWithinSector(ctx context.Context, d
 	return 0, 0, 0, n.LocatePieceForDealWithinSectorError
 }
 
-func (n *FakeProviderNode) DecideOnProposal(ctx context.Context, deal storagemarket.MinerDeal) (bool, string, error) {
-	return true, "", nil
-}
-
 var _ storagemarket.StorageProviderNode = (*FakeProviderNode)(nil)

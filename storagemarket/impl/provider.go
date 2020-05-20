@@ -51,6 +51,7 @@ type Provider struct {
 	actor                     address.Address
 	dataTransfer              datatransfer.Manager
 	universalRetrievalEnabled bool
+	customDealDeciderFunc     DealDeciderFunc
 	dealAcceptanceBuffer      abi.ChainEpoch
 	pubSub                    *pubsub.PubSub
 
@@ -73,6 +74,22 @@ func EnableUniversalRetrieval() StorageProviderOption {
 func DealAcceptanceBuffer(buffer abi.ChainEpoch) StorageProviderOption {
 	return func(p *Provider) {
 		p.dealAcceptanceBuffer = buffer
+	}
+}
+
+// DealDeciderFunc is a function which evaluates an incoming deal to decide if
+// it its accepted
+// It returns:
+// - boolean = true if deal accepted, false if rejected
+// - string = reason deal was not excepted, if rejected
+// - error = if an error occurred trying to decide
+type DealDeciderFunc func(context.Context, storagemarket.MinerDeal) (bool, string, error)
+
+// CustomDealDecisionLogic allows a provider to call custom decision logic when validating incoming
+// deal proposals
+func CustomDealDecisionLogic(decider DealDeciderFunc) StorageProviderOption {
+	return func(p *Provider) {
+		p.customDealDeciderFunc = decider
 	}
 }
 
@@ -461,6 +478,13 @@ func (p *providerDealEnvironment) Disconnect(proposalCid cid.Cid) error {
 
 func (p *providerDealEnvironment) DealAcceptanceBuffer() abi.ChainEpoch {
 	return p.p.dealAcceptanceBuffer
+}
+
+func (p *providerDealEnvironment) RunCustomDecisionLogic(ctx context.Context, deal storagemarket.MinerDeal) (bool, string, error) {
+	if p.p.customDealDeciderFunc == nil {
+		return true, "", nil
+	}
+	return p.p.customDealDeciderFunc(ctx, deal)
 }
 
 var _ providerstates.ProviderDealEnvironment = &providerDealEnvironment{}

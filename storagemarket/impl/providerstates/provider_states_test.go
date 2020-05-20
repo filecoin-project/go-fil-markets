@@ -52,7 +52,7 @@ func TestValidateDealProposal(t *testing.T) {
 				TagsProposal: true,
 			},
 			dealInspector: func(t *testing.T, deal storagemarket.MinerDeal) {
-				require.Equal(t, storagemarket.StorageDealAcceptWait, deal.State)
+				require.Equal(t, storagemarket.StorageDealProposalAccepted, deal.State)
 			},
 		},
 		"verify signature fails": {
@@ -87,7 +87,7 @@ func TestValidateDealProposal(t *testing.T) {
 			dealParams:        dealParams{StartEpoch: 200},
 			nodeParams:        nodeParams{Height: 190},
 			dealInspector: func(t *testing.T, deal storagemarket.MinerDeal) {
-				require.Equal(t, storagemarket.StorageDealAcceptWait, deal.State)
+				require.Equal(t, storagemarket.StorageDealProposalAccepted, deal.State)
 			},
 		},
 		"CurrentHeight > StartEpoch - DealAcceptanceBuffer() fails": {
@@ -133,6 +133,25 @@ func TestValidateDealProposal(t *testing.T) {
 			dealInspector: func(t *testing.T, deal storagemarket.MinerDeal) {
 				require.Equal(t, storagemarket.StorageDealFailing, deal.State)
 				require.Equal(t, "deal rejected: clientMarketBalance.Available too small", deal.Message)
+			},
+		},
+		"Custom Decision Rejects Deal": {
+			environmentParams: environmentParams{
+				RejectDeal:   true,
+				RejectReason: "I just don't like it",
+			},
+			dealInspector: func(t *testing.T, deal storagemarket.MinerDeal) {
+				require.Equal(t, storagemarket.StorageDealFailing, deal.State)
+				require.Equal(t, "deal rejected: I just don't like it", deal.Message)
+			},
+		},
+		"Custom Decision Errors": {
+			environmentParams: environmentParams{
+				DecisionError: errors.New("I can't make up my mind"),
+			},
+			dealInspector: func(t *testing.T, deal storagemarket.MinerDeal) {
+				require.Equal(t, storagemarket.StorageDealFailing, deal.State)
+				require.Equal(t, "error calling node: custom deal decision logic failed: I can't make up my mind", deal.Message)
 			},
 		},
 	}
@@ -781,6 +800,9 @@ type environmentParams struct {
 	DisconnectError         error
 	DealAcceptanceBuffer    int64
 	TagsProposal            bool
+	RejectDeal              bool
+	RejectReason            string
+	DecisionError           error
 }
 
 type executor func(t *testing.T,
@@ -917,6 +939,9 @@ func makeExecutor(ctx context.Context,
 			generateCommPError:      params.GenerateCommPError,
 			sendSignedResponseError: params.SendSignedResponseError,
 			disconnectError:         params.DisconnectError,
+			rejectDeal:              params.RejectDeal,
+			rejectReason:            params.RejectReason,
+			decisionError:           params.DecisionError,
 			dealAcceptanceBuffer:    abi.ChainEpoch(params.DealAcceptanceBuffer),
 			fs:                      fs,
 			pieceStore:              pieceStore,
@@ -959,6 +984,9 @@ type fakeEnvironment struct {
 	generateCommPError      error
 	sendSignedResponseError error
 	disconnectError         error
+	rejectDeal              bool
+	rejectReason            string
+	decisionError           error
 	fs                      filestore.FileStore
 	pieceStore              piecestore.PieceStore
 	dealAcceptanceBuffer    abi.ChainEpoch
@@ -1013,4 +1041,8 @@ func (fe *fakeEnvironment) PieceStore() piecestore.PieceStore {
 
 func (fe *fakeEnvironment) DealAcceptanceBuffer() abi.ChainEpoch {
 	return fe.dealAcceptanceBuffer
+}
+
+func (fe *fakeEnvironment) RunCustomDecisionLogic(ctx context.Context, deal storagemarket.MinerDeal) (bool, string, error) {
+	return !fe.rejectDeal, fe.rejectReason, fe.decisionError
 }

@@ -96,7 +96,6 @@ func TestMakeDeal(t *testing.T) {
 
 	expProviderStates := []storagemarket.StorageDealStatus{
 		storagemarket.StorageDealValidating,
-		storagemarket.StorageDealAcceptWait,
 		storagemarket.StorageDealProposalAccepted,
 		storagemarket.StorageDealTransferring,
 		storagemarket.StorageDealVerifyData,

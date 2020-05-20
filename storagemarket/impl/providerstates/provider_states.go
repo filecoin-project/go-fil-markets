@@ -44,6 +44,7 @@ type ProviderDealEnvironment interface {
 	FileStore() filestore.FileStore
 	PieceStore() piecestore.PieceStore
 	DealAcceptanceBuffer() abi.ChainEpoch
+	RunCustomDecisionLogic(context.Context, storagemarket.MinerDeal) (bool, string, error)
 }
 
 // ProviderStateEntryFunc is the signature for a StateEntryFunc in the provider FSM
@@ -103,25 +104,21 @@ func ValidateDealProposal(ctx fsm.Context, environment ProviderDealEnvironment, 
 		return ctx.Trigger(storagemarket.ProviderEventDealRejected, xerrors.New("clientMarketBalance.Available too small"))
 	}
 
-	if err := environment.TagConnection(deal.ProposalCid); err != nil {
-		// some conns may not support tagging, just log
-		log.Warnf("Error tagging deal connection: %w", err)
-	}
-
-	// TODO: Send intent to accept
-	return ctx.Trigger(storagemarket.ProviderEventDealDeciding)
-}
-
-func DecideOnProposal(ctx fsm.Context, environment ProviderDealEnvironment, deal storagemarket.MinerDeal) error {
-	accept, reason, err := environment.Node().DecideOnProposal(ctx.Context(), deal)
+	accept, reason, err := environment.RunCustomDecisionLogic(ctx.Context(), deal)
 	if err != nil {
-		return xerrors.Errorf("failed to decide on proposal: %w", err)
+		return ctx.Trigger(storagemarket.ProviderEventNodeErrored, xerrors.Errorf("custom deal decision logic failed: %w", err))
 	}
 
 	if !accept {
 		return ctx.Trigger(storagemarket.ProviderEventDealRejected, fmt.Errorf(reason))
 	}
 
+	if err := environment.TagConnection(deal.ProposalCid); err != nil {
+		// some conns may not support tagging, just log
+		log.Warnf("Error tagging deal connection: %w", err)
+	}
+
+	// TODO: Send intent to accept
 	return ctx.Trigger(storagemarket.ProviderEventDealAccepted)
 }
 
