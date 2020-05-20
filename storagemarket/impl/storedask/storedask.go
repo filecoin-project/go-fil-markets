@@ -29,11 +29,12 @@ type StoredAsk struct {
 	askLk sync.RWMutex
 	ask   *storagemarket.SignedStorageAsk
 	ds    datastore.Batching
+	dsKey datastore.Key
 	spn   storagemarket.StorageProviderNode
 	actor address.Address
 }
 
-func NewStoredAsk(ds datastore.Batching, spn storagemarket.StorageProviderNode, actor address.Address) (*StoredAsk, error) {
+func NewStoredAsk(ds datastore.Batching, dsKey datastore.Key, spn storagemarket.StorageProviderNode, actor address.Address) (*StoredAsk, error) {
 
 	s := &StoredAsk{
 		ds:    ds,
@@ -113,8 +114,6 @@ func (s *StoredAsk) GetAsk(addr address.Address) *storagemarket.SignedStorageAsk
 	return &ask
 }
 
-var bestAskKey = datastore.NewKey("latest-ask")
-
 func (s *StoredAsk) tryLoadAsk() error {
 	s.askLk.Lock()
 	defer s.askLk.Unlock()
@@ -132,7 +131,7 @@ func (s *StoredAsk) tryLoadAsk() error {
 }
 
 func (s *StoredAsk) loadAsk() error {
-	askb, err := s.ds.Get(bestAskKey)
+	askb, err := s.ds.Get(s.dsKey)
 	if err != nil {
 		return xerrors.Errorf("failed to load most recent ask from disk: %w", err)
 	}
@@ -152,7 +151,7 @@ func (s *StoredAsk) saveAsk(a *storagemarket.SignedStorageAsk) error {
 		return err
 	}
 
-	if err := s.ds.Put(bestAskKey, b); err != nil {
+	if err := s.ds.Put(s.dsKey, b); err != nil {
 		return err
 	}
 

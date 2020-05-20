@@ -13,7 +13,6 @@ import (
 	"github.com/hannahhoward/go-pubsub"
 	"github.com/ipfs/go-cid"
 	"github.com/ipfs/go-datastore"
-	"github.com/ipfs/go-datastore/namespace"
 	blockstore "github.com/ipfs/go-ipfs-blockstore"
 	"github.com/ipld/go-ipld-prime"
 	"github.com/libp2p/go-libp2p-core/peer"
@@ -28,13 +27,16 @@ import (
 	"github.com/filecoin-project/go-fil-markets/storagemarket/impl/connmanager"
 	"github.com/filecoin-project/go-fil-markets/storagemarket/impl/providerstates"
 	"github.com/filecoin-project/go-fil-markets/storagemarket/impl/providerutils"
-	"github.com/filecoin-project/go-fil-markets/storagemarket/impl/storedask"
 	"github.com/filecoin-project/go-fil-markets/storagemarket/network"
 )
 
-var ProviderDsPrefix = "/provider"
 var DefaultDealAcceptanceBuffer = abi.ChainEpoch(100)
 var _ storagemarket.StorageProvider = &Provider{}
+
+type StoredAsk interface {
+	GetAsk(address.Address) *storagemarket.SignedStorageAsk
+	AddAsk(price abi.TokenAmount, duration abi.ChainEpoch, options ...storagemarket.StorageAskOption) error
+}
 
 // Provider is a storage provider implementation
 type Provider struct {
@@ -47,7 +49,7 @@ type Provider struct {
 	pio                       pieceio.PieceIOWithStore
 	pieceStore                piecestore.PieceStore
 	conns                     *connmanager.ConnManager
-	storedAsk                 *storedask.StoredAsk
+	storedAsk                 StoredAsk
 	actor                     address.Address
 	dataTransfer              datatransfer.Manager
 	universalRetrievalEnabled bool
@@ -94,14 +96,9 @@ func CustomDealDecisionLogic(decider DealDeciderFunc) StorageProviderOption {
 }
 
 // NewProvider returns a new storage provider
-func NewProvider(net network.StorageMarketNetwork, ds datastore.Batching, bs blockstore.Blockstore, fs filestore.FileStore, pieceStore piecestore.PieceStore, dataTransfer datatransfer.Manager, spn storagemarket.StorageProviderNode, minerAddress address.Address, rt abi.RegisteredProof, options ...StorageProviderOption) (storagemarket.StorageProvider, error) {
+func NewProvider(net network.StorageMarketNetwork, ds datastore.Batching, bs blockstore.Blockstore, fs filestore.FileStore, pieceStore piecestore.PieceStore, dataTransfer datatransfer.Manager, spn storagemarket.StorageProviderNode, minerAddress address.Address, rt abi.RegisteredProof, storedAsk StoredAsk, options ...StorageProviderOption) (storagemarket.StorageProvider, error) {
 	carIO := cario.NewCarIO()
 	pio := pieceio.NewPieceIOWithStore(carIO, fs, bs)
-
-	storedAsk, err := storedask.NewStoredAsk(ds, spn, minerAddress)
-	if err != nil {
-		return nil, err
-	}
 
 	h := &Provider{
 		net:                  net,
@@ -118,7 +115,7 @@ func NewProvider(net network.StorageMarketNetwork, ds datastore.Batching, bs blo
 		pubSub:               pubsub.New(providerDispatcher),
 	}
 
-	deals, err := fsm.New(namespace.Wrap(ds, datastore.NewKey(ProviderDsPrefix)), fsm.Parameters{
+	deals, err := fsm.New(ds, fsm.Parameters{
 		Environment:     &providerDealEnvironment{h},
 		StateType:       storagemarket.MinerDeal{},
 		StateKeyField:   "State",
