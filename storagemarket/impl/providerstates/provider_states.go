@@ -3,6 +3,7 @@ package providerstates
 import (
 	"bytes"
 	"context"
+	"fmt"
 
 	"github.com/filecoin-project/go-address"
 	datatransfer "github.com/filecoin-project/go-data-transfer"
@@ -43,6 +44,7 @@ type ProviderDealEnvironment interface {
 	FileStore() filestore.FileStore
 	PieceStore() piecestore.PieceStore
 	DealAcceptanceBuffer() abi.ChainEpoch
+	RunCustomDecisionLogic(context.Context, storagemarket.MinerDeal) (bool, string, error)
 }
 
 // ProviderStateEntryFunc is the signature for a StateEntryFunc in the provider FSM
@@ -106,8 +108,22 @@ func ValidateDealProposal(ctx fsm.Context, environment ProviderDealEnvironment, 
 		// some conns may not support tagging, just log
 		log.Warnf("Error tagging deal connection: %w", err)
 	}
-
 	// TODO: Send intent to accept
+	return ctx.Trigger(storagemarket.ProviderEventDealDeciding)
+}
+
+// DecideOnProposal allows custom decision logic to run before accepting a deal, such as allowing a manual
+// operator to decide whether or not to accept the deal
+func DecideOnProposal(ctx fsm.Context, environment ProviderDealEnvironment, deal storagemarket.MinerDeal) error {
+	accept, reason, err := environment.RunCustomDecisionLogic(ctx.Context(), deal)
+	if err != nil {
+		return ctx.Trigger(storagemarket.ProviderEventNodeErrored, xerrors.Errorf("custom deal decision logic failed: %w", err))
+	}
+
+	if !accept {
+		return ctx.Trigger(storagemarket.ProviderEventDealRejected, fmt.Errorf(reason))
+	}
+
 	return ctx.Trigger(storagemarket.ProviderEventDealAccepted)
 }
 
