@@ -52,7 +52,7 @@ func TestValidateDealProposal(t *testing.T) {
 				TagsProposal: true,
 			},
 			dealInspector: func(t *testing.T, deal storagemarket.MinerDeal) {
-				require.Equal(t, storagemarket.StorageDealProposalAccepted, deal.State)
+				require.Equal(t, storagemarket.StorageDealAcceptWait, deal.State)
 			},
 		},
 		"verify signature fails": {
@@ -87,7 +87,7 @@ func TestValidateDealProposal(t *testing.T) {
 			dealParams:        dealParams{StartEpoch: 200},
 			nodeParams:        nodeParams{Height: 190},
 			dealInspector: func(t *testing.T, deal storagemarket.MinerDeal) {
-				require.Equal(t, storagemarket.StorageDealProposalAccepted, deal.State)
+				require.Equal(t, storagemarket.StorageDealAcceptWait, deal.State)
 			},
 		},
 		"CurrentHeight > StartEpoch - DealAcceptanceBuffer() fails": {
@@ -135,6 +135,32 @@ func TestValidateDealProposal(t *testing.T) {
 				require.Equal(t, "deal rejected: clientMarketBalance.Available too small", deal.Message)
 			},
 		},
+	}
+	for test, data := range tests {
+		t.Run(test, func(t *testing.T) {
+			runValidateDealProposal(t, data.nodeParams, data.environmentParams, data.dealParams, data.fileStoreParams, data.pieceStoreParams, data.dealInspector)
+		})
+	}
+}
+
+func TestDecideOnProposal(t *testing.T) {
+	ctx := context.Background()
+	eventProcessor, err := fsm.NewEventProcessor(storagemarket.MinerDeal{}, "State", providerstates.ProviderEvents)
+	require.NoError(t, err)
+	runDecideOndeal := makeExecutor(ctx, eventProcessor, providerstates.DecideOnProposal, storagemarket.StorageDealAcceptWait)
+	tests := map[string]struct {
+		nodeParams        nodeParams
+		dealParams        dealParams
+		environmentParams environmentParams
+		fileStoreParams   tut.TestFileStoreParams
+		pieceStoreParams  tut.TestPieceStoreParams
+		dealInspector     func(t *testing.T, deal storagemarket.MinerDeal)
+	}{
+		"succeeds": {
+			dealInspector: func(t *testing.T, deal storagemarket.MinerDeal) {
+				require.Equal(t, storagemarket.StorageDealProposalAccepted, deal.State)
+			},
+		},
 		"Custom Decision Rejects Deal": {
 			environmentParams: environmentParams{
 				RejectDeal:   true,
@@ -157,7 +183,7 @@ func TestValidateDealProposal(t *testing.T) {
 	}
 	for test, data := range tests {
 		t.Run(test, func(t *testing.T) {
-			runValidateDealProposal(t, data.nodeParams, data.environmentParams, data.dealParams, data.fileStoreParams, data.pieceStoreParams, data.dealInspector)
+			runDecideOndeal(t, data.nodeParams, data.environmentParams, data.dealParams, data.fileStoreParams, data.pieceStoreParams, data.dealInspector)
 		})
 	}
 }

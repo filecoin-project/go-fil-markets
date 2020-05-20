@@ -104,6 +104,17 @@ func ValidateDealProposal(ctx fsm.Context, environment ProviderDealEnvironment, 
 		return ctx.Trigger(storagemarket.ProviderEventDealRejected, xerrors.New("clientMarketBalance.Available too small"))
 	}
 
+	if err := environment.TagConnection(deal.ProposalCid); err != nil {
+		// some conns may not support tagging, just log
+		log.Warnf("Error tagging deal connection: %w", err)
+	}
+	// TODO: Send intent to accept
+	return ctx.Trigger(storagemarket.ProviderEventDealDeciding)
+}
+
+// DecideOnProposal allows custom decision logic to run before accepting a deal, such as allowing a manual
+// operator to decide whether or not to accept the deal
+func DecideOnProposal(ctx fsm.Context, environment ProviderDealEnvironment, deal storagemarket.MinerDeal) error {
 	accept, reason, err := environment.RunCustomDecisionLogic(ctx.Context(), deal)
 	if err != nil {
 		return ctx.Trigger(storagemarket.ProviderEventNodeErrored, xerrors.Errorf("custom deal decision logic failed: %w", err))
@@ -113,12 +124,6 @@ func ValidateDealProposal(ctx fsm.Context, environment ProviderDealEnvironment, 
 		return ctx.Trigger(storagemarket.ProviderEventDealRejected, fmt.Errorf(reason))
 	}
 
-	if err := environment.TagConnection(deal.ProposalCid); err != nil {
-		// some conns may not support tagging, just log
-		log.Warnf("Error tagging deal connection: %w", err)
-	}
-
-	// TODO: Send intent to accept
 	return ctx.Trigger(storagemarket.ProviderEventDealAccepted)
 }
 
