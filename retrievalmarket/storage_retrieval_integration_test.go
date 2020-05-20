@@ -82,7 +82,12 @@ func TestStorageRetrieval(t *testing.T) {
 		case storageProviderSeenDeal = <-providerDealChan:
 		case storageClientSeenDeal = <-clientDealChan:
 		case <-ctxTimeout.Done():
-			t.Fatalf("never saw completed: %d, %d", storageClientSeenDeal.State, storageProviderSeenDeal.State)
+			t.Fatalf("never saw completed deal, client deal state: %s (%d), provider deal state: %s (%d)",
+				storagemarket.DealStates[storageClientSeenDeal.State],
+				storageClientSeenDeal.State,
+				storagemarket.DealStates[storageProviderSeenDeal.State],
+				storageProviderSeenDeal.State,
+			)
 		}
 	}
 
@@ -221,7 +226,10 @@ func newStorageHarness(ctx context.Context, t *testing.T) *storageHarness {
 		&clientNode,
 	)
 	require.NoError(t, err)
+
 	dt2 := graphsyncimpl.NewGraphSyncDataTransfer(td.Host2, td.GraphSync2, td.DTStoredCounter2)
+	require.NoError(t, dt2.RegisterVoucherType(&requestvalidation.StorageDataTransferVoucher{}, &fakeDTValidator{}))
+
 	storedAsk, err := storedask.NewStoredAsk(td.Ds2, datastore.NewKey("latest-ask"), providerNode, providerAddr)
 	require.NoError(t, err)
 	provider, err := stormkt.NewProvider(

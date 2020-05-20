@@ -42,47 +42,49 @@ const (
 
 	// Internal
 
-	StorageDealFundsEnsured        // Deposited funds as neccesary to create a deal, ready to move forward
-	StorageDealValidating          // Verifying that deal parameters are good
-	StorageDealAcceptWait          // Deciding whether or not to accept the deal
-	StorageDealTransferring        // Moving data
-	StorageDealWaitingForData      // Manual transfer
-	StorageDealVerifyData          // Verify transferred data - generate CAR / piece data
-	StorageDealEnsureProviderFunds // Ensuring that provider collateral is sufficient
-	StorageDealEnsureClientFunds   // Ensuring that client funds are sufficient
-	StorageDealProviderFunding     // Waiting for funds to appear in Provider balance
-	StorageDealClientFunding       // Waiting for funds to appear in Client balance
-	StorageDealPublish             // Publishing deal to chain
-	StorageDealPublishing          // Waiting for deal to appear on chain
-	StorageDealError               // deal failed with an unexpected error
-	StorageDealCompleted           // on provider side, indicates deal is active and info for retrieval is recorded
+	StorageDealFundsEnsured          // Deposited funds as neccesary to create a deal, ready to move forward
+	StorageDealWaitingForDataRequest // Client is waiting for a request for the deal data
+	StorageDealValidating            // Verifying that deal parameters are good
+	StorageDealAcceptWait            // Deciding whether or not to accept the deal
+	StorageDealTransferring          // Moving data
+	StorageDealWaitingForData        // Manual transfer
+	StorageDealVerifyData            // Verify transferred data - generate CAR / piece data
+	StorageDealEnsureProviderFunds   // Ensuring that provider collateral is sufficient
+	StorageDealEnsureClientFunds     // Ensuring that client funds are sufficient
+	StorageDealProviderFunding       // Waiting for funds to appear in Provider balance
+	StorageDealClientFunding         // Waiting for funds to appear in Client balance
+	StorageDealPublish               // Publishing deal to chain
+	StorageDealPublishing            // Waiting for deal to appear on chain
+	StorageDealError                 // deal failed with an unexpected error
+	StorageDealCompleted             // on provider side, indicates deal is active and info for retrieval is recorded
 )
 
 // DealStates maps StorageDealStatus codes to string names
 var DealStates = map[StorageDealStatus]string{
-	StorageDealUnknown:             "StorageDealUnknown",
-	StorageDealProposalNotFound:    "StorageDealProposalNotFound",
-	StorageDealProposalRejected:    "StorageDealProposalRejected",
-	StorageDealProposalAccepted:    "StorageDealProposalAccepted",
-	StorageDealAcceptWait:          "StorageDealAcceptWait",
-	StorageDealStaged:              "StorageDealStaged",
-	StorageDealSealing:             "StorageDealSealing",
-	StorageDealActive:              "StorageDealActive",
-	StorageDealFailing:             "StorageDealFailing",
-	StorageDealNotFound:            "StorageDealNotFound",
-	StorageDealFundsEnsured:        "StorageDealFundsEnsured",
-	StorageDealValidating:          "StorageDealValidating",
-	StorageDealTransferring:        "StorageDealTransferring",
-	StorageDealWaitingForData:      "StorageDealWaitingForData",
-	StorageDealVerifyData:          "StorageDealVerifyData",
-	StorageDealEnsureProviderFunds: "StorageDealEnsureProviderFunds",
-	StorageDealEnsureClientFunds:   "StorageDealEnsureClientFunds",
-	StorageDealProviderFunding:     "StorageDealProviderFunding",
-	StorageDealClientFunding:       "StorageDealClientFunding",
-	StorageDealPublish:             "StorageDealPublish",
-	StorageDealPublishing:          "StorageDealPublishing",
-	StorageDealError:               "StorageDealError",
-	StorageDealCompleted:           "StorageDealCompleted",
+	StorageDealUnknown:               "StorageDealUnknown",
+	StorageDealProposalNotFound:      "StorageDealProposalNotFound",
+	StorageDealProposalRejected:      "StorageDealProposalRejected",
+	StorageDealProposalAccepted:      "StorageDealProposalAccepted",
+	StorageDealAcceptWait:            "StorageDealAcceptWait",
+	StorageDealStaged:                "StorageDealStaged",
+	StorageDealSealing:               "StorageDealSealing",
+	StorageDealActive:                "StorageDealActive",
+	StorageDealFailing:               "StorageDealFailing",
+	StorageDealNotFound:              "StorageDealNotFound",
+	StorageDealFundsEnsured:          "StorageDealFundsEnsured",
+	StorageDealWaitingForDataRequest: "StorageDealWaitingForDataRequest",
+	StorageDealValidating:            "StorageDealValidating",
+	StorageDealTransferring:          "StorageDealTransferring",
+	StorageDealWaitingForData:        "StorageDealWaitingForData",
+	StorageDealVerifyData:            "StorageDealVerifyData",
+	StorageDealEnsureProviderFunds:   "StorageDealEnsureProviderFunds",
+	StorageDealEnsureClientFunds:     "StorageDealEnsureClientFunds",
+	StorageDealProviderFunding:       "StorageDealProviderFunding",
+	StorageDealClientFunding:         "StorageDealClientFunding",
+	StorageDealPublish:               "StorageDealPublish",
+	StorageDealPublishing:            "StorageDealPublishing",
+	StorageDealError:                 "StorageDealError",
+	StorageDealCompleted:             "StorageDealCompleted",
 }
 
 func init() {
@@ -162,10 +164,6 @@ const (
 	// ProviderEventDealAccepted happens when a deal is accepted based on provider criteria
 	ProviderEventDealAccepted
 
-	// ProviderEventWaitingForManualData happens when an offline deal proposal is accepted,
-	// meaning the provider must wait until it receives data manually
-	ProviderEventWaitingForManualData
-
 	// ProviderEventInsufficientFunds indicates not enough funds available for a deal
 	ProviderEventInsufficientFunds
 
@@ -177,6 +175,9 @@ const (
 
 	// ProviderEventDataTransferFailed happens when an error occurs transferring data
 	ProviderEventDataTransferFailed
+
+	// ProviderEventDataRequested happens when a provider requests data from a client
+	ProviderEventDataRequested
 
 	// ProviderEventDataTransferInitiated happens when a data transfer starts
 	ProviderEventDataTransferInitiated
@@ -244,11 +245,11 @@ var ProviderEvents = map[ProviderEvent]string{
 	ProviderEventDealRejected:           "ProviderEventDealRejected",
 	ProviderEventDealAccepted:           "ProviderEventDealAccepted",
 	ProviderEventDealDeciding:           "ProviderEventDealDeciding",
-	ProviderEventWaitingForManualData:   "ProviderEventWaitingForManualData",
 	ProviderEventInsufficientFunds:      "ProviderEventInsufficientFunds",
 	ProviderEventFundingInitiated:       "ProviderEventFundingInitiated",
 	ProviderEventFunded:                 "ProviderEventFunded",
 	ProviderEventDataTransferFailed:     "ProviderEventDataTransferFailed",
+	ProviderEventDataRequested:          "ProviderEventDataRequested",
 	ProviderEventDataTransferInitiated:  "ProviderEventDataTransferInitiated",
 	ProviderEventDataTransferCompleted:  "ProviderEventDataTransferCompleted",
 	ProviderEventManualDataReceived:     "ProviderEventManualDataReceived",
@@ -305,8 +306,14 @@ const (
 	// ClientEventDealProposed happens when a new proposal is sent to a provider
 	ClientEventDealProposed
 
-	// ClientEventDealStreamLookupErrored the deal stream for a deal could not be found
-	ClientEventDealStreamLookupErrored
+	// ClientEventDataTransferInitiated happens when piece data transfer has started
+	ClientEventDataTransferInitiated
+
+	// ClientEventDataTransferComplete happens when piece data transfer has been completed
+	ClientEventDataTransferComplete
+
+	// ClientEventDataTransferFailed happens the client can't initiate a push data transfer to the provider
+	ClientEventDataTransferFailed
 
 	// ClientEventReadResponseFailed means a network error occurred reading a deal response
 	ClientEventReadResponseFailed
@@ -316,6 +323,9 @@ const (
 
 	// ClientEventResponseDealDidNotMatch means a response was sent for the wrong deal
 	ClientEventResponseDealDidNotMatch
+
+	// ClientEventUnexpectedDealState means a response was sent but the state wasn't what we expected
+	ClientEventUnexpectedDealState
 
 	// ClientEventStreamCloseError happens when an attempt to close a deals stream fails
 	ClientEventStreamCloseError
@@ -350,10 +360,13 @@ var ClientEvents = map[ClientEvent]string{
 	ClientEventFundsEnsured:               "ClientEventFundsEnsured",
 	ClientEventWriteProposalFailed:        "ClientEventWriteProposalFailed",
 	ClientEventDealProposed:               "ClientEventDealProposed",
-	ClientEventDealStreamLookupErrored:    "ClientEventDealStreamLookupErrored",
+	ClientEventDataTransferInitiated:      "ClientEventDataTransferInitiated",
+	ClientEventDataTransferComplete:       "ClientEventDataTransferComplete",
+	ClientEventDataTransferFailed:         "ClientEventDataTransferFailed",
 	ClientEventReadResponseFailed:         "ClientEventReadResponseFailed",
 	ClientEventResponseVerificationFailed: "ClientEventResponseVerificationFailed",
 	ClientEventResponseDealDidNotMatch:    "ClientEventResponseDealDidNotMatch",
+	ClientEventUnexpectedDealState:        "ClientEventUnexpectedDealState",
 	ClientEventStreamCloseError:           "ClientEventStreamCloseError",
 	ClientEventDealRejected:               "ClientEventDealRejected",
 	ClientEventDealAccepted:               "ClientEventDealAccepted",

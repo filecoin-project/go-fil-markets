@@ -8,14 +8,16 @@ import (
 
 	"github.com/filecoin-project/go-address"
 	cborutil "github.com/filecoin-project/go-cbor-util"
+	datatransfer "github.com/filecoin-project/go-data-transfer"
 	"github.com/filecoin-project/go-statemachine/fsm"
 	fsmtest "github.com/filecoin-project/go-statemachine/fsm/testutil"
 	"github.com/filecoin-project/specs-actors/actors/abi"
 	"github.com/filecoin-project/specs-actors/actors/builtin/market"
 	"github.com/filecoin-project/specs-actors/actors/runtime/exitcode"
 	"github.com/ipfs/go-cid"
-	peer "github.com/libp2p/go-libp2p-core/peer"
-	"github.com/stretchr/testify/require"
+	"github.com/ipld/go-ipld-prime"
+	"github.com/libp2p/go-libp2p-core/peer"
+	"github.com/stretchr/testify/assert"
 
 	tut "github.com/filecoin-project/go-fil-markets/shared_testutil"
 	"github.com/filecoin-project/go-fil-markets/storagemarket"
@@ -24,330 +26,362 @@ import (
 	"github.com/filecoin-project/go-fil-markets/storagemarket/testnodes"
 )
 
+var clientDealProposal = tut.MakeTestClientDealProposal()
+
 func TestEnsureFunds(t *testing.T) {
-	ctx := context.Background()
-	eventProcessor, err := fsm.NewEventProcessor(storagemarket.ClientDeal{}, "State", clientstates.ClientEvents)
-	require.NoError(t, err)
-	clientDealProposal := tut.MakeTestClientDealProposal()
-	runEnsureFunds := makeExecutor(ctx, eventProcessor, clientstates.EnsureClientFunds, clientDealParams{state: storagemarket.StorageDealEnsureClientFunds}, clientDealProposal)
-	addFundsCid := tut.GenerateCids(1)[0]
-
 	t.Run("immediately succeeds", func(t *testing.T) {
-		runEnsureFunds(t, makeNode(nodeParams{}), nil, nil, func(deal storagemarket.ClientDeal, env *fakeEnvironment) {
-			require.Equal(t, storagemarket.StorageDealFundsEnsured, deal.State)
+		runAndInspect(t, storagemarket.StorageDealEnsureClientFunds, clientstates.EnsureClientFunds, testCase{
+			inspector: func(deal storagemarket.ClientDeal, env *fakeEnvironment) {
+				tut.AssertDealState(t, storagemarket.StorageDealFundsEnsured, deal.State)
+			},
 		})
 	})
-
 	t.Run("succeeds by sending an AddFunds message", func(t *testing.T) {
-		params := nodeParams{
-			AddFundsCid: addFundsCid,
-		}
-		runEnsureFunds(t, makeNode(params), nil, nil, func(deal storagemarket.ClientDeal, env *fakeEnvironment) {
-			require.Equal(t, storagemarket.StorageDealClientFunding, deal.State)
+		runAndInspect(t, storagemarket.StorageDealEnsureClientFunds, clientstates.EnsureClientFunds, testCase{
+			nodeParams: nodeParams{AddFundsCid: tut.GenerateCids(1)[0]},
+			inspector: func(deal storagemarket.ClientDeal, env *fakeEnvironment) {
+				tut.AssertDealState(t, storagemarket.StorageDealClientFunding, deal.State)
+			},
 		})
 	})
-
 	t.Run("EnsureClientFunds fails", func(t *testing.T) {
-		n := makeNode(nodeParams{
-			EnsureFundsError: errors.New("Something went wrong"),
-		})
-		runEnsureFunds(t, n, nil, nil, func(deal storagemarket.ClientDeal, env *fakeEnvironment) {
-			require.Equal(t, storagemarket.StorageDealFailing, deal.State)
-			require.Equal(t, "adding market funds failed: Something went wrong", deal.Message)
+		runAndInspect(t, storagemarket.StorageDealEnsureClientFunds, clientstates.EnsureClientFunds, testCase{
+			nodeParams: nodeParams{
+				EnsureFundsError: errors.New("Something went wrong"),
+			},
+			inspector: func(deal storagemarket.ClientDeal, env *fakeEnvironment) {
+				tut.AssertDealState(t, storagemarket.StorageDealFailing, deal.State)
+				assert.Equal(t, "adding market funds failed: Something went wrong", deal.Message)
+			},
 		})
 	})
 }
 
 func TestWaitForFunding(t *testing.T) {
-	ctx := context.Background()
-	eventProcessor, err := fsm.NewEventProcessor(storagemarket.ClientDeal{}, "State", clientstates.ClientEvents)
-	require.NoError(t, err)
-	clientDealProposal := tut.MakeTestClientDealProposal()
-	runEnsureFunds := makeExecutor(ctx, eventProcessor, clientstates.WaitForFunding, clientDealParams{state: storagemarket.StorageDealClientFunding}, clientDealProposal)
-
 	t.Run("succeeds", func(t *testing.T) {
-		runEnsureFunds(t, makeNode(nodeParams{WaitForMessageExitCode: exitcode.Ok}), nil, nil, func(deal storagemarket.ClientDeal, env *fakeEnvironment) {
-			require.Equal(t, storagemarket.StorageDealFundsEnsured, deal.State)
+		runAndInspect(t, storagemarket.StorageDealClientFunding, clientstates.WaitForFunding, testCase{
+			nodeParams: nodeParams{WaitForMessageExitCode: exitcode.Ok},
+			inspector: func(deal storagemarket.ClientDeal, env *fakeEnvironment) {
+				tut.AssertDealState(t, storagemarket.StorageDealFundsEnsured, deal.State)
+			},
 		})
 	})
-
 	t.Run("EnsureClientFunds fails", func(t *testing.T) {
-		runEnsureFunds(t, makeNode(nodeParams{WaitForMessageExitCode: exitcode.ErrInsufficientFunds}), nil, nil, func(deal storagemarket.ClientDeal, env *fakeEnvironment) {
-			require.Equal(t, storagemarket.StorageDealFailing, deal.State)
-			require.Equal(t, "adding market funds failed: AddFunds exit code: 19", deal.Message)
+		runAndInspect(t, storagemarket.StorageDealClientFunding, clientstates.WaitForFunding, testCase{
+			nodeParams: nodeParams{WaitForMessageExitCode: exitcode.ErrInsufficientFunds},
+			inspector: func(deal storagemarket.ClientDeal, env *fakeEnvironment) {
+				tut.AssertDealState(t, storagemarket.StorageDealFailing, deal.State)
+				assert.Equal(t, "adding market funds failed: AddFunds exit code: 19", deal.Message)
+			},
 		})
 	})
 }
 
 func TestProposeDeal(t *testing.T) {
-	ctx := context.Background()
-	eventProcessor, err := fsm.NewEventProcessor(storagemarket.ClientDeal{}, "State", clientstates.ClientEvents)
-	require.NoError(t, err)
-	clientDealProposal := tut.MakeTestClientDealProposal()
-	runProposeDeal := makeExecutor(ctx, eventProcessor, clientstates.ProposeDeal, clientDealParams{state: storagemarket.StorageDealFundsEnsured}, clientDealProposal)
-
-	dealStream := func(writer tut.StorageDealProposalWriter) *tut.TestStorageDealStream {
-		return tut.NewTestStorageDealStream(tut.TestStorageDealStreamParams{
-			ProposalWriter: writer,
-		})
-	}
-
 	t.Run("succeeds", func(t *testing.T) {
-		ds := dealStream(tut.TrivialStorageDealProposalWriter)
-		runProposeDeal(t, makeNode(nodeParams{}), ds, nil, func(deal storagemarket.ClientDeal, env *fakeEnvironment) {
-			require.Equal(t, storagemarket.StorageDealValidating, deal.State)
-			ds.AssertConnectionTagged(t, deal.ProposalCid.String())
+		ds := tut.NewTestStorageDealStream(tut.TestStorageDealStreamParams{
+			ProposalWriter: tut.TrivialStorageDealProposalWriter,
+		})
+		runAndInspect(t, storagemarket.StorageDealFundsEnsured, clientstates.ProposeDeal, testCase{
+			envParams:  envParams{dealStream: ds},
+			nodeParams: nodeParams{WaitForMessageExitCode: exitcode.Ok},
+			inspector: func(deal storagemarket.ClientDeal, env *fakeEnvironment) {
+				tut.AssertDealState(t, storagemarket.StorageDealWaitingForDataRequest, deal.State)
+				ds.AssertConnectionTagged(t, deal.ProposalCid.String())
+			},
 		})
 	})
-
 	t.Run("write proposal fails fails", func(t *testing.T) {
-		runProposeDeal(t, makeNode(nodeParams{}), dealStream(tut.FailStorageProposalWriter), nil, func(deal storagemarket.ClientDeal, env *fakeEnvironment) {
-			require.Equal(t, storagemarket.StorageDealError, deal.State)
-			require.Equal(t, "sending proposal to storage provider failed: write proposal failed", deal.Message)
+		ds := tut.NewTestStorageDealStream(tut.TestStorageDealStreamParams{
+			ProposalWriter: tut.FailStorageProposalWriter,
+		})
+		runAndInspect(t, storagemarket.StorageDealFundsEnsured, clientstates.ProposeDeal, testCase{
+			envParams:  envParams{dealStream: ds},
+			nodeParams: nodeParams{WaitForMessageExitCode: exitcode.Ok},
+			inspector: func(deal storagemarket.ClientDeal, env *fakeEnvironment) {
+				tut.AssertDealState(t, storagemarket.StorageDealError, deal.State)
+				assert.Equal(t, "sending proposal to storage provider failed: write proposal failed", deal.Message)
+			},
 		})
 	})
 }
 
-func TestVerifyResponse(t *testing.T) {
-	ctx := context.Background()
-	eventProcessor, err := fsm.NewEventProcessor(storagemarket.ClientDeal{}, "State", clientstates.ClientEvents)
-	require.NoError(t, err)
-	clientDealProposal := tut.MakeTestClientDealProposal()
-	proposalNd, err := cborutil.AsIpld(clientDealProposal)
-	require.NoError(t, err)
-	runVerifyResponse := makeExecutor(ctx, eventProcessor, clientstates.VerifyDealResponse, clientDealParams{state: storagemarket.StorageDealValidating}, clientDealProposal)
-
-	publishMessage := &(tut.GenerateCids(1)[0])
-
-	dealStream := func(reader tut.StorageDealResponseReader) smnet.StorageDealStream {
-		return tut.NewTestStorageDealStream(tut.TestStorageDealStreamParams{
-			ResponseReader: reader,
-		})
-	}
-
+func TestWaitingForDataRequest(t *testing.T) {
 	t.Run("succeeds", func(t *testing.T) {
-		stream := dealStream(tut.StubbedStorageResponseReader(smnet.SignedResponse{
-			Response: smnet.Response{
-				State:          storagemarket.StorageDealProposalAccepted,
-				Proposal:       proposalNd.Cid(),
-				PublishMessage: publishMessage,
+		runAndInspect(t, storagemarket.StorageDealWaitingForDataRequest, clientstates.WaitingForDataRequest, testCase{
+			envParams: envParams{
+				dealStream: testResponseStream(t, responseParams{
+					state:    storagemarket.StorageDealWaitingForData,
+					proposal: clientDealProposal,
+				}),
 			},
-			Signature: tut.MakeTestSignature(),
-		}))
-		runVerifyResponse(t, makeNode(nodeParams{VerifySignatureFails: false}), stream, nil, func(deal storagemarket.ClientDeal, env *fakeEnvironment) {
-			require.Equal(t, storagemarket.StorageDealProposalAccepted, deal.State)
-			require.Equal(t, publishMessage, deal.PublishMessage)
+			inspector: func(deal storagemarket.ClientDeal, env *fakeEnvironment) {
+				assert.Len(t, env.startDataTransferCalls, 1)
+				assert.Equal(t, env.startDataTransferCalls[0].to, deal.Miner)
+				assert.Equal(t, env.startDataTransferCalls[0].baseCid, deal.DataRef.Root)
+
+				tut.AssertDealState(t, storagemarket.StorageDealTransferring, deal.State)
+			},
 		})
 	})
 
+	t.Run("response contains unexpected state", func(t *testing.T) {
+		runAndInspect(t, storagemarket.StorageDealWaitingForDataRequest, clientstates.WaitingForDataRequest, testCase{
+			envParams: envParams{
+				dealStream: testResponseStream(t, responseParams{
+					proposal: clientDealProposal,
+					state:    storagemarket.StorageDealProposalNotFound,
+				}),
+			},
+			inspector: func(deal storagemarket.ClientDeal, env *fakeEnvironment) {
+				tut.AssertDealState(t, storagemarket.StorageDealFailing, deal.State)
+				assert.Equal(t, "unexpected deal status while waiting for data request: 1", deal.Message)
+			},
+		})
+	})
 	t.Run("read response fails", func(t *testing.T) {
-		runVerifyResponse(t, makeNode(nodeParams{VerifySignatureFails: false}), dealStream(tut.FailStorageResponseReader), nil, func(deal storagemarket.ClientDeal, env *fakeEnvironment) {
-			require.Equal(t, storagemarket.StorageDealError, deal.State)
-			require.Equal(t, "error reading Response message: read response failed", deal.Message)
+		runAndInspect(t, storagemarket.StorageDealWaitingForDataRequest, clientstates.WaitingForDataRequest, testCase{
+			envParams: envParams{
+				startDataTransferError: errors.New("failed"),
+				dealStream: testResponseStream(t, responseParams{
+					proposal: clientDealProposal,
+					state:    storagemarket.StorageDealWaitingForData,
+				}),
+			},
+			inspector: func(deal storagemarket.ClientDeal, env *fakeEnvironment) {
+				tut.AssertDealState(t, storagemarket.StorageDealFailing, deal.State)
+				assert.Equal(t, "failed to initiate data transfer: failed to open push data channel: failed", deal.Message)
+			},
 		})
 	})
+	t.Run("waits for another response with manual transfers", func(t *testing.T) {
+		runAndInspect(t, storagemarket.StorageDealWaitingForDataRequest, clientstates.WaitingForDataRequest, testCase{
+			envParams: envParams{
+				dealStream: testResponseStream(t, responseParams{
+					proposal: clientDealProposal,
+					state:    storagemarket.StorageDealWaitingForData,
+				}),
+				manualTransfer: true,
+			},
+			inspector: func(deal storagemarket.ClientDeal, env *fakeEnvironment) {
+				tut.AssertDealState(t, storagemarket.StorageDealValidating, deal.State)
+			},
+		})
+	})
+}
 
+func TestVerifyDealResponse(t *testing.T) {
+	t.Run("succeeds", func(t *testing.T) {
+		publishMessage := &(tut.GenerateCids(1)[0])
+
+		runAndInspect(t, storagemarket.StorageDealValidating, clientstates.VerifyDealResponse, testCase{
+			envParams: envParams{
+				dealStream: testResponseStream(t, responseParams{
+					proposal:       clientDealProposal,
+					state:          storagemarket.StorageDealProposalAccepted,
+					publishMessage: publishMessage,
+				}),
+			},
+			inspector: func(deal storagemarket.ClientDeal, env *fakeEnvironment) {
+				tut.AssertDealState(t, storagemarket.StorageDealProposalAccepted, deal.State)
+				assert.Equal(t, publishMessage, deal.PublishMessage)
+			},
+		})
+	})
+	t.Run("read response fails", func(t *testing.T) {
+		runAndInspect(t, storagemarket.StorageDealValidating, clientstates.VerifyDealResponse, testCase{
+			envParams: envParams{dealStream: tut.NewTestStorageDealStream(tut.TestStorageDealStreamParams{
+				ResponseReader: tut.FailStorageResponseReader,
+			})},
+			inspector: func(deal storagemarket.ClientDeal, env *fakeEnvironment) {
+				tut.AssertDealState(t, storagemarket.StorageDealError, deal.State)
+				assert.Equal(t, "error reading Response message: read response failed", deal.Message)
+			},
+		})
+	})
 	t.Run("verify response fails", func(t *testing.T) {
-		stream := dealStream(tut.StubbedStorageResponseReader(smnet.SignedResponse{
-			Response: smnet.Response{
-				State:          storagemarket.StorageDealProposalAccepted,
-				Proposal:       proposalNd.Cid(),
-				PublishMessage: publishMessage,
+		runAndInspect(t, storagemarket.StorageDealValidating, clientstates.VerifyDealResponse, testCase{
+			nodeParams: nodeParams{VerifySignatureFails: true},
+			envParams: envParams{dealStream: testResponseStream(t, responseParams{
+				proposal: clientDealProposal,
+				state:    storagemarket.StorageDealProposalAccepted,
+			})},
+			inspector: func(deal storagemarket.ClientDeal, env *fakeEnvironment) {
+				tut.AssertDealState(t, storagemarket.StorageDealFailing, deal.State)
+				assert.Equal(t, "unable to verify signature on deal response", deal.Message)
 			},
-			Signature: tut.MakeTestSignature(),
-		}))
-		failToVerifyNode := makeNode(nodeParams{VerifySignatureFails: true})
-		runVerifyResponse(t, failToVerifyNode, stream, nil, func(deal storagemarket.ClientDeal, env *fakeEnvironment) {
-			require.Equal(t, storagemarket.StorageDealFailing, deal.State)
-			require.Equal(t, "unable to verify signature on deal response", deal.Message)
 		})
 	})
-
 	t.Run("incorrect proposal cid", func(t *testing.T) {
-		stream := dealStream(tut.StubbedStorageResponseReader(smnet.SignedResponse{
-			Response: smnet.Response{
-				State:          storagemarket.StorageDealProposalAccepted,
-				Proposal:       tut.GenerateCids(1)[0],
-				PublishMessage: publishMessage,
+		runAndInspect(t, storagemarket.StorageDealValidating, clientstates.VerifyDealResponse, testCase{
+			envParams: envParams{dealStream: testResponseStream(t, responseParams{
+				proposal:    clientDealProposal,
+				state:       storagemarket.StorageDealProposalAccepted,
+				proposalCid: tut.GenerateCids(1)[0],
+			})},
+			inspector: func(deal storagemarket.ClientDeal, env *fakeEnvironment) {
+				tut.AssertDealState(t, storagemarket.StorageDealFailing, deal.State)
+				assert.Regexp(t, "^miner responded to a wrong proposal:", deal.Message)
 			},
-			Signature: tut.MakeTestSignature(),
-		}))
-		runVerifyResponse(t, makeNode(nodeParams{VerifySignatureFails: false}), stream, nil, func(deal storagemarket.ClientDeal, env *fakeEnvironment) {
-			require.Equal(t, storagemarket.StorageDealFailing, deal.State)
-			require.Regexp(t, "^miner responded to a wrong proposal:", deal.Message)
 		})
 	})
-
 	t.Run("deal rejected", func(t *testing.T) {
-		stream := dealStream(tut.StubbedStorageResponseReader(smnet.SignedResponse{
-			Response: smnet.Response{
-				State:          storagemarket.StorageDealProposalRejected,
-				Proposal:       proposalNd.Cid(),
-				PublishMessage: publishMessage,
-				Message:        "because reasons",
+		runAndInspect(t, storagemarket.StorageDealValidating, clientstates.VerifyDealResponse, testCase{
+			envParams: envParams{dealStream: testResponseStream(t, responseParams{
+				proposal: clientDealProposal,
+				state:    storagemarket.StorageDealProposalRejected,
+				message:  "because reasons",
+			})},
+			inspector: func(deal storagemarket.ClientDeal, env *fakeEnvironment) {
+				expErr := fmt.Sprintf("deal failed: (State=%d) because reasons", storagemarket.StorageDealProposalRejected)
+
+				tut.AssertDealState(t, storagemarket.StorageDealFailing, deal.State)
+				assert.Equal(t, deal.Message, expErr)
 			},
-			Signature: tut.MakeTestSignature(),
-		}))
-		expErr := fmt.Sprintf("deal failed: (State=%d) because reasons", storagemarket.StorageDealProposalRejected)
-		runVerifyResponse(t, makeNode(nodeParams{VerifySignatureFails: false}), stream, nil, func(deal storagemarket.ClientDeal, env *fakeEnvironment) {
-			require.Equal(t, storagemarket.StorageDealFailing, deal.State)
-			require.Equal(t, deal.Message, expErr)
 		})
 	})
-
 	t.Run("deal stream close errors", func(t *testing.T) {
-		stream := dealStream(tut.StubbedStorageResponseReader(smnet.SignedResponse{
-			Response: smnet.Response{
-				State:          storagemarket.StorageDealProposalAccepted,
-				Proposal:       proposalNd.Cid(),
-				PublishMessage: publishMessage,
+		runAndInspect(t, storagemarket.StorageDealValidating, clientstates.VerifyDealResponse, testCase{
+			envParams: envParams{dealStream: testResponseStream(t, responseParams{
+				proposal: clientDealProposal,
+				state:    storagemarket.StorageDealProposalAccepted,
+			}), closeStreamErr: errors.New("something went wrong")},
+			inspector: func(deal storagemarket.ClientDeal, env *fakeEnvironment) {
+				tut.AssertDealState(t, storagemarket.StorageDealError, deal.State)
+				assert.Equal(t, "error attempting to close stream: something went wrong", deal.Message)
 			},
-			Signature: tut.MakeTestSignature(),
-		}))
-		closeStreamErr := errors.New("something went wrong")
-		runVerifyResponse(t, makeNode(nodeParams{VerifySignatureFails: false}), stream, closeStreamErr, func(deal storagemarket.ClientDeal, env *fakeEnvironment) {
-			require.Equal(t, storagemarket.StorageDealError, deal.State)
-			require.Equal(t, "error attempting to close stream: something went wrong", deal.Message)
 		})
 	})
-
 }
 
 func TestValidateDealPublished(t *testing.T) {
-	ctx := context.Background()
-	eventProcessor, err := fsm.NewEventProcessor(storagemarket.ClientDeal{}, "State", clientstates.ClientEvents)
-	require.NoError(t, err)
-	clientDealProposal := tut.MakeTestClientDealProposal()
-	runValidateDealPublished := makeExecutor(ctx, eventProcessor, clientstates.ValidateDealPublished, clientDealParams{state: storagemarket.StorageDealProposalAccepted}, clientDealProposal)
-
 	t.Run("succeeds", func(t *testing.T) {
-		runValidateDealPublished(t, makeNode(nodeParams{ValidatePublishedDealID: abi.DealID(5)}), nil, nil, func(deal storagemarket.ClientDeal, env *fakeEnvironment) {
-			require.Equal(t, storagemarket.StorageDealSealing, deal.State)
-			require.Equal(t, abi.DealID(5), deal.DealID)
+		runAndInspect(t, storagemarket.StorageDealProposalAccepted, clientstates.ValidateDealPublished, testCase{
+			nodeParams: nodeParams{ValidatePublishedDealID: abi.DealID(5)},
+			inspector: func(deal storagemarket.ClientDeal, env *fakeEnvironment) {
+				tut.AssertDealState(t, storagemarket.StorageDealSealing, deal.State)
+				assert.Equal(t, abi.DealID(5), deal.DealID)
+			},
 		})
 	})
-
 	t.Run("fails", func(t *testing.T) {
-		n := makeNode(nodeParams{
-			ValidatePublishedDealID: abi.DealID(5),
-			ValidatePublishedError:  errors.New("Something went wrong"),
-		})
-		runValidateDealPublished(t, n, nil, nil, func(deal storagemarket.ClientDeal, env *fakeEnvironment) {
-			require.Equal(t, storagemarket.StorageDealError, deal.State)
-			require.Equal(t, "error validating deal published: Something went wrong", deal.Message)
+		runAndInspect(t, storagemarket.StorageDealProposalAccepted, clientstates.ValidateDealPublished, testCase{
+			nodeParams: nodeParams{
+				ValidatePublishedDealID: abi.DealID(5),
+				ValidatePublishedError:  errors.New("Something went wrong"),
+			},
+			inspector: func(deal storagemarket.ClientDeal, env *fakeEnvironment) {
+				tut.AssertDealState(t, storagemarket.StorageDealError, deal.State)
+				assert.Equal(t, "error validating deal published: Something went wrong", deal.Message)
+			},
 		})
 	})
 }
 
 func TestVerifyDealActivated(t *testing.T) {
-	ctx := context.Background()
-	eventProcessor, err := fsm.NewEventProcessor(storagemarket.ClientDeal{}, "State", clientstates.ClientEvents)
-	require.NoError(t, err)
-	clientDealProposal := tut.MakeTestClientDealProposal()
-	runVerifyDealActivated := makeExecutor(ctx, eventProcessor, clientstates.VerifyDealActivated, clientDealParams{state: storagemarket.StorageDealSealing}, clientDealProposal)
-
 	t.Run("succeeds", func(t *testing.T) {
-		runVerifyDealActivated(t, makeNode(nodeParams{}), nil, nil, func(deal storagemarket.ClientDeal, env *fakeEnvironment) {
-			require.Equal(t, storagemarket.StorageDealActive, deal.State)
+		runAndInspect(t, storagemarket.StorageDealSealing, clientstates.VerifyDealActivated, testCase{
+			inspector: func(deal storagemarket.ClientDeal, env *fakeEnvironment) {
+				tut.AssertDealState(t, storagemarket.StorageDealActive, deal.State)
+			},
 		})
 	})
-
 	t.Run("fails synchronously", func(t *testing.T) {
-		runVerifyDealActivated(t, makeNode(nodeParams{DealCommittedSyncError: errors.New("Something went wrong")}), nil, nil, func(deal storagemarket.ClientDeal, env *fakeEnvironment) {
-			require.Equal(t, storagemarket.StorageDealError, deal.State)
-			require.Equal(t, "error in deal activation: Something went wrong", deal.Message)
+		runAndInspect(t, storagemarket.StorageDealSealing, clientstates.VerifyDealActivated, testCase{
+			nodeParams: nodeParams{DealCommittedSyncError: errors.New("Something went wrong")},
+			inspector: func(deal storagemarket.ClientDeal, env *fakeEnvironment) {
+				tut.AssertDealState(t, storagemarket.StorageDealError, deal.State)
+				assert.Equal(t, "error in deal activation: Something went wrong", deal.Message)
+			},
 		})
 	})
-
 	t.Run("fails asynchronously", func(t *testing.T) {
-		runVerifyDealActivated(t, makeNode(nodeParams{DealCommittedAsyncError: errors.New("Something went wrong later")}), nil, nil, func(deal storagemarket.ClientDeal, env *fakeEnvironment) {
-			require.Equal(t, storagemarket.StorageDealError, deal.State)
-			require.Equal(t, "error in deal activation: Something went wrong later", deal.Message)
+		runAndInspect(t, storagemarket.StorageDealSealing, clientstates.VerifyDealActivated, testCase{
+			nodeParams: nodeParams{DealCommittedAsyncError: errors.New("Something went wrong later")},
+			inspector: func(deal storagemarket.ClientDeal, env *fakeEnvironment) {
+				tut.AssertDealState(t, storagemarket.StorageDealError, deal.State)
+				assert.Equal(t, "error in deal activation: Something went wrong later", deal.Message)
+			},
 		})
 	})
 }
 
 func TestFailDeal(t *testing.T) {
-	ctx := context.Background()
-	eventProcessor, err := fsm.NewEventProcessor(storagemarket.ClientDeal{}, "State", clientstates.ClientEvents)
-	require.NoError(t, err)
-	clientDealProposal := tut.MakeTestClientDealProposal()
-
-	t.Run("with an open connection", func(t *testing.T) {
-		stateParams := clientDealParams{
-			state:            storagemarket.StorageDealFailing,
-			connectionClosed: false,
-		}
-		runFailDeal := makeExecutor(ctx, eventProcessor, clientstates.FailDeal, stateParams, clientDealProposal)
-
-		t.Run("able to close stream", func(t *testing.T) {
-			runFailDeal(t, nil, nil, nil, func(deal storagemarket.ClientDeal, env *fakeEnvironment) {
-				require.Equal(t, storagemarket.StorageDealError, deal.State)
-			})
-		})
-
-		t.Run("unable to close stream", func(t *testing.T) {
-			runFailDeal(t, nil, nil, errors.New("unable to close"), func(deal storagemarket.ClientDeal, env *fakeEnvironment) {
-				require.Equal(t, storagemarket.StorageDealError, deal.State)
-				require.Equal(t, "error attempting to close stream: unable to close", deal.Message)
-			})
+	t.Run("closes an open stream", func(t *testing.T) {
+		runAndInspect(t, storagemarket.StorageDealFailing, clientstates.FailDeal, testCase{
+			stateParams: dealStateParams{connectionClosed: false},
+			inspector: func(deal storagemarket.ClientDeal, env *fakeEnvironment) {
+				assert.Equal(t, storagemarket.StorageDealError, deal.State)
+			},
 		})
 	})
-
-	t.Run("with a closed connection", func(t *testing.T) {
-		stateParams := clientDealParams{
-			state:            storagemarket.StorageDealFailing,
-			connectionClosed: true,
-		}
-		runFailDeal := makeExecutor(ctx, eventProcessor, clientstates.FailDeal, stateParams, clientDealProposal)
-
-		t.Run("doesn't attempt to close stream if not open", func(t *testing.T) {
-			runFailDeal(t, nil, nil, nil, func(deal storagemarket.ClientDeal, env *fakeEnvironment) {
-				require.Len(t, env.closeStreamCalls, 0)
-				require.Equal(t, storagemarket.StorageDealError, deal.State)
-			})
+	t.Run("unable to close an the open stream", func(t *testing.T) {
+		runAndInspect(t, storagemarket.StorageDealFailing, clientstates.FailDeal, testCase{
+			stateParams: dealStateParams{connectionClosed: false},
+			envParams:   envParams{closeStreamErr: errors.New("unable to close")},
+			inspector: func(deal storagemarket.ClientDeal, env *fakeEnvironment) {
+				assert.Equal(t, storagemarket.StorageDealError, deal.State)
+				assert.Equal(t, "error attempting to close stream: unable to close", deal.Message)
+			},
+		})
+	})
+	t.Run("doesn't try to close a closed stream", func(t *testing.T) {
+		runAndInspect(t, storagemarket.StorageDealFailing, clientstates.FailDeal, testCase{
+			stateParams: dealStateParams{connectionClosed: true},
+			inspector: func(deal storagemarket.ClientDeal, env *fakeEnvironment) {
+				assert.Len(t, env.closeStreamCalls, 0)
+				assert.Equal(t, storagemarket.StorageDealError, deal.State)
+			},
 		})
 	})
 }
 
-type executor func(t *testing.T,
-	node storagemarket.StorageClientNode,
-	dealStream smnet.StorageDealStream,
-	closeStreamErr error,
-	dealInspector func(deal storagemarket.ClientDeal, env *fakeEnvironment))
+type envParams struct {
+	dealStream             smnet.StorageDealStream
+	closeStreamErr         error
+	startDataTransferError error
+	manualTransfer         bool
+}
 
-type clientDealParams struct {
-	state            storagemarket.StorageDealStatus
+type dealStateParams struct {
 	connectionClosed bool
 	addFundsCid      *cid.Cid
 }
 
+type executor func(t *testing.T,
+	nodeParams nodeParams,
+	envParams envParams,
+	dealInspector func(deal storagemarket.ClientDeal, env *fakeEnvironment))
+
 func makeExecutor(ctx context.Context,
 	eventProcessor fsm.EventProcessor,
+	initialState storagemarket.StorageDealStatus,
 	stateEntryFunc clientstates.ClientStateEntryFunc,
-	dealParams clientDealParams,
+	dealParams dealStateParams,
 	clientDealProposal *market.ClientDealProposal) executor {
 	return func(t *testing.T,
-		node storagemarket.StorageClientNode,
-		dealStream smnet.StorageDealStream,
-		closeStreamErr error,
+		nodeParams nodeParams,
+		envParams envParams,
 		dealInspector func(deal storagemarket.ClientDeal, env *fakeEnvironment)) {
-
-		dealState, err := tut.MakeTestClientDeal(dealParams.state, clientDealProposal)
-		require.NoError(t, err)
-
-		dealState.ConnectionClosed = dealParams.connectionClosed
+		node := makeNode(nodeParams)
+		dealState, err := tut.MakeTestClientDeal(initialState, clientDealProposal, envParams.manualTransfer)
+		assert.NoError(t, err)
 		dealState.AddFundsCid = &tut.GenerateCids(1)[0]
+		dealState.ConnectionClosed = dealParams.connectionClosed
 
 		if dealParams.addFundsCid != nil {
 			dealState.AddFundsCid = dealParams.addFundsCid
 		}
 
-		require.NoError(t, err)
-		environment := &fakeEnvironment{node, dealStream, closeStreamErr, nil}
+		environment := &fakeEnvironment{
+			node:                   node,
+			dealStream:             envParams.dealStream,
+			closeStreamErr:         envParams.closeStreamErr,
+			startDataTransferError: envParams.startDataTransferError,
+		}
 		fsmCtx := fsmtest.NewTestContext(ctx, eventProcessor)
 		err = stateEntryFunc(fsmCtx, environment, *dealState)
-		require.NoError(t, err)
+		assert.NoError(t, err)
 		fsmCtx.ReplayEvents(t, dealState)
 		dealInspector(*dealState, environment)
 	}
@@ -393,10 +427,29 @@ func makeNode(params nodeParams) storagemarket.StorageClientNode {
 }
 
 type fakeEnvironment struct {
-	node             storagemarket.StorageClientNode
-	dealStream       smnet.StorageDealStream
-	closeStreamErr   error
-	closeStreamCalls []cid.Cid
+	node                   storagemarket.StorageClientNode
+	dealStream             smnet.StorageDealStream
+	closeStreamErr         error
+	closeStreamCalls       []cid.Cid
+	startDataTransferError error
+	startDataTransferCalls []dataTransferParams
+}
+
+type dataTransferParams struct {
+	to       peer.ID
+	voucher  datatransfer.Voucher
+	baseCid  cid.Cid
+	selector ipld.Node
+}
+
+func (fe *fakeEnvironment) StartDataTransfer(ctx context.Context, to peer.ID, voucher datatransfer.Voucher, baseCid cid.Cid, selector ipld.Node) error {
+	fe.startDataTransferCalls = append(fe.startDataTransferCalls, dataTransferParams{
+		to:       to,
+		voucher:  voucher,
+		baseCid:  baseCid,
+		selector: selector,
+	})
+	return fe.startDataTransferError
 }
 
 func (fe *fakeEnvironment) Node() storagemarket.StorageClientNode {
@@ -419,4 +472,53 @@ func (fe *fakeEnvironment) TagConnection(proposalCid cid.Cid) error {
 func (fe *fakeEnvironment) CloseStream(proposalCid cid.Cid) error {
 	fe.closeStreamCalls = append(fe.closeStreamCalls, proposalCid)
 	return fe.closeStreamErr
+}
+
+var _ clientstates.ClientDealEnvironment = &fakeEnvironment{}
+
+type responseParams struct {
+	proposal       *market.ClientDealProposal
+	state          storagemarket.StorageDealStatus
+	message        string
+	publishMessage *cid.Cid
+	proposalCid    cid.Cid
+}
+
+func testResponseStream(t *testing.T, params responseParams) smnet.StorageDealStream {
+	response := smnet.Response{
+		State:          params.state,
+		Proposal:       params.proposalCid,
+		Message:        params.message,
+		PublishMessage: params.publishMessage,
+	}
+
+	if response.Proposal == cid.Undef {
+		proposalNd, err := cborutil.AsIpld(params.proposal)
+		assert.NoError(t, err)
+		response.Proposal = proposalNd.Cid()
+	}
+
+	reader := tut.StubbedStorageResponseReader(smnet.SignedResponse{
+		Response:  response,
+		Signature: tut.MakeTestSignature(),
+	})
+
+	return tut.NewTestStorageDealStream(tut.TestStorageDealStreamParams{
+		ResponseReader: reader,
+	})
+}
+
+type testCase struct {
+	envParams   envParams
+	nodeParams  nodeParams
+	stateParams dealStateParams
+	inspector   func(deal storagemarket.ClientDeal, env *fakeEnvironment)
+}
+
+func runAndInspect(t *testing.T, initialState storagemarket.StorageDealStatus, stateFunc clientstates.ClientStateEntryFunc, tc testCase) {
+	ctx := context.Background()
+	eventProcessor, err := fsm.NewEventProcessor(storagemarket.ClientDeal{}, "State", clientstates.ClientEvents)
+	assert.NoError(t, err)
+	executor := makeExecutor(ctx, eventProcessor, initialState, stateFunc, tc.stateParams, clientDealProposal)
+	executor(t, tc.nodeParams, tc.envParams, tc.inspector)
 }

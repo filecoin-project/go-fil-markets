@@ -24,7 +24,6 @@ import (
 	"github.com/filecoin-project/go-fil-markets/shared"
 	"github.com/filecoin-project/go-fil-markets/storagemarket"
 	"github.com/filecoin-project/go-fil-markets/storagemarket/impl/providerutils"
-	"github.com/filecoin-project/go-fil-markets/storagemarket/impl/requestvalidation"
 	"github.com/filecoin-project/go-fil-markets/storagemarket/network"
 )
 
@@ -124,34 +123,17 @@ func DecideOnProposal(ctx fsm.Context, environment ProviderDealEnvironment, deal
 		return ctx.Trigger(storagemarket.ProviderEventDealRejected, fmt.Errorf(reason))
 	}
 
-	return ctx.Trigger(storagemarket.ProviderEventDealAccepted)
-}
-
-// TransferData initiates a data transfer or places the deal in a waiting state if it is a
-// manual deal
-func TransferData(ctx fsm.Context, environment ProviderDealEnvironment, deal storagemarket.MinerDeal) error {
-	if deal.Ref.TransferType == storagemarket.TTManual {
-		log.Info("deal entering manual transfer state")
-		return ctx.Trigger(storagemarket.ProviderEventWaitingForManualData)
-	}
-
-	log.Infof("fetching data for a deal %s", deal.ProposalCid)
-
-	// initiate a pull data transfer. This will complete asynchronously and the
-	// completion of the data transfer will trigger a change in deal state
-	// (see onDataTransferEvent)
-	err := environment.StartDataTransfer(ctx.Context(),
-		deal.Client,
-		&requestvalidation.StorageDataTransferVoucher{Proposal: deal.ProposalCid},
-		deal.Ref.Root,
-		shared.AllSelector(),
-	)
+	// Send intent to accept
+	err = environment.SendSignedResponse(ctx.Context(), &network.Response{
+		State:    storagemarket.StorageDealWaitingForData,
+		Proposal: deal.ProposalCid,
+	})
 
 	if err != nil {
-		return ctx.Trigger(storagemarket.ProviderEventDataTransferFailed, xerrors.Errorf("failed to open pull data channel: %w", err))
+		return ctx.Trigger(storagemarket.ProviderEventSendResponseFailed, err)
 	}
 
-	return ctx.Trigger(storagemarket.ProviderEventDataTransferInitiated)
+	return ctx.Trigger(storagemarket.ProviderEventDataRequested)
 }
 
 // VerifyData verifies that data received for a deal matches the pieceCID
