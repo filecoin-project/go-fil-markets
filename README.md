@@ -27,11 +27,11 @@ Related components in other repos:
 **Requires go 1.13**
 
 Install the go-fil-markets module(s) that you want to use.  Available modules are:
-* `filestore`
-* `pieceio`
-* `piecestore`
-* `retrievalmarket`
-* `storagemarket`
+* [`filestore`](https://github.com/filecoin-project/go-fil-markets/tree/master/filestore)
+* [`pieceio`](https://github.com/filecoin-project/go-fil-markets/tree/master/pieceio)
+* [`piecestore`](https://github.com/filecoin-project/go-fil-markets/tree/master/piecestore)
+* [`retrievalmarket`](https://github.com/filecoin-project/go-fil-markets/tree/master/retrievalmarket)
+* [`storagemarket`](https://github.com/filecoin-project/go-fil-markets/tree/master/storagemarket) 
 
 Install with:
 `go get "github.com/filecoin-project/go-fil-markets/<MODULENAME>"`
