@@ -22,21 +22,11 @@ Related components in other repos:
 * The [Markets in Filecoin](https://filecoin-project.github.io/specs/#systems__filecoin_markets) section of the Filecoin Specification contains the canonical spec
 * The [Storage Market Module design doc](https://docs.google.com/document/d/1FfMUpW8vanR9FrXsybxBBbba7DzeyuCIN2uAXgE7J8U) is a more specific overview of these component implementations
 
-## Usage
-
-**Requires go 1.13**
-
-Install the go-fil-markets module(s) that you want to use.  Available modules are:
-* [`filestore`](https://github.com/filecoin-project/go-fil-markets/tree/master/filestore)
-* [`pieceio`](https://github.com/filecoin-project/go-fil-markets/tree/master/pieceio)
-* [`piecestore`](https://github.com/filecoin-project/go-fil-markets/tree/master/piecestore)
-* [`retrievalmarket`](https://github.com/filecoin-project/go-fil-markets/tree/master/retrievalmarket)
-* [`storagemarket`](https://github.com/filecoin-project/go-fil-markets/tree/master/storagemarket) 
-
 Install with:
 `go get "github.com/filecoin-project/go-fil-markets/<MODULENAME>"`
 
-TODO: usage for each module (maybe in subdirectories)
+## Usage
+Documentation linked in each listed module in [Components](#Components).
 
 ## Contributing
 Issues and PRs are welcome! Please first read the [background reading](#background-reading) and [CONTRIBUTING](.go-fil-markets/CONTRIBUTING.md) guide, and look over the current code. PRs against master require approval of at least two maintainers. 
