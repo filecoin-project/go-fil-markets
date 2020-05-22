@@ -1,9 +1,7 @@
 # How To Use the StorageMarket module
 ## Background reading
 
-The [Storage Market Module design doc](
-https://docs.google.com/document/d/1FfMUpW8vanR9FrXsybxBBbba7DzeyuCIN2uAXgE7J8U) 
-is a more specific overview of these component implementations.
+See the [Storage Market Spec](https://github.com/filecoin-project/specs/blob/master/src/systems/filecoin_markets/storage_market/_index.md) for information about how StorageMarket is expected to function.
 
 ## For Implementers
 You will need to implement all of the required Client and Provider API functions in 
@@ -56,12 +54,12 @@ Get the current chain head.  Return the head TipSetToken and epoch for which it 
 #### PublishDeals
 `PublishDeals(ctx context.Context, deal MinerDeal) (cid.Cid, error)`
 
-Post the deal to chain, return message CID.
+Post the deal to chain, returning the posted message CID.
 
 #### ListProviderDeals
 `ListProviderDeals(ctx context.Context, addr address.Address, tok shared.TipSetToken) ([]StorageDeal, error)`
 
-List provider deals for which `addr` is a provider, as of `tok`. Return a slice of `StorageDeal`.
+List all deals for storage provider `addr`, as of `tok`. Return a slice of `StorageDeal`.
 
 #### OnDealComplete
 `OnDealComplete(ctx context.Context, deal MinerDeal, pieceSize abi.UnpaddedPieceSize, pieceReader io.Reader) error`
@@ -106,7 +104,7 @@ Get the current chain head.  Return the head TipSetToken and epoch for which it 
 #### ListClientDeals
 `ListClientDeals(ctx context.Context, addr address.Address, tok shared.TipSetToken) ([]StorageDeal, error)`
 
-List provider deals for which `addr` is a provider, as of `tok`. Return a slice of `StorageDeal`.
+List all deals associated with storage client `addr`, as of `tok`. Return a slice of `StorageDeal`.
 
 #### ListStorageProviders
 `ListStorageProviders(ctx context.Context, tok shared.TipSetToken) ([]*StorageProviderInfo, error)`
@@ -116,6 +114,7 @@ Return a slice of `StorageProviderInfo`, for all known storage providers.
 #### ValidatePublishedDeal
 `ValidatePublishedDeal(ctx context.Context, deal ClientDeal) (abi.DealID, error)`
 
+Query the chain for `deal` and inspect the message parameters to make sure they match the expected  deal. Return the deal ID.
 
 #### SignProposal
 `SignProposal(ctx context.Context, signer address.Address, proposal market.DealProposal) (*market.ClientDealProposal, error)`
