@@ -18,30 +18,37 @@ You will need to implement all of the required Client and Provider API functions
 * [`WaitForMessage`](#WaitForMessage)
 
 #### AddFunds
-`AddFunds(ctx context.Context, addr address.Address, amount abi.TokenAmount) (cid.Cid, error)`
+```go
+AddFunds(ctx context.Context, addr address.Address, amount abi.TokenAmount) (cid.Cid, error)
+```
 
 Send `amount` to `addr by posting a message on chain. Return the message CID.
 
 #### EnsureFunds
-`EnsureFunds(ctx context.Context, addr, wallet address.Address, amount abi.TokenAmount, tok
- shared.TipSetToken) (cid.Cid, error)`
+```go
+EnsureFunds(ctx context.Context, addr, wallet address.Address, amount abi.TokenAmount, tok
+ shared.TipSetToken) (cid.Cid, error)
+```
  
 Make sure `addr` has `amount` funds and if not, `wallet` should send any needed balance to
   `addr` by posting a message on chain. Returns the message CID.
 
 #### GetBalance
-`GetBalance(ctx context.Context, addr address.Address, tok shared.TipSetToken) (Balance, error)`
-
-Retrieve the balance in `addr`l
+```go
+GetBalance(ctx context.Context, addr address.Address, tok shared.TipSetToken) (Balance, error)
+```
+Retrieve the balance in `addr`
 
 #### VerifySignature
-`VerifySignature(ctx context.Context, signature crypto.Signature, signer address.Address, plaintext []byte, tok shared.TipSetToken) (bool, error)`
-
+```go
+VerifySignature(ctx context.Context, signature crypto.Signature, signer address.Address, plaintext []byte, tok shared.TipSetToken) (bool, error)
+```
 Verify that `signature` is valid for the given `signer`, `plaintext`, and `tok`.
 
 #### WaitForMessage
-`WaitForMessage(ctx context.Context, mcid cid.Cid, onCompletion func(exitcode.ExitCode, []byte, error) error) error`
-
+```go
+WaitForMessage(ctx context.Context, mcid cid.Cid, onCompletion func(exitcode.ExitCode, []byte, error) error) error
+```
 Wait for message CID `mcid` to appear on chain, and call `onCompletion` when it does so.
 
 ---
@@ -57,43 +64,57 @@ Wait for message CID `mcid` to appear on chain, and call `onCompletion` when it 
 * [`LocatePieceForDealWithinSector`](#LocatePieceForDealWithinSector)
 
 #### GetChainHead
-`GetChainHead(ctx context.Context) (shared.TipSetToken, abi.ChainEpoch, error)`
-
+```go
+GetChainHead(ctx context.Context) (shared.TipSetToken, abi.ChainEpoch, error)
+```
 Get the current chain head.  Return the head TipSetToken and epoch for which it is the Head.
 
 #### PublishDeals
-`PublishDeals(ctx context.Context, deal MinerDeal) (cid.Cid, error)`
+```go
+PublishDeals(ctx context.Context, deal MinerDeal) (cid.Cid, error)
+```
 
 Post the deal to chain, returning the posted message CID.
 
 #### ListProviderDeals
-`ListProviderDeals(ctx context.Context, addr address.Address, tok shared.TipSetToken) ([]StorageDeal, error)`
+```go
+ListProviderDeals(ctx context.Context, addr address.Address, tok shared.TipSetToken) ([]StorageDeal, error)
+```
 
 List all deals for storage provider `addr`, as of `tok`. Return a slice of `StorageDeal`.
 
 #### OnDealComplete
-`OnDealComplete(ctx context.Context, deal MinerDeal, pieceSize abi.UnpaddedPieceSize, pieceReader io.Reader) error`
+```go
+OnDealComplete(ctx context.Context, deal MinerDeal, pieceSize abi.UnpaddedPieceSize, pieceReader io.Reader) error
 
 The function to be called when `deal` has reached the `storagemarket.StorageDealCompleted` state. 
 
 #### GetMinerWorkerAddress
-`GetMinerWorkerAddress(ctx context.Context, addr address.Address, tok shared.TipSetToken) (address.Address, error)`
+```go
+GetMinerWorkerAddress(ctx context.Context, addr address.Address, tok shared.TipSetToken) (address.Address, error)
+```
 
 Get the miner worker address for the given miner owner, as of `tok`.
 
 #### SignBytes
-`SignBytes(ctx context.Context, signer address.Address, b []byte) (*crypto.Signature, error)`
+```go
+SignBytes(ctx context.Context, signer address.Address, b []byte) (*crypto.Signature, error)
+```
 
 Cryptographically sign bytes `b` using the private key referenced by address `signer`.
 
 #### OnDealSectorCommitted
-`OnDealSectorCommitted(ctx context.Context, provider address.Address, dealID abi.DealID, cb
- DealSectorCommittedCallback) error`
- 
+```go
+OnDealSectorCommitted(ctx context.Context, provider address.Address, dealID abi.DealID, cb
+ DealSectorCommittedCallback) error
+```
+
 Register the function to be called once `provider` has committed sector(s) for `dealID`.
 
 #### LocatePieceForDealWithinSector
-`LocatePieceForDealWithinSector(ctx context.Context, dealID abi.DealID, tok shared.TipSetToken) (sectorID uint64, offset uint64, length uint64, err error)`
+```go
+LocatePieceForDealWithinSector(ctx context.Context, dealID abi.DealID, tok shared.TipSetToken) (sectorID uint64, offset uint64, length uint64, err error)
+```
 
 Find the piece associated with `dealID` as of `tok` and return the sector id, plus the offset and
  length of the data within the sector.
