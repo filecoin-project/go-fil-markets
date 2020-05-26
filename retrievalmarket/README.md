@@ -32,14 +32,17 @@ Get the miner worker address for the given miner owner, as of `tok`.
 
 #### UnsealSector
 ```go
-UnsealSector(ctx context.Context, sectorID uint64, offset uint64, length uint64) (io.ReadCloser, error)
+UnsealSector(ctx context.Context, sectorID uint64, offset uint64, length uint64
+             ) (io.ReadCloser, error)
 ```
 Unseal `length` data contained in `sectorID`, starting at `offset`.  Return an `io.ReadCloser
 ` for accessing the data.
 
 #### SavePaymentVoucher
 ```go
-SavePaymentVoucher(ctx context.Context, paymentChannel address.Address, voucher *paych.SignedVoucher, proof []byte, expectedAmount abi.TokenAmount, tok shared.TipSetToken) (abi.TokenAmount, error)
+SavePaymentVoucher(ctx context.Context, paymentChannel address.Address, 
+                   voucher *paych.SignedVoucher, proof []byte, expectedAmount abi.TokenAmount, 
+                   tok shared.TipSetToken) (abi.TokenAmount, error)
 ```
 
 Save the provided `paych.SignedVoucher` for `paymentChannel`. The RetrievalProviderNode

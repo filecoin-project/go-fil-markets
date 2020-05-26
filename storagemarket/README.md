@@ -1,8 +1,7 @@
 # How To Use the StorageMarket module
 ## Background reading
 
-Please see the [Filecoin Storage Market Specification](https://filecoin-project.github.io/specs
-/#systems__filecoin_markets__storage_market)
+Please see the [Filecoin Storage Market Specification](https://filecoin-project.github.io/specs/#systems__filecoin_markets__storage_market)
 
 ## For Implementers
 You will need to implement all of the required Client and Provider API functions in 
@@ -26,8 +25,8 @@ Send `amount` to `addr by posting a message on chain. Return the message CID.
 
 #### EnsureFunds
 ```go
-EnsureFunds(ctx context.Context, addr, wallet address.Address, amount abi.TokenAmount, tok
- shared.TipSetToken) (cid.Cid, error)
+EnsureFunds(ctx context.Context, addr, wallet address.Address, amount abi.TokenAmount, 
+            tok shared.TipSetToken) (cid.Cid, error)
 ```
  
 Make sure `addr` has `amount` funds and if not, `wallet` should send any needed balance to
@@ -41,13 +40,15 @@ Retrieve the balance in `addr`
 
 #### VerifySignature
 ```go
-VerifySignature(ctx context.Context, signature crypto.Signature, signer address.Address, plaintext []byte, tok shared.TipSetToken) (bool, error)
+VerifySignature(ctx context.Context, signature crypto.Signature, signer address.Address, 
+                plaintext []byte, tok shared.TipSetToken) (bool, error)
 ```
 Verify that `signature` is valid for the given `signer`, `plaintext`, and `tok`.
 
 #### WaitForMessage
 ```go
-WaitForMessage(ctx context.Context, mcid cid.Cid, onCompletion func(exitcode.ExitCode, []byte, error) error) error
+WaitForMessage(ctx context.Context, mcid cid.Cid, 
+               onCompletion func(exitcode.ExitCode, []byte, error) error) error
 ```
 Wait for message CID `mcid` to appear on chain, and call `onCompletion` when it does so.
 
@@ -78,20 +79,23 @@ Post the deal to chain, returning the posted message CID.
 
 #### ListProviderDeals
 ```go
-ListProviderDeals(ctx context.Context, addr address.Address, tok shared.TipSetToken) ([]StorageDeal, error)
+ListProviderDeals(ctx context.Context, addr address.Address, tok shared.TipSetToken,
+                  ) ([]StorageDeal, error)
 ```
 
 List all deals for storage provider `addr`, as of `tok`. Return a slice of `StorageDeal`.
 
 #### OnDealComplete
 ```go
-OnDealComplete(ctx context.Context, deal MinerDeal, pieceSize abi.UnpaddedPieceSize, pieceReader io.Reader) error
-
+OnDealComplete(ctx context.Context, deal MinerDeal, pieceSize abi.UnpaddedPieceSize, 
+               pieceReader io.Reader) error
+```
 The function to be called when `deal` has reached the `storagemarket.StorageDealCompleted` state. 
 
 #### GetMinerWorkerAddress
 ```go
-GetMinerWorkerAddress(ctx context.Context, addr address.Address, tok shared.TipSetToken) (address.Address, error)
+GetMinerWorkerAddress(ctx context.Context, addr address.Address, tok shared.TipSetToken,
+                     ) (address.Address, error)
 ```
 
 Get the miner worker address for the given miner owner, as of `tok`.
@@ -105,15 +109,16 @@ Cryptographically sign bytes `b` using the private key referenced by address `si
 
 #### OnDealSectorCommitted
 ```go
-OnDealSectorCommitted(ctx context.Context, provider address.Address, dealID abi.DealID, cb
- DealSectorCommittedCallback) error
+OnDealSectorCommitted(ctx context.Context, provider address.Address, dealID abi.DealID, 
+                      cb DealSectorCommittedCallback) error
 ```
 
 Register the function to be called once `provider` has committed sector(s) for `dealID`.
 
 #### LocatePieceForDealWithinSector
 ```go
-LocatePieceForDealWithinSector(ctx context.Context, dealID abi.DealID, tok shared.TipSetToken) (sectorID uint64, offset uint64, length uint64, err error)
+LocatePieceForDealWithinSector(ctx context.Context, dealID abi.DealID, tok shared.TipSetToken,
+                              ) (sectorID uint64, offset uint64, length uint64, err error)
 ```
 
 Find the piece associated with `dealID` as of `tok` and return the sector id, plus the offset and
@@ -145,7 +150,7 @@ Get the current chain head.  Return the head TipSetToken and epoch for which it 
 #### ListClientDeals
 ```go
 ListClientDeals(ctx context.Context, addr address.Address, tok shared.TipSetToken
- ) ([]StorageDeal, error)
+                 ) ([]StorageDeal, error)
 ```
 
 List all deals associated with storage client `addr`, as of `tok`. Return a slice of `StorageDeal`.
@@ -166,8 +171,8 @@ Query the chain for `deal` and inspect the message parameters to make sure they 
 
 #### SignProposal
 ```go
-    SignProposal(ctx context.Context, signer address.Address, proposal market.DealProposal) (*market
- .ClientDealProposal, error)
+    SignProposal(ctx context.Context, signer address.Address, 
+                 proposal market.DealProposal) (*market.ClientDealProposal, error)
 ```
 
 Cryptographically sign `proposal` using the private key of `signer` and return a
@@ -183,16 +188,15 @@ storage client or provider.
 
 #### OnDealSectorCommitted
 ```go
-    OnDealSectorCommitted(ctx context.Context, provider address.Address, dealID abi.DealID, cb
- DealSectorCommittedCallback) error
+    OnDealSectorCommitted(ctx context.Context, provider address.Address, dealID abi.DealID, 
+                          cb DealSectorCommittedCallback) error
 ```
 
 Register a callback to be called once the Deal's sector(s) are committed.
 
 #### ValidateAskSignature
 ```go
-ValidateAskSignature(ctx context.Context, ask *SignedStorageAsk, tok shared.TipSetToken) (bool, error)
+ValidateAskSignature(ctx context.Context, ask *SignedStorageAsk, tok shared.TipSetToken,
+                     ) (bool, error)
 ```
-
-
 Verify the signature in `ask`, returning true (valid) or false (invalid).
