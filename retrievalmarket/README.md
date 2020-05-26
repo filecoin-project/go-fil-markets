@@ -1,8 +1,8 @@
 # How to use the RetrievalMarket module
 
 ## Background reading
-Please see the [Filecoin Retrieval Market Specification](https://filecoin-project.github.io/specs
-/#systems__filecoin_markets__retrieval_market)
+Please see the 
+[Filecoin Retrieval Market Specification](https://filecoin-project.github.io/specs/#systems__filecoin_markets__retrieval_market)
 
 ## For Implementers
 You will need to implement all of the required Client and Provider API functions in 
