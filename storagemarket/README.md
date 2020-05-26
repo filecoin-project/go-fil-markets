@@ -1,15 +1,21 @@
 # How To Use the StorageMarket module
 ## Background reading
 
-See the [Storage Market Spec](https://github.com/filecoin-project/specs/blob/master/src/systems/filecoin_markets/storage_market/_index.md) for information about how StorageMarket is expected to function.
+Please see the [Filecoin Storage Market Specification](https://filecoin-project.github.io/specs
+/#systems__filecoin_markets__storage_market)
 
 ## For Implementers
 You will need to implement all of the required Client and Provider API functions in 
-[storagemarket/types.go](
-https://github.com/filecoin-project/go-fil-markets/blob/master/storagemarket/types.go).
+[storagemarket/types.go](./types.go), described below:
 
-### `StorageFunds`
-This is an interface common to both `StorageProviderNode` and `StorageClientNode`.
+### StorageFunds
+`StorageFunds` is an interface common to both `StorageProviderNode` and `StorageClientNode`. Its
+ functions are:
+* [`Addfunds`](#AddFunds)
+* [`EnsureFunds`](#EnsureFunds)
+* [`GetBalance`](#GetBalance)
+* [`VerifySignature`](#VerifySignature)
+* [`WaitForMessage`](#WaitForMessage)
 
 #### AddFunds
 `AddFunds(ctx context.Context, addr address.Address, amount abi.TokenAmount) (cid.Cid, error)`
@@ -39,12 +45,16 @@ Verify that `signature` is valid for the given `signer`, `plaintext`, and `tok`.
 Wait for message CID `mcid` to appear on chain, and call `onCompletion` when it does so.
 
 ---
+### StorageProviderNode
+`StorageProviderNode` is the interface for dependencies for a `StorageProvider`. It contains:
 
-### `StorageProviderNode`
-Node dependencies for a `StorageProvider`
-
-#### StorageFunds
-interface described above
+* [`StorageFunds`](#StorageFunds) interface
+* [`PublishDeals`](#PublishDeals)
+* [`ListProviderDeals`](#ListProviderDeals)
+* [`GetMinerWorkerAddress`](#GetMinerWorkerAddress)
+* [`SignBytes`](#SignBytes)
+* [`OnDealSectorCommitted`](#OnDealSectorCommitted)
+* [`LocatePieceForDealWithinSector`](#LocatePieceForDealWithinSector)
 
 #### GetChainHead
 `GetChainHead(ctx context.Context) (shared.TipSetToken, abi.ChainEpoch, error)`
@@ -87,53 +97,81 @@ Register the function to be called once `provider` has committed sector(s) for `
 
 Find the piece associated with `dealID` as of `tok` and return the sector id, plus the offset and
  length of the data within the sector.
-
+ 
 ---
-
 ### StorageClientNode
-Node dependencies for a StorageClient
+`StorageClientNode` implements dependencies for a StorageClient. It contains:
+* [`StorageFunds`](#StorageFunds) interface
+* [`GetChainHead`](#GetChainHead)
+* [`ListClientDeals`](#ListClientDeals)
+* [`ListStorageProviders`](#ListStorageProviders)
+* [`ValidatePublishedDeal`](#ValidatePublishedDeal)
+* [`SignProposal`](#SignProposal)
+* [`GetDefaultWalletAddress`](#GetDefaultWalletAddress)
+* [`OnDealSectorCommitted`](#OnDealSectorCommitted)
+* [`ValidateAskSignature`](#ValidateAskSignature)
 
 #### StorageFunds
-interface described above
+`StorageClientNode` implements `StorageFunds`, described above.
 
 #### GetChainHead
-`GetChainHead(ctx context.Context) (shared.TipSetToken, abi.ChainEpoch, error)`
+```go
+GetChainHead(ctx context.Context) (shared.TipSetToken, abi.ChainEpoch, error)
+```
 
 Get the current chain head.  Return the head TipSetToken and epoch for which it is the Head.
 
 #### ListClientDeals
-`ListClientDeals(ctx context.Context, addr address.Address, tok shared.TipSetToken) ([]StorageDeal, error)`
+```go
+ListClientDeals(ctx context.Context, addr address.Address, tok shared.TipSetToken
+ ) ([]StorageDeal, error)
+```
 
 List all deals associated with storage client `addr`, as of `tok`. Return a slice of `StorageDeal`.
 
 #### ListStorageProviders
-`ListStorageProviders(ctx context.Context, tok shared.TipSetToken) ([]*StorageProviderInfo, error)`
+```go
+ListStorageProviders(ctx context.Context, tok shared.TipSetToken) ([]*StorageProviderInfo
+    , error)
+```
 
 Return a slice of `StorageProviderInfo`, for all known storage providers.
 
 #### ValidatePublishedDeal
-`ValidatePublishedDeal(ctx context.Context, deal ClientDeal) (abi.DealID, error)`
-
+```go
+ValidatePublishedDeal(ctx context.Context, deal ClientDeal) (abi.DealID, error)
+```
 Query the chain for `deal` and inspect the message parameters to make sure they match the expected  deal. Return the deal ID.
 
 #### SignProposal
-`SignProposal(ctx context.Context, signer address.Address, proposal market.DealProposal) (*market.ClientDealProposal, error)`
+```go
+    SignProposal(ctx context.Context, signer address.Address, proposal market.DealProposal) (*market
+ .ClientDealProposal, error)
+```
 
 Cryptographically sign `proposal` using the private key of `signer` and return a
  ClientDealProposal (includes signature data).
 
 #### GetDefaultWalletAddress
-`GetDefaultWalletAddress(ctx context.Context) (address.Address, error)`
+```go
+GetDefaultWalletAddress(ctx context.Context) (address.Address, error)
+```
 
 Get the default wallet address of this node, the one from which funds should be sent to the node's 
 storage client or provider.
 
 #### OnDealSectorCommitted
-`OnDealSectorCommitted(ctx context.Context, provider address.Address, dealID abi.DealID, cb DealSectorCommittedCallback) error`
+```go
+    OnDealSectorCommitted(ctx context.Context, provider address.Address, dealID abi.DealID, cb
+ DealSectorCommittedCallback) error
+```
 
 Register a callback to be called once the Deal's sector(s) are committed.
 
 #### ValidateAskSignature
-`ValidateAskSignature(ctx context.Context, ask *SignedStorageAsk, tok shared.TipSetToken) (bool, error)`
+```go
+ValidateAskSignature(ctx context.Context, ask *SignedStorageAsk, tok shared.TipSetToken) (bool, error)
+```
+
 
 Verify the signature in `ask`, returning true (valid) or false (invalid).
