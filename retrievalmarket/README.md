@@ -25,14 +25,14 @@ which it is the Head.
 
 #### GetMinerWorkerAddress
 ```go
-GetMinerWorkerAddress(ctx context.Context, addr address.Address, tok shared.TipSetToken
-) (address.Address, error)
+GetMinerWorkerAddress(ctx context.Context, addr address.Address, tok shared.TipSetToken,
+                     ) (address.Address, error)
 ```
 Get the miner worker address for the given miner owner, as of `tok`.
 
 #### UnsealSector
 ```go
-UnsealSector(ctx context.Context, sectorID uint64, offset uint64, length uint64
+UnsealSector(ctx context.Context, sectorID uint64, offset uint64, length uint64,
              ) (io.ReadCloser, error)
 ```
 Unseal `length` data contained in `sectorID`, starting at `offset`.  Return an `io.ReadCloser

@@ -149,7 +149,7 @@ Get the current chain head.  Return the head TipSetToken and epoch for which it 
 
 #### ListClientDeals
 ```go
-ListClientDeals(ctx context.Context, addr address.Address, tok shared.TipSetToken
+ListClientDeals(ctx context.Context, addr address.Address, tok shared.TipSetToken,
                  ) ([]StorageDeal, error)
 ```
 
@@ -157,8 +157,7 @@ List all deals associated with storage client `addr`, as of `tok`. Return a slic
 
 #### ListStorageProviders
 ```go
-ListStorageProviders(ctx context.Context, tok shared.TipSetToken) ([]*StorageProviderInfo
-    , error)
+ListStorageProviders(ctx context.Context, tok shared.TipSetToken) ([]*StorageProviderInfo, error)
 ```
 
 Return a slice of `StorageProviderInfo`, for all known storage providers.
