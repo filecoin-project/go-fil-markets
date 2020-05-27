@@ -218,16 +218,14 @@ func NewClient(
 	storedCounter *storedcounter.StoredCounter,
 ) (retrievalmarket.RetrievalClient, error)
 ```
-
+#### Parameters
 * `netwk rmnet.RetrievalMarketNetwork`
     `RetrievalMarketNetwork` is an interface for creating and handling deal streams. To create it:
 
     ```go
     package network
-    
-    func NewFromLibp2pHost(h host.Host) RetrievalMarketNetwork {
-        return &libp2pRetrievalMarketNetwork{host: h}
-    }
+  
+    func NewFromLibp2pHost(h host.Host) RetrievalMarketNetwork
     ```
     where `h host.Host` is your node's libp2p Host.
      See 
@@ -251,3 +249,26 @@ func NewClient(
    [github.com/filecoin-project/go-storedcounter](https://github.com/filecoin-project/go-storedcounter).
 
 ### Construct a RetrievalProvider
+```go
+package retrievalimpl
+
+func NewProvider(minerAddress address.Address, 
+                node retrievalmarket.RetrievalProviderNode, 
+                netwk network.RetrievalMarketNetwork, 
+                pieceStore piecestore.PieceStore, 
+                bs blockstore.Blockstore, 
+                ds datastore.Batching,
+                ) (retrievalmarket.RetrievalProvider, error)
+```
+
+#### Parameters
+* `minerAddress address.Address` is the address of the retrieval miner owner.
+* `node retrievalmarket.RetrievalProviderNode` is the `RetrievalProviderNode` API you have implemented.
+* `netwk rmnet.RetrievalMarketNetwork` is the same interface for creating and handling deal streams
+as for [constructing a RetrievalClient](Construct_a_RetrievalClient).
+* `pieceStore piecestore.PieceStore` is the database of deals and pieces associated with them.
+See this repo's [piecestore module](../piecestore).
+* `bs blockstore.Blockstore` is the same blockstore as for 
+[constructing a RetrievalClient](Construct_a_RetrievalClient).
+* `ds datastore.Batching` is the same batching datastore as for 
+[constructing a RetrievalClient](Construct_a_RetrievalClient).
