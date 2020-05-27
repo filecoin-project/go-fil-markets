@@ -22,7 +22,7 @@ go get github.com/filecoin-project/go-fil-markets/retrievalmarket
 The `retrievalmarket` package provides high level APIs to execute data retrieval deals between a
  retrieval client and a retrieval
  provider (a.k.a. retrieval miner) for data stored on the Filecoin netwwork. 
- The node must implement the `PeerResolver`, `RetrievalProviderNode` and
+ The node must implement the `PeerResolver`, `RetrievalProviderNode`, and
      `RetrievalClientNode` interfaces in order to construct and use the module.
 
 Deals are expected to survive a node restart; deals and related information are
