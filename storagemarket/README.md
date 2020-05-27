@@ -172,7 +172,7 @@ Query the chain for `deal` and inspect the message parameters to make sure they 
 
 #### SignProposal
 ```go
-func     SignProposal(ctx context.Context, signer address.Address, 
+func SignProposal(ctx context.Context, signer address.Address, 
                  proposal market.DealProposal) (*market.ClientDealProposal, error)
 ```
 

@@ -22,9 +22,9 @@ Related components in other repos:
 * **[data transfer](https://github.com/filecoin-project/go-data-transfer)**: for exchanging piece data between clients and miners, used by storage & retrieval market modules.
 
 ### Background reading
-* The [Markets in Filecoin](https://filecoin-project.github.io/specs/#systems__filecoin_markets) section of the Filecoin Specification contains the canonical spec
-* The [Storage Market Module design doc](https://docs.google.com/document/d
-/1FfMUpW8vanR9FrXsybxBBbba7DzeyuCIN2uAXgE7J8U) is a more specific overview of the storage market
+* The [Markets in Filecoin](https://filecoin-project.github.io/specs/#systems__filecoin_markets) 
+section of the Filecoin Specification contains the canonical spec
+* The [Storage Market Module design doc](https://docs.google.com/document/d/1FfMUpW8vanR9FrXsybxBBbba7DzeyuCIN2uAXgE7J8U) is a more specific overview of the storage market
  component implementations
 * The 
 [Retrieval Market Module design doc](https://docs.google.com/document/d/1SyUDXzbGwYwoKMUWwE9_8IIjHshecLo_k7PdKQ0WK9g/edit#heading=h.uq51khvyisgr) 
