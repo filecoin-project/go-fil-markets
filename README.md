@@ -3,7 +3,8 @@
 [![CircleCI](https://circleci.com/gh/filecoin-project/go-fil-markets.svg?style=svg)](https://circleci.com/gh/filecoin-project/go-fil-markets)
 [![codecov](https://codecov.io/gh/filecoin-project/go-fil-markets/branch/master/graph/badge.svg)](https://codecov.io/gh/filecoin-project/go-fil-markets)
 
-This repository contains modular implementations of the [storage and retrieval market subsystems](https://filecoin-project.github.io/specs/#systems__filecoin_markets) of Filecoin. They are guided by the [v1.0 and 1.1 Filecoin specification updates](https://filecoin-project.github.io/specs/#intro__changelog). 
+This repository contains modular implementations of the [storage and retrieval market subsystems](https://filecoin-project.github.io/specs/#systems__filecoin_markets) of Filecoin. 
+They are guided by the [v1.0 and 1.1 Filecoin specification updates](https://filecoin-project.github.io/specs/#intro__changelog). 
 
 Separating implementations into a blockchain component and one or more mining and market components presents an opportunity to encourage implementation diversity while reusing non-security-critical components.
 
@@ -23,12 +24,7 @@ Related components in other repos:
 
 ### Background reading
 * The [Markets in Filecoin](https://filecoin-project.github.io/specs/#systems__filecoin_markets) 
-section of the Filecoin Specification contains the canonical spec
-* The [Storage Market Module design doc](https://docs.google.com/document/d/1FfMUpW8vanR9FrXsybxBBbba7DzeyuCIN2uAXgE7J8U) is a more specific overview of the storage market
- component implementations
-* The 
-[Retrieval Market Module design doc](https://docs.google.com/document/d/1SyUDXzbGwYwoKMUWwE9_8IIjHshecLo_k7PdKQ0WK9g/edit#heading=h.uq51khvyisgr) 
-is a more specific overview of the retrieval market component implementations
+section of the Filecoin Specification contains the canonical spec.
 
 Install with:
 `go get "github.com/filecoin-project/go-fil-markets/<MODULENAME>"`

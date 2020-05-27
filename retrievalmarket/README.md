@@ -1,26 +1,107 @@
-# How to use the RetrievalMarket module
+# How to use the `retrievalmarket` module
 
 ## Background reading
 Please see the 
 [Filecoin Retrieval Market Specification](https://filecoin-project.github.io/specs/#systems__filecoin_markets__retrieval_market).
 
-## For Implementers
-You will need to implement all of the required Client and Provider API functions in 
-[retrievalmarket/types.go](./types.go), described below:
+## Installation
+
+The build process for go-filecoin requires Go >= v1.13.
+
+This module is intended for Filecoin node implementations written in Go.
+IThe node implementation must provide access to chain operations and 
+off-chain storage of payment channel information. 
+
+To install:
+```bash
+go get github.com/filecoin-project/go-fil-markets/retrievalmarket
+```
+
+## Purpose and operation
+
+The `retrievalmarket` package provides high level APIs to execute data retrieval deals between a
+ retrieval client and a retrieval
+ provider (a.k.a. retrieval miner) for data stored on the Filecoin netwwork. 
+ The node must implement the `PeerResolver`, `RetrievalProviderNode` and
+     `RetrievalClientNode` interfaces in order to construct and use the module.
+
+Deals are expected to survive a node restart; deals and related information are stored on disk.
+    
+`retrievalmarket` communicates its deal operations and requested data via 
+[go-data-transfer](https://github.com/filecoin-project/go-data-transfer) using 
+[go-graphsync](https://github.com/ipfs/go-graphsync).
+    
+Once required Node APIs are implemented and the retrievalmarket APIs are exposed to your desired
+ consumers (such as a command-line or web interface), a retrieval from the client side could
+proceed roughly like so:
+1. Your node has a record of data with payloadCIDs and their respective pieceCIDs. Someone,
+possibly you, wants to retrieve data referenced by `paylaodCID`  
+1. Your node searches for retrieval providers storing data referenced by `payloadCID`, or
+  perhaps a subset of that data, referenced by including a `pieceCID`.
+1. The node selects the cheapest terms of a retrieval deal and initiates a deal by calling
+  the retrieval client's `Retrieve` function.
+1. The deal then proceeds automatically until all the data is returned and full payment in the
+   form of vouchers is made to the retrieval provider, or the deal errors.
+1. Once the deal is complete and the final payment voucher is posted to chain, your client account balance
+  will be  adjusted according to the terms of the deal.
+
+A retrieval from the provider side is more automated; the RetrievalProvider would be listening
+ for retrieval Query and Retrieve requests, and respond accordingly.
+
+1. Your node has a record of what it has stored locally, or possibly a record of peers with
+ data.
+1. Your node receives a Query for `payloadCID` and responds automatically with the terms you the
+ node operator have set for retrieval deals.
+1. Your node receives a DealProposal for retrieval, and automatically validates and accepts or
+ rejects it. If accepted, the deal proceeds and your node begins sending data in pieces, stopping
+  every so often to request another voucher for a greater value.
+1. Once the deal is complete and your node has received a voucher sufficient to cover the entire
+data transfer, you the node operator may then redeem the voucher and collect FIL.
+
+### Collecting FIL for a deal is the node's responsibility
+To collect your FIL, your node must send on-chain
+  messages directly to the payment channel actor to send all the vouchers, 
+  Settle, and Collect on the deal. This will finalize the client and provider balances for the
+  retrieval deal on the Filecoin blockchain. Implementation and timing of these calls is the node's
+   responsibility
+   and is not a part of `retrievalmarket`. For more information about how to interact with the
+   payment channel actor, see the [specs-actors](https://github.com/filecoin-project/specs-actors
+   ) repo.
+
+## Required API Implementation
+
+### General Steps
+1. Decide if your node will be a Retrieval Provider, a Retrieval Client or both.
+1. Determine how and where your retrieval calls to RetrievalProvider and RetrievalClient functions
+ will be made.
+1. Implement the [required APIs](#Node_API_Implementation).
+1. [Construct a RetrievalClient](#Construct_a_RetrievalClient) in your node's startup, if your
+ node will be a client
+1. [Construct a RetrievalProvider](#Construct_a_RetrievalProvider) in your node's startup, if your
+ node will be a provider.
+If setting up a RetrievalProvider, call its `Start` function it in the appropriate place, and its
+ `Stop` function in the appropriate place.
+1. Expose desired `retrievalmarket` functionality to whatever internal modules desired, such as
+ command line interface, JSON RPC, or HTTP API.
+
+### Node API Implementation
+Implement the Client and Provider API functions in [retrievalmarket/types.go](./types.go), 
+described below:
 
 ### PeerResolver
-PeerResolver is an interface for looking up providers that may have a piece.
+PeerResolver is an interface for looking up providers that may have a piece of identifiable data
+. Its functions are:
 
 #### GetPeers
 ```go
 func GetPeers(payloadCID cid.Cid) ([]RetrievalPeer, error)
 ```
-Return a slice of RetrievalPeers that store data referenced by `payloadCID`.
+Return a slice of RetrievalPeers that store the data referenced by `payloadCID`.
 
 ---
 ### RetrievalClientNode
 
-`RetrievalClientNode` contains the node dependencies for a RetrievalClient.
+`RetrievalClientNode` contains the node dependencies for a RetrievalClient. Its functions are:
 
 * [`AllocateLane`](#AllocateLane)
 * [`GetChainHead`](#GetChainHead)
@@ -82,6 +163,7 @@ Wait for a message on chain with CID `messageCID` that a payment channel has bee
 ---
 ### RetrievalProviderNode
 `RetrievalProviderNode` contains the node dependencies for a RetrievalProvider.
+Its functions are:
 
 * [`GetChainHead`](#GetChainHead)
 * [`GetMinerWorkerAddress`](#GetMinerWorkerAddress)
@@ -122,3 +204,53 @@ expectedAmount`, based on  the chain state referenced by `tok`.  The value of th
 voucher should be equal or greater than the largest previous voucher by 
  `expectedAmount`. It returns the actual difference.
 
+### Construct a RetrievalClient
+```go
+package retrievalimpl
+import (
+        rmnet "github.com/filecoin-project/go-fil-markets/retrievalmarket/network"
+)
+
+func NewClient(
+	network rmnet.RetrievalMarketNetwork,
+	bs blockstore.Blockstore,
+	node retrievalmarket.RetrievalClientNode,
+	resolver retrievalmarket.PeerResolver,
+	ds datastore.Batching,
+	storedCounter *storedcounter.StoredCounter,
+) (retrievalmarket.RetrievalClient, error)
+```
+
+* `network rmnet.RetrievalMarketNetwork`
+    `RetrievalMarketNetwork` is an interface for creating and handling deal streams. To create it:
+
+    ```go
+    package network
+    
+    func NewFromLibp2pHost(h host.Host) RetrievalMarketNetwork {
+        return &libp2pRetrievalMarketNetwork{host: h}
+    }
+    ```
+    where `h host.Host` is your node's libp2p Host.
+     See 
+     [github.com/libp2p/go-libp2p-core/host](https://github.com/libp2p/go-libp2p-core/host).
+
+* `bs blockstore.Blockstore` is the IPFS blockstore for storing and retrieving data for deals.
+ See
+ [github.com/ipfs/go-ipfs-blockstore](github.com/ipfs/go-ipfs-blockstore).
+
+* `node retrievalmarket.RetrievalClientNode` is the `RetrievalClientNode` interface you have
+ implemented.
+ 
+* `resolver retrievalmarket.PeerResolver` is the `PeerResolver` interface you have implemented.
+* `ds datastore.Batching` is a datastore for the deal's state machine. It is
+ typically the node's own datastore that implements the IPFS datastore.Batching interface.
+ See
+  [github.com/ipfs/go-datastore](https://github.com/ipfs/go-datastore).
+  
+ * `storedCounter *storedcounter.StoredCounter` is a file-based stored counter used to generate new
+  dealIDs. See
+   [github.com/filecoin-project/go-storedcounter](https://github.com/filecoin-project/go
+   -storedcounter).
+
+### Construct a RetrievalProvider
