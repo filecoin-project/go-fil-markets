@@ -9,11 +9,14 @@ Separating implementations into a blockchain component and one or more mining an
 
 ## Components
 
-* **[filestore](./filestore)**: a submodule branch that is a side effect of using the ffi to generate commP
-* **[pieceio](./pieceio)**: utilities that take IPLD graphs and turn them into pieces
-* **[piecestore](/.piecestore)**:  
-* **[storage market](./storagemarket)**: for finding, negotiating, and consummating deals to store data between clients and providers (storage miners)
-* **[retrieval market](./retrievalmarket)**: for finding, negotiating, and consummating deals to retrieve data between clients and providers (retrieval miners)
+* **[filestore](./filestore)**: a submodule branch that is a side effect of using the ffi to
+ generate commP.
+* **[pieceio](./pieceio)**: utilities that take IPLD graphs and turn them into pieces.
+* **[piecestore](./piecestore)**:  a database for storing deal-related PieceInfo and CIDInfo. 
+* **[storagemarket](./storagemarket)**: for finding, negotiating, and consummating deals to
+ store data between clients and providers (storage miners).
+* **[retrievalmarket](./retrievalmarket)**: for finding, negotiating, and consummating deals to
+ retrieve data between clients and providers (retrieval miners).
 
 Related components in other repos:
 * **[data transfer](https://github.com/filecoin-project/go-data-transfer)**: for exchanging piece data between clients and miners, used by storage & retrieval market modules.

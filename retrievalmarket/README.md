@@ -2,7 +2,7 @@
 
 ## Background reading
 Please see the 
-[Filecoin Retrieval Market Specification](https://filecoin-project.github.io/specs/#systems__filecoin_markets__retrieval_market)
+[Filecoin Retrieval Market Specification](https://filecoin-project.github.io/specs/#systems__filecoin_markets__retrieval_market).
 
 ## For Implementers
 You will need to implement all of the required Client and Provider API functions in 
@@ -13,7 +13,7 @@ PeerResolver is an interface for looking up providers that may have a piece.
 
 #### GetPeers
 ```go
-GetPeers(payloadCID cid.Cid) ([]RetrievalPeer, error)
+func GetPeers(payloadCID cid.Cid) ([]RetrievalPeer, error)
 ```
 Return a slice of RetrievalPeers that store data referenced by `payloadCID`.
 
@@ -31,7 +31,7 @@ Return a slice of RetrievalPeers that store data referenced by `payloadCID`.
 
 #### AllocateLane
 ```go
-AllocateLane(paymentChannel address.Address) (uint64, error)
+func AllocateLane(paymentChannel address.Address) (uint64, error)
 ```
 
 Create a lane within `paymentChannel` so that calls to CreatePaymentVoucher will 
@@ -41,22 +41,23 @@ Actors have a
 
 #### CreatePaymentVoucher
 ```go
-CreatePaymentVoucher(ctx context.Context, paymentChannel address.Address, amount abi.TokenAmount, 
-            		lane uint64, tok shared.TipSetToken) (*paych.SignedVoucher, error)
+func CreatePaymentVoucher(ctx context.Context, paymentChannel address.Address, 
+                         amount abi.TokenAmount, lane uint64, tok shared.TipSetToken
+                         ) (*paych.SignedVoucher, error)
 ```
 Create a new payment voucher for `paymentChannel` with `amount`, for lane `lane`, given chain
 state at `tok`.
 
 #### GetChainHead
 ```go
-GetChainHead(ctx context.Context) (shared.TipSetToken, abi.ChainEpoch, error)
+func GetChainHead(ctx context.Context) (shared.TipSetToken, abi.ChainEpoch, error)
 ```
 Get the current chain head. Return the head TipSetToken and abi.ChainEpoch for 
 which it is the Head.
 
 #### GetOrCreatePaymentChannel
 ```go
-GetOrCreatePaymentChannel(ctx context.Context, clientAddress, minerAddress address.Address, 
+func GetOrCreatePaymentChannel(ctx context.Context, clientAddress, minerAddress address.Address, 
                           amount abi.TokenAmount, tok shared.TipSetToken
                          ) (address.Address, cid.Cid, error)
 ```
@@ -68,13 +69,13 @@ the corresponding message on chain, then return `address.Undef` and the posted m
 
 #### WaitForPaymentChannelAddFunds
 ```go
-WaitForPaymentChannelAddFunds(messageCID cid.Cid) error
+func WaitForPaymentChannelAddFunds(messageCID cid.Cid) error
 ```
 Wait for message with CID `messageCID` on chain that funds have been sent to a payment channel.
 
 #### WaitForPaymentChannelCreation
 ```go
-WaitForPaymentChannelCreation(messageCID cid.Cid) (address.Address, error)
+func WaitForPaymentChannelCreation(messageCID cid.Cid) (address.Address, error)
 ```
 Wait for a message on chain with CID `messageCID` that a payment channel has been created.
 
@@ -89,20 +90,20 @@ Wait for a message on chain with CID `messageCID` that a payment channel has bee
 
 #### GetChainHead
 ```go
-GetChainHead(ctx context.Context) (shared.TipSetToken, abi.ChainEpoch, error)
+func GetChainHead(ctx context.Context) (shared.TipSetToken, abi.ChainEpoch, error)
 ```
 Get the current chain head. Return the head TipSetToken and its abi.ChainEpoch.
 
 #### GetMinerWorkerAddress
 ```go
-GetMinerWorkerAddress(ctx context.Context, addr address.Address, tok shared.TipSetToken,
+func GetMinerWorkerAddress(ctx context.Context, addr address.Address, tok shared.TipSetToken,
                      ) (address.Address, error)
 ```
 Get the miner worker address for the given miner owner, as of `tok`.
 
 #### UnsealSector
 ```go
-UnsealSector(ctx context.Context, sectorID uint64, offset uint64, length uint64,
+func UnsealSector(ctx context.Context, sectorID uint64, offset uint64, length uint64,
              ) (io.ReadCloser, error)
 ```
 Unseal `length` data contained in `sectorID`, starting at `offset`.  Return an `io.ReadCloser
@@ -110,7 +111,7 @@ Unseal `length` data contained in `sectorID`, starting at `offset`.  Return an `
 
 #### SavePaymentVoucher
 ```go
-SavePaymentVoucher(ctx context.Context, paymentChannel address.Address, 
+func SavePaymentVoucher(ctx context.Context, paymentChannel address.Address, 
                    voucher *paych.SignedVoucher, proof []byte, expectedAmount abi.TokenAmount, 
                    tok shared.TipSetToken) (abi.TokenAmount, error)
 ```
