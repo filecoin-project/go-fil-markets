@@ -15,7 +15,7 @@ PeerResolver is an interface for looking up providers that may have a piece.
 ```go
 GetPeers(payloadCID cid.Cid) ([]RetrievalPeer, error)
 ```
-Return a slice of RetrievalPeers that store data referenced by `payloadCID`
+Return a slice of RetrievalPeers that store data referenced by `payloadCID`.
 
 ---
 ### RetrievalClientNode
@@ -35,7 +35,9 @@ AllocateLane(paymentChannel address.Address) (uint64, error)
 ```
 
 Create a lane within `paymentChannel` so that calls to CreatePaymentVoucher will 
-automatically make vouchers only for the difference in total
+automatically make vouchers only for the difference in total. Note that payment channel 
+Actors have a
+[lane limit](https://github.com/filecoin-project/specs-actors/blob/0df536f7e461599c818231aa0effcdaccbb74900/actors/builtin/paych/paych_actor.go#L20).
 
 #### CreatePaymentVoucher
 ```go
@@ -43,7 +45,7 @@ CreatePaymentVoucher(ctx context.Context, paymentChannel address.Address, amount
             		lane uint64, tok shared.TipSetToken) (*paych.SignedVoucher, error)
 ```
 Create a new payment voucher for `paymentChannel` with `amount`, for lane `lane`, given chain
-state at `tok`
+state at `tok`.
 
 #### GetChainHead
 ```go
@@ -89,8 +91,7 @@ Wait for a message on chain with CID `messageCID` that a payment channel has bee
 ```go
 GetChainHead(ctx context.Context) (shared.TipSetToken, abi.ChainEpoch, error)
 ```
-Get the current chain head. Return the head TipSetToken and abi.ChainEpoch for 
-which it is the Head.
+Get the current chain head. Return the head TipSetToken and its abi.ChainEpoch.
 
 #### GetMinerWorkerAddress
 ```go
@@ -115,9 +116,8 @@ SavePaymentVoucher(ctx context.Context, paymentChannel address.Address,
 ```
 
 Save the provided `paych.SignedVoucher` for `paymentChannel`. The RetrievalProviderNode
-implementation is expected to validate the SignedVoucher using the provided `proof`, `
+implementation should validate the SignedVoucher using the provided `proof`, `
 expectedAmount`, based on  the chain state referenced by `tok`.  The value of the
 voucher should be equal or greater than the largest previous voucher by 
  `expectedAmount`. It returns the actual difference.
 
----

@@ -26,6 +26,7 @@ type pieceStore struct {
 	cidInfos *statestore.StateStore
 }
 
+// Store `dealInfo` in the PieceStore with key `pieceCID`.
 func (ps *pieceStore) AddDealForPiece(pieceCID cid.Cid, dealInfo DealInfo) error {
 	return ps.mutatePieceInfo(pieceCID, func(pi *PieceInfo) error {
 		for _, di := range pi.Deals {
