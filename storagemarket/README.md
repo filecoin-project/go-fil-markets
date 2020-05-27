@@ -69,7 +69,7 @@ Wait for message CID `mcid` to appear on chain, and call `onCompletion` when it 
 ```go
 func GetChainHead(ctx context.Context) (shared.TipSetToken, abi.ChainEpoch, error)
 ```
-Get the current chain head.  Return the head TipSetToken and epoch for which it is the Head.
+Get the current chain head. Return its TipSetToken and its abi.ChainEpoch.
 
 #### PublishDeals
 ```go
@@ -145,15 +145,13 @@ Find the piece associated with `dealID` as of `tok` and return the sector id, pl
 ```go
 func GetChainHead(ctx context.Context) (shared.TipSetToken, abi.ChainEpoch, error)
 ```
-
-Get the current chain head.  Return the head TipSetToken and epoch for which it is the Head.
+Get the current chain head. Return its TipSetToken and its abi.ChainEpoch.
 
 #### ListClientDeals
 ```go
 func ListClientDeals(ctx context.Context, addr address.Address, tok shared.TipSetToken,
                  ) ([]StorageDeal, error)
 ```
-
 List all deals associated with storage client `addr`, as of `tok`. Return a slice of `StorageDeal`.
 
 #### ListStorageProviders

@@ -1,4 +1,4 @@
-# How to use the `retrievalmarket` module
+# How to use the retrievalmarket module
 
 ## Background reading
 Please see the 
@@ -6,11 +6,11 @@ Please see the
 
 ## Installation
 
-The build process for go-filecoin requires Go >= v1.13.
+The build process for retrievalmarket requires Go >= v1.13.
 
 This module is intended for Filecoin node implementations written in Go.
-IThe node implementation must provide access to chain operations and 
-off-chain storage of payment channel information. 
+The node implementation must provide access to chain operations, and persistent 
+data storage.
 
 To install:
 ```bash
@@ -25,8 +25,9 @@ The `retrievalmarket` package provides high level APIs to execute data retrieval
  The node must implement the `PeerResolver`, `RetrievalProviderNode` and
      `RetrievalClientNode` interfaces in order to construct and use the module.
 
-Deals are expected to survive a node restart; deals and related information are stored on disk.
-    
+Deals are expected to survive a node restart; deals and related information are
+ expected to be stored on disk.
+ 
 `retrievalmarket` communicates its deal operations and requested data via 
 [go-data-transfer](https://github.com/filecoin-project/go-data-transfer) using 
 [go-graphsync](https://github.com/ipfs/go-graphsync).
@@ -65,7 +66,7 @@ To collect your FIL, your node must send on-chain
   retrieval deal on the Filecoin blockchain. Implementation and timing of these calls is the node's
    responsibility
    and is not a part of `retrievalmarket`. For more information about how to interact with the
-   payment channel actor, see the [specs-actors](https://github.com/filecoin-project/specs-actors
+   payment channel actor, see the [github.com/filecoin-project/specs-actors](https://github.com/filecoin-project/specs-actors
    ) repo.
 
 ## Required API Implementation
@@ -76,7 +77,7 @@ To collect your FIL, your node must send on-chain
  will be made.
 1. Implement the [required APIs](#Node_API_Implementation).
 1. [Construct a RetrievalClient](#Construct_a_RetrievalClient) in your node's startup, if your
- node will be a client
+ node will be a client.
 1. [Construct a RetrievalProvider](#Construct_a_RetrievalProvider) in your node's startup, if your
  node will be a provider.
 If setting up a RetrievalProvider, call its `Start` function it in the appropriate place, and its
@@ -133,8 +134,7 @@ state at `tok`.
 ```go
 func GetChainHead(ctx context.Context) (shared.TipSetToken, abi.ChainEpoch, error)
 ```
-Get the current chain head. Return the head TipSetToken and abi.ChainEpoch for 
-which it is the Head.
+Get the current chain head. Return its TipSetToken and its abi.ChainEpoch.
 
 #### GetOrCreatePaymentChannel
 ```go
@@ -147,6 +147,8 @@ add `amount` to the channel, then return the payment channel address and `cid.Un
 
 If there isn't, construct a new payment channel actor with `amount` funds by posting 
 the corresponding message on chain, then return `address.Undef` and the posted message `cid.Cid`.
+For more information about how to construct a payment channel actor, see 
+[github.com/filecoin-project/specs-actors](https://github.com/filecoin-project/specs-actors)
 
 #### WaitForPaymentChannelAddFunds
 ```go
@@ -174,7 +176,7 @@ Its functions are:
 ```go
 func GetChainHead(ctx context.Context) (shared.TipSetToken, abi.ChainEpoch, error)
 ```
-Get the current chain head. Return the head TipSetToken and its abi.ChainEpoch.
+Get the current chain head. Return its TipSetToken and its abi.ChainEpoch.
 
 #### GetMinerWorkerAddress
 ```go
@@ -207,12 +209,8 @@ voucher should be equal or greater than the largest previous voucher by
 ### Construct a RetrievalClient
 ```go
 package retrievalimpl
-import (
-        rmnet "github.com/filecoin-project/go-fil-markets/retrievalmarket/network"
-)
-
 func NewClient(
-	network rmnet.RetrievalMarketNetwork,
+	netwk network.RetrievalMarketNetwork,
 	bs blockstore.Blockstore,
 	node retrievalmarket.RetrievalClientNode,
 	resolver retrievalmarket.PeerResolver,
@@ -221,7 +219,7 @@ func NewClient(
 ) (retrievalmarket.RetrievalClient, error)
 ```
 
-* `network rmnet.RetrievalMarketNetwork`
+* `netwk rmnet.RetrievalMarketNetwork`
     `RetrievalMarketNetwork` is an interface for creating and handling deal streams. To create it:
 
     ```go
@@ -250,7 +248,6 @@ func NewClient(
   
  * `storedCounter *storedcounter.StoredCounter` is a file-based stored counter used to generate new
   dealIDs. See
-   [github.com/filecoin-project/go-storedcounter](https://github.com/filecoin-project/go
-   -storedcounter).
+   [github.com/filecoin-project/go-storedcounter](https://github.com/filecoin-project/go-storedcounter).
 
 ### Construct a RetrievalProvider
