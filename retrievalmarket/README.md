@@ -100,8 +100,8 @@ If setting up a RetrievalProvider, call its `Start` function it in the appropria
  command line interface, JSON RPC, or HTTP API.
 
 ### Node API Implementation
-Implement implement the [`PeerResolver`](#PeerResolver), [`RetrievalProviderNode`](#RetrievalProviderNode), 
-and [`RetrievalClientNode`](RetrievalClientNode)
+Implement the [`PeerResolver`](#PeerResolver), [`RetrievalProviderNode`](#RetrievalProviderNode), 
+and [`RetrievalClientNode`](#RetrievalClientNode)
 interfaces in [retrievalmarket/types.go](./types.go), described below:
 
 ### PeerResolver
@@ -282,10 +282,10 @@ func NewProvider(minerAddress address.Address,
 * `minerAddress address.Address` is the address of the retrieval miner owner.
 * `node retrievalmarket.RetrievalProviderNode` is the `RetrievalProviderNode` API you have implemented.
 * `netwk rmnet.RetrievalMarketNetwork` is the same interface for creating and handling deal streams
-as for [constructing a RetrievalClient](RetrievalClient).
+as for [constructing a RetrievalClient](#RetrievalClient).
 * `pieceStore piecestore.PieceStore` is the database of deals and pieces associated with them.
 See this repo's [piecestore module](../piecestore).
 * `bs blockstore.Blockstore` is the same blockstore as for 
-[constructing a RetrievalClient](RetrievalClient).
+[constructing a RetrievalClient](#RetrievalClient).
 * `ds datastore.Batching` is the same batching datastore as for 
-[constructing a RetrievalClient](RetrievalClient).
+[constructing a RetrievalClient](#RetrievalClient).
