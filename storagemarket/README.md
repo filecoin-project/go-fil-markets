@@ -41,6 +41,18 @@ Deals are expected to survive a node restart; deals and related information are
                 [go-graphsync](https://github.com/ipfs/go-graphsync).
 
 ## Implementation
+
+### General Steps
+1. Decide if your node will be a Storage Provider, a Storage Client or both.
+1. Determine how and where your retrieval calls to StorageProvider and StorageClient functions
+ will be made.
+1. Implement the [required interfaces](#Node_API_Implementation).
+1. Construct a [StorageClient](#StorageClient) and [StorageProvider](#StorageProvider) in your node's startup.
+Call the StorageProvider's `Start` function it in the appropriate place, and its `Stop` 
+function in the appropriate place.
+1. Expose desired `storagemarket` functionality to whatever internal modules desired, such as
+ command line interface, JSON RPC, or HTTP API.
+
 Implement the `StorageFunds`,`StorageProviderNode`, and `StorageClientNode` interfaces in 
 [storagemarket/types.go](./types.go), described below:
 
@@ -235,3 +247,93 @@ func ValidateAskSignature(ctx context.Context, ask *SignedStorageAsk, tok shared
                      ) (bool, error)
 ```
 Verify the signature in `ask`, returning true (valid) or false (invalid).
+
+## Construction
+
+### StorageClient
+To construct a new StorageClient: 
+```go
+func NewClient(
+	net network.StorageMarketNetwork,
+	bs blockstore.Blockstore,
+	dataTransfer datatransfer.Manager,
+	discovery *discovery.Local,
+	ds datastore.Batching,
+	scn storagemarket.StorageClientNode,
+) (*Client, error)
+```
+**Parameters**
+
+* `net network.StorageMarketNetwork` is an interface for ___ To create it:    
+* `bs blockstore.Blockstore` is an IPFS blockstore for storing and retrieving data for deals.
+     See [github.com/ipfs/go-ipfs-blockstore](github.com/ipfs/go-ipfs-blockstore).
+* `dataTransfer datatransfer.Manager` is an interface from [github.com/filecoin-project/go-data-transfer](https://github.com/filecoin-project/go-data-transfer)
+   There is more than one implementation, but one way to create a new datatransfer.Manager is:
+    ```go
+    package graphsyncimpl
+  
+    func NewGraphSyncDataTransfer(host host.Host, gs graphsync.GraphExchange, storedCounter *storedcounter.StoredCounter) datatransfer.Manager
+    ```
+   Also:
+   ```go
+    package datatransfer
+  
+    // NewDAGServiceDataTransfer returns a data transfer manager based on
+    // an IPLD DAGService
+    func NewDAGServiceDataTransfer(dag ipldformat.DAGService) datatransfer.Manager
+    ```
+    
+    Please see the [go-data-transfer repo](https://github.com/filecoin-project/go-data-transfer) for more information.
+    
+* `discovery *discovery.Local` implements the `PeerResolver` interface. To initialize a new discovery.Local:
+    ```go
+    func NewLocal(ds datastore.Batching) *Local
+    ```
+* `ds datastore.Batching` is a datastore for the deal's state machine. It is
+ typically the node's own datastore that implements the IPFS datastore.Batching interface.
+ See
+  [github.com/ipfs/go-datastore](https://github.com/ipfs/go-datastore).
+
+* `scn storagemarket.StorageClientNode` is the implementation of the [`StorageClientNode`](#StorageClientNode) API 
+that was written for your node.
+
+### StorageProvider
+To construct a new StorageProvider:
+```go
+func NewProvider(net network.StorageMarketNetwork, 
+                ds datastore.Batching, 
+                bs blockstore.Blockstore, 
+                fs filestore.FileStore, 
+                pieceStore piecestore.PieceStore, 
+                dataTransfer datatransfer.Manager, 
+                spn storagemarket.StorageProviderNode, 
+                minerAddress address.Address, 
+                rt abi.RegisteredProof, 
+                storedAsk StoredAsk, 
+                options ...StorageProviderOption,
+) (storagemarket.StorageProvider, error) {
+```
+
+**Parameters**
+* `net network.StorageMarketNetwork` is the same as for [StorageClientNode](#StorageClientNode)
+* `ds datastore.Batching` is the same as for [StorageClientNode](#StorageClientNode)
+* `bs blockstore.Blockstore` is the same blockstore as for [StorageClientNode](#StorageClientNode)
+* `fs filestore.FileStore` is an instance of the [filestore.FileStore](../filestore) struct from the 
+    go-fil-markets repo.
+* `pieceStore piecestore.PieceStore` is the database of deals and pieces associated with them.
+See this repo's [piecestore module](../piecestore).
+* `dataTransfer` is the same as for [StorageClientNode](#StorageClientNode)
+* `spn storagemarket.StorageProviderNode` is the implementation of the [`StorageProviderNode`](#StorageProviderNode) API 
+  that was written for your node.
+* `minerAddress address.Address` is the miner owner address.
+* `rt abi.RegisteredProof` is an int64 indicating the type of proof to use when generating a piece commitment (CommP).
+    see [github.com/filecoin-project/specs-actors/actors/abi/sector.go](https://github.com/filecoin-project/specs-actors/blob/master/actors/abi/sector.go)
+    for the list and meaning of accepted values.
+* `storedAsk StoredAsk` is an interface for getting and adding storage Asks. It is implemented in storagemarket.
+    To create a `StoredAsk`:
+    ```go
+    package storedask
+    func NewStoredAsk(ds datastore.Batching, dsKey datastore.Key, spn storagemarket.StorageProviderNode, actor address.Address) (*StoredAsk, error) {
+    ```
+* `options ...StorageProviderOption` options is a variable length parameter to provide functions that change the
+    StorageProvider default configuration. See [provider.go](./impl/provider.go) for the available options.

@@ -99,7 +99,6 @@ If setting up a RetrievalProvider, call its `Start` function it in the appropria
 1. Expose desired `retrievalmarket` functionality to whatever internal modules desired, such as
  command line interface, JSON RPC, or HTTP API.
 
-### Node API Implementation
 Implement the [`PeerResolver`](#PeerResolver), [`RetrievalProviderNode`](#RetrievalProviderNode), 
 and [`RetrievalClientNode`](#RetrievalClientNode)
 interfaces in [retrievalmarket/types.go](./types.go), described below:
