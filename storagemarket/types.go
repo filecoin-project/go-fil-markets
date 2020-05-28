@@ -382,6 +382,7 @@ var ClientEvents = map[ClientEvent]string{
 	ClientEventDealActivationFailed:       "ClientEventDealActivationFailed",
 	ClientEventDealActivated:              "ClientEventDealActivated",
 	ClientEventFailed:                     "ClientEventFailed",
+	ClientEventRestart:                    "ClientEventRestart",
 }
 
 // StorageDeal is a local combination of a proposal and a current deal state

@@ -152,6 +152,12 @@ func (p *Provider) Start(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
+
+	err = p.restartDeals()
+	if err != nil {
+		return err
+	}
+
 	return nil
 }
 
@@ -365,6 +371,25 @@ func (p *Provider) dispatch(eventName fsm.EventName, deal fsm.StateType) {
 	if err := p.pubSub.Publish(pubSubEvt); err != nil {
 		log.Errorf("failed to publish event %d", evt)
 	}
+}
+
+func (c *Provider) restartDeals() error {
+	var deals []storagemarket.MinerDeal
+	err := c.deals.List(&deals)
+	if err != nil {
+		return err
+	}
+
+	for _, deal := range deals {
+		if c.deals.IsTerminated(deal) {
+			continue
+		}
+
+		// TODO: Fixup deal streams if necessary...
+
+		err = c.deals.Send(deal.ProposalCid, storagemarket.ProviderEventRestart)
+	}
+	return nil
 }
 
 func NewProviderStateMachine(ds datastore.Datastore, env fsm.Environment, notifier fsm.Notifier) (fsm.Group, error) {

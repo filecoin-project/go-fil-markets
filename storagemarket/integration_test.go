@@ -18,7 +18,6 @@ import (
 	"github.com/filecoin-project/specs-actors/actors/builtin/market"
 	"github.com/ipfs/go-cid"
 	"github.com/ipfs/go-datastore"
-	logging "github.com/ipfs/go-log/v2"
 	cidlink "github.com/ipld/go-ipld-prime/linking/cid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -37,8 +36,6 @@ import (
 	"github.com/filecoin-project/go-fil-markets/storagemarket/network"
 	"github.com/filecoin-project/go-fil-markets/storagemarket/testnodes"
 )
-
-var log = logging.Logger("integration_test")
 
 func TestMakeDeal(t *testing.T) {
 	ctx := context.Background()
@@ -236,7 +233,6 @@ func TestMakeDealNonBlocking(t *testing.T) {
 }
 
 func TestRestartClient(t *testing.T) {
-	logging.SetDebugLogging()
 	ctx := context.Background()
 	h := newHarness(t, ctx)
 
@@ -250,40 +246,56 @@ func TestRestartClient(t *testing.T) {
 
 	wg := sync.WaitGroup{}
 	wg.Add(1)
-
-	result := h.ProposeStorageDeal(t, &storagemarket.DataRef{TransferType: storagemarket.TTGraphsync, Root: h.PayloadCid})
-	proposalCid := result.ProposalCid
-
 	_ = h.Client.SubscribeToEvents(func(event storagemarket.ClientEvent, deal storagemarket.ClientDeal) {
-		log.Debugf("Client event: %s\n", storagemarket.ClientEvents[event])
-	})
-
-	_ = h.Provider.SubscribeToEvents(func(event storagemarket.ProviderEvent, deal storagemarket.MinerDeal) {
-		log.Debugf("Provider event: %s\n", storagemarket.ProviderEvents[event])
-
-		// stop the client at some non-terminal state
-		if event == storagemarket.ProviderEventVerifiedData {
+		if event == storagemarket.ClientEventFundsEnsured {
+			// Stop the client and provider at some point during deal negotiation
 			h.Client.Stop()
+			err = h.Provider.Stop()
 			wg.Done()
 		}
 	})
 
-	wg.Wait()
+	result := h.ProposeStorageDeal(t, &storagemarket.DataRef{TransferType: storagemarket.TTGraphsync, Root: h.PayloadCid})
+	proposalCid := result.ProposalCid
 
-	//unsubClient()
-	//unsubProvider()
+	wg.Wait()
 
 	cd, err := h.Client.GetLocalDeal(ctx, proposalCid)
 	assert.NoError(t, err)
 	assert.NotEqual(t, storagemarket.StorageDealActive, cd.State)
-	//shared_testutil.AssertDealState(t, storagemarket.StorageDealActive, cd.State)
+
+	h = newHarnessWithTestData(t, ctx, h.TestData, h.SMState)
+
+	wg.Add(1)
+	_ = h.Client.SubscribeToEvents(func(event storagemarket.ClientEvent, deal storagemarket.ClientDeal) {
+		if event == storagemarket.ClientEventDealActivated {
+			wg.Done()
+		}
+	})
+
+	wg.Add(1)
+	_ = h.Provider.SubscribeToEvents(func(event storagemarket.ProviderEvent, deal storagemarket.MinerDeal) {
+		if event == storagemarket.ProviderEventDealActivated {
+			wg.Done()
+		}
+	})
+
+	err = h.Provider.Start(ctx)
+	h.Client.Run(ctx)
+	assert.NoError(t, err)
+
+	wg.Wait()
+
+	cd, err = h.Client.GetLocalDeal(ctx, proposalCid)
+	assert.NoError(t, err)
+	shared_testutil.AssertDealState(t, storagemarket.StorageDealActive, cd.State)
 
 	providerDeals, err := h.Provider.ListLocalDeals()
 	assert.NoError(t, err)
 
 	pd := providerDeals[0]
 	assert.Equal(t, pd.ProposalCid, proposalCid)
-	shared_testutil.AssertDealState(t, storagemarket.StorageDealCompleted, pd.State)
+	shared_testutil.AssertDealState(t, storagemarket.StorageDealActive, pd.State)
 }
 
 type harness struct {
@@ -295,18 +307,22 @@ type harness struct {
 	ClientNode   *testnodes.FakeClientNode
 	Provider     storagemarket.StorageProvider
 	ProviderNode *testnodes.FakeProviderNode
+	SMState      *testnodes.StorageMarketState
 	ProviderInfo storagemarket.StorageProviderInfo
 	TestData     *shared_testutil.Libp2pTestData
 }
 
 func newHarness(t *testing.T, ctx context.Context) *harness {
+	smState := testnodes.NewStorageMarketState()
+	return newHarnessWithTestData(t, ctx, shared_testutil.NewLibp2pTestData(ctx, t), smState)
+}
+
+func newHarnessWithTestData(t *testing.T, ctx context.Context, td *shared_testutil.Libp2pTestData, smState *testnodes.StorageMarketState) *harness {
 	epoch := abi.ChainEpoch(100)
-	td := shared_testutil.NewLibp2pTestData(ctx, t)
 	fpath := filepath.Join("storagemarket", "fixtures", "payload.txt")
 	rootLink := td.LoadUnixFSFile(t, fpath, false)
 	payloadCid := rootLink.(cidlink.Link).Cid
 
-	smState := testnodes.NewStorageMarketState()
 	clientNode := testnodes.FakeClientNode{
 		FakeCommonNode: testnodes.FakeCommonNode{SMState: smState},
 		ClientAddr:     address.TestAddress,
@@ -392,6 +408,7 @@ func newHarness(t *testing.T, ctx context.Context) *harness {
 		ProviderNode: providerNode,
 		ProviderInfo: providerInfo,
 		TestData:     td,
+		SMState:      smState,
 	}
 }
 

@@ -23,22 +23,3 @@ func TestConfigure(t *testing.T) {
 	assert.True(t, p.UniversalRetrievalEnabled())
 	assert.Equal(t, abi.ChainEpoch(123), p.DealAcceptanceBuffer())
 }
-
-/*
-func TestRestartProvider(t *testing.T) {
-	ctx := context.Background()
-	td := shared_testutil.NewLibp2pTestData(ctx, t)
-	fs := shared_testutil.NewTestFileStore(shared_testutil.TestFileStoreParams{})
-	ps := shared_testutil.NewTestPieceStore()
-	dt2 := graphsync.NewGraphSyncDataTransfer(td.Host2, td.GraphSync2, td.DTStoredCounter2)
-	assert.NoError(t, dt2.RegisterVoucherType(&requestvalidation.StorageDataTransferVoucher{}, &fakeDTValidator{}))
-
-	p, err := storageimpl.NewProvider(
-		td.GraphSync1,
-		td.Ds1,
-		td.Bs1,
-		fs,
-		ps,
-	)
-}
-*/

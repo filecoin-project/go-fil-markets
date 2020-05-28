@@ -91,6 +91,7 @@ func NewClient(
 }
 
 func (c *Client) Run(ctx context.Context) {
+	_ = c.restartDeals()
 }
 
 func (c *Client) Stop() {
@@ -298,6 +299,31 @@ func (c *Client) SubscribeToEvents(subscriber storagemarket.ClientSubscriber) sh
 	return shared.Unsubscribe(c.pubSub.Subscribe(subscriber))
 }
 
+func (c *Client) restartDeals() error {
+	var deals []storagemarket.ClientDeal
+	err := c.statemachines.List(&deals)
+	if err != nil {
+		return err
+	}
+
+	for _, deal := range deals {
+		if c.statemachines.IsTerminated(deal) {
+			continue
+		}
+
+		s, err := c.net.NewDealStream(deal.Miner)
+		if err != nil {
+			return err
+		}
+		err = c.conns.AddStream(deal.ProposalCid, s)
+		if err != nil {
+			return err
+		}
+		err = c.statemachines.Send(deal.ProposalCid, storagemarket.ClientEventRestart)
+	}
+	return nil
+}
+
 func (c *Client) dispatch(eventName fsm.EventName, deal fsm.StateType) {
 	evt, ok := eventName.(storagemarket.ClientEvent)
 	if !ok {
@@ -357,14 +383,19 @@ func (c *clientDealEnvironment) Node() storagemarket.StorageClientNode {
 }
 
 func (c *clientDealEnvironment) WriteDealProposal(p peer.ID, proposalCid cid.Cid, proposal network.Proposal) error {
-	s, err := c.c.net.NewDealStream(p)
+	s, err := c.c.conns.DealStream(proposalCid)
+
 	if err != nil {
-		return err
+		s, err = c.c.net.NewDealStream(p)
+		if err != nil {
+			return err
+		}
+		err = c.c.conns.AddStream(proposalCid, s)
+		if err != nil {
+			return err
+		}
 	}
-	err = c.c.conns.AddStream(proposalCid, s)
-	if err != nil {
-		return err
-	}
+
 	err = s.WriteDealProposal(proposal)
 	return err
 }
