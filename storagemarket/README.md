@@ -1,11 +1,38 @@
-# How To Use the StorageMarket module
+# storagemarket
+The storagemarket module is intended for Filecoin node implementations written in Go.
+It implements functionality to allow execution of storage market deals on the
+Filecoin network.
+The node implementation must provide access to chain operations, and persistent 
+data storage.
+
 ## Background reading
 
 Please see the 
 [Filecoin Storage Market Specification](https://filecoin-project.github.io/specs/#systems__filecoin_markets__storage_market).
 
+## Installation
+The build process for storagemarket requires Go >= v1.13.
+
+To install:
+```bash
+go get github.com/filecoin-project/go-fil-markets/storagemarket
+```
+
+## Operation
+The `storagemarket` package provides high level APIs to execute data storage deals between a
+storage client and a storage provider (a.k.a. storage miner) on the Filecoin network.
+The Filecoin node must implement the `StorageFunds`,`StorageProviderNode`, and
+`StorageClientNode` interfaces in order to construct and use the module.
+
+Deals are expected to survive a node restart; deals and related information are
+ expected to be stored on disk.
+ 
+`storagemarket` communicates its deal operations and requested data via 
+                [go-data-transfer](https://github.com/filecoin-project/go-data-transfer) using 
+                [go-graphsync](https://github.com/ipfs/go-graphsync).
+
 ## For Implementers
-You will need to implement all of the required Client and Provider API functions in 
+Implement the `StorageFunds`,`StorageProviderNode`, and `StorageClientNode` interfaces in 
 [storagemarket/types.go](./types.go), described below:
 
 ### StorageFunds

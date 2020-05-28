@@ -1,27 +1,27 @@
-# How to use the retrievalmarket module
+# retrievalmarket
+The retrievalmarket module is intended for Filecoin node implementations written in Go.
+It implements functionality to allow execution of retrieval market deals on the
+Filecoin network.
+The node implementation must provide access to chain operations, and persistent 
+data storage.
 
 ## Background reading
 Please see the 
 [Filecoin Retrieval Market Specification](https://filecoin-project.github.io/specs/#systems__filecoin_markets__retrieval_market).
 
 ## Installation
-
 The build process for retrievalmarket requires Go >= v1.13.
-
-This module is intended for Filecoin node implementations written in Go.
-The node implementation must provide access to chain operations, and persistent 
-data storage.
 
 To install:
 ```bash
 go get github.com/filecoin-project/go-fil-markets/retrievalmarket
 ```
 
-## Purpose and operation
+## Operation
 
 The `retrievalmarket` package provides high level APIs to execute data retrieval deals between a
  retrieval client and a retrieval
- provider (a.k.a. retrieval miner) for data stored on the Filecoin netwwork. 
+ provider (a.k.a. retrieval miner) on the Filecoin netwwork. 
  The node must implement the `PeerResolver`, `RetrievalProviderNode`, and
      `RetrievalClientNode` interfaces in order to construct and use the module.
 
@@ -36,11 +36,12 @@ Once required Node APIs are implemented and the retrievalmarket APIs are exposed
  consumers (such as a command-line or web interface), a retrieval from the client side could
 proceed roughly like so:
 1. Your node has a record of data with payloadCIDs and their respective pieceCIDs. Someone,
-possibly you, wants to retrieve data referenced by `paylaodCID`  
-1. Your node searches for retrieval providers storing data referenced by `payloadCID`, or
-  perhaps a subset of that data, referenced by including a `pieceCID`.
-1. The node selects the cheapest terms of a retrieval deal and initiates a deal by calling
-  the retrieval client's `Retrieve` function.
+possibly you, wants to retrieve data referenced by `paylaodCID`.
+1. It calls `PeerResolver.GetPeers` to obtain a list of retrieval providers storing data
+ referenced by `payloadCID`. 
+1. It obtains retrieval deal terms by calling each retrieval miners' `Query` function.
+1. The node selects the best terms for a retrieval deal and initiates a deal by calling
+  the retrieval client's `Retrieve` function with the selected retrieval miner and piece info.
 1. The deal then proceeds automatically until all the data is returned and full payment in the
    form of vouchers is made to the retrieval provider, or the deal errors.
 1. Once the deal is complete and the final payment voucher is posted to chain, your client account balance
@@ -49,8 +50,8 @@ possibly you, wants to retrieve data referenced by `paylaodCID`
 A retrieval from the provider side is more automated; the RetrievalProvider would be listening
  for retrieval Query and Retrieve requests, and respond accordingly.
 
-1. Your node has a record of what it has stored locally, or possibly a record of peers with
- data.
+1. Your node stores a record of what it has stored locally, or possibly a record of peers
+ with data.
 1. Your node receives a Query for `payloadCID` and responds automatically with the terms you the
  node operator have set for retrieval deals.
 1. Your node receives a DealProposal for retrieval, and automatically validates and accepts or
@@ -61,13 +62,13 @@ data transfer, you the node operator may then redeem the voucher and collect FIL
 
 ### Collecting FIL for a deal is the node's responsibility
 To collect your FIL, your node must send on-chain
-  messages directly to the payment channel actor to send all the vouchers, 
-  Settle, and Collect on the deal. This will finalize the client and provider balances for the
-  retrieval deal on the Filecoin blockchain. Implementation and timing of these calls is the node's
-   responsibility
-   and is not a part of `retrievalmarket`. For more information about how to interact with the
-   payment channel actor, see the [github.com/filecoin-project/specs-actors](https://github.com/filecoin-project/specs-actors
-   ) repo.
+messages directly to the payment channel actor to send all the vouchers, 
+Settle, and Collect on the deal. This will finalize the client and provider balances for the
+retrieval deal on the Filecoin blockchain. Implementation and timing of these calls is the node's
+responsibility and is not a part of `retrievalmarket`. For more information about how 
+to interact with the
+payment channel actor, see the 
+[github.com/filecoin-project/specs-actors](https://github.com/filecoin-project/specs-actors) repo.
 
 ## Required API Implementation
 
@@ -75,7 +76,7 @@ To collect your FIL, your node must send on-chain
 1. Decide if your node will be a Retrieval Provider, a Retrieval Client or both.
 1. Determine how and where your retrieval calls to RetrievalProvider and RetrievalClient functions
  will be made.
-1. Implement the [required APIs](#Node_API_Implementation).
+1. Implement the [required interfaces](#Node_API_Implementation).
 1. [Construct a RetrievalClient](#Construct_a_RetrievalClient) in your node's startup, if your
  node will be a client.
 1. [Construct a RetrievalProvider](#Construct_a_RetrievalProvider) in your node's startup, if your
@@ -86,8 +87,8 @@ If setting up a RetrievalProvider, call its `Start` function it in the appropria
  command line interface, JSON RPC, or HTTP API.
 
 ### Node API Implementation
-Implement the Client and Provider API functions in [retrievalmarket/types.go](./types.go), 
-described below:
+Implement implement the `PeerResolver`, `RetrievalProviderNode`, and `RetrievalClientNode` 
+interfaces in [retrievalmarket/types.go](./types.go), described below:
 
 ### PeerResolver
 PeerResolver is an interface for looking up providers that may have a piece of identifiable data
@@ -231,7 +232,7 @@ func NewClient(
      See 
      [github.com/libp2p/go-libp2p-core/host](https://github.com/libp2p/go-libp2p-core/host).
 
-* `bs blockstore.Blockstore` is the IPFS blockstore for storing and retrieving data for deals.
+* `bs blockstore.Blockstore` is an IPFS blockstore for storing and retrieving data for deals.
  See
  [github.com/ipfs/go-ipfs-blockstore](github.com/ipfs/go-ipfs-blockstore).
 

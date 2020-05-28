@@ -1,6 +1,6 @@
-# The piecestore module
+# piecestore
 
-The piecestore module is a simple encapsulation of two data stores, one for `PieceInfo` and
+The `piecestore` module is a simple encapsulation of two data stores, one for `PieceInfo` and
  another for `CIDInfo`.  The piecestore's main goal is to help 
  [storagemarket module](../storagemarket) and [retrievalmarket module](../retrievalmarket)
  find where sealed data lives inside of sectors. Storage market writes the
@@ -9,7 +9,7 @@ The piecestore module is a simple encapsulation of two data stores, one for `Pie
 Both markets use `CIDInfo` to look up a Piece that contains the payload, and then
  use `PieceInfo` to find the sector that contains the piece.
   
-The storage market has to write this data before it completes the deal in order to find later
+The storage market has to write this data before it completes the deal in order to later
  look up the payload when the data is served.
 
 ## Installation
@@ -23,13 +23,10 @@ of piece info that can be modified and queried. The PieceStore
 interface is implemented in [piecestore.go](./piecestore.go).
 
 It has two stores, one for `PieceInfo` keyed by `pieceCID`, and another for 
-`CIDInfo`, keyed by `payloadCID`. These keys are of type `cid.CID`; see the 
-[github.com/ipfs/go-cid](https://github.com/ipfs/go-cid) package.
+`CIDInfo`, keyed by `payloadCID`. These keys are of type `cid.CID`; see 
+[github.com/ipfs/go-cid](https://github.com/ipfs/go-cid).
 
-Please see the [tests](./piecestore_test.go) for more detail about how a `PieceStore` is 
-expected to behave. 
-
-#### To create a new PieceStore
+**To create a new PieceStore**
 ```go
 func NewPieceStore(ds datastore.Batching) PieceStore
 ```
@@ -48,4 +45,4 @@ func NewPieceStore(ds datastore.Batching) PieceStore
 * [`GetPieceInfo`](./piecestore.go)
 * [`GetCIDInfo`](./piecestore.go)
 
-
+Please the [tests](piecestore_test.go) for more information about expected behavior.
