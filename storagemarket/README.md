@@ -46,7 +46,7 @@ Deals are expected to survive a node restart; deals and related information are
 1. Decide if your node will be a Storage Provider, a Storage Client or both.
 1. Determine how and where your retrieval calls to StorageProvider and StorageClient functions
  will be made.
-1. Implement the [required interfaces](#Node_API_Implementation).
+1. Implement the [required interfaces](#Implementation).
 1. Construct a [StorageClient](#StorageClient) and [StorageProvider](#StorageProvider) in your node's startup.
 Call the StorageProvider's `Start` function it in the appropriate place, and its `Stop` 
 function in the appropriate place.
@@ -265,7 +265,11 @@ func NewClient(
 ```
 **Parameters**
 
-* `net network.StorageMarketNetwork` is an interface for ___ To create it:    
+* `net network.StorageMarketNetwork` is a network abstraction for the storage market. To create it, use:
+    ```go
+    package network
+    func NewFromLibp2pHost(h host.Host) StorageMarketNetwork
+    ```
 * `bs blockstore.Blockstore` is an IPFS blockstore for storing and retrieving data for deals.
      See [github.com/ipfs/go-ipfs-blockstore](github.com/ipfs/go-ipfs-blockstore).
 * `dataTransfer datatransfer.Manager` is an interface from [github.com/filecoin-project/go-data-transfer](https://github.com/filecoin-project/go-data-transfer)
