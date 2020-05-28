@@ -30,8 +30,8 @@ go get github.com/filecoin-project/go-fil-markets/storagemarket
 ## Operation
 The `storagemarket` package provides high level APIs to execute data storage deals between a
 storage client and a storage provider (a.k.a. storage miner) on the Filecoin network.
-The Filecoin node must implement the `StorageFunds`, `StorageProviderNode`, and
-`StorageClientNode` interfaces in order to construct and use the module.
+The Filecoin node must implement the [`StorageFunds`](#StorageFunds), [`StorageProviderNode`](#StorageProviderNode), and
+[`StorageClientNode`](#StorageClientNode) interfaces in order to construct and use the module.
 
 Deals are expected to survive a node restart; deals and related information are
  expected to be stored on disk.
@@ -53,8 +53,9 @@ function in the appropriate place.
 1. Expose desired `storagemarket` functionality to whatever internal modules desired, such as
  command line interface, JSON RPC, or HTTP API.
 
-Implement the `StorageFunds`,`StorageProviderNode`, and `StorageClientNode` interfaces in 
-[storagemarket/types.go](./types.go), described below:
+Implement the [`StorageFunds`](#StorageFunds), [`StorageProviderNode`](#StorageProviderNode), and
+              [`StorageClientNode`](#StorageClientNode) interfaces in 
+              [storagemarket/types.go](./types.go), described below:
 
 ### StorageFunds
 `StorageFunds` is an interface common to both `StorageProviderNode` and `StorageClientNode`. Its
