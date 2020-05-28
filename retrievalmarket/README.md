@@ -5,6 +5,19 @@ Filecoin network.
 The node implementation must provide access to chain operations, and persistent 
 data storage.
 
+## Table of Contents
+* [Background reading](#Background_reading)
+* [Installation](#Installation)
+* [Operation](#Operation)
+* [Implementation](#Implementation)
+    * [Peer Resolver](#Peer_Resolver)
+    * [RetrievalClientNode](#RetrievalClientNode)
+    * [RetrievalProviderNode](#RetrievalProviderNode)
+* [Construction](#Construction)
+    * [Construct a RetrievalClient](#RetrievalClient)
+    * [Construct a RetrievalProvider](#RetrievalProvider)
+
+
 ## Background reading
 Please see the 
 [Filecoin Retrieval Market Specification](https://filecoin-project.github.io/specs/#systems__filecoin_markets__retrieval_market).
@@ -70,7 +83,7 @@ to interact with the
 payment channel actor, see the 
 [github.com/filecoin-project/specs-actors](https://github.com/filecoin-project/specs-actors) repo.
 
-## Required API Implementation
+## Implementation
 
 ### General Steps
 1. Decide if your node will be a Retrieval Provider, a Retrieval Client or both.
@@ -207,7 +220,9 @@ expectedAmount`, based on  the chain state referenced by `tok`.  The value of th
 voucher should be equal or greater than the largest previous voucher by 
  `expectedAmount`. It returns the actual difference.
 
-### Construct a RetrievalClient
+
+## Construction
+### RetrievalClient
 ```go
 package retrievalimpl
 func NewClient(
@@ -249,7 +264,7 @@ func NewClient(
   dealIDs. See
    [github.com/filecoin-project/go-storedcounter](https://github.com/filecoin-project/go-storedcounter).
 
-### Construct a RetrievalProvider
+### RetrievalProvider
 ```go
 package retrievalimpl
 

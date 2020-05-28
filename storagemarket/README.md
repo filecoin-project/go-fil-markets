@@ -5,6 +5,15 @@ Filecoin network.
 The node implementation must provide access to chain operations, and persistent 
 data storage.
 
+## Table of Contents
+* [Background reading](#Background_reading)
+* [Installation](#Installation)
+* [Operation](#Operation)
+* [Implementation](#Implementation)
+    * [StorageFunds](#StorageFunds)
+    * [StorageClientNode](#StorageClientNode)
+    * [StorageProviderNode](#StorageProviderNode)
+
 ## Background reading
 
 Please see the 
@@ -31,7 +40,7 @@ Deals are expected to survive a node restart; deals and related information are
                 [go-data-transfer](https://github.com/filecoin-project/go-data-transfer) using 
                 [go-graphsync](https://github.com/ipfs/go-graphsync).
 
-## For Implementers
+## Implementation
 Implement the `StorageFunds`,`StorageProviderNode`, and `StorageClientNode` interfaces in 
 [storagemarket/types.go](./types.go), described below:
 
