@@ -86,10 +86,10 @@ payment channel actor, see the
 ## Implementation
 
 ### General Steps
-1. Decide if your node will be a Retrieval Provider, a Retrieval Client or both.
+1. Decide if your node can be configured as a Retrieval Provider, a Retrieval Client or both.
 1. Determine how and where your retrieval calls to RetrievalProvider and RetrievalClient functions
  will be made.
-1. Implement the [required interfaces](#Node_API_Implementation).
+1. Implement the required interfaces as described in this section.
 1. [Construct a RetrievalClient](#RetrievalClient) in your node's startup, if your
  node will be a client.
 1. [Construct a RetrievalProvider](#RetrievalProvider) in your node's startup, if your
