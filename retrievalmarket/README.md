@@ -90,9 +90,9 @@ payment channel actor, see the
 1. Determine how and where your retrieval calls to RetrievalProvider and RetrievalClient functions
  will be made.
 1. Implement the [required interfaces](#Node_API_Implementation).
-1. [Construct a RetrievalClient](#Construct_a_RetrievalClient) in your node's startup, if your
+1. [Construct a RetrievalClient](#RetrievalClient) in your node's startup, if your
  node will be a client.
-1. [Construct a RetrievalProvider](#Construct_a_RetrievalProvider) in your node's startup, if your
+1. [Construct a RetrievalProvider](#RetrievalProvider) in your node's startup, if your
  node will be a provider.
 If setting up a RetrievalProvider, call its `Start` function it in the appropriate place, and its
  `Stop` function in the appropriate place.
@@ -100,7 +100,8 @@ If setting up a RetrievalProvider, call its `Start` function it in the appropria
  command line interface, JSON RPC, or HTTP API.
 
 ### Node API Implementation
-Implement implement the `PeerResolver`, `RetrievalProviderNode`, and `RetrievalClientNode` 
+Implement implement the [`PeerResolver`](#PeerResolver), [`RetrievalProviderNode`](#RetrievalProviderNode), 
+and [`RetrievalClientNode`](RetrievalClientNode)
 interfaces in [retrievalmarket/types.go](./types.go), described below:
 
 ### PeerResolver
@@ -281,10 +282,10 @@ func NewProvider(minerAddress address.Address,
 * `minerAddress address.Address` is the address of the retrieval miner owner.
 * `node retrievalmarket.RetrievalProviderNode` is the `RetrievalProviderNode` API you have implemented.
 * `netwk rmnet.RetrievalMarketNetwork` is the same interface for creating and handling deal streams
-as for [constructing a RetrievalClient](Construct_a_RetrievalClient).
+as for [constructing a RetrievalClient](RetrievalClient).
 * `pieceStore piecestore.PieceStore` is the database of deals and pieces associated with them.
 See this repo's [piecestore module](../piecestore).
 * `bs blockstore.Blockstore` is the same blockstore as for 
-[constructing a RetrievalClient](Construct_a_RetrievalClient).
+[constructing a RetrievalClient](RetrievalClient).
 * `ds datastore.Batching` is the same batching datastore as for 
-[constructing a RetrievalClient](Construct_a_RetrievalClient).
+[constructing a RetrievalClient](RetrievalClient).

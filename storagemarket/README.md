@@ -30,7 +30,7 @@ go get github.com/filecoin-project/go-fil-markets/storagemarket
 ## Operation
 The `storagemarket` package provides high level APIs to execute data storage deals between a
 storage client and a storage provider (a.k.a. storage miner) on the Filecoin network.
-The Filecoin node must implement the `StorageFunds`,`StorageProviderNode`, and
+The Filecoin node must implement the `StorageFunds`, `StorageProviderNode`, and
 `StorageClientNode` interfaces in order to construct and use the module.
 
 Deals are expected to survive a node restart; deals and related information are
@@ -192,8 +192,8 @@ List all deals associated with storage client `addr`, as of `tok`. Return a slic
 
 #### ListStorageProviders
 ```go
-func ListStorageProviders(ctx context.Context, tok shared.TipSetToken) ([]*StorageProviderInfo
-, error)
+func ListStorageProviders(ctx context.Context, tok shared.TipSetToken
+                         ) ([]*StorageProviderInfo, error)
 ```
 
 Return a slice of `StorageProviderInfo`, for all known storage providers.
@@ -206,8 +206,8 @@ Query the chain for `deal` and inspect the message parameters to make sure they 
 
 #### SignProposal
 ```go
-func SignProposal(ctx context.Context, signer address.Address, 
-                 proposal market.DealProposal) (*market.ClientDealProposal, error)
+func SignProposal(ctx context.Context, signer address.Address, proposal market.DealProposal
+                 ) (*market.ClientDealProposal, error)
 ```
 
 Cryptographically sign `proposal` using the private key of `signer` and return a
