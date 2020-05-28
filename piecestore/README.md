@@ -1,6 +1,6 @@
 # The piecestore module
 
-The piecestore module is  a simple encapsulation of two data stores, one for `PieceInfo` and
+The piecestore module is a simple encapsulation of two data stores, one for `PieceInfo` and
  another for `CIDInfo`.  It is currently used by the [storagemarket module](../storagemarket) for
   storing information needed for storage deals.
 
@@ -9,27 +9,14 @@ The piecestore module is  a simple encapsulation of two data stores, one for `Pi
 go get github.com/filecoin-project/go-fil-markets/piecestore
 ```
 
-## Types
-
-* [`DealInfo`](./types.go) - information about a single deal for a given piece
-* [`BlockLocation`](./types.go) - information about where a given block is relative to the
- overall
- piece
-* [`PieceBlockLocation`](./types.go) - block information plus the pieceCID of the piece the
- block is inside of.
-* [`CIDInfo`](./types.go) - where a given CID will live inside a piece
-* [`PieceInfo`](./types.go) - metadata about a piece a provider may be storing
- based on
- its PieceCID -- so that, given a pieceCID during retrieval, the miner can determine how to unseal it if needed
-* [`PieceStore`](#PieceStore) - a saved database of piece info that can be modified and
- queried
-
 ### PieceStore
-`PieceStore` is a saved database of piece info that can be modified 
-and queried.  The PieceStore interface is implemented in [piecestore.go](./piecestore.go).
+`PieceStore` is primary export of this module. It is a database 
+of piece info that can be modified and queried. The PieceStore 
+interface is implemented in [piecestore.go](./piecestore.go).
 
-It has two stores, one for `PieceInfo` and another for `CIDInfo`, each keyed by the `pieceCID`,
- which is a `cid.CID`.
+It has two stores, one for `PieceInfo` keyed by `pieceCID`, and another for 
+`CIDInfo`, keyed by `payloadCID`. These keys are of type `cid.CID`; see the 
+[github.com/ipfs/go-cid](https://github.com/ipfs/go-cid) package.
 
 Please see the [tests](./piecestore_test.go) for more detail about how a `PieceStore` is 
 expected to behave. 
@@ -39,37 +26,18 @@ expected to behave.
 func NewPieceStore(ds datastore.Batching) PieceStore
 ```
 
+**Parameters**
+* `ds datastore.Batching` is a datastore for the deal's state machine. It is
+ typically the node's own datastore that implements the IPFS datastore.Batching interface.
+ See
+  [github.com/ipfs/go-datastore](https://github.com/ipfs/go-datastore).
+
+
 `PieceStore` implements the following functions:
 
-* [`AddDealForPiece`](#AddDealForPiece)
-* [`AddPieceBlockLocations`](#AddPieceBlockLocations)
-* [`GetPieceInfo`](#GetPieceInfo)
-* [`GetCIDInfo`](#GetCIDInfo)
+* [`AddDealForPiece`](./piecestore.go)
+* [`AddPieceBlockLocations`](./piecestore.go)
+* [`GetPieceInfo`](./piecestore.go)
+* [`GetCIDInfo`](./piecestore.go)
 
-#### AddDealForPiece
-```go
-func AddDealForPiece(pieceCID cid.Cid, dealInfo DealInfo) error
-```
 
-Store `dealInfo` in the PieceStore's piece info store, with key `pieceCID`.
-
-#### AddPieceBlockLocations
-```go
-func AddPieceBlockLocations(pieceCID cid.Cid, blockLocations map[cid.Cid]BlockLocation) error
-```
-
-Store the map of blockLocations in the PieceStore's CIDInfo store, with key `pieceCID`
-
-#### GetPieceInfo
-```go
-func GetPieceInfo(pieceCID cid.Cid) (PieceInfo, error)
-```
-
-Retrieve the PieceInfo associated with `pieceCID` from the piece info store.
-
-#### GetCIDInfo
-```go
-func GetCIDInfo(payloadCID cid.Cid) (CIDInfo, error)
-```
-
-Retrieve the CIDInfo associated with `pieceCID` from the CID info store.
