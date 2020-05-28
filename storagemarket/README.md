@@ -1,7 +1,6 @@
 # storagemarket
 The storagemarket module is intended for Filecoin node implementations written in Go.
-It implements functionality to allow execution of storage market deals on the
-Filecoin network.
+It implements functionality to allow execution of storage market deals, and for Providers to set their storage price on the Filecoin network.
 The node implementation must provide access to chain operations, and persistent 
 data storage.
 
