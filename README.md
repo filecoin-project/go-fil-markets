@@ -10,8 +10,7 @@ Separating implementations into a blockchain component and one or more mining an
 
 ## Components
 
-* **[filestore](./filestore)**: a submodule branch that is a side effect of using the ffi to
- generate commP.
+* **[filestore](./filestore)**: a wrapper around os.File for use by pieceio, storagemarket, and retrievalmarket.
 * **[pieceio](./pieceio)**: utilities that take IPLD graphs and turn them into pieces.
 * **[piecestore](./piecestore)**:  a database for storing deal-related PieceInfo and CIDInfo. 
 * **[storagemarket](./storagemarket)**: for finding, negotiating, and consummating deals to
