@@ -338,7 +338,8 @@ See this repo's [piecestore module](../piecestore).
     To create a `StoredAsk`:
     ```go
     package storedask
-    func NewStoredAsk(ds datastore.Batching, dsKey datastore.Key, spn storagemarket.StorageProviderNode, actor address.Address) (*StoredAsk, error) {
+    func NewStoredAsk(ds datastore.Batching, dsKey datastore.Key, spn storagemarket.StorageProviderNode, 
+                      actor address.Address) (*StoredAsk, error)
     ```
 * `options ...StorageProviderOption` options is a variable length parameter to provide functions that change the
     StorageProvider default configuration. See [provider.go](./impl/provider.go) for the available options.
