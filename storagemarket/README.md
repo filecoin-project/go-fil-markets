@@ -60,7 +60,8 @@ Implement the [`StorageFunds`](#StorageFunds), [`StorageProviderNode`](#StorageP
 ### StorageFunds
 `StorageFunds` is an interface common to both `StorageProviderNode` and `StorageClientNode`. Its
  functions are:
-* [`Addfunds`](#AddFunds)
+* [`GetChainHead`](#GetChainHead)
+* [`AddFunds`](#AddFunds)
 * [`EnsureFunds`](#EnsureFunds)
 * [`GetBalance`](#GetBalance)
 * [`VerifySignature`](#VerifySignature)
