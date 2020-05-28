@@ -232,8 +232,7 @@ Cryptographically sign `proposal` using the private key of `signer` and return a
 func GetDefaultWalletAddress(ctx context.Context) (address.Address, error)
 ```
 
-Get the default wallet address of this node, the one from which funds should be sent to the node's 
-storage client or provider.
+Get the Client's default wallet address, which will be used to add Storage Market funds (collateral and payment).
 
 #### OnDealSectorCommitted
 ```go
