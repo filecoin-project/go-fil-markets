@@ -71,7 +71,7 @@ Implement the [`StorageFunds`](#StorageFunds), [`StorageProviderNode`](#StorageP
 func AddFunds(ctx context.Context, addr address.Address, amount abi.TokenAmount) (cid.Cid, error)
 ```
 
-Send `amount` to `addr by posting a message on chain. Return the message CID.
+Send `amount` to `addr` by posting a message on chain. Return the message CID.
 
 #### EnsureFunds
 ```go
