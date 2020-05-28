@@ -86,14 +86,15 @@ Make sure `addr` has `amount` funds and if not, `wallet` should send any needed 
 ```go
 func GetBalance(ctx context.Context, addr address.Address, tok shared.TipSetToken) (Balance, error)
 ```
-Retrieve the balance in `addr`
+Retrieve the Balance of FIL in `addr`.  A `Balance` consists of `Locked` and `Available` `abi.TokenAmount`s
 
 #### VerifySignature
 ```go
 func VerifySignature(ctx context.Context, signature crypto.Signature, signer address.Address, 
                 plaintext []byte, tok shared.TipSetToken) (bool, error)
 ```
-Verify that `signature` is valid for the given `signer`, `plaintext`, and `tok`.
+Verify that `signature` is valid, cryptographically and otherwise, for the 
+given `signer`, `plaintext`, and `tok`.
 
 #### WaitForMessage
 ```go
@@ -124,7 +125,6 @@ Get the current chain head. Return its TipSetToken and its abi.ChainEpoch.
 ```go
 func PublishDeals(ctx context.Context, deal MinerDeal) (cid.Cid, error)
 ```
-
 Post the deal to chain, returning the posted message CID.
 
 #### ListProviderDeals
@@ -133,14 +133,18 @@ func ListProviderDeals(ctx context.Context, addr address.Address, tok shared.Tip
                   ) ([]StorageDeal, error)
 ```
 
-List all deals for storage provider `addr`, as of `tok`. Return a slice of `StorageDeal`.
+List all storage deals for storage provider `addr`, as of `tok`. Return a slice of `StorageDeal`.
+`StorageDeal` is a local combination of a storage deal proposal and a current deal 
+state. See [storagemarket/types.go](./types.go)
 
 #### OnDealComplete
 ```go
 func OnDealComplete(ctx context.Context, deal MinerDeal, pieceSize abi.UnpaddedPieceSize, 
                pieceReader io.Reader) error
 ```
-The function to be called when `deal` has reached the `storagemarket.StorageDealCompleted` state. 
+The function to be called when MinerDeal `deal` has reached the `storagemarket.StorageDealCompleted` state. 
+A `MinerDeal` contains more information than a StorageDeal, including paths, addresses, and CIDs
+pertinent to the deal. See [storagemarket/types.go](./types.go)
 
 #### GetMinerWorkerAddress
 ```go

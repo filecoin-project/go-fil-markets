@@ -104,8 +104,8 @@ and [`RetrievalClientNode`](#RetrievalClientNode)
 interfaces in [retrievalmarket/types.go](./types.go), described below:
 
 ### PeerResolver
-PeerResolver is an interface for looking up providers that may have a piece of identifiable data
-. Its functions are:
+PeerResolver is an interface for looking up providers that may have a piece of identifiable 
+data. Its functions are:
 
 #### GetPeers
 ```go
