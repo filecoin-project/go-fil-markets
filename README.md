@@ -10,26 +10,29 @@ Separating implementations into a blockchain component and one or more mining an
 
 ## Components
 
-* **[filestore](./filestore)**: a wrapper around os.File for use by pieceio, storagemarket, and retrievalmarket.
-* **[pieceio](./pieceio)**: utilities that take IPLD graphs and turn them into pieces.
-* **[piecestore](./piecestore)**:  a database for storing deal-related PieceInfo and CIDInfo. 
 * **[storagemarket](./storagemarket)**: for finding, negotiating, and consummating deals to
  store data between clients and providers (storage miners).
 * **[retrievalmarket](./retrievalmarket)**: for finding, negotiating, and consummating deals to
  retrieve data between clients and providers (retrieval miners).
+* **[filestore](./filestore)**: a wrapper around os.File for use by pieceio, storagemarket, and retrievalmarket.
+* **[pieceio](./pieceio)**: utilities that take IPLD graphs and turn them into pieces. Used by storagemarket.
+* **[piecestore](./piecestore)**:  a database for storing deal-related PieceInfo and CIDInfo. 
+Used by storagemarket and retrievalmarket.
 
 Related components in other repos:
-* **[data transfer](https://github.com/filecoin-project/go-data-transfer)**: for exchanging piece data between clients and miners, used by storage & retrieval market modules.
+* **[go-data-transfer](https://github.com/filecoin-project/go-data-transfer)**: for exchanging piece data between clients and miners, used by storage & retrieval market modules.
 
 ### Background reading
 * The [Markets in Filecoin](https://filecoin-project.github.io/specs/#systems__filecoin_markets) 
 section of the Filecoin Specification contains the canonical spec.
 
-Install with:
-`go get "github.com/filecoin-project/go-fil-markets/<MODULENAME>"`
+## Installation
+```bash
+go get "github.com/filecoin-project/go-fil-markets/<MODULENAME>"`
+```
 
 ## Usage
-Documentation linked in each listed module in [Components](#Components).
+Documentation is in the README for each module, listed in [Components](#Components).
 
 ## Contributing
 Issues and PRs are welcome! Please first read the [background reading](#background-reading) and [CONTRIBUTING](.go-fil-markets/CONTRIBUTING.md) guide, and look over the current code. PRs against master require approval of at least two maintainers. 
