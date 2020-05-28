@@ -284,7 +284,7 @@ func NewProvider(minerAddress address.Address,
 as for [constructing a RetrievalClient](#RetrievalClient).
 * `pieceStore piecestore.PieceStore` is the database of deals and pieces associated with them.
 See this repo's [piecestore module](../piecestore).
-* `bs blockstore.Blockstore` is the same blockstore as for 
+* `bs blockstore.Blockstore` is the same interface as for 
 [constructing a RetrievalClient](#RetrievalClient).
-* `ds datastore.Batching` is the same batching datastore as for 
+* `ds datastore.Batching` is the same batching datastore interface as for 
 [constructing a RetrievalClient](#RetrievalClient).

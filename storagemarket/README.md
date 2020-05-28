@@ -42,11 +42,11 @@ Deals are expected to survive a node restart; deals and related information are
 ## Implementation
 
 ### General Steps
-1. Decide if your node will be a Storage Provider, a Storage Client or both.
+1. Decide if your node can be configured as a Storage Provider, a Storage Client or both.
 1. Determine how and where your retrieval calls to StorageProvider and StorageClient functions
  will be made.
-1. Implement the [required interfaces](#Implementation).
-1. Construct a [StorageClient](#StorageClient) and [StorageProvider](#StorageProvider) in your node's startup.
+1. Implement the required interfaces as described in this section.
+1. Construct a [StorageClient](#StorageClient) and/or [StorageProvider](#StorageProvider) in your node's startup.
 Call the StorageProvider's `Start` function it in the appropriate place, and its `Stop` 
 function in the appropriate place.
 1. Expose desired `storagemarket` functionality to whatever internal modules desired, such as
@@ -319,14 +319,14 @@ func NewProvider(net network.StorageMarketNetwork,
 ```
 
 **Parameters**
-* `net network.StorageMarketNetwork` is the same as for [StorageClientNode](#StorageClientNode)
-* `ds datastore.Batching` is the same as for [StorageClientNode](#StorageClientNode)
-* `bs blockstore.Blockstore` is the same blockstore as for [StorageClientNode](#StorageClientNode)
+* `net network.StorageMarketNetwork` is the same interface as for [StorageClientNode](#StorageClientNode)
+* `ds datastore.Batching` is the same interface as for [StorageClientNode](#StorageClientNode)
+* `bs blockstore.Blockstore` is the same interface as for [StorageClientNode](#StorageClientNode)
 * `fs filestore.FileStore` is an instance of the [filestore.FileStore](../filestore) struct from the 
     go-fil-markets repo.
 * `pieceStore piecestore.PieceStore` is the database of deals and pieces associated with them.
 See this repo's [piecestore module](../piecestore).
-* `dataTransfer` is the same as for [StorageClientNode](#StorageClientNode)
+* `dataTransfer` is the same interface as for [StorageClientNode](#StorageClientNode)
 * `spn storagemarket.StorageProviderNode` is the implementation of the [`StorageProviderNode`](#StorageProviderNode) API 
   that was written for your node.
 * `minerAddress address.Address` is the miner owner address.
