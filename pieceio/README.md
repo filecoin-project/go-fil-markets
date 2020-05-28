@@ -10,14 +10,15 @@ go get github.com/filecoin-project/go-fil-markets/pieceio
 ```
 
 ## PieceIO
-`PieceIO` is used by [`storagemarket`](../storagemarket) client for proposing deals. To initialize
-a PieceIO, use:
+`PieceIO` is used by [`storagemarket`](../storagemarket) client for proposing deals. 
+
+**To initialize a PieceIO:**
 ```go
 package pieceio
 
 func NewPieceIO(carIO CarIO, bs blockstore.Blockstore) PieceIO
 ```
-### Parameters
+**Parameters**
 * `carIO` is a [CarIO](#CarIO) from this module
 * `bs` is an IPFS blockstore for storing and retrieving data for deals. See
  [github.com/ipfs/go-ipfs-blockstore](github.com/ipfs/go-ipfs-blockstore).
@@ -25,14 +26,16 @@ func NewPieceIO(carIO CarIO, bs blockstore.Blockstore) PieceIO
 ## PieceIOWithStore
 `PieceIOWithStore` is `PieceIO` with a [`filestore`](../filestore). It is used by 
 [`storagemarket`](../storagemarket) provider to store pieces, and to generate and store piece commitments
- and piece metadata for deals. To initialize a PieceIOWithStore, use:
+ and piece metadata for deals. 
+ 
+**To initialize a PieceIOWithStore:**
 
 ```go
 package pieceio
 
 func NewPieceIOWithStore(carIO CarIO, store filestore.FileStore, bs blockstore.Blockstore) PieceIOWithStore
 ```
-### Parameters
+**Parameters**
 * `carIO` is a [CarIO](#CarIO) from this module
 * `store` is a [FileStore](../filestore) from this go-fil-markets repo.
 * `bs` is an IPFS blockstore for storing and retrieving data for deals. See
@@ -41,7 +44,7 @@ func NewPieceIOWithStore(carIO CarIO, store filestore.FileStore, bs blockstore.B
 ## CarIO
 CarIO is a utility module that wraps [github.com/ipld/go-car](https://github.com/ipld/go-car) for use by storagemarket.
 
-To initialize a CarIO, use:
+**To initialize a CarIO:**
 ```go
 package cario
 

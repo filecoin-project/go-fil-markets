@@ -26,7 +26,7 @@ It has two stores, one for `PieceInfo` keyed by `pieceCID`, and another for
 `CIDInfo`, keyed by `payloadCID`. These keys are of type `cid.CID`; see 
 [github.com/ipfs/go-cid](https://github.com/ipfs/go-cid).
 
-**To create a new PieceStore**
+**To initialize a PieceStore**
 ```go
 func NewPieceStore(ds datastore.Batching) PieceStore
 ```
