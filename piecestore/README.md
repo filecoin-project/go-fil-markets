@@ -1,8 +1,16 @@
 # The piecestore module
 
 The piecestore module is a simple encapsulation of two data stores, one for `PieceInfo` and
- another for `CIDInfo`.  It is currently used by the [storagemarket module](../storagemarket) for
-  storing information needed for storage deals.
+ another for `CIDInfo`.  The piecestore's main goal is to help 
+ [storagemarket module](../storagemarket) and [retrievalmarket module](../retrievalmarket)
+ find where sealed data lives inside of sectors. Storage market writes the
+ data, and retrieval market reads it.
+
+Both markets use `CIDInfo` to look up a Piece that contains the payload, and then
+ use `PieceInfo` to find the sector that contains the piece.
+  
+The storage market has to write this data before it completes the deal in order to find later
+ look up the payload when the data is served.
 
 ## Installation
 ```bash
