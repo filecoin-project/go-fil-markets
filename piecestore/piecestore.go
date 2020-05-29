@@ -26,6 +26,7 @@ type pieceStore struct {
 	cidInfos *statestore.StateStore
 }
 
+// Store `dealInfo` in the PieceStore with key `pieceCID`.
 func (ps *pieceStore) AddDealForPiece(pieceCID cid.Cid, dealInfo DealInfo) error {
 	return ps.mutatePieceInfo(pieceCID, func(pi *PieceInfo) error {
 		for _, di := range pi.Deals {
@@ -38,6 +39,7 @@ func (ps *pieceStore) AddDealForPiece(pieceCID cid.Cid, dealInfo DealInfo) error
 	})
 }
 
+// Store the map of blockLocations in the PieceStore's CIDInfo store, with key `pieceCID`
 func (ps *pieceStore) AddPieceBlockLocations(pieceCID cid.Cid, blockLocations map[cid.Cid]BlockLocation) error {
 	for c, blockLocation := range blockLocations {
 		err := ps.mutateCIDInfo(c, func(ci *CIDInfo) error {
@@ -56,6 +58,7 @@ func (ps *pieceStore) AddPieceBlockLocations(pieceCID cid.Cid, blockLocations ma
 	return nil
 }
 
+// Retrieve the PieceInfo associated with `pieceCID` from the piece info store.
 func (ps *pieceStore) GetPieceInfo(pieceCID cid.Cid) (PieceInfo, error) {
 	var out PieceInfo
 	if err := ps.pieces.Get(pieceCID).Get(&out); err != nil {
@@ -64,6 +67,7 @@ func (ps *pieceStore) GetPieceInfo(pieceCID cid.Cid) (PieceInfo, error) {
 	return out, nil
 }
 
+// Retrieve the CIDInfo associated with `pieceCID` from the CID info store.
 func (ps *pieceStore) GetCIDInfo(payloadCID cid.Cid) (CIDInfo, error) {
 	var out CIDInfo
 	if err := ps.cidInfos.Get(payloadCID).Get(&out); err != nil {

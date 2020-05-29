@@ -7,7 +7,7 @@ import (
 
 //go:generate cbor-gen-for PieceInfo DealInfo BlockLocation PieceBlockLocation CIDInfo
 
-// DealInfo is information about a single deal for a give piece
+// DealInfo is information about a single deal for a given piece
 type DealInfo struct {
 	DealID   abi.DealID
 	SectorID uint64

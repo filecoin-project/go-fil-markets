@@ -197,7 +197,8 @@ type RetrievalClientNode interface {
 
 	// GetOrCreatePaymentChannel sets up a new payment channel if one does not exist
 	// between a client and a miner and insures the client has the given amount of funds available in the channel
-	GetOrCreatePaymentChannel(ctx context.Context, clientAddress address.Address, minerAddress address.Address, clientFundsAvailable abi.TokenAmount, tok shared.TipSetToken) (address.Address, cid.Cid, error)
+	GetOrCreatePaymentChannel(ctx context.Context, clientAddress, minerAddress address.Address,
+		clientFundsAvailable abi.TokenAmount, tok shared.TipSetToken) (address.Address, cid.Cid, error)
 
 	// Allocate late creates a lane within a payment channel so that calls to
 	// CreatePaymentVoucher will automatically make vouchers only for the difference
@@ -207,7 +208,8 @@ type RetrievalClientNode interface {
 	// CreatePaymentVoucher creates a new payment voucher in the given lane for a
 	// given payment channel so that all the payment vouchers in the lane add up
 	// to the given amount (so the payment voucher will be for the difference)
-	CreatePaymentVoucher(ctx context.Context, paymentChannel address.Address, amount abi.TokenAmount, lane uint64, tok shared.TipSetToken) (*paych.SignedVoucher, error)
+	CreatePaymentVoucher(ctx context.Context, paymentChannel address.Address, amount abi.TokenAmount,
+		lane uint64, tok shared.TipSetToken) (*paych.SignedVoucher, error)
 
 	// WaitForPaymentChannelAddFunds waits for a message on chain that funds have
 	// been sent to a payment channel

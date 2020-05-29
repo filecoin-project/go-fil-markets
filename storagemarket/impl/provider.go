@@ -97,7 +97,18 @@ func CustomDealDecisionLogic(decider DealDeciderFunc) StorageProviderOption {
 }
 
 // NewProvider returns a new storage provider
-func NewProvider(net network.StorageMarketNetwork, ds datastore.Batching, bs blockstore.Blockstore, fs filestore.FileStore, pieceStore piecestore.PieceStore, dataTransfer datatransfer.Manager, spn storagemarket.StorageProviderNode, minerAddress address.Address, rt abi.RegisteredProof, storedAsk StoredAsk, options ...StorageProviderOption) (storagemarket.StorageProvider, error) {
+func NewProvider(net network.StorageMarketNetwork,
+	ds datastore.Batching,
+	bs blockstore.Blockstore,
+	fs filestore.FileStore,
+	pieceStore piecestore.PieceStore,
+	dataTransfer datatransfer.Manager,
+	spn storagemarket.StorageProviderNode,
+	minerAddress address.Address,
+	rt abi.RegisteredProof,
+	storedAsk StoredAsk,
+	options ...StorageProviderOption,
+) (storagemarket.StorageProvider, error) {
 	carIO := cario.NewCarIO()
 	pio := pieceio.NewPieceIOWithStore(carIO, fs, bs)
 
