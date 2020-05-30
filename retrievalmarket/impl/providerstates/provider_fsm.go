@@ -92,6 +92,8 @@ var ProviderEvents = fsm.Events{
 		}),
 	fsm.Event(rm.ProviderEventComplete).
 		From(rm.DealStatusFinalizing).To(rm.DealStatusCompleted),
+	fsm.Event(rm.ProviderEventDealResume).
+		FromAny().ToNoChange(),
 }
 
 // ProviderStateEntryFuncs are the handlers for different states in a retrieval provider

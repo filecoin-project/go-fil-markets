@@ -180,6 +180,8 @@ var ClientEvents = fsm.Events{
 		From(rm.DealStatusPaymentChannelReady).To(rm.DealStatusOngoing).
 		From(rm.DealStatusOngoing).ToNoChange().
 		Action(recordProcessed),
+	fsm.Event(rm.ClientEventDealResume).
+		FromAny().ToNoChange(),
 }
 
 // ClientStateEntryFuncs are the handlers for different states in a retrieval client

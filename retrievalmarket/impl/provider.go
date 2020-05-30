@@ -109,6 +109,7 @@ func (p *Provider) Stop() error {
 
 // Start begins listening for deals on the given host
 func (p *Provider) Start() error {
+	p.restartDeals()
 	return p.network.SetDelegate(p)
 }
 
@@ -330,6 +331,19 @@ func DealDeciderOpt(dd DealDecider) RetrievalProviderOption {
 	return func(provider *Provider) {
 		provider.dealDecider = dd
 	}
+}
+
+func (p *Provider) restartDeals() error {
+	var deals []retrievalmarket.ProviderDealState
+	err := p.stateMachines.List(&deals)
+	if err != nil {
+		return err
+	}
+
+	for _, pds := range deals {
+		err = p.stateMachines.Send(pds.Identifier(), retrievalmarket.ProviderEventDealResume)
+	}
+	return nil
 }
 
 func getPieceInfoFromCid(pieceStore piecestore.PieceStore, payloadCID, pieceCID cid.Cid) (piecestore.PieceInfo, error) {

@@ -150,6 +150,10 @@ const (
 
 	// ClientEventComplete indicates a deal has completed
 	ClientEventComplete
+
+	// ClientEvenDealResume kickstarts the statemachine to load the deal state and continue
+	// where it left off.
+	ClientEventDealResume
 )
 
 // ClientSubscriber is a callback that is registered to listen for retrieval events
@@ -309,6 +313,10 @@ const (
 
 	// ProviderEventComplete indicates a retrieval deal was completed for a client
 	ProviderEventComplete
+
+	// ProviderDealRestart kickstarts the statemachine to load the deal state and continue
+	// where it left off.
+	ProviderEventDealResume
 )
 
 // ProviderDealID is a unique identifier for a deal on a provider -- it is
