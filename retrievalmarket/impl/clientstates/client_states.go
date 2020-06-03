@@ -196,6 +196,5 @@ func Finalize(ctx fsm.Context, environment ClientDealEnvironment, deal rm.Client
 	if response.Status != rm.DealStatusCompleted {
 		return ctx.Trigger(rm.ClientEventUnknownResponseReceived)
 	}
-
 	return ctx.Trigger(rm.ClientEventComplete, uint64(0))
 }

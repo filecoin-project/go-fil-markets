@@ -92,7 +92,9 @@ var ProviderEvents = fsm.Events{
 		}),
 	fsm.Event(rm.ProviderEventComplete).
 		From(rm.DealStatusFinalizing).To(rm.DealStatusCompleted),
-	fsm.Event(rm.ProviderEventDealResume).
+	fsm.Event(rm.ProviderEventDealSuspended).
+		FromAny().ToNoChange(),
+	fsm.Event(rm.ProviderEventDealResumed).
 		FromAny().ToNoChange(),
 }
 

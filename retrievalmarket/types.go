@@ -314,9 +314,13 @@ const (
 	// ProviderEventComplete indicates a retrieval deal was completed for a client
 	ProviderEventComplete
 
+	// ProviderEventDealSuspended is  simply for triggering an event so client can
+	// respond
+	ProviderEventDealSuspended
+
 	// ProviderDealRestart kickstarts the statemachine to load the deal state and continue
 	// where it left off.
-	ProviderEventDealResume
+	ProviderEventDealResumed
 )
 
 // ProviderDealID is a unique identifier for a deal on a provider -- it is

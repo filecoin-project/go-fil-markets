@@ -168,6 +168,19 @@ func (c *client) Retrieve(ctx context.Context, payloadCID cid.Cid, params retrie
 	return dealID, nil
 }
 
+// Stop stops processing by the client
+func (c *client) Stop() {
+	for _, ds := range c.dealStreams {
+		if err := ds.Close(); err != nil {
+			log.Error(err)
+		}
+	}
+	c.stateMachines.Stop(cont)
+}
+
+func (c *client) Start() {
+}
+
 // unsubscribeAt returns a function that removes an item from the subscribers list by comparing
 // their reflect.ValueOf before pulling the item out of the slice.  Does not preserve order.
 // Subsequent, repeated calls to the func with the same Subscriber are a no-op.
