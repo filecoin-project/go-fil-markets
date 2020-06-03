@@ -175,7 +175,9 @@ func (c *client) Stop() {
 			log.Error(err)
 		}
 	}
-	c.stateMachines.Stop(cont)
+	if err := c.stateMachines.Stop(context.Background()); err != nil {
+		log.Error(err)
+	}
 }
 
 func (c *client) Start() {
