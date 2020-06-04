@@ -5,6 +5,7 @@ import (
 
 	"github.com/filecoin-project/go-address"
 	"github.com/filecoin-project/specs-actors/actors/abi"
+	spect "github.com/filecoin-project/specs-actors/support/testing"
 	"github.com/ipfs/go-cid"
 	"github.com/ipfs/go-datastore"
 	dss "github.com/ipfs/go-datastore/sync"
@@ -212,6 +213,24 @@ func TestHandleQueryStream(t *testing.T) {
 		pieceStore.VerifyExpectations(t)
 	})
 
+}
+
+func TestProviderConfigOpts(t *testing.T) {
+	var sawOpt int
+	opt1 := func(p *retrievalimpl.Provider) { sawOpt++ }
+	opt2 := func(p *retrievalimpl.Provider) { sawOpt += 2 }
+	ds := datastore.NewMapDatastore()
+	bs := bstore.NewBlockstore(ds)
+	p, err := retrievalimpl.NewProvider(
+		spect.NewIDAddr(t, 2344),
+		testnodes.NewTestRetrievalProviderNode(),
+		tut.NewTestRetrievalMarketNetwork(tut.TestNetworkParams{}),
+		tut.NewTestPieceStore(),
+		bs, ds, opt1, opt2,
+	)
+	require.NoError(t, err)
+	assert.NotNil(t, p)
+	assert.Equal(t, 3, sawOpt)
 }
 
 // loadPieceCIDS sets expectations to receive expectedPieceCID and 3 other random PieceCIDs to

@@ -26,7 +26,7 @@ import (
 	"github.com/filecoin-project/go-fil-markets/shared"
 )
 
-type provider struct {
+type Provider struct {
 	bs                      blockstore.Blockstore
 	node                    retrievalmarket.RetrievalProviderNode
 	network                 rmnet.RetrievalMarketNetwork
@@ -42,7 +42,7 @@ type provider struct {
 	stateMachines           fsm.Group
 }
 
-var _ retrievalmarket.RetrievalProvider = &provider{}
+var _ retrievalmarket.RetrievalProvider = &Provider{}
 
 // DefaultPricePerByte is the charge per byte retrieved if the miner does
 // not specifically set it
@@ -56,10 +56,13 @@ var DefaultPaymentInterval = uint64(1 << 20)
 // set to to 1Mb if the miner does not explicitly set it otherwise
 var DefaultPaymentIntervalIncrease = uint64(1 << 20)
 
-// NewProvider returns a new retrieval provider
-func NewProvider(minerAddress address.Address, node retrievalmarket.RetrievalProviderNode, network rmnet.RetrievalMarketNetwork, pieceStore piecestore.PieceStore, bs blockstore.Blockstore, ds datastore.Batching) (retrievalmarket.RetrievalProvider, error) {
+// NewProvider returns a new retrieval Provider
+func NewProvider(minerAddress address.Address, node retrievalmarket.RetrievalProviderNode,
+	network rmnet.RetrievalMarketNetwork, pieceStore piecestore.PieceStore,
+	bs blockstore.Blockstore, ds datastore.Batching, opts ...RetrievalProviderOption,
+) (retrievalmarket.RetrievalProvider, error) {
 
-	p := &provider{
+	p := &Provider{
 		bs:                      bs,
 		node:                    node,
 		network:                 network,
@@ -79,32 +82,33 @@ func NewProvider(minerAddress address.Address, node retrievalmarket.RetrievalPro
 		StateEntryFuncs: providerstates.ProviderStateEntryFuncs,
 		Notifier:        p.notifySubscribers,
 	})
-	p.stateMachines = statemachines
 	if err != nil {
 		return nil, err
 	}
+	p.Configure(opts...)
+	p.stateMachines = statemachines
 	return p, nil
 }
 
 // Stop stops handling incoming requests
-func (p *provider) Stop() error {
+func (p *Provider) Stop() error {
 	return p.network.StopHandlingRequests()
 }
 
 // Start begins listening for deals on the given host
-func (p *provider) Start() error {
+func (p *Provider) Start() error {
 	return p.network.SetDelegate(p)
 }
 
 // V0
 // SetPricePerByte sets the price per byte a miner charges for retrievals
-func (p *provider) SetPricePerByte(price abi.TokenAmount) {
+func (p *Provider) SetPricePerByte(price abi.TokenAmount) {
 	p.pricePerByte = price
 }
 
-// SetPaymentInterval sets the maximum number of bytes a a provider will send before
+// SetPaymentInterval sets the maximum number of bytes a a Provider will send before
 // requesting further payment, and the rate at which that value increases
-func (p *provider) SetPaymentInterval(paymentInterval uint64, paymentIntervalIncrease uint64) {
+func (p *Provider) SetPaymentInterval(paymentInterval uint64, paymentIntervalIncrease uint64) {
 	p.paymentInterval = paymentInterval
 	p.paymentIntervalIncrease = paymentIntervalIncrease
 }
@@ -112,7 +116,7 @@ func (p *provider) SetPaymentInterval(paymentInterval uint64, paymentIntervalInc
 // unsubscribeAt returns a function that removes an item from the subscribers list by comparing
 // their reflect.ValueOf before pulling the item out of the slice.  Does not preserve order.
 // Subsequent, repeated calls to the func with the same Subscriber are a no-op.
-func (p *provider) unsubscribeAt(sub retrievalmarket.ProviderSubscriber) retrievalmarket.Unsubscribe {
+func (p *Provider) unsubscribeAt(sub retrievalmarket.ProviderSubscriber) retrievalmarket.Unsubscribe {
 	return func() {
 		p.subscribersLk.Lock()
 		defer p.subscribersLk.Unlock()
@@ -127,7 +131,7 @@ func (p *provider) unsubscribeAt(sub retrievalmarket.ProviderSubscriber) retriev
 	}
 }
 
-func (p *provider) notifySubscribers(eventName fsm.EventName, state fsm.StateType) {
+func (p *Provider) notifySubscribers(eventName fsm.EventName, state fsm.StateType) {
 	p.subscribersLk.RLock()
 	defer p.subscribersLk.RUnlock()
 	evt := eventName.(retrievalmarket.ProviderEvent)
@@ -138,7 +142,7 @@ func (p *provider) notifySubscribers(eventName fsm.EventName, state fsm.StateTyp
 }
 
 // SubscribeToEvents listens for events that happen related to client retrievals
-func (p *provider) SubscribeToEvents(subscriber retrievalmarket.ProviderSubscriber) retrievalmarket.Unsubscribe {
+func (p *Provider) SubscribeToEvents(subscriber retrievalmarket.ProviderSubscriber) retrievalmarket.Unsubscribe {
 	p.subscribersLk.Lock()
 	p.subscribers = append(p.subscribers, subscriber)
 	p.subscribersLk.Unlock()
@@ -147,15 +151,15 @@ func (p *provider) SubscribeToEvents(subscriber retrievalmarket.ProviderSubscrib
 }
 
 // V1
-func (p *provider) SetPricePerUnseal(price abi.TokenAmount) {
+func (p *Provider) SetPricePerUnseal(price abi.TokenAmount) {
 	panic("not implemented")
 }
 
-func (p *provider) ListDeals() map[retrievalmarket.ProviderDealID]retrievalmarket.ProviderDealState {
+func (p *Provider) ListDeals() map[retrievalmarket.ProviderDealID]retrievalmarket.ProviderDealState {
 	panic("not implemented")
 }
 
-func (p *provider) HandleQueryStream(stream rmnet.RetrievalQueryStream) {
+func (p *Provider) HandleQueryStream(stream rmnet.RetrievalQueryStream) {
 	defer stream.Close()
 	query, err := stream.ReadQuery()
 	if err != nil {
@@ -212,7 +216,7 @@ func (p *provider) HandleQueryStream(stream rmnet.RetrievalQueryStream) {
 	}
 }
 
-func (p *provider) HandleDealStream(stream rmnet.RetrievalDealStream) {
+func (p *Provider) HandleDealStream(stream rmnet.RetrievalDealStream) {
 	// read deal proposal (or fail)
 	err := p.newProviderDeal(stream)
 	if err != nil {
@@ -221,7 +225,7 @@ func (p *provider) HandleDealStream(stream rmnet.RetrievalDealStream) {
 	}
 }
 
-func (p *provider) newProviderDeal(stream rmnet.RetrievalDealStream) error {
+func (p *Provider) newProviderDeal(stream rmnet.RetrievalDealStream) error {
 	dealProposal, err := stream.ReadDealProposal()
 	if err != nil {
 		return err
@@ -264,15 +268,15 @@ func (p *provider) newProviderDeal(stream rmnet.RetrievalDealStream) error {
 	return nil
 }
 
-func (p *provider) Node() retrievalmarket.RetrievalProviderNode {
+func (p *Provider) Node() retrievalmarket.RetrievalProviderNode {
 	return p.node
 }
 
-func (p *provider) DealStream(id retrievalmarket.ProviderDealIdentifier) rmnet.RetrievalDealStream {
+func (p *Provider) DealStream(id retrievalmarket.ProviderDealIdentifier) rmnet.RetrievalDealStream {
 	return p.dealStreams[id]
 }
 
-func (p *provider) CheckDealParams(pricePerByte abi.TokenAmount, paymentInterval uint64, paymentIntervalIncrease uint64) error {
+func (p *Provider) CheckDealParams(pricePerByte abi.TokenAmount, paymentInterval uint64, paymentIntervalIncrease uint64) error {
 	if pricePerByte.LessThan(p.pricePerByte) {
 		return errors.New("Price per byte too low")
 	}
@@ -285,7 +289,7 @@ func (p *provider) CheckDealParams(pricePerByte abi.TokenAmount, paymentInterval
 	return nil
 }
 
-func (p *provider) NextBlock(ctx context.Context, id retrievalmarket.ProviderDealIdentifier) (retrievalmarket.Block, bool, error) {
+func (p *Provider) NextBlock(ctx context.Context, id retrievalmarket.ProviderDealIdentifier) (retrievalmarket.Block, bool, error) {
 	br, ok := p.blockReaders[id]
 	if !ok {
 		return retrievalmarket.Block{}, false, errors.New("Could not read block")
@@ -293,7 +297,7 @@ func (p *provider) NextBlock(ctx context.Context, id retrievalmarket.ProviderDea
 	return br.ReadBlock(ctx)
 }
 
-func (p *provider) GetPieceSize(c cid.Cid) (uint64, error) {
+func (p *Provider) GetPieceSize(c cid.Cid) (uint64, error) {
 	pieceInfo, err := getPieceInfoFromCid(p.pieceStore, c, cid.Undef)
 	if err != nil {
 		return 0, err
@@ -303,6 +307,14 @@ func (p *provider) GetPieceSize(c cid.Cid) (uint64, error) {
 	}
 	return pieceInfo.Deals[0].Length, nil
 }
+
+func (p *Provider) Configure(opts ...RetrievalProviderOption) {
+	for _, opt := range opts {
+		opt(p)
+	}
+}
+
+type RetrievalProviderOption func(p *Provider)
 
 func getPieceInfoFromCid(pieceStore piecestore.PieceStore, payloadCID, pieceCID cid.Cid) (piecestore.PieceInfo, error) {
 	cidInfo, err := pieceStore.GetCIDInfo(payloadCID)
