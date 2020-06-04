@@ -2,6 +2,7 @@ package retrievalimpl_test
 
 import (
 	"context"
+	"sync"
 	"testing"
 	"time"
 
@@ -120,6 +121,8 @@ func requireSetupTestClientAndProvider(bgCtx context.Context, t *testing.T) (ret
 }
 
 func TestClientCanMakeDealWithProvider(t *testing.T) {
+	log.SetDebugLogging()
+
 	ssb := builder.NewSelectorSpecBuilder(basicnode.Style.Any)
 
 	partialSelector := ssb.ExploreFields(func(specBuilder builder.ExploreFieldsSpecBuilder) {
@@ -306,6 +309,8 @@ func TestClientCanMakeDealWithProvider(t *testing.T) {
 
 /// =======================
 func TestStartStopProvider(t *testing.T) {
+	log.SetDebugLogging()
+
 	filename := "lorem.txt"
 	filesize := uint64(19000)
 	voucherAmts := []abi.TokenAmount{abi.NewTokenAmount(10136000), abi.NewTokenAmount(9784000)}
@@ -335,11 +340,19 @@ func TestStartStopProvider(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, retrievalmarket.QueryResponseAvailable, resp.Status)
 
+	var wg sync.WaitGroup
+	wg.Add(1)
+
 	clientDealStateChan := make(chan retrievalmarket.ClientDealState)
 	ch.SubscribeToEvents(func(event retrievalmarket.ClientEvent, state retrievalmarket.ClientDealState) {
 		switch event {
+		case retrievalmarket.ClientEventDealAccepted:
+			require.NoError(t, ph.Stop())
+			wg.Done()
 		case retrievalmarket.ClientEventComplete:
 			clientDealStateChan <- state
+		default:
+			logClientDealState(t, state)
 		}
 	})
 
@@ -350,7 +363,7 @@ func TestStartStopProvider(t *testing.T) {
 		ch.PaychAddr, retrievalPeer.Address)
 	require.NoError(t, err)
 
-	require.NoError(t, ph.Stop())
+	wg.Wait()
 
 	provider2, err := retrievalimpl.NewProvider(ph.PaychAddr, ph.ProviderNode, ph.Network, ph.PieceStore,
 		ph.TestData.Bs2, ph.TestData.Ds2)
@@ -435,7 +448,7 @@ func TestStartStopClient(t *testing.T) {
 	})
 
 	// verify that client subscribers will be notified of state changes
-	ctx, cancel := context.WithTimeout(bgCtx, 5*time.Second)
+	ctx, cancel := context.WithTimeout(bgCtx, 15*time.Second)
 	defer cancel()
 	var clientDealState retrievalmarket.ClientDealState
 	select {
