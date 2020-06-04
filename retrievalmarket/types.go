@@ -193,6 +193,8 @@ type RetrievalClient interface {
 	CancelDeal(id DealID) error
 	RetrievalStatus(id DealID)
 	ListDeals() map[DealID]ClientDealState
+	Start() error
+	Stop() error
 }
 
 // RetrievalClientNode are the node dependencies for a RetrievalClient

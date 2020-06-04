@@ -74,7 +74,8 @@ func NewClient(
 		return nil, err
 	}
 	c.stateMachines = stateMachines
-	return c, nil
+	err = c.Start()
+	return c, err
 }
 
 // V0
@@ -169,18 +170,17 @@ func (c *client) Retrieve(ctx context.Context, payloadCID cid.Cid, params retrie
 }
 
 // Stop stops processing by the client
-func (c *client) Stop() {
+func (c *client) Stop() error {
 	for _, ds := range c.dealStreams {
 		if err := ds.Close(); err != nil {
-			log.Error(err)
+			return err
 		}
 	}
-	if err := c.stateMachines.Stop(context.Background()); err != nil {
-		log.Error(err)
-	}
+	return c.stateMachines.Stop(context.Background())
 }
 
-func (c *client) Start() {
+func (c *client) Start() error {
+	return nil
 }
 
 // unsubscribeAt returns a function that removes an item from the subscribers list by comparing
