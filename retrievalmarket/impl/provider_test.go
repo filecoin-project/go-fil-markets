@@ -1,6 +1,7 @@
 package retrievalimpl_test
 
 import (
+	"context"
 	"testing"
 
 	"github.com/filecoin-project/go-address"
@@ -17,7 +18,6 @@ import (
 	"github.com/filecoin-project/go-fil-markets/piecestore"
 	"github.com/filecoin-project/go-fil-markets/retrievalmarket"
 	retrievalimpl "github.com/filecoin-project/go-fil-markets/retrievalmarket/impl"
-	"github.com/filecoin-project/go-fil-markets/retrievalmarket/impl/providerstates"
 	"github.com/filecoin-project/go-fil-markets/retrievalmarket/impl/testnodes"
 	"github.com/filecoin-project/go-fil-markets/retrievalmarket/network"
 	tut "github.com/filecoin-project/go-fil-markets/shared_testutil"
@@ -236,8 +236,7 @@ func TestProviderConfigOpts(t *testing.T) {
 	// just test that we can create a DealDeciderOpt function and that it runs
 	// successfully in the constructor
 	ddOpt := retrievalimpl.DealDeciderOpt(
-		func(env providerstates.ProviderDealEnvironment,
-			state retrievalmarket.ProviderDealState) (bool, string, error) {
+		func(_ context.Context, state retrievalmarket.ProviderDealState) (bool, string, error) {
 			return true, "yes", nil
 		})
 
@@ -248,6 +247,7 @@ func TestProviderConfigOpts(t *testing.T) {
 		tut.NewTestPieceStore(),
 		bs, ds, ddOpt)
 	require.NoError(t, err)
+	require.NotNil(t, p)
 }
 
 // loadPieceCIDS sets expectations to receive expectedPieceCID and 3 other random PieceCIDs to

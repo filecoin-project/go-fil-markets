@@ -27,8 +27,8 @@ import (
 )
 
 type RetrievalProviderOption func(p *Provider)
-type DealDecider func(env providerstates.ProviderDealEnvironment,
-	state retrievalmarket.ProviderDealState) (bool, string, error)
+type DealDecider func(ctx context.Context, state retrievalmarket.ProviderDealState) (bool, string, error)
+
 type Provider struct {
 	bs                      blockstore.Blockstore
 	node                    retrievalmarket.RetrievalProviderNode
@@ -46,7 +46,8 @@ type Provider struct {
 	dealDecider             DealDecider
 }
 
-var _ retrievalmarket.RetrievalProvider = &Provider{}
+var _ retrievalmarket.RetrievalProvider = new(Provider)
+var _ providerstates.ProviderDealEnvironment = new(Provider)
 
 // DefaultPricePerByte is the charge per byte retrieved if the miner does
 // not specifically set it
@@ -92,6 +93,13 @@ func NewProvider(minerAddress address.Address, node retrievalmarket.RetrievalPro
 	p.Configure(opts...)
 	p.stateMachines = statemachines
 	return p, nil
+}
+
+func (p *Provider) RunDealDecisioningLogic(ctx context.Context, state retrievalmarket.ProviderDealState) (bool, string, error) {
+	if p.dealDecider == nil {
+		return true, "", nil
+	}
+	return p.dealDecider(ctx, state)
 }
 
 // Stop stops handling incoming requests

@@ -258,8 +258,8 @@ const (
 	// in custom decisioning logic
 	ProviderEventDealReceived
 
-	// ProviderEventDecidingFailed means the Deciding function returned an error
-	ProviderEventDecidingFailed
+	// ProviderEventDecisioningError means the Deciding function returned an error
+	ProviderEventDecisioningError
 
 	// ProviderEventWriteResponseFailed happens when a network error ocurrs writing a deal response
 	ProviderEventWriteResponseFailed
@@ -345,7 +345,6 @@ type RetrievalProvider interface {
 	// V1
 	SetPricePerUnseal(price abi.TokenAmount)
 	ListDeals() map[ProviderDealID]ProviderDealState
-	DecideDeal(state ProviderDealState) (bool, string, error)
 }
 
 // RetrievalProviderNode are the node depedencies for a RetrevalProvider

@@ -2,6 +2,7 @@ package providerstates
 
 import (
 	"context"
+	"errors"
 
 	"github.com/filecoin-project/go-statemachine/fsm"
 	"github.com/filecoin-project/specs-actors/actors/abi"
@@ -20,7 +21,7 @@ type ProviderDealEnvironment interface {
 	DealStream(id rm.ProviderDealIdentifier) rmnet.RetrievalDealStream
 	NextBlock(context.Context, rm.ProviderDealIdentifier) (rm.Block, bool, error)
 	CheckDealParams(pricePerByte abi.TokenAmount, paymentInterval uint64, paymentIntervalIncrease uint64) error
-	Provider() rm.RetrievalProvider
+	RunDealDecisioningLogic(ctx context.Context, state rm.ProviderDealState) (bool, string, error)
 }
 
 // ReceiveDeal receives and evaluates a deal proposal
@@ -37,30 +38,33 @@ func ReceiveDeal(ctx fsm.Context, environment ProviderDealEnvironment, deal rm.P
 	}
 
 	// check that the deal parameters match our required parameters (or reject)
-	err = environment.CheckDealParams(dealProposal.PricePerByte, dealProposal.PaymentInterval, dealProposal.PaymentIntervalIncrease)
+	err = environment.CheckDealParams(dealProposal.PricePerByte,
+		dealProposal.PaymentInterval,
+		dealProposal.PaymentIntervalIncrease)
 	if err != nil {
 		return ctx.Trigger(rm.ProviderEventDealRejected, err)
 	}
 	return ctx.Trigger(rm.ProviderEventDealReceived)
 }
 
-func DecideOnDeal(ctx fsm.Context, env ProviderDealEnvironment, deal rm.ProviderDealState) error {
-	accepted, reason, err := env.Provider().DecideDeal(deal)
+// DecideOnDeal
+func DecideOnDeal(ctx fsm.Context, env ProviderDealEnvironment, state rm.ProviderDealState) error {
+	accepted, reason, err := env.RunDealDecisioningLogic(ctx.Context(), state)
 	if err != nil {
-		return ctx.Trigger(rm.ProviderEventDecidingFailed, err)
+		return ctx.Trigger(rm.ProviderEventDecisioningError, err)
 	}
 	if !accepted {
-		return ctx.Trigger(rm.ProviderEventDealRejected, reason)
+		return ctx.Trigger(rm.ProviderEventDealRejected, errors.New(reason))
 	}
-	err = env.DealStream(deal.Identifier()).WriteDealResponse(rm.DealResponse{
+	err = env.DealStream(state.Identifier()).WriteDealResponse(rm.DealResponse{
 		Status: rm.DealStatusAccepted,
-		ID:     deal.ID,
+		ID:     state.ID,
 	})
 	if err != nil {
 		return ctx.Trigger(rm.ProviderEventWriteResponseFailed, err)
 	}
 
-	return ctx.Trigger(rm.ProviderEventDealAccepted, deal.DealProposal)
+	return ctx.Trigger(rm.ProviderEventDealAccepted, state.DealProposal)
 }
 
 // SendBlocks sends blocks to the client until funds are needed

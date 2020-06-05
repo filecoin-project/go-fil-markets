@@ -35,6 +35,9 @@ var ProviderEvents = fsm.Events{
 			deal.Message = xerrors.Errorf("writing deal response: %w", err).Error()
 			return nil
 		}),
+	fsm.Event(rm.ProviderEventDecisioningError).
+		From(rm.DealStatusAwaitingAcceptance).To(rm.DealStatusErrored).
+		Action(recordError),
 	fsm.Event(rm.ProviderEventReadPaymentFailed).
 		FromAny().To(rm.DealStatusErrored).
 		Action(recordError),
@@ -48,7 +51,7 @@ var ProviderEvents = fsm.Events{
 			return nil
 		}),
 	fsm.Event(rm.ProviderEventDealRejected).
-		From(rm.DealStatusNew).To(rm.DealStatusRejected).
+		FromMany(rm.DealStatusNew, rm.DealStatusAwaitingAcceptance).To(rm.DealStatusRejected).
 		Action(recordError),
 	fsm.Event(rm.ProviderEventDealAccepted).
 		From(rm.DealStatusAwaitingAcceptance).To(rm.DealStatusAccepted).
