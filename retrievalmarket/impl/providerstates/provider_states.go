@@ -20,6 +20,7 @@ type ProviderDealEnvironment interface {
 	DealStream(id rm.ProviderDealIdentifier) rmnet.RetrievalDealStream
 	NextBlock(context.Context, rm.ProviderDealIdentifier) (rm.Block, bool, error)
 	CheckDealParams(pricePerByte abi.TokenAmount, paymentInterval uint64, paymentIntervalIncrease uint64) error
+	Provider() rm.RetrievalProvider
 }
 
 // ReceiveDeal receives and evaluates a deal proposal
@@ -40,8 +41,18 @@ func ReceiveDeal(ctx fsm.Context, environment ProviderDealEnvironment, deal rm.P
 	if err != nil {
 		return ctx.Trigger(rm.ProviderEventDealRejected, err)
 	}
+	return ctx.Trigger(rm.ProviderEventDealReceived)
+}
 
-	err = environment.DealStream(deal.Identifier()).WriteDealResponse(rm.DealResponse{
+func DecideOnDeal(ctx fsm.Context, env ProviderDealEnvironment, deal rm.ProviderDealState) error {
+	accepted, reason, err := env.Provider().DecideDeal(deal)
+	if err != nil {
+		return ctx.Trigger(rm.ProviderEventDecidingFailed, err)
+	}
+	if !accepted {
+		return ctx.Trigger(rm.ProviderEventDealRejected, reason)
+	}
+	err = env.DealStream(deal.Identifier()).WriteDealResponse(rm.DealResponse{
 		Status: rm.DealStatusAccepted,
 		ID:     deal.ID,
 	})
@@ -49,8 +60,7 @@ func ReceiveDeal(ctx fsm.Context, environment ProviderDealEnvironment, deal rm.P
 		return ctx.Trigger(rm.ProviderEventWriteResponseFailed, err)
 	}
 
-	return ctx.Trigger(rm.ProviderEventDealAccepted, dealProposal)
-
+	return ctx.Trigger(rm.ProviderEventDealAccepted, deal.DealProposal)
 }
 
 // SendBlocks sends blocks to the client until funds are needed

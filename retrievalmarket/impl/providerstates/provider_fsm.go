@@ -27,6 +27,8 @@ var ProviderEvents = fsm.Events{
 				return nil
 			},
 		),
+	fsm.Event(rm.ProviderEventDealReceived).
+		From(rm.DealStatusNew).To(rm.DealStatusAwaitingAcceptance),
 	fsm.Event(rm.ProviderEventWriteResponseFailed).
 		FromAny().To(rm.DealStatusErrored).
 		Action(func(deal *rm.ProviderDealState, err error) error {
@@ -49,7 +51,7 @@ var ProviderEvents = fsm.Events{
 		From(rm.DealStatusNew).To(rm.DealStatusRejected).
 		Action(recordError),
 	fsm.Event(rm.ProviderEventDealAccepted).
-		From(rm.DealStatusNew).To(rm.DealStatusAccepted).
+		From(rm.DealStatusAwaitingAcceptance).To(rm.DealStatusAccepted).
 		Action(func(deal *rm.ProviderDealState, dealProposal rm.DealProposal) error {
 			deal.DealProposal = dealProposal
 			deal.CurrentInterval = deal.PaymentInterval
@@ -96,6 +98,7 @@ var ProviderStateEntryFuncs = fsm.StateEntryFuncs{
 	rm.DealStatusRejected:               SendFailResponse,
 	rm.DealStatusDealNotFound:           SendFailResponse,
 	rm.DealStatusOngoing:                SendBlocks,
+	rm.DealStatusAwaitingAcceptance:     DecideOnDeal,
 	rm.DealStatusAccepted:               SendBlocks,
 	rm.DealStatusFundsNeeded:            ProcessPayment,
 	rm.DealStatusFundsNeededLastPayment: ProcessPayment,

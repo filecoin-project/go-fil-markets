@@ -26,6 +26,9 @@ import (
 	"github.com/filecoin-project/go-fil-markets/shared"
 )
 
+type RetrievalProviderOption func(p *Provider)
+type DealDecider func(env providerstates.ProviderDealEnvironment,
+	state retrievalmarket.ProviderDealState) (bool, string, error)
 type Provider struct {
 	bs                      blockstore.Blockstore
 	node                    retrievalmarket.RetrievalProviderNode
@@ -40,6 +43,7 @@ type Provider struct {
 	dealStreams             map[retrievalmarket.ProviderDealIdentifier]rmnet.RetrievalDealStream
 	blockReaders            map[retrievalmarket.ProviderDealIdentifier]blockio.BlockReader
 	stateMachines           fsm.Group
+	dealDecider             DealDecider
 }
 
 var _ retrievalmarket.RetrievalProvider = &Provider{}
@@ -314,7 +318,11 @@ func (p *Provider) Configure(opts ...RetrievalProviderOption) {
 	}
 }
 
-type RetrievalProviderOption func(p *Provider)
+func DealDeciderOpt(dd DealDecider) RetrievalProviderOption {
+	return func(provider *Provider) {
+		provider.dealDecider = dd
+	}
+}
 
 func getPieceInfoFromCid(pieceStore piecestore.PieceStore, payloadCID, pieceCID cid.Cid) (piecestore.PieceInfo, error) {
 	cidInfo, err := pieceStore.GetCIDInfo(payloadCID)
