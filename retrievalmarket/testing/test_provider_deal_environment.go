@@ -139,3 +139,8 @@ type dealParamsKey struct {
 	paymentInterval         uint64
 	paymentIntervalIncrease uint64
 }
+type ReadBlockResponse struct {
+	Block rm.Block
+	Done  bool
+	Err   error
+}

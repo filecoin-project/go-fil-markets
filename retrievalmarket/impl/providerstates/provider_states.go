@@ -37,7 +37,8 @@ func ReceiveDeal(ctx fsm.Context, environment ProviderDealEnvironment, deal rm.P
 		return ctx.Trigger(rm.ProviderEventGetPieceSizeErrored, err)
 	}
 
-	// check that the deal parameters match our required parameters (or reject)
+	// check that the deal parameters match our required parameters or
+	// reject outright
 	err = environment.CheckDealParams(dealProposal.PricePerByte,
 		dealProposal.PaymentInterval,
 		dealProposal.PaymentIntervalIncrease)
@@ -47,7 +48,8 @@ func ReceiveDeal(ctx fsm.Context, environment ProviderDealEnvironment, deal rm.P
 	return ctx.Trigger(rm.ProviderEventDealReceived)
 }
 
-// DecideOnDeal
+// DecideOnDeal runs any custom deal decider and if it passes, tell client
+// it's accepted, and move to the next state
 func DecideOnDeal(ctx fsm.Context, env ProviderDealEnvironment, state rm.ProviderDealState) error {
 	accepted, reason, err := env.RunDealDecisioningLogic(ctx.Context(), state)
 	if err != nil {

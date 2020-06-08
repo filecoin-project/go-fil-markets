@@ -84,7 +84,7 @@ func DealAcceptanceBuffer(buffer abi.ChainEpoch) StorageProviderOption {
 // it its accepted
 // It returns:
 // - boolean = true if deal accepted, false if rejected
-// - string = reason deal was not accepted, if rejected
+// - string = reason deal was not excepted, if rejected
 // - error = if an error occurred trying to decide
 type DealDeciderFunc func(context.Context, storagemarket.MinerDeal) (bool, string, error)
 
