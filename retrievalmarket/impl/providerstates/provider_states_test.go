@@ -373,7 +373,7 @@ func TestDecideOnDeal(t *testing.T) {
 		verify   func(*testing.T, *rm.ProviderDealState)
 	}
 	tcs := testCases{
-		"qplah'": {
+		"qapla'": {
 			dsParams: acceptedDsParams,
 			setupEnv: func(te *rmtesting.TestProviderDealEnvironment) {
 				te.ExpectDeciderCalledWith(proposal.ID)
