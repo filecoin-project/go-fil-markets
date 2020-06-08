@@ -388,6 +388,9 @@ func (c *Provider) restartDeals() error {
 		// TODO: Fixup deal streams if necessary...
 
 		err = c.deals.Send(deal.ProposalCid, storagemarket.ProviderEventRestart)
+		if err != nil {
+			return err
+		}
 	}
 	return nil
 }

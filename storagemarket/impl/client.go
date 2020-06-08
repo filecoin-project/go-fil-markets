@@ -320,6 +320,9 @@ func (c *Client) restartDeals() error {
 			return err
 		}
 		err = c.statemachines.Send(deal.ProposalCid, storagemarket.ClientEventRestart)
+		if err != nil {
+			return err
+		}
 	}
 	return nil
 }
