@@ -254,6 +254,13 @@ const (
 	// ProviderEventOpen indicates a new deal was received from a client
 	ProviderEventOpen ProviderEvent = iota
 
+	// ProviderEventDealReceived means the deal has passed initial checks and is
+	// in custom decisioning logic
+	ProviderEventDealReceived
+
+	// ProviderEventDecisioningError means the Deciding function returned an error
+	ProviderEventDecisioningError
+
 	// ProviderEventWriteResponseFailed happens when a network error ocurrs writing a deal response
 	ProviderEventWriteResponseFailed
 
@@ -475,6 +482,9 @@ const (
 	// DealStatusPaymentChannelReady is a deal status that has a payment channel
 	// & lane setup
 	DealStatusPaymentChannelReady
+
+	// DealStatusAwaitingAcceptance - deal is waiting for the decider function to finish
+	DealStatusAwaitingAcceptance
 
 	// DealStatusAccepted means a deal has been accepted by a provider
 	// and its is ready to proceed with retrieval

@@ -25,6 +25,7 @@ import (
 	retrievalimpl "github.com/filecoin-project/go-fil-markets/retrievalmarket/impl"
 	"github.com/filecoin-project/go-fil-markets/retrievalmarket/impl/testnodes"
 	rmnet "github.com/filecoin-project/go-fil-markets/retrievalmarket/network"
+	rmtesting "github.com/filecoin-project/go-fil-markets/retrievalmarket/testing"
 	"github.com/filecoin-project/go-fil-markets/shared"
 	tut "github.com/filecoin-project/go-fil-markets/shared_testutil"
 )
@@ -142,8 +143,11 @@ func TestClientCanMakeDealWithProvider(t *testing.T) {
 		})))
 	}).Node()
 
+	var customDeciderRan bool
+
 	testCases := []struct {
 		name                          string
+		decider                       retrievalimpl.DealDecider
 		filename                      string
 		filesize                      uint64
 		voucherAmts                   []abi.TokenAmount
@@ -189,6 +193,16 @@ func TestClientCanMakeDealWithProvider(t *testing.T) {
 			paramsV1:    true,
 			selector:    partialSelector,
 			unsealing:   false},
+		{name: "succeeds when using a custom decider function",
+			decider: func(ctx context.Context, state retrievalmarket.ProviderDealState) (bool, string, error) {
+				customDeciderRan = true
+				return true, "", nil
+			},
+			filename:    "lorem_under_1_block.txt",
+			filesize:    410,
+			voucherAmts: []abi.TokenAmount{abi.NewTokenAmount(410000)},
+			unsealing:   false,
+		},
 	}
 
 	for i, testCase := range testCases {
@@ -259,7 +273,12 @@ func TestClientCanMakeDealWithProvider(t *testing.T) {
 				}
 			}
 
-			provider := setupProvider(t, testData, payloadCID, pieceInfo, expectedQR, providerPaymentAddr, providerNode)
+			decider := rmtesting.TrivalTestDecider
+			if testCase.decider != nil {
+				decider = testCase.decider
+			}
+			provider := setupProvider(t, testData, payloadCID, pieceInfo, expectedQR,
+				providerPaymentAddr, providerNode, decider)
 
 			retrievalPeer := &retrievalmarket.RetrievalPeer{Address: providerPaymentAddr, ID: testData.Host2.ID()}
 
@@ -369,7 +388,12 @@ CurrentInterval: %d
 			}
 
 			require.Equal(t, retrievalmarket.DealStatusCompleted, providerDealState.Status)
-
+			// TODO this is terrible, but it's temporary until the test harness refactor
+			// in the resuming retrieval deals branch is done
+			// https://github.com/filecoin-project/go-fil-markets/issues/65
+			if testCase.decider != nil {
+				assert.True(t, customDeciderRan)
+			}
 			// verify that the provider saved the same voucher values
 			providerNode.VerifyExpectations(t)
 			testData.VerifyFileTransferred(t, pieceLink, false, testCase.filesize)
@@ -420,7 +444,15 @@ func setupClient(
 	return &createdChan, &newLaneAddr, &createdVoucher, client, err
 }
 
-func setupProvider(t *testing.T, testData *tut.Libp2pTestData, payloadCID cid.Cid, pieceInfo piecestore.PieceInfo, expectedQR retrievalmarket.QueryResponse, providerPaymentAddr address.Address, providerNode retrievalmarket.RetrievalProviderNode) retrievalmarket.RetrievalProvider {
+func setupProvider(t *testing.T,
+	testData *tut.Libp2pTestData,
+	payloadCID cid.Cid,
+	pieceInfo piecestore.PieceInfo,
+	expectedQR retrievalmarket.QueryResponse,
+	providerPaymentAddr address.Address,
+	providerNode retrievalmarket.RetrievalProviderNode,
+	decider retrievalimpl.DealDecider,
+) retrievalmarket.RetrievalProvider {
 	nw2 := rmnet.NewFromLibp2pHost(testData.Host2)
 	pieceStore := tut.NewTestPieceStore()
 	expectedPiece := tut.GenerateCids(1)[0]
@@ -433,7 +465,9 @@ func setupProvider(t *testing.T, testData *tut.Libp2pTestData, payloadCID cid.Ci
 	}
 	pieceStore.ExpectCID(payloadCID, cidInfo)
 	pieceStore.ExpectPiece(expectedPiece, pieceInfo)
-	provider, err := retrievalimpl.NewProvider(providerPaymentAddr, providerNode, nw2, pieceStore, testData.Bs2, testData.Ds2)
+	provider, err := retrievalimpl.NewProvider(providerPaymentAddr, providerNode, nw2,
+		pieceStore, testData.Bs2, testData.Ds2,
+		retrievalimpl.DealDeciderOpt(decider))
 	require.NoError(t, err)
 	provider.SetPaymentInterval(expectedQR.MaxPaymentInterval, expectedQR.MaxPaymentIntervalIncrease)
 	provider.SetPricePerByte(expectedQR.MinPricePerByte)

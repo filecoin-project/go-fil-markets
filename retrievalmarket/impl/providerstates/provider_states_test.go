@@ -13,13 +13,15 @@ import (
 	"github.com/filecoin-project/specs-actors/actors/abi/big"
 	"github.com/ipfs/go-cid"
 	mh "github.com/multiformats/go-multihash"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	"github.com/filecoin-project/go-fil-markets/retrievalmarket"
 	rm "github.com/filecoin-project/go-fil-markets/retrievalmarket"
+	retrievalimpl "github.com/filecoin-project/go-fil-markets/retrievalmarket/impl"
 	"github.com/filecoin-project/go-fil-markets/retrievalmarket/impl/providerstates"
 	"github.com/filecoin-project/go-fil-markets/retrievalmarket/impl/testnodes"
-	rmnet "github.com/filecoin-project/go-fil-markets/retrievalmarket/network"
+	rmtesting "github.com/filecoin-project/go-fil-markets/retrievalmarket/testing"
 	testnet "github.com/filecoin-project/go-fil-markets/shared_testutil"
 )
 
@@ -30,10 +32,10 @@ func TestReceiveDeal(t *testing.T) {
 	runReceiveDeal := func(t *testing.T,
 		node *testnodes.TestRetrievalProviderNode,
 		params testnet.TestDealStreamParams,
-		setupEnv func(e *testProviderDealEnvironment),
+		setupEnv func(e *rmtesting.TestProviderDealEnvironment),
 		dealState *retrievalmarket.ProviderDealState) {
 		ds := testnet.NewTestRetrievalDealStream(params)
-		environment := NewTestProviderDealEnvironment(node, ds, nil)
+		environment := rmtesting.NewTestProviderDealEnvironment(node, ds, rmtesting.TrivalTestDecider, nil)
 		setupEnv(environment)
 		fsmCtx := fsmtest.NewTestContext(ctx, eventMachine)
 		err := providerstates.ReceiveDeal(fsmCtx, environment, *dealState)
@@ -68,14 +70,13 @@ func TestReceiveDeal(t *testing.T) {
 				ID:     proposal.ID,
 			}),
 		}
-		setupEnv := func(fe *testProviderDealEnvironment) {
+		setupEnv := func(fe *rmtesting.TestProviderDealEnvironment) {
 			fe.ExpectPiece(expectedPiece, 10000)
 			fe.ExpectParams(defaultPricePerByte, defaultCurrentInterval, defaultIntervalIncrease, nil)
 		}
 		runReceiveDeal(t, node, dealStreamParams, setupEnv, dealState)
-		require.Equal(t, dealState.Status, retrievalmarket.DealStatusAccepted)
+		require.Equal(t, dealState.Status, retrievalmarket.DealStatusAwaitingAcceptance)
 		require.Equal(t, dealState.DealProposal, proposal)
-		require.Equal(t, dealState.CurrentInterval, defaultCurrentInterval)
 		require.Empty(t, dealState.Message)
 	})
 
@@ -90,7 +91,7 @@ func TestReceiveDeal(t *testing.T) {
 				Message: retrievalmarket.ErrNotFound.Error(),
 			}),
 		}
-		setupEnv := func(fe *testProviderDealEnvironment) {
+		setupEnv := func(fe *rmtesting.TestProviderDealEnvironment) {
 			fe.ExpectMissingPiece(expectedPiece)
 		}
 		runReceiveDeal(t, node, dealStreamParams, setupEnv, dealState)
@@ -110,28 +111,12 @@ func TestReceiveDeal(t *testing.T) {
 				Message: message,
 			}),
 		}
-		setupEnv := func(fe *testProviderDealEnvironment) {
+		setupEnv := func(fe *rmtesting.TestProviderDealEnvironment) {
 			fe.ExpectPiece(expectedPiece, 10000)
 			fe.ExpectParams(defaultPricePerByte, defaultCurrentInterval, defaultIntervalIncrease, errors.New(message))
 		}
 		runReceiveDeal(t, node, dealStreamParams, setupEnv, dealState)
 		require.Equal(t, dealState.Status, retrievalmarket.DealStatusRejected)
-		require.NotEmpty(t, dealState.Message)
-	})
-
-	t.Run("response write error", func(t *testing.T) {
-		node := testnodes.NewTestRetrievalProviderNode()
-		dealState := blankDealState()
-		dealStreamParams := testnet.TestDealStreamParams{
-			ProposalReader: testnet.StubbedDealProposalReader(proposal),
-			ResponseWriter: testnet.FailDealResponseWriter,
-		}
-		setupEnv := func(fe *testProviderDealEnvironment) {
-			fe.ExpectPiece(expectedPiece, 10000)
-			fe.ExpectParams(defaultPricePerByte, defaultCurrentInterval, defaultIntervalIncrease, nil)
-		}
-		runReceiveDeal(t, node, dealStreamParams, setupEnv, dealState)
-		require.Equal(t, dealState.Status, retrievalmarket.DealStatusErrored)
 		require.NotEmpty(t, dealState.Message)
 	})
 
@@ -144,10 +129,10 @@ func TestSendBlocks(t *testing.T) {
 	require.NoError(t, err)
 	runSendBlocks := func(t *testing.T,
 		params testnet.TestDealStreamParams,
-		responses []readBlockResponse,
+		responses []rmtesting.ReadBlockResponse,
 		dealState *retrievalmarket.ProviderDealState) {
 		ds := testnet.NewTestRetrievalDealStream(params)
-		environment := NewTestProviderDealEnvironment(node, ds, responses)
+		environment := rmtesting.NewTestProviderDealEnvironment(node, ds, rmtesting.TrivalTestDecider, responses)
 		fsmCtx := fsmtest.NewTestContext(ctx, eventMachine)
 		err := providerstates.SendBlocks(fsmCtx, environment, *dealState)
 		require.NoError(t, err)
@@ -194,7 +179,7 @@ func TestSendBlocks(t *testing.T) {
 		dealStreamParams := testnet.TestDealStreamParams{
 			ResponseWriter: testnet.ExpectDealResponseWriter(t, retrievalmarket.DealResponse{
 				Status:  retrievalmarket.DealStatusFailed,
-				Message: responses[0].err.Error(),
+				Message: responses[0].Err.Error(),
 				ID:      dealState.ID,
 			}),
 		}
@@ -223,7 +208,7 @@ func TestProcessPayment(t *testing.T) {
 		params testnet.TestDealStreamParams,
 		dealState *retrievalmarket.ProviderDealState) {
 		ds := testnet.NewTestRetrievalDealStream(params)
-		environment := NewTestProviderDealEnvironment(node, ds, nil)
+		environment := rmtesting.NewTestProviderDealEnvironment(node, ds, rmtesting.TrivalTestDecider, nil)
 		fsmCtx := fsmtest.NewTestContext(ctx, eventMachine)
 		err = providerstates.ProcessPayment(fsmCtx, environment, *dealState)
 		require.NoError(t, err)
@@ -341,109 +326,113 @@ func TestProcessPayment(t *testing.T) {
 	})
 }
 
-type readBlockResponse struct {
-	block retrievalmarket.Block
-	done  bool
-	err   error
-}
-
-type dealParamsKey struct {
-	pricePerByte            string
-	paymentInterval         uint64
-	paymentIntervalIncrease uint64
-}
-
-type testProviderDealEnvironment struct {
-	node                retrievalmarket.RetrievalProviderNode
-	ds                  rmnet.RetrievalDealStream
-	nextResponse        int
-	responses           []readBlockResponse
-	expectedParams      map[dealParamsKey]error
-	receivedParams      map[dealParamsKey]struct{}
-	expectedCIDs        map[cid.Cid]uint64
-	expectedMissingCIDs map[cid.Cid]struct{}
-	receivedCIDs        map[cid.Cid]struct{}
-	receivedMissingCIDs map[cid.Cid]struct{}
-}
-
-func NewTestProviderDealEnvironment(node retrievalmarket.RetrievalProviderNode,
-	ds rmnet.RetrievalDealStream,
-	responses []readBlockResponse) *testProviderDealEnvironment {
-	return &testProviderDealEnvironment{
-		node:                node,
-		ds:                  ds,
-		nextResponse:        0,
-		responses:           responses,
-		expectedParams:      make(map[dealParamsKey]error),
-		receivedParams:      make(map[dealParamsKey]struct{}),
-		expectedCIDs:        make(map[cid.Cid]uint64),
-		expectedMissingCIDs: make(map[cid.Cid]struct{}),
-		receivedCIDs:        make(map[cid.Cid]struct{}),
-		receivedMissingCIDs: make(map[cid.Cid]struct{})}
-}
-
-// ExpectPiece records a piece being expected to be queried and return the given piece info
-func (te *testProviderDealEnvironment) ExpectPiece(c cid.Cid, size uint64) {
-	te.expectedCIDs[c] = size
-}
-
-// ExpectMissingPiece records a piece being expected to be queried and should fail
-func (te *testProviderDealEnvironment) ExpectMissingPiece(c cid.Cid) {
-	te.expectedMissingCIDs[c] = struct{}{}
-}
-
-func (te *testProviderDealEnvironment) ExpectParams(pricePerByte abi.TokenAmount,
-	paymentInterval uint64,
-	paymentIntervalIncrease uint64,
-	response error) {
-	te.expectedParams[dealParamsKey{pricePerByte.String(), paymentInterval, paymentIntervalIncrease}] = response
-}
-
-func (te *testProviderDealEnvironment) VerifyExpectations(t *testing.T) {
-	require.Equal(t, len(te.expectedParams), len(te.receivedParams))
-	require.Equal(t, len(te.expectedCIDs), len(te.receivedCIDs))
-	require.Equal(t, len(te.expectedMissingCIDs), len(te.receivedMissingCIDs))
-}
-
-func (te *testProviderDealEnvironment) Node() rm.RetrievalProviderNode {
-	return te.node
-}
-
-func (te *testProviderDealEnvironment) DealStream(_ retrievalmarket.ProviderDealIdentifier) rmnet.RetrievalDealStream {
-	return te.ds
-}
-
-func (te *testProviderDealEnvironment) GetPieceSize(c cid.Cid) (uint64, error) {
-	pio, ok := te.expectedCIDs[c]
-	if ok {
-		te.receivedCIDs[c] = struct{}{}
-		return pio, nil
+func TestDecideOnDeal(t *testing.T) {
+	ctx := context.Background()
+	eventMachine, err := fsm.NewEventProcessor(retrievalmarket.ProviderDealState{}, "Status", providerstates.ProviderEvents)
+	require.NoError(t, err)
+	runDecideDeal := func(t *testing.T,
+		node *testnodes.TestRetrievalProviderNode,
+		params testnet.TestDealStreamParams,
+		setupEnv func(e *rmtesting.TestProviderDealEnvironment),
+		decider retrievalimpl.DealDecider,
+		dealState *retrievalmarket.ProviderDealState) {
+		ds := testnet.NewTestRetrievalDealStream(params)
+		environment := rmtesting.NewTestProviderDealEnvironment(node, ds, decider, nil)
+		setupEnv(environment)
+		fsmCtx := fsmtest.NewTestContext(ctx, eventMachine)
+		err := providerstates.DecideOnDeal(fsmCtx, environment, *dealState)
+		require.NoError(t, err)
+		environment.VerifyExpectations(t)
+		node.VerifyExpectations(t)
+		fsmCtx.ReplayEvents(t, dealState)
 	}
-	_, ok = te.expectedMissingCIDs[c]
-	if ok {
-		te.receivedMissingCIDs[c] = struct{}{}
-		return 0, retrievalmarket.ErrNotFound
-	}
-	return 0, errors.New("GetPieceSize failed")
-}
 
-func (te *testProviderDealEnvironment) CheckDealParams(pricePerByte abi.TokenAmount, paymentInterval uint64, paymentIntervalIncrease uint64) error {
-	key := dealParamsKey{pricePerByte.String(), paymentInterval, paymentIntervalIncrease}
-	err, ok := te.expectedParams[key]
-	if !ok {
-		return errors.New("CheckDealParamsFailed")
+	proposal := retrievalmarket.DealProposal{
+		ID:         retrievalmarket.DealID(10),
+		PayloadCID: testnet.GenerateCids(1)[0],
+		Params:     retrievalmarket.NewParamsV0(defaultPricePerByte, defaultCurrentInterval, defaultIntervalIncrease),
 	}
-	te.receivedParams[key] = struct{}{}
-	return err
-}
 
-func (te *testProviderDealEnvironment) NextBlock(_ context.Context, _ retrievalmarket.ProviderDealIdentifier) (rm.Block, bool, error) {
-	if te.nextResponse >= len(te.responses) {
-		return rm.EmptyBlock, false, errors.New("Something went wrong")
+	startingDealState := func() *retrievalmarket.ProviderDealState {
+		return &retrievalmarket.ProviderDealState{
+			DealProposal:  proposal,
+			Status:        retrievalmarket.DealStatusAwaitingAcceptance,
+			FundsReceived: abi.NewTokenAmount(0),
+		}
 	}
-	response := te.responses[te.nextResponse]
-	te.nextResponse += 1
-	return response.block, response.done, response.err
+	acceptedDsParams := testnet.TestDealStreamParams{
+		ResponseWriter: testnet.ExpectDealResponseWriter(t, retrievalmarket.DealResponse{
+			Status: retrievalmarket.DealStatusAccepted,
+			ID:     proposal.ID,
+		})}
+
+	type testCases map[string]struct {
+		dsParams testnet.TestDealStreamParams
+		decider  retrievalimpl.DealDecider
+		setupEnv func(*rmtesting.TestProviderDealEnvironment)
+		verify   func(*testing.T, *rm.ProviderDealState)
+	}
+	tcs := testCases{
+		"qapla'": {
+			dsParams: acceptedDsParams,
+			setupEnv: func(te *rmtesting.TestProviderDealEnvironment) {
+				te.ExpectDeciderCalledWith(proposal.ID)
+			},
+			verify: func(t *testing.T, state *rm.ProviderDealState) {
+				assert.Equal(t, state.Status, retrievalmarket.DealStatusAccepted)
+				assert.Empty(t, state.Message)
+				assert.Equal(t, defaultCurrentInterval, state.CurrentInterval)
+			},
+		},
+		"if decider fails, deal errors": {
+			dsParams: acceptedDsParams,
+			decider: func(ctx context.Context, state rm.ProviderDealState) (bool, string, error) {
+				return false, "", errors.New("boom")
+			},
+			setupEnv: func(te *rmtesting.TestProviderDealEnvironment) {
+				te.ExpectDeciderCalledWith(proposal.ID)
+			},
+			verify: func(t *testing.T, state *rm.ProviderDealState) {
+				assert.Equal(t, retrievalmarket.DealStatusErrored, state.Status)
+				assert.Equal(t, "boom", state.Message)
+			},
+		},
+		"if decider rejects, deal is rejected": {
+			dsParams: acceptedDsParams,
+			decider: func(ctx context.Context, state rm.ProviderDealState) (bool, string, error) {
+				return false, "Thursday, I don't care about you", nil
+			},
+			setupEnv: func(te *rmtesting.TestProviderDealEnvironment) {
+				te.ExpectDeciderCalledWith(proposal.ID)
+			},
+			verify: func(t *testing.T, state *rm.ProviderDealState) {
+				assert.Equal(t, retrievalmarket.DealStatusRejected, state.Status)
+				assert.Equal(t, "Thursday, I don't care about you", state.Message)
+			},
+		},
+		"if response write error, deal errors": {
+			dsParams: testnet.TestDealStreamParams{
+				ProposalReader: testnet.StubbedDealProposalReader(proposal),
+				ResponseWriter: testnet.FailDealResponseWriter,
+			},
+			setupEnv: func(te *rmtesting.TestProviderDealEnvironment) {
+				te.ExpectDeciderCalledWith(proposal.ID)
+			},
+			verify: func(t *testing.T, state *rm.ProviderDealState) {
+				assert.Equal(t, retrievalmarket.DealStatusErrored, state.Status)
+				assert.NotEmpty(t, state.Message)
+			},
+		},
+	}
+	for name, tc := range tcs {
+		t.Run(name, func(t *testing.T) {
+			node := testnodes.NewTestRetrievalProviderNode()
+			dealState := startingDealState()
+			runDecideDeal(t, node, tc.dsParams, tc.setupEnv, tc.decider, dealState)
+			assert.Equal(t, proposal, dealState.DealProposal)
+			tc.verify(t, dealState)
+		})
+	}
 }
 
 var dealID = retrievalmarket.DealID(10)
@@ -467,8 +456,9 @@ func makeDealState(status retrievalmarket.DealStatus) *retrievalmarket.ProviderD
 	}
 }
 
-func generateResponses(count uint64, blockSize uint64, completeOnLast bool, errorOnFirst bool) ([]retrievalmarket.Block, []readBlockResponse) {
-	responses := make([]readBlockResponse, count)
+func generateResponses(count uint64, blockSize uint64, completeOnLast bool,
+	errorOnFirst bool) ([]retrievalmarket.Block, []rmtesting.ReadBlockResponse) {
+	responses := make([]rmtesting.ReadBlockResponse, count)
 	blocks := make([]retrievalmarket.Block, count)
 	var i uint64 = 0
 	for ; i < count; i++ {
@@ -488,8 +478,8 @@ func generateResponses(count uint64, blockSize uint64, completeOnLast bool, erro
 			Data:   data,
 		}
 		blocks[i] = block
-		responses[i] = readBlockResponse{
-			block, complete, err}
+		responses[i] = rmtesting.ReadBlockResponse{
+			Block: block, Done: complete, Err: err}
 	}
 	return blocks, responses
 }
