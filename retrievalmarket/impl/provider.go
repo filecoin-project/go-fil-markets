@@ -31,6 +31,7 @@ type DealDecider func(ctx context.Context, state retrievalmarket.ProviderDealSta
 
 type Provider struct {
 	bs                      blockstore.Blockstore
+	ds                      datastore.Batching
 	node                    retrievalmarket.RetrievalProviderNode
 	network                 rmnet.RetrievalMarketNetwork
 	paymentInterval         uint64
@@ -69,6 +70,7 @@ func NewProvider(minerAddress address.Address, node retrievalmarket.RetrievalPro
 
 	p := &Provider{
 		bs:                      bs,
+		ds:                      ds,
 		node:                    node,
 		network:                 network,
 		minerAddress:            minerAddress,
@@ -79,19 +81,7 @@ func NewProvider(minerAddress address.Address, node retrievalmarket.RetrievalPro
 		dealStreams:             make(map[retrievalmarket.ProviderDealIdentifier]rmnet.RetrievalDealStream),
 		blockReaders:            make(map[retrievalmarket.ProviderDealIdentifier]blockio.BlockReader),
 	}
-	statemachines, err := fsm.New(ds, fsm.Parameters{
-		Environment:     p,
-		StateType:       retrievalmarket.ProviderDealState{},
-		StateKeyField:   "Status",
-		Events:          providerstates.ProviderEvents,
-		StateEntryFuncs: providerstates.ProviderStateEntryFuncs,
-		Notifier:        p.notifySubscribers,
-	})
-	if err != nil {
-		return nil, err
-	}
 	p.Configure(opts...)
-	p.stateMachines = statemachines
 	return p, nil
 }
 
@@ -104,16 +94,39 @@ func (p *Provider) RunDealDecisioningLogic(ctx context.Context, state retrievalm
 
 // Stop stops handling incoming requests
 func (p *Provider) Stop() error {
+	log.Info("STOPPING")
+	if err := p.stateMachines.Stop(context.Background()); err != nil {
+		return err
+	}
+	log.Info("STOPPED")
 	return p.network.StopHandlingRequests()
 }
 
 // Start begins listening for deals on the given host
 func (p *Provider) Start() error {
-	log.Info("starting retrieval")
+	log.Info("STARTING")
+	statemachines, err := fsm.New(p.ds, fsm.Parameters{
+		Environment:     p,
+		Events:          providerstates.ProviderEvents,
+		FinalityStates:  providerstates.FinalityStates,
+		Notifier:        p.notifySubscribers,
+		StateType:       retrievalmarket.ProviderDealState{},
+		StateKeyField:   "Status",
+		StateEntryFuncs: providerstates.ProviderStateEntryFuncs,
+	})
+	if err != nil {
+		return err
+	}
+	p.stateMachines = statemachines
+
+	if err := p.network.SetDelegate(p); err != nil {
+		return err
+	}
 	if err := p.restartDeals(); err != nil {
 		return err
 	}
-	return p.network.SetDelegate(p)
+
+	return nil
 }
 
 // V0
@@ -153,6 +166,7 @@ func (p *Provider) notifySubscribers(eventName fsm.EventName, state fsm.StateTyp
 	evt := eventName.(retrievalmarket.ProviderEvent)
 	ds := state.(retrievalmarket.ProviderDealState)
 	for _, cb := range p.subscribers {
+		log.Infof("notifying event %d, state %s", evt, retrievalmarket.DealStatuses[ds.Status])
 		cb(evt, ds)
 	}
 }
@@ -342,10 +356,15 @@ func (p *Provider) restartDeals() error {
 		return err
 	}
 	for _, deal := range deals {
+		if p.stateMachines.IsTerminated(deal) {
+			continue
+		}
+		log.Info("TRIGGERING RESTART EVENT")
 		if err := p.stateMachines.Send(deal.Identifier(), retrievalmarket.ProviderEventDealRestart); err != nil {
 			return err
 		}
 	}
+	return nil
 }
 
 func getPieceInfoFromCid(pieceStore piecestore.PieceStore, payloadCID, pieceCID cid.Cid) (piecestore.PieceInfo, error) {

@@ -193,6 +193,7 @@ type RetrievalClient interface {
 	CancelDeal(id DealID) error
 	RetrievalStatus(id DealID)
 	ListDeals() map[DealID]ClientDealState
+	Run() error
 }
 
 // RetrievalClientNode are the node dependencies for a RetrievalClient
@@ -291,7 +292,7 @@ const (
 	// trying to read the next block from the piece
 	ProviderEventBlockErrored
 
-	// ProviderEventBlocksCompleted happeds when the provider reads the last block
+	// ProviderEventBlocksCompleted happens when the provider reads the last block
 	// in the piece
 	ProviderEventBlocksCompleted
 
@@ -539,22 +540,23 @@ const (
 
 // DealStatuses maps deal status to a human readable representation
 var DealStatuses = map[DealStatus]string{
-	DealStatusNew:                       "DealStatusNew",
-	DealStatusPaymentChannelCreating:    "DealStatusPaymentChannelCreating",
-	DealStatusPaymentChannelAddingFunds: "DealStatusPaymentChannelAddingFunds",
-	DealStatusPaymentChannelReady:       "DealStatusPaymentChannelReady",
-	DealStatusAccepted:                  "DealStatusAccepted",
-	DealStatusFailed:                    "DealStatusFailed",
-	DealStatusRejected:                  "DealStatusRejected",
-	DealStatusFundsNeeded:               "DealStatusFundsNeeded",
-	DealStatusOngoing:                   "DealStatusOngoing",
-	DealStatusFundsNeededLastPayment:    "DealStatusFundsNeededLastPayment",
-	DealStatusCompleted:                 "DealStatusCompleted",
-	DealStatusDealNotFound:              "DealStatusDealNotFound",
-	DealStatusVerified:                  "DealStatusVerified",
-	DealStatusErrored:                   "DealStatusErrored",
-	DealStatusBlocksComplete:            "DealStatusBlocksComplete",
-	DealStatusFinalizing:                "DealStatusFinalizing",
+	DealStatusNew:                          "DealStatusNew",
+	DealStatusPaymentChannelCreating:       "DealStatusPaymentChannelCreating",
+	DealStatusPaymentChannelAddingFunds:    "DealStatusPaymentChannelAddingFunds",
+	DealStatusPaymentChannelAllocatingLane: "DealStatusPaymentChannelAllocatingLane",
+	DealStatusPaymentChannelReady:          "DealStatusPaymentChannelReady",
+	DealStatusAccepted:                     "DealStatusAccepted",
+	DealStatusFailed:                       "DealStatusFailed",
+	DealStatusRejected:                     "DealStatusRejected",
+	DealStatusFundsNeeded:                  "DealStatusFundsNeeded",
+	DealStatusOngoing:                      "DealStatusOngoing",
+	DealStatusFundsNeededLastPayment:       "DealStatusFundsNeededLastPayment",
+	DealStatusCompleted:                    "DealStatusCompleted",
+	DealStatusDealNotFound:                 "DealStatusDealNotFound",
+	DealStatusVerified:                     "DealStatusVerified",
+	DealStatusErrored:                      "DealStatusErrored",
+	DealStatusBlocksComplete:               "DealStatusBlocksComplete",
+	DealStatusFinalizing:                   "DealStatusFinalizing",
 }
 
 // IsTerminalError returns true if this status indicates processing of this deal

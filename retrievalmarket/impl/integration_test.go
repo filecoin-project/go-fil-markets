@@ -17,7 +17,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/filecoin-project/go-fil-markets/piecestore"
-	"github.com/filecoin-project/go-fil-markets/retrievalmarket"
+	rm "github.com/filecoin-project/go-fil-markets/retrievalmarket"
 	retrievalimpl "github.com/filecoin-project/go-fil-markets/retrievalmarket/impl"
 	"github.com/filecoin-project/go-fil-markets/retrievalmarket/impl/test_harnesses"
 	"github.com/filecoin-project/go-fil-markets/retrievalmarket/impl/testnodes"
@@ -31,27 +31,27 @@ func TestClientCanMakeQueryToProvider(t *testing.T) {
 	client, expectedCIDs, missingPiece, expectedQR, retrievalPeer, _ := requireSetupTestClientAndProvider(bgCtx, t)
 
 	t.Run("when piece is found, returns piece and price data", func(t *testing.T) {
-		expectedQR.Status = retrievalmarket.QueryResponseAvailable
-		actualQR, err := client.Query(bgCtx, retrievalPeer, expectedCIDs[0], retrievalmarket.QueryParams{})
+		expectedQR.Status = rm.QueryResponseAvailable
+		actualQR, err := client.Query(bgCtx, retrievalPeer, expectedCIDs[0], rm.QueryParams{})
 
 		assert.NoError(t, err)
 		assert.Equal(t, expectedQR, actualQR)
 	})
 
 	t.Run("when piece is not found, returns unavailable", func(t *testing.T) {
-		expectedQR.PieceCIDFound = retrievalmarket.QueryItemUnavailable
-		expectedQR.Status = retrievalmarket.QueryResponseUnavailable
+		expectedQR.PieceCIDFound = rm.QueryItemUnavailable
+		expectedQR.Status = rm.QueryResponseUnavailable
 		expectedQR.Size = 0
-		actualQR, err := client.Query(bgCtx, retrievalPeer, missingPiece, retrievalmarket.QueryParams{})
+		actualQR, err := client.Query(bgCtx, retrievalPeer, missingPiece, rm.QueryParams{})
 		assert.NoError(t, err)
 		assert.Equal(t, expectedQR, actualQR)
 	})
 
 	t.Run("when there is some other error, returns error", func(t *testing.T) {
 		unknownPiece := tut.GenerateCids(1)[0]
-		expectedQR.Status = retrievalmarket.QueryResponseError
+		expectedQR.Status = rm.QueryResponseError
 		expectedQR.Message = "get cid info: GetCIDInfo failed"
-		actualQR, err := client.Query(bgCtx, retrievalPeer, unknownPiece, retrievalmarket.QueryParams{})
+		actualQR, err := client.Query(bgCtx, retrievalPeer, unknownPiece, rm.QueryParams{})
 		assert.NoError(t, err)
 		assert.Equal(t, expectedQR, actualQR)
 	})
@@ -61,16 +61,16 @@ func TestProvider_Stop(t *testing.T) {
 	bgCtx := context.Background()
 	client, expectedCIDs, _, _, retrievalPeer, provider := requireSetupTestClientAndProvider(bgCtx, t)
 	require.NoError(t, provider.Stop())
-	_, err := client.Query(bgCtx, retrievalPeer, expectedCIDs[0], retrievalmarket.QueryParams{})
+	_, err := client.Query(bgCtx, retrievalPeer, expectedCIDs[0], rm.QueryParams{})
 	assert.EqualError(t, err, "protocol not supported")
 }
 
-func requireSetupTestClientAndProvider(bgCtx context.Context, t *testing.T) (retrievalmarket.RetrievalClient,
+func requireSetupTestClientAndProvider(bgCtx context.Context, t *testing.T) (rm.RetrievalClient,
 	[]cid.Cid,
 	cid.Cid,
-	retrievalmarket.QueryResponse,
-	retrievalmarket.RetrievalPeer,
-	retrievalmarket.RetrievalProvider) {
+	rm.QueryResponse,
+	rm.RetrievalPeer,
+	rm.RetrievalProvider) {
 
 	ch := new(test_harnesses.ClientHarness).Bootstrap(bgCtx, t, false)
 
@@ -111,7 +111,7 @@ func requireSetupTestClientAndProvider(bgCtx context.Context, t *testing.T) (ret
 	provider.SetPricePerByte(expectedQR.MinPricePerByte)
 	require.NoError(t, provider.Start())
 
-	retrievalPeer := retrievalmarket.RetrievalPeer{
+	retrievalPeer := rm.RetrievalPeer{
 		Address: paymentAddress,
 		ID:      ch.TestData.Host2.ID(),
 	}
@@ -176,7 +176,7 @@ func TestClientCanMakeDealWithProvider(t *testing.T) {
 			paramsV1:    true,
 			selector:    partialSelector},
 		{name: "succeeds when using a custom provideropts function",
-			decider: func(ctx context.Context, state retrievalmarket.ProviderDealState) (bool, string, error) {
+			decider: func(ctx context.Context, state rm.ProviderDealState) (bool, string, error) {
 				customDeciderRan = true
 				return true, "", nil
 			},
@@ -194,10 +194,10 @@ func TestClientCanMakeDealWithProvider(t *testing.T) {
 			// ------- SET UP CLIENT
 			ch := new(test_harnesses.ClientHarness).Bootstrap(bgCtx, t, tc.addFunds)
 
-			clientDealStateChan := make(chan retrievalmarket.ClientDealState)
-			ch.SubscribeToEvents(func(event retrievalmarket.ClientEvent, state retrievalmarket.ClientDealState) {
+			clientDealStateChan := make(chan rm.ClientDealState)
+			ch.SubscribeToEvents(func(event rm.ClientEvent, state rm.ClientDealState) {
 				switch event {
-				case retrievalmarket.ClientEventComplete:
+				case rm.ClientEventComplete:
 					clientDealStateChan <- state
 				default:
 					logClientDealState(t, state)
@@ -215,7 +215,7 @@ func TestClientCanMakeDealWithProvider(t *testing.T) {
 			ph.Bootstrap(bgCtx, t, tc.filename, tc.filesize, tc.unsealing)
 
 			expQR := ph.ExpectedQR
-			retrievalPeer := &retrievalmarket.RetrievalPeer{
+			retrievalPeer := &rm.RetrievalPeer{
 				Address: expQR.PaymentAddress, ID: ph.TestData.Host2.ID(),
 			}
 
@@ -229,10 +229,10 @@ func TestClientCanMakeDealWithProvider(t *testing.T) {
 				require.NoError(t, ph.ProviderNode.ExpectVoucher(ph.PaychAddr, ch.ExpectedVoucher, proof, voucherAmt, voucherAmt, nil))
 			}
 
-			providerDealStateChan := make(chan retrievalmarket.ProviderDealState)
-			ph.SubscribeToEvents(func(event retrievalmarket.ProviderEvent, state retrievalmarket.ProviderDealState) {
+			providerDealStateChan := make(chan rm.ProviderDealState)
+			ph.SubscribeToEvents(func(event rm.ProviderEvent, state rm.ProviderDealState) {
 				switch event {
-				case retrievalmarket.ProviderEventComplete:
+				case rm.ProviderEventComplete:
 					providerDealStateChan <- state
 				default:
 					logProviderDealState(t, state)
@@ -241,17 +241,17 @@ func TestClientCanMakeDealWithProvider(t *testing.T) {
 
 			// **** Send the query for the Piece
 			// set up retrieval params
-			resp, err := ch.Query(bgCtx, *retrievalPeer, ph.PayloadCID, retrievalmarket.QueryParams{})
+			resp, err := ch.Query(bgCtx, *retrievalPeer, ph.PayloadCID, rm.QueryParams{})
 			require.NoError(t, err)
-			require.Equal(t, retrievalmarket.QueryResponseAvailable, resp.Status)
+			require.Equal(t, rm.QueryResponseAvailable, resp.Status)
 
-			var rmParams retrievalmarket.Params
+			var rmParams rm.Params
 			if tc.paramsV1 {
-				rmParams = retrievalmarket.NewParamsV1(expQR.MinPricePerByte, expQR.MaxPaymentInterval,
+				rmParams = rm.NewParamsV1(expQR.MinPricePerByte, expQR.MaxPaymentInterval,
 					expQR.MaxPaymentIntervalIncrease, tc.selector, nil)
 
 			} else {
-				rmParams = retrievalmarket.NewParamsV0(expQR.MinPricePerByte, expQR.MaxPaymentInterval,
+				rmParams = rm.NewParamsV0(expQR.MinPricePerByte, expQR.MaxPaymentInterval,
 					expQR.MaxPaymentIntervalIncrease)
 			}
 
@@ -260,12 +260,12 @@ func TestClientCanMakeDealWithProvider(t *testing.T) {
 				ph.PaychAddr, retrievalPeer.Address)
 			require.NoError(t, err)
 
-			require.Equal(t, did, retrievalmarket.DealID(0))
+			require.Equal(t, did, rm.DealID(0))
 
 			// verify that client subscribers will be notified of state changes
 			ctx, cancel := context.WithTimeout(bgCtx, 5*time.Second)
 			defer cancel()
-			var clientDealState retrievalmarket.ClientDealState
+			var clientDealState rm.ClientDealState
 			select {
 			case <-ctx.Done():
 				t.Error("deal never completed")
@@ -282,7 +282,7 @@ func TestClientCanMakeDealWithProvider(t *testing.T) {
 
 			ctx, cancel = context.WithTimeout(bgCtx, 5*time.Second)
 			defer cancel()
-			var providerDealState retrievalmarket.ProviderDealState
+			var providerDealState rm.ProviderDealState
 			select {
 			case <-ctx.Done():
 				t.Error("provider never saw completed deal")
@@ -290,7 +290,7 @@ func TestClientCanMakeDealWithProvider(t *testing.T) {
 			case providerDealState = <-providerDealStateChan:
 			}
 
-			assert.Equal(t, int(retrievalmarket.DealStatusCompleted), int(providerDealState.Status))
+			assert.Equal(t, int(rm.DealStatusCompleted), int(providerDealState.Status))
 			// TODO: add asserts
 			if tc.decider != nil {
 				assert.True(t, customDeciderRan)
@@ -304,23 +304,127 @@ func TestClientCanMakeDealWithProvider(t *testing.T) {
 }
 
 /// =======================
-func TestStartStopProvider(t *testing.T) {
+func TestRestartProvider(t *testing.T) {
 	log.SetDebugLogging()
 	bgCtx := context.Background()
-	ch := new(test_harnesses.ClientHarness).Bootstrap(bgCtx, t, false)
 
+	ch := new(test_harnesses.ClientHarness).Bootstrap(bgCtx, t, false)
 	ph := new(test_harnesses.ProviderHarness)
 	ph.TestData = ch.TestData
 	ph.PaychAddr = ch.PaychAddr
-	filesize := uint64(19000)
-	ph.Bootstrap(bgCtx, t, "lorem.txt", filesize, false)
+	filesize := 19000
+	ph.Bootstrap(bgCtx, t, "lorem.txt", uint64(filesize), false)
 
+	expQR, expectedTotal, retrievalPeer := setUpRetrievalParams(t, ph, ch, filesize)
+	rmParams := rm.NewParamsV1(expQR.MinPricePerByte, expQR.MaxPaymentInterval,
+		expQR.MaxPaymentIntervalIncrease, shared.AllSelector(), nil)
+
+	ch.SubscribeToEvents(func(event rm.ClientEvent, state rm.ClientDealState) {
+		switch event {
+		case rm.ClientEventDealAccepted:
+			require.NoError(t, ph.Stop())
+			require.NoError(t, ph.Start())
+		}
+	})
+
+	stateChan := make(chan rm.ProviderDealState)
+	ph.SubscribeToEvents(func(event rm.ProviderEvent, state rm.ProviderDealState) {
+		switch event {
+		case rm.ProviderEventDealRestart:
+			stateChan <- state
+		default:
+			stateChan <- state
+		}
+	})
+
+	go func() {
+		_, err := ch.Retrieve(bgCtx, ph.PayloadCID, rmParams, expectedTotal, retrievalPeer.ID,
+			ch.PaychAddr, retrievalPeer.Address)
+		require.NoError(t, err)
+	}()
+
+	ctx, cancel := context.WithTimeout(bgCtx, 15*time.Second)
+	defer cancel()
+	var seenState rm.ProviderDealState
+	seen := 0
+	// wait for client to process past the restart
+	for seen < 5 {
+		select {
+		case <-ctx.Done():
+			t.Fatalf("timed out, seen: %d", seen)
+		case seenState = <-stateChan:
+			logProviderDealState(t, seenState)
+			seen++
+		}
+	}
+	// checking only that provider continues processing
+	assert.Equal(t, rm.DealStatusFundsNeeded, seenState.Status)
+}
+
+func TestRestartClient(t *testing.T) {
+	bgCtx := context.Background()
+
+	ch := new(test_harnesses.ClientHarness).Bootstrap(bgCtx, t, false)
+	ph := new(test_harnesses.ProviderHarness)
+	ph.TestData = ch.TestData
+	ph.PaychAddr = ch.PaychAddr
+
+	filesize := 19000
+	ph.Bootstrap(bgCtx, t, "lorem.txt", uint64(filesize), false)
+
+	expQR, expectedTotal, retrievalPeer := setUpRetrievalParams(t, ph, ch, filesize)
+
+	rmParams := rm.NewParamsV1(expQR.MinPricePerByte, expQR.MaxPaymentInterval,
+		expQR.MaxPaymentIntervalIncrease, shared.AllSelector(), nil)
+
+	ph.SubscribeToEvents(func(event rm.ProviderEvent, state rm.ProviderDealState) {
+		switch event {
+		case rm.ProviderEventDealAccepted:
+			require.NoError(t, ch.Run())
+		}
+	})
+
+	evtChan := make(chan rm.ClientEvent)
+	stateChan := make(chan rm.ClientDealState)
+	ch.SubscribeToEvents(func(event rm.ClientEvent, state rm.ClientDealState) {
+		switch event {
+		case rm.ClientEventDealRestart:
+			evtChan <- event
+		case rm.ClientEventPaymentRequested:
+			stateChan <- state
+		}
+	})
+
+	_, err := ch.Retrieve(bgCtx, ph.PayloadCID, rmParams, expectedTotal, retrievalPeer.ID,
+		ch.PaychAddr, retrievalPeer.Address)
+	require.NoError(t, err)
+
+	ctx, cancel := context.WithTimeout(bgCtx, time.Second)
+	defer cancel()
+	var seenState rm.ClientDealState
+	var seen int
+	// wait for client to process past the restart
+	for seen < 2 {
+		select {
+		case <-ctx.Done():
+			t.Error("bad")
+			t.FailNow()
+		case seenState = <-stateChan:
+			seen++
+		case <-evtChan:
+			seen++
+		}
+	}
+	assert.Equal(t, rm.DealStatusFundsNeeded, seenState.Status)
+}
+
+func setUpRetrievalParams(t *testing.T, ph *test_harnesses.ProviderHarness, ch *test_harnesses.ClientHarness, filesize int) (
+	*rm.QueryResponse, big.Int, *rm.RetrievalPeer) {
 	expQR := ph.ExpectedQR
-	retrievalPeer := &retrievalmarket.RetrievalPeer{
+	retrievalPeer := &rm.RetrievalPeer{
 		Address: expQR.PaymentAddress, ID: ph.TestData.Host2.ID(),
 	}
 	expectedTotal := big.Mul(expQR.MinPricePerByte, abi.NewTokenAmount(int64(filesize*2)))
-
 	proof := []byte("")
 	voucherAmts := []abi.TokenAmount{
 		abi.NewTokenAmount(10136000),
@@ -330,132 +434,10 @@ func TestStartStopProvider(t *testing.T) {
 		require.NoError(t, ph.ProviderNode.ExpectVoucher(ph.PaychAddr, ch.ExpectedVoucher,
 			proof, voucherAmt, voucherAmt, nil))
 	}
-	// **** Send the query for the Piece
-	// set up retrieval params
-	resp, err := ch.Query(bgCtx, *retrievalPeer, ph.PayloadCID, retrievalmarket.QueryParams{})
-	require.NoError(t, err)
-	require.Equal(t, retrievalmarket.QueryResponseAvailable, resp.Status)
-
-	evtChan := make(chan retrievalmarket.ProviderEvent)
-	ph.SubscribeToEvents(func(event retrievalmarket.ProviderEvent, state retrievalmarket.ProviderDealState) {
-		switch event {
-		case retrievalmarket.ProviderEventDealRestart:
-			evtChan <- event
-		}
-	})
-
-	clientDealStateChan := make(chan retrievalmarket.ClientDealState)
-	ch.SubscribeToEvents(func(event retrievalmarket.ClientEvent, state retrievalmarket.ClientDealState) {
-		switch event {
-		case retrievalmarket.ClientEventComplete:
-			clientDealStateChan <- state
-		default:
-			logClientDealState(t, state)
-		}
-	})
-
-	rmParams := retrievalmarket.NewParamsV1(expQR.MinPricePerByte, expQR.MaxPaymentInterval,
-		expQR.MaxPaymentIntervalIncrease, shared.AllSelector(), nil)
-	// *** Retrieve the piece, simulating a shutdown in between
-	did, err := ch.Retrieve(bgCtx, ph.PayloadCID, rmParams, expectedTotal, retrievalPeer.ID,
-		ch.PaychAddr, retrievalPeer.Address)
-	require.NoError(t, err)
-	require.Equal(t, did, retrievalmarket.DealID(0))
-
-	// verify that client subscribers will be notified of state changes
-	ctx, cancel := context.WithTimeout(bgCtx, 5*time.Second)
-	defer cancel()
-	var clientDealState retrievalmarket.ClientDealState
-	select {
-	case <-ctx.Done():
-		t.Error("deal never completed")
-		t.FailNow()
-	case clientDealState = <-clientDealStateChan:
-	}
-	assert.Equal(t, clientDealState.PaymentInfo.Lane, ch.ExpectedVoucher.Lane)
-	require.NotNil(t, ch.CreatedPayChInfo)
-	require.Equal(t, expectedTotal, ch.CreatedPayChInfo.Amt)
-	// verify that the voucher was saved/seen by the client with correct values
-	require.NotNil(t, ch.CreatedVoucher)
-	tut.TestVoucherEquality(t, ch.CreatedVoucher, ch.ExpectedVoucher)
-
-	// verify that the provider saved the same voucher values
-	ph.ProviderNode.VerifyExpectations(t)
-	ch.TestData.VerifyFileTransferred(t, ph.PieceLink, false, filesize)
+	return expQR, expectedTotal, retrievalPeer
 }
 
-func TestStartStopClient(t *testing.T) {
-	log.SetDebugLogging()
-	filename := "lorem.txt"
-	filesize := uint64(19000)
-	voucherAmts := []abi.TokenAmount{abi.NewTokenAmount(10136000), abi.NewTokenAmount(9784000)}
-
-	bgCtx := context.Background()
-	ch := new(test_harnesses.ClientHarness).Bootstrap(bgCtx, t, false)
-	ph := new(test_harnesses.ProviderHarness)
-	ph.TestData = ch.TestData
-	ph.PaychAddr = ch.PaychAddr
-	ph.Bootstrap(bgCtx, t, filename, filesize, false)
-
-	expQR := ph.ExpectedQR
-	retrievalPeer := &retrievalmarket.RetrievalPeer{
-		Address: expQR.PaymentAddress, ID: ph.TestData.Host2.ID(),
-	}
-	expectedTotal := big.Mul(expQR.MinPricePerByte, abi.NewTokenAmount(int64(filesize*2)))
-
-	proof := []byte("")
-	for _, voucherAmt := range voucherAmts {
-		require.NoError(t, ph.ProviderNode.ExpectVoucher(ph.PaychAddr, ch.ExpectedVoucher,
-			proof, voucherAmt, voucherAmt, nil))
-	}
-	// **** Send the query for the Piece
-	// set up retrieval params
-	resp, err := ch.Query(bgCtx, *retrievalPeer, ph.PayloadCID, retrievalmarket.QueryParams{})
-	require.NoError(t, err)
-	require.Equal(t, retrievalmarket.QueryResponseAvailable, resp.Status)
-
-	rmParams := retrievalmarket.NewParamsV1(expQR.MinPricePerByte, expQR.MaxPaymentInterval,
-		expQR.MaxPaymentIntervalIncrease, shared.AllSelector(), nil)
-	// *** Retrieve the piece, simulating a shutdown in between
-	_, err = ch.Retrieve(bgCtx, ph.PayloadCID, rmParams, expectedTotal, retrievalPeer.ID,
-		ch.PaychAddr, retrievalPeer.Address)
-	require.NoError(t, err)
-
-	ch2, err := retrievalimpl.NewClient(ch.Network, ch.TestData.Bs1, ch.ClientNode, &tut.TestPeerResolver{},
-		ch.TestData.Ds1, ch.TestData.RetrievalStoredCounter1)
-	require.NoError(t, err)
-
-	clientDealStateChan := make(chan retrievalmarket.ClientDealState)
-	ch2.SubscribeToEvents(func(event retrievalmarket.ClientEvent, state retrievalmarket.ClientDealState) {
-		switch event {
-		case retrievalmarket.ClientEventComplete:
-			clientDealStateChan <- state
-		}
-	})
-
-	// verify that client subscribers will be notified of state changes
-	ctx, cancel := context.WithTimeout(bgCtx, 15*time.Second)
-	defer cancel()
-	var clientDealState retrievalmarket.ClientDealState
-	select {
-	case <-ctx.Done():
-		t.Error("deal never completed")
-		t.FailNow()
-	case clientDealState = <-clientDealStateChan:
-	}
-	assert.Equal(t, clientDealState.PaymentInfo.Lane, ch.ExpectedVoucher.Lane)
-	require.NotNil(t, ch.CreatedPayChInfo)
-	require.Equal(t, expectedTotal, ch.CreatedPayChInfo.Amt)
-	// verify that the voucher was saved/seen by the client with correct values
-	require.NotNil(t, ch.CreatedVoucher)
-	tut.TestVoucherEquality(t, ch.CreatedVoucher, ch.ExpectedVoucher)
-
-	// verify that the provider saved the same voucher values
-	ph.ProviderNode.VerifyExpectations(t)
-	ch.TestData.VerifyFileTransferred(t, ph.PieceLink, false, filesize)
-}
-
-func logProviderDealState(t *testing.T, state retrievalmarket.ProviderDealState) {
+func logProviderDealState(t *testing.T, state rm.ProviderDealState) {
 	msg := `
 Provider:
 Status:          %s
@@ -464,11 +446,11 @@ FundsReceived:   %s
 Message:		 %s
 CurrentInterval: %d
 `
-	t.Logf(msg, retrievalmarket.DealStatuses[state.Status], state.TotalSent, state.FundsReceived.String(), state.Message,
+	t.Logf(msg, rm.DealStatuses[state.Status], state.TotalSent, state.FundsReceived.String(), state.Message,
 		state.CurrentInterval)
 }
 
-func logClientDealState(t *testing.T, state retrievalmarket.ClientDealState) {
+func logClientDealState(t *testing.T, state rm.ClientDealState) {
 	msg := `
 Client:
 Status:          %s
@@ -478,6 +460,6 @@ CurrentInterval: %d
 TotalFunds:      %s
 Message:         %s
 `
-	t.Logf(msg, retrievalmarket.DealStatuses[state.Status], state.TotalReceived, state.BytesPaidFor, state.CurrentInterval,
+	t.Logf(msg, rm.DealStatuses[state.Status], state.TotalReceived, state.BytesPaidFor, state.CurrentInterval,
 		state.TotalFunds.String(), state.Message)
 }

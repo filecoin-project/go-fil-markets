@@ -197,3 +197,9 @@ var ClientStateEntryFuncs = fsm.StateEntryFuncs{
 	rm.DealStatusFundsNeededLastPayment:    ProcessPaymentRequested,
 	rm.DealStatusFinalizing:                Finalize,
 }
+
+var ClientFinalityStates = []fsm.StateKey{
+	rm.DealStatusCompleted,
+	rm.DealStatusErrored,
+	rm.DealStatusFailed,
+}

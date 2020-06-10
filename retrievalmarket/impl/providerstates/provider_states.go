@@ -74,6 +74,7 @@ func DecideOnDeal(ctx fsm.Context, env ProviderDealEnvironment, state rm.Provide
 
 // SendBlocks sends blocks to the client until funds are needed
 func SendBlocks(ctx fsm.Context, environment ProviderDealEnvironment, deal rm.ProviderDealState) error {
+	log.Info("HERE")
 	totalSent := deal.TotalSent
 	totalPaidFor := big.Div(deal.FundsReceived, deal.PricePerByte).Uint64()
 	var blocks []rm.Block
@@ -110,7 +111,6 @@ func SendBlocks(ctx fsm.Context, environment ProviderDealEnvironment, deal rm.Pr
 	if err != nil {
 		return ctx.Trigger(rm.ProviderEventWriteResponseFailed, err)
 	}
-
 	return ctx.Trigger(rm.ProviderEventPaymentRequested, totalSent)
 }
 

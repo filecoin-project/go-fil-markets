@@ -1,8 +1,6 @@
 package providerstates
 
 import (
-	"fmt"
-
 	"github.com/filecoin-project/go-statemachine/fsm"
 	"github.com/filecoin-project/specs-actors/actors/abi"
 	"github.com/filecoin-project/specs-actors/actors/abi/big"
@@ -69,7 +67,6 @@ var ProviderEvents = fsm.Events{
 		FromMany(rm.DealStatusAccepted, rm.DealStatusOngoing).To(rm.DealStatusFundsNeeded).
 		From(rm.DealStatusBlocksComplete).To(rm.DealStatusFundsNeededLastPayment).
 		Action(func(deal *rm.ProviderDealState, totalSent uint64) error {
-			fmt.Println("Requesting payment")
 			deal.TotalSent = totalSent
 			return nil
 		}),
@@ -108,4 +105,10 @@ var ProviderStateEntryFuncs = fsm.StateEntryFuncs{
 	rm.DealStatusFundsNeeded:            ProcessPayment,
 	rm.DealStatusFundsNeededLastPayment: ProcessPayment,
 	rm.DealStatusFinalizing:             Finalize,
+}
+
+var FinalityStates = []fsm.StateKey{
+	rm.DealStatusCompleted,
+	rm.DealStatusErrored,
+	rm.DealStatusFailed,
 }

@@ -64,17 +64,18 @@ func NewClient(
 	}
 	stateMachines, err := fsm.New(ds, fsm.Parameters{
 		Environment:     c,
+		Events:          clientstates.ClientEvents,
+		FinalityStates:  clientstates.ClientFinalityStates,
+		Notifier:        c.notifySubscribers,
 		StateType:       retrievalmarket.ClientDealState{},
 		StateKeyField:   "Status",
-		Events:          clientstates.ClientEvents,
 		StateEntryFuncs: clientstates.ClientStateEntryFuncs,
-		Notifier:        c.notifySubscribers,
 	})
 	if err != nil {
 		return nil, err
 	}
 	c.stateMachines = stateMachines
-	if err = c.restartDeals(); err != nil {
+	if err = c.Run(); err != nil {
 		return nil, err
 	}
 	return c, nil
@@ -171,8 +172,8 @@ func (c *client) Retrieve(ctx context.Context, payloadCID cid.Cid, params retrie
 	return dealID, nil
 }
 
-// restartDeals restarts processing by client.
-func (c *client) restartDeals() error {
+// Run restarts processing by client.
+func (c *client) Run() error {
 	var deals []retrievalmarket.ClientDealState
 	err := c.stateMachines.List(&deals)
 	if err != nil {
