@@ -2,7 +2,6 @@ package retrievalimpl_test
 
 import (
 	"context"
-	"sync"
 	"testing"
 	"time"
 
@@ -23,7 +22,6 @@ import (
 	"github.com/filecoin-project/go-fil-markets/retrievalmarket/impl/test_harnesses"
 	"github.com/filecoin-project/go-fil-markets/retrievalmarket/impl/testnodes"
 	rmnet "github.com/filecoin-project/go-fil-markets/retrievalmarket/network"
-	rmtesting "github.com/filecoin-project/go-fil-markets/retrievalmarket/testing"
 	"github.com/filecoin-project/go-fil-markets/shared"
 	tut "github.com/filecoin-project/go-fil-markets/shared_testutil"
 )
@@ -177,7 +175,7 @@ func TestClientCanMakeDealWithProvider(t *testing.T) {
 			voucherAmts: []abi.TokenAmount{abi.NewTokenAmount(1944000)},
 			paramsV1:    true,
 			selector:    partialSelector},
-		{name: "succeeds when using a custom decider function",
+		{name: "succeeds when using a custom provideropts function",
 			decider: func(ctx context.Context, state retrievalmarket.ProviderDealState) (bool, string, error) {
 				customDeciderRan = true
 				return true, "", nil
@@ -189,12 +187,12 @@ func TestClientCanMakeDealWithProvider(t *testing.T) {
 		},
 	}
 
-	for _, testCase := range testCases {
-		t.Run(testCase.name, func(t *testing.T) {
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
 			bgCtx := context.Background()
 
 			// ------- SET UP CLIENT
-			ch := new(test_harnesses.ClientHarness).Bootstrap(bgCtx, t, testCase.addFunds)
+			ch := new(test_harnesses.ClientHarness).Bootstrap(bgCtx, t, tc.addFunds)
 
 			clientDealStateChan := make(chan retrievalmarket.ClientDealState)
 			ch.SubscribeToEvents(func(event retrievalmarket.ClientEvent, state retrievalmarket.ClientDealState) {
@@ -209,11 +207,12 @@ func TestClientCanMakeDealWithProvider(t *testing.T) {
 			ph := new(test_harnesses.ProviderHarness)
 			ph.TestData = ch.TestData
 			ph.PaychAddr = ch.PaychAddr
-			// 			decider := rmtesting.TrivalTestDecider
-			//			if testCase.decider != nil {
-			//				decider = testCase.decider
-			//			}
-			ph.Bootstrap(bgCtx, t, testCase.filename, testCase.filesize, testCase.unsealing)
+			if tc.decider != nil {
+				ph.ProviderOpts = []retrievalimpl.RetrievalProviderOption{
+					retrievalimpl.DealDeciderOpt(tc.decider),
+				}
+			}
+			ph.Bootstrap(bgCtx, t, tc.filename, tc.filesize, tc.unsealing)
 
 			expQR := ph.ExpectedQR
 			retrievalPeer := &retrievalmarket.RetrievalPeer{
@@ -221,12 +220,12 @@ func TestClientCanMakeDealWithProvider(t *testing.T) {
 			}
 
 			// just make sure there is enough to cover the transfer
-			expectedTotal := big.Mul(expQR.MinPricePerByte, abi.NewTokenAmount(int64(testCase.filesize*2)))
+			expectedTotal := big.Mul(expQR.MinPricePerByte, abi.NewTokenAmount(int64(tc.filesize*2)))
 
 			// voucherAmts are pulled from the actual answer so the expected keys in the test node match up.
 			// later we compare the voucher values.  The last voucherAmt is a remainder
 			proof := []byte("")
-			for _, voucherAmt := range testCase.voucherAmts {
+			for _, voucherAmt := range tc.voucherAmts {
 				require.NoError(t, ph.ProviderNode.ExpectVoucher(ph.PaychAddr, ch.ExpectedVoucher, proof, voucherAmt, voucherAmt, nil))
 			}
 
@@ -247,9 +246,9 @@ func TestClientCanMakeDealWithProvider(t *testing.T) {
 			require.Equal(t, retrievalmarket.QueryResponseAvailable, resp.Status)
 
 			var rmParams retrievalmarket.Params
-			if testCase.paramsV1 {
+			if tc.paramsV1 {
 				rmParams = retrievalmarket.NewParamsV1(expQR.MinPricePerByte, expQR.MaxPaymentInterval,
-					expQR.MaxPaymentIntervalIncrease, testCase.selector, nil)
+					expQR.MaxPaymentIntervalIncrease, tc.selector, nil)
 
 			} else {
 				rmParams = retrievalmarket.NewParamsV0(expQR.MinPricePerByte, expQR.MaxPaymentInterval,
@@ -292,16 +291,13 @@ func TestClientCanMakeDealWithProvider(t *testing.T) {
 			}
 
 			assert.Equal(t, int(retrievalmarket.DealStatusCompleted), int(providerDealState.Status))
-
-			// TODO this is terrible, but it's temporary until the test harness refactor
-			// in the resuming retrieval deals branch is done
-			// https://github.com/filecoin-project/go-fil-markets/issues/65
-			if testCase.decider != nil {
+			// TODO: add asserts
+			if tc.decider != nil {
 				assert.True(t, customDeciderRan)
 			}
 			// verify that the provider saved the same voucher values
 			ph.ProviderNode.VerifyExpectations(t)
-			ph.TestData.VerifyFileTransferred(t, ph.PieceLink, false, testCase.filesize)
+			ph.TestData.VerifyFileTransferred(t, ph.PieceLink, false, tc.filesize)
 		})
 	}
 
@@ -310,18 +306,14 @@ func TestClientCanMakeDealWithProvider(t *testing.T) {
 /// =======================
 func TestStartStopProvider(t *testing.T) {
 	log.SetDebugLogging()
-
-	filename := "lorem.txt"
-	filesize := uint64(19000)
-	voucherAmts := []abi.TokenAmount{abi.NewTokenAmount(10136000), abi.NewTokenAmount(9784000)}
-
 	bgCtx := context.Background()
 	ch := new(test_harnesses.ClientHarness).Bootstrap(bgCtx, t, false)
 
 	ph := new(test_harnesses.ProviderHarness)
 	ph.TestData = ch.TestData
 	ph.PaychAddr = ch.PaychAddr
-	ph.Bootstrap(bgCtx, t, filename, filesize, false)
+	filesize := uint64(19000)
+	ph.Bootstrap(bgCtx, t, "lorem.txt", filesize, false)
 
 	expQR := ph.ExpectedQR
 	retrievalPeer := &retrievalmarket.RetrievalPeer{
@@ -330,6 +322,10 @@ func TestStartStopProvider(t *testing.T) {
 	expectedTotal := big.Mul(expQR.MinPricePerByte, abi.NewTokenAmount(int64(filesize*2)))
 
 	proof := []byte("")
+	voucherAmts := []abi.TokenAmount{
+		abi.NewTokenAmount(10136000),
+		abi.NewTokenAmount(9784000),
+	}
 	for _, voucherAmt := range voucherAmts {
 		require.NoError(t, ph.ProviderNode.ExpectVoucher(ph.PaychAddr, ch.ExpectedVoucher,
 			proof, voucherAmt, voucherAmt, nil))
@@ -340,15 +336,17 @@ func TestStartStopProvider(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, retrievalmarket.QueryResponseAvailable, resp.Status)
 
-	var wg sync.WaitGroup
-	wg.Add(1)
+	evtChan := make(chan retrievalmarket.ProviderEvent)
+	ph.SubscribeToEvents(func(event retrievalmarket.ProviderEvent, state retrievalmarket.ProviderDealState) {
+		switch event {
+		case retrievalmarket.ProviderEventDealRestart:
+			evtChan <- event
+		}
+	})
 
 	clientDealStateChan := make(chan retrievalmarket.ClientDealState)
 	ch.SubscribeToEvents(func(event retrievalmarket.ClientEvent, state retrievalmarket.ClientDealState) {
 		switch event {
-		case retrievalmarket.ClientEventDealAccepted:
-			require.NoError(t, ph.Stop())
-			wg.Done()
 		case retrievalmarket.ClientEventComplete:
 			clientDealStateChan <- state
 		default:
@@ -362,15 +360,6 @@ func TestStartStopProvider(t *testing.T) {
 	did, err := ch.Retrieve(bgCtx, ph.PayloadCID, rmParams, expectedTotal, retrievalPeer.ID,
 		ch.PaychAddr, retrievalPeer.Address)
 	require.NoError(t, err)
-
-	wg.Wait()
-
-	provider2, err := retrievalimpl.NewProvider(ph.PaychAddr, ph.ProviderNode, ph.Network, ph.PieceStore,
-		ph.TestData.Bs2, ph.TestData.Ds2)
-	require.NoError(t, err)
-	provider2.SetPaymentInterval(expQR.MaxPaymentInterval, expQR.MaxPaymentIntervalIncrease)
-	provider2.SetPricePerByte(expQR.MinPricePerByte)
-	require.NoError(t, provider2.Start())
 	require.Equal(t, did, retrievalmarket.DealID(0))
 
 	// verify that client subscribers will be notified of state changes
@@ -431,9 +420,6 @@ func TestStartStopClient(t *testing.T) {
 	_, err = ch.Retrieve(bgCtx, ph.PayloadCID, rmParams, expectedTotal, retrievalPeer.ID,
 		ch.PaychAddr, retrievalPeer.Address)
 	require.NoError(t, err)
-
-	// Stop the client.
-	require.NoError(t, ch.Stop())
 
 	ch2, err := retrievalimpl.NewClient(ch.Network, ch.TestData.Bs1, ch.ClientNode, &tut.TestPeerResolver{},
 		ch.TestData.Ds1, ch.TestData.RetrievalStoredCounter1)

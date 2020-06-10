@@ -180,7 +180,7 @@ var ClientEvents = fsm.Events{
 		From(rm.DealStatusPaymentChannelReady).To(rm.DealStatusOngoing).
 		From(rm.DealStatusOngoing).ToNoChange().
 		Action(recordProcessed),
-	fsm.Event(rm.ClientEventDealResume).
+	fsm.Event(rm.ClientEventDealRestart).
 		FromAny().ToNoChange(),
 }
 

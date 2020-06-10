@@ -2,7 +2,6 @@ package retrievalimpl_test
 
 import (
 	"context"
-	"errors"
 	"testing"
 
 	"github.com/filecoin-project/go-address"
@@ -249,80 +248,6 @@ func TestProviderConfigOpts(t *testing.T) {
 		bs, ds, ddOpt)
 	require.NoError(t, err)
 	require.NotNil(t, p)
-}
-
-func TestProviderRestart(t *testing.T) {
-	payloadCID := tut.GenerateCids(1)[0]
-	expectedPeer := peer.ID("somepeer")
-	expectedSize := uint64(1234)
-
-	expectedPieceCID := tut.GenerateCids(1)[0]
-	expectedCIDInfo := piecestore.CIDInfo{
-		PieceBlockLocations: []piecestore.PieceBlockLocation{
-			{
-				PieceCID: expectedPieceCID,
-			},
-		},
-	}
-	expectedPiece := piecestore.PieceInfo{
-		Deals: []piecestore.DealInfo{
-			{
-				Length: expectedSize,
-			},
-		},
-	}
-	expectedAddress := address.TestAddress2
-	expectedPricePerByte := abi.NewTokenAmount(4321)
-	expectedPaymentInterval := uint64(4567)
-	expectedPaymentIntervalIncrease := uint64(100)
-
-	rwDealStream := func() network.RetrievalDealStream {
-		pRead, pWrite := ProposalReadWriter()
-		rRead, rWrite := ResponseReadWriter()
-		qs := tut.NewTestRetrievalDealStream(tut.TestDealStreamParams{
-			PeerID:         expectedPeer,
-			ProposalReader: pRead,
-			ProposalWriter: pWrite,
-			ResponseReader: rRead,
-			ResponseWriter: rWrite,
-		})
-		return qs
-	}
-}
-
-func ProposalReadWriter() (tut.DealProposalReader, tut.DealProposalWriter) {
-	var p retrievalmarket.DealProposal
-	var written bool
-	propRead := func() (retrievalmarket.DealProposal, error) {
-		if written {
-			return p, nil
-		}
-		return retrievalmarket.DealProposalUndefined, errors.New("unable to read proposal")
-	}
-
-	propWrite := func(wp retrievalmarket.DealProposal) error {
-		p = wp
-		written = true
-		return nil
-	}
-	return propRead, propWrite
-}
-
-func ResponseReadWriter() (tut.DealResponseReader, tut.DealResponseWriter) {
-	var dr retrievalmarket.DealResponse
-	var written bool
-	responseRead := func() (retrievalmarket.DealResponse, error) {
-		if written {
-			return dr, nil
-		}
-		return retrievalmarket.DealResponseUndefined, errors.New("unabled to read deal response")
-	}
-	responseWrite := func(wdr retrievalmarket.DealResponse) error {
-		dr = wdr
-		written = true
-		return nil
-	}
-	return responseRead, responseWrite
 }
 
 // loadPieceCIDS sets expectations to receive expectedPieceCID and 3 other random PieceCIDs to

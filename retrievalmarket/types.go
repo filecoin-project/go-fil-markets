@@ -151,9 +151,9 @@ const (
 	// ClientEventComplete indicates a deal has completed
 	ClientEventComplete
 
-	// ClientEvenDealResume kickstarts the statemachine to load the deal state and continue
+	// ClientEventDealRestart kickstarts the statemachine to load the deal state and continue
 	// where it left off.
-	ClientEventDealResume
+	ClientEventDealRestart
 )
 
 // ClientSubscriber is a callback that is registered to listen for retrieval events
@@ -193,8 +193,6 @@ type RetrievalClient interface {
 	CancelDeal(id DealID) error
 	RetrievalStatus(id DealID)
 	ListDeals() map[DealID]ClientDealState
-	Start() error
-	Stop() error
 }
 
 // RetrievalClientNode are the node dependencies for a RetrievalClient
@@ -316,13 +314,9 @@ const (
 	// ProviderEventComplete indicates a retrieval deal was completed for a client
 	ProviderEventComplete
 
-	// ProviderEventDealSuspended is  simply for triggering an event so client can
-	// respond
-	ProviderEventDealSuspended
-
 	// ProviderDealRestart kickstarts the statemachine to load the deal state and continue
 	// where it left off.
-	ProviderEventDealResumed
+	ProviderEventDealRestart
 )
 
 // ProviderDealID is a unique identifier for a deal on a provider -- it is

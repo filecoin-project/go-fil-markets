@@ -74,8 +74,10 @@ func NewClient(
 		return nil, err
 	}
 	c.stateMachines = stateMachines
-	err = c.Start()
-	return c, err
+	if err = c.restartDeals(); err != nil {
+		return nil, err
+	}
+	return c, nil
 }
 
 // V0
@@ -169,17 +171,29 @@ func (c *client) Retrieve(ctx context.Context, payloadCID cid.Cid, params retrie
 	return dealID, nil
 }
 
-// Stop stops processing by the client
-func (c *client) Stop() error {
-	for _, ds := range c.dealStreams {
-		if err := ds.Close(); err != nil {
+// restartDeals restarts processing by client.
+func (c *client) restartDeals() error {
+	var deals []retrievalmarket.ClientDealState
+	err := c.stateMachines.List(&deals)
+	if err != nil {
+		return err
+	}
+	for _, deal := range deals {
+		if c.stateMachines.IsTerminated(deal) {
+			continue
+		}
+		if c.dealStreams[deal.ID] == nil {
+			s, err := c.network.NewDealStream(deal.Sender)
+			if err != nil {
+				return err
+			}
+			c.dealStreams[deal.ID] = s
+		}
+
+		if err := c.stateMachines.Send(deal.ID, retrievalmarket.ClientEventDealRestart); err != nil {
 			return err
 		}
 	}
-	return c.stateMachines.Stop(context.Background())
-}
-
-func (c *client) Start() error {
 	return nil
 }
 

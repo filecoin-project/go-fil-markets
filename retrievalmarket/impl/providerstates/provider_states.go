@@ -8,11 +8,14 @@ import (
 	"github.com/filecoin-project/specs-actors/actors/abi"
 	"github.com/filecoin-project/specs-actors/actors/abi/big"
 	"github.com/ipfs/go-cid"
+	logging "github.com/ipfs/go-log/v2"
 	"golang.org/x/xerrors"
 
 	rm "github.com/filecoin-project/go-fil-markets/retrievalmarket"
 	rmnet "github.com/filecoin-project/go-fil-markets/retrievalmarket/network"
 )
+
+var log = logging.Logger("providerstates")
 
 // ProviderDealEnvironment is a bridge to the environment a provider deal is executing in
 type ProviderDealEnvironment interface {

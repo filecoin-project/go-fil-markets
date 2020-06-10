@@ -104,16 +104,12 @@ func (p *Provider) RunDealDecisioningLogic(ctx context.Context, state retrievalm
 
 // Stop stops handling incoming requests
 func (p *Provider) Stop() error {
-	p.closeDealStreams()
-	err := p.suspendDeals()
-	if err != nil {
-		return err
-	}
 	return p.network.StopHandlingRequests()
 }
 
 // Start begins listening for deals on the given host
 func (p *Provider) Start() error {
+	log.Info("starting retrieval")
 	if err := p.restartDeals(); err != nil {
 		return err
 	}
@@ -340,43 +336,16 @@ func DealDeciderOpt(dd DealDecider) RetrievalProviderOption {
 	}
 }
 
-func (p *Provider) closeDealStreams() {
-	for _, ds := range p.dealStreams {
-		if err := ds.Close(); err != nil {
-			log.Error(err)
-		}
-	}
-}
-
-func (p *Provider) suspendDeals() error {
-	return p.foreachDealState(
-		func(pds retrievalmarket.ProviderDealState) error {
-			if err := p.stateMachines.Send(pds.Identifier(), retrievalmarket.ProviderEventDealSuspended); err != nil {
-				return err
-			}
-			return p.stateMachines.Stop(context.Background())
-		})
-}
-
 func (p *Provider) restartDeals() error {
-	return p.foreachDealState(
-		func(pds retrievalmarket.ProviderDealState) error {
-			return p.stateMachines.Send(pds.Identifier(), retrievalmarket.ProviderEventDealResumed)
-		})
-}
-
-func (p *Provider) foreachDealState(do func(state retrievalmarket.ProviderDealState) error) error {
 	var deals []retrievalmarket.ProviderDealState
-	err := p.stateMachines.List(&deals)
-	if err != nil {
+	if err := p.stateMachines.List(&deals); err != nil {
 		return err
 	}
-	for _, pds := range deals {
-		if err = do(pds); err != nil {
+	for _, deal := range deals {
+		if err := p.stateMachines.Send(deal.Identifier(), retrievalmarket.ProviderEventDealRestart); err != nil {
 			return err
 		}
 	}
-	return nil
 }
 
 func getPieceInfoFromCid(pieceStore piecestore.PieceStore, payloadCID, pieceCID cid.Cid) (piecestore.PieceInfo, error) {

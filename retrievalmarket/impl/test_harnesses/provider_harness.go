@@ -26,6 +26,7 @@ import (
 type ProviderHarness struct {
 	ctx          context.Context
 	t            *testing.T
+	ProviderOpts []retrievalimpl.RetrievalProviderOption
 	Filename     string
 	Filesize     uint64
 	ExpectedQR   *retrievalmarket.QueryResponse
@@ -40,6 +41,9 @@ type ProviderHarness struct {
 	TestData *shared_testutil.Libp2pTestData
 }
 
+// Bootstrap uses the provided file information and unsealing flag to
+// use the test harness settings, to set up requisite test dependencies,
+// initialize and start a new RetrievalProvider.
 func (ph *ProviderHarness) Bootstrap(ctx context.Context, t *testing.T, filename string,
 	filesize uint64, unsealing bool) *ProviderHarness {
 	ph.ctx = ctx
@@ -98,7 +102,7 @@ func (ph *ProviderHarness) Bootstrap(ctx context.Context, t *testing.T, filename
 	ps.ExpectPiece(expectedPiece, pieceInfo)
 
 	provider, err := retrievalimpl.NewProvider(providerPaymentAddr, ph.ProviderNode, ph.Network,
-		ps, ph.TestData.Bs2, ph.TestData.Ds2)
+		ps, ph.TestData.Bs2, ph.TestData.Ds2, ph.ProviderOpts...)
 	require.NoError(t, err)
 
 	provider.SetPaymentInterval(ph.ExpectedQR.MaxPaymentInterval,
@@ -109,6 +113,7 @@ func (ph *ProviderHarness) Bootstrap(ctx context.Context, t *testing.T, filename
 	ph.PieceStore = ps
 	return ph
 }
+
 func (ph *ProviderHarness) setupUnseal(unsealing bool) (pi piecestore.PieceInfo) {
 	if !unsealing {
 		pi = piecestore.PieceInfo{
