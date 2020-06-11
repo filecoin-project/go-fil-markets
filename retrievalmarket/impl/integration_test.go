@@ -305,7 +305,6 @@ func TestClientCanMakeDealWithProvider(t *testing.T) {
 
 /// =======================
 func TestRestartProvider(t *testing.T) {
-	log.SetDebugLogging()
 	bgCtx := context.Background()
 
 	ch := new(test_harnesses.ClientHarness).Bootstrap(bgCtx, t, false)
@@ -343,11 +342,13 @@ func TestRestartProvider(t *testing.T) {
 		require.NoError(t, err)
 	}()
 
-	ctx, cancel := context.WithTimeout(bgCtx, 15*time.Second)
+	ctx, cancel := context.WithTimeout(bgCtx, 5*time.Second)
 	defer cancel()
 	var seenState rm.ProviderDealState
 	seen := 0
-	// wait for client to process past the restart
+	// wait for client to process events past the restart.
+	// it will not complete the transfer due to connection issues between
+	// client and provider.
 	for seen < 5 {
 		select {
 		case <-ctx.Done():
@@ -358,6 +359,7 @@ func TestRestartProvider(t *testing.T) {
 		}
 	}
 	// checking only that provider continues processing
+	// TODO: this isn't the correct ending status.
 	assert.Equal(t, rm.DealStatusFundsNeeded, seenState.Status)
 }
 
