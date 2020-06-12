@@ -13,6 +13,7 @@ import (
 )
 
 var log = logging.Logger("retrieval_network")
+var _ RetrievalMarketNetwork = new(libp2pRetrievalMarketNetwork)
 
 func NewFromLibp2pHost(h host.Host) RetrievalMarketNetwork {
 	return &libp2pRetrievalMarketNetwork{host: h}
