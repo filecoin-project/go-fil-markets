@@ -21,12 +21,14 @@ func NewFromLibp2pHost(h host.Host) RetrievalMarketNetwork {
 
 // libp2pRetrievalMarketNetwork transforms the libp2p host interface, which sends and receives
 // NetMessage objects, into the graphsync network interface.
+// It implements the RetrievalMarketNetwork API.
 type libp2pRetrievalMarketNetwork struct {
 	host host.Host
 	// inbound messages from the network are forwarded to the receiver
 	receiver RetrievalReceiver
 }
 
+//  NewQueryStream creates a new RetrievalQueryStream using the provided peer.ID
 func (impl *libp2pRetrievalMarketNetwork) NewQueryStream(id peer.ID) (RetrievalQueryStream, error) {
 	s, err := impl.host.NewStream(context.Background(), id, retrievalmarket.QueryProtocolID)
 	if err != nil {
@@ -37,6 +39,7 @@ func (impl *libp2pRetrievalMarketNetwork) NewQueryStream(id peer.ID) (RetrievalQ
 	return &QueryStream{p: id, rw: s, buffered: buffered}, nil
 }
 
+//  NewDealStream creates a new RetrievalDealStream using the provided peer.ID
 func (impl *libp2pRetrievalMarketNetwork) NewDealStream(id peer.ID) (RetrievalDealStream, error) {
 	s, err := impl.host.NewStream(context.Background(), id, retrievalmarket.ProtocolID)
 	if err != nil {
@@ -46,6 +49,7 @@ func (impl *libp2pRetrievalMarketNetwork) NewDealStream(id peer.ID) (RetrievalDe
 	return &DealStream{p: id, rw: s, buffered: buffered}, nil
 }
 
+// SetDelegate sets a RetrievalReceiver to handle stream data
 func (impl *libp2pRetrievalMarketNetwork) SetDelegate(r RetrievalReceiver) error {
 	impl.receiver = r
 	impl.host.SetStreamHandler(retrievalmarket.ProtocolID, impl.handleNewDealStream)
@@ -53,6 +57,8 @@ func (impl *libp2pRetrievalMarketNetwork) SetDelegate(r RetrievalReceiver) error
 	return nil
 }
 
+// StopHandlingRequests unsets the RetrievalReceiver and would perform any other necessary
+// shutdown logic.
 func (impl *libp2pRetrievalMarketNetwork) StopHandlingRequests() error {
 	impl.receiver = nil
 	impl.host.RemoveStreamHandler(retrievalmarket.ProtocolID)
