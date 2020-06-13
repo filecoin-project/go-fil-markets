@@ -1,16 +1,16 @@
 # Retrieval Market Architecture
 
 ## Table of Contents
-* [Major dependencies](#Major_dependencies)
-* [Organization](#Organization)
+* [Major dependencies](#major-dependencies)
+* [Organization](#organization)
     * [types](#types)
     * [discovery](#discovery)
     * [impl](#impl)
     * [network](#network)
-* [Setup for handling data](#Setup_for_handling_data_over_data-transfer)
-* [RetrievalQuery Flow](#RetrievalQuery_Flow)
-* [RetrievalDeal Flow](#RetrievalDeal_Flow)
-    * [State machine operation](#State_machine_operation)
+* [Setup for handling data](#setup-for-handling-data-over-data-transfer)
+* [RetrievalQuery Flow](#retrievalquery-flow)
+* [RetrievalDeal Flow](#retrievaldeal-flow)
+    * [State machine operation](#state_machine_operation)
 
 ## Major dependencies
 * Other filecoin-project repos:
@@ -18,14 +18,14 @@
         retrieval deal, via go-graphsync
     * [**go-statemachine**](https://github.com/filecoin-project/go-statemachine) a finite state machine that tracks deal state
     * [**go-storedcounter**](https://github.com/filecoin-project/go-storedcounter) for generating and persisting unique deal IDs
-    * [**specs-actors**](https://github.com/filecoin-project/go-specs-actors) the Filecoin actors
+    * [**specs-actors**](https://github.com/filecoin-project/specs-actors) the Filecoin actors
 * IPFS project repos:   
     * [**go-graphsync**](https://github.com/ipfs/go-graphsync) used by go-data-transfer
     * [**go-datastore**](https://github.com/ipfs/go-datastore) for persisting statemachine state for deals
     * [**go-ipfs-blockstore**](https://github.com/ipfs/go-ipfs-blockstore) for storing and retrieving block data for deals
 * libp2p project repos:
-    * [**go-libp2p**](https://github.com/libp2p/go-data-transfer) the network over which retrieval deal data is exchanged.
-* @hannahoward: [**hannahhoward/go-pubsub**](https://github.com/hannahoward/go-pubsub) for pub/sub notifications external to the statemachine
+    * [**go-libp2p**](https://github.com/libp2p/go-libp2p) the network over which retrieval deal data is exchanged.
+* @hannahoward: [**hannahhoward/go-pubsub**](https://github.com/hannahhoward/go-pubsub) for pub/sub notifications external to the statemachine
 
 ## Organization
 ### types
