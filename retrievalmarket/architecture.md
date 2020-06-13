@@ -141,7 +141,7 @@ is requested to warrant incremental vouchers, the **`event`** ⟶ `state` transi
 1. **`ProviderEventDealReceived`** ⟶ `DealStatusAwaitingAcceptance`
 1. **`ProviderEventDealAccepted`** ⟶ `DealStatusAccepted`  provider begins sending blocks here
 1. ( **`ProviderEventPaymentRequested`** ⟶ `DealStatusFundsNeeded`
-1.   **`ProviderEventPaymentReceived`** ⟶ `DealStatusOngoing` ) provider resumes sending blocks 
+1.   **`ProviderEventPaymentReceived`** ⟶ `DealStatusOngoing` ) provider resumes sending blocks. <br> 
 This and the previous event-transition may cycle multiple times.
 1. **`ProviderEventBlocksCompleted`** ⟶ `DealStatusBlocksComplete` provider has sent last blocks
 1. **`ProviderEventPaymentRequested`** ⟶ `DealStatusFundsNeededLastPayment`
