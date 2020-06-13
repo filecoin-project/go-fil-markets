@@ -11,7 +11,9 @@
 * [RetrievalQuery Flow](#retrievalquery-flow)
 * [RetrievalDeal Flow](#retrievaldeal-flow)
     * [State machine operation](#state-machine-operation)
-
+        * [Retrieval client](#in-the-retrievalclient)
+        * [Retrieval provider](#in--the-retrievalprovider)
+    
 ## Major dependencies
 * Other filecoin-project repos:
     * [**go-data-transfer**](https://github.com/filecoin-project/go-data-transfer), for transferring all information relating to an active 
