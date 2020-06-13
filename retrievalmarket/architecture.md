@@ -10,7 +10,7 @@
 * [Setup for handling data](#setup-for-handling-data-over-data-transfer)
 * [RetrievalQuery Flow](#retrievalquery-flow)
 * [RetrievalDeal Flow](#retrievaldeal-flow)
-    * [State machine operation](#state_machine_operation)
+    * [State machine operation](#state-machine-operation)
 
 ## Major dependencies
 * Other filecoin-project repos:
