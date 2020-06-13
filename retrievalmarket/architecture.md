@@ -31,10 +31,10 @@ contains the implementations of interfaces in [types.go](./types.go) and where t
 * blockunsealing - contains the logic needed to unseal sealed blocks for retrieval.
 * clientstates - this directory contains state machine logic relating to the `RetrievalClient`.
     * [client_fsm.go](./impl/clientstates/client_fsm.go)  is where the state transitions are defined, and the default handlers for each new state are defined.
-    * [client_fsm.go](./impl/clientstates/client_states.go) contains state handler functions.
+    * [client_states.go](./impl/clientstates/client_states.go) contains state handler functions.
 * providerstates - contains state machine logic relating to the `RetrievalProvider`
     * [provider_fsm.go](./impl/providerstates/provider_fsm.go) is where the state transitions are defined, and the default handlers for each new state are defined.
-    * [provider_fsm.go](./impl/providerstates/provider_states.go) contains state handler functions.
+    * [provider_states.go](./impl/providerstates/provider_states.go) contains state handler functions.
 
 ### network
 contains basic structs and functions for sending data over data-transfer:
@@ -47,48 +47,50 @@ contains basic structs and functions for sending data over data-transfer:
 On the client side, the Client just has to be initialized and then it's ready to start querying or proposing retrieval deals.
 Query and Deal streams are created in each Query and Retrieve function.
 
-On the provider side, to allow receiving of queries or deal proposals, Provider.Start function must be called, 
-which simply calls its network.SetDelegate function, passing itself as the RetrievalReceiver. 
-It Constructs a new statemachine, passing itself as the statemachine environment and c.notifySubscribers as the notifier.
+On the provider side, to allow receiving of queries or deal proposals, `Provider.Start` function must be called, 
+which simply calls its `network.SetDelegate` function, passing itself as the `RetrievalReceiver`. 
+It constructs a new statemachine, passing itself as the statemachine environment and its `notifySubscribers` 
+function as the notifier.
 
 
 ## RetrievalQuery Flow
-A retrieval query would be used to determine who has a desired payload CID. This utilizes 
-the FindProviders function of the PeerResolver interface implementation.
+* A retrieval query would be used to determine who has a desired payload CID. This utilizes 
+the `FindProviders` function of the `PeerResolver` interface implementation.
 
-Next the retrieval Client's Query function is called. This creates a new RetrievalQueryStream for the chosen peer ID, 
+* Next the retrieval Client's `Query` function is called. This creates a new `RetrievalQueryStream` for the chosen peer ID, 
 and calls WriteQuery on it, which constructs a data-transfer message and writes it to the Query stream.
 
-A Provider handling a retrieval Query will need to get the node's chain head, its miner worker address, and look
+* A Provider handling a retrieval `Query` will need to get the node's chain head, its miner worker address, and look
 in its piece store for the requested piece info. It uses this to construct a response which includes whether the
-piece is there, and if so the retrieval deal terms in its retrievalmarket.QueryResponse struct.  It then writes this
-response to the Query stream.
+piece is there, and if so the retrieval deal terms in its `retrievalmarket.QueryResponse` struct.  It then writes this
+response to the `Query` stream.
 
 The connection is kept open only as long as the query-response exchange.
 
 ## RetrievalDeal Flow
 Deal flow involves multiple exchanges.
 
-Similarly to Query, client Retrieve creates a new RetrievalDealStream.  At the time of this writing, this connection is 
+* Similarly to `Query`, client Retrieve creates a new `RetrievalDealStream`.  At the time of this writing, this connection is 
 kept open through the entire deal until completion or failure.  There are plans to make this pauseable as well as surviving
 a restart.
 
-Retrieval flow not only uses the [network](./network/network.go) interfaces, but also storedcounter, piecestore, statemachine, and blockstore. 
-It calls the node API for chain operations such as GetHead but also to create payment channels.
+* Retrieval flow not only uses the [network](./network/network.go) interfaces, but also storedcounter, piecestore, statemachine, and blockstore. 
+It calls the node API for chain operations such as `GetHead` but also to create payment channels.
 
-When the Client determines a peer in possession of desired data for acceptable deal terms, Retrieve is called for the data and the peer, sending
-what should be acceptable deal terms received from in the peer's QueryResponse and launches the deal flow:
+* When the Client determines a peer in possession of desired data for acceptable deal terms, `Retrieve` is called for the 
+data and the peer, sending
+what should be acceptable deal terms received from in the peer's `QueryResponse` and launches the deal flow:
 
 1. The client creates a deal ID using the next value from its storedcounter.
-1. Constructs a DealProposal with deal terms
+1. Constructs a `DealProposal` with deal terms
 1. Tells its statemachine to begin tracking this deal state by dealID.
-1. constructs a blockio.SelectorVerifier and adds it to its dealID-keyed map of block verifiers.
-1. triggers a ClientEventOpen event on its statemachine.
+1. constructs a `blockio.SelectorVerifier` and adds it to its dealID-keyed map of block verifiers.
+1. triggers a `ClientEventOpen` event on its statemachine.
 
 From then on, the statemachine controls the deal flow in the client. Other components may listen for events in this flow by calling
 `SubscribeToEvents` on the Client. The Client handles consuming blocks it receives from the provider, via `ConsumeBlocks` function.
 
-### How the statemachine works retrieval deal, client side
+### How the statemachine works for a retrieval deal, client side
 
 In addition to defining the state transition behavior, There is a list of entry funcs, `ClientStateEntryFuncs` in [impl/clientstates/client_fsm.go](./impl/clientstates/client_fsm.go) which map a 
 state to a function that is invoked on an event trigger. Not all events map to an entry function.
@@ -96,7 +98,7 @@ state to a function that is invoked on an event trigger. Not all events map to a
 The entry functions are defined in [impl/clientstates/client_states.go](./impl/clientstates/client_states.go)
 
 Under normal operation, for an accepted deal with no errors, restarts or pauses, assuming enough data 
-is requested to warrant incremental vouchers, the event --> state transitions should go as follows: 
+is requested to warrant incremental vouchers, the **`event`** --> `state` transitions should go as follows: 
 
 1. **`ClientEventOpen`** --> `DealStatusNew`
 1. **`ClientEventDealAccepted`** --> `DealStatusAccepted`
