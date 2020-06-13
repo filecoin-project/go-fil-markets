@@ -105,6 +105,9 @@ From then on, the statemachine controls the deal flow in the client. Other compo
 `SubscribeToEvents` on the Client. The Client handles consuming blocks it receives from the provider, via `ConsumeBlocks` function.
 
 ### State machine operation
+Events are triggered via `statemachine.Send(&lt;dealID&gt;, &lt;eventvalue&gt;)`.
+The state change occurs first, then the statemachine Action is run, then notifiers are called in a goroutine.
+The notifiers are provided the event and the new deal state.
 
 #### In the RetrievalClient
 In addition to defining the state transition behavior, There is a map of states to entry 
