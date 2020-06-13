@@ -104,7 +104,9 @@ From then on, the statemachine controls the deal flow in the client. Other compo
 
 ### State machine operation
 
-In addition to defining the state transition behavior, There is a list of entry functions, `ClientStateEntryFuncs` in [impl/clientstates/client_fsm.go](./impl/clientstates/client_fsm.go) which map a 
+#### In the RetrievalClient
+In addition to defining the state transition behavior, There is a map of states to entry 
+functions, `ClientStateEntryFuncs` in [impl/clientstates/client_fsm.go](./impl/clientstates/client_fsm.go) which map a 
 state to a function that is invoked on an event trigger. Not all events map to an entry function.
 
 The entry functions are defined in [impl/clientstates/client_states.go](./impl/clientstates/client_states.go)
@@ -121,6 +123,28 @@ is requested to warrant incremental vouchers, the **`event`** ⟶ `state` transi
 1. ( **`ClientEventLastPaymentRequested`** ⟶ `DealStatusFundsNeeded`
 1.   **`ClientEventPaymentSent`** ⟶ `DealStatusOngoing` ) 
      this and the previous event-transition may cycle multiple times.
-1. **`ClientEventLastPaymentRequested`** ⟶ `DealStatusFundsNeededLastPayment`
+1. **`ClientEventLastPaymentRequested`** ⟶ `DealStatusFundsNeededLastPayment` if this will be the last voucher sent
 1. **`ClientEventPaymentSent`** ⟶ `DealStatusFinalizing`
 1. **`ClientEventComplete`** ⟶ `DealStatusCompleted`
+
+#### In  the RetrievalProvider
+The corresponding map of states to entry functions for a retrieval provider is `ProviderStateEntryFuncs`, located in 
+[impl/providerstates/provider_fsm.go](./impl/providerstates/provider_fsm.go). As with the Client states, not
+all events map to an entry function.
+
+The entry functions are defined in [impl/providerstates/provider_states.go](./impl/providerstates/provider_states.go)
+
+Under normal operation, for an accepted deal with no errors, restarts or pauses, assuming enough data 
+is requested to warrant incremental vouchers, the **`event`** ⟶ `state` transitions should go as follows: 
+
+1. **`ProviderEventOpen`** ⟶ `DealStatusNew`
+1. **`ProviderEventDealReceived`** ⟶ `DealStatusAwaitingAcceptance`
+1. **`ProviderEventDealAccepted`** ⟶ `DealStatusAccepted`  provider begins sending blocks here
+1. ( **`ProviderEventPaymentRequested`** ⟶ `DealStatusFundsNeeded`
+1.   **`ProviderEventPaymentReceived`** ⟶ `DealStatusOngoing` ) provider resumes sending blocks 
+This and the previous event-transition may cycle multiple times.
+1. **`ProviderEventBlocksCompleted`** ⟶ `DealStatusBlocksComplete` provider has sent last blocks
+1. **`ProviderEventPaymentRequested`** ⟶ `DealStatusFundsNeededLastPayment`
+1. **`ProviderEventPaymentReceived`** ⟶ `DealStatusFinalizing`
+
+**TODO**
