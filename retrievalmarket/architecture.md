@@ -1,19 +1,31 @@
 # Retrieval Market Architecture
 
+## Table of Contents
+* [Major dependencies](#Major_dependencies)
+* [Organization](#Organization)
+    * [types](#types)
+    * [discovery](#discovery)
+    * [impl](#impl)
+    * [network](#network)
+* [Setup for handling data](#Setup_for_handling_data_over_data-transfer)
+* [RetrievalQuery Flow](#RetrievalQuery_Flow)
+* [RetrievalDeal Flow](#RetrievalDeal_Flow)
+    * [State machine operation](#State_machine_operation)
+
 ## Major dependencies
 * Other filecoin-project repos:
-    * go-data-transfer, for transferring all information relating to an active 
+    * [**go-data-transfer**](https://github.com/filecoin-project/go-data-transfer), for transferring all information relating to an active 
         retrieval deal, via go-graphsync
-    * go-statemachine, a finite state machine that tracks deal state
-    * go-storedcounter, for generating and persisting unique deal IDs
-    * specs-actors, the Filecoin actors
+    * [**go-statemachine**](https://github.com/filecoin-project/go-statemachine) a finite state machine that tracks deal state
+    * [**go-storedcounter**](https://github.com/filecoin-project/go-storedcounter) for generating and persisting unique deal IDs
+    * [**specs-actors**](https://github.com/filecoin-project/go-specs-actors) the Filecoin actors
 * IPFS project repos:   
-    * go-graphsync, used by go-data-transfer
-    * go-datastore, for persisting statemachine state for deals
-    * go-ipfs-blockstore, for storing and retrieving block data for deals
+    * [**go-graphsync**](https://github.com/ipfs/go-graphsync) used by go-data-transfer
+    * [**go-datastore**](https://github.com/ipfs/go-datastore) for persisting statemachine state for deals
+    * [**go-ipfs-blockstore**](https://github.com/ipfs/go-ipfs-blockstore) for storing and retrieving block data for deals
 * libp2p project repos:
-    * go-libp2p, the network over which retrieval deal data is exchanged.
-* @hannahoward: hannahhoward/go-pubsub for pub/sub notifications external to the statemachine
+    * [**go-libp2p**](https://github.com/libp2p/go-data-transfer) the network over which retrieval deal data is exchanged.
+* @hannahoward: [**hannahhoward/go-pubsub**](https://github.com/hannahoward/go-pubsub) for pub/sub notifications external to the statemachine
 
 ## Organization
 ### types
@@ -90,24 +102,25 @@ what should be acceptable deal terms received from in the peer's `QueryResponse`
 From then on, the statemachine controls the deal flow in the client. Other components may listen for events in this flow by calling
 `SubscribeToEvents` on the Client. The Client handles consuming blocks it receives from the provider, via `ConsumeBlocks` function.
 
-### How the statemachine works for a retrieval deal, client side
+### State machine operation
 
-In addition to defining the state transition behavior, There is a list of entry funcs, `ClientStateEntryFuncs` in [impl/clientstates/client_fsm.go](./impl/clientstates/client_fsm.go) which map a 
+In addition to defining the state transition behavior, There is a list of entry functions, `ClientStateEntryFuncs` in [impl/clientstates/client_fsm.go](./impl/clientstates/client_fsm.go) which map a 
 state to a function that is invoked on an event trigger. Not all events map to an entry function.
 
 The entry functions are defined in [impl/clientstates/client_states.go](./impl/clientstates/client_states.go)
 
 Under normal operation, for an accepted deal with no errors, restarts or pauses, assuming enough data 
-is requested to warrant incremental vouchers, the **`event`** --> `state` transitions should go as follows: 
+is requested to warrant incremental vouchers, the **`event`** ⟶ `state` transitions should go as follows: 
 
-1. **`ClientEventOpen`** --> `DealStatusNew`
-1. **`ClientEventDealAccepted`** --> `DealStatusAccepted`
-1. **`ClientEventPaymentChannelCreateInitiated`** --> `DealStatusPaymentChannelCreating` 
-   OR **`ClientEventPaymentChannelAddingFunds`** --> `DealStatusPaymentChannelAddingFunds` (for an existing payment channel)
-1. **`ClientEventPaymentChannelReady`** --> `DealStatusPaymentChannelReady`
-1. ( **`ClientEventLastPaymentRequested`** --> `DealStatusFundsNeeded`
-1.   **`ClientEventPaymentSent`** --> `DealStatusOngoing` ) 
+1. **`ClientEventOpen`** ⟶ `DealStatusNew`
+1. **`ClientEventDealAccepted`** ⟶ `DealStatusAccepted`
+1. **`ClientEventPaymentChannelCreateInitiated`** ⟶ `DealStatusPaymentChannelCreating` 
+   OR <br>
+   **`ClientEventPaymentChannelAddingFunds`** ⟶ `DealStatusPaymentChannelAddingFunds` (for an existing payment channel)
+1. **`ClientEventPaymentChannelReady`** ⟶ `DealStatusPaymentChannelReady`
+1. ( **`ClientEventLastPaymentRequested`** ⟶ `DealStatusFundsNeeded`
+1.   **`ClientEventPaymentSent`** ⟶ `DealStatusOngoing` ) 
      this and the previous event-transition may cycle multiple times.
-1. **`ClientEventLastPaymentRequested`** --> `DealStatusFundsNeededLastPayment`
-1. **`ClientEventPaymentSent`** -> `DealStatusFinalizing`
-1. **`ClientEventComplete`** --> `DealStatusCompleted`
+1. **`ClientEventLastPaymentRequested`** ⟶ `DealStatusFundsNeededLastPayment`
+1. **`ClientEventPaymentSent`** ⟶ `DealStatusFinalizing`
+1. **`ClientEventComplete`** ⟶ `DealStatusCompleted`
