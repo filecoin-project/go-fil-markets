@@ -156,7 +156,7 @@ func TestMakeDealOffline(t *testing.T) {
 	err := cario.NewCarIO().WriteCar(ctx, h.TestData.Bs1, h.PayloadCid, shared.AllSelector(), carBuf)
 	require.NoError(t, err)
 
-	commP, size, err := pieceio.GeneratePieceCommitment(abi.RegisteredProof_StackedDRG2KiBPoSt, carBuf, uint64(carBuf.Len()))
+	commP, size, err := pieceio.GeneratePieceCommitment(abi.RegisteredSealProof_StackedDrg2KiBV1, carBuf, uint64(carBuf.Len()))
 	assert.NoError(t, err)
 
 	dataRef := &storagemarket.DataRef{
@@ -372,7 +372,7 @@ func newHarnessWithTestData(t *testing.T, ctx context.Context, td *shared_testut
 		dt2,
 		providerNode,
 		providerAddr,
-		abi.RegisteredProof_StackedDRG2KiBPoSt,
+		abi.RegisteredSealProof_StackedDrg2KiBV1,
 		storedAsk,
 	)
 	assert.NoError(t, err)
@@ -418,7 +418,7 @@ func (h *harness) ProposeStorageDeal(t *testing.T, dataRef *storagemarket.DataRe
 		h.Epoch+20100,
 		big.NewInt(1),
 		big.NewInt(0),
-		abi.RegisteredProof_StackedDRG2KiBPoSt,
+		abi.RegisteredSealProof_StackedDrg2KiBV1,
 	)
 	assert.NoError(t, err)
 	return result

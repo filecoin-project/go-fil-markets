@@ -24,7 +24,7 @@ import (
 
 func TestCommP(t *testing.T) {
 	ctx := context.Background()
-	proofType := abi.RegisteredProof_StackedDRG2KiBPoSt
+	proofType := abi.RegisteredSealProof_StackedDrg2KiBV1
 	t.Run("when PieceCID is present on data ref", func(t *testing.T) {
 		pieceCid := &shared_testutil.GenerateCids(1)[0]
 		pieceSize := abi.UnpaddedPieceSize(rand.Uint64())
@@ -108,7 +108,7 @@ func TestVerifyResponse(t *testing.T) {
 
 type testPieceIO struct {
 	t                  *testing.T
-	expectedRt         abi.RegisteredProof
+	expectedRt         abi.RegisteredSealProof
 	expectedPayloadCid cid.Cid
 	expectedSelector   ipld.Node
 	pieceCID           cid.Cid
@@ -116,7 +116,7 @@ type testPieceIO struct {
 	err                error
 }
 
-func (t *testPieceIO) GeneratePieceCommitment(rt abi.RegisteredProof, payloadCid cid.Cid, selector ipld.Node) (cid.Cid, abi.UnpaddedPieceSize, error) {
+func (t *testPieceIO) GeneratePieceCommitment(rt abi.RegisteredSealProof, payloadCid cid.Cid, selector ipld.Node) (cid.Cid, abi.UnpaddedPieceSize, error) {
 	require.Equal(t.t, rt, t.expectedRt)
 	require.Equal(t.t, payloadCid, t.expectedPayloadCid)
 	require.Equal(t.t, selector, t.expectedSelector)

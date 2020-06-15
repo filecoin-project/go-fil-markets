@@ -564,7 +564,7 @@ type StorageClient interface {
 	//FindStorageOffers(criteria AskCriteria, limit uint) []*StorageOffer
 
 	// ProposeStorageDeal initiates deal negotiation with a Storage Provider
-	ProposeStorageDeal(ctx context.Context, addr address.Address, info *StorageProviderInfo, data *DataRef, startEpoch abi.ChainEpoch, endEpoch abi.ChainEpoch, price abi.TokenAmount, collateral abi.TokenAmount, rt abi.RegisteredProof) (*ProposeStorageDealResult, error)
+	ProposeStorageDeal(ctx context.Context, addr address.Address, info *StorageProviderInfo, data *DataRef, startEpoch abi.ChainEpoch, endEpoch abi.ChainEpoch, price abi.TokenAmount, collateral abi.TokenAmount, rt abi.RegisteredSealProof) (*ProposeStorageDealResult, error)
 
 	// GetPaymentEscrow returns the current funds available for deal payment
 	GetPaymentEscrow(ctx context.Context, addr address.Address) (Balance, error)

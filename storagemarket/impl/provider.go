@@ -43,7 +43,7 @@ type StoredAsk interface {
 type Provider struct {
 	net network.StorageMarketNetwork
 
-	proofType abi.RegisteredProof
+	proofType abi.RegisteredSealProof
 
 	spn                       storagemarket.StorageProviderNode
 	fs                        filestore.FileStore
@@ -105,7 +105,7 @@ func NewProvider(net network.StorageMarketNetwork,
 	dataTransfer datatransfer.Manager,
 	spn storagemarket.StorageProviderNode,
 	minerAddress address.Address,
-	rt abi.RegisteredProof,
+	rt abi.RegisteredSealProof,
 	storedAsk StoredAsk,
 	options ...StorageProviderOption,
 ) (storagemarket.StorageProvider, error) {
