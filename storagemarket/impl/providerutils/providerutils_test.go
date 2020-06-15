@@ -122,7 +122,7 @@ func TestCommPGenerationWithMetadata(t *testing.T) {
 	payloadCid := shared_testutil.GenerateCids(1)[0]
 	ssb := builder.NewSelectorSpecBuilder(basicnode.Style.Any)
 	selector := ssb.ExploreAll(ssb.Matcher()).Node()
-	proofType := abi.RegisteredProof_StackedDRG2KiBPoSt
+	proofType := abi.RegisteredSealProof_StackedDrg2KiBV1
 	pieceCid := shared_testutil.GenerateCids(1)[0]
 	piecePath := filestore.Path("apiece.jpg")
 	pieceSize := abi.UnpaddedPieceSize(rand.Uint64())
@@ -183,7 +183,7 @@ type fakeCommPGenerator struct {
 	err      error
 }
 
-func (fcp *fakeCommPGenerator) GenerateCommPToFile(abi.RegisteredProof, cid.Cid, ipld.Node, ...car.OnNewCarBlockFunc) (cid.Cid, filestore.Path, abi.UnpaddedPieceSize, error) {
+func (fcp *fakeCommPGenerator) GenerateCommPToFile(abi.RegisteredSealProof, cid.Cid, ipld.Node, ...car.OnNewCarBlockFunc) (cid.Cid, filestore.Path, abi.UnpaddedPieceSize, error) {
 	return fcp.pieceCid, fcp.path, fcp.size, fcp.err
 }
 

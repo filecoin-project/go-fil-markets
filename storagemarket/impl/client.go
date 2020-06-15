@@ -200,7 +200,7 @@ func (c *Client) ProposeStorageDeal(
 	endEpoch abi.ChainEpoch,
 	price abi.TokenAmount,
 	collateral abi.TokenAmount,
-	rt abi.RegisteredProof,
+	rt abi.RegisteredSealProof,
 ) (*storagemarket.ProposeStorageDealResult, error) {
 	commP, pieceSize, err := clientutils.CommP(ctx, c.pio, rt, data)
 	if err != nil {

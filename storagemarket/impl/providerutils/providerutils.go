@@ -68,13 +68,13 @@ func SignMinerData(ctx context.Context, data interface{}, address address.Addres
 }
 
 // CommPGenerator is a commP generating function that writes to a file
-type CommPGenerator func(abi.RegisteredProof, cid.Cid, ipld.Node, ...car.OnNewCarBlockFunc) (cid.Cid, filestore.Path, abi.UnpaddedPieceSize, error)
+type CommPGenerator func(abi.RegisteredSealProof, cid.Cid, ipld.Node, ...car.OnNewCarBlockFunc) (cid.Cid, filestore.Path, abi.UnpaddedPieceSize, error)
 
 // GeneratePieceCommitmentWithMetadata generates a piece commitment along with block metadata
 func GeneratePieceCommitmentWithMetadata(
 	fileStore filestore.FileStore,
 	commPGenerator CommPGenerator,
-	proofType abi.RegisteredProof,
+	proofType abi.RegisteredSealProof,
 	payloadCid cid.Cid,
 	selector ipld.Node) (cid.Cid, filestore.Path, filestore.Path, error) {
 	metadataFile, err := fileStore.CreateTemp()

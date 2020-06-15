@@ -17,7 +17,7 @@ import (
 )
 
 // CommP calculates the commP for a given dataref
-func CommP(ctx context.Context, pieceIO pieceio.PieceIO, rt abi.RegisteredProof, data *storagemarket.DataRef) (cid.Cid, abi.UnpaddedPieceSize, error) {
+func CommP(ctx context.Context, pieceIO pieceio.PieceIO, rt abi.RegisteredSealProof, data *storagemarket.DataRef) (cid.Cid, abi.UnpaddedPieceSize, error) {
 	if data.PieceCid != nil {
 		return *data.PieceCid, data.PieceSize, nil
 	}

@@ -241,7 +241,7 @@ func newStorageHarness(ctx context.Context, t *testing.T) *storageHarness {
 		dt2,
 		providerNode,
 		providerAddr,
-		abi.RegisteredProof_StackedDRG2KiBPoSt,
+		abi.RegisteredSealProof_StackedDrg2KiBV1,
 		storedAsk,
 	)
 	require.NoError(t, err)
@@ -285,7 +285,7 @@ func (sh *storageHarness) ProposeStorageDeal(t *testing.T, dataRef *storagemarke
 		sh.Epoch+20100,
 		big.NewInt(1),
 		big.NewInt(0),
-		abi.RegisteredProof_StackedDRG2KiBPoSt,
+		abi.RegisteredSealProof_StackedDrg2KiBV1,
 	)
 	assert.NoError(t, err)
 	return result

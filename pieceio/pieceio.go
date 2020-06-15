@@ -52,7 +52,7 @@ func NewPieceIOWithStore(carIO CarIO, store filestore.FileStore, bs blockstore.B
 	return &pieceIOWithStore{pieceIO{carIO, bs}, store}
 }
 
-func (pio *pieceIO) GeneratePieceCommitment(rt abi.RegisteredProof, payloadCid cid.Cid, selector ipld.Node) (cid.Cid, abi.UnpaddedPieceSize, error) {
+func (pio *pieceIO) GeneratePieceCommitment(rt abi.RegisteredSealProof, payloadCid cid.Cid, selector ipld.Node) (cid.Cid, abi.UnpaddedPieceSize, error) {
 	preparedCar, err := pio.carIO.PrepareCar(context.Background(), pio.bs, payloadCid, selector)
 	if err != nil {
 		return cid.Undef, 0, err
@@ -88,7 +88,7 @@ func (pio *pieceIO) GeneratePieceCommitment(rt abi.RegisteredProof, payloadCid c
 	return commitment, paddedSize, nil
 }
 
-func (pio *pieceIOWithStore) GeneratePieceCommitmentToFile(rt abi.RegisteredProof, payloadCid cid.Cid, selector ipld.Node, userOnNewCarBlocks ...car.OnNewCarBlockFunc) (cid.Cid, filestore.Path, abi.UnpaddedPieceSize, error) {
+func (pio *pieceIOWithStore) GeneratePieceCommitmentToFile(rt abi.RegisteredSealProof, payloadCid cid.Cid, selector ipld.Node, userOnNewCarBlocks ...car.OnNewCarBlockFunc) (cid.Cid, filestore.Path, abi.UnpaddedPieceSize, error) {
 	f, err := pio.store.CreateTemp()
 	if err != nil {
 		return cid.Undef, "", 0, err
@@ -117,7 +117,7 @@ func (pio *pieceIOWithStore) GeneratePieceCommitmentToFile(rt abi.RegisteredProo
 	return commitment, f.Path(), paddedSize, nil
 }
 
-func GeneratePieceCommitment(rt abi.RegisteredProof, rd io.Reader, pieceSize uint64) (cid.Cid, abi.UnpaddedPieceSize, error) {
+func GeneratePieceCommitment(rt abi.RegisteredSealProof, rd io.Reader, pieceSize uint64) (cid.Cid, abi.UnpaddedPieceSize, error) {
 	paddedReader, paddedSize := padreader.New(rd, pieceSize)
 	commitment, err := ffiwrapper.GeneratePieceCIDFromFile(rt, paddedReader, paddedSize)
 	if err != nil {
