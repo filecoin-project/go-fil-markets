@@ -13,6 +13,7 @@ import (
 
 	"github.com/filecoin-project/go-address"
 	graphsync "github.com/filecoin-project/go-data-transfer/impl/graphsync"
+	"github.com/filecoin-project/go-statestore"
 	"github.com/filecoin-project/specs-actors/actors/abi"
 	"github.com/filecoin-project/specs-actors/actors/abi/big"
 	"github.com/filecoin-project/specs-actors/actors/builtin/market"
@@ -346,7 +347,8 @@ func newHarnessWithTestData(t *testing.T, ctx context.Context, td *shared_testut
 
 	// create provider and client
 	dt1 := graphsync.NewGraphSyncDataTransfer(td.Host1, td.GraphSync1, td.DTStoredCounter1)
-	require.NoError(t, dt1.RegisterVoucherType(&requestvalidation.StorageDataTransferVoucher{}, &shared_testutil.FakeDTValidator{}))
+	rv1 := requestvalidation.NewUnifiedRequestValidator(nil, statestore.New(td.Ds1))
+	require.NoError(t, dt1.RegisterVoucherType(&requestvalidation.StorageDataTransferVoucher{}, rv1))
 
 	client, err := storageimpl.NewClient(
 		network.NewFromLibp2pHost(td.Host1),
@@ -359,7 +361,8 @@ func newHarnessWithTestData(t *testing.T, ctx context.Context, td *shared_testut
 	require.NoError(t, err)
 
 	dt2 := graphsync.NewGraphSyncDataTransfer(td.Host2, td.GraphSync2, td.DTStoredCounter2)
-	require.NoError(t, dt2.RegisterVoucherType(&requestvalidation.StorageDataTransferVoucher{}, &shared_testutil.FakeDTValidator{}))
+	rv2 := requestvalidation.NewUnifiedRequestValidator(statestore.New(td.Ds2), nil)
+	require.NoError(t, dt2.RegisterVoucherType(&requestvalidation.StorageDataTransferVoucher{}, rv2))
 
 	storedAsk, err := storedask.NewStoredAsk(td.Ds2, datastore.NewKey("latest-ask"), providerNode, providerAddr)
 	assert.NoError(t, err)
