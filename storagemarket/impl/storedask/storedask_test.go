@@ -34,7 +34,7 @@ func TestStoredAsk(t *testing.T) {
 	})
 	t.Run("setting ask price", func(t *testing.T) {
 		minPieceSize := abi.PaddedPieceSize(1024)
-		err := storedAsk.AddAsk(testPrice, testDuration, storagemarket.MinPieceSize(minPieceSize))
+		err := storedAsk.SetAsk(testPrice, testDuration, storagemarket.MinPieceSize(minPieceSize))
 		require.NoError(t, err)
 		ask := storedAsk.GetAsk(actor)
 		require.Equal(t, ask.Ask.Price, testPrice)
@@ -64,7 +64,7 @@ func TestStoredAsk(t *testing.T) {
 		// should load cause ask is is still in data store
 		storedAskError, err := storedask.NewStoredAsk(ds, datastore.NewKey("latest-ask"), spnStateIDErr, actor)
 		require.NoError(t, err)
-		err = storedAskError.AddAsk(testPrice, testDuration)
+		err = storedAskError.SetAsk(testPrice, testDuration)
 		require.Error(t, err)
 
 		spnMinerWorkerErr := &testnodes.FakeProviderNode{
@@ -76,7 +76,7 @@ func TestStoredAsk(t *testing.T) {
 		// should load cause ask is is still in data store
 		storedAskError, err = storedask.NewStoredAsk(ds, datastore.NewKey("latest-ask"), spnMinerWorkerErr, actor)
 		require.NoError(t, err)
-		err = storedAskError.AddAsk(testPrice, testDuration)
+		err = storedAskError.SetAsk(testPrice, testDuration)
 		require.Error(t, err)
 
 		spnSignBytesErr := &testnodes.FakeProviderNode{
@@ -88,7 +88,7 @@ func TestStoredAsk(t *testing.T) {
 		// should load cause ask is is still in data store
 		storedAskError, err = storedask.NewStoredAsk(ds, datastore.NewKey("latest-ask"), spnSignBytesErr, actor)
 		require.NoError(t, err)
-		err = storedAskError.AddAsk(testPrice, testDuration)
+		err = storedAskError.SetAsk(testPrice, testDuration)
 		require.Error(t, err)
 	})
 }
