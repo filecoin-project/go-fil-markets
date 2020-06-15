@@ -372,8 +372,9 @@ Custom Deal Decision Logic and cleanups of 0.2.6
 Deal Resumability release. We now attempt to resume storage deals when the application is shut down and restart, and we support a more flexible deal acceptance protocol.
 
 ### Changelog
-
 - github.com/filecoin-project/go-fil-markets:
+  - fix(storagemarket): fix validator, add to test
+  - docs(CHANGELOG): update changelog and add detail script
   - both StoredAsk and storage Provider are scoped to a single miner (#276) ([filecoin-project/go-fil-markets#276](https://github.com/filecoin-project/go-fil-markets/pull/276))
   - specs actors v0.6 (#274) ([filecoin-project/go-fil-markets#274](https://github.com/filecoin-project/go-fil-markets/pull/274))
   - Restartable storage deals (#270) ([filecoin-project/go-fil-markets#270](https://github.com/filecoin-project/go-fil-markets/pull/270))
@@ -395,7 +396,7 @@ Deal Resumability release. We now attempt to resume storage deals when the appli
 |-------------|---------|---------|---------------|
 | Ingar Shu | 4 | +1407/-695 | 35 |
 | Shannon Wells | 2 | +1515/-467 | 20 |
-| hannahhoward | 6 | +258/-137 | 16 |
+| hannahhoward | 8 | +862/-191 | 21 |
 | Hannah Howard | 1 | +263/-0 | 2 |
 | Łukasz Magiera | 1 | +48/-43 | 15 |
 | Erin Swenson-Healey | 2 | +39/-42 | 10 |
