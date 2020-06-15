@@ -238,7 +238,7 @@ func TestRestartClient(t *testing.T) {
 	require.NoError(t, h.Client.Start(ctx))
 
 	// set ask price where we'll accept any price
-	err := h.Provider.AddAsk(big.NewInt(0), 50_000)
+	err := h.Provider.SetAsk(big.NewInt(0), 50_000)
 	assert.NoError(t, err)
 
 	wg := sync.WaitGroup{}
