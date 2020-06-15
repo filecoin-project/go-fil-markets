@@ -412,7 +412,7 @@ type StorageProvider interface {
 	SetAsk(price abi.TokenAmount, duration abi.ChainEpoch, options ...StorageAskOption) error
 
 	// GetAsk returns the storage miner's ask, or nil if one does not exist.
-	GetAsk(addr address.Address) *SignedStorageAsk
+	GetAsk() *SignedStorageAsk
 
 	// ListDeals lists on-chain deals associated with this storage provider
 	ListDeals(ctx context.Context) ([]StorageDeal, error)
