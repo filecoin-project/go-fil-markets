@@ -40,9 +40,8 @@ import (
 func TestMakeDeal(t *testing.T) {
 	ctx := context.Background()
 	h := newHarness(t, ctx)
-	h.Client.Run(ctx)
-	err := h.Provider.Start(ctx)
-	assert.NoError(t, err)
+	require.NoError(t, h.Provider.Start(ctx))
+	require.NoError(t, h.Client.Start(ctx))
 
 	// set up a subscriber
 	providerDealChan := make(chan storagemarket.MinerDeal)
@@ -69,7 +68,7 @@ func TestMakeDeal(t *testing.T) {
 	_ = h.Client.SubscribeToEvents(clientSubscriber)
 
 	// set ask price where we'll accept any price
-	err = h.Provider.SetAsk(big.NewInt(0), 50_000)
+	err := h.Provider.SetAsk(big.NewInt(0), 50_000)
 	assert.NoError(t, err)
 
 	result := h.ProposeStorageDeal(t, &storagemarket.DataRef{TransferType: storagemarket.TTGraphsync, Root: h.PayloadCid})
@@ -150,7 +149,7 @@ func TestMakeDeal(t *testing.T) {
 func TestMakeDealOffline(t *testing.T) {
 	ctx := context.Background()
 	h := newHarness(t, ctx)
-	h.Client.Run(ctx)
+	require.NoError(t, h.Client.Start(ctx))
 
 	carBuf := new(bytes.Buffer)
 
@@ -207,13 +206,12 @@ func TestMakeDealNonBlocking(t *testing.T) {
 	h := newHarness(t, ctx)
 	testCids := shared_testutil.GenerateCids(2)
 
-	h.ClientNode.AddFundsCid = testCids[0]
-	h.Client.Run(ctx)
-
 	h.ProviderNode.WaitForMessageBlocks = true
 	h.ProviderNode.AddFundsCid = testCids[1]
-	err := h.Provider.Start(ctx)
-	assert.NoError(t, err)
+	require.NoError(t, h.Provider.Start(ctx))
+
+	h.ClientNode.AddFundsCid = testCids[0]
+	require.NoError(t, h.Client.Start(ctx))
 
 	result := h.ProposeStorageDeal(t, &storagemarket.DataRef{TransferType: storagemarket.TTGraphsync, Root: h.PayloadCid})
 
@@ -236,12 +234,11 @@ func TestRestartClient(t *testing.T) {
 	ctx := context.Background()
 	h := newHarness(t, ctx)
 
-	h.Client.Run(ctx)
-	err := h.Provider.Start(ctx)
-	assert.NoError(t, err)
+	require.NoError(t, h.Provider.Start(ctx))
+	require.NoError(t, h.Client.Start(ctx))
 
 	// set ask price where we'll accept any price
-	err = h.Provider.AddAsk(big.NewInt(0), 50_000)
+	err := h.Provider.AddAsk(big.NewInt(0), 50_000)
 	assert.NoError(t, err)
 
 	wg := sync.WaitGroup{}
@@ -249,8 +246,8 @@ func TestRestartClient(t *testing.T) {
 	_ = h.Client.SubscribeToEvents(func(event storagemarket.ClientEvent, deal storagemarket.ClientDeal) {
 		if event == storagemarket.ClientEventFundsEnsured {
 			// Stop the client and provider at some point during deal negotiation
-			h.Client.Stop()
-			err = h.Provider.Stop()
+			require.NoError(t, h.Client.Stop())
+			require.NoError(t, h.Provider.Stop())
 			wg.Done()
 		}
 	})
@@ -280,9 +277,8 @@ func TestRestartClient(t *testing.T) {
 		}
 	})
 
-	err = h.Provider.Start(ctx)
-	h.Client.Run(ctx)
-	assert.NoError(t, err)
+	require.NoError(t, h.Provider.Start(ctx))
+	require.NoError(t, h.Client.Start(ctx))
 
 	wg.Wait()
 

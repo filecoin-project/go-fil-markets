@@ -46,7 +46,7 @@ import (
 func TestStorageRetrieval(t *testing.T) {
 	bgCtx := context.Background()
 	sh := newStorageHarness(bgCtx, t)
-	sh.Client.Run(bgCtx)
+	require.NoError(t, sh.Client.Start(bgCtx))
 	require.NoError(t, sh.Provider.Start(bgCtx))
 
 	// set up a subscriber

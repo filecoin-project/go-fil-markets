@@ -541,9 +541,9 @@ type DataRef struct {
 
 // The interface provided by the module to the outside world for storage clients.
 type StorageClient interface {
-	Run(ctx context.Context)
+	Start(ctx context.Context) error
 
-	Stop()
+	Stop() error
 
 	// ListProviders queries chain state and returns active storage providers
 	ListProviders(ctx context.Context) (<-chan StorageProviderInfo, error)
