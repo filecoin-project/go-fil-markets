@@ -101,12 +101,9 @@ func (s *StoredAsk) SetAsk(price abi.TokenAmount, duration abi.ChainEpoch, optio
 
 }
 
-func (s *StoredAsk) GetAsk(addr address.Address) *storagemarket.SignedStorageAsk {
+func (s *StoredAsk) GetAsk() *storagemarket.SignedStorageAsk {
 	s.askLk.RLock()
 	defer s.askLk.RUnlock()
-	if s.actor != addr {
-		return nil
-	}
 	if s.ask == nil {
 		return nil
 	}

@@ -35,7 +35,7 @@ var DefaultDealAcceptanceBuffer = abi.ChainEpoch(100)
 var _ storagemarket.StorageProvider = &Provider{}
 
 type StoredAsk interface {
-	GetAsk(address.Address) *storagemarket.SignedStorageAsk
+	GetAsk() *storagemarket.SignedStorageAsk
 	SetAsk(price abi.TokenAmount, duration abi.ChainEpoch, options ...storagemarket.StorageAskOption) error
 }
 
@@ -259,8 +259,8 @@ func (p *Provider) ImportDataForDeal(ctx context.Context, propCid cid.Cid, data 
 
 }
 
-func (p *Provider) GetAsk(addr address.Address) *storagemarket.SignedStorageAsk {
-	return p.storedAsk.GetAsk(addr)
+func (p *Provider) GetAsk() *storagemarket.SignedStorageAsk {
+	return p.storedAsk.GetAsk()
 }
 
 func (p *Provider) ListDeals(ctx context.Context) ([]storagemarket.StorageDeal, error) {
@@ -327,8 +327,15 @@ func (p *Provider) HandleAskStream(s network.StorageAskStream) {
 		return
 	}
 
+	var ask *storagemarket.SignedStorageAsk
+	if p.actor != ar.Miner {
+		log.Warnf("storage provider for address %s receive ask for miner with address %s", p.actor, ar.Miner)
+	} else {
+		ask = p.storedAsk.GetAsk()
+	}
+
 	resp := network.AskResponse{
-		Ask: p.storedAsk.GetAsk(ar.Miner),
+		Ask: ask,
 	}
 
 	if err := s.WriteAskResponse(resp); err != nil {
@@ -446,7 +453,7 @@ func (p *providerDealEnvironment) Node() storagemarket.StorageProviderNode {
 }
 
 func (p *providerDealEnvironment) Ask() storagemarket.StorageAsk {
-	sask := p.p.storedAsk.GetAsk(p.p.actor)
+	sask := p.p.storedAsk.GetAsk()
 	if sask == nil {
 		return storagemarket.StorageAskUndefined
 	}
