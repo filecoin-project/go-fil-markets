@@ -272,7 +272,7 @@ func TestRestartClient(t *testing.T) {
 
 	wg.Add(1)
 	_ = h.Provider.SubscribeToEvents(func(event storagemarket.ProviderEvent, deal storagemarket.MinerDeal) {
-		if event == storagemarket.ProviderEventDealActivated {
+		if event == storagemarket.ProviderEventDealCompleted {
 			wg.Done()
 		}
 	})
@@ -291,7 +291,7 @@ func TestRestartClient(t *testing.T) {
 
 	pd := providerDeals[0]
 	assert.Equal(t, pd.ProposalCid, proposalCid)
-	shared_testutil.AssertDealState(t, storagemarket.StorageDealActive, pd.State)
+	shared_testutil.AssertDealState(t, storagemarket.StorageDealCompleted, pd.State)
 }
 
 type harness struct {
