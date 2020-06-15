@@ -25,6 +25,7 @@ import (
 	"github.com/filecoin-project/go-fil-markets/shared"
 	tut "github.com/filecoin-project/go-fil-markets/shared_testutil"
 	"github.com/filecoin-project/go-fil-markets/storagemarket"
+	storageimpl "github.com/filecoin-project/go-fil-markets/storagemarket/impl"
 	"github.com/filecoin-project/go-fil-markets/storagemarket/impl/blockrecorder"
 	"github.com/filecoin-project/go-fil-markets/storagemarket/impl/providerstates"
 	"github.com/filecoin-project/go-fil-markets/storagemarket/network"
@@ -682,6 +683,18 @@ func TestFailDeal(t *testing.T) {
 		t.Run(test, func(t *testing.T) {
 			runFailDeal(t, data.nodeParams, data.environmentParams, data.dealParams, data.fileStoreParams, data.pieceStoreParams, data.dealInspector)
 		})
+	}
+}
+
+func TestFinalityStates(t *testing.T) {
+	group, err := storageimpl.NewProviderStateMachine(nil, &fakeEnvironment{}, nil)
+	require.NoError(t, err)
+
+	for _, status := range []storagemarket.StorageDealStatus{
+		storagemarket.StorageDealCompleted,
+		storagemarket.StorageDealError,
+	} {
+		require.True(t, group.IsTerminated(storagemarket.MinerDeal{State: status}))
 	}
 }
 

@@ -127,14 +127,11 @@ func NewProvider(net network.StorageMarketNetwork,
 		pubSub:               pubsub.New(providerDispatcher),
 	}
 
-	deals, err := fsm.New(ds, fsm.Parameters{
-		Environment:     &providerDealEnvironment{h},
-		StateType:       storagemarket.MinerDeal{},
-		StateKeyField:   "State",
-		Events:          providerstates.ProviderEvents,
-		StateEntryFuncs: providerstates.ProviderStateEntryFuncs,
-		Notifier:        h.dispatch,
-	})
+	deals, err := NewProviderStateMachine(
+		ds,
+		&providerDealEnvironment{h},
+		h.dispatch,
+	)
 	if err != nil {
 		return nil, err
 	}
@@ -155,6 +152,12 @@ func (p *Provider) Start(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
+
+	err = p.restartDeals()
+	if err != nil {
+		return err
+	}
+
 	return nil
 }
 
@@ -368,6 +371,44 @@ func (p *Provider) dispatch(eventName fsm.EventName, deal fsm.StateType) {
 	if err := p.pubSub.Publish(pubSubEvt); err != nil {
 		log.Errorf("failed to publish event %d", evt)
 	}
+}
+
+func (c *Provider) restartDeals() error {
+	var deals []storagemarket.MinerDeal
+	err := c.deals.List(&deals)
+	if err != nil {
+		return err
+	}
+
+	for _, deal := range deals {
+		if c.deals.IsTerminated(deal) {
+			continue
+		}
+
+		if deal.ConnectionClosed {
+			continue
+		}
+
+		// TODO: Fixup deal streams if necessary...
+
+		err = c.deals.Send(deal.ProposalCid, storagemarket.ProviderEventRestart)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func NewProviderStateMachine(ds datastore.Datastore, env fsm.Environment, notifier fsm.Notifier) (fsm.Group, error) {
+	return fsm.New(ds, fsm.Parameters{
+		Environment:     env,
+		StateType:       storagemarket.MinerDeal{},
+		StateKeyField:   "State",
+		Events:          providerstates.ProviderEvents,
+		StateEntryFuncs: providerstates.ProviderStateEntryFuncs,
+		FinalityStates:  providerstates.ProviderFinalityStates,
+		Notifier:        notifier,
+	})
 }
 
 type internalProviderEvent struct {

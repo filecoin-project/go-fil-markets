@@ -236,6 +236,9 @@ const (
 
 	// ProviderEventFailed indicates a deal has failed and should no longer be processed
 	ProviderEventFailed
+
+	// ProviderEventRestart is used to resume the deal after a state machine shutdown
+	ProviderEventRestart
 )
 
 // ProviderEvents maps provider event codes to string names
@@ -269,6 +272,7 @@ var ProviderEvents = map[ProviderEvent]string{
 	ProviderEventReadMetadataErrored:    "ProviderEventReadMetadataErrored",
 	ProviderEventDealCompleted:          "ProviderEventDealCompleted",
 	ProviderEventFailed:                 "ProviderEventFailed",
+	ProviderEventRestart:                "ProviderEventRestart",
 }
 
 type ClientDeal struct {
@@ -350,6 +354,9 @@ const (
 
 	// ClientEventFailed happens when a deal terminates in failure
 	ClientEventFailed
+
+	// ClientEventRestart is used to resume the deal after a state machine shutdown
+	ClientEventRestart
 )
 
 // ClientEvents maps client event codes to string names
@@ -375,6 +382,7 @@ var ClientEvents = map[ClientEvent]string{
 	ClientEventDealActivationFailed:       "ClientEventDealActivationFailed",
 	ClientEventDealActivated:              "ClientEventDealActivated",
 	ClientEventFailed:                     "ClientEventFailed",
+	ClientEventRestart:                    "ClientEventRestart",
 }
 
 // StorageDeal is a local combination of a proposal and a current deal state
@@ -533,9 +541,9 @@ type DataRef struct {
 
 // The interface provided by the module to the outside world for storage clients.
 type StorageClient interface {
-	Run(ctx context.Context)
+	Start(ctx context.Context) error
 
-	Stop()
+	Stop() error
 
 	// ListProviders queries chain state and returns active storage providers
 	ListProviders(ctx context.Context) (<-chan StorageProviderInfo, error)

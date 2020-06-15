@@ -98,6 +98,7 @@ type FakeCommonNode struct {
 	WaitForMessageExitCode  exitcode.ExitCode
 	WaitForMessageRetBytes  []byte
 	WaitForMessageNodeError error
+	WaitForMessageCalls     []cid.Cid
 }
 
 // GetChainHead returns the state id in the storage market state
@@ -129,6 +130,8 @@ func (n *FakeCommonNode) EnsureFunds(ctx context.Context, addr, wallet address.A
 }
 
 func (n *FakeCommonNode) WaitForMessage(ctx context.Context, mcid cid.Cid, onCompletion func(exitcode.ExitCode, []byte, error) error) error {
+	n.WaitForMessageCalls = append(n.WaitForMessageCalls, mcid)
+
 	if n.WaitForMessageError != nil {
 		return n.WaitForMessageError
 	}

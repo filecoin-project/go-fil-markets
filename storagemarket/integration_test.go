@@ -7,20 +7,18 @@ import (
 	"io/ioutil"
 	"math/rand"
 	"path/filepath"
+	"sync"
 	"testing"
 	"time"
 
 	"github.com/filecoin-project/go-address"
-	datatransfer "github.com/filecoin-project/go-data-transfer"
 	graphsync "github.com/filecoin-project/go-data-transfer/impl/graphsync"
 	"github.com/filecoin-project/specs-actors/actors/abi"
 	"github.com/filecoin-project/specs-actors/actors/abi/big"
 	"github.com/filecoin-project/specs-actors/actors/builtin/market"
 	"github.com/ipfs/go-cid"
 	"github.com/ipfs/go-datastore"
-	"github.com/ipld/go-ipld-prime"
 	cidlink "github.com/ipld/go-ipld-prime/linking/cid"
-	"github.com/libp2p/go-libp2p-core/peer"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -42,9 +40,8 @@ import (
 func TestMakeDeal(t *testing.T) {
 	ctx := context.Background()
 	h := newHarness(t, ctx)
-	h.Client.Run(ctx)
-	err := h.Provider.Start(ctx)
-	assert.NoError(t, err)
+	require.NoError(t, h.Provider.Start(ctx))
+	require.NoError(t, h.Client.Start(ctx))
 
 	// set up a subscriber
 	providerDealChan := make(chan storagemarket.MinerDeal)
@@ -71,7 +68,7 @@ func TestMakeDeal(t *testing.T) {
 	_ = h.Client.SubscribeToEvents(clientSubscriber)
 
 	// set ask price where we'll accept any price
-	err = h.Provider.SetAsk(big.NewInt(0), 50_000)
+	err := h.Provider.SetAsk(big.NewInt(0), 50_000)
 	assert.NoError(t, err)
 
 	result := h.ProposeStorageDeal(t, &storagemarket.DataRef{TransferType: storagemarket.TTGraphsync, Root: h.PayloadCid})
@@ -152,7 +149,7 @@ func TestMakeDeal(t *testing.T) {
 func TestMakeDealOffline(t *testing.T) {
 	ctx := context.Background()
 	h := newHarness(t, ctx)
-	h.Client.Run(ctx)
+	require.NoError(t, h.Client.Start(ctx))
 
 	carBuf := new(bytes.Buffer)
 
@@ -209,13 +206,12 @@ func TestMakeDealNonBlocking(t *testing.T) {
 	h := newHarness(t, ctx)
 	testCids := shared_testutil.GenerateCids(2)
 
-	h.ClientNode.AddFundsCid = testCids[0]
-	h.Client.Run(ctx)
-
 	h.ProviderNode.WaitForMessageBlocks = true
 	h.ProviderNode.AddFundsCid = testCids[1]
-	err := h.Provider.Start(ctx)
-	assert.NoError(t, err)
+	require.NoError(t, h.Provider.Start(ctx))
+
+	h.ClientNode.AddFundsCid = testCids[0]
+	require.NoError(t, h.Client.Start(ctx))
 
 	result := h.ProposeStorageDeal(t, &storagemarket.DataRef{TransferType: storagemarket.TTGraphsync, Root: h.PayloadCid})
 
@@ -234,6 +230,70 @@ func TestMakeDealNonBlocking(t *testing.T) {
 	shared_testutil.AssertDealState(t, storagemarket.StorageDealProviderFunding, pd.State)
 }
 
+func TestRestartClient(t *testing.T) {
+	ctx := context.Background()
+	h := newHarness(t, ctx)
+
+	require.NoError(t, h.Provider.Start(ctx))
+	require.NoError(t, h.Client.Start(ctx))
+
+	// set ask price where we'll accept any price
+	err := h.Provider.SetAsk(big.NewInt(0), 50_000)
+	assert.NoError(t, err)
+
+	wg := sync.WaitGroup{}
+	wg.Add(1)
+	_ = h.Client.SubscribeToEvents(func(event storagemarket.ClientEvent, deal storagemarket.ClientDeal) {
+		if event == storagemarket.ClientEventFundsEnsured {
+			// Stop the client and provider at some point during deal negotiation
+			require.NoError(t, h.Client.Stop())
+			require.NoError(t, h.Provider.Stop())
+			wg.Done()
+		}
+	})
+
+	result := h.ProposeStorageDeal(t, &storagemarket.DataRef{TransferType: storagemarket.TTGraphsync, Root: h.PayloadCid})
+	proposalCid := result.ProposalCid
+
+	wg.Wait()
+
+	cd, err := h.Client.GetLocalDeal(ctx, proposalCid)
+	assert.NoError(t, err)
+	assert.NotEqual(t, storagemarket.StorageDealActive, cd.State)
+
+	h = newHarnessWithTestData(t, ctx, h.TestData, h.SMState)
+
+	wg.Add(1)
+	_ = h.Client.SubscribeToEvents(func(event storagemarket.ClientEvent, deal storagemarket.ClientDeal) {
+		if event == storagemarket.ClientEventDealActivated {
+			wg.Done()
+		}
+	})
+
+	wg.Add(1)
+	_ = h.Provider.SubscribeToEvents(func(event storagemarket.ProviderEvent, deal storagemarket.MinerDeal) {
+		if event == storagemarket.ProviderEventDealCompleted {
+			wg.Done()
+		}
+	})
+
+	require.NoError(t, h.Provider.Start(ctx))
+	require.NoError(t, h.Client.Start(ctx))
+
+	wg.Wait()
+
+	cd, err = h.Client.GetLocalDeal(ctx, proposalCid)
+	assert.NoError(t, err)
+	shared_testutil.AssertDealState(t, storagemarket.StorageDealActive, cd.State)
+
+	providerDeals, err := h.Provider.ListLocalDeals()
+	assert.NoError(t, err)
+
+	pd := providerDeals[0]
+	assert.Equal(t, pd.ProposalCid, proposalCid)
+	shared_testutil.AssertDealState(t, storagemarket.StorageDealCompleted, pd.State)
+}
+
 type harness struct {
 	Ctx          context.Context
 	Epoch        abi.ChainEpoch
@@ -243,18 +303,22 @@ type harness struct {
 	ClientNode   *testnodes.FakeClientNode
 	Provider     storagemarket.StorageProvider
 	ProviderNode *testnodes.FakeProviderNode
+	SMState      *testnodes.StorageMarketState
 	ProviderInfo storagemarket.StorageProviderInfo
 	TestData     *shared_testutil.Libp2pTestData
 }
 
 func newHarness(t *testing.T, ctx context.Context) *harness {
+	smState := testnodes.NewStorageMarketState()
+	return newHarnessWithTestData(t, ctx, shared_testutil.NewLibp2pTestData(ctx, t), smState)
+}
+
+func newHarnessWithTestData(t *testing.T, ctx context.Context, td *shared_testutil.Libp2pTestData, smState *testnodes.StorageMarketState) *harness {
 	epoch := abi.ChainEpoch(100)
-	td := shared_testutil.NewLibp2pTestData(ctx, t)
 	fpath := filepath.Join("storagemarket", "fixtures", "payload.txt")
 	rootLink := td.LoadUnixFSFile(t, fpath, false)
 	payloadCid := rootLink.(cidlink.Link).Cid
 
-	smState := testnodes.NewStorageMarketState()
 	clientNode := testnodes.FakeClientNode{
 		FakeCommonNode: testnodes.FakeCommonNode{SMState: smState},
 		ClientAddr:     address.TestAddress,
@@ -282,7 +346,7 @@ func newHarness(t *testing.T, ctx context.Context) *harness {
 
 	// create provider and client
 	dt1 := graphsync.NewGraphSyncDataTransfer(td.Host1, td.GraphSync1, td.DTStoredCounter1)
-	require.NoError(t, dt1.RegisterVoucherType(&requestvalidation.StorageDataTransferVoucher{}, &fakeDTValidator{}))
+	require.NoError(t, dt1.RegisterVoucherType(&requestvalidation.StorageDataTransferVoucher{}, &shared_testutil.FakeDTValidator{}))
 
 	client, err := storageimpl.NewClient(
 		network.NewFromLibp2pHost(td.Host1),
@@ -295,7 +359,7 @@ func newHarness(t *testing.T, ctx context.Context) *harness {
 	require.NoError(t, err)
 
 	dt2 := graphsync.NewGraphSyncDataTransfer(td.Host2, td.GraphSync2, td.DTStoredCounter2)
-	require.NoError(t, dt2.RegisterVoucherType(&requestvalidation.StorageDataTransferVoucher{}, &fakeDTValidator{}))
+	require.NoError(t, dt2.RegisterVoucherType(&requestvalidation.StorageDataTransferVoucher{}, &shared_testutil.FakeDTValidator{}))
 
 	storedAsk, err := storedask.NewStoredAsk(td.Ds2, datastore.NewKey("latest-ask"), providerNode, providerAddr)
 	assert.NoError(t, err)
@@ -340,6 +404,7 @@ func newHarness(t *testing.T, ctx context.Context) *harness {
 		ProviderNode: providerNode,
 		ProviderInfo: providerInfo,
 		TestData:     td,
+		SMState:      smState,
 	}
 }
 
@@ -358,15 +423,3 @@ func (h *harness) ProposeStorageDeal(t *testing.T, dataRef *storagemarket.DataRe
 	assert.NoError(t, err)
 	return result
 }
-
-type fakeDTValidator struct{}
-
-func (v *fakeDTValidator) ValidatePush(sender peer.ID, voucher datatransfer.Voucher, baseCid cid.Cid, selector ipld.Node) error {
-	return nil
-}
-
-func (v *fakeDTValidator) ValidatePull(receiver peer.ID, voucher datatransfer.Voucher, baseCid cid.Cid, selector ipld.Node) error {
-	return nil
-}
-
-var _ datatransfer.RequestValidator = (*fakeDTValidator)(nil)

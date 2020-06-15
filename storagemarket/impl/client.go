@@ -74,14 +74,11 @@ func NewClient(
 		conns:        connmanager.NewConnManager(),
 	}
 
-	statemachines, err := fsm.New(ds, fsm.Parameters{
-		Environment:     &clientDealEnvironment{c},
-		StateType:       storagemarket.ClientDeal{},
-		StateKeyField:   "State",
-		Events:          clientstates.ClientEvents,
-		StateEntryFuncs: clientstates.ClientStateEntryFuncs,
-		Notifier:        c.dispatch,
-	})
+	statemachines, err := NewClientStateMachine(
+		ds,
+		&clientDealEnvironment{c},
+		c.dispatch,
+	)
 	if err != nil {
 		return nil, err
 	}
@@ -93,11 +90,12 @@ func NewClient(
 	return c, nil
 }
 
-func (c *Client) Run(ctx context.Context) {
+func (c *Client) Start(ctx context.Context) error {
+	return c.restartDeals()
 }
 
-func (c *Client) Stop() {
-	_ = c.statemachines.Stop(context.TODO())
+func (c *Client) Stop() error {
+	return c.statemachines.Stop(context.TODO())
 }
 
 func (c *Client) ListProviders(ctx context.Context) (<-chan storagemarket.StorageProviderInfo, error) {
@@ -301,6 +299,35 @@ func (c *Client) SubscribeToEvents(subscriber storagemarket.ClientSubscriber) sh
 	return shared.Unsubscribe(c.pubSub.Subscribe(subscriber))
 }
 
+func (c *Client) restartDeals() error {
+	var deals []storagemarket.ClientDeal
+	err := c.statemachines.List(&deals)
+	if err != nil {
+		return err
+	}
+
+	for _, deal := range deals {
+		if c.statemachines.IsTerminated(deal) {
+			continue
+		}
+
+		if deal.ConnectionClosed {
+			continue
+		}
+
+		_, err := c.ensureDealStream(deal.Miner, deal.ProposalCid)
+		if err != nil {
+			return err
+		}
+
+		err = c.statemachines.Send(deal.ProposalCid, storagemarket.ClientEventRestart)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 func (c *Client) dispatch(eventName fsm.EventName, deal fsm.StateType) {
 	evt, ok := eventName.(storagemarket.ClientEvent)
 	if !ok {
@@ -315,6 +342,36 @@ func (c *Client) dispatch(eventName fsm.EventName, deal fsm.StateType) {
 	if err := c.pubSub.Publish(pubSubEvt); err != nil {
 		log.Errorf("failed to publish event %d", evt)
 	}
+}
+
+func (c *Client) ensureDealStream(provider peer.ID, proposalCid cid.Cid) (network.StorageDealStream, error) {
+	s, err := c.conns.DealStream(proposalCid)
+	if err == nil {
+		return s, nil
+	}
+
+	s, err = c.net.NewDealStream(provider)
+	if err != nil {
+		return nil, err
+	}
+
+	err = c.conns.AddStream(proposalCid, s)
+	if err != nil {
+		return nil, err
+	}
+	return s, nil
+}
+
+func NewClientStateMachine(ds datastore.Datastore, env fsm.Environment, notifier fsm.Notifier) (fsm.Group, error) {
+	return fsm.New(ds, fsm.Parameters{
+		Environment:     env,
+		StateType:       storagemarket.ClientDeal{},
+		StateKeyField:   "State",
+		Events:          clientstates.ClientEvents,
+		StateEntryFuncs: clientstates.ClientStateEntryFuncs,
+		FinalityStates:  clientstates.ClientFinalityStates,
+		Notifier:        notifier,
+	})
 }
 
 type internalClientEvent struct {
@@ -348,14 +405,11 @@ func (c *clientDealEnvironment) Node() storagemarket.StorageClientNode {
 }
 
 func (c *clientDealEnvironment) WriteDealProposal(p peer.ID, proposalCid cid.Cid, proposal network.Proposal) error {
-	s, err := c.c.net.NewDealStream(p)
+	s, err := c.c.ensureDealStream(p, proposalCid)
 	if err != nil {
 		return err
 	}
-	err = c.c.conns.AddStream(proposalCid, s)
-	if err != nil {
-		return err
-	}
+
 	err = s.WriteDealProposal(proposal)
 	return err
 }
