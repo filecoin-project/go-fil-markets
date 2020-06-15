@@ -392,16 +392,19 @@ type MessagePublishedCallback func(mcid cid.Cid, err error)
 type ProviderSubscriber func(event ProviderEvent, deal MinerDeal)
 type ClientSubscriber func(event ClientEvent, deal ClientDeal)
 
-// StorageProvider is the interface provided for storage providers
+// StorageProvider provides an interface to the storage market for a single
+// storage miner.
 type StorageProvider interface {
 	Start(ctx context.Context) error
 
 	Stop() error
 
-	AddAsk(price abi.TokenAmount, duration abi.ChainEpoch, options ...StorageAskOption) error
+	// SetAsk configures the storage miner's ask with the provided price,
+	// duration, and options. Any previously-existing ask is replaced.
+	SetAsk(price abi.TokenAmount, duration abi.ChainEpoch, options ...StorageAskOption) error
 
-	// ListAsks lists current asks
-	ListAsks(addr address.Address) []*SignedStorageAsk
+	// GetAsk returns the storage miner's ask, or nil if one does not exist.
+	GetAsk(addr address.Address) *SignedStorageAsk
 
 	// ListDeals lists on-chain deals associated with this storage provider
 	ListDeals(ctx context.Context) ([]StorageDeal, error)

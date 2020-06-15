@@ -36,7 +36,7 @@ var _ storagemarket.StorageProvider = &Provider{}
 
 type StoredAsk interface {
 	GetAsk(address.Address) *storagemarket.SignedStorageAsk
-	AddAsk(price abi.TokenAmount, duration abi.ChainEpoch, options ...storagemarket.StorageAskOption) error
+	SetAsk(price abi.TokenAmount, duration abi.ChainEpoch, options ...storagemarket.StorageAskOption) error
 }
 
 // Provider is a storage provider implementation
@@ -256,12 +256,8 @@ func (p *Provider) ImportDataForDeal(ctx context.Context, propCid cid.Cid, data 
 
 }
 
-func (p *Provider) ListAsks(addr address.Address) []*storagemarket.SignedStorageAsk {
-	ask := p.storedAsk.GetAsk(addr)
-	if ask != nil {
-		return []*storagemarket.SignedStorageAsk{ask}
-	}
-	return nil
+func (p *Provider) GetAsk(addr address.Address) *storagemarket.SignedStorageAsk {
+	return p.storedAsk.GetAsk(addr)
 }
 
 func (p *Provider) ListDeals(ctx context.Context) ([]storagemarket.StorageDeal, error) {
@@ -316,8 +312,8 @@ func (p *Provider) ListLocalDeals() ([]storagemarket.MinerDeal, error) {
 	return out, nil
 }
 
-func (p *Provider) AddAsk(price abi.TokenAmount, duration abi.ChainEpoch, options ...storagemarket.StorageAskOption) error {
-	return p.storedAsk.AddAsk(price, duration, options...)
+func (p *Provider) SetAsk(price abi.TokenAmount, duration abi.ChainEpoch, options ...storagemarket.StorageAskOption) error {
+	return p.storedAsk.SetAsk(price, duration, options...)
 }
 
 func (p *Provider) HandleAskStream(s network.StorageAskStream) {

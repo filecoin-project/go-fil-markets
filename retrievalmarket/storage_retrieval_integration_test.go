@@ -63,7 +63,7 @@ func TestStorageRetrieval(t *testing.T) {
 	_ = sh.Client.SubscribeToEvents(clientSubscriber)
 
 	// set ask price where we'll accept any price
-	err := sh.Provider.AddAsk(big.NewInt(0), 50_000)
+	err := sh.Provider.SetAsk(big.NewInt(0), 50_000)
 	assert.NoError(t, err)
 
 	result := sh.ProposeStorageDeal(t, &storagemarket.DataRef{TransferType: storagemarket.TTGraphsync, Root: sh.PayloadCid})
@@ -247,7 +247,7 @@ func newStorageHarness(ctx context.Context, t *testing.T) *storageHarness {
 	require.NoError(t, err)
 
 	// set ask price where we'll accept any price
-	require.NoError(t, provider.AddAsk(big.NewInt(0), 50_000))
+	require.NoError(t, provider.SetAsk(big.NewInt(0), 50_000))
 	require.NoError(t, provider.Start(ctx))
 
 	// Closely follows the MinerInfo struct in the spec
