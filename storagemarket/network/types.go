@@ -2,6 +2,7 @@ package network
 
 import (
 	"github.com/filecoin-project/go-address"
+	"github.com/filecoin-project/specs-actors/actors/abi"
 	"github.com/filecoin-project/specs-actors/actors/builtin/market"
 	"github.com/filecoin-project/specs-actors/actors/crypto"
 	"github.com/ipfs/go-cid"
@@ -9,7 +10,7 @@ import (
 	"github.com/filecoin-project/go-fil-markets/storagemarket"
 )
 
-//go:generate cbor-gen-for AskRequest AskResponse Proposal Response SignedResponse
+//go:generate cbor-gen-for AskRequest AskResponse Proposal Response SignedResponse QueryRequest QueryResponse
 
 // Proposal is the data sent over the network from client to provider when proposing
 // a deal
@@ -56,3 +57,42 @@ type AskResponse struct {
 }
 
 var AskResponseUndefined = AskResponse{}
+
+// QueryRequest is the data sent over the network from client to provider when querying a deal
+type QueryRequest struct {
+	Proposal cid.Cid
+}
+
+var QueryRequestUndefined = QueryRequest{}
+
+// QueryResponse is a response to a proposal sent over the network
+type QueryResponse struct {
+	State       storagemarket.StorageDealStatus
+	Proposal    *market.DealProposal
+	ProposalCid *cid.Cid
+	AddFundsCid *cid.Cid
+	PublishCid  *cid.Cid
+	DealID      abi.DealID
+}
+
+/*
+type MinerDeal struct {
+	market.ClientDealProposal
+	ProposalCid      cid.Cid
+	AddFundsCid      *cid.Cid
+	PublishCid       *cid.Cid
+	Miner            peer.ID
+	Client           peer.ID
+	State            StorageDealStatus
+	PiecePath        filestore.Path
+	MetadataPath     filestore.Path
+	ConnectionClosed bool
+	Message          string
+
+	Ref *DataRef
+
+	DealID abi.DealID
+}
+*/
+
+var QueryResponseUndefined = QueryResponse{}

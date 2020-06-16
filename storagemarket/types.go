@@ -21,6 +21,7 @@ import (
 
 const DealProtocolID = "/fil/storage/mk/1.0.1"
 const AskProtocolID = "/fil/storage/ask/1.0.1"
+const QueryProtocolID = "/fil/storage/query/1.0.1"
 
 type Balance struct {
 	Locked    abi.TokenAmount

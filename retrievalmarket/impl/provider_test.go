@@ -182,7 +182,7 @@ func TestHandleQueryStream(t *testing.T) {
 		require.NotEmpty(t, response.Message)
 	})
 
-	t.Run("when ReadQuery fails", func(t *testing.T) {
+	t.Run("when ReadQueryRequest fails", func(t *testing.T) {
 		qs := readWriteQueryStream()
 		pieceStore := tut.NewTestPieceStore()
 

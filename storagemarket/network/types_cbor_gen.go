@@ -7,6 +7,7 @@ import (
 	"io"
 
 	"github.com/filecoin-project/go-fil-markets/storagemarket"
+	"github.com/filecoin-project/specs-actors/actors/abi"
 	"github.com/filecoin-project/specs-actors/actors/builtin/market"
 	"github.com/filecoin-project/specs-actors/actors/crypto"
 	cbg "github.com/whyrusleeping/cbor-gen"
@@ -384,6 +385,258 @@ func (t *SignedResponse) UnmarshalCBOR(r io.Reader) error {
 				return xerrors.Errorf("unmarshaling t.Signature pointer: %w", err)
 			}
 		}
+
+	}
+	return nil
+}
+
+func (t *QueryRequest) MarshalCBOR(w io.Writer) error {
+	if t == nil {
+		_, err := w.Write(cbg.CborNull)
+		return err
+	}
+	if _, err := w.Write([]byte{129}); err != nil {
+		return err
+	}
+
+	// t.Proposal (cid.Cid) (struct)
+
+	if err := cbg.WriteCid(w, t.Proposal); err != nil {
+		return xerrors.Errorf("failed to write cid field t.Proposal: %w", err)
+	}
+
+	return nil
+}
+
+func (t *QueryRequest) UnmarshalCBOR(r io.Reader) error {
+	br := cbg.GetPeeker(r)
+
+	maj, extra, err := cbg.CborReadHeader(br)
+	if err != nil {
+		return err
+	}
+	if maj != cbg.MajArray {
+		return fmt.Errorf("cbor input should be of type array")
+	}
+
+	if extra != 1 {
+		return fmt.Errorf("cbor input had wrong number of fields")
+	}
+
+	// t.Proposal (cid.Cid) (struct)
+
+	{
+
+		c, err := cbg.ReadCid(br)
+		if err != nil {
+			return xerrors.Errorf("failed to read cid field t.Proposal: %w", err)
+		}
+
+		t.Proposal = c
+
+	}
+	return nil
+}
+
+func (t *QueryResponse) MarshalCBOR(w io.Writer) error {
+	if t == nil {
+		_, err := w.Write(cbg.CborNull)
+		return err
+	}
+	if _, err := w.Write([]byte{134}); err != nil {
+		return err
+	}
+
+	// t.State (uint64) (uint64)
+
+	if _, err := w.Write(cbg.CborEncodeMajorType(cbg.MajUnsignedInt, uint64(t.State))); err != nil {
+		return err
+	}
+
+	// t.Proposal (market.DealProposal) (struct)
+	if err := t.Proposal.MarshalCBOR(w); err != nil {
+		return err
+	}
+
+	// t.ProposalCid (cid.Cid) (struct)
+
+	if t.ProposalCid == nil {
+		if _, err := w.Write(cbg.CborNull); err != nil {
+			return err
+		}
+	} else {
+		if err := cbg.WriteCid(w, *t.ProposalCid); err != nil {
+			return xerrors.Errorf("failed to write cid field t.ProposalCid: %w", err)
+		}
+	}
+
+	// t.AddFundsCid (cid.Cid) (struct)
+
+	if t.AddFundsCid == nil {
+		if _, err := w.Write(cbg.CborNull); err != nil {
+			return err
+		}
+	} else {
+		if err := cbg.WriteCid(w, *t.AddFundsCid); err != nil {
+			return xerrors.Errorf("failed to write cid field t.AddFundsCid: %w", err)
+		}
+	}
+
+	// t.PublishCid (cid.Cid) (struct)
+
+	if t.PublishCid == nil {
+		if _, err := w.Write(cbg.CborNull); err != nil {
+			return err
+		}
+	} else {
+		if err := cbg.WriteCid(w, *t.PublishCid); err != nil {
+			return xerrors.Errorf("failed to write cid field t.PublishCid: %w", err)
+		}
+	}
+
+	// t.DealID (abi.DealID) (uint64)
+
+	if _, err := w.Write(cbg.CborEncodeMajorType(cbg.MajUnsignedInt, uint64(t.DealID))); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (t *QueryResponse) UnmarshalCBOR(r io.Reader) error {
+	br := cbg.GetPeeker(r)
+
+	maj, extra, err := cbg.CborReadHeader(br)
+	if err != nil {
+		return err
+	}
+	if maj != cbg.MajArray {
+		return fmt.Errorf("cbor input should be of type array")
+	}
+
+	if extra != 6 {
+		return fmt.Errorf("cbor input had wrong number of fields")
+	}
+
+	// t.State (uint64) (uint64)
+
+	{
+
+		maj, extra, err = cbg.CborReadHeader(br)
+		if err != nil {
+			return err
+		}
+		if maj != cbg.MajUnsignedInt {
+			return fmt.Errorf("wrong type for uint64 field")
+		}
+		t.State = uint64(extra)
+
+	}
+	// t.Proposal (market.DealProposal) (struct)
+
+	{
+
+		pb, err := br.PeekByte()
+		if err != nil {
+			return err
+		}
+		if pb == cbg.CborNull[0] {
+			var nbuf [1]byte
+			if _, err := br.Read(nbuf[:]); err != nil {
+				return err
+			}
+		} else {
+			t.Proposal = new(market.DealProposal)
+			if err := t.Proposal.UnmarshalCBOR(br); err != nil {
+				return xerrors.Errorf("unmarshaling t.Proposal pointer: %w", err)
+			}
+		}
+
+	}
+	// t.ProposalCid (cid.Cid) (struct)
+
+	{
+
+		pb, err := br.PeekByte()
+		if err != nil {
+			return err
+		}
+		if pb == cbg.CborNull[0] {
+			var nbuf [1]byte
+			if _, err := br.Read(nbuf[:]); err != nil {
+				return err
+			}
+		} else {
+
+			c, err := cbg.ReadCid(br)
+			if err != nil {
+				return xerrors.Errorf("failed to read cid field t.ProposalCid: %w", err)
+			}
+
+			t.ProposalCid = &c
+		}
+
+	}
+	// t.AddFundsCid (cid.Cid) (struct)
+
+	{
+
+		pb, err := br.PeekByte()
+		if err != nil {
+			return err
+		}
+		if pb == cbg.CborNull[0] {
+			var nbuf [1]byte
+			if _, err := br.Read(nbuf[:]); err != nil {
+				return err
+			}
+		} else {
+
+			c, err := cbg.ReadCid(br)
+			if err != nil {
+				return xerrors.Errorf("failed to read cid field t.AddFundsCid: %w", err)
+			}
+
+			t.AddFundsCid = &c
+		}
+
+	}
+	// t.PublishCid (cid.Cid) (struct)
+
+	{
+
+		pb, err := br.PeekByte()
+		if err != nil {
+			return err
+		}
+		if pb == cbg.CborNull[0] {
+			var nbuf [1]byte
+			if _, err := br.Read(nbuf[:]); err != nil {
+				return err
+			}
+		} else {
+
+			c, err := cbg.ReadCid(br)
+			if err != nil {
+				return xerrors.Errorf("failed to read cid field t.PublishCid: %w", err)
+			}
+
+			t.PublishCid = &c
+		}
+
+	}
+	// t.DealID (abi.DealID) (uint64)
+
+	{
+
+		maj, extra, err = cbg.CborReadHeader(br)
+		if err != nil {
+			return err
+		}
+		if maj != cbg.MajUnsignedInt {
+			return fmt.Errorf("wrong type for uint64 field")
+		}
+		t.DealID = abi.DealID(extra)
 
 	}
 	return nil

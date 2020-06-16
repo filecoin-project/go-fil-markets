@@ -263,6 +263,24 @@ func MakeTestStorageAskResponse() smnet.AskResponse {
 	}
 }
 
+// MakeTestStorageQueryRequest generates a request to get a provider's query
+func MakeTestStorageQueryRequest() smnet.QueryRequest {
+	return smnet.QueryRequest{
+		Proposal: GenerateCids(1)[0],
+	}
+}
+
+// MakeTestStorageQueryResponse generates a response to an query request
+func MakeTestStorageQueryResponse() smnet.QueryResponse {
+	proposal := MakeTestUnsignedDealProposal()
+
+	return smnet.QueryResponse{
+		Proposal:    &proposal,
+		ProposalCid: &GenerateCids(1)[0],
+		State:       storagemarket.StorageDealActive,
+	}
+}
+
 func RequireGenerateRetrievalPeers(t *testing.T, numPeers int) []retrievalmarket.RetrievalPeer {
 	peers := make([]retrievalmarket.RetrievalPeer, numPeers)
 	for i := range peers {

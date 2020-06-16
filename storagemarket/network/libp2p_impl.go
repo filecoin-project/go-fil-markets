@@ -46,10 +46,21 @@ func (impl *libp2pStorageMarketNetwork) NewDealStream(id peer.ID) (StorageDealSt
 	return &dealStream{p: id, rw: s, buffered: buffered, host: impl.host}, nil
 }
 
+func (impl *libp2pStorageMarketNetwork) NewQueryStream(id peer.ID) (StorageQueryStream, error) {
+	s, err := impl.host.NewStream(context.Background(), id, storagemarket.QueryProtocolID)
+	if err != nil {
+		log.Warn(err)
+		return nil, err
+	}
+	buffered := bufio.NewReaderSize(s, 16)
+	return &queryStream{p: id, rw: s, buffered: buffered}, nil
+}
+
 func (impl *libp2pStorageMarketNetwork) SetDelegate(r StorageReceiver) error {
 	impl.receiver = r
 	impl.host.SetStreamHandler(storagemarket.DealProtocolID, impl.handleNewDealStream)
 	impl.host.SetStreamHandler(storagemarket.AskProtocolID, impl.handleNewAskStream)
+	impl.host.SetStreamHandler(storagemarket.QueryProtocolID, impl.handleNewQueryStream)
 	return nil
 }
 
@@ -57,31 +68,41 @@ func (impl *libp2pStorageMarketNetwork) StopHandlingRequests() error {
 	impl.receiver = nil
 	impl.host.RemoveStreamHandler(storagemarket.DealProtocolID)
 	impl.host.RemoveStreamHandler(storagemarket.AskProtocolID)
+	impl.host.RemoveStreamHandler(storagemarket.QueryProtocolID)
 	return nil
 }
 
 func (impl *libp2pStorageMarketNetwork) handleNewAskStream(s network.Stream) {
-	if impl.receiver == nil {
-		log.Warn("no receiver set")
-		s.Reset() // nolint: errcheck,gosec
-		return
+	reader := impl.getReaderOrReset(s)
+	if reader != nil {
+		as := &askStream{s.Conn().RemotePeer(), s, reader}
+		impl.receiver.HandleAskStream(as)
 	}
-	remotePID := s.Conn().RemotePeer()
-	buffered := bufio.NewReaderSize(s, 16)
-	as := &askStream{remotePID, s, buffered}
-	impl.receiver.HandleAskStream(as)
 }
 
 func (impl *libp2pStorageMarketNetwork) handleNewDealStream(s network.Stream) {
+	reader := impl.getReaderOrReset(s)
+	if reader != nil {
+		ds := &dealStream{s.Conn().RemotePeer(), impl.host, s, reader}
+		impl.receiver.HandleDealStream(ds)
+	}
+}
+
+func (impl *libp2pStorageMarketNetwork) handleNewQueryStream(s network.Stream) {
+	reader := impl.getReaderOrReset(s)
+	if reader != nil {
+		qs := &queryStream{s.Conn().RemotePeer(), impl.host, s, reader}
+		impl.receiver.HandleQueryStream(qs)
+	}
+}
+
+func (impl *libp2pStorageMarketNetwork) getReaderOrReset(s network.Stream) *bufio.Reader {
 	if impl.receiver == nil {
 		log.Warn("no receiver set")
 		s.Reset() // nolint: errcheck,gosec
-		return
+		return nil
 	}
-	remotePID := s.Conn().RemotePeer()
-	buffered := bufio.NewReaderSize(s, 16)
-	ds := &dealStream{remotePID, impl.host, s, buffered}
-	impl.receiver.HandleDealStream(ds)
+	return bufio.NewReaderSize(s, 16)
 }
 
 func (impl *libp2pStorageMarketNetwork) ID() peer.ID {

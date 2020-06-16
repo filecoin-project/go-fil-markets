@@ -70,12 +70,12 @@ func NewTestRetrievalQueryStream(params TestQueryStreamParams) rmnet.RetrievalQu
 	return &stream
 }
 
-// ReadQuery calls the mocked query reader.
+// ReadQueryRequest calls the mocked query reader.
 func (trqs *TestRetrievalQueryStream) ReadQuery() (rm.Query, error) {
 	return trqs.reader()
 }
 
-// WriteQuery calls the mocked query writer.
+// WriteQueryRequest calls the mocked query writer.
 func (trqs *TestRetrievalQueryStream) WriteQuery(newQuery rm.Query) error {
 	return trqs.writer(newQuery)
 }
