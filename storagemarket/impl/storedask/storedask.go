@@ -17,13 +17,13 @@ import (
 )
 
 var log = logging.Logger("storedask")
-var defaultPrice = abi.NewTokenAmount(500_000_000)
+var DefaultPrice = abi.NewTokenAmount(500_000_000)
 
-const defaultDuration abi.ChainEpoch = 1000000
-const defaultMinPieceSize abi.PaddedPieceSize = 256
+const DefaultDuration abi.ChainEpoch = 1000000
+const DefaultMinPieceSize abi.PaddedPieceSize = 256
 
 // It would be nice to default this to the miner's sector size
-const defaultMaxPieceSize abi.PaddedPieceSize = 1 << 20
+const DefaultMaxPieceSize abi.PaddedPieceSize = 1 << 20
 
 type StoredAsk struct {
 	askLk sync.RWMutex
@@ -49,7 +49,7 @@ func NewStoredAsk(ds datastore.Batching, dsKey datastore.Key, spn storagemarket.
 	if s.ask == nil {
 		// TODO: we should be fine with this state, and just say it means 'not actively accepting deals'
 		// for now... lets just set a price
-		if err := s.SetAsk(defaultPrice, defaultDuration); err != nil {
+		if err := s.SetAsk(DefaultPrice, DefaultDuration); err != nil {
 			return nil, xerrors.Errorf("failed setting a default price: %w", err)
 		}
 	}
@@ -76,8 +76,8 @@ func (s *StoredAsk) SetAsk(price abi.TokenAmount, duration abi.ChainEpoch, optio
 		Expiry:       height + duration,
 		Miner:        s.actor,
 		SeqNo:        seqno,
-		MinPieceSize: defaultMinPieceSize,
-		MaxPieceSize: defaultMaxPieceSize,
+		MinPieceSize: DefaultMinPieceSize,
+		MaxPieceSize: DefaultMaxPieceSize,
 	}
 
 	for _, option := range options {
