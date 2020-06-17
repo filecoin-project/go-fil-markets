@@ -1,52 +1,52 @@
 stateDiagram-v2
 	state "StorageDealUnknown" as 0
-	state "StorageDealValidating" as 11
+	state "StorageDealStaged" as 4
+	state "StorageDealSealing" as 5
+	state "StorageDealActive" as 6
 	state "StorageDealFailing" as 7
-	state "StorageDealVerifyData" as 15
+	state "StorageDealValidating" as 11
 	state "StorageDealAcceptWait" as 12
-	state "StorageDealWaitingForData" as 14
 	state "StorageDealTransferring" as 13
+	state "StorageDealWaitingForData" as 14
+	state "StorageDealVerifyData" as 15
 	state "StorageDealEnsureProviderFunds" as 16
 	state "StorageDealProviderFunding" as 18
 	state "StorageDealPublish" as 20
 	state "StorageDealPublishing" as 21
 	state "StorageDealError" as 22
-	state "StorageDealStaged" as 4
-	state "StorageDealActive" as 6
-	state "StorageDealSealing" as 5
 	state "StorageDealCompleted" as 23
-	11 : On entry runs ValidateDealProposal
+	4 : On entry runs HandoffDeal
+	5 : On entry runs VerifyDealActivated
+	6 : On entry runs RecordPieceInfo
 	7 : On entry runs FailDeal
-	15 : On entry runs VerifyData
+	11 : On entry runs ValidateDealProposal
 	12 : On entry runs DecideOnProposal
+	15 : On entry runs VerifyData
 	16 : On entry runs EnsureProviderFunds
 	18 : On entry runs WaitForFunding
 	20 : On entry runs PublishDeal
 	21 : On entry runs WaitForPublish
-	4 : On entry runs HandoffDeal
-	6 : On entry runs RecordPieceInfo
-	5 : On entry runs VerifyDealActivated
 	[*] --> 0
 	0 --> 11 : ProviderEventOpen
 	11 --> 7 : ProviderEventDealRejected
-	15 --> 7 : ProviderEventDealRejected
 	12 --> 7 : ProviderEventDealRejected
+	15 --> 7 : ProviderEventDealRejected
 	11 --> 12 : ProviderEventDealDeciding
 	12 --> 14 : ProviderEventDataRequested
 	13 --> 7 : ProviderEventDataTransferFailed
 	14 --> 13 : ProviderEventDataTransferInitiated
 	13 --> 15 : ProviderEventDataTransferCompleted
 	15 --> 7 : ProviderEventGeneratePieceCIDFailed
-	15 --> 16 : ProviderEventVerifiedData
 	14 --> 16 : ProviderEventVerifiedData
+	15 --> 16 : ProviderEventVerifiedData
 	16 --> 18 : ProviderEventFundingInitiated
-	18 --> 20 : ProviderEventFunded
 	16 --> 20 : ProviderEventFunded
+	18 --> 20 : ProviderEventFunded
 	20 --> 21 : ProviderEventDealPublishInitiated
 	21 --> 7 : ProviderEventDealPublishError
+	7 --> 22 : ProviderEventSendResponseFailed
 	12 --> 22 : ProviderEventSendResponseFailed
 	21 --> 22 : ProviderEventSendResponseFailed
-	7 --> 22 : ProviderEventSendResponseFailed
 	21 --> 4 : ProviderEventDealPublished
 	4 --> 7 : ProviderEventFileStoreErrored
 	5 --> 7 : ProviderEventFileStoreErrored

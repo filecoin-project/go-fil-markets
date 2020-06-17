@@ -1,33 +1,33 @@
 stateDiagram-v2
 	state "DealStatusNew" as 0
 	state "DealStatusPaymentChannelCreating" as 1
-	state "DealStatusFailed" as 7
-	state "DealStatusAccepted" as 6
 	state "DealStatusPaymentChannelAddingFunds" as 2
 	state "DealStatusPaymentChannelReady" as 4
-	state "DealStatusErrored" as 15
+	state "DealStatusAccepted" as 6
+	state "DealStatusFailed" as 7
 	state "DealStatusRejected" as 8
-	state "DealStatusDealNotFound" as 13
 	state "DealStatusFundsNeeded" as 9
-	state "DealStatusFundsNeededLastPayment" as 11
 	state "DealStatusOngoing" as 10
-	state "DealStatusFinalizing" as 17
-	state "DealStatusBlocksComplete" as 16
+	state "DealStatusFundsNeededLastPayment" as 11
 	state "DealStatusCompleted" as 12
+	state "DealStatusDealNotFound" as 13
+	state "DealStatusErrored" as 15
+	state "DealStatusBlocksComplete" as 16
+	state "DealStatusFinalizing" as 17
 	0 : On entry runs ProposeDeal
 	1 : On entry runs WaitForPaymentChannelCreate
-	6 : On entry runs SetupPaymentChannelStart
 	2 : On entry runs WaitForPaymentChannelAddFunds
 	4 : On entry runs ProcessNextResponse
+	6 : On entry runs SetupPaymentChannelStart
 	9 : On entry runs ProcessPaymentRequested
-	11 : On entry runs ProcessPaymentRequested
 	10 : On entry runs ProcessNextResponse
-	17 : On entry runs Finalize
+	11 : On entry runs ProcessPaymentRequested
 	16 : On entry runs ProcessNextResponse
+	17 : On entry runs Finalize
 	[*] --> 0
 	0 --> 0 : ClientEventOpen
-	6 --> 7 : ClientEventPaymentChannelErrored
 	1 --> 7 : ClientEventPaymentChannelErrored
+	6 --> 7 : ClientEventPaymentChannelErrored
 	6 --> 1 : ClientEventPaymentChannelCreateInitiated
 	6 --> 2 : ClientEventPaymentChannelAddingFunds
 	1 --> 4 : ClientEventPaymentChannelReady
@@ -44,8 +44,8 @@ stateDiagram-v2
 	11 --> 7 : ClientEventBadPaymentRequested
 	9 --> 7 : ClientEventCreateVoucherFailed
 	11 --> 7 : ClientEventCreateVoucherFailed
-	11 --> 17 : ClientEventPaymentSent
 	9 --> 10 : ClientEventPaymentSent
+	11 --> 17 : ClientEventPaymentSent
 	4 --> 7 : ClientEventConsumeBlockFailed
 	10 --> 7 : ClientEventConsumeBlockFailed
 	4 --> 11 : ClientEventLastPaymentRequested
