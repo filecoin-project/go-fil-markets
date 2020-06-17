@@ -41,14 +41,14 @@ DOTs=$(shell find docs -name '*.dot')
 MMDs=$(shell find docs -name '*.mmd')
 SVGs=$(DOTs:%=%.svg) $(MMDs:%=%.svg)
 
-diagrams: ${MMDs} ${SVGs}
+diagrams: ${MMDs} ${SVGs} 
 
 %.mmd.svg: %.mmd
 	node_modules/.bin/mmdc -i $< -o $@
 
-PHONY:
+FORCE:
 
-docsgen: PHONY
+docsgen: FORCE .update-modules .filecoin-build
 	go run ./docsgen
 
 $(MMDs): docsgen
