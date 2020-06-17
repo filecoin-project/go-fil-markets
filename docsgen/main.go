@@ -1,7 +1,10 @@
 package main
 
 import (
+	"bytes"
 	"fmt"
+	"io"
+	"io/ioutil"
 	"os"
 
 	"github.com/filecoin-project/go-fil-markets/retrievalmarket"
@@ -24,63 +27,67 @@ func retrievalDealStatusCmp(a, b fsm.StateKey) bool {
 	return aDealStatus < bDealStatus
 }
 
+func updateOnChanged(name string, writeContents func(w io.Writer) error) error {
+	input, err := os.Open("./docs/storageclient.mmd")
+	if err != nil {
+		return err
+	}
+	orig, err := ioutil.ReadAll(input)
+	if err != nil {
+		return err
+	}
+	err = input.Close()
+	if err != nil {
+		return err
+	}
+	buf := new(bytes.Buffer)
+	err = writeContents(buf)
+	if err != nil {
+		return err
+	}
+	if bytes.Compare(orig, buf.Bytes()) != 0 {
+		file, err := os.Create("./docs/storageclient.mmd")
+		if err != nil {
+			return err
+		}
+		_, err = file.Write(buf.Bytes())
+		if err != nil {
+			return err
+		}
+		err = file.Close()
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 func main() {
-	file, err := os.Create("./docs/storageclient.mmd")
+
+	err := updateOnChanged("./docs/storageclient.mmd", func(w io.Writer) error {
+		return fsm.GenerateUML(w, fsm.MermaidUML, storageimpl.ClientFSMParameterSpec, storagemarket.DealStates, storagemarket.ClientEvents, []fsm.StateKey{storagemarket.StorageDealUnknown}, false, storageDealStatusCmp)
+	})
 	if err != nil {
 		fmt.Println(err)
 		os.Exit(1)
 	}
-	err = fsm.GenerateUML(file, fsm.MermaidUML, storageimpl.ClientFSMParameterSpec, storagemarket.DealStates, storagemarket.ClientEvents, []fsm.StateKey{storagemarket.StorageDealUnknown}, false, storageDealStatusCmp)
+	err = updateOnChanged("./docs/storageprovider.mmd", func(w io.Writer) error {
+		return fsm.GenerateUML(w, fsm.MermaidUML, storageimpl.ProviderFSMParameterSpec, storagemarket.DealStates, storagemarket.ProviderEvents, []fsm.StateKey{storagemarket.StorageDealUnknown}, false, storageDealStatusCmp)
+	})
 	if err != nil {
 		fmt.Println(err)
 		os.Exit(1)
 	}
-	err = file.Close()
+	err = updateOnChanged("./docs/retrievalclient.mmd", func(w io.Writer) error {
+		return fsm.GenerateUML(w, fsm.MermaidUML, retrievalimpl.ClientFSMParameterSpec, retrievalmarket.DealStatuses, retrievalmarket.ClientEvents, []fsm.StateKey{retrievalmarket.DealStatusNew}, false, retrievalDealStatusCmp)
+	})
 	if err != nil {
 		fmt.Println(err)
 		os.Exit(1)
 	}
-	file, err = os.Create("./docs/storageprovider.mmd")
-	if err != nil {
-		fmt.Println(err)
-		os.Exit(1)
-	}
-	err = fsm.GenerateUML(file, fsm.MermaidUML, storageimpl.ProviderFSMParameterSpec, storagemarket.DealStates, storagemarket.ProviderEvents, []fsm.StateKey{storagemarket.StorageDealUnknown}, false, storageDealStatusCmp)
-	if err != nil {
-		fmt.Println(err)
-		os.Exit(1)
-	}
-	err = file.Close()
-	if err != nil {
-		fmt.Println(err)
-		os.Exit(1)
-	}
-	file, err = os.Create("./docs/retrievalclient.mmd")
-	if err != nil {
-		fmt.Println(err)
-		os.Exit(1)
-	}
-	err = fsm.GenerateUML(file, fsm.MermaidUML, retrievalimpl.ClientFSMParameterSpec, retrievalmarket.DealStatuses, retrievalmarket.ClientEvents, []fsm.StateKey{retrievalmarket.DealStatusNew}, false, retrievalDealStatusCmp)
-	if err != nil {
-		fmt.Println(err)
-		os.Exit(1)
-	}
-	err = file.Close()
-	if err != nil {
-		fmt.Println(err)
-		os.Exit(1)
-	}
-	file, err = os.Create("./docs/retrievalprovider.mmd")
-	if err != nil {
-		fmt.Println(err)
-		os.Exit(1)
-	}
-	err = fsm.GenerateUML(file, fsm.MermaidUML, retrievalimpl.ProviderFSMParameterSpec, retrievalmarket.DealStatuses, retrievalmarket.ProviderEvents, []fsm.StateKey{retrievalmarket.DealStatusNew}, false, retrievalDealStatusCmp)
-	if err != nil {
-		fmt.Println(err)
-		os.Exit(1)
-	}
-	err = file.Close()
+	err = updateOnChanged("./docs/retrievalprovider.mmd", func(w io.Writer) error {
+		return fsm.GenerateUML(w, fsm.MermaidUML, retrievalimpl.ProviderFSMParameterSpec, retrievalmarket.DealStatuses, retrievalmarket.ProviderEvents, []fsm.StateKey{retrievalmarket.DealStatusNew}, false, retrievalDealStatusCmp)
+	})
 	if err != nil {
 		fmt.Println(err)
 		os.Exit(1)

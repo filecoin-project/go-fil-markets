@@ -1,50 +1,47 @@
 stateDiagram-v2
-	state "StorageDealUnknown" as 0
-	state "StorageDealProposalAccepted" as 3
-	state "StorageDealSealing" as 5
-	state "StorageDealActive" as 6
-	state "StorageDealFailing" as 7
-	state "StorageDealFundsEnsured" as 9
-	state "StorageDealWaitingForDataRequest" as 10
-	state "StorageDealValidating" as 11
-	state "StorageDealTransferring" as 13
-	state "StorageDealEnsureClientFunds" as 17
-	state "StorageDealClientFunding" as 19
-	state "StorageDealError" as 22
-	3 : On entry runs ValidateDealPublished
-	5 : On entry runs VerifyDealActivated
-	7 : On entry runs FailDeal
-	9 : On entry runs ProposeDeal
-	10 : On entry runs WaitingForDataRequest
-	11 : On entry runs VerifyDealResponse
-	17 : On entry runs EnsureClientFunds
-	19 : On entry runs WaitForFunding
+	state "DealStatusNew" as 0
+	state "DealStatusAwaitingAcceptance" as 5
+	state "DealStatusAccepted" as 6
+	state "DealStatusFailed" as 7
+	state "DealStatusRejected" as 8
+	state "DealStatusFundsNeeded" as 9
+	state "DealStatusOngoing" as 10
+	state "DealStatusFundsNeededLastPayment" as 11
+	state "DealStatusCompleted" as 12
+	state "DealStatusDealNotFound" as 13
+	state "DealStatusErrored" as 15
+	state "DealStatusBlocksComplete" as 16
+	state "DealStatusFinalizing" as 17
+	0 : On entry runs ReceiveDeal
+	5 : On entry runs DecideOnDeal
+	6 : On entry runs SendBlocks
+	7 : On entry runs SendFailResponse
+	8 : On entry runs SendFailResponse
+	9 : On entry runs ProcessPayment
+	10 : On entry runs SendBlocks
+	11 : On entry runs ProcessPayment
+	13 : On entry runs SendFailResponse
+	17 : On entry runs Finalize
 	[*] --> 0
-	0 --> 17 : ClientEventOpen
-	17 --> 19 : ClientEventFundingInitiated
-	17 --> 7 : ClientEventEnsureFundsFailed
-	19 --> 7 : ClientEventEnsureFundsFailed
-	17 --> 9 : ClientEventFundsEnsured
-	19 --> 9 : ClientEventFundsEnsured
-	9 --> 22 : ClientEventWriteProposalFailed
-	9 --> 10 : ClientEventDealProposed
-	10 --> 22 : ClientEventReadResponseFailed
-	11 --> 22 : ClientEventReadResponseFailed
-	10 --> 7 : ClientEventResponseVerificationFailed
-	11 --> 7 : ClientEventResponseVerificationFailed
-	10 --> 7 : ClientEventUnexpectedDealState
-	10 --> 7 : ClientEventDataTransferFailed
-	13 --> 7 : ClientEventDataTransferFailed
-	10 --> 13 : ClientEventDataTransferInitiated
-	10 --> 11 : ClientEventDataTransferComplete
-	13 --> 11 : ClientEventDataTransferComplete
-	11 --> 7 : ClientEventResponseDealDidNotMatch
-	11 --> 7 : ClientEventDealRejected
-	11 --> 3 : ClientEventDealAccepted
-	3 --> 22 : ClientEventDealPublishFailed
-	3 --> 5 : ClientEventDealPublished
-	5 --> 22 : ClientEventDealActivationFailed
-	5 --> 6 : ClientEventDealActivated
-	7 --> 22 : ClientEventFailed
-	6 --> [*]
-	22 --> [*]
+	0 --> 0 : ProviderEventOpen
+	0 --> 5 : ProviderEventDealReceived
+	5 --> 15 : ProviderEventDecisioningError
+	0 --> 7 : ProviderEventGetPieceSizeErrored
+	0 --> 13 : ProviderEventDealNotFound
+	0 --> 8 : ProviderEventDealRejected
+	5 --> 8 : ProviderEventDealRejected
+	5 --> 6 : ProviderEventDealAccepted
+	6 --> 7 : ProviderEventBlockErrored
+	10 --> 7 : ProviderEventBlockErrored
+	6 --> 16 : ProviderEventBlocksCompleted
+	10 --> 16 : ProviderEventBlocksCompleted
+	6 --> 9 : ProviderEventPaymentRequested
+	10 --> 9 : ProviderEventPaymentRequested
+	16 --> 11 : ProviderEventPaymentRequested
+	9 --> 7 : ProviderEventSaveVoucherFailed
+	11 --> 7 : ProviderEventSaveVoucherFailed
+	9 --> 9 : ProviderEventPartialPaymentReceived
+	11 --> 11 : ProviderEventPartialPaymentReceived
+	9 --> 10 : ProviderEventPaymentReceived
+	11 --> 17 : ProviderEventPaymentReceived
+	17 --> 12 : ProviderEventComplete
