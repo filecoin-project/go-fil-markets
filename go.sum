@@ -88,14 +88,6 @@ github.com/filecoin-project/go-padreader v0.0.0-20200210211231-548257017ca6 h1:9
 github.com/filecoin-project/go-padreader v0.0.0-20200210211231-548257017ca6/go.mod h1:0HgYnrkeSU4lu1p+LEOeDpFsNBssa0OGGriWdA4hvaE=
 github.com/filecoin-project/go-paramfetch v0.0.1 h1:gV7bs5YaqlgpGFMiLxInGK2L1FyCXUE0rimz4L7ghoE=
 github.com/filecoin-project/go-paramfetch v0.0.1/go.mod h1:fZzmf4tftbwf9S37XRifoJlz7nCjRdIrMGLR07dKLCc=
-github.com/filecoin-project/go-statemachine v0.0.0-20200612181802-4eb3d0c68eba h1:GEWb/6KQyNZt4jm8fgVcIFPH0ElAGXfHM59ZSiqPTvY=
-github.com/filecoin-project/go-statemachine v0.0.0-20200612181802-4eb3d0c68eba/go.mod h1:FGwQgZAt2Gh5mjlwJUlVB62JeYdo+if0xWxSEfBD9ig=
-github.com/filecoin-project/go-statemachine v0.0.0-20200617145621-584be23c9cf4 h1:ljGO497SXxhWsP7ttLDPfhFey6cvVNnQtfED5WTnaDE=
-github.com/filecoin-project/go-statemachine v0.0.0-20200617145621-584be23c9cf4/go.mod h1:FGwQgZAt2Gh5mjlwJUlVB62JeYdo+if0xWxSEfBD9ig=
-github.com/filecoin-project/go-statemachine v0.0.0-20200617154453-7c7a1ea93cb3 h1:uX+0kKMhdeVNHWu5KSXuiKpFOIKpqLJOVuVh3TeOsD4=
-github.com/filecoin-project/go-statemachine v0.0.0-20200617154453-7c7a1ea93cb3/go.mod h1:FGwQgZAt2Gh5mjlwJUlVB62JeYdo+if0xWxSEfBD9ig=
-github.com/filecoin-project/go-statemachine v0.0.0-20200617163516-6aabf60a01ba h1:jwujjmPxjrdOiIFOS4EjJficeXK/ghiZ0mQ3T7eMDE8=
-github.com/filecoin-project/go-statemachine v0.0.0-20200617163516-6aabf60a01ba/go.mod h1:FGwQgZAt2Gh5mjlwJUlVB62JeYdo+if0xWxSEfBD9ig=
 github.com/filecoin-project/go-statemachine v0.0.0-20200617173404-6b7ca5516272 h1:VkjV5pun/PH6oMoxRkjC136BXbyZHm4L1R1519ZG2N0=
 github.com/filecoin-project/go-statemachine v0.0.0-20200617173404-6b7ca5516272/go.mod h1:FGwQgZAt2Gh5mjlwJUlVB62JeYdo+if0xWxSEfBD9ig=
 github.com/filecoin-project/go-statestore v0.1.0 h1:t56reH59843TwXHkMcwyuayStBIiWBRilQjQ+5IiwdQ=
