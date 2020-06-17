@@ -36,3 +36,19 @@ clean:
 	rm -f .filecoin-build
 	rm -f .update-modules
 	rm -f coverage.txt
+
+DOTs=$(shell find docs -name '*.dot')
+MMDs=$(shell find docs -name '*.mmd')
+SVGs=$(DOTs:%=%.svg) $(MMDs:%=%.svg)
+
+diagrams: ${MMDs} ${SVGs}
+
+%.mmd.svg: %.mmd
+	node_modules/.bin/mmdc -i $< -o $@
+
+PHONY:
+
+docsgen: PHONY
+	go run ./docsgen
+
+$(MMDs): docsgen

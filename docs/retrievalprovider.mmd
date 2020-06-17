@@ -8,8 +8,8 @@ stateDiagram-v2
 	state "DealStatusAccepted" as 6
 	state "DealStatusOngoing" as 10
 	state "DealStatusBlocksComplete" as 16
-	state "DealStatusFundsNeeded" as 9
 	state "DealStatusFundsNeededLastPayment" as 11
+	state "DealStatusFundsNeeded" as 9
 	state "DealStatusFinalizing" as 17
 	state "DealStatusCompleted" as 12
 	0 : On entry runs ReceiveDeal
@@ -19,8 +19,8 @@ stateDiagram-v2
 	8 : On entry runs SendFailResponse
 	6 : On entry runs SendBlocks
 	10 : On entry runs SendBlocks
-	9 : On entry runs ProcessPayment
 	11 : On entry runs ProcessPayment
+	9 : On entry runs ProcessPayment
 	17 : On entry runs Finalize
 	[*] --> 0
 	0 --> 0 : ProviderEventOpen
@@ -31,8 +31,8 @@ stateDiagram-v2
 	0 --> 8 : ProviderEventDealRejected
 	5 --> 8 : ProviderEventDealRejected
 	5 --> 6 : ProviderEventDealAccepted
-	6 --> 7 : ProviderEventBlockErrored
 	10 --> 7 : ProviderEventBlockErrored
+	6 --> 7 : ProviderEventBlockErrored
 	6 --> 16 : ProviderEventBlocksCompleted
 	10 --> 16 : ProviderEventBlocksCompleted
 	6 --> 9 : ProviderEventPaymentRequested

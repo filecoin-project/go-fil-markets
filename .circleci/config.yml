@@ -2,11 +2,12 @@ version: 2.1
 orbs:
   go: gotest/tools@0.0.9
   codecov: codecov/codecov@1.0.2
+  node: circleci/node@3.0.0
 
 executors:
   golang:
     docker:
-      - image: circleci/golang:1.13
+      - image: circleci/golang:1.13-node
     resource_class: large
 
 commands:
@@ -51,6 +52,18 @@ jobs:
       - run: go generate ./...
       - run: git --no-pager diff
       - run: git --no-pager diff --quiet
+
+  
+  docs-check:
+    executor: golang
+    steps:
+      - install-deps
+      - prepare
+      - node/install-packages
+      - run: make diagrams
+      - run: git --no-pager diff
+      - run: git --no-pager diff --quiet
+
   build-all:
     executor: golang
     steps:
@@ -172,4 +185,5 @@ workflows:
       - test
       - mod-tidy-check
       - cbor-gen-check
+      - docs-check
       - build-all

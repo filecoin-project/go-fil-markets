@@ -22,22 +22,22 @@ stateDiagram-v2
 	[*] --> 0
 	0 --> 17 : ClientEventOpen
 	17 --> 19 : ClientEventFundingInitiated
-	19 --> 7 : ClientEventEnsureFundsFailed
 	17 --> 7 : ClientEventEnsureFundsFailed
+	19 --> 7 : ClientEventEnsureFundsFailed
 	17 --> 9 : ClientEventFundsEnsured
 	19 --> 9 : ClientEventFundsEnsured
 	9 --> 22 : ClientEventWriteProposalFailed
 	9 --> 10 : ClientEventDealProposed
 	10 --> 22 : ClientEventReadResponseFailed
 	11 --> 22 : ClientEventReadResponseFailed
-	11 --> 7 : ClientEventResponseVerificationFailed
 	10 --> 7 : ClientEventResponseVerificationFailed
+	11 --> 7 : ClientEventResponseVerificationFailed
 	10 --> 7 : ClientEventUnexpectedDealState
 	10 --> 7 : ClientEventDataTransferFailed
 	13 --> 7 : ClientEventDataTransferFailed
 	10 --> 13 : ClientEventDataTransferInitiated
-	10 --> 11 : ClientEventDataTransferComplete
 	13 --> 11 : ClientEventDataTransferComplete
+	10 --> 11 : ClientEventDataTransferComplete
 	11 --> 7 : ClientEventResponseDealDidNotMatch
 	11 --> 7 : ClientEventDealRejected
 	11 --> 3 : ClientEventDealAccepted

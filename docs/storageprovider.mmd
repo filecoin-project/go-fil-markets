@@ -12,8 +12,8 @@ stateDiagram-v2
 	state "StorageDealPublishing" as 21
 	state "StorageDealError" as 22
 	state "StorageDealStaged" as 4
-	state "StorageDealSealing" as 5
 	state "StorageDealActive" as 6
+	state "StorageDealSealing" as 5
 	state "StorageDealCompleted" as 23
 	11 : On entry runs ValidateDealProposal
 	7 : On entry runs FailDeal
@@ -24,13 +24,13 @@ stateDiagram-v2
 	20 : On entry runs PublishDeal
 	21 : On entry runs WaitForPublish
 	4 : On entry runs HandoffDeal
-	5 : On entry runs VerifyDealActivated
 	6 : On entry runs RecordPieceInfo
+	5 : On entry runs VerifyDealActivated
 	[*] --> 0
 	0 --> 11 : ProviderEventOpen
+	11 --> 7 : ProviderEventDealRejected
 	15 --> 7 : ProviderEventDealRejected
 	12 --> 7 : ProviderEventDealRejected
-	11 --> 7 : ProviderEventDealRejected
 	11 --> 12 : ProviderEventDealDeciding
 	12 --> 14 : ProviderEventDataRequested
 	13 --> 7 : ProviderEventDataTransferFailed
