@@ -1,0 +1,64 @@
+stateDiagram-v2
+	state "StorageDealUnknown" as 0
+	state "StorageDealValidating" as 11
+	state "StorageDealFailing" as 7
+	state "StorageDealVerifyData" as 15
+	state "StorageDealAcceptWait" as 12
+	state "StorageDealWaitingForData" as 14
+	state "StorageDealTransferring" as 13
+	state "StorageDealEnsureProviderFunds" as 16
+	state "StorageDealProviderFunding" as 18
+	state "StorageDealPublish" as 20
+	state "StorageDealPublishing" as 21
+	state "StorageDealError" as 22
+	state "StorageDealStaged" as 4
+	state "StorageDealSealing" as 5
+	state "StorageDealActive" as 6
+	state "StorageDealCompleted" as 23
+	11 : On entry runs ValidateDealProposal
+	7 : On entry runs FailDeal
+	15 : On entry runs VerifyData
+	12 : On entry runs DecideOnProposal
+	16 : On entry runs EnsureProviderFunds
+	18 : On entry runs WaitForFunding
+	20 : On entry runs PublishDeal
+	21 : On entry runs WaitForPublish
+	4 : On entry runs HandoffDeal
+	5 : On entry runs VerifyDealActivated
+	6 : On entry runs RecordPieceInfo
+	[*] --> 0
+	0 --> 11 : ProviderEventOpen
+	15 --> 7 : ProviderEventDealRejected
+	12 --> 7 : ProviderEventDealRejected
+	11 --> 7 : ProviderEventDealRejected
+	11 --> 12 : ProviderEventDealDeciding
+	12 --> 14 : ProviderEventDataRequested
+	13 --> 7 : ProviderEventDataTransferFailed
+	14 --> 13 : ProviderEventDataTransferInitiated
+	13 --> 15 : ProviderEventDataTransferCompleted
+	15 --> 7 : ProviderEventGeneratePieceCIDFailed
+	15 --> 16 : ProviderEventVerifiedData
+	14 --> 16 : ProviderEventVerifiedData
+	16 --> 18 : ProviderEventFundingInitiated
+	18 --> 20 : ProviderEventFunded
+	16 --> 20 : ProviderEventFunded
+	20 --> 21 : ProviderEventDealPublishInitiated
+	21 --> 7 : ProviderEventDealPublishError
+	12 --> 22 : ProviderEventSendResponseFailed
+	21 --> 22 : ProviderEventSendResponseFailed
+	7 --> 22 : ProviderEventSendResponseFailed
+	21 --> 4 : ProviderEventDealPublished
+	4 --> 7 : ProviderEventFileStoreErrored
+	5 --> 7 : ProviderEventFileStoreErrored
+	6 --> 7 : ProviderEventFileStoreErrored
+	4 --> 7 : ProviderEventDealHandoffFailed
+	4 --> 5 : ProviderEventDealHandedOff
+	5 --> 7 : ProviderEventDealActivationFailed
+	5 --> 6 : ProviderEventDealActivated
+	6 --> 7 : ProviderEventPieceStoreErrored
+	6 --> 23 : ProviderEventDealCompleted
+	6 --> 7 : ProviderEventUnableToLocatePiece
+	6 --> 7 : ProviderEventReadMetadataErrored
+	7 --> 22 : ProviderEventFailed
+	22 --> [*]
+	23 --> [*]

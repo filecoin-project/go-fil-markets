@@ -1,0 +1,50 @@
+stateDiagram-v2
+	state "StorageDealUnknown" as 0
+	state "StorageDealEnsureClientFunds" as 17
+	state "StorageDealClientFunding" as 19
+	state "StorageDealFailing" as 7
+	state "StorageDealFundsEnsured" as 9
+	state "StorageDealError" as 22
+	state "StorageDealWaitingForDataRequest" as 10
+	state "StorageDealValidating" as 11
+	state "StorageDealTransferring" as 13
+	state "StorageDealProposalAccepted" as 3
+	state "StorageDealSealing" as 5
+	state "StorageDealActive" as 6
+	17 : On entry runs EnsureClientFunds
+	19 : On entry runs WaitForFunding
+	7 : On entry runs FailDeal
+	9 : On entry runs ProposeDeal
+	10 : On entry runs WaitingForDataRequest
+	11 : On entry runs VerifyDealResponse
+	3 : On entry runs ValidateDealPublished
+	5 : On entry runs VerifyDealActivated
+	[*] --> 0
+	0 --> 17 : ClientEventOpen
+	17 --> 19 : ClientEventFundingInitiated
+	19 --> 7 : ClientEventEnsureFundsFailed
+	17 --> 7 : ClientEventEnsureFundsFailed
+	17 --> 9 : ClientEventFundsEnsured
+	19 --> 9 : ClientEventFundsEnsured
+	9 --> 22 : ClientEventWriteProposalFailed
+	9 --> 10 : ClientEventDealProposed
+	10 --> 22 : ClientEventReadResponseFailed
+	11 --> 22 : ClientEventReadResponseFailed
+	11 --> 7 : ClientEventResponseVerificationFailed
+	10 --> 7 : ClientEventResponseVerificationFailed
+	10 --> 7 : ClientEventUnexpectedDealState
+	10 --> 7 : ClientEventDataTransferFailed
+	13 --> 7 : ClientEventDataTransferFailed
+	10 --> 13 : ClientEventDataTransferInitiated
+	10 --> 11 : ClientEventDataTransferComplete
+	13 --> 11 : ClientEventDataTransferComplete
+	11 --> 7 : ClientEventResponseDealDidNotMatch
+	11 --> 7 : ClientEventDealRejected
+	11 --> 3 : ClientEventDealAccepted
+	3 --> 22 : ClientEventDealPublishFailed
+	3 --> 5 : ClientEventDealPublished
+	5 --> 22 : ClientEventDealActivationFailed
+	5 --> 6 : ClientEventDealActivated
+	7 --> 22 : ClientEventFailed
+	6 --> [*]
+	22 --> [*]

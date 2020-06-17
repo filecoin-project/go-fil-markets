@@ -266,3 +266,12 @@ func (c *client) ConsumeBlock(ctx context.Context, dealID retrievalmarket.DealID
 
 	return uint64(len(block.Data)), done, nil
 }
+
+// ClientFSMParameterSpec is a valid set of parameters for a client deal FSM - used in doc generation
+var ClientFSMParameterSpec = fsm.Parameters{
+	Environment:     &client{},
+	StateType:       retrievalmarket.ClientDealState{},
+	StateKeyField:   "Status",
+	Events:          clientstates.ClientEvents,
+	StateEntryFuncs: clientstates.ClientStateEntryFuncs,
+}

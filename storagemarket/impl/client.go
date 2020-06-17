@@ -444,3 +444,13 @@ func (c *clientDealEnvironment) StartDataTransfer(ctx context.Context, to peer.I
 	_, err := c.c.dataTransfer.OpenPushDataChannel(ctx, to, voucher, baseCid, selector)
 	return err
 }
+
+// ClientFSMParameterSpec is a valid set of parameters for a client deal FSM - used in doc generation
+var ClientFSMParameterSpec = fsm.Parameters{
+	Environment:     &clientDealEnvironment{},
+	StateType:       storagemarket.ClientDeal{},
+	StateKeyField:   "State",
+	Events:          clientstates.ClientEvents,
+	StateEntryFuncs: clientstates.ClientStateEntryFuncs,
+	FinalityStates:  clientstates.ClientFinalityStates,
+}

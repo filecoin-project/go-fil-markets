@@ -152,6 +152,37 @@ const (
 	ClientEventComplete
 )
 
+// ClientEvents is a human readable map of client event name -> event description
+var ClientEvents = map[ClientEvent]string{
+	ClientEventOpen:                          "ClientEventOpen",
+	ClientEventPaymentChannelErrored:         "ClientEventPaymentChannelErrored",
+	ClientEventAllocateLaneErrored:           "ClientEventAllocateLaneErrored",
+	ClientEventPaymentChannelCreateInitiated: "ClientEventPaymentChannelCreateInitiated",
+	ClientEventPaymentChannelReady:           "ClientEventPaymentChannelReady",
+	ClientEventPaymentChannelAddingFunds:     "ClientEventPaymentChannelAddingFunds",
+	ClientEventPaymentChannelAddFundsErrored: "ClientEventPaymentChannelAddFundsErrored",
+	ClientEventWriteDealProposalErrored:      "ClientEventWriteDealProposalErrored",
+	ClientEventReadDealResponseErrored:       "ClientEventReadDealResponseErrored",
+	ClientEventDealRejected:                  "ClientEventDealRejected",
+	ClientEventDealNotFound:                  "ClientEventDealNotFound",
+	ClientEventDealAccepted:                  "ClientEventDealAccepted",
+	ClientEventUnknownResponseReceived:       "ClientEventUnknownResponseReceived",
+	ClientEventFundsExpended:                 "ClientEventFundsExpended",
+	ClientEventBadPaymentRequested:           "ClientEventBadPaymentRequested",
+	ClientEventCreateVoucherFailed:           "ClientEventCreateVoucherFailed",
+	ClientEventWriteDealPaymentErrored:       "ClientEventWriteDealPaymentErrored",
+	ClientEventPaymentSent:                   "ClientEventPaymentSent",
+	ClientEventConsumeBlockFailed:            "ClientEventConsumeBlockFailed",
+	ClientEventLastPaymentRequested:          "ClientEventLastPaymentRequested",
+	ClientEventAllBlocksReceived:             "ClientEventAllBlocksReceived",
+	ClientEventEarlyTermination:              "ClientEventEarlyTermination",
+	ClientEventPaymentRequested:              "ClientEventPaymentRequested",
+	ClientEventBlocksReceived:                "ClientEventBlocksReceived",
+	ClientEventProgress:                      "ClientEventProgress",
+	ClientEventError:                         "ClientEventError",
+	ClientEventComplete:                      "ClientEventComplete",
+}
+
 // ClientSubscriber is a callback that is registered to listen for retrieval events
 type ClientSubscriber func(event ClientEvent, state ClientDealState)
 
@@ -310,6 +341,26 @@ const (
 	// ProviderEventComplete indicates a retrieval deal was completed for a client
 	ProviderEventComplete
 )
+
+// ProviderEvents is a human readable map of provider event name -> event description
+var ProviderEvents = map[ProviderEvent]string{
+	ProviderEventOpen:                   "ProviderEventOpen",
+	ProviderEventDealReceived:           "ProviderEventDealReceived",
+	ProviderEventDecisioningError:       "ProviderEventDecisioningError",
+	ProviderEventWriteResponseFailed:    "ProviderEventWriteResponseFailed",
+	ProviderEventReadPaymentFailed:      "ProviderEventReadPaymentFailed",
+	ProviderEventGetPieceSizeErrored:    "ProviderEventGetPieceSizeErrored",
+	ProviderEventDealNotFound:           "ProviderEventDealNotFound",
+	ProviderEventDealRejected:           "ProviderEventDealRejected",
+	ProviderEventDealAccepted:           "ProviderEventDealAccepted",
+	ProviderEventBlockErrored:           "ProviderEventBlockErrored",
+	ProviderEventBlocksCompleted:        "ProviderEventBlocksCompleted",
+	ProviderEventPaymentRequested:       "ProviderEventPaymentRequested",
+	ProviderEventSaveVoucherFailed:      "ProviderEventSaveVoucherFailed",
+	ProviderEventPartialPaymentReceived: "ProviderEventPartialPaymentReceived",
+	ProviderEventPaymentReceived:        "ProviderEventPaymentReceived",
+	ProviderEventComplete:               "ProviderEventComplete",
+}
 
 // ProviderDealID is a unique identifier for a deal on a provider -- it is
 // a combination of DealID set by the client and the peer ID of the client
@@ -531,22 +582,24 @@ const (
 
 // DealStatuses maps deal status to a human readable representation
 var DealStatuses = map[DealStatus]string{
-	DealStatusNew:                       "DealStatusNew",
-	DealStatusPaymentChannelCreating:    "DealStatusPaymentChannelCreating",
-	DealStatusPaymentChannelAddingFunds: "DealStatusPaymentChannelAddingFunds",
-	DealStatusPaymentChannelReady:       "DealStatusPaymentChannelReady",
-	DealStatusAccepted:                  "DealStatusAccepted",
-	DealStatusFailed:                    "DealStatusFailed",
-	DealStatusRejected:                  "DealStatusRejected",
-	DealStatusFundsNeeded:               "DealStatusFundsNeeded",
-	DealStatusOngoing:                   "DealStatusOngoing",
-	DealStatusFundsNeededLastPayment:    "DealStatusFundsNeededLastPayment",
-	DealStatusCompleted:                 "DealStatusCompleted",
-	DealStatusDealNotFound:              "DealStatusDealNotFound",
-	DealStatusVerified:                  "DealStatusVerified",
-	DealStatusErrored:                   "DealStatusErrored",
-	DealStatusBlocksComplete:            "DealStatusBlocksComplete",
-	DealStatusFinalizing:                "DealStatusFinalizing",
+	DealStatusNew:                          "DealStatusNew",
+	DealStatusPaymentChannelCreating:       "DealStatusPaymentChannelCreating",
+	DealStatusPaymentChannelAddingFunds:    "DealStatusPaymentChannelAddingFunds",
+	DealStatusPaymentChannelAllocatingLane: "DealStatusPaymentChannelAllocatingLane",
+	DealStatusPaymentChannelReady:          "DealStatusPaymentChannelReady",
+	DealStatusAwaitingAcceptance:           "DealStatusAwaitingAcceptance",
+	DealStatusAccepted:                     "DealStatusAccepted",
+	DealStatusFailed:                       "DealStatusFailed",
+	DealStatusRejected:                     "DealStatusRejected",
+	DealStatusFundsNeeded:                  "DealStatusFundsNeeded",
+	DealStatusOngoing:                      "DealStatusOngoing",
+	DealStatusFundsNeededLastPayment:       "DealStatusFundsNeededLastPayment",
+	DealStatusCompleted:                    "DealStatusCompleted",
+	DealStatusDealNotFound:                 "DealStatusDealNotFound",
+	DealStatusVerified:                     "DealStatusVerified",
+	DealStatusErrored:                      "DealStatusErrored",
+	DealStatusBlocksComplete:               "DealStatusBlocksComplete",
+	DealStatusFinalizing:                   "DealStatusFinalizing",
 }
 
 // IsTerminalError returns true if this status indicates processing of this deal

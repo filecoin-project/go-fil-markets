@@ -540,3 +540,13 @@ func (p *providerDealEnvironment) RunCustomDecisionLogic(ctx context.Context, de
 }
 
 var _ providerstates.ProviderDealEnvironment = &providerDealEnvironment{}
+
+// ProviderFSMParameterSpec is a valid set of parameters for a provider FSM - used in doc generation
+var ProviderFSMParameterSpec = fsm.Parameters{
+	Environment:     &providerDealEnvironment{},
+	StateType:       storagemarket.MinerDeal{},
+	StateKeyField:   "State",
+	Events:          providerstates.ProviderEvents,
+	StateEntryFuncs: providerstates.ProviderStateEntryFuncs,
+	FinalityStates:  providerstates.ProviderFinalityStates,
+}
