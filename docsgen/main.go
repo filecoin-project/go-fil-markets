@@ -45,7 +45,7 @@ func updateOnChanged(name string, writeContents func(w io.Writer) error) error {
 	if err != nil {
 		return err
 	}
-	if bytes.Compare(orig, buf.Bytes()) != 0 {
+	if !bytes.Equal(orig, buf.Bytes()) {
 		file, err := os.Create(name)
 		if err != nil {
 			return err
