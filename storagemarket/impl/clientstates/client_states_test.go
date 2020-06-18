@@ -133,11 +133,12 @@ func TestWaitingForDataRequest(t *testing.T) {
 				dealStream: testResponseStream(t, responseParams{
 					proposal: clientDealProposal,
 					state:    storagemarket.StorageDealProposalNotFound,
+					message:  "couldn't find deal in store",
 				}),
 			},
 			inspector: func(deal storagemarket.ClientDeal, env *fakeEnvironment) {
 				tut.AssertDealState(t, storagemarket.StorageDealFailing, deal.State)
-				assert.Equal(t, "unexpected deal status while waiting for data request: 1", deal.Message)
+				assert.Equal(t, "unexpected deal status while waiting for data request: 1 (StorageDealProposalNotFound). Provider message: couldn't find deal in store", deal.Message)
 			},
 		})
 	})
