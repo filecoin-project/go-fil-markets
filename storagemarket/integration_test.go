@@ -83,7 +83,7 @@ func TestMakeDeal(t *testing.T) {
 	var clientSeenDeal storagemarket.ClientDeal
 	var providerstates, clientstates []storagemarket.StorageDealStatus
 	for providerSeenDeal.State != storagemarket.StorageDealCompleted ||
-		clientSeenDeal.State != storagemarket.StorageDealActive {
+		clientSeenDeal.State != storagemarket.StorageDealExpired {
 		select {
 		case clientSeenDeal = <-clientDealChan:
 			clientstates = append(clientstates, clientSeenDeal.State)
@@ -124,6 +124,7 @@ func TestMakeDeal(t *testing.T) {
 		storagemarket.StorageDealProposalAccepted,
 		storagemarket.StorageDealSealing,
 		storagemarket.StorageDealActive,
+		storagemarket.StorageDealExpired,
 	}
 
 	assert.Equal(t, expProviderStates, providerstates)
@@ -137,7 +138,7 @@ func TestMakeDeal(t *testing.T) {
 
 	cd, err := h.Client.GetLocalDeal(ctx, proposalCid)
 	assert.NoError(t, err)
-	shared_testutil.AssertDealState(t, storagemarket.StorageDealActive, cd.State)
+	shared_testutil.AssertDealState(t, storagemarket.StorageDealExpired, cd.State)
 
 	providerDeals, err := h.Provider.ListLocalDeals()
 	assert.NoError(t, err)
@@ -192,7 +193,7 @@ func TestMakeDealOffline(t *testing.T) {
 
 	cd, err = h.Client.GetLocalDeal(ctx, proposalCid)
 	assert.NoError(t, err)
-	shared_testutil.AssertDealState(t, storagemarket.StorageDealActive, cd.State)
+	shared_testutil.AssertDealState(t, storagemarket.StorageDealExpired, cd.State)
 
 	providerDeals, err = h.Provider.ListLocalDeals()
 	assert.NoError(t, err)
@@ -285,7 +286,7 @@ func TestRestartClient(t *testing.T) {
 
 	cd, err = h.Client.GetLocalDeal(ctx, proposalCid)
 	assert.NoError(t, err)
-	shared_testutil.AssertDealState(t, storagemarket.StorageDealActive, cd.State)
+	shared_testutil.AssertDealState(t, storagemarket.StorageDealExpired, cd.State)
 
 	providerDeals, err := h.Provider.ListLocalDeals()
 	assert.NoError(t, err)

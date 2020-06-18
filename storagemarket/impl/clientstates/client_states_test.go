@@ -308,6 +308,54 @@ func TestVerifyDealActivated(t *testing.T) {
 	})
 }
 
+func TestWaitForDealCompletion(t *testing.T) {
+	t.Run("slashing succeeds", func(t *testing.T) {
+		runAndInspect(t, storagemarket.StorageDealActive, clientstates.WaitForDealCompletion, testCase{
+			nodeParams: nodeParams{OnDealSlashedEpoch: abi.ChainEpoch(5)},
+			inspector: func(deal storagemarket.ClientDeal, env *fakeEnvironment) {
+				tut.AssertDealState(t, storagemarket.StorageDealSlashed, deal.State)
+				assert.Equal(t, abi.ChainEpoch(5), deal.SlashEpoch)
+			},
+		})
+	})
+	t.Run("expiration succeeds", func(t *testing.T) {
+		runAndInspect(t, storagemarket.StorageDealActive, clientstates.WaitForDealCompletion, testCase{
+			// OnDealSlashedEpoch of zero signals to test node to call onDealExpired()
+			nodeParams: nodeParams{OnDealSlashedEpoch: abi.ChainEpoch(0)},
+			inspector: func(deal storagemarket.ClientDeal, env *fakeEnvironment) {
+				tut.AssertDealState(t, storagemarket.StorageDealExpired, deal.State)
+			},
+		})
+	})
+	t.Run("slashing fails", func(t *testing.T) {
+		runAndInspect(t, storagemarket.StorageDealActive, clientstates.WaitForDealCompletion, testCase{
+			nodeParams: nodeParams{OnDealSlashedError: errors.New("an err")},
+			inspector: func(deal storagemarket.ClientDeal, env *fakeEnvironment) {
+				tut.AssertDealState(t, storagemarket.StorageDealError, deal.State)
+				assert.Equal(t, "error waiting for deal completion: deal slashing err: an err", deal.Message)
+			},
+		})
+	})
+	t.Run("expiration fails", func(t *testing.T) {
+		runAndInspect(t, storagemarket.StorageDealActive, clientstates.WaitForDealCompletion, testCase{
+			nodeParams: nodeParams{OnDealExpiredError: errors.New("an err")},
+			inspector: func(deal storagemarket.ClientDeal, env *fakeEnvironment) {
+				tut.AssertDealState(t, storagemarket.StorageDealError, deal.State)
+				assert.Equal(t, "error waiting for deal completion: deal expiration err: an err", deal.Message)
+			},
+		})
+	})
+	t.Run("fails synchronously", func(t *testing.T) {
+		runAndInspect(t, storagemarket.StorageDealActive, clientstates.WaitForDealCompletion, testCase{
+			nodeParams: nodeParams{WaitForDealCompletionError: errors.New("an err")},
+			inspector: func(deal storagemarket.ClientDeal, env *fakeEnvironment) {
+				tut.AssertDealState(t, storagemarket.StorageDealError, deal.State)
+				assert.Equal(t, "error waiting for deal completion: an err", deal.Message)
+			},
+		})
+	})
+}
+
 func TestFailDeal(t *testing.T) {
 	t.Run("closes an open stream", func(t *testing.T) {
 		runAndInspect(t, storagemarket.StorageDealFailing, clientstates.FailDeal, testCase{
@@ -343,7 +391,8 @@ func TestFinalityStates(t *testing.T) {
 	require.NoError(t, err)
 
 	for _, status := range []storagemarket.StorageDealStatus{
-		storagemarket.StorageDealActive,
+		storagemarket.StorageDealSlashed,
+		storagemarket.StorageDealExpired,
 		storagemarket.StorageDealError,
 	} {
 		require.True(t, group.IsTerminated(storagemarket.ClientDeal{State: status}))
@@ -402,21 +451,25 @@ func makeExecutor(ctx context.Context,
 }
 
 type nodeParams struct {
-	AddFundsCid             cid.Cid
-	EnsureFundsError        error
-	VerifySignatureFails    bool
-	GetBalanceError         error
-	GetChainHeadError       error
-	WaitForMessageBlocks    bool
-	WaitForMessageError     error
-	WaitForMessageExitCode  exitcode.ExitCode
-	WaitForMessageRetBytes  []byte
-	ClientAddr              address.Address
-	ValidationError         error
-	ValidatePublishedDealID abi.DealID
-	ValidatePublishedError  error
-	DealCommittedSyncError  error
-	DealCommittedAsyncError error
+	AddFundsCid                cid.Cid
+	EnsureFundsError           error
+	VerifySignatureFails       bool
+	GetBalanceError            error
+	GetChainHeadError          error
+	WaitForMessageBlocks       bool
+	WaitForMessageError        error
+	WaitForMessageExitCode     exitcode.ExitCode
+	WaitForMessageRetBytes     []byte
+	ClientAddr                 address.Address
+	ValidationError            error
+	ValidatePublishedDealID    abi.DealID
+	ValidatePublishedError     error
+	DealCommittedSyncError     error
+	DealCommittedAsyncError    error
+	WaitForDealCompletionError error
+	OnDealExpiredError         error
+	OnDealSlashedError         error
+	OnDealSlashedEpoch         abi.ChainEpoch
 }
 
 func makeNode(params nodeParams) storagemarket.StorageClientNode {
@@ -437,6 +490,10 @@ func makeNode(params nodeParams) storagemarket.StorageClientNode {
 	out.ValidatePublishedError = params.ValidatePublishedError
 	out.DealCommittedSyncError = params.DealCommittedSyncError
 	out.DealCommittedAsyncError = params.DealCommittedAsyncError
+	out.WaitForDealCompletionError = params.WaitForDealCompletionError
+	out.OnDealExpiredError = params.OnDealExpiredError
+	out.OnDealSlashedError = params.OnDealSlashedError
+	out.OnDealSlashedEpoch = params.OnDealSlashedEpoch
 	return &out
 }
 

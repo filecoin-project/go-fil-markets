@@ -5,6 +5,7 @@ import (
 
 	datatransfer "github.com/filecoin-project/go-data-transfer"
 	"github.com/filecoin-project/go-statemachine/fsm"
+	"github.com/filecoin-project/specs-actors/actors/abi"
 	"github.com/filecoin-project/specs-actors/actors/runtime/exitcode"
 	"github.com/ipfs/go-cid"
 	logging "github.com/ipfs/go-log/v2"
@@ -189,6 +190,35 @@ func VerifyDealActivated(ctx fsm.Context, environment ClientDealEnvironment, dea
 
 	if err := environment.Node().OnDealSectorCommitted(ctx.Context(), deal.Proposal.Provider, deal.DealID, cb); err != nil {
 		return ctx.Trigger(storagemarket.ClientEventDealActivationFailed, err)
+	}
+
+	return nil
+}
+
+// WaitForDealCompletion waits for the deal to be slashed or to expire
+func WaitForDealCompletion(ctx fsm.Context, environment ClientDealEnvironment, deal storagemarket.ClientDeal) error {
+	node := environment.Node()
+
+	// Called when the deal expires
+	expiredCb := func(err error) {
+		if err != nil {
+			_ = ctx.Trigger(storagemarket.ClientEventDealCompletionFailed, xerrors.Errorf("deal expiration err: %w", err))
+		} else {
+			_ = ctx.Trigger(storagemarket.ClientEventDealExpired)
+		}
+	}
+
+	// Called when the deal is slashed
+	slashedCb := func(slashEpoch abi.ChainEpoch, err error) {
+		if err != nil {
+			_ = ctx.Trigger(storagemarket.ClientEventDealCompletionFailed, xerrors.Errorf("deal slashing err: %w", err))
+		} else {
+			_ = ctx.Trigger(storagemarket.ClientEventDealSlashed, slashEpoch)
+		}
+	}
+
+	if err := node.OnDealExpiredOrSlashed(ctx.Context(), deal.DealID, expiredCb, slashedCb); err != nil {
+		return ctx.Trigger(storagemarket.ClientEventDealCompletionFailed, err)
 	}
 
 	return nil
