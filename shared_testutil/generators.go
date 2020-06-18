@@ -275,9 +275,11 @@ func MakeTestStorageQueryResponse() smnet.QueryResponse {
 	proposal := MakeTestUnsignedDealProposal()
 
 	return smnet.QueryResponse{
-		Proposal:    &proposal,
-		ProposalCid: &GenerateCids(1)[0],
-		State:       storagemarket.StorageDealActive,
+		DealState: &storagemarket.ProviderDealState{
+			Proposal:    &proposal,
+			ProposalCid: &GenerateCids(1)[0],
+			State:       storagemarket.StorageDealActive,
+		},
 	}
 }
 

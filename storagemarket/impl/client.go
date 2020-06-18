@@ -191,6 +191,25 @@ func (c *Client) GetAsk(ctx context.Context, info storagemarket.StorageProviderI
 	return out.Ask, nil
 }
 
+func (c *Client) GetDealStatus(ctx context.Context, info storagemarket.StorageProviderInfo, proposalCid cid.Cid) (*storagemarket.ProviderDealState, error) {
+	s, err := c.net.NewQueryStream(info.PeerID)
+	if err != nil {
+		return nil, xerrors.Errorf("failed to open stream to miner: %w", err)
+	}
+
+	request := network.QueryRequest{Proposal: proposalCid}
+	if err := s.WriteQueryRequest(request); err != nil {
+		return nil, xerrors.Errorf("failed to send query request: %w", err)
+	}
+
+	resp, err := s.ReadQueryResponse()
+	if err != nil {
+		return nil, xerrors.Errorf("failed to read query response: %w", err)
+	}
+
+	return resp.DealState, nil
+}
+
 func (c *Client) ProposeStorageDeal(
 	ctx context.Context,
 	addr address.Address,

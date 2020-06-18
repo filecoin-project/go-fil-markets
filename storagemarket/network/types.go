@@ -2,7 +2,6 @@ package network
 
 import (
 	"github.com/filecoin-project/go-address"
-	"github.com/filecoin-project/specs-actors/actors/abi"
 	"github.com/filecoin-project/specs-actors/actors/builtin/market"
 	"github.com/filecoin-project/specs-actors/actors/crypto"
 	"github.com/ipfs/go-cid"
@@ -67,32 +66,7 @@ var QueryRequestUndefined = QueryRequest{}
 
 // QueryResponse is a response to a proposal sent over the network
 type QueryResponse struct {
-	State       storagemarket.StorageDealStatus
-	Proposal    *market.DealProposal
-	ProposalCid *cid.Cid
-	AddFundsCid *cid.Cid
-	PublishCid  *cid.Cid
-	DealID      abi.DealID
+	DealState *storagemarket.ProviderDealState
 }
-
-/*
-type MinerDeal struct {
-	market.ClientDealProposal
-	ProposalCid      cid.Cid
-	AddFundsCid      *cid.Cid
-	PublishCid       *cid.Cid
-	Miner            peer.ID
-	Client           peer.ID
-	State            StorageDealStatus
-	PiecePath        filestore.Path
-	MetadataPath     filestore.Path
-	ConnectionClosed bool
-	Message          string
-
-	Ref *DataRef
-
-	DealID abi.DealID
-}
-*/
 
 var QueryResponseUndefined = QueryResponse{}

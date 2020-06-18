@@ -17,7 +17,7 @@ import (
 	"github.com/filecoin-project/go-fil-markets/shared"
 )
 
-//go:generate cbor-gen-for ClientDeal MinerDeal Balance SignedStorageAsk StorageAsk StorageDeal DataRef
+//go:generate cbor-gen-for ClientDeal MinerDeal Balance SignedStorageAsk StorageAsk StorageDeal DataRef ProviderDealState
 
 const DealProtocolID = "/fil/storage/mk/1.0.1"
 const AskProtocolID = "/fil/storage/ask/1.0.1"
@@ -562,6 +562,17 @@ type DataRef struct {
 	PieceSize abi.UnpaddedPieceSize // Optional for non-manual transfer, will be recomputed from the data if not given
 }
 
+// ProviderDealState represents a Provider's current state of a deal
+type ProviderDealState struct {
+	State       StorageDealStatus
+	Message     string
+	Proposal    *market.DealProposal
+	ProposalCid *cid.Cid
+	AddFundsCid *cid.Cid
+	PublishCid  *cid.Cid
+	DealID      abi.DealID
+}
+
 // The interface provided by the module to the outside world for storage clients.
 type StorageClient interface {
 	Start(ctx context.Context) error
@@ -582,6 +593,8 @@ type StorageClient interface {
 
 	// GetAsk returns the current ask for a storage provider
 	GetAsk(ctx context.Context, info StorageProviderInfo) (*SignedStorageAsk, error)
+
+	GetDealStatus(ctx context.Context, info StorageProviderInfo, proposalCid cid.Cid) (*ProviderDealState, error)
 
 	//// FindStorageOffers lists providers and queries them to find offers that satisfy some criteria based on price, duration, etc.
 	//FindStorageOffers(criteria AskCriteria, limit uint) []*StorageOffer

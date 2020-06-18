@@ -33,6 +33,7 @@ import (
 
 var DefaultDealAcceptanceBuffer = abi.ChainEpoch(100)
 var _ storagemarket.StorageProvider = &Provider{}
+var _ network.StorageReceiver = &Provider{}
 
 type StoredAsk interface {
 	GetAsk() *storagemarket.SignedStorageAsk
@@ -340,6 +341,39 @@ func (p *Provider) HandleAskStream(s network.StorageAskStream) {
 
 	if err := s.WriteAskResponse(resp); err != nil {
 		log.Errorf("failed to write ask response: %s", err)
+		return
+	}
+}
+
+func (p *Provider) HandleQueryStream(s network.StorageQueryStream) {
+	defer s.Close()
+	qr, err := s.ReadQueryRequest()
+	if err != nil {
+		log.Errorf("failed to read QueryRequest from incoming stream: %s", err)
+		return
+	}
+
+	var dealState storagemarket.ProviderDealState
+	var md = storagemarket.MinerDeal{}
+	if err := p.deals.Get(qr.Proposal).Get(&md); err != nil {
+		log.Errorf("proposal doesn't exist in state store: %s", err)
+		dealState.State = storagemarket.StorageDealNotFound
+	} else {
+		dealState.State = md.State
+		dealState.Message = md.Message
+		dealState.Proposal = &md.Proposal
+		dealState.ProposalCid = &md.ProposalCid
+		dealState.AddFundsCid = md.AddFundsCid
+		dealState.PublishCid = md.PublishCid
+		dealState.DealID = md.DealID
+	}
+
+	resp := network.QueryResponse{
+		DealState: &dealState,
+	}
+
+	if err := s.WriteQueryResponse(resp); err != nil {
+		log.Errorf("failed to write query response: %s", err)
 		return
 	}
 }
