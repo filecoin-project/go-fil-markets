@@ -41,7 +41,10 @@ DOTs=$(shell find docs -name '*.dot')
 MMDs=$(shell find docs -name '*.mmd')
 SVGs=$(DOTs:%=%.svg) $(MMDs:%=%.svg)
 
-diagrams: ${MMDs} ${SVGs} 
+node_modules: package.json
+	npm install
+
+diagrams: ${MMDs} ${SVGs} node_modules
 
 %.mmd.svg: %.mmd
 	node_modules/.bin/mmdc -i $< -o $@
