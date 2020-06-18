@@ -189,6 +189,7 @@ Find the piece associated with `dealID` as of `tok` and return the sector id, pl
 * [`SignProposal`](#SignProposal)
 * [`GetDefaultWalletAddress`](#GetDefaultWalletAddress)
 * [`OnDealSectorCommitted`](#OnDealSectorCommitted)
+* [`OnDealExpiredOrSlashed`](#OnDealExpiredOrSlashed)
 * [`ValidateAskSignature`](#ValidateAskSignature)
 
 #### StorageFunds
@@ -244,6 +245,17 @@ func OnDealSectorCommitted(ctx context.Context, provider address.Address, dealID
 ```
 
 Register a callback to be called once the Deal's sector(s) are committed.
+
+#### OnDealExpiredOrSlashed
+```go
+func OnDealExpiredOrSlashed(
+    ctx context.Context,
+    dealID abi.DealID,
+    onDealExpired DealExpiredCallback,
+    onDealSlashed DealSlashedCallback) error
+```
+
+Register callbacks to be called when a deal expires or is slashed.
 
 #### ValidateAskSignature
 ```go

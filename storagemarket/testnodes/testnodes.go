@@ -160,12 +160,16 @@ func (n *FakeCommonNode) VerifySignature(ctx context.Context, signature crypto.S
 // FakeClientNode implements functions specific to the StorageClientNode
 type FakeClientNode struct {
 	FakeCommonNode
-	ClientAddr              address.Address
-	ValidationError         error
-	ValidatePublishedDealID abi.DealID
-	ValidatePublishedError  error
-	DealCommittedSyncError  error
-	DealCommittedAsyncError error
+	ClientAddr                 address.Address
+	ValidationError            error
+	ValidatePublishedDealID    abi.DealID
+	ValidatePublishedError     error
+	DealCommittedSyncError     error
+	DealCommittedAsyncError    error
+	WaitForDealCompletionError error
+	OnDealExpiredError         error
+	OnDealSlashedError         error
+	OnDealSlashedEpoch         abi.ChainEpoch
 }
 
 // ListClientDeals just returns the deals in the storage market state
@@ -208,6 +212,30 @@ func (n *FakeClientNode) OnDealSectorCommitted(ctx context.Context, provider add
 // communicating the validity of the provided signature
 func (n *FakeClientNode) ValidateAskSignature(ctx context.Context, ask *storagemarket.SignedStorageAsk, tok shared.TipSetToken) (bool, error) {
 	return n.ValidationError == nil, n.ValidationError
+}
+
+func (n *FakeClientNode) OnDealExpiredOrSlashed(ctx context.Context, dealID abi.DealID, onDealExpired storagemarket.DealExpiredCallback, onDealSlashed storagemarket.DealSlashedCallback) error {
+	if n.WaitForDealCompletionError != nil {
+		return n.WaitForDealCompletionError
+	}
+
+	if n.OnDealSlashedError != nil {
+		onDealSlashed(abi.ChainEpoch(0), n.OnDealSlashedError)
+		return nil
+	}
+
+	if n.OnDealExpiredError != nil {
+		onDealExpired(n.OnDealExpiredError)
+		return nil
+	}
+
+	if n.OnDealSlashedEpoch == 0 {
+		onDealExpired(nil)
+		return nil
+	}
+
+	onDealSlashed(n.OnDealSlashedEpoch, nil)
+	return nil
 }
 
 var _ storagemarket.StorageClientNode = (*FakeClientNode)(nil)

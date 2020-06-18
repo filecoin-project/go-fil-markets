@@ -78,7 +78,7 @@ func TestStorageRetrieval(t *testing.T) {
 	var storageProviderSeenDeal storagemarket.MinerDeal
 	var storageClientSeenDeal storagemarket.ClientDeal
 	for storageProviderSeenDeal.State != storagemarket.StorageDealCompleted ||
-		storageClientSeenDeal.State != storagemarket.StorageDealActive {
+		storageClientSeenDeal.State != storagemarket.StorageDealExpired {
 		select {
 		case storageProviderSeenDeal = <-providerDealChan:
 		case storageClientSeenDeal = <-clientDealChan:
