@@ -25,6 +25,14 @@ stateDiagram-v2
 	16 : On entry runs ProcessNextResponse
 	17 : On entry runs Finalize
 	[*] --> 0
+	note right of 0
+		The following events are not shown cause they can trigger from any state.
+
+		ClientEventWriteDealProposalErrored - transitions state to DealStatusErrored
+		ClientEventReadDealResponseErrored - transitions state to DealStatusErrored
+		ClientEventUnknownResponseReceived - transitions state to DealStatusFailed
+		ClientEventWriteDealPaymentErrored - transitions state to DealStatusErrored
+	end note
 	0 --> 0 : ClientEventOpen
 	1 --> 7 : ClientEventPaymentChannelErrored
 	6 --> 7 : ClientEventPaymentChannelErrored

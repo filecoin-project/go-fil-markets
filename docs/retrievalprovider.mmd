@@ -23,6 +23,12 @@ stateDiagram-v2
 	13 : On entry runs SendFailResponse
 	17 : On entry runs Finalize
 	[*] --> 0
+	note right of 0
+		The following events are not shown cause they can trigger from any state.
+
+		ProviderEventWriteResponseFailed - transitions state to DealStatusErrored
+		ProviderEventReadPaymentFailed - transitions state to DealStatusErrored
+	end note
 	0 --> 0 : ProviderEventOpen
 	0 --> 5 : ProviderEventDealReceived
 	5 --> 15 : ProviderEventDecisioningError

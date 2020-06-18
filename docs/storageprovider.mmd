@@ -27,6 +27,12 @@ stateDiagram-v2
 	20 : On entry runs PublishDeal
 	21 : On entry runs WaitForPublish
 	[*] --> 0
+	note right of 0
+		The following events are not shown cause they can trigger from any state.
+
+		ProviderEventNodeErrored - transitions state to StorageDealFailing
+		ProviderEventRestart - does not transition state
+	end note
 	0 --> 11 : ProviderEventOpen
 	11 --> 7 : ProviderEventDealRejected
 	12 --> 7 : ProviderEventDealRejected

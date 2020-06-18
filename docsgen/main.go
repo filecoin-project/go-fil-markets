@@ -28,7 +28,7 @@ func retrievalDealStatusCmp(a, b fsm.StateKey) bool {
 }
 
 func updateOnChanged(name string, writeContents func(w io.Writer) error) error {
-	input, err := os.Open("./docs/storageclient.mmd")
+	input, err := os.Open(name)
 	if err != nil {
 		return err
 	}
@@ -46,7 +46,7 @@ func updateOnChanged(name string, writeContents func(w io.Writer) error) error {
 		return err
 	}
 	if bytes.Compare(orig, buf.Bytes()) != 0 {
-		file, err := os.Create("./docs/storageclient.mmd")
+		file, err := os.Create(name)
 		if err != nil {
 			return err
 		}
