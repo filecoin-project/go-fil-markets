@@ -106,7 +106,7 @@ func WaitingForDataRequest(ctx fsm.Context, environment ClientDealEnvironment, d
 	}
 
 	if resp.Response.State != storagemarket.StorageDealWaitingForData {
-		return ctx.Trigger(storagemarket.ClientEventUnexpectedDealState, resp.Response.State)
+		return ctx.Trigger(storagemarket.ClientEventUnexpectedDealState, resp.Response.State, resp.Response.Message)
 	}
 
 	if deal.DataRef.TransferType == storagemarket.TTManual {
