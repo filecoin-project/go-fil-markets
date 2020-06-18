@@ -50,8 +50,8 @@ var ClientEvents = fsm.Events{
 		}),
 	fsm.Event(storagemarket.ClientEventUnexpectedDealState).
 		From(storagemarket.StorageDealWaitingForDataRequest).To(storagemarket.StorageDealFailing).
-		Action(func(deal *storagemarket.ClientDeal, status storagemarket.StorageDealStatus) error {
-			deal.Message = xerrors.Errorf("unexpected deal status while waiting for data request: %d", status).Error()
+		Action(func(deal *storagemarket.ClientDeal, status storagemarket.StorageDealStatus, providerMessage string) error {
+			deal.Message = xerrors.Errorf("unexpected deal status while waiting for data request: %d (%s). Provider message: %s", status, storagemarket.DealStates[status], providerMessage).Error()
 			return nil
 		}),
 	fsm.Event(storagemarket.ClientEventDataTransferFailed).
