@@ -37,7 +37,7 @@ var (
 	ErrInacceptableDealState = errors.New("deal is not a in a state where deals are accepted")
 
 	// DataTransferStates are the states in which it would make sense to actually start a data transfer
-	DataTransferStates = []storagemarket.StorageDealStatus{storagemarket.StorageDealValidating, storagemarket.StorageDealUnknown}
+	DataTransferStates = []storagemarket.StorageDealStatus{storagemarket.StorageDealValidating, storagemarket.StorageDealWaitingForData, storagemarket.StorageDealUnknown}
 )
 
 // StorageDataTransferVoucher is the voucher type for data transfers
