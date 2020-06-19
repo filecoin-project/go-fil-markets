@@ -352,3 +352,12 @@ func getPieceInfoFromCid(pieceStore piecestore.PieceStore, payloadCID, pieceCID 
 	}
 	return piecestore.PieceInfoUndefined, xerrors.Errorf("could not locate piece: %w", lastErr)
 }
+
+// ProviderFSMParameterSpec is a valid set of parameters for a provider FSM - used in doc generation
+var ProviderFSMParameterSpec = fsm.Parameters{
+	Environment:     &Provider{},
+	StateType:       retrievalmarket.ProviderDealState{},
+	StateKeyField:   "Status",
+	Events:          providerstates.ProviderEvents,
+	StateEntryFuncs: providerstates.ProviderStateEntryFuncs,
+}

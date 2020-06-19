@@ -17,3 +17,6 @@ filestore/_test/
 
 .filecoin-build
 .update-modules
+
+# NPM
+node_modules/
