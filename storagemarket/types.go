@@ -37,6 +37,8 @@ const (
 	StorageDealStaged
 	StorageDealSealing
 	StorageDealActive
+	StorageDealExpired
+	StorageDealSlashed
 	StorageDealFailing
 	StorageDealNotFound
 
@@ -69,6 +71,8 @@ var DealStates = map[StorageDealStatus]string{
 	StorageDealStaged:                "StorageDealStaged",
 	StorageDealSealing:               "StorageDealSealing",
 	StorageDealActive:                "StorageDealActive",
+	StorageDealExpired:               "StorageDealExpired",
+	StorageDealSlashed:               "StorageDealSlashed",
 	StorageDealFailing:               "StorageDealFailing",
 	StorageDealNotFound:              "StorageDealNotFound",
 	StorageDealFundsEnsured:          "StorageDealFundsEnsured",
@@ -286,6 +290,7 @@ type ClientDeal struct {
 	DataRef          *DataRef
 	Message          string
 	PublishMessage   *cid.Cid
+	SlashEpoch       abi.ChainEpoch
 	ConnectionClosed bool
 }
 
@@ -352,6 +357,15 @@ const (
 	// ClientEventDealActivated happens when a deal is successfully activated
 	ClientEventDealActivated
 
+	// ClientEventDealCompletionFailed happens when a client cannot verify a deal expired or was slashed
+	ClientEventDealCompletionFailed
+
+	// ClientEventDealExpired happens when a deal expires
+	ClientEventDealExpired
+
+	// ClientEventDealSlashed happens when a deal is slashed
+	ClientEventDealSlashed
+
 	// ClientEventFailed happens when a deal terminates in failure
 	ClientEventFailed
 
@@ -381,6 +395,9 @@ var ClientEvents = map[ClientEvent]string{
 	ClientEventDealPublished:              "ClientEventDealPublished",
 	ClientEventDealActivationFailed:       "ClientEventDealActivationFailed",
 	ClientEventDealActivated:              "ClientEventDealActivated",
+	ClientEventDealCompletionFailed:       "ClientEventDealCompletionFailed",
+	ClientEventDealExpired:                "ClientEventDealExpired",
+	ClientEventDealSlashed:                "ClientEventDealSlashed",
 	ClientEventFailed:                     "ClientEventFailed",
 	ClientEventRestart:                    "ClientEventRestart",
 }
@@ -395,6 +412,8 @@ type DealSectorCommittedCallback func(err error)
 type FundsAddedCallback func(err error)
 type DealsPublishedCallback func(err error)
 type MessagePublishedCallback func(mcid cid.Cid, err error)
+type DealExpiredCallback func(err error)
+type DealSlashedCallback func(slashEpoch abi.ChainEpoch, err error)
 
 // Subscriber is a callback that is called when events are emitted
 type ProviderSubscriber func(event ProviderEvent, deal MinerDeal)
@@ -504,6 +523,9 @@ type StorageClientNode interface {
 	GetDefaultWalletAddress(ctx context.Context) (address.Address, error)
 
 	OnDealSectorCommitted(ctx context.Context, provider address.Address, dealID abi.DealID, cb DealSectorCommittedCallback) error
+
+	// OnDealExpiredOrSlashed registers callbacks to be called when the deal expires or is slashed
+	OnDealExpiredOrSlashed(ctx context.Context, dealID abi.DealID, onDealExpired DealExpiredCallback, onDealSlashed DealSlashedCallback) error
 
 	ValidateAskSignature(ctx context.Context, ask *SignedStorageAsk, tok shared.TipSetToken) (bool, error)
 }

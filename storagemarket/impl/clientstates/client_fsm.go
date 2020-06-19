@@ -50,8 +50,8 @@ var ClientEvents = fsm.Events{
 		}),
 	fsm.Event(storagemarket.ClientEventUnexpectedDealState).
 		From(storagemarket.StorageDealWaitingForDataRequest).To(storagemarket.StorageDealFailing).
-		Action(func(deal *storagemarket.ClientDeal, status storagemarket.StorageDealStatus) error {
-			deal.Message = xerrors.Errorf("unexpected deal status while waiting for data request: %d", status).Error()
+		Action(func(deal *storagemarket.ClientDeal, status storagemarket.StorageDealStatus, providerMessage string) error {
+			deal.Message = xerrors.Errorf("unexpected deal status while waiting for data request: %d (%s). Provider message: %s", status, storagemarket.DealStates[status], providerMessage).Error()
 			return nil
 		}),
 	fsm.Event(storagemarket.ClientEventDataTransferFailed).
@@ -108,6 +108,20 @@ var ClientEvents = fsm.Events{
 		}),
 	fsm.Event(storagemarket.ClientEventDealActivated).
 		From(storagemarket.StorageDealSealing).To(storagemarket.StorageDealActive),
+	fsm.Event(storagemarket.ClientEventDealSlashed).
+		From(storagemarket.StorageDealActive).To(storagemarket.StorageDealSlashed).
+		Action(func(deal *storagemarket.ClientDeal, slashEpoch abi.ChainEpoch) error {
+			deal.SlashEpoch = slashEpoch
+			return nil
+		}),
+	fsm.Event(storagemarket.ClientEventDealExpired).
+		From(storagemarket.StorageDealActive).To(storagemarket.StorageDealExpired),
+	fsm.Event(storagemarket.ClientEventDealCompletionFailed).
+		From(storagemarket.StorageDealActive).To(storagemarket.StorageDealError).
+		Action(func(deal *storagemarket.ClientDeal, err error) error {
+			deal.Message = xerrors.Errorf("error waiting for deal completion: %w", err).Error()
+			return nil
+		}),
 	fsm.Event(storagemarket.ClientEventFailed).
 		From(storagemarket.StorageDealFailing).To(storagemarket.StorageDealError),
 	fsm.Event(storagemarket.ClientEventRestart).FromAny().ToNoChange(),
@@ -122,10 +136,12 @@ var ClientStateEntryFuncs = fsm.StateEntryFuncs{
 	storagemarket.StorageDealValidating:            VerifyDealResponse,
 	storagemarket.StorageDealProposalAccepted:      ValidateDealPublished,
 	storagemarket.StorageDealSealing:               VerifyDealActivated,
+	storagemarket.StorageDealActive:                WaitForDealCompletion,
 	storagemarket.StorageDealFailing:               FailDeal,
 }
 
 var ClientFinalityStates = []fsm.StateKey{
-	storagemarket.StorageDealActive,
+	storagemarket.StorageDealSlashed,
+	storagemarket.StorageDealExpired,
 	storagemarket.StorageDealError,
 }
