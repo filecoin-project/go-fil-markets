@@ -45,7 +45,7 @@ PNGs=$(DOTs:%=%.png) $(MMDs:%=%.png)
 node_modules: package.json
 	npm install
 
-diagrams: ${MMDs} ${SVGs} ${PNGs} node_modules
+diagrams: ${MMDs} ${SVGs} ${PNGs}
 
 %.mmd.svg: %.mmd
 	node_modules/.bin/mmdc -i $< -o $@
@@ -58,4 +58,4 @@ FORCE:
 docsgen: FORCE .update-modules .filecoin-build
 	go run ./docsgen
 
-$(MMDs): docsgen
+$(MMDs): docsgen node_modules
