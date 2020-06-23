@@ -198,7 +198,22 @@ func (c *Client) GetDealStatus(ctx context.Context, info storagemarket.StoragePr
 	}
 
 	request := network.QueryRequest{Proposal: proposalCid}
-	if err := s.WriteQueryRequest(request); err != nil {
+	buf, err := cborutil.Dump(&request)
+	if err != nil {
+		return nil, xerrors.Errorf("failed serialize query request: %w", err)
+	}
+
+	addr, err := c.node.GetDefaultWalletAddress(ctx)
+	if err != nil {
+		return nil, xerrors.Errorf("failed to get client address: %w", err)
+	}
+
+	signature, err := c.node.SignBytes(ctx, addr, buf)
+	if err != nil {
+		return nil, xerrors.Errorf("failed to sign query request: %w", err)
+	}
+
+	if err := s.WriteQueryRequest(network.SignedQueryRequest{Request: request, Signature: signature}); err != nil {
 		return nil, xerrors.Errorf("failed to send query request: %w", err)
 	}
 
@@ -207,7 +222,16 @@ func (c *Client) GetDealStatus(ctx context.Context, info storagemarket.StoragePr
 		return nil, xerrors.Errorf("failed to read query response: %w", err)
 	}
 
-	return resp.DealState, nil
+	valid, err := c.verifyQueryResponseSignature(ctx, info.Worker, resp)
+	if err != nil {
+		return nil, err
+	}
+
+	if !valid {
+		return nil, xerrors.Errorf("invalid query response signature")
+	}
+
+	return &resp.DealState, nil
 }
 
 func (c *Client) ProposeStorageDeal(
@@ -379,6 +403,25 @@ func (c *Client) ensureDealStream(provider peer.ID, proposalCid cid.Cid) (networ
 		return nil, err
 	}
 	return s, nil
+}
+
+func (c *Client) verifyQueryResponseSignature(ctx context.Context, miner address.Address, signedResponse network.SignedQueryResponse) (bool, error) {
+	tok, _, err := c.node.GetChainHead(ctx)
+	if err != nil {
+		return false, xerrors.Errorf("getting chain head: %w", err)
+	}
+
+	buf, err := cborutil.Dump(&signedResponse.DealState)
+	if err != nil {
+		return false, xerrors.Errorf("serializing: %w", err)
+	}
+
+	valid, err := c.node.VerifySignature(ctx, *signedResponse.Signature, miner, buf, tok)
+	if err != nil {
+		return false, xerrors.Errorf("validating signature: %w", err)
+	}
+
+	return valid, nil
 }
 
 func NewClientStateMachine(ds datastore.Datastore, env fsm.Environment, notifier fsm.Notifier) (fsm.Group, error) {

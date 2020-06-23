@@ -28,10 +28,10 @@ type StorageDealStream interface {
 }
 
 type StorageQueryStream interface {
-	ReadQueryRequest() (QueryRequest, error)
-	WriteQueryRequest(QueryRequest) error
-	ReadQueryResponse() (QueryResponse, error)
-	WriteQueryResponse(QueryResponse) error
+	ReadQueryRequest() (SignedQueryRequest, error)
+	WriteQueryRequest(SignedQueryRequest) error
+	ReadQueryResponse() (SignedQueryResponse, error)
+	WriteQueryResponse(SignedQueryResponse) error
 	Close() error
 }
 

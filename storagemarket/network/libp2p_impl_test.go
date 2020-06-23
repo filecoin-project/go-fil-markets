@@ -240,7 +240,7 @@ func TestQueryStreamSendReceiveQueryRequest(t *testing.T) {
 	require.NoError(t, fromNetwork.SetDelegate(tr))
 
 	// host2 gets receiver
-	achan := make(chan network.QueryRequest)
+	achan := make(chan network.SignedQueryRequest)
 	tr2 := &testReceiver{t: t, queryStreamHandler: func(s network.StorageQueryStream) {
 		readq, err := s.ReadQueryRequest()
 		require.NoError(t, err)
@@ -264,7 +264,7 @@ func TestQueryStreamSendReceiveQueryResponse(t *testing.T) {
 	require.NoError(t, fromNetwork.SetDelegate(tr))
 
 	// host2 gets receiver
-	achan := make(chan network.QueryResponse)
+	achan := make(chan network.SignedQueryResponse)
 	tr2 := &testReceiver{t: t, queryStreamHandler: func(s network.StorageQueryStream) {
 		a, err := s.ReadQueryResponse()
 		require.NoError(t, err)
@@ -301,7 +301,7 @@ func TestQueryStreamSendReceiveMultipleSuccessful(t *testing.T) {
 	qs, err := nw1.NewQueryStream(td.Host2.ID())
 	require.NoError(t, err)
 
-	var resp network.QueryResponse
+	var resp network.SignedQueryResponse
 	go require.NoError(t, qs.WriteQueryRequest(shared_testutil.MakeTestStorageQueryRequest()))
 	resp, err = qs.ReadQueryResponse()
 	require.NoError(t, err)
@@ -435,7 +435,7 @@ func assertAskResponseReceived(inCtx context.Context, t *testing.T,
 }
 
 // assertQueryRequestReceived performs the verification that a QueryRequest is received
-func assertQueryRequestReceived(inCtx context.Context, t *testing.T, fromNetwork network.StorageMarketNetwork, toHost peer.ID, achan chan network.QueryRequest) {
+func assertQueryRequestReceived(inCtx context.Context, t *testing.T, fromNetwork network.StorageMarketNetwork, toHost peer.ID, achan chan network.SignedQueryRequest) {
 	ctx, cancel := context.WithTimeout(inCtx, 10*time.Second)
 	defer cancel()
 
@@ -446,21 +446,21 @@ func assertQueryRequestReceived(inCtx context.Context, t *testing.T, fromNetwork
 	a := shared_testutil.MakeTestStorageQueryRequest()
 	require.NoError(t, as1.WriteQueryRequest(a))
 
-	var ina network.QueryRequest
+	var ina network.SignedQueryRequest
 	select {
 	case <-ctx.Done():
 		t.Error("msg not received")
 	case ina = <-achan:
 	}
 	require.NotNil(t, ina)
-	assert.Equal(t, a.Proposal, ina.Proposal)
+	assert.Equal(t, a.Request, ina.Request)
 }
 
 // assertQueryResponseReceived performs the verification that a QueryResponse is received
 func assertQueryResponseReceived(inCtx context.Context, t *testing.T,
 	fromNetwork network.StorageMarketNetwork,
 	toHost peer.ID,
-	achan chan network.QueryResponse) {
+	achan chan network.SignedQueryResponse) {
 	ctx, cancel := context.WithTimeout(inCtx, 10*time.Second)
 	defer cancel()
 
@@ -473,7 +473,7 @@ func assertQueryResponseReceived(inCtx context.Context, t *testing.T,
 	require.NoError(t, as1.WriteQueryResponse(ar))
 
 	// read queryresponse
-	var inar network.QueryResponse
+	var inar network.SignedQueryResponse
 	select {
 	case <-ctx.Done():
 		t.Error("msg not received")

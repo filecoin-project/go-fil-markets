@@ -10,7 +10,6 @@ import (
 	"github.com/filecoin-project/specs-actors/actors/crypto"
 	"github.com/filecoin-project/specs-actors/actors/runtime/exitcode"
 	"github.com/ipfs/go-cid"
-	cbor "github.com/ipfs/go-ipld-cbor"
 	"github.com/libp2p/go-libp2p-core/peer"
 
 	"github.com/filecoin-project/go-fil-markets/filestore"
@@ -90,11 +89,6 @@ var DealStates = map[StorageDealStatus]string{
 	StorageDealPublishing:            "StorageDealPublishing",
 	StorageDealError:                 "StorageDealError",
 	StorageDealCompleted:             "StorageDealCompleted",
-}
-
-func init() {
-	cbor.RegisterCborType(SignedStorageAsk{})
-	cbor.RegisterCborType(StorageAsk{})
 }
 
 type SignedStorageAsk struct {
@@ -467,6 +461,9 @@ type StorageFunds interface {
 	VerifySignature(ctx context.Context, signature crypto.Signature, signer address.Address, plaintext []byte, tok shared.TipSetToken) (bool, error)
 
 	WaitForMessage(ctx context.Context, mcid cid.Cid, onCompletion func(exitcode.ExitCode, []byte, error) error) error
+
+	// Signs bytes
+	SignBytes(ctx context.Context, signer address.Address, b []byte) (*crypto.Signature, error)
 }
 
 // Node dependencies for a StorageProvider
@@ -486,9 +483,6 @@ type StorageProviderNode interface {
 
 	// returns the worker address associated with a miner
 	GetMinerWorkerAddress(ctx context.Context, addr address.Address, tok shared.TipSetToken) (address.Address, error)
-
-	// Signs bytes
-	SignBytes(ctx context.Context, signer address.Address, b []byte) (*crypto.Signature, error)
 
 	OnDealSectorCommitted(ctx context.Context, provider address.Address, dealID abi.DealID, cb DealSectorCommittedCallback) error
 

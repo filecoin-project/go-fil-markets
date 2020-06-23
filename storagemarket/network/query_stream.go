@@ -18,8 +18,8 @@ type queryStream struct {
 
 var _ StorageQueryStream = (*queryStream)(nil)
 
-func (d *queryStream) ReadQueryRequest() (QueryRequest, error) {
-	var q QueryRequest
+func (d *queryStream) ReadQueryRequest() (SignedQueryRequest, error) {
+	var q SignedQueryRequest
 
 	if err := q.UnmarshalCBOR(d.buffered); err != nil {
 		log.Warn(err)
@@ -28,20 +28,20 @@ func (d *queryStream) ReadQueryRequest() (QueryRequest, error) {
 	return q, nil
 }
 
-func (d *queryStream) WriteQueryRequest(q QueryRequest) error {
+func (d *queryStream) WriteQueryRequest(q SignedQueryRequest) error {
 	return cborutil.WriteCborRPC(d.rw, &q)
 }
 
-func (d *queryStream) ReadQueryResponse() (QueryResponse, error) {
-	var qr QueryResponse
+func (d *queryStream) ReadQueryResponse() (SignedQueryResponse, error) {
+	var qr SignedQueryResponse
 
 	if err := qr.UnmarshalCBOR(d.buffered); err != nil {
-		return QueryResponseUndefined, err
+		return SignedQueryResponse{}, err
 	}
 	return qr, nil
 }
 
-func (d *queryStream) WriteQueryResponse(qr QueryResponse) error {
+func (d *queryStream) WriteQueryResponse(qr SignedQueryResponse) error {
 	return cborutil.WriteCborRPC(d.rw, &qr)
 }
 
