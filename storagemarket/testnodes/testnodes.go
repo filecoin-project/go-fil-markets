@@ -200,6 +200,10 @@ func (n *FakeClientNode) GetDefaultWalletAddress(ctx context.Context) (address.A
 	return n.ClientAddr, nil
 }
 
+func (n *FakeClientNode) GetMinerInfo(ctx context.Context, maddr address.Address, tok shared.TipSetToken) (*storagemarket.StorageProviderInfo, error) {
+	return &storagemarket.StorageProviderInfo{PeerID: "peer id"}, nil
+}
+
 // OnDealSectorCommitted returns immediately, with success
 func (n *FakeClientNode) OnDealSectorCommitted(ctx context.Context, provider address.Address, dealID abi.DealID, cb storagemarket.DealSectorCommittedCallback) error {
 	if n.DealCommittedSyncError == nil {
