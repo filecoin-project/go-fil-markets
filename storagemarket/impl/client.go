@@ -197,8 +197,7 @@ func (c *Client) GetDealStatus(ctx context.Context, info storagemarket.StoragePr
 		return nil, xerrors.Errorf("failed to open stream to miner: %w", err)
 	}
 
-	request := network.QueryRequest{Proposal: proposalCid}
-	buf, err := cborutil.Dump(&request)
+	buf, err := cborutil.Dump(&proposalCid)
 	if err != nil {
 		return nil, xerrors.Errorf("failed serialize query request: %w", err)
 	}
@@ -213,7 +212,7 @@ func (c *Client) GetDealStatus(ctx context.Context, info storagemarket.StoragePr
 		return nil, xerrors.Errorf("failed to sign query request: %w", err)
 	}
 
-	if err := s.WriteQueryRequest(network.SignedQueryRequest{Request: request, Signature: signature}); err != nil {
+	if err := s.WriteQueryRequest(network.SignedQueryRequest{Proposal: proposalCid, Signature: *signature}); err != nil {
 		return nil, xerrors.Errorf("failed to send query request: %w", err)
 	}
 
@@ -416,7 +415,7 @@ func (c *Client) verifyQueryResponseSignature(ctx context.Context, miner address
 		return false, xerrors.Errorf("serializing: %w", err)
 	}
 
-	valid, err := c.node.VerifySignature(ctx, *signedResponse.Signature, miner, buf, tok)
+	valid, err := c.node.VerifySignature(ctx, signedResponse.Signature, miner, buf, tok)
 	if err != nil {
 		return false, xerrors.Errorf("validating signature: %w", err)
 	}

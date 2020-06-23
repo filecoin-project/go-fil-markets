@@ -351,13 +351,13 @@ func (p *Provider) HandleQueryStream(s network.StorageQueryStream) {
 	defer s.Close()
 	qr, err := s.ReadQueryRequest()
 	if err != nil {
-		log.Errorf("failed to read QueryRequest from incoming stream: %s", err)
+		log.Errorf("failed to read SignedQueryRequest from incoming stream: %s", err)
 		return
 	}
 
 	// fetch deal state
 	var md = storagemarket.MinerDeal{}
-	if err := p.deals.Get(qr.Request.Proposal).Get(&md); err != nil {
+	if err := p.deals.Get(qr.Proposal).Get(&md); err != nil {
 		log.Errorf("proposal doesn't exist in state store: %s", err)
 		return
 	}
@@ -375,7 +375,7 @@ func (p *Provider) HandleQueryStream(s network.StorageQueryStream) {
 		return
 	}
 
-	err = providerutils.VerifySignature(ctx, *qr.Signature, md.ClientDealProposal.Proposal.Client, buf, tok, p.spn.VerifySignature)
+	err = providerutils.VerifySignature(ctx, qr.Signature, md.ClientDealProposal.Proposal.Client, buf, tok, p.spn.VerifySignature)
 	if err != nil {
 		log.Errorf("invalid query request signature: %s", err)
 		return
@@ -399,7 +399,7 @@ func (p *Provider) HandleQueryStream(s network.StorageQueryStream) {
 
 	signedResponse := network.SignedQueryResponse{
 		DealState: dealState,
-		Signature: signature,
+		Signature: *signature,
 	}
 
 	if err := s.WriteQueryResponse(signedResponse); err != nil {

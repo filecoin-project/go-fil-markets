@@ -9,7 +9,7 @@ import (
 	"github.com/filecoin-project/go-fil-markets/storagemarket"
 )
 
-//go:generate cbor-gen-for AskRequest AskResponse Proposal Response SignedResponse QueryRequest SignedQueryRequest SignedQueryResponse
+//go:generate cbor-gen-for AskRequest AskResponse Proposal Response SignedResponse SignedQueryRequest SignedQueryResponse
 
 // Proposal is the data sent over the network from client to provider when proposing
 // a deal
@@ -57,15 +57,10 @@ type AskResponse struct {
 
 var AskResponseUndefined = AskResponse{}
 
-// QueryRequest is the data sent over the network from client to provider when querying a deal
-type QueryRequest struct {
-	Proposal cid.Cid
-}
-
-// SignedQueryRequest is is a signed wrapper for QueryRequest
+// SignedQueryRequest sent by a client to query deal status
 type SignedQueryRequest struct {
-	Request   QueryRequest
-	Signature *crypto.Signature
+	Proposal  cid.Cid
+	Signature crypto.Signature
 }
 
 var QueryRequestUndefined = SignedQueryRequest{}
@@ -73,5 +68,5 @@ var QueryRequestUndefined = SignedQueryRequest{}
 // SignedQueryResponse is a signed wrapper for QueryResponse
 type SignedQueryResponse struct {
 	DealState storagemarket.ProviderDealState
-	Signature *crypto.Signature
+	Signature crypto.Signature
 }

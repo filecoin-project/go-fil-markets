@@ -434,7 +434,7 @@ func assertAskResponseReceived(inCtx context.Context, t *testing.T,
 	assert.Equal(t, ar, inar)
 }
 
-// assertQueryRequestReceived performs the verification that a QueryRequest is received
+// assertQueryRequestReceived performs the verification that a SignedQueryRequest is received
 func assertQueryRequestReceived(inCtx context.Context, t *testing.T, fromNetwork network.StorageMarketNetwork, toHost peer.ID, achan chan network.SignedQueryRequest) {
 	ctx, cancel := context.WithTimeout(inCtx, 10*time.Second)
 	defer cancel()
@@ -453,7 +453,7 @@ func assertQueryRequestReceived(inCtx context.Context, t *testing.T, fromNetwork
 	case ina = <-achan:
 	}
 	require.NotNil(t, ina)
-	assert.Equal(t, a.Request, ina.Request)
+	assert.Equal(t, a, ina)
 }
 
 // assertQueryResponseReceived performs the verification that a QueryResponse is received

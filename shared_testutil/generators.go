@@ -266,10 +266,8 @@ func MakeTestStorageAskResponse() smnet.AskResponse {
 // MakeTestStorageQueryRequest generates a request to get a provider's query
 func MakeTestStorageQueryRequest() smnet.SignedQueryRequest {
 	return smnet.SignedQueryRequest{
-		Request: smnet.QueryRequest{
-			Proposal: GenerateCids(1)[0],
-		},
-		Signature: MakeTestSignature(),
+		Proposal:  GenerateCids(1)[0],
+		Signature: *MakeTestSignature(),
 	}
 }
 
@@ -285,7 +283,7 @@ func MakeTestStorageQueryResponse() smnet.SignedQueryResponse {
 
 	return smnet.SignedQueryResponse{
 		DealState: ds,
-		Signature: MakeTestSignature(),
+		Signature: *MakeTestSignature(),
 	}
 }
 

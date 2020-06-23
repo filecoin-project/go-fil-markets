@@ -389,54 +389,6 @@ func (t *SignedResponse) UnmarshalCBOR(r io.Reader) error {
 	return nil
 }
 
-func (t *QueryRequest) MarshalCBOR(w io.Writer) error {
-	if t == nil {
-		_, err := w.Write(cbg.CborNull)
-		return err
-	}
-	if _, err := w.Write([]byte{129}); err != nil {
-		return err
-	}
-
-	// t.Proposal (cid.Cid) (struct)
-
-	if err := cbg.WriteCid(w, t.Proposal); err != nil {
-		return xerrors.Errorf("failed to write cid field t.Proposal: %w", err)
-	}
-
-	return nil
-}
-
-func (t *QueryRequest) UnmarshalCBOR(r io.Reader) error {
-	br := cbg.GetPeeker(r)
-
-	maj, extra, err := cbg.CborReadHeader(br)
-	if err != nil {
-		return err
-	}
-	if maj != cbg.MajArray {
-		return fmt.Errorf("cbor input should be of type array")
-	}
-
-	if extra != 1 {
-		return fmt.Errorf("cbor input had wrong number of fields")
-	}
-
-	// t.Proposal (cid.Cid) (struct)
-
-	{
-
-		c, err := cbg.ReadCid(br)
-		if err != nil {
-			return xerrors.Errorf("failed to read cid field t.Proposal: %w", err)
-		}
-
-		t.Proposal = c
-
-	}
-	return nil
-}
-
 func (t *SignedQueryRequest) MarshalCBOR(w io.Writer) error {
 	if t == nil {
 		_, err := w.Write(cbg.CborNull)
@@ -446,9 +398,10 @@ func (t *SignedQueryRequest) MarshalCBOR(w io.Writer) error {
 		return err
 	}
 
-	// t.Request (network.QueryRequest) (struct)
-	if err := t.Request.MarshalCBOR(w); err != nil {
-		return err
+	// t.Proposal (cid.Cid) (struct)
+
+	if err := cbg.WriteCid(w, t.Proposal); err != nil {
+		return xerrors.Errorf("failed to write cid field t.Proposal: %w", err)
 	}
 
 	// t.Signature (crypto.Signature) (struct)
@@ -473,33 +426,24 @@ func (t *SignedQueryRequest) UnmarshalCBOR(r io.Reader) error {
 		return fmt.Errorf("cbor input had wrong number of fields")
 	}
 
-	// t.Request (network.QueryRequest) (struct)
+	// t.Proposal (cid.Cid) (struct)
 
 	{
 
-		if err := t.Request.UnmarshalCBOR(br); err != nil {
-			return xerrors.Errorf("unmarshaling t.Request: %w", err)
+		c, err := cbg.ReadCid(br)
+		if err != nil {
+			return xerrors.Errorf("failed to read cid field t.Proposal: %w", err)
 		}
+
+		t.Proposal = c
 
 	}
 	// t.Signature (crypto.Signature) (struct)
 
 	{
 
-		pb, err := br.PeekByte()
-		if err != nil {
-			return err
-		}
-		if pb == cbg.CborNull[0] {
-			var nbuf [1]byte
-			if _, err := br.Read(nbuf[:]); err != nil {
-				return err
-			}
-		} else {
-			t.Signature = new(crypto.Signature)
-			if err := t.Signature.UnmarshalCBOR(br); err != nil {
-				return xerrors.Errorf("unmarshaling t.Signature pointer: %w", err)
-			}
+		if err := t.Signature.UnmarshalCBOR(br); err != nil {
+			return xerrors.Errorf("unmarshaling t.Signature: %w", err)
 		}
 
 	}
@@ -555,20 +499,8 @@ func (t *SignedQueryResponse) UnmarshalCBOR(r io.Reader) error {
 
 	{
 
-		pb, err := br.PeekByte()
-		if err != nil {
-			return err
-		}
-		if pb == cbg.CborNull[0] {
-			var nbuf [1]byte
-			if _, err := br.Read(nbuf[:]); err != nil {
-				return err
-			}
-		} else {
-			t.Signature = new(crypto.Signature)
-			if err := t.Signature.UnmarshalCBOR(br); err != nil {
-				return xerrors.Errorf("unmarshaling t.Signature pointer: %w", err)
-			}
+		if err := t.Signature.UnmarshalCBOR(br); err != nil {
+			return xerrors.Errorf("unmarshaling t.Signature: %w", err)
 		}
 
 	}
