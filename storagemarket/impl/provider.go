@@ -476,12 +476,7 @@ func (p *Provider) sign(ctx context.Context, data interface{}) (*crypto.Signatur
 		return nil, xerrors.Errorf("couldn't get chain head: %w", err)
 	}
 
-	sig, err := providerutils.SignMinerData(ctx, data, p.actor, tok, p.spn.GetMinerWorkerAddress, p.spn.SignBytes)
-	if err != nil {
-		return nil, err
-	}
-
-	return sig, nil
+	return providerutils.SignMinerData(ctx, data, p.actor, tok, p.spn.GetMinerWorkerAddress, p.spn.SignBytes)
 }
 
 func NewProviderStateMachine(ds datastore.Datastore, env fsm.Environment, notifier fsm.Notifier) (fsm.Group, error) {
