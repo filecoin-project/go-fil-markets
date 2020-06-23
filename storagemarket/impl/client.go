@@ -191,15 +191,15 @@ func (c *Client) GetAsk(ctx context.Context, info storagemarket.StorageProviderI
 	return out.Ask, nil
 }
 
-func (c *Client) GetDealStatus(ctx context.Context, info storagemarket.StorageProviderInfo, proposalCid cid.Cid) (*storagemarket.ProviderDealState, error) {
-	s, err := c.net.NewQueryStream(info.PeerID)
+func (c *Client) GetProviderDealState(ctx context.Context, info storagemarket.StorageProviderInfo, proposalCid cid.Cid) (*storagemarket.ProviderDealState, error) {
+	s, err := c.net.NewDealStatusStream(info.PeerID)
 	if err != nil {
 		return nil, xerrors.Errorf("failed to open stream to miner: %w", err)
 	}
 
 	buf, err := cborutil.Dump(&proposalCid)
 	if err != nil {
-		return nil, xerrors.Errorf("failed serialize query request: %w", err)
+		return nil, xerrors.Errorf("failed serialize deal status request: %w", err)
 	}
 
 	addr, err := c.node.GetDefaultWalletAddress(ctx)
@@ -209,25 +209,25 @@ func (c *Client) GetDealStatus(ctx context.Context, info storagemarket.StoragePr
 
 	signature, err := c.node.SignBytes(ctx, addr, buf)
 	if err != nil {
-		return nil, xerrors.Errorf("failed to sign query request: %w", err)
+		return nil, xerrors.Errorf("failed to sign deal status request: %w", err)
 	}
 
-	if err := s.WriteQueryRequest(network.SignedQueryRequest{Proposal: proposalCid, Signature: *signature}); err != nil {
-		return nil, xerrors.Errorf("failed to send query request: %w", err)
+	if err := s.WriteDealStatusRequest(network.DealStatusRequest{Proposal: proposalCid, Signature: *signature}); err != nil {
+		return nil, xerrors.Errorf("failed to send deal status request: %w", err)
 	}
 
-	resp, err := s.ReadQueryResponse()
+	resp, err := s.ReadDealStatusResponse()
 	if err != nil {
-		return nil, xerrors.Errorf("failed to read query response: %w", err)
+		return nil, xerrors.Errorf("failed to read deal status response: %w", err)
 	}
 
-	valid, err := c.verifyQueryResponseSignature(ctx, info.Worker, resp)
+	valid, err := c.verifyStatusResponseSignature(ctx, info.Worker, resp)
 	if err != nil {
 		return nil, err
 	}
 
 	if !valid {
-		return nil, xerrors.Errorf("invalid query response signature")
+		return nil, xerrors.Errorf("invalid deal status response signature")
 	}
 
 	return &resp.DealState, nil
@@ -404,18 +404,18 @@ func (c *Client) ensureDealStream(provider peer.ID, proposalCid cid.Cid) (networ
 	return s, nil
 }
 
-func (c *Client) verifyQueryResponseSignature(ctx context.Context, miner address.Address, signedResponse network.SignedQueryResponse) (bool, error) {
+func (c *Client) verifyStatusResponseSignature(ctx context.Context, miner address.Address, response network.DealStatusResponse) (bool, error) {
 	tok, _, err := c.node.GetChainHead(ctx)
 	if err != nil {
 		return false, xerrors.Errorf("getting chain head: %w", err)
 	}
 
-	buf, err := cborutil.Dump(&signedResponse.DealState)
+	buf, err := cborutil.Dump(&response.DealState)
 	if err != nil {
 		return false, xerrors.Errorf("serializing: %w", err)
 	}
 
-	valid, err := c.node.VerifySignature(ctx, signedResponse.Signature, miner, buf, tok)
+	valid, err := c.node.VerifySignature(ctx, response.Signature, miner, buf, tok)
 	if err != nil {
 		return false, xerrors.Errorf("validating signature: %w", err)
 	}

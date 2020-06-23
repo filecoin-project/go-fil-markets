@@ -263,16 +263,16 @@ func MakeTestStorageAskResponse() smnet.AskResponse {
 	}
 }
 
-// MakeTestStorageQueryRequest generates a request to get a provider's query
-func MakeTestStorageQueryRequest() smnet.SignedQueryRequest {
-	return smnet.SignedQueryRequest{
+// MakeTestDealStatusRequest generates a request to get a provider's query
+func MakeTestDealStatusRequest() smnet.DealStatusRequest {
+	return smnet.DealStatusRequest{
 		Proposal:  GenerateCids(1)[0],
 		Signature: *MakeTestSignature(),
 	}
 }
 
-// MakeTestStorageQueryResponse generates a response to an query request
-func MakeTestStorageQueryResponse() smnet.SignedQueryResponse {
+// MakeTestDealStatusResponse generates a response to an query request
+func MakeTestDealStatusResponse() smnet.DealStatusResponse {
 	proposal := MakeTestUnsignedDealProposal()
 
 	ds := storagemarket.ProviderDealState{
@@ -281,7 +281,7 @@ func MakeTestStorageQueryResponse() smnet.SignedQueryResponse {
 		State:       storagemarket.StorageDealActive,
 	}
 
-	return smnet.SignedQueryResponse{
+	return smnet.DealStatusResponse{
 		DealState: ds,
 		Signature: *MakeTestSignature(),
 	}

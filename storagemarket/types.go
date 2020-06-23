@@ -20,7 +20,7 @@ import (
 
 const DealProtocolID = "/fil/storage/mk/1.0.1"
 const AskProtocolID = "/fil/storage/ask/1.0.1"
-const QueryProtocolID = "/fil/storage/query/1.0.1"
+const DealStatusProtcolID = "/fil/storage/status/1.0.1"
 
 type Balance struct {
 	Locked    abi.TokenAmount
@@ -588,7 +588,8 @@ type StorageClient interface {
 	// GetAsk returns the current ask for a storage provider
 	GetAsk(ctx context.Context, info StorageProviderInfo) (*SignedStorageAsk, error)
 
-	GetDealStatus(ctx context.Context, info StorageProviderInfo, proposalCid cid.Cid) (*ProviderDealState, error)
+	// GetProviderDealState queries a provider for the current state of a client's deal
+	GetProviderDealState(ctx context.Context, info StorageProviderInfo, proposalCid cid.Cid) (*ProviderDealState, error)
 
 	//// FindStorageOffers lists providers and queries them to find offers that satisfy some criteria based on price, duration, etc.
 	//FindStorageOffers(criteria AskCriteria, limit uint) []*StorageOffer

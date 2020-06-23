@@ -14,10 +14,10 @@ import (
 )
 
 type testReceiver struct {
-	t                  *testing.T
-	dealStreamHandler  func(network.StorageDealStream)
-	askStreamHandler   func(network.StorageAskStream)
-	queryStreamHandler func(stream network.StorageQueryStream)
+	t                       *testing.T
+	dealStreamHandler       func(network.StorageDealStream)
+	askStreamHandler        func(network.StorageAskStream)
+	dealStatusStreamHandler func(stream network.DealStatusStream)
 }
 
 var _ network.StorageReceiver = &testReceiver{}
@@ -36,10 +36,10 @@ func (tr *testReceiver) HandleAskStream(s network.StorageAskStream) {
 	}
 }
 
-func (tr *testReceiver) HandleQueryStream(s network.StorageQueryStream) {
+func (tr *testReceiver) HandleDealStatusStream(s network.DealStatusStream) {
 	defer s.Close()
-	if tr.queryStreamHandler != nil {
-		tr.queryStreamHandler(s)
+	if tr.dealStatusStreamHandler != nil {
+		tr.dealStatusStreamHandler(s)
 	}
 }
 
@@ -227,7 +227,7 @@ func TestDealStreamSendReceiveMultipleSuccessful(t *testing.T) {
 	}
 }
 
-func TestQueryStreamSendReceiveQueryRequest(t *testing.T) {
+func TestDealStatusStreamSendReceiveRequest(t *testing.T) {
 	ctx := context.Background()
 	td := shared_testutil.NewLibp2pTestData(ctx, t)
 
@@ -240,19 +240,19 @@ func TestQueryStreamSendReceiveQueryRequest(t *testing.T) {
 	require.NoError(t, fromNetwork.SetDelegate(tr))
 
 	// host2 gets receiver
-	achan := make(chan network.SignedQueryRequest)
-	tr2 := &testReceiver{t: t, queryStreamHandler: func(s network.StorageQueryStream) {
-		readq, err := s.ReadQueryRequest()
+	achan := make(chan network.DealStatusRequest)
+	tr2 := &testReceiver{t: t, dealStatusStreamHandler: func(s network.DealStatusStream) {
+		readq, err := s.ReadDealStatusRequest()
 		require.NoError(t, err)
 		achan <- readq
 	}}
 	require.NoError(t, toNetwork.SetDelegate(tr2))
 
 	// setup query stream host1 --> host 2
-	assertQueryRequestReceived(ctx, t, fromNetwork, toHost, achan)
+	assertDealStatusRequestReceived(ctx, t, fromNetwork, toHost, achan)
 }
 
-func TestQueryStreamSendReceiveQueryResponse(t *testing.T) {
+func TestDealStatusStreamSendReceiveResponse(t *testing.T) {
 	ctx := context.Background()
 	td := shared_testutil.NewLibp2pTestData(ctx, t)
 	fromNetwork := network.NewFromLibp2pHost(td.Host1)
@@ -264,18 +264,18 @@ func TestQueryStreamSendReceiveQueryResponse(t *testing.T) {
 	require.NoError(t, fromNetwork.SetDelegate(tr))
 
 	// host2 gets receiver
-	achan := make(chan network.SignedQueryResponse)
-	tr2 := &testReceiver{t: t, queryStreamHandler: func(s network.StorageQueryStream) {
-		a, err := s.ReadQueryResponse()
+	achan := make(chan network.DealStatusResponse)
+	tr2 := &testReceiver{t: t, dealStatusStreamHandler: func(s network.DealStatusStream) {
+		a, err := s.ReadDealStatusResponse()
 		require.NoError(t, err)
 		achan <- a
 	}}
 	require.NoError(t, toNetwork.SetDelegate(tr2))
 
-	assertQueryResponseReceived(ctx, t, fromNetwork, toHost, achan)
+	assertDealStatusResponseReceived(ctx, t, fromNetwork, toHost, achan)
 }
 
-func TestQueryStreamSendReceiveMultipleSuccessful(t *testing.T) {
+func TestDealStatusStreamSendReceiveMultipleSuccessful(t *testing.T) {
 	// send query, read in handler, send response back, read response
 	ctxBg := context.Background()
 	td := shared_testutil.NewLibp2pTestData(ctxBg, t)
@@ -284,13 +284,13 @@ func TestQueryStreamSendReceiveMultipleSuccessful(t *testing.T) {
 	require.NoError(t, td.Host1.Connect(ctxBg, peer.AddrInfo{ID: td.Host2.ID()}))
 
 	// host2 gets a query and sends a response
-	ar := shared_testutil.MakeTestStorageQueryResponse()
+	ar := shared_testutil.MakeTestDealStatusResponse()
 	done := make(chan bool)
-	tr2 := &testReceiver{t: t, queryStreamHandler: func(s network.StorageQueryStream) {
-		_, err := s.ReadQueryRequest()
+	tr2 := &testReceiver{t: t, dealStatusStreamHandler: func(s network.DealStatusStream) {
+		_, err := s.ReadDealStatusRequest()
 		require.NoError(t, err)
 
-		require.NoError(t, s.WriteQueryResponse(ar))
+		require.NoError(t, s.WriteDealStatusResponse(ar))
 		done <- true
 	}}
 	require.NoError(t, nw2.SetDelegate(tr2))
@@ -298,12 +298,12 @@ func TestQueryStreamSendReceiveMultipleSuccessful(t *testing.T) {
 	ctx, cancel := context.WithTimeout(ctxBg, 10*time.Second)
 	defer cancel()
 
-	qs, err := nw1.NewQueryStream(td.Host2.ID())
+	qs, err := nw1.NewDealStatusStream(td.Host2.ID())
 	require.NoError(t, err)
 
-	var resp network.SignedQueryResponse
-	go require.NoError(t, qs.WriteQueryRequest(shared_testutil.MakeTestStorageQueryRequest()))
-	resp, err = qs.ReadQueryResponse()
+	var resp network.DealStatusResponse
+	go require.NoError(t, qs.WriteDealStatusRequest(shared_testutil.MakeTestDealStatusRequest()))
+	resp, err = qs.ReadDealStatusResponse()
 	require.NoError(t, err)
 
 	select {
@@ -434,19 +434,19 @@ func assertAskResponseReceived(inCtx context.Context, t *testing.T,
 	assert.Equal(t, ar, inar)
 }
 
-// assertQueryRequestReceived performs the verification that a SignedQueryRequest is received
-func assertQueryRequestReceived(inCtx context.Context, t *testing.T, fromNetwork network.StorageMarketNetwork, toHost peer.ID, achan chan network.SignedQueryRequest) {
+// assertDealStatusRequestReceived performs the verification that a DealStatusRequest is received
+func assertDealStatusRequestReceived(inCtx context.Context, t *testing.T, fromNetwork network.StorageMarketNetwork, toHost peer.ID, achan chan network.DealStatusRequest) {
 	ctx, cancel := context.WithTimeout(inCtx, 10*time.Second)
 	defer cancel()
 
-	as1, err := fromNetwork.NewQueryStream(toHost)
+	as1, err := fromNetwork.NewDealStatusStream(toHost)
 	require.NoError(t, err)
 
 	// send query to host2
-	a := shared_testutil.MakeTestStorageQueryRequest()
-	require.NoError(t, as1.WriteQueryRequest(a))
+	a := shared_testutil.MakeTestDealStatusRequest()
+	require.NoError(t, as1.WriteDealStatusRequest(a))
 
-	var ina network.SignedQueryRequest
+	var ina network.DealStatusRequest
 	select {
 	case <-ctx.Done():
 		t.Error("msg not received")
@@ -456,24 +456,24 @@ func assertQueryRequestReceived(inCtx context.Context, t *testing.T, fromNetwork
 	assert.Equal(t, a, ina)
 }
 
-// assertQueryResponseReceived performs the verification that a QueryResponse is received
-func assertQueryResponseReceived(inCtx context.Context, t *testing.T,
+// assertDealStatusResponseReceived performs the verification that a QueryResponse is received
+func assertDealStatusResponseReceived(inCtx context.Context, t *testing.T,
 	fromNetwork network.StorageMarketNetwork,
 	toHost peer.ID,
-	achan chan network.SignedQueryResponse) {
+	achan chan network.DealStatusResponse) {
 	ctx, cancel := context.WithTimeout(inCtx, 10*time.Second)
 	defer cancel()
 
 	// setup query stream host1 --> host 2
-	as1, err := fromNetwork.NewQueryStream(toHost)
+	as1, err := fromNetwork.NewDealStatusStream(toHost)
 	require.NoError(t, err)
 
 	// send queryresponse to host2
-	ar := shared_testutil.MakeTestStorageQueryResponse()
-	require.NoError(t, as1.WriteQueryResponse(ar))
+	ar := shared_testutil.MakeTestDealStatusResponse()
+	require.NoError(t, as1.WriteDealStatusResponse(ar))
 
 	// read queryresponse
-	var inar network.SignedQueryResponse
+	var inar network.DealStatusResponse
 	select {
 	case <-ctx.Done():
 		t.Error("msg not received")

@@ -46,21 +46,21 @@ func (impl *libp2pStorageMarketNetwork) NewDealStream(id peer.ID) (StorageDealSt
 	return &dealStream{p: id, rw: s, buffered: buffered, host: impl.host}, nil
 }
 
-func (impl *libp2pStorageMarketNetwork) NewQueryStream(id peer.ID) (StorageQueryStream, error) {
-	s, err := impl.host.NewStream(context.Background(), id, storagemarket.QueryProtocolID)
+func (impl *libp2pStorageMarketNetwork) NewDealStatusStream(id peer.ID) (DealStatusStream, error) {
+	s, err := impl.host.NewStream(context.Background(), id, storagemarket.DealStatusProtcolID)
 	if err != nil {
 		log.Warn(err)
 		return nil, err
 	}
 	buffered := bufio.NewReaderSize(s, 16)
-	return &queryStream{p: id, rw: s, buffered: buffered}, nil
+	return &dealStatusStream{p: id, rw: s, buffered: buffered}, nil
 }
 
 func (impl *libp2pStorageMarketNetwork) SetDelegate(r StorageReceiver) error {
 	impl.receiver = r
 	impl.host.SetStreamHandler(storagemarket.DealProtocolID, impl.handleNewDealStream)
 	impl.host.SetStreamHandler(storagemarket.AskProtocolID, impl.handleNewAskStream)
-	impl.host.SetStreamHandler(storagemarket.QueryProtocolID, impl.handleNewQueryStream)
+	impl.host.SetStreamHandler(storagemarket.DealStatusProtcolID, impl.handleNewDealStatusStream)
 	return nil
 }
 
@@ -68,7 +68,7 @@ func (impl *libp2pStorageMarketNetwork) StopHandlingRequests() error {
 	impl.receiver = nil
 	impl.host.RemoveStreamHandler(storagemarket.DealProtocolID)
 	impl.host.RemoveStreamHandler(storagemarket.AskProtocolID)
-	impl.host.RemoveStreamHandler(storagemarket.QueryProtocolID)
+	impl.host.RemoveStreamHandler(storagemarket.DealStatusProtcolID)
 	return nil
 }
 
@@ -88,11 +88,11 @@ func (impl *libp2pStorageMarketNetwork) handleNewDealStream(s network.Stream) {
 	}
 }
 
-func (impl *libp2pStorageMarketNetwork) handleNewQueryStream(s network.Stream) {
+func (impl *libp2pStorageMarketNetwork) handleNewDealStatusStream(s network.Stream) {
 	reader := impl.getReaderOrReset(s)
 	if reader != nil {
-		qs := &queryStream{s.Conn().RemotePeer(), impl.host, s, reader}
-		impl.receiver.HandleQueryStream(qs)
+		qs := &dealStatusStream{s.Conn().RemotePeer(), impl.host, s, reader}
+		impl.receiver.HandleDealStatusStream(qs)
 	}
 }
 

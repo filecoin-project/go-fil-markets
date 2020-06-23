@@ -27,11 +27,11 @@ type StorageDealStream interface {
 	Close() error
 }
 
-type StorageQueryStream interface {
-	ReadQueryRequest() (SignedQueryRequest, error)
-	WriteQueryRequest(SignedQueryRequest) error
-	ReadQueryResponse() (SignedQueryResponse, error)
-	WriteQueryResponse(SignedQueryResponse) error
+type DealStatusStream interface {
+	ReadDealStatusRequest() (DealStatusRequest, error)
+	WriteDealStatusRequest(DealStatusRequest) error
+	ReadDealStatusResponse() (DealStatusResponse, error)
+	WriteDealStatusResponse(DealStatusResponse) error
 	Close() error
 }
 
@@ -40,14 +40,14 @@ type StorageQueryStream interface {
 type StorageReceiver interface {
 	HandleAskStream(StorageAskStream)
 	HandleDealStream(StorageDealStream)
-	HandleQueryStream(StorageQueryStream)
+	HandleDealStatusStream(DealStatusStream)
 }
 
 // StorageMarketNetwork is a network abstraction for the storage market
 type StorageMarketNetwork interface {
 	NewAskStream(peer.ID) (StorageAskStream, error)
 	NewDealStream(peer.ID) (StorageDealStream, error)
-	NewQueryStream(peer.ID) (StorageQueryStream, error)
+	NewDealStatusStream(peer.ID) (DealStatusStream, error)
 	SetDelegate(StorageReceiver) error
 	StopHandlingRequests() error
 	ID() peer.ID

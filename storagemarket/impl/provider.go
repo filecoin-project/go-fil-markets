@@ -346,26 +346,26 @@ func (p *Provider) HandleAskStream(s network.StorageAskStream) {
 	}
 }
 
-func (p *Provider) HandleQueryStream(s network.StorageQueryStream) {
+func (p *Provider) HandleDealStatusStream(s network.DealStatusStream) {
 	ctx := context.TODO()
 	defer s.Close()
-	qr, err := s.ReadQueryRequest()
+	request, err := s.ReadDealStatusRequest()
 	if err != nil {
-		log.Errorf("failed to read SignedQueryRequest from incoming stream: %s", err)
+		log.Errorf("failed to read DealStatusRequest from incoming stream: %s", err)
 		return
 	}
 
 	// fetch deal state
 	var md = storagemarket.MinerDeal{}
-	if err := p.deals.Get(qr.Proposal).Get(&md); err != nil {
+	if err := p.deals.Get(request.Proposal).Get(&md); err != nil {
 		log.Errorf("proposal doesn't exist in state store: %s", err)
 		return
 	}
 
 	// verify query signature
-	buf, err := cborutil.Dump(&qr)
+	buf, err := cborutil.Dump(&request.Proposal)
 	if err != nil {
-		log.Errorf("failed to serialize signed query request: %s", err)
+		log.Errorf("failed to serialize status request: %s", err)
 		return
 	}
 
@@ -375,9 +375,9 @@ func (p *Provider) HandleQueryStream(s network.StorageQueryStream) {
 		return
 	}
 
-	err = providerutils.VerifySignature(ctx, qr.Signature, md.ClientDealProposal.Proposal.Client, buf, tok, p.spn.VerifySignature)
+	err = providerutils.VerifySignature(ctx, request.Signature, md.ClientDealProposal.Proposal.Client, buf, tok, p.spn.VerifySignature)
 	if err != nil {
-		log.Errorf("invalid query request signature: %s", err)
+		log.Errorf("invalid deal status request signature: %s", err)
 		return
 	}
 
@@ -393,17 +393,17 @@ func (p *Provider) HandleQueryStream(s network.StorageQueryStream) {
 
 	signature, err := p.sign(ctx, &dealState)
 	if err != nil {
-		log.Errorf("failed to sign query response: %s", err)
+		log.Errorf("failed to sign deal status response: %s", err)
 		return
 	}
 
-	signedResponse := network.SignedQueryResponse{
+	response := network.DealStatusResponse{
 		DealState: dealState,
 		Signature: *signature,
 	}
 
-	if err := s.WriteQueryResponse(signedResponse); err != nil {
-		log.Errorf("failed to write query response: %s", err)
+	if err := s.WriteDealStatusResponse(response); err != nil {
+		log.Errorf("failed to write deal status response: %s", err)
 		return
 	}
 }

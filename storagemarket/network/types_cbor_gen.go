@@ -389,7 +389,7 @@ func (t *SignedResponse) UnmarshalCBOR(r io.Reader) error {
 	return nil
 }
 
-func (t *SignedQueryRequest) MarshalCBOR(w io.Writer) error {
+func (t *DealStatusRequest) MarshalCBOR(w io.Writer) error {
 	if t == nil {
 		_, err := w.Write(cbg.CborNull)
 		return err
@@ -411,7 +411,7 @@ func (t *SignedQueryRequest) MarshalCBOR(w io.Writer) error {
 	return nil
 }
 
-func (t *SignedQueryRequest) UnmarshalCBOR(r io.Reader) error {
+func (t *DealStatusRequest) UnmarshalCBOR(r io.Reader) error {
 	br := cbg.GetPeeker(r)
 
 	maj, extra, err := cbg.CborReadHeader(br)
@@ -450,7 +450,7 @@ func (t *SignedQueryRequest) UnmarshalCBOR(r io.Reader) error {
 	return nil
 }
 
-func (t *SignedQueryResponse) MarshalCBOR(w io.Writer) error {
+func (t *DealStatusResponse) MarshalCBOR(w io.Writer) error {
 	if t == nil {
 		_, err := w.Write(cbg.CborNull)
 		return err
@@ -471,7 +471,7 @@ func (t *SignedQueryResponse) MarshalCBOR(w io.Writer) error {
 	return nil
 }
 
-func (t *SignedQueryResponse) UnmarshalCBOR(r io.Reader) error {
+func (t *DealStatusResponse) UnmarshalCBOR(r io.Reader) error {
 	br := cbg.GetPeeker(r)
 
 	maj, extra, err := cbg.CborReadHeader(br)

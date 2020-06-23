@@ -57,16 +57,18 @@ type AskResponse struct {
 
 var AskResponseUndefined = AskResponse{}
 
-// SignedQueryRequest sent by a client to query deal status
-type SignedQueryRequest struct {
+// DealStatusRequest sent by a client to query deal status
+type DealStatusRequest struct {
 	Proposal  cid.Cid
 	Signature crypto.Signature
 }
 
-var QueryRequestUndefined = SignedQueryRequest{}
+var DealStatusRequestUndefined = DealStatusRequest{}
 
-// SignedQueryResponse is a signed wrapper for QueryResponse
-type SignedQueryResponse struct {
+// DealStatusResponse is a provider's response to DealStatusRequest
+type DealStatusResponse struct {
 	DealState storagemarket.ProviderDealState
 	Signature crypto.Signature
 }
+
+var DealStatusResponseUndefined = DealStatusResponse{}
