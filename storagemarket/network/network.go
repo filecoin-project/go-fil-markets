@@ -2,6 +2,8 @@ package network
 
 import (
 	"github.com/libp2p/go-libp2p-core/peer"
+
+	ma "github.com/multiformats/go-multiaddr"
 )
 
 // These are the required interfaces that must be implemented to send and receive data
@@ -56,4 +58,5 @@ type StorageMarketNetwork interface {
 	SetDelegate(StorageReceiver) error
 	StopHandlingRequests() error
 	ID() peer.ID
+	AddAddrs(peer.ID, []ma.Multiaddr)
 }

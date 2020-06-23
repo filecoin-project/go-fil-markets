@@ -224,6 +224,10 @@ func (n *FakeClientNode) GetDefaultWalletAddress(ctx context.Context) (address.A
 	return n.ClientAddr, nil
 }
 
+func (n *FakeClientNode) GetMinerInfo(ctx context.Context, maddr address.Address, tok shared.TipSetToken) (*storagemarket.StorageProviderInfo, error) {
+	return &storagemarket.StorageProviderInfo{PeerID: "peer id"}, nil
+}
+
 // ValidateAskSignature returns the stubbed validation error and a boolean value
 // communicating the validity of the provided signature
 func (n *FakeClientNode) ValidateAskSignature(ctx context.Context, ask *storagemarket.SignedStorageAsk, tok shared.TipSetToken) (bool, error) {

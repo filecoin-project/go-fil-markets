@@ -3,11 +3,13 @@ package network
 import (
 	"bufio"
 	"context"
+	"time"
 
 	logging "github.com/ipfs/go-log/v2"
 	"github.com/libp2p/go-libp2p-core/host"
 	"github.com/libp2p/go-libp2p-core/network"
 	"github.com/libp2p/go-libp2p-core/peer"
+	ma "github.com/multiformats/go-multiaddr"
 
 	"github.com/filecoin-project/go-fil-markets/storagemarket"
 )
@@ -107,4 +109,8 @@ func (impl *libp2pStorageMarketNetwork) getReaderOrReset(s network.Stream) *bufi
 
 func (impl *libp2pStorageMarketNetwork) ID() peer.ID {
 	return impl.host.ID()
+}
+
+func (impl *libp2pStorageMarketNetwork) AddAddrs(p peer.ID, addrs []ma.Multiaddr) {
+	impl.host.Peerstore().AddAddrs(p, addrs, time.Minute*10)
 }
