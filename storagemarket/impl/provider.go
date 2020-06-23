@@ -9,6 +9,7 @@ import (
 	datatransfer "github.com/filecoin-project/go-data-transfer"
 	"github.com/filecoin-project/go-statemachine/fsm"
 	"github.com/filecoin-project/specs-actors/actors/abi"
+	"github.com/filecoin-project/specs-actors/actors/crypto"
 	"github.com/filecoin-project/specs-actors/actors/runtime/exitcode"
 	"github.com/hannahhoward/go-pubsub"
 	"github.com/ipfs/go-cid"
@@ -33,6 +34,7 @@ import (
 
 var DefaultDealAcceptanceBuffer = abi.ChainEpoch(100)
 var _ storagemarket.StorageProvider = &Provider{}
+var _ network.StorageReceiver = &Provider{}
 
 type StoredAsk interface {
 	GetAsk() *storagemarket.SignedStorageAsk
@@ -344,6 +346,68 @@ func (p *Provider) HandleAskStream(s network.StorageAskStream) {
 	}
 }
 
+func (p *Provider) HandleDealStatusStream(s network.DealStatusStream) {
+	ctx := context.TODO()
+	defer s.Close()
+	request, err := s.ReadDealStatusRequest()
+	if err != nil {
+		log.Errorf("failed to read DealStatusRequest from incoming stream: %s", err)
+		return
+	}
+
+	// fetch deal state
+	var md = storagemarket.MinerDeal{}
+	if err := p.deals.Get(request.Proposal).Get(&md); err != nil {
+		log.Errorf("proposal doesn't exist in state store: %s", err)
+		return
+	}
+
+	// verify query signature
+	buf, err := cborutil.Dump(&request.Proposal)
+	if err != nil {
+		log.Errorf("failed to serialize status request: %s", err)
+		return
+	}
+
+	tok, _, err := p.spn.GetChainHead(ctx)
+	if err != nil {
+		log.Errorf("failed to get chain head: %s", err)
+		return
+	}
+
+	err = providerutils.VerifySignature(ctx, request.Signature, md.ClientDealProposal.Proposal.Client, buf, tok, p.spn.VerifySignature)
+	if err != nil {
+		log.Errorf("invalid deal status request signature: %s", err)
+		return
+	}
+
+	dealState := storagemarket.ProviderDealState{
+		State:       md.State,
+		Message:     md.Message,
+		Proposal:    &md.Proposal,
+		ProposalCid: &md.ProposalCid,
+		AddFundsCid: md.AddFundsCid,
+		PublishCid:  md.PublishCid,
+		DealID:      md.DealID,
+	}
+
+	signature, err := p.sign(ctx, &dealState)
+	if err != nil {
+		log.Errorf("failed to sign deal status response: %s", err)
+		return
+	}
+
+	response := network.DealStatusResponse{
+		DealState: dealState,
+		Signature: *signature,
+	}
+
+	if err := s.WriteDealStatusResponse(response); err != nil {
+		log.Errorf("failed to write deal status response: %s", err)
+		return
+	}
+}
+
 func (p *Provider) Configure(options ...StorageProviderOption) {
 	for _, option := range options {
 		option(p)
@@ -380,15 +444,15 @@ func (p *Provider) dispatch(eventName fsm.EventName, deal fsm.StateType) {
 	}
 }
 
-func (c *Provider) restartDeals() error {
+func (p *Provider) restartDeals() error {
 	var deals []storagemarket.MinerDeal
-	err := c.deals.List(&deals)
+	err := p.deals.List(&deals)
 	if err != nil {
 		return err
 	}
 
 	for _, deal := range deals {
-		if c.deals.IsTerminated(deal) {
+		if p.deals.IsTerminated(deal) {
 			continue
 		}
 
@@ -398,12 +462,21 @@ func (c *Provider) restartDeals() error {
 
 		// TODO: Fixup deal streams if necessary...
 
-		err = c.deals.Send(deal.ProposalCid, storagemarket.ProviderEventRestart)
+		err = p.deals.Send(deal.ProposalCid, storagemarket.ProviderEventRestart)
 		if err != nil {
 			return err
 		}
 	}
 	return nil
+}
+
+func (p *Provider) sign(ctx context.Context, data interface{}) (*crypto.Signature, error) {
+	tok, _, err := p.spn.GetChainHead(ctx)
+	if err != nil {
+		return nil, xerrors.Errorf("couldn't get chain head: %w", err)
+	}
+
+	return providerutils.SignMinerData(ctx, data, p.actor, tok, p.spn.GetMinerWorkerAddress, p.spn.SignBytes)
 }
 
 func NewProviderStateMachine(ds datastore.Datastore, env fsm.Environment, notifier fsm.Notifier) (fsm.Group, error) {
@@ -487,12 +560,7 @@ func (p *providerDealEnvironment) SendSignedResponse(ctx context.Context, resp *
 		return xerrors.Errorf("couldn't send response: %w", err)
 	}
 
-	tok, _, err := p.p.spn.GetChainHead(ctx)
-	if err != nil {
-		return xerrors.Errorf("couldn't get chain head: %w", err)
-	}
-
-	sig, err := providerutils.SignMinerData(ctx, resp, p.p.actor, tok, p.Node().GetMinerWorkerAddress, p.Node().SignBytes)
+	sig, err := p.p.sign(ctx, resp)
 	if err != nil {
 		return xerrors.Errorf("failed to sign response message: %w", err)
 	}

@@ -263,6 +263,30 @@ func MakeTestStorageAskResponse() smnet.AskResponse {
 	}
 }
 
+// MakeTestDealStatusRequest generates a request to get a provider's query
+func MakeTestDealStatusRequest() smnet.DealStatusRequest {
+	return smnet.DealStatusRequest{
+		Proposal:  GenerateCids(1)[0],
+		Signature: *MakeTestSignature(),
+	}
+}
+
+// MakeTestDealStatusResponse generates a response to an query request
+func MakeTestDealStatusResponse() smnet.DealStatusResponse {
+	proposal := MakeTestUnsignedDealProposal()
+
+	ds := storagemarket.ProviderDealState{
+		Proposal:    &proposal,
+		ProposalCid: &GenerateCids(1)[0],
+		State:       storagemarket.StorageDealActive,
+	}
+
+	return smnet.DealStatusResponse{
+		DealState: ds,
+		Signature: *MakeTestSignature(),
+	}
+}
+
 func RequireGenerateRetrievalPeers(t *testing.T, numPeers int) []retrievalmarket.RetrievalPeer {
 	peers := make([]retrievalmarket.RetrievalPeer, numPeers)
 	for i := range peers {

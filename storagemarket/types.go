@@ -10,17 +10,17 @@ import (
 	"github.com/filecoin-project/specs-actors/actors/crypto"
 	"github.com/filecoin-project/specs-actors/actors/runtime/exitcode"
 	"github.com/ipfs/go-cid"
-	cbor "github.com/ipfs/go-ipld-cbor"
 	"github.com/libp2p/go-libp2p-core/peer"
 
 	"github.com/filecoin-project/go-fil-markets/filestore"
 	"github.com/filecoin-project/go-fil-markets/shared"
 )
 
-//go:generate cbor-gen-for ClientDeal MinerDeal Balance SignedStorageAsk StorageAsk StorageDeal DataRef
+//go:generate cbor-gen-for ClientDeal MinerDeal Balance SignedStorageAsk StorageAsk StorageDeal DataRef ProviderDealState
 
 const DealProtocolID = "/fil/storage/mk/1.0.1"
 const AskProtocolID = "/fil/storage/ask/1.0.1"
+const DealStatusProtcolID = "/fil/storage/status/1.0.1"
 
 type Balance struct {
 	Locked    abi.TokenAmount
@@ -89,11 +89,6 @@ var DealStates = map[StorageDealStatus]string{
 	StorageDealPublishing:            "StorageDealPublishing",
 	StorageDealError:                 "StorageDealError",
 	StorageDealCompleted:             "StorageDealCompleted",
-}
-
-func init() {
-	cbor.RegisterCborType(SignedStorageAsk{})
-	cbor.RegisterCborType(StorageAsk{})
 }
 
 type SignedStorageAsk struct {
@@ -466,6 +461,9 @@ type StorageFunds interface {
 	VerifySignature(ctx context.Context, signature crypto.Signature, signer address.Address, plaintext []byte, tok shared.TipSetToken) (bool, error)
 
 	WaitForMessage(ctx context.Context, mcid cid.Cid, onCompletion func(exitcode.ExitCode, []byte, error) error) error
+
+	// Signs bytes
+	SignBytes(ctx context.Context, signer address.Address, b []byte) (*crypto.Signature, error)
 }
 
 // Node dependencies for a StorageProvider
@@ -485,9 +483,6 @@ type StorageProviderNode interface {
 
 	// returns the worker address associated with a miner
 	GetMinerWorkerAddress(ctx context.Context, addr address.Address, tok shared.TipSetToken) (address.Address, error)
-
-	// Signs bytes
-	SignBytes(ctx context.Context, signer address.Address, b []byte) (*crypto.Signature, error)
 
 	OnDealSectorCommitted(ctx context.Context, provider address.Address, dealID abi.DealID, cb DealSectorCommittedCallback) error
 
@@ -561,6 +556,17 @@ type DataRef struct {
 	PieceSize abi.UnpaddedPieceSize // Optional for non-manual transfer, will be recomputed from the data if not given
 }
 
+// ProviderDealState represents a Provider's current state of a deal
+type ProviderDealState struct {
+	State       StorageDealStatus
+	Message     string
+	Proposal    *market.DealProposal
+	ProposalCid *cid.Cid
+	AddFundsCid *cid.Cid
+	PublishCid  *cid.Cid
+	DealID      abi.DealID
+}
+
 // The interface provided by the module to the outside world for storage clients.
 type StorageClient interface {
 	Start(ctx context.Context) error
@@ -581,6 +587,9 @@ type StorageClient interface {
 
 	// GetAsk returns the current ask for a storage provider
 	GetAsk(ctx context.Context, info StorageProviderInfo) (*SignedStorageAsk, error)
+
+	// GetProviderDealState queries a provider for the current state of a client's deal
+	GetProviderDealState(ctx context.Context, info StorageProviderInfo, proposalCid cid.Cid) (*ProviderDealState, error)
 
 	//// FindStorageOffers lists providers and queries them to find offers that satisfy some criteria based on price, duration, etc.
 	//FindStorageOffers(criteria AskCriteria, limit uint) []*StorageOffer

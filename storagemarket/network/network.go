@@ -27,17 +27,27 @@ type StorageDealStream interface {
 	Close() error
 }
 
+type DealStatusStream interface {
+	ReadDealStatusRequest() (DealStatusRequest, error)
+	WriteDealStatusRequest(DealStatusRequest) error
+	ReadDealStatusResponse() (DealStatusResponse, error)
+	WriteDealStatusResponse(DealStatusResponse) error
+	Close() error
+}
+
 // StorageReceiver implements functions for receiving
 // incoming data on storage protocols
 type StorageReceiver interface {
 	HandleAskStream(StorageAskStream)
 	HandleDealStream(StorageDealStream)
+	HandleDealStatusStream(DealStatusStream)
 }
 
 // StorageMarketNetwork is a network abstraction for the storage market
 type StorageMarketNetwork interface {
 	NewAskStream(peer.ID) (StorageAskStream, error)
 	NewDealStream(peer.ID) (StorageDealStream, error)
+	NewDealStatusStream(peer.ID) (DealStatusStream, error)
 	SetDelegate(StorageReceiver) error
 	StopHandlingRequests() error
 	ID() peer.ID

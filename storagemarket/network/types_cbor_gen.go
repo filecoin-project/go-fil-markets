@@ -388,3 +388,121 @@ func (t *SignedResponse) UnmarshalCBOR(r io.Reader) error {
 	}
 	return nil
 }
+
+func (t *DealStatusRequest) MarshalCBOR(w io.Writer) error {
+	if t == nil {
+		_, err := w.Write(cbg.CborNull)
+		return err
+	}
+	if _, err := w.Write([]byte{130}); err != nil {
+		return err
+	}
+
+	// t.Proposal (cid.Cid) (struct)
+
+	if err := cbg.WriteCid(w, t.Proposal); err != nil {
+		return xerrors.Errorf("failed to write cid field t.Proposal: %w", err)
+	}
+
+	// t.Signature (crypto.Signature) (struct)
+	if err := t.Signature.MarshalCBOR(w); err != nil {
+		return err
+	}
+	return nil
+}
+
+func (t *DealStatusRequest) UnmarshalCBOR(r io.Reader) error {
+	br := cbg.GetPeeker(r)
+
+	maj, extra, err := cbg.CborReadHeader(br)
+	if err != nil {
+		return err
+	}
+	if maj != cbg.MajArray {
+		return fmt.Errorf("cbor input should be of type array")
+	}
+
+	if extra != 2 {
+		return fmt.Errorf("cbor input had wrong number of fields")
+	}
+
+	// t.Proposal (cid.Cid) (struct)
+
+	{
+
+		c, err := cbg.ReadCid(br)
+		if err != nil {
+			return xerrors.Errorf("failed to read cid field t.Proposal: %w", err)
+		}
+
+		t.Proposal = c
+
+	}
+	// t.Signature (crypto.Signature) (struct)
+
+	{
+
+		if err := t.Signature.UnmarshalCBOR(br); err != nil {
+			return xerrors.Errorf("unmarshaling t.Signature: %w", err)
+		}
+
+	}
+	return nil
+}
+
+func (t *DealStatusResponse) MarshalCBOR(w io.Writer) error {
+	if t == nil {
+		_, err := w.Write(cbg.CborNull)
+		return err
+	}
+	if _, err := w.Write([]byte{130}); err != nil {
+		return err
+	}
+
+	// t.DealState (storagemarket.ProviderDealState) (struct)
+	if err := t.DealState.MarshalCBOR(w); err != nil {
+		return err
+	}
+
+	// t.Signature (crypto.Signature) (struct)
+	if err := t.Signature.MarshalCBOR(w); err != nil {
+		return err
+	}
+	return nil
+}
+
+func (t *DealStatusResponse) UnmarshalCBOR(r io.Reader) error {
+	br := cbg.GetPeeker(r)
+
+	maj, extra, err := cbg.CborReadHeader(br)
+	if err != nil {
+		return err
+	}
+	if maj != cbg.MajArray {
+		return fmt.Errorf("cbor input should be of type array")
+	}
+
+	if extra != 2 {
+		return fmt.Errorf("cbor input had wrong number of fields")
+	}
+
+	// t.DealState (storagemarket.ProviderDealState) (struct)
+
+	{
+
+		if err := t.DealState.UnmarshalCBOR(br); err != nil {
+			return xerrors.Errorf("unmarshaling t.DealState: %w", err)
+		}
+
+	}
+	// t.Signature (crypto.Signature) (struct)
+
+	{
+
+		if err := t.Signature.UnmarshalCBOR(br); err != nil {
+			return xerrors.Errorf("unmarshaling t.Signature: %w", err)
+		}
+
+	}
+	return nil
+}

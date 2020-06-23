@@ -372,7 +372,7 @@ func assertDealPaymentReceived(parentCtx context.Context, t *testing.T, fromNetw
 	assert.Equal(t, *dp.PaymentVoucher, *responseReceived.PaymentVoucher)
 }
 
-// assertQueryReceived performs the verification that a Query is received
+// assertQueryReceived performs the verification that a DealStatusRequest is received
 func assertQueryReceived(inCtx context.Context, t *testing.T, fromNetwork network.RetrievalMarketNetwork, toHost peer.ID, qchan chan retrievalmarket.Query) {
 	ctx, cancel := context.WithTimeout(inCtx, 10*time.Second)
 	defer cancel()
@@ -395,7 +395,7 @@ func assertQueryReceived(inCtx context.Context, t *testing.T, fromNetwork networ
 	assert.Equal(t, q.PayloadCID, inq.PayloadCID)
 }
 
-// assertQueryResponseReceived performs the verification that a QueryResponse is received
+// assertQueryResponseReceived performs the verification that a DealStatusResponse is received
 func assertQueryResponseReceived(inCtx context.Context, t *testing.T,
 	fromNetwork network.RetrievalMarketNetwork,
 	toHost peer.ID,

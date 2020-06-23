@@ -9,7 +9,7 @@ import (
 	"github.com/filecoin-project/go-fil-markets/storagemarket"
 )
 
-//go:generate cbor-gen-for AskRequest AskResponse Proposal Response SignedResponse
+//go:generate cbor-gen-for AskRequest AskResponse Proposal Response SignedResponse DealStatusRequest DealStatusResponse
 
 // Proposal is the data sent over the network from client to provider when proposing
 // a deal
@@ -56,3 +56,19 @@ type AskResponse struct {
 }
 
 var AskResponseUndefined = AskResponse{}
+
+// DealStatusRequest sent by a client to query deal status
+type DealStatusRequest struct {
+	Proposal  cid.Cid
+	Signature crypto.Signature
+}
+
+var DealStatusRequestUndefined = DealStatusRequest{}
+
+// DealStatusResponse is a provider's response to DealStatusRequest
+type DealStatusResponse struct {
+	DealState storagemarket.ProviderDealState
+	Signature crypto.Signature
+}
+
+var DealStatusResponseUndefined = DealStatusResponse{}

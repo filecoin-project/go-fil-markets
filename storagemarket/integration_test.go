@@ -146,6 +146,10 @@ func TestMakeDeal(t *testing.T) {
 	pd := providerDeals[0]
 	assert.Equal(t, pd.ProposalCid, proposalCid)
 	shared_testutil.AssertDealState(t, storagemarket.StorageDealCompleted, pd.State)
+
+	status, err := h.Client.GetProviderDealState(ctx, h.ProviderInfo, proposalCid)
+	assert.NoError(t, err)
+	shared_testutil.AssertDealState(t, storagemarket.StorageDealCompleted, status.State)
 }
 
 func TestMakeDealOffline(t *testing.T) {

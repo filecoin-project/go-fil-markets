@@ -92,7 +92,7 @@ func TestClient_Query(t *testing.T) {
 		assert.EqualError(t, err, "new query stream failed")
 	})
 
-	t.Run("when WriteQuery fails, returns error", func(t *testing.T) {
+	t.Run("when WriteDealStatusRequest fails, returns error", func(t *testing.T) {
 
 		qsbuilder := func(p peer.ID) (network.RetrievalQueryStream, error) {
 			newStream := tut.NewTestRetrievalQueryStream(tut.TestQueryStreamParams{
@@ -119,7 +119,7 @@ func TestClient_Query(t *testing.T) {
 		assert.Equal(t, retrievalmarket.QueryResponseUndefined, statusCode)
 	})
 
-	t.Run("when ReadQueryResponse fails, returns error", func(t *testing.T) {
+	t.Run("when ReadDealStatusResponse fails, returns error", func(t *testing.T) {
 		qsbuilder := func(p peer.ID) (network.RetrievalQueryStream, error) {
 			newStream := tut.NewTestRetrievalQueryStream(tut.TestQueryStreamParams{
 				PeerID:     p,

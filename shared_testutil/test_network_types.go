@@ -70,22 +70,22 @@ func NewTestRetrievalQueryStream(params TestQueryStreamParams) rmnet.RetrievalQu
 	return &stream
 }
 
-// ReadQuery calls the mocked query reader.
+// ReadDealStatusRequest calls the mocked query reader.
 func (trqs *TestRetrievalQueryStream) ReadQuery() (rm.Query, error) {
 	return trqs.reader()
 }
 
-// WriteQuery calls the mocked query writer.
+// WriteDealStatusRequest calls the mocked query writer.
 func (trqs *TestRetrievalQueryStream) WriteQuery(newQuery rm.Query) error {
 	return trqs.writer(newQuery)
 }
 
-// ReadQueryResponse calls the mocked query response reader.
+// ReadDealStatusResponse calls the mocked query response reader.
 func (trqs *TestRetrievalQueryStream) ReadQueryResponse() (rm.QueryResponse, error) {
 	return trqs.respReader()
 }
 
-// WriteQueryResponse calls the mocked query response writer.
+// WriteDealStatusResponse calls the mocked query response writer.
 func (trqs *TestRetrievalQueryStream) WriteQueryResponse(newResp rm.QueryResponse) error {
 	return trqs.respWriter(newResp)
 }
@@ -243,7 +243,7 @@ func NewTestRetrievalMarketNetwork(params TestNetworkParams) *TestRetrievalMarke
 	return &trmn
 }
 
-// NewQueryStream returns a query stream.
+// NewDealStatusStream returns a query stream.
 // Note this always returns the same stream.  This is fine for testing for now.
 func (trmn *TestRetrievalMarketNetwork) NewQueryStream(id peer.ID) (rmnet.RetrievalQueryStream, error) {
 	return trmn.qsbuilder(id)

@@ -77,7 +77,6 @@ func WaitForFunding(ctx fsm.Context, environment ClientDealEnvironment, deal sto
 
 // ProposeDeal sends the deal proposal to the provider
 func ProposeDeal(ctx fsm.Context, environment ClientDealEnvironment, deal storagemarket.ClientDeal) error {
-
 	proposal := network.Proposal{DealProposal: &deal.ClientDealProposal, Piece: deal.DataRef}
 	if err := environment.WriteDealProposal(deal.Miner, deal.ProposalCid, proposal); err != nil {
 		return ctx.Trigger(storagemarket.ClientEventWriteProposalFailed, err)
@@ -137,7 +136,6 @@ func WaitingForDataRequest(ctx fsm.Context, environment ClientDealEnvironment, d
 
 // VerifyDealResponse reads and verifies the response from the provider to the proposed deal
 func VerifyDealResponse(ctx fsm.Context, environment ClientDealEnvironment, deal storagemarket.ClientDeal) error {
-
 	resp, err := environment.ReadDealResponse(deal.ProposalCid)
 	if err != nil {
 		return ctx.Trigger(storagemarket.ClientEventReadResponseFailed, err)

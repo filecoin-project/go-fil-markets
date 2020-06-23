@@ -30,7 +30,12 @@ func VerifyProposal(ctx context.Context, sdp market.ClientDealProposal, tok shar
 		return err
 	}
 
-	verified, err := verifier(ctx, sdp.ClientSignature, sdp.Proposal.Client, b, tok)
+	return VerifySignature(ctx, sdp.ClientSignature, sdp.Proposal.Client, b, tok, verifier)
+}
+
+// VerifySignature verifies the signature over the given bytes
+func VerifySignature(ctx context.Context, signature crypto.Signature, signer address.Address, buf []byte, tok shared.TipSetToken, verifier VerifyFunc) error {
+	verified, err := verifier(ctx, signature, signer, buf, tok)
 	if err != nil {
 		return xerrors.Errorf("verifying: %w", err)
 	}

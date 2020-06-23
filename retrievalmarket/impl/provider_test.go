@@ -182,7 +182,7 @@ func TestHandleQueryStream(t *testing.T) {
 		require.NotEmpty(t, response.Message)
 	})
 
-	t.Run("when ReadQuery fails", func(t *testing.T) {
+	t.Run("when ReadDealStatusRequest fails", func(t *testing.T) {
 		qs := readWriteQueryStream()
 		pieceStore := tut.NewTestPieceStore()
 
@@ -193,7 +193,7 @@ func TestHandleQueryStream(t *testing.T) {
 		require.Equal(t, response, retrievalmarket.QueryResponseUndefined)
 	})
 
-	t.Run("when WriteQueryResponse fails", func(t *testing.T) {
+	t.Run("when WriteDealStatusResponse fails", func(t *testing.T) {
 		qRead, qWrite := tut.QueryReadWriter()
 		qs := tut.NewTestRetrievalQueryStream(tut.TestQueryStreamParams{
 			PeerID:     expectedPeer,
