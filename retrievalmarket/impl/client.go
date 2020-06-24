@@ -259,7 +259,7 @@ func (c *Client) RetrievalStatus(retrievalmarket.DealID) {
 // ListDeals lists in all known retrieval deals
 func (c *Client) ListDeals() map[retrievalmarket.DealID]retrievalmarket.ClientDealState {
 	var deals []retrievalmarket.ClientDealState
-	c.stateMachines.List(&deals)
+	_ = c.stateMachines.List(&deals)
 	dealMap := make(map[retrievalmarket.DealID]retrievalmarket.ClientDealState)
 	for _, deal := range deals {
 		dealMap[deal.ID] = deal

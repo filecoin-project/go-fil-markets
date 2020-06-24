@@ -177,7 +177,7 @@ func (p *Provider) SetPricePerUnseal(price abi.TokenAmount) {
 // ListDeals lists in all known retrieval deals
 func (p *Provider) ListDeals() map[retrievalmarket.ProviderDealID]retrievalmarket.ProviderDealState {
 	var deals []retrievalmarket.ProviderDealState
-	p.stateMachines.List(&deals)
+	_ = p.stateMachines.List(&deals)
 	dealMap := make(map[retrievalmarket.ProviderDealID]retrievalmarket.ProviderDealState)
 	for _, deal := range deals {
 		dealMap[retrievalmarket.ProviderDealID{From: deal.Receiver, ID: deal.ID}] = deal
