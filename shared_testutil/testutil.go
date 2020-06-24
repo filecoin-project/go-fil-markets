@@ -106,3 +106,9 @@ func AssertDealState(t *testing.T, expected storagemarket.StorageDealStatus, act
 		storagemarket.DealStates[actual], actual,
 	)
 }
+
+func GenerateCid(t *testing.T, o interface{}) cid.Cid {
+	node, err := cborutil.AsIpld(o)
+	assert.NoError(t, err)
+	return node.Cid()
+}

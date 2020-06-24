@@ -3,8 +3,8 @@ package clientstates_test
 import (
 	"context"
 	"errors"
-	"fmt"
 	"testing"
+	"time"
 
 	"github.com/filecoin-project/go-address"
 	cborutil "github.com/filecoin-project/go-cbor-util"
@@ -18,6 +18,8 @@ import (
 	"github.com/ipld/go-ipld-prime"
 	"github.com/libp2p/go-libp2p-core/peer"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+	"golang.org/x/xerrors"
 
 	tut "github.com/filecoin-project/go-fil-markets/shared_testutil"
 	"github.com/filecoin-project/go-fil-markets/storagemarket"
@@ -155,7 +157,7 @@ func TestWaitingForDataRequest(t *testing.T) {
 			},
 		})
 	})
-	t.Run("waits for another response with manual transfers", func(t *testing.T) {
+	t.Run("starts polling for acceptance with manual transfers", func(t *testing.T) {
 		runAndInspect(t, storagemarket.StorageDealWaitingForDataRequest, clientstates.WaitingForDataRequest, testCase{
 			envParams: envParams{
 				dealStream: testResponseStream(t, responseParams{
@@ -165,91 +167,97 @@ func TestWaitingForDataRequest(t *testing.T) {
 				manualTransfer: true,
 			},
 			inspector: func(deal storagemarket.ClientDeal, env *fakeEnvironment) {
-				tut.AssertDealState(t, storagemarket.StorageDealValidating, deal.State)
+				tut.AssertDealState(t, storagemarket.StorageDealCheckForAcceptance, deal.State)
 			},
 		})
 	})
 }
 
-func TestVerifyDealResponse(t *testing.T) {
-	t.Run("succeeds", func(t *testing.T) {
-		publishMessage := &(tut.GenerateCids(1)[0])
+func TestCheckForDealAcceptance(t *testing.T) {
+	testCids := tut.GenerateCids(4)
+	proposalCid := tut.GenerateCid(t, clientDealProposal)
 
-		runAndInspect(t, storagemarket.StorageDealValidating, clientstates.VerifyDealResponse, testCase{
+	makeProviderDealState := func(status storagemarket.StorageDealStatus) *storagemarket.ProviderDealState {
+		return &storagemarket.ProviderDealState{
+			State:       status,
+			Message:     "",
+			Proposal:    &clientDealProposal.Proposal,
+			ProposalCid: &proposalCid,
+			AddFundsCid: &testCids[1],
+			PublishCid:  &testCids[2],
+			DealID:      123,
+		}
+	}
+
+	t.Run("succeeds when provider indicates a successful deal", func(t *testing.T) {
+		successStates := []storagemarket.StorageDealStatus{
+			storagemarket.StorageDealActive,
+			storagemarket.StorageDealSealing,
+			storagemarket.StorageDealStaged,
+		}
+
+		for _, s := range successStates {
+			runAndInspect(t, storagemarket.StorageDealCheckForAcceptance, clientstates.CheckForDealAcceptance, testCase{
+				envParams: envParams{
+					providerDealState: makeProviderDealState(s),
+				},
+				inspector: func(deal storagemarket.ClientDeal, env *fakeEnvironment) {
+					tut.AssertDealState(t, storagemarket.StorageDealProposalAccepted, deal.State)
+				},
+			})
+		}
+	})
+
+	t.Run("fails when provider indicates a failed deal", func(t *testing.T) {
+		failureStates := []storagemarket.StorageDealStatus{
+			storagemarket.StorageDealFailing,
+			storagemarket.StorageDealError,
+		}
+
+		for _, s := range failureStates {
+			runAndInspect(t, storagemarket.StorageDealCheckForAcceptance, clientstates.CheckForDealAcceptance, testCase{
+				envParams: envParams{
+					providerDealState: makeProviderDealState(s),
+				},
+				inspector: func(deal storagemarket.ClientDeal, env *fakeEnvironment) {
+					tut.AssertDealState(t, storagemarket.StorageDealFailing, deal.State)
+				},
+			})
+		}
+	})
+
+	t.Run("continues polling if there is an error querying provider deal state", func(t *testing.T) {
+		runAndInspect(t, storagemarket.StorageDealCheckForAcceptance, clientstates.CheckForDealAcceptance, testCase{
 			envParams: envParams{
-				dealStream: testResponseStream(t, responseParams{
-					proposal:       clientDealProposal,
-					state:          storagemarket.StorageDealProposalAccepted,
-					publishMessage: publishMessage,
-				}),
+				getDealStatusErr: xerrors.Errorf("network error"),
 			},
 			inspector: func(deal storagemarket.ClientDeal, env *fakeEnvironment) {
-				tut.AssertDealState(t, storagemarket.StorageDealProposalAccepted, deal.State)
-				assert.Equal(t, publishMessage, deal.PublishMessage)
+				tut.AssertDealState(t, storagemarket.StorageDealCheckForAcceptance, deal.State)
+				assert.Equal(t, 1, deal.PollRetryCount)
 			},
 		})
 	})
-	t.Run("read response fails", func(t *testing.T) {
-		runAndInspect(t, storagemarket.StorageDealValidating, clientstates.VerifyDealResponse, testCase{
-			envParams: envParams{dealStream: tut.NewTestStorageDealStream(tut.TestStorageDealStreamParams{
-				ResponseReader: tut.FailStorageResponseReader,
-			})},
-			inspector: func(deal storagemarket.ClientDeal, env *fakeEnvironment) {
-				tut.AssertDealState(t, storagemarket.StorageDealError, deal.State)
-				assert.Equal(t, "error reading Response message: read response failed", deal.Message)
-			},
-		})
-	})
-	t.Run("verify response fails", func(t *testing.T) {
-		runAndInspect(t, storagemarket.StorageDealValidating, clientstates.VerifyDealResponse, testCase{
-			nodeParams: nodeParams{VerifySignatureFails: true},
-			envParams: envParams{dealStream: testResponseStream(t, responseParams{
-				proposal: clientDealProposal,
-				state:    storagemarket.StorageDealProposalAccepted,
-			})},
-			inspector: func(deal storagemarket.ClientDeal, env *fakeEnvironment) {
-				tut.AssertDealState(t, storagemarket.StorageDealFailing, deal.State)
-				assert.Equal(t, "unable to verify signature on deal response", deal.Message)
-			},
-		})
-	})
-	t.Run("incorrect proposal cid", func(t *testing.T) {
-		runAndInspect(t, storagemarket.StorageDealValidating, clientstates.VerifyDealResponse, testCase{
-			envParams: envParams{dealStream: testResponseStream(t, responseParams{
-				proposal:    clientDealProposal,
-				state:       storagemarket.StorageDealProposalAccepted,
-				proposalCid: tut.GenerateCids(1)[0],
-			})},
-			inspector: func(deal storagemarket.ClientDeal, env *fakeEnvironment) {
-				tut.AssertDealState(t, storagemarket.StorageDealFailing, deal.State)
-				assert.Regexp(t, "^miner responded to a wrong proposal:", deal.Message)
-			},
-		})
-	})
-	t.Run("deal rejected", func(t *testing.T) {
-		runAndInspect(t, storagemarket.StorageDealValidating, clientstates.VerifyDealResponse, testCase{
-			envParams: envParams{dealStream: testResponseStream(t, responseParams{
-				proposal: clientDealProposal,
-				state:    storagemarket.StorageDealProposalRejected,
-				message:  "because reasons",
-			})},
-			inspector: func(deal storagemarket.ClientDeal, env *fakeEnvironment) {
-				expErr := fmt.Sprintf("deal failed: (State=%d) because reasons", storagemarket.StorageDealProposalRejected)
 
-				tut.AssertDealState(t, storagemarket.StorageDealFailing, deal.State)
-				assert.Equal(t, deal.Message, expErr)
+	t.Run("continues polling with an indeterminate deal state", func(t *testing.T) {
+		runAndInspect(t, storagemarket.StorageDealCheckForAcceptance, clientstates.CheckForDealAcceptance, testCase{
+			envParams: envParams{
+				providerDealState: makeProviderDealState(storagemarket.StorageDealVerifyData),
+			},
+			inspector: func(deal storagemarket.ClientDeal, env *fakeEnvironment) {
+				tut.AssertDealState(t, storagemarket.StorageDealCheckForAcceptance, deal.State)
 			},
 		})
 	})
-	t.Run("deal stream close errors", func(t *testing.T) {
-		runAndInspect(t, storagemarket.StorageDealValidating, clientstates.VerifyDealResponse, testCase{
-			envParams: envParams{dealStream: testResponseStream(t, responseParams{
-				proposal: clientDealProposal,
-				state:    storagemarket.StorageDealProposalAccepted,
-			}), closeStreamErr: errors.New("something went wrong")},
+
+	t.Run("fails if the wrong proposal comes back", func(t *testing.T) {
+		pds := makeProviderDealState(storagemarket.StorageDealActive)
+		pds.ProposalCid = &tut.GenerateCids(1)[0]
+
+		runAndInspect(t, storagemarket.StorageDealCheckForAcceptance, clientstates.CheckForDealAcceptance, testCase{
+			envParams: envParams{providerDealState: pds},
 			inspector: func(deal storagemarket.ClientDeal, env *fakeEnvironment) {
-				tut.AssertDealState(t, storagemarket.StorageDealError, deal.State)
-				assert.Equal(t, "error attempting to close stream: something went wrong", deal.Message)
+				tut.AssertDealState(t, storagemarket.StorageDealFailing, deal.State)
+				assert.Regexp(t, "miner responded to a wrong proposal", deal.Message)
 			},
 		})
 	})
@@ -390,6 +398,9 @@ type envParams struct {
 	closeStreamErr         error
 	startDataTransferError error
 	manualTransfer         bool
+	providerDealState      *storagemarket.ProviderDealState
+	getDealStatusErr       error
+	pollingInterval        time.Duration
 }
 
 type dealStateParams struct {
@@ -427,10 +438,19 @@ func makeExecutor(ctx context.Context,
 			dealStream:             envParams.dealStream,
 			closeStreamErr:         envParams.closeStreamErr,
 			startDataTransferError: envParams.startDataTransferError,
+			providerDealState:      envParams.providerDealState,
+			getDealStatusErr:       envParams.getDealStatusErr,
+			pollingInterval:        envParams.pollingInterval,
 		}
+
+		if environment.pollingInterval == 0 {
+			environment.pollingInterval = 0
+		}
+
 		fsmCtx := fsmtest.NewTestContext(ctx, eventProcessor)
 		err = stateEntryFunc(fsmCtx, environment, *dealState)
 		assert.NoError(t, err)
+		time.Sleep(10 * time.Millisecond)
 		fsmCtx.ReplayEvents(t, dealState)
 		dealInspector(*dealState, environment)
 	}
@@ -492,6 +512,7 @@ type fakeEnvironment struct {
 	startDataTransferCalls []dataTransferParams
 	providerDealState      *storagemarket.ProviderDealState
 	getDealStatusErr       error
+	pollingInterval        time.Duration
 }
 
 type dataTransferParams struct {
@@ -538,6 +559,10 @@ func (fe *fakeEnvironment) GetProviderDealState(ctx context.Context, cd storagem
 		return nil, fe.getDealStatusErr
 	}
 	return fe.providerDealState, nil
+}
+
+func (fe *fakeEnvironment) PollingInterval() time.Duration {
+	return fe.pollingInterval
 }
 
 var _ clientstates.ClientDealEnvironment = &fakeEnvironment{}

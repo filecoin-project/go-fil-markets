@@ -3,6 +3,7 @@ package storageimpl
 import (
 	"context"
 	"fmt"
+	"time"
 
 	"github.com/filecoin-project/go-address"
 	cborutil "github.com/filecoin-project/go-cbor-util"
@@ -35,6 +36,8 @@ import (
 )
 
 var log = logging.Logger("storagemarket_impl")
+
+const DefaultAcceptancePollingInterval = 30 * time.Second
 
 var _ storagemarket.StorageClient = &Client{}
 
@@ -78,7 +81,7 @@ func NewClient(
 
 	statemachines, err := newClientStateMachine(
 		ds,
-		&clientDealEnvironment{c},
+		NewClientDealEnvironment(c),
 		c.dispatch,
 	)
 	if err != nil {
@@ -512,7 +515,15 @@ func clientDispatcher(evt pubsub.Event, fn pubsub.SubscriberFn) error {
 // -------
 
 type clientDealEnvironment struct {
-	c *Client
+	c               *Client
+	pollingInterval time.Duration
+}
+
+func NewClientDealEnvironment(c *Client) clientstates.ClientDealEnvironment {
+	return &clientDealEnvironment{
+		c:               c,
+		pollingInterval: DefaultAcceptancePollingInterval,
+	}
 }
 
 func (c *clientDealEnvironment) Node() storagemarket.StorageClientNode {
@@ -562,6 +573,10 @@ func (c *clientDealEnvironment) StartDataTransfer(ctx context.Context, to peer.I
 
 func (c *clientDealEnvironment) GetProviderDealState(ctx context.Context, deal storagemarket.ClientDeal) (*storagemarket.ProviderDealState, error) {
 	return c.c.GetProviderDealState(ctx, deal)
+}
+
+func (c *clientDealEnvironment) PollingInterval() time.Duration {
+	return c.pollingInterval
 }
 
 // ClientFSMParameterSpec is a valid set of parameters for a client deal FSM - used in doc generation
