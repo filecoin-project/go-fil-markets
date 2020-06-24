@@ -31,6 +31,7 @@ type ClientDealEnvironment interface {
 	ReadDealResponse(proposalCid cid.Cid) (network.SignedResponse, error)
 	CloseStream(proposalCid cid.Cid) error
 	StartDataTransfer(ctx context.Context, to peer.ID, voucher datatransfer.Voucher, baseCid cid.Cid, selector ipld.Node) error
+	GetProviderDealState(ctx context.Context, deal storagemarket.ClientDeal) (*storagemarket.ProviderDealState, error)
 }
 
 // ClientStateEntryFunc is the type for all state entry functions on a storage client
@@ -135,6 +136,11 @@ func WaitingForDataRequest(ctx fsm.Context, environment ClientDealEnvironment, d
 
 	return ctx.Trigger(storagemarket.ClientEventDataTransferInitiated)
 }
+
+//// TODO: Name this better
+//func WaitingForDealUpdate(ctx fsm.Context, environment ClientDealEnvironment, deal storagemarket.ClientDeal) error {
+//	resp, err := environment.
+//}
 
 // VerifyDealResponse reads and verifies the response from the provider to the proposed deal
 func VerifyDealResponse(ctx fsm.Context, environment ClientDealEnvironment, deal storagemarket.ClientDeal) error {

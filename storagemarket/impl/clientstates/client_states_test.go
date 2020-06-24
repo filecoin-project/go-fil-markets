@@ -490,6 +490,8 @@ type fakeEnvironment struct {
 	closeStreamCalls       []cid.Cid
 	startDataTransferError error
 	startDataTransferCalls []dataTransferParams
+	providerDealState      *storagemarket.ProviderDealState
+	getDealStatusErr       error
 }
 
 type dataTransferParams struct {
@@ -529,6 +531,13 @@ func (fe *fakeEnvironment) TagConnection(proposalCid cid.Cid) error {
 func (fe *fakeEnvironment) CloseStream(proposalCid cid.Cid) error {
 	fe.closeStreamCalls = append(fe.closeStreamCalls, proposalCid)
 	return fe.closeStreamErr
+}
+
+func (fe *fakeEnvironment) GetProviderDealState(ctx context.Context, cd storagemarket.ClientDeal) (*storagemarket.ProviderDealState, error) {
+	if fe.getDealStatusErr != nil {
+		return nil, fe.getDealStatusErr
+	}
+	return fe.providerDealState, nil
 }
 
 var _ clientstates.ClientDealEnvironment = &fakeEnvironment{}

@@ -210,13 +210,13 @@ func (c *Client) GetAsk(ctx context.Context, info storagemarket.StorageProviderI
 }
 
 // GetProviderDealState queries a provider for the current state of a client's deal
-func (c *Client) GetProviderDealState(ctx context.Context, info storagemarket.StorageProviderInfo, proposalCid cid.Cid) (*storagemarket.ProviderDealState, error) {
-	s, err := c.net.NewDealStatusStream(info.PeerID)
+func (c *Client) GetProviderDealState(ctx context.Context, deal storagemarket.ClientDeal) (*storagemarket.ProviderDealState, error) {
+	s, err := c.net.NewDealStatusStream(deal.Miner)
 	if err != nil {
 		return nil, xerrors.Errorf("failed to open stream to miner: %w", err)
 	}
 
-	buf, err := cborutil.Dump(&proposalCid)
+	buf, err := cborutil.Dump(&deal.ProposalCid)
 	if err != nil {
 		return nil, xerrors.Errorf("failed serialize deal status request: %w", err)
 	}
@@ -231,7 +231,7 @@ func (c *Client) GetProviderDealState(ctx context.Context, info storagemarket.St
 		return nil, xerrors.Errorf("failed to sign deal status request: %w", err)
 	}
 
-	if err := s.WriteDealStatusRequest(network.DealStatusRequest{Proposal: proposalCid, Signature: *signature}); err != nil {
+	if err := s.WriteDealStatusRequest(network.DealStatusRequest{Proposal: deal.ProposalCid, Signature: *signature}); err != nil {
 		return nil, xerrors.Errorf("failed to send deal status request: %w", err)
 	}
 
@@ -240,7 +240,7 @@ func (c *Client) GetProviderDealState(ctx context.Context, info storagemarket.St
 		return nil, xerrors.Errorf("failed to read deal status response: %w", err)
 	}
 
-	valid, err := c.verifyStatusResponseSignature(ctx, info.Worker, resp)
+	valid, err := c.verifyStatusResponseSignature(ctx, deal.MinerWorker, resp)
 	if err != nil {
 		return nil, err
 	}
@@ -558,6 +558,10 @@ func (c *clientDealEnvironment) CloseStream(proposalCid cid.Cid) error {
 func (c *clientDealEnvironment) StartDataTransfer(ctx context.Context, to peer.ID, voucher datatransfer.Voucher, baseCid cid.Cid, selector ipld.Node) error {
 	_, err := c.c.dataTransfer.OpenPushDataChannel(ctx, to, voucher, baseCid, selector)
 	return err
+}
+
+func (c *clientDealEnvironment) GetProviderDealState(ctx context.Context, deal storagemarket.ClientDeal) (*storagemarket.ProviderDealState, error) {
+	return c.c.GetProviderDealState(ctx, deal)
 }
 
 // ClientFSMParameterSpec is a valid set of parameters for a client deal FSM - used in doc generation
