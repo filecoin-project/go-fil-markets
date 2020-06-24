@@ -188,11 +188,15 @@ func newStorageHarness(ctx context.Context, t *testing.T) *storageHarness {
 	fpath := filepath.Join("retrievalmarket", "impl", "fixtures", "lorem.txt")
 	rootLink := td.LoadUnixFSFile(t, fpath, false)
 	payloadCid := rootLink.(cidlink.Link).Cid
+	clientAddr := address.TestAddress
+	providerAddr := address.TestAddress2
 
 	smState := testnodes.NewStorageMarketState()
 	clientNode := testnodes.FakeClientNode{
 		FakeCommonNode: testnodes.FakeCommonNode{SMState: smState},
-		ClientAddr:     address.TestAddress,
+		ClientAddr:     clientAddr,
+		MinerAddr:      providerAddr,
+		WorkerAddr:     providerAddr,
 	}
 
 	expDealID := abi.DealID(rand.Uint64())
@@ -200,7 +204,6 @@ func newStorageHarness(ctx context.Context, t *testing.T) *storageHarness {
 	psdReturnBytes := bytes.NewBuffer([]byte{})
 	require.NoError(t, psdReturn.MarshalCBOR(psdReturnBytes))
 
-	providerAddr := address.TestAddress2
 	tempPath, err := ioutil.TempDir("", "storagemarket_test")
 	require.NoError(t, err)
 	ps := piecestore.NewPieceStore(td.Ds2)
