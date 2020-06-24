@@ -30,7 +30,7 @@ Making deals in filecoin is a highly asynchronous process. For a large piece of 
 to finish the proposing a deal, transferring data, publishing the deal, putting the data in a sector and sealing it
 could take hours or even days. Not surprisingly, many things can go wrong along the way. To manage the process
 of orchestrating deals, we use finite state machines that update deal state when discrete events occur. State updates
-always persist state to disk. This means we have a permaneant record of exactly what's going on with deals at any time,
+always persist state to disk. This means we have a permanent record of exactly what's going on with deals at any time,
 and we can ideally survive our filecoin processes shutting down and restarting.
 
 The following diagrams visualize the statemachine flows for the client and the provider:
