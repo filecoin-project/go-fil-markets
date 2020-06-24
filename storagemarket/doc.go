@@ -11,7 +11,7 @@ the storagemarket module:
 Public Interfaces And Node Dependencies
 
 A core goal of this module is to isolate the negotation of deals from the actual chain operations
-performed by the node to put the deal on chain. The primarily orchestrates the storage deal
+performed by the node to put the deal on chain. The module primarily orchestrates the storage deal
 flow, rather than performing specific chain operations which are delegated to the node.
 
 As such for both the client and the provider in the storage market, the module defines a top level
