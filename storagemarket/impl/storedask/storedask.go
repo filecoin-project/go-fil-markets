@@ -17,14 +17,22 @@ import (
 )
 
 var log = logging.Logger("storedask")
-var DefaultPrice = abi.NewTokenAmount(500_000_000)
 
+// DefaultPrice is the default price set for StorageAsk in Fil / GiB / Epoch
+var DefaultPrice = abi.NewTokenAmount(500000000)
+
+// DefaultDuration is the default number of epochs a storage ask is in effect for
 const DefaultDuration abi.ChainEpoch = 1000000
+
+// DefaultMinPieceSize is the minimum accepted piece size for data
 const DefaultMinPieceSize abi.PaddedPieceSize = 256
 
-// It would be nice to default this to the miner's sector size
+// DefaultMaxPieceSize is the default maximum accepted size for pieces for deals
+// TODO: It would be nice to default this to the miner's sector size
 const DefaultMaxPieceSize abi.PaddedPieceSize = 1 << 20
 
+// StoredAsk implements a persisted SignedStorageAsk that lasts through restarts
+// It also maintains a cache of the current SignedStorageAsk in memory
 type StoredAsk struct {
 	askLk sync.RWMutex
 	ask   *storagemarket.SignedStorageAsk
@@ -34,6 +42,9 @@ type StoredAsk struct {
 	actor address.Address
 }
 
+// NewStoredAsk returns a new instance of StoredAsk
+// It will initialize a new SignedStorageAsk on disk if one is not set
+// Otherwise it loads the current SignedStorageAsk from disk
 func NewStoredAsk(ds datastore.Batching, dsKey datastore.Key, spn storagemarket.StorageProviderNode, actor address.Address) (*StoredAsk, error) {
 
 	s := &StoredAsk{
@@ -56,6 +67,9 @@ func NewStoredAsk(ds datastore.Batching, dsKey datastore.Key, spn storagemarket.
 	return s, nil
 }
 
+// SetAsk writes a new ask to disk with the provided price,
+// duration, and options. Any previously-existing ask is replaced.
+// It also increments the sequence number on the ask
 func (s *StoredAsk) SetAsk(price abi.TokenAmount, duration abi.ChainEpoch, options ...storagemarket.StorageAskOption) error {
 	s.askLk.Lock()
 	defer s.askLk.Unlock()
@@ -101,6 +115,7 @@ func (s *StoredAsk) SetAsk(price abi.TokenAmount, duration abi.ChainEpoch, optio
 
 }
 
+// GetAsk returns the current signed storage ask, or nil if one does not exist.
 func (s *StoredAsk) GetAsk() *storagemarket.SignedStorageAsk {
 	s.askLk.RLock()
 	defer s.askLk.RUnlock()

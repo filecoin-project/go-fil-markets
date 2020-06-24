@@ -98,9 +98,12 @@ func (trcn *TestRetrievalClientNode) CreatePaymentVoucher(ctx context.Context, p
 	return trcn.voucher, trcn.voucherError
 }
 
+// GetChainHead returns a mock value for the chain head
 func (trcn *TestRetrievalClientNode) GetChainHead(ctx context.Context) (shared.TipSetToken, abi.ChainEpoch, error) {
 	return shared.TipSetToken{}, 0, nil
 }
+
+// WaitForPaymentChannelAddFunds simulates waiting for a payment channel add funds message to complete
 func (trcn *TestRetrievalClientNode) WaitForPaymentChannelAddFunds(messageCID cid.Cid) error {
 	if messageCID != trcn.addFundsMsgCID {
 		return fmt.Errorf("expected messageCID: %s does not match actual: %s", trcn.addFundsMsgCID, messageCID)
@@ -108,6 +111,7 @@ func (trcn *TestRetrievalClientNode) WaitForPaymentChannelAddFunds(messageCID ci
 	return trcn.waitAddErr
 }
 
+// WaitForPaymentChannelCreation simulates waiting for a payment channel creation message to complete
 func (trcn *TestRetrievalClientNode) WaitForPaymentChannelCreation(messageCID cid.Cid) (address.Address, error) {
 	if messageCID != trcn.createPaychMsgCID {
 		return address.Undef, fmt.Errorf("expected messageCID: %s does not match actual: %s", trcn.createPaychMsgCID, messageCID)

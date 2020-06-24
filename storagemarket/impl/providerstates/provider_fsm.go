@@ -138,6 +138,8 @@ var ProviderStateEntryFuncs = fsm.StateEntryFuncs{
 	storagemarket.StorageDealFailing:             FailDeal,
 }
 
+// ProviderFinalityStates are the states that terminate deal processing for a deal.
+// When a provider restarts, it restarts only deals that are not in a finality state.
 var ProviderFinalityStates = []fsm.StateKey{
 	storagemarket.StorageDealError,
 	storagemarket.StorageDealCompleted,

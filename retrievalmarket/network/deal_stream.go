@@ -10,15 +10,15 @@ import (
 	"github.com/filecoin-project/go-fil-markets/retrievalmarket"
 )
 
-type DealStream struct {
+type dealStream struct {
 	p        peer.ID
 	rw       mux.MuxedStream
 	buffered *bufio.Reader
 }
 
-var _ RetrievalDealStream = (*DealStream)(nil)
+var _ RetrievalDealStream = (*dealStream)(nil)
 
-func (d *DealStream) ReadDealProposal() (retrievalmarket.DealProposal, error) {
+func (d *dealStream) ReadDealProposal() (retrievalmarket.DealProposal, error) {
 	var ds retrievalmarket.DealProposal
 
 	if err := ds.UnmarshalCBOR(d.buffered); err != nil {
@@ -28,11 +28,11 @@ func (d *DealStream) ReadDealProposal() (retrievalmarket.DealProposal, error) {
 	return ds, nil
 }
 
-func (d *DealStream) WriteDealProposal(dp retrievalmarket.DealProposal) error {
+func (d *dealStream) WriteDealProposal(dp retrievalmarket.DealProposal) error {
 	return cborutil.WriteCborRPC(d.rw, &dp)
 }
 
-func (d *DealStream) ReadDealResponse() (retrievalmarket.DealResponse, error) {
+func (d *dealStream) ReadDealResponse() (retrievalmarket.DealResponse, error) {
 	var dr retrievalmarket.DealResponse
 
 	if err := dr.UnmarshalCBOR(d.buffered); err != nil {
@@ -41,11 +41,11 @@ func (d *DealStream) ReadDealResponse() (retrievalmarket.DealResponse, error) {
 	return dr, nil
 }
 
-func (d *DealStream) WriteDealResponse(dr retrievalmarket.DealResponse) error {
+func (d *dealStream) WriteDealResponse(dr retrievalmarket.DealResponse) error {
 	return cborutil.WriteCborRPC(d.rw, &dr)
 }
 
-func (d *DealStream) ReadDealPayment() (retrievalmarket.DealPayment, error) {
+func (d *dealStream) ReadDealPayment() (retrievalmarket.DealPayment, error) {
 	var ds retrievalmarket.DealPayment
 
 	if err := ds.UnmarshalCBOR(d.rw); err != nil {
@@ -54,14 +54,14 @@ func (d *DealStream) ReadDealPayment() (retrievalmarket.DealPayment, error) {
 	return ds, nil
 }
 
-func (d *DealStream) WriteDealPayment(dpy retrievalmarket.DealPayment) error {
+func (d *dealStream) WriteDealPayment(dpy retrievalmarket.DealPayment) error {
 	return cborutil.WriteCborRPC(d.rw, &dpy)
 }
 
-func (d *DealStream) Receiver() peer.ID {
+func (d *dealStream) Receiver() peer.ID {
 	return d.p
 }
 
-func (d *DealStream) Close() error {
+func (d *dealStream) Close() error {
 	return d.rw.Close()
 }

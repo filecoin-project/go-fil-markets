@@ -12,10 +12,14 @@ import (
 	rmnet "github.com/filecoin-project/go-fil-markets/retrievalmarket/network"
 )
 
-// ClientDealEnvironment is a bridge to the environment a client deal is executing in
+// ClientDealEnvironment is a bridge to the environment a client deal is executing in.
+// It provides access to relevant functionality on the retrieval client
 type ClientDealEnvironment interface {
+	// Node returns the node interface for this deal
 	Node() rm.RetrievalClientNode
+	// DealStream returns the relevant libp2p interface for this deal
 	DealStream(id rm.DealID) rmnet.RetrievalDealStream
+	// ConsumeBlock allows us to validate an incoming block sent over the retrieval protocol
 	ConsumeBlock(context.Context, rm.DealID, rm.Block) (uint64, bool, error)
 }
 

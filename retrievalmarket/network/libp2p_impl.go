@@ -15,6 +15,8 @@ import (
 var log = logging.Logger("retrieval_network")
 var _ RetrievalMarketNetwork = new(libp2pRetrievalMarketNetwork)
 
+// NewFromLibp2pHost constructs a new instance of the RetrievalMarketNetwork from a
+// libp2p host
 func NewFromLibp2pHost(h host.Host) RetrievalMarketNetwork {
 	return &libp2pRetrievalMarketNetwork{host: h}
 }
@@ -36,7 +38,7 @@ func (impl *libp2pRetrievalMarketNetwork) NewQueryStream(id peer.ID) (RetrievalQ
 		return nil, err
 	}
 	buffered := bufio.NewReaderSize(s, 16)
-	return &QueryStream{p: id, rw: s, buffered: buffered}, nil
+	return &queryStream{p: id, rw: s, buffered: buffered}, nil
 }
 
 //  NewDealStream creates a new RetrievalDealStream using the provided peer.ID
@@ -46,7 +48,7 @@ func (impl *libp2pRetrievalMarketNetwork) NewDealStream(id peer.ID) (RetrievalDe
 		return nil, err
 	}
 	buffered := bufio.NewReaderSize(s, 16)
-	return &DealStream{p: id, rw: s, buffered: buffered}, nil
+	return &dealStream{p: id, rw: s, buffered: buffered}, nil
 }
 
 // SetDelegate sets a RetrievalReceiver to handle stream data
@@ -74,7 +76,7 @@ func (impl *libp2pRetrievalMarketNetwork) handleNewQueryStream(s network.Stream)
 	}
 	remotePID := s.Conn().RemotePeer()
 	buffered := bufio.NewReaderSize(s, 16)
-	qs := &QueryStream{remotePID, s, buffered}
+	qs := &queryStream{remotePID, s, buffered}
 	impl.receiver.HandleQueryStream(qs)
 }
 
@@ -86,6 +88,6 @@ func (impl *libp2pRetrievalMarketNetwork) handleNewDealStream(s network.Stream) 
 	}
 	remotePID := s.Conn().RemotePeer()
 	buffered := bufio.NewReaderSize(s, 16)
-	ds := &DealStream{remotePID, s, buffered}
+	ds := &dealStream{remotePID, s, buffered}
 	impl.receiver.HandleDealStream(ds)
 }

@@ -6,7 +6,7 @@ import (
 	"github.com/filecoin-project/go-fil-markets/retrievalmarket"
 )
 
-// These are the required interfaces that must be implemented to send and receive data over data-transfer,
+// These are the required interfaces that must be implemented to send and receive data
 // for retrieval queries and deals.
 
 // RetrievalQueryStream is the API needed to send and receive retrieval query

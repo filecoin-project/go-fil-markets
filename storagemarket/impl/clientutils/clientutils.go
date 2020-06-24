@@ -1,3 +1,4 @@
+// Package clientutils provides utility functions for the storage client & client FSM
 package clientutils
 
 import (

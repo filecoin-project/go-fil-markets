@@ -153,6 +153,7 @@ func VerifyData(ctx fsm.Context, environment ProviderDealEnvironment, deal stora
 	return ctx.Trigger(storagemarket.ProviderEventVerifiedData, piecePath, metadataPath)
 }
 
+// EnsureProviderFunds adds funds, as needed to the StorageMarketActor, so the miner has adequate collateral for the deal
 func EnsureProviderFunds(ctx fsm.Context, environment ProviderDealEnvironment, deal storagemarket.MinerDeal) error {
 	node := environment.Node()
 
@@ -180,6 +181,7 @@ func EnsureProviderFunds(ctx fsm.Context, environment ProviderDealEnvironment, d
 	return ctx.Trigger(storagemarket.ProviderEventFundingInitiated, mcid)
 }
 
+// WaitForFunding waits for a message posted to add funds to the StorageMarketActor to appear on chain
 func WaitForFunding(ctx fsm.Context, environment ProviderDealEnvironment, deal storagemarket.MinerDeal) error {
 	node := environment.Node()
 

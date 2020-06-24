@@ -15,12 +15,20 @@ import (
 )
 
 // ProviderDealEnvironment is a bridge to the environment a provider deal is executing in
+// It provides access to relevant functionality on the retrieval provider
 type ProviderDealEnvironment interface {
+	// Node returns the node interface for this deal
 	Node() rm.RetrievalProviderNode
-	GetPieceSize(c cid.Cid) (uint64, error)
+	// GetPieceSize returns the size of the piece for a given payload CID,
+	// looking only in the specified PieceCID if given
+	GetPieceSize(c cid.Cid, pieceCID *cid.Cid) (uint64, error)
+	// DealStream returns the relevant libp2p interface for this deal
 	DealStream(id rm.ProviderDealIdentifier) rmnet.RetrievalDealStream
+	// NextBlock returns the next block for the given payload, unsealing if neccesary
 	NextBlock(context.Context, rm.ProviderDealIdentifier) (rm.Block, bool, error)
+	// CheckDealParams verifies the given deal params are acceptable
 	CheckDealParams(pricePerByte abi.TokenAmount, paymentInterval uint64, paymentIntervalIncrease uint64) error
+	// RunDealDecisioningLogic runs custom deal decision logic to decide if a deal is accepted, if present
 	RunDealDecisioningLogic(ctx context.Context, state rm.ProviderDealState) (bool, string, error)
 }
 
@@ -29,7 +37,7 @@ func ReceiveDeal(ctx fsm.Context, environment ProviderDealEnvironment, deal rm.P
 	dealProposal := deal.DealProposal
 
 	// verify we have the piece
-	_, err := environment.GetPieceSize(dealProposal.PayloadCID)
+	_, err := environment.GetPieceSize(dealProposal.PayloadCID, dealProposal.PieceCID)
 	if err != nil {
 		if err == rm.ErrNotFound {
 			return ctx.Trigger(rm.ProviderEventDealNotFound)

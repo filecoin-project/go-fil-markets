@@ -1,5 +1,5 @@
-// Package dtutils provides go-data-transfer related types and functionality for
-// client and provider FSMs
+// Package dtutils provides event listeners for the client and provider to
+// listen for events on the data transfer module and dispatch FSM events based on them
 package dtutils
 
 import (
@@ -25,9 +25,9 @@ type EventReceiver interface {
 	Send(id interface{}, name fsm.EventName, args ...interface{}) (err error)
 }
 
-// DataTransferSubscriber is the function called when an event occurs in a data
-// transfer -- it reads the voucher to verify this even occurred in a storage
-// market deal, then, based on the data transfer event that occurred, it generates
+// ProviderDataTransferSubscriber is the function called when an event occurs in a data
+// transfer received by a provider -- it reads the voucher to verify this event occurred
+// in a storage market deal, then, based on the data transfer event that occurred, it generates
 // and update message for the deal -- either moving to staged for a completion
 // event or moving to error if a data transfer error occurs
 func ProviderDataTransferSubscriber(deals EventReceiver) datatransfer.Subscriber {
@@ -60,9 +60,9 @@ func ProviderDataTransferSubscriber(deals EventReceiver) datatransfer.Subscriber
 	}
 }
 
-// DataTransferSubscriber is the function called when an event occurs in a data
-// transfer -- it reads the voucher to verify this even occurred in a storage
-// market deal, then, based on the data transfer event that occurred, it dispatches
+// ClientDataTransferSubscriber is the function called when an event occurs in a data
+// transfer initiated on the client -- it reads the voucher to verify this even occurred
+// in a storage market deal, then, based on the data transfer event that occurred, it dispatches
 // an event to the appropriate state machine
 func ClientDataTransferSubscriber(deals EventReceiver) datatransfer.Subscriber {
 	return func(event datatransfer.Event, channelState datatransfer.ChannelState) {

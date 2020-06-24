@@ -26,9 +26,13 @@ import (
 	"github.com/filecoin-project/go-fil-markets/shared"
 )
 
+// RetrievalProviderOption is a function that configures a retrieval provider
 type RetrievalProviderOption func(p *Provider)
+
+// DealDecider is a function that makes a decision about whether to accept a deal
 type DealDecider func(ctx context.Context, state retrievalmarket.ProviderDealState) (bool, string, error)
 
+// Provider is the production implementation of the RetrievalProvider interface
 type Provider struct {
 	bs                      blockstore.Blockstore
 	node                    retrievalmarket.RetrievalProviderNode
@@ -47,7 +51,7 @@ type Provider struct {
 }
 
 var _ retrievalmarket.RetrievalProvider = new(Provider)
-var _ providerstates.ProviderDealEnvironment = new(Provider)
+var _ providerstates.ProviderDealEnvironment = new(providerDealEnvironment)
 
 // DefaultPricePerByte is the charge per byte retrieved if the miner does
 // not specifically set it
@@ -60,6 +64,13 @@ var DefaultPaymentInterval = uint64(1 << 20)
 // DefaultPaymentIntervalIncrease is the amount interval increases on each payment,
 // set to to 1Mb if the miner does not explicitly set it otherwise
 var DefaultPaymentIntervalIncrease = uint64(1 << 20)
+
+// DealDeciderOpt sets a custom protocol
+func DealDeciderOpt(dd DealDecider) RetrievalProviderOption {
+	return func(provider *Provider) {
+		provider.dealDecider = dd
+	}
+}
 
 // NewProvider returns a new retrieval Provider
 func NewProvider(minerAddress address.Address, node retrievalmarket.RetrievalProviderNode,
@@ -80,7 +91,7 @@ func NewProvider(minerAddress address.Address, node retrievalmarket.RetrievalPro
 		blockReaders:            make(map[retrievalmarket.ProviderDealIdentifier]blockio.BlockReader),
 	}
 	statemachines, err := fsm.New(ds, fsm.Parameters{
-		Environment:     p,
+		Environment:     &providerDealEnvironment{p},
 		StateType:       retrievalmarket.ProviderDealState{},
 		StateKeyField:   "Status",
 		Events:          providerstates.ProviderEvents,
@@ -95,24 +106,19 @@ func NewProvider(minerAddress address.Address, node retrievalmarket.RetrievalPro
 	return p, nil
 }
 
-func (p *Provider) RunDealDecisioningLogic(ctx context.Context, state retrievalmarket.ProviderDealState) (bool, string, error) {
-	if p.dealDecider == nil {
-		return true, "", nil
-	}
-	return p.dealDecider(ctx, state)
-}
-
-// Stop stops handling incoming requests
+// Stop stops handling incoming requests.
 func (p *Provider) Stop() error {
 	return p.network.StopHandlingRequests()
 }
 
-// Start begins listening for deals on the given host
+// Start begins listening for deals on the given host.
+// Start must be called in order to accept incoming deals.
 func (p *Provider) Start() error {
 	return p.network.SetDelegate(p)
 }
 
 // V0
+
 // SetPricePerByte sets the price per byte a miner charges for retrievals
 func (p *Provider) SetPricePerByte(price abi.TokenAmount) {
 	p.pricePerByte = price
@@ -163,14 +169,37 @@ func (p *Provider) SubscribeToEvents(subscriber retrievalmarket.ProviderSubscrib
 }
 
 // V1
+
 func (p *Provider) SetPricePerUnseal(price abi.TokenAmount) {
 	panic("not implemented")
 }
 
+// ListDeals lists in all known retrieval deals
 func (p *Provider) ListDeals() map[retrievalmarket.ProviderDealID]retrievalmarket.ProviderDealState {
-	panic("not implemented")
+	var deals []retrievalmarket.ProviderDealState
+	p.stateMachines.List(&deals)
+	dealMap := make(map[retrievalmarket.ProviderDealID]retrievalmarket.ProviderDealState)
+	for _, deal := range deals {
+		dealMap[retrievalmarket.ProviderDealID{From: deal.Receiver, ID: deal.ID}] = deal
+	}
+	return dealMap
 }
 
+/*
+HandleQueryStream is called by the network implementation whenever a new message is received on the query protocol
+
+A Provider handling a retrieval `Query` does the following:
+
+1. Get the node's chain head in order to get its miner worker address.
+
+2. Look in its piece store for determine if it can serve the given payload CID.
+
+3. Combine these results with it's existing parameters for retrieval deals to construct a `retrievalmarket.QueryResponse` struct.
+
+4.0 Writes this response to the `Query` stream.
+
+The connection is kept open only as long as the query-response exchange.
+*/
 func (p *Provider) HandleQueryStream(stream rmnet.RetrievalQueryStream) {
 	defer stream.Close()
 	query, err := stream.ReadQuery()
@@ -228,12 +257,34 @@ func (p *Provider) HandleQueryStream(stream rmnet.RetrievalQueryStream) {
 	}
 }
 
+/*
+HandleDealStream is called by the network implementation whenever a new message is received on the deal protocol
+
+When a provider receives a DealProposal of the deal protocol, it takes the following steps:
+
+1. Tells its statemachine to begin tracking this deal state by dealID.
+
+2. Constructs a `blockunsealing.LoaderWithUnsealing` that abstracts the process of unsealing pieces as needed when loading blocks
+
+3. Constructs a `blockio.BlockReader` and adds it to its dealID-keyed map of block readers.
+
+4. Triggers a `ProviderEventOpen` event on its statemachine.
+
+From then on, the statemachine controls the deal flow in the client. Other components may listen for events in this flow by calling
+`SubscribeToEvents` on the Provider. The Provider handles loading the next block to send to the client.*/
 func (p *Provider) HandleDealStream(stream rmnet.RetrievalDealStream) {
 	// read deal proposal (or fail)
 	err := p.newProviderDeal(stream)
 	if err != nil {
 		log.Error(err)
 		stream.Close()
+	}
+}
+
+// Configure reconfigures a provider after initialization
+func (p *Provider) Configure(opts ...RetrievalProviderOption) {
+	for _, opt := range opts {
+		opt(p)
 	}
 }
 
@@ -280,37 +331,45 @@ func (p *Provider) newProviderDeal(stream rmnet.RetrievalDealStream) error {
 	return nil
 }
 
-func (p *Provider) Node() retrievalmarket.RetrievalProviderNode {
-	return p.node
+type providerDealEnvironment struct {
+	p *Provider
 }
 
-func (p *Provider) DealStream(id retrievalmarket.ProviderDealIdentifier) rmnet.RetrievalDealStream {
-	return p.dealStreams[id]
+func (p *providerDealEnvironment) Node() retrievalmarket.RetrievalProviderNode {
+	return p.p.node
 }
 
-func (p *Provider) CheckDealParams(pricePerByte abi.TokenAmount, paymentInterval uint64, paymentIntervalIncrease uint64) error {
-	if pricePerByte.LessThan(p.pricePerByte) {
+func (p *providerDealEnvironment) DealStream(id retrievalmarket.ProviderDealIdentifier) rmnet.RetrievalDealStream {
+	return p.p.dealStreams[id]
+}
+
+func (p *providerDealEnvironment) CheckDealParams(pricePerByte abi.TokenAmount, paymentInterval uint64, paymentIntervalIncrease uint64) error {
+	if pricePerByte.LessThan(p.p.pricePerByte) {
 		return errors.New("Price per byte too low")
 	}
-	if paymentInterval > p.paymentInterval {
+	if paymentInterval > p.p.paymentInterval {
 		return errors.New("Payment interval too large")
 	}
-	if paymentIntervalIncrease > p.paymentIntervalIncrease {
+	if paymentIntervalIncrease > p.p.paymentIntervalIncrease {
 		return errors.New("Payment interval increase too large")
 	}
 	return nil
 }
 
-func (p *Provider) NextBlock(ctx context.Context, id retrievalmarket.ProviderDealIdentifier) (retrievalmarket.Block, bool, error) {
-	br, ok := p.blockReaders[id]
+func (p *providerDealEnvironment) NextBlock(ctx context.Context, id retrievalmarket.ProviderDealIdentifier) (retrievalmarket.Block, bool, error) {
+	br, ok := p.p.blockReaders[id]
 	if !ok {
 		return retrievalmarket.Block{}, false, errors.New("Could not read block")
 	}
 	return br.ReadBlock(ctx)
 }
 
-func (p *Provider) GetPieceSize(c cid.Cid) (uint64, error) {
-	pieceInfo, err := getPieceInfoFromCid(p.pieceStore, c, cid.Undef)
+func (p *providerDealEnvironment) GetPieceSize(c cid.Cid, pieceCID *cid.Cid) (uint64, error) {
+	inPieceCid := cid.Undef
+	if pieceCID != nil {
+		inPieceCid = *pieceCID
+	}
+	pieceInfo, err := getPieceInfoFromCid(p.p.pieceStore, c, inPieceCid)
 	if err != nil {
 		return 0, err
 	}
@@ -320,16 +379,11 @@ func (p *Provider) GetPieceSize(c cid.Cid) (uint64, error) {
 	return pieceInfo.Deals[0].Length, nil
 }
 
-func (p *Provider) Configure(opts ...RetrievalProviderOption) {
-	for _, opt := range opts {
-		opt(p)
+func (p *providerDealEnvironment) RunDealDecisioningLogic(ctx context.Context, state retrievalmarket.ProviderDealState) (bool, string, error) {
+	if p.p.dealDecider == nil {
+		return true, "", nil
 	}
-}
-
-func DealDeciderOpt(dd DealDecider) RetrievalProviderOption {
-	return func(provider *Provider) {
-		provider.dealDecider = dd
-	}
+	return p.p.dealDecider(ctx, state)
 }
 
 func getPieceInfoFromCid(pieceStore piecestore.PieceStore, payloadCID, pieceCID cid.Cid) (piecestore.PieceInfo, error) {
@@ -355,7 +409,7 @@ func getPieceInfoFromCid(pieceStore piecestore.PieceStore, payloadCID, pieceCID 
 
 // ProviderFSMParameterSpec is a valid set of parameters for a provider FSM - used in doc generation
 var ProviderFSMParameterSpec = fsm.Parameters{
-	Environment:     &Provider{},
+	Environment:     &providerDealEnvironment{},
 	StateType:       retrievalmarket.ProviderDealState{},
 	StateKeyField:   "Status",
 	Events:          providerstates.ProviderEvents,

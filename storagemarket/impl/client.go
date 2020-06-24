@@ -38,6 +38,7 @@ var log = logging.Logger("storagemarket_impl")
 
 var _ storagemarket.StorageClient = &Client{}
 
+// Client is the production implementation of the StorageClient interface
 type Client struct {
 	net network.StorageMarketNetwork
 
@@ -52,6 +53,7 @@ type Client struct {
 	conns         *connmanager.ConnManager
 }
 
+// NewClient creates a new storage client
 func NewClient(
 	net network.StorageMarketNetwork,
 	bs blockstore.Blockstore,
@@ -74,7 +76,7 @@ func NewClient(
 		conns:        connmanager.NewConnManager(),
 	}
 
-	statemachines, err := NewClientStateMachine(
+	statemachines, err := newClientStateMachine(
 		ds,
 		&clientDealEnvironment{c},
 		c.dispatch,
@@ -90,14 +92,18 @@ func NewClient(
 	return c, nil
 }
 
+// Start initializes deal processing on a StorageClient and restarts
+// in progress deals
 func (c *Client) Start(ctx context.Context) error {
 	return c.restartDeals()
 }
 
+// Stop ends deal processing on a StorageClient
 func (c *Client) Stop() error {
 	return c.statemachines.Stop(context.TODO())
 }
 
+// ListProviders queries chain state and returns active storage providers
 func (c *Client) ListProviders(ctx context.Context) (<-chan storagemarket.StorageProviderInfo, error) {
 	tok, _, err := c.node.GetChainHead(ctx)
 	if err != nil {
@@ -125,6 +131,7 @@ func (c *Client) ListProviders(ctx context.Context) (<-chan storagemarket.Storag
 	return out, nil
 }
 
+// ListDeals lists on-chain deals associated with this storage client
 func (c *Client) ListDeals(ctx context.Context, addr address.Address) ([]storagemarket.StorageDeal, error) {
 	tok, _, err := c.node.GetChainHead(ctx)
 	if err != nil {
@@ -134,6 +141,7 @@ func (c *Client) ListDeals(ctx context.Context, addr address.Address) ([]storage
 	return c.node.ListClientDeals(ctx, addr, tok)
 }
 
+// ListLocalDeals lists deals initiated by this storage client
 func (c *Client) ListLocalDeals(ctx context.Context) ([]storagemarket.ClientDeal, error) {
 	var out []storagemarket.ClientDeal
 	if err := c.statemachines.List(&out); err != nil {
@@ -142,6 +150,7 @@ func (c *Client) ListLocalDeals(ctx context.Context) ([]storagemarket.ClientDeal
 	return out, nil
 }
 
+// GetLocalDeal lists deals that are in progress or rejected
 func (c *Client) GetLocalDeal(ctx context.Context, cid cid.Cid) (storagemarket.ClientDeal, error) {
 	var out storagemarket.ClientDeal
 	if err := c.statemachines.Get(cid).Get(&out); err != nil {
@@ -150,6 +159,12 @@ func (c *Client) GetLocalDeal(ctx context.Context, cid cid.Cid) (storagemarket.C
 	return out, nil
 }
 
+// GetAsk queries a provider for its current storage ask
+//
+// The client creates a new `StorageAskStream` for the chosen peer ID,
+// and calls WriteAskRequest on it, which constructs a message and writes it to the Ask stream.
+// When it receives a response, it verifies the signature and returns the validated
+// StorageAsk if successful
 func (c *Client) GetAsk(ctx context.Context, info storagemarket.StorageProviderInfo) (*storagemarket.SignedStorageAsk, error) {
 	s, err := c.net.NewAskStream(info.PeerID)
 	if err != nil {
@@ -191,6 +206,7 @@ func (c *Client) GetAsk(ctx context.Context, info storagemarket.StorageProviderI
 	return out.Ask, nil
 }
 
+// GetProviderDealState queries a provider for the current state of a client's deal
 func (c *Client) GetProviderDealState(ctx context.Context, info storagemarket.StorageProviderInfo, proposalCid cid.Cid) (*storagemarket.ProviderDealState, error) {
 	s, err := c.net.NewDealStatusStream(info.PeerID)
 	if err != nil {
@@ -233,6 +249,38 @@ func (c *Client) GetProviderDealState(ctx context.Context, info storagemarket.St
 	return &resp.DealState, nil
 }
 
+/*
+ProposeStorageDeal initiates the retrieval deal flow, which involes multiple requests and responses.
+
+This function is called after using ListProviders and QueryAs are used to identify an appropriate provider
+to store data. The parameters passed to ProposeStorageDeal should matched those returned by the miner from
+QueryAsk to insure the greatest likelyhood the provider will accept the deal.
+
+When called, the client takes the following actions:
+
+1. Calculates the PieceCID for this deal from the given PayloadCID. (by writing the payload to a CAR file then calculating
+a merkle root for the resulting data)
+
+2. Constructs a `DealProposal` (spec-actors type) with deal terms
+
+3. Signs the `DealProposal` to make a ClientDealProposal
+
+4. Gets the CID for the ClientDealProposal
+
+5. Construct a ClientDeal to track the state of this deal.
+
+6. Tells its statemachine to begin tracking the deal state by the CID of the ClientDealProposal
+
+7. Triggers a `ClientEventOpen` event on its statemachine.
+
+8. Records the Provider as a possible peer for retrieving this data in the future
+
+From then on, the statemachine controls the deal flow in the client. Other components may listen for events in this flow by calling
+`SubscribeToEvents` on the Client. The Client also provides access to the node and network and other functionality through
+its implementation of the Client FSM's ClientDealEnvironment.
+
+Documentation of the client state machine can be found at https://godoc.org/github.com/filecoin-project/go-fil-markets/storagemarket/impl/clientstates
+*/
 func (c *Client) ProposeStorageDeal(
 	ctx context.Context,
 	addr address.Address,
@@ -302,6 +350,7 @@ func (c *Client) ProposeStorageDeal(
 		})
 }
 
+// GetPaymentEscrow returns the current funds available for deal payment
 func (c *Client) GetPaymentEscrow(ctx context.Context, addr address.Address) (storagemarket.Balance, error) {
 	tok, _, err := c.node.GetChainHead(ctx)
 	if err != nil {
@@ -311,6 +360,7 @@ func (c *Client) GetPaymentEscrow(ctx context.Context, addr address.Address) (st
 	return c.node.GetBalance(ctx, addr, tok)
 }
 
+// AddPaymentEscrow adds funds for storage deals
 func (c *Client) AddPaymentEscrow(ctx context.Context, addr address.Address, amount abi.TokenAmount) error {
 	done := make(chan error, 1)
 
@@ -337,6 +387,8 @@ func (c *Client) AddPaymentEscrow(ctx context.Context, addr address.Address, amo
 	return <-done
 }
 
+// SubscribeToEvents allows another component to listen for events on the StorageClient
+// in order to track deals as they progress through the deal flow
 func (c *Client) SubscribeToEvents(subscriber storagemarket.ClientSubscriber) shared.Unsubscribe {
 	return shared.Unsubscribe(c.pubSub.Subscribe(subscriber))
 }
@@ -423,7 +475,7 @@ func (c *Client) verifyStatusResponseSignature(ctx context.Context, miner addres
 	return valid, nil
 }
 
-func NewClientStateMachine(ds datastore.Datastore, env fsm.Environment, notifier fsm.Notifier) (fsm.Group, error) {
+func newClientStateMachine(ds datastore.Datastore, env fsm.Environment, notifier fsm.Notifier) (fsm.Group, error) {
 	return fsm.New(ds, fsm.Parameters{
 		Environment:     env,
 		StateType:       storagemarket.ClientDeal{},

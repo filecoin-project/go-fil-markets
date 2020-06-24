@@ -9,7 +9,7 @@ data storage.
 * [Background reading](#Background_reading)
 * [Installation](#Installation)
 * [Operation](#Operation)
-* [Architecture](./architecture.md)
+* [Architecture](../docs/retrieval_architecture.md)
 * [Implementation](#Implementation)
     * [Peer Resolver](#Peer_Resolver)
     * [RetrievalClientNode](#RetrievalClientNode)

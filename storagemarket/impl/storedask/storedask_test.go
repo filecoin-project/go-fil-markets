@@ -75,9 +75,9 @@ func TestStoredAsk(t *testing.T) {
 
 		spnSignBytesErr := &testnodes.FakeProviderNode{
 			FakeCommonNode: testnodes.FakeCommonNode{
-				SMState: testnodes.NewStorageMarketState(),
+				SMState:        testnodes.NewStorageMarketState(),
+				SignBytesError: errors.New("something went wrong"),
 			},
-			SignBytesError: errors.New("something went wrong"),
 		}
 		// should load cause ask is is still in data store
 		storedAskError, err = storedask.NewStoredAsk(ds, datastore.NewKey("latest-ask"), spnSignBytesErr, actor)

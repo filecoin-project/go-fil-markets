@@ -6,22 +6,22 @@ stateDiagram-v2
 	state "StorageDealExpired" as 7
 	state "StorageDealSlashed" as 8
 	state "StorageDealFailing" as 9
-	state "StorageDealFundsEnsured" as 11
-	state "StorageDealWaitingForDataRequest" as 12
-	state "StorageDealValidating" as 13
-	state "StorageDealTransferring" as 15
-	state "StorageDealEnsureClientFunds" as 19
-	state "StorageDealClientFunding" as 21
-	state "StorageDealError" as 24
+	state "StorageDealFundsEnsured" as 10
+	state "StorageDealWaitingForDataRequest" as 11
+	state "StorageDealValidating" as 12
+	state "StorageDealTransferring" as 14
+	state "StorageDealEnsureClientFunds" as 18
+	state "StorageDealClientFunding" as 20
+	state "StorageDealError" as 23
 	3 : On entry runs ValidateDealPublished
 	5 : On entry runs VerifyDealActivated
 	6 : On entry runs WaitForDealCompletion
 	9 : On entry runs FailDeal
-	11 : On entry runs ProposeDeal
-	12 : On entry runs WaitingForDataRequest
-	13 : On entry runs VerifyDealResponse
-	19 : On entry runs EnsureClientFunds
-	21 : On entry runs WaitForFunding
+	10 : On entry runs ProposeDeal
+	11 : On entry runs WaitingForDataRequest
+	12 : On entry runs VerifyDealResponse
+	18 : On entry runs EnsureClientFunds
+	20 : On entry runs WaitForFunding
 	[*] --> 0
 	note right of 0
 		The following events are not shown cause they can trigger from any state.
@@ -29,35 +29,35 @@ stateDiagram-v2
 		ClientEventStreamCloseError - transitions state to StorageDealError
 		ClientEventRestart - does not transition state
 	end note
-	0 --> 19 : ClientEventOpen
-	19 --> 21 : ClientEventFundingInitiated
-	19 --> 9 : ClientEventEnsureFundsFailed
-	21 --> 9 : ClientEventEnsureFundsFailed
-	19 --> 11 : ClientEventFundsEnsured
-	21 --> 11 : ClientEventFundsEnsured
-	11 --> 24 : ClientEventWriteProposalFailed
-	11 --> 12 : ClientEventDealProposed
-	12 --> 24 : ClientEventReadResponseFailed
-	13 --> 24 : ClientEventReadResponseFailed
+	0 --> 18 : ClientEventOpen
+	18 --> 20 : ClientEventFundingInitiated
+	18 --> 9 : ClientEventEnsureFundsFailed
+	20 --> 9 : ClientEventEnsureFundsFailed
+	18 --> 10 : ClientEventFundsEnsured
+	20 --> 10 : ClientEventFundsEnsured
+	10 --> 23 : ClientEventWriteProposalFailed
+	10 --> 11 : ClientEventDealProposed
+	11 --> 23 : ClientEventReadResponseFailed
+	12 --> 23 : ClientEventReadResponseFailed
+	11 --> 9 : ClientEventResponseVerificationFailed
 	12 --> 9 : ClientEventResponseVerificationFailed
-	13 --> 9 : ClientEventResponseVerificationFailed
-	12 --> 9 : ClientEventUnexpectedDealState
-	12 --> 9 : ClientEventDataTransferFailed
-	15 --> 9 : ClientEventDataTransferFailed
-	12 --> 15 : ClientEventDataTransferInitiated
-	12 --> 13 : ClientEventDataTransferComplete
-	15 --> 13 : ClientEventDataTransferComplete
-	13 --> 9 : ClientEventResponseDealDidNotMatch
-	13 --> 9 : ClientEventDealRejected
-	13 --> 3 : ClientEventDealAccepted
-	3 --> 24 : ClientEventDealPublishFailed
+	11 --> 9 : ClientEventUnexpectedDealState
+	11 --> 9 : ClientEventDataTransferFailed
+	14 --> 9 : ClientEventDataTransferFailed
+	11 --> 14 : ClientEventDataTransferInitiated
+	11 --> 12 : ClientEventDataTransferComplete
+	14 --> 12 : ClientEventDataTransferComplete
+	12 --> 9 : ClientEventResponseDealDidNotMatch
+	12 --> 9 : ClientEventDealRejected
+	12 --> 3 : ClientEventDealAccepted
+	3 --> 23 : ClientEventDealPublishFailed
 	3 --> 5 : ClientEventDealPublished
-	5 --> 24 : ClientEventDealActivationFailed
+	5 --> 23 : ClientEventDealActivationFailed
 	5 --> 6 : ClientEventDealActivated
 	6 --> 8 : ClientEventDealSlashed
 	6 --> 7 : ClientEventDealExpired
-	6 --> 24 : ClientEventDealCompletionFailed
-	9 --> 24 : ClientEventFailed
+	6 --> 23 : ClientEventDealCompletionFailed
+	9 --> 23 : ClientEventFailed
 	8 --> [*]
 	7 --> [*]
-	24 --> [*]
+	23 --> [*]
