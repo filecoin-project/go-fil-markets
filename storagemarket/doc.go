@@ -18,7 +18,7 @@ As such for both the client and the provider in the storage market, the module d
 public interface which it provides an implementation for, and a node interface that must be implemented
 by the filecoin node itself, and provided as a dependency. These node interfaces provide a universal way to
 talk to potentially multiple different filecoin node implementations, and can be implemented as using HTTP
-or other interprocess communication to talk to a node implementation running in a different process
+or other interprocess communication to talk to a node implementation running in a different process.
 
 The top level interfaces this package implements are StorageClient & StorageProvider. The dependencies the filecoin
 node is expected to implement are StorageClientNode & StorageProviderNode. Further documentation of exactly what those
