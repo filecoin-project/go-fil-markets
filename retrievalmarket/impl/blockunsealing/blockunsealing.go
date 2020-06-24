@@ -1,3 +1,6 @@
+/*
+Package blockunsealing contains the logic needed to unseal sealed blocks for retrieval
+*/
 package blockunsealing
 
 import (

@@ -4,6 +4,9 @@ import (
 	"github.com/libp2p/go-libp2p-core/peer"
 )
 
+// These are the required interfaces that must be implemented to send and receive data
+// for storage deals.
+
 // StorageAskStream is a stream for reading/writing requests &
 // responses on the Storage Ask protocol
 type StorageAskStream interface {
@@ -27,6 +30,8 @@ type StorageDealStream interface {
 	Close() error
 }
 
+// DealStatusStream is a stream for reading and writing requests
+// and responses on the deal status protocol
 type DealStatusStream interface {
 	ReadDealStatusRequest() (DealStatusRequest, error)
 	WriteDealStatusRequest(DealStatusRequest) error

@@ -2,6 +2,7 @@
 [![](https://img.shields.io/badge/made%20by-Protocol%20Labs-blue.svg?style=flat-square)](http://ipn.io)
 [![CircleCI](https://circleci.com/gh/filecoin-project/go-fil-markets.svg?style=svg)](https://circleci.com/gh/filecoin-project/go-fil-markets)
 [![codecov](https://codecov.io/gh/filecoin-project/go-fil-markets/branch/master/graph/badge.svg)](https://codecov.io/gh/filecoin-project/go-fil-markets)
+[![GoDoc](https://godoc.org/github.com/filecoin-project/go-fil-markets?status.svg)](https://godoc.org/github.com/filecoin-project/go-fil-markets)
 
 This repository contains modular implementations of the [storage and retrieval market subsystems](https://filecoin-project.github.io/specs/#systems__filecoin_markets) of Filecoin. 
 They are guided by the [v1.0 and 1.1 Filecoin specification updates](https://filecoin-project.github.io/specs/#intro__changelog). 
@@ -25,6 +26,10 @@ Related components in other repos:
 ### Background reading
 * The [Markets in Filecoin](https://filecoin-project.github.io/specs/#systems__filecoin_markets) 
 section of the Filecoin Specification contains the canonical spec.
+
+### Technical Documentation
+* [GoDoc for Storage Market](https://godoc.org/github.com/filecoin-project/go-fil-markets/storagemarket) contains an architectural overview and robust API documentation
+* [GoDoc for Retrieval Market](https://godoc.org/github.com/filecoin-project/go-fil-markets/retrievalmarket) contains an architectural overview and robust API documentation
 
 ## Installation
 ```bash

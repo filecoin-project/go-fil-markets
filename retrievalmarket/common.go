@@ -9,6 +9,8 @@ import (
 	cbg "github.com/whyrusleeping/cbor-gen"
 )
 
+// DecodeNode validates and computes a decoded ipld.Node selector from the
+// provided cbor-encoded selector
 func DecodeNode(defnode *cbg.Deferred) (ipld.Node, error) {
 	reader := bytes.NewReader(defnode.Raw)
 	nb := basicnode.Style.Any.NewBuilder()

@@ -19,6 +19,7 @@ type Proposal struct {
 	Piece *storagemarket.DataRef
 }
 
+// ProposalUndefined is an empty Proposal message
 var ProposalUndefined = Proposal{}
 
 // Response is a response to a proposal sent over the network
@@ -40,6 +41,7 @@ type SignedResponse struct {
 	Signature *crypto.Signature
 }
 
+// SignedResponseUndefined represents an empty SignedResponse message
 var SignedResponseUndefined = SignedResponse{}
 
 // AskRequest is a request for current ask parameters for a given miner
@@ -47,6 +49,7 @@ type AskRequest struct {
 	Miner address.Address
 }
 
+// AskRequestUndefined represents and empty AskRequest message
 var AskRequestUndefined = AskRequest{}
 
 // AskResponse is the response sent over the network in response
@@ -55,6 +58,7 @@ type AskResponse struct {
 	Ask *storagemarket.SignedStorageAsk
 }
 
+// AskResponseUndefined represents an empty AskResponse message
 var AskResponseUndefined = AskResponse{}
 
 // DealStatusRequest sent by a client to query deal status
@@ -63,6 +67,7 @@ type DealStatusRequest struct {
 	Signature crypto.Signature
 }
 
+// DealStatusRequestUndefined represents an empty DealStatusRequest message
 var DealStatusRequestUndefined = DealStatusRequest{}
 
 // DealStatusResponse is a provider's response to DealStatusRequest
@@ -71,4 +76,5 @@ type DealStatusResponse struct {
 	Signature crypto.Signature
 }
 
+// DealStatusResponseUndefined represents an empty DealStatusResponse message
 var DealStatusResponseUndefined = DealStatusResponse{}

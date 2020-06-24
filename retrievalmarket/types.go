@@ -83,7 +83,7 @@ const (
 	// added to a payment channel
 	ClientEventPaymentChannelAddingFunds
 
-	// ClientEventPaymentChannelAddingFunds means that adding funds to the payment channel
+	// ClientEventPaymentChannelAddFundsErrored means that adding funds to the payment channel
 	// failed
 	ClientEventPaymentChannelAddFundsErrored
 

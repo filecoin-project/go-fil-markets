@@ -115,11 +115,12 @@ func (trpn *TestRetrievalProviderNode) SavePaymentVoucher(
 	return abi.TokenAmount{}, errors.New("SavePaymentVoucher failed")
 }
 
-// GetMinerWorker translates an address
+// GetMinerWorkerAddress translates an address
 func (trpn *TestRetrievalProviderNode) GetMinerWorkerAddress(ctx context.Context, addr address.Address, tok shared.TipSetToken) (address.Address, error) {
 	return addr, nil
 }
 
+// GetChainHead returns a mock value for the chain head
 func (trpn *TestRetrievalProviderNode) GetChainHead(ctx context.Context) (shared.TipSetToken, abi.ChainEpoch, error) {
 	return []byte{42}, 0, nil
 }

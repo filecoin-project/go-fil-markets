@@ -140,6 +140,8 @@ var ClientStateEntryFuncs = fsm.StateEntryFuncs{
 	storagemarket.StorageDealFailing:               FailDeal,
 }
 
+// ClientFinalityStates are the states that terminate deal processing for a deal.
+// When a client restarts, it restarts only deals that are not in a finality state.
 var ClientFinalityStates = []fsm.StateKey{
 	storagemarket.StorageDealSlashed,
 	storagemarket.StorageDealExpired,

@@ -1,3 +1,5 @@
+// Package testnodes contains stubbed implementations of the StorageProviderNode
+// and StorageClientNode interface to simulate communications with a filecoin node
 package testnodes
 
 import (
@@ -24,7 +26,7 @@ import (
 type StorageMarketState struct {
 	TipSetToken  shared.TipSetToken
 	Epoch        abi.ChainEpoch
-	DealId       abi.DealID
+	DealID       abi.DealID
 	Balances     map[address.Address]abi.TokenAmount
 	StorageDeals map[address.Address][]storagemarket.StorageDeal
 	Providers    []*storagemarket.StorageProviderInfo
@@ -34,7 +36,7 @@ type StorageMarketState struct {
 func NewStorageMarketState() *StorageMarketState {
 	return &StorageMarketState{
 		Epoch:        0,
-		DealId:       0,
+		DealID:       0,
 		Balances:     map[address.Address]abi.TokenAmount{},
 		StorageDeals: map[address.Address][]storagemarket.StorageDeal{},
 		Providers:    nil,
@@ -84,14 +86,18 @@ func (sma *StorageMarketState) AddDeal(deal storagemarket.StorageDeal) (shared.T
 	return sma.StateKey()
 }
 
-// FakeCommonNode has the common methods for the storage & client node adapters
+// FakeCommonNode implements common methods for the storage & client node adapters
+// where responses are stubbed
 type FakeCommonNode struct {
-	SMState              *StorageMarketState
-	AddFundsCid          cid.Cid
-	EnsureFundsError     error
-	VerifySignatureFails bool
-	GetBalanceError      error
-	GetChainHeadError    error
+	SMState                 *StorageMarketState
+	AddFundsCid             cid.Cid
+	EnsureFundsError        error
+	VerifySignatureFails    bool
+	GetBalanceError         error
+	GetChainHeadError       error
+	SignBytesError          error
+	DealCommittedSyncError  error
+	DealCommittedAsyncError error
 
 	WaitForMessageBlocks    bool
 	WaitForMessageError     error
@@ -129,6 +135,7 @@ func (n *FakeCommonNode) EnsureFunds(ctx context.Context, addr, wallet address.A
 	return cid.Undef, n.EnsureFundsError
 }
 
+// WaitForMessage simulates waiting for a message to appear on chain
 func (n *FakeCommonNode) WaitForMessage(ctx context.Context, mcid cid.Cid, onCompletion func(exitcode.ExitCode, []byte, error) error) error {
 	n.WaitForMessageCalls = append(n.WaitForMessageCalls, mcid)
 
@@ -157,23 +164,36 @@ func (n *FakeCommonNode) VerifySignature(ctx context.Context, signature crypto.S
 	return !n.VerifySignatureFails, nil
 }
 
-// FakeClientNode implements functions specific to the StorageClientNode
+// SignBytes simulates signing data by returning a test signature
+func (n *FakeCommonNode) SignBytes(ctx context.Context, signer address.Address, b []byte) (*crypto.Signature, error) {
+	if n.SignBytesError == nil {
+		return shared_testutil.MakeTestSignature(), nil
+	}
+	return nil, n.SignBytesError
+}
+
+// OnDealSectorCommitted returns immediately, and returns stubbed errors
+func (n *FakeCommonNode) OnDealSectorCommitted(ctx context.Context, provider address.Address, dealID abi.DealID, cb storagemarket.DealSectorCommittedCallback) error {
+	if n.DealCommittedSyncError == nil {
+		cb(n.DealCommittedAsyncError)
+	}
+	return n.DealCommittedSyncError
+}
+
+var _ storagemarket.StorageCommon = (*FakeCommonNode)(nil)
+
+// FakeClientNode is a node adapter for a storage client whose responses
+// are stubbed
 type FakeClientNode struct {
 	FakeCommonNode
 	ClientAddr                 address.Address
 	ValidationError            error
 	ValidatePublishedDealID    abi.DealID
 	ValidatePublishedError     error
-	DealCommittedSyncError     error
-	DealCommittedAsyncError    error
 	WaitForDealCompletionError error
 	OnDealExpiredError         error
 	OnDealSlashedError         error
 	OnDealSlashedEpoch         abi.ChainEpoch
-}
-
-func (n *FakeClientNode) SignBytes(ctx context.Context, signer address.Address, b []byte) (*crypto.Signature, error) {
-	return shared_testutil.MakeTestSignature(), nil
 }
 
 // ListClientDeals just returns the deals in the storage market state
@@ -199,17 +219,9 @@ func (n *FakeClientNode) SignProposal(ctx context.Context, signer address.Addres
 	}, nil
 }
 
-// GetDefaultWalletAddress returns the address specified by ClientAddr
+// GetDefaultWalletAddress returns a stubbed ClientAddr
 func (n *FakeClientNode) GetDefaultWalletAddress(ctx context.Context) (address.Address, error) {
 	return n.ClientAddr, nil
-}
-
-// OnDealSectorCommitted returns immediately, with success
-func (n *FakeClientNode) OnDealSectorCommitted(ctx context.Context, provider address.Address, dealID abi.DealID, cb storagemarket.DealSectorCommittedCallback) error {
-	if n.DealCommittedSyncError == nil {
-		cb(n.DealCommittedAsyncError)
-	}
-	return n.DealCommittedSyncError
 }
 
 // ValidateAskSignature returns the stubbed validation error and a boolean value
@@ -218,6 +230,7 @@ func (n *FakeClientNode) ValidateAskSignature(ctx context.Context, ask *storagem
 	return n.ValidationError == nil, n.ValidationError
 }
 
+// OnDealExpiredOrSlashed simulates waiting for a deal to be expired or slashed, but provides stubbed behavior
 func (n *FakeClientNode) OnDealExpiredOrSlashed(ctx context.Context, dealID abi.DealID, onDealExpired storagemarket.DealExpiredCallback, onDealSlashed storagemarket.DealSlashedCallback) error {
 	if n.WaitForDealCompletionError != nil {
 		return n.WaitForDealCompletionError
@@ -255,9 +268,6 @@ type FakeProviderNode struct {
 	PublishDealsError                   error
 	OnDealCompleteError                 error
 	LocatePieceForDealWithinSectorError error
-	DealCommittedSyncError              error
-	DealCommittedAsyncError             error
-	SignBytesError                      error
 }
 
 // PublishDeals simulates publishing a deal by adding it to the storage market state
@@ -285,28 +295,12 @@ func (n *FakeProviderNode) OnDealComplete(ctx context.Context, deal storagemarke
 	return n.OnDealCompleteError
 }
 
-// GetMinerWorker returns the address specified by MinerAddr
+// GetMinerWorkerAddress returns the address specified by MinerAddr
 func (n *FakeProviderNode) GetMinerWorkerAddress(ctx context.Context, miner address.Address, tok shared.TipSetToken) (address.Address, error) {
 	if n.MinerWorkerError == nil {
 		return n.MinerAddr, nil
 	}
 	return address.Undef, n.MinerWorkerError
-}
-
-// SignBytes simulates signing data by returning a test signature
-func (n *FakeProviderNode) SignBytes(ctx context.Context, signer address.Address, b []byte) (*crypto.Signature, error) {
-	if n.SignBytesError == nil {
-		return shared_testutil.MakeTestSignature(), nil
-	}
-	return nil, n.SignBytesError
-}
-
-// OnDealSectorCommitted returns immediately, with success
-func (n *FakeProviderNode) OnDealSectorCommitted(ctx context.Context, provider address.Address, dealID abi.DealID, cb storagemarket.DealSectorCommittedCallback) error {
-	if n.DealCommittedSyncError == nil {
-		cb(n.DealCommittedAsyncError)
-	}
-	return n.DealCommittedSyncError
 }
 
 // LocatePieceForDealWithinSector returns stubbed data for a pieces location in a sector

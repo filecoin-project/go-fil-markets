@@ -90,6 +90,8 @@ func ProposeDeal(ctx fsm.Context, environment ClientDealEnvironment, deal storag
 	return ctx.Trigger(storagemarket.ClientEventDealProposed)
 }
 
+// WaitingForDataRequest reads the deal response from the provider then initiates a data request if the
+// provider indicates it intends to accept the request
 func WaitingForDataRequest(ctx fsm.Context, environment ClientDealEnvironment, deal storagemarket.ClientDeal) error {
 	resp, err := environment.ReadDealResponse(deal.ProposalCid)
 	if err != nil {

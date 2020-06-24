@@ -28,7 +28,8 @@ import (
 
 var log = logging.Logger("retrieval")
 
-type client struct {
+// Client is the production implementation of the RetrievalClient interface
+type Client struct {
 	network       rmnet.RetrievalMarketNetwork
 	bs            blockstore.Blockstore
 	node          retrievalmarket.RetrievalClientNode
@@ -42,7 +43,7 @@ type client struct {
 	stateMachines  fsm.Group
 }
 
-var _ retrievalmarket.RetrievalClient = &client{}
+var _ retrievalmarket.RetrievalClient = &Client{}
 
 // NewClient creates a new retrieval client
 func NewClient(
@@ -53,7 +54,7 @@ func NewClient(
 	ds datastore.Batching,
 	storedCounter *storedcounter.StoredCounter,
 ) (retrievalmarket.RetrievalClient, error) {
-	c := &client{
+	c := &Client{
 		network:        network,
 		bs:             bs,
 		node:           node,
@@ -63,7 +64,7 @@ func NewClient(
 		blockVerifiers: make(map[retrievalmarket.DealID]blockio.BlockVerifier),
 	}
 	stateMachines, err := fsm.New(ds, fsm.Parameters{
-		Environment:     c,
+		Environment:     &clientDealEnvironment{c},
 		StateType:       retrievalmarket.ClientDealState{},
 		StateKeyField:   "Status",
 		Events:          clientstates.ClientEvents,
@@ -79,7 +80,8 @@ func NewClient(
 
 // V0
 
-func (c *client) FindProviders(payloadCID cid.Cid) []retrievalmarket.RetrievalPeer {
+// FindProviders uses PeerResolver interface to locate a list of providers who may have a given payload CID.
+func (c *Client) FindProviders(payloadCID cid.Cid) []retrievalmarket.RetrievalPeer {
 	peers, err := c.resolver.GetPeers(payloadCID)
 	if err != nil {
 		log.Errorf("failed to get peers: %s", err)
@@ -88,7 +90,15 @@ func (c *client) FindProviders(payloadCID cid.Cid) []retrievalmarket.RetrievalPe
 	return peers
 }
 
-func (c *client) Query(_ context.Context, p retrievalmarket.RetrievalPeer, payloadCID cid.Cid, params retrievalmarket.QueryParams) (retrievalmarket.QueryResponse, error) {
+/*
+Query sends a retrieval query to a specific retrieval provider, to determine
+if the provider can serve a retrieval request and what it's specific parameters for
+the request are.
+
+The client a new `RetrievalQueryStream` for the chosen peer ID,
+and calls WriteQuery on it, which constructs a data-transfer message and writes it to the Query stream.
+*/
+func (c *Client) Query(_ context.Context, p retrievalmarket.RetrievalPeer, payloadCID cid.Cid, params retrievalmarket.QueryParams) (retrievalmarket.QueryResponse, error) {
 	s, err := c.network.NewQueryStream(p.ID)
 	if err != nil {
 		log.Warn(err)
@@ -108,8 +118,35 @@ func (c *client) Query(_ context.Context, p retrievalmarket.RetrievalPeer, paylo
 	return s.ReadQueryResponse()
 }
 
-// Retrieve begins the process of requesting the data referred to by payloadCID, after a deal is accepted
-func (c *client) Retrieve(ctx context.Context, payloadCID cid.Cid, params retrievalmarket.Params, totalFunds abi.TokenAmount, miner peer.ID, clientWallet address.Address, minerWallet address.Address) (retrievalmarket.DealID, error) {
+/*
+Retrieve initiates the retrieval deal flow, which involes multiple requests and responses
+
+To start this processes, the client creates a new `RetrievalDealStream`.  Currently, this connection is
+kept open through the entire deal until completion or failure.  Make deals pauseable as well as surviving
+a restart is a planned future feature.
+
+Retrieve should be called after using FindProviders and Query are used to identify an appropriate provider to
+retrieve the deal from. The parameters identified in Query should be passed to Retrieve to insure the
+greatest likelyhood the provider will accept the deal
+
+When called, the client takes the following actions:
+
+1. Creates a deal ID using the next value from its storedcounter.
+
+2. Constructs a `DealProposal` with deal terms
+
+3. Tells its statemachine to begin tracking this deal state by dealID.
+
+4. Constructs a `blockio.SelectorVerifier` and adds it to its dealID-keyed map of block verifiers.
+
+5. Triggers a `ClientEventOpen` event on its statemachine.
+
+From then on, the statemachine controls the deal flow in the client. Other components may listen for events in this flow by calling
+`SubscribeToEvents` on the Client. The Client handles consuming blocks it receives from the provider, via `ConsumeBlocks` function
+
+Documentation of the client state machine can be found at https://godoc.org/github.com/filecoin-project/go-fil-markets/retrievalmarket/impl/clientstates
+*/
+func (c *Client) Retrieve(ctx context.Context, payloadCID cid.Cid, params retrievalmarket.Params, totalFunds abi.TokenAmount, miner peer.ID, clientWallet address.Address, minerWallet address.Address) (retrievalmarket.DealID, error) {
 	var err error
 	next, err := c.storedCounter.Next()
 	if err != nil {
@@ -171,7 +208,7 @@ func (c *client) Retrieve(ctx context.Context, payloadCID cid.Cid, params retrie
 // unsubscribeAt returns a function that removes an item from the subscribers list by comparing
 // their reflect.ValueOf before pulling the item out of the slice.  Does not preserve order.
 // Subsequent, repeated calls to the func with the same Subscriber are a no-op.
-func (c *client) unsubscribeAt(sub retrievalmarket.ClientSubscriber) retrievalmarket.Unsubscribe {
+func (c *Client) unsubscribeAt(sub retrievalmarket.ClientSubscriber) retrievalmarket.Unsubscribe {
 	return func() {
 		c.subscribersLk.Lock()
 		defer c.subscribersLk.Unlock()
@@ -186,7 +223,7 @@ func (c *client) unsubscribeAt(sub retrievalmarket.ClientSubscriber) retrievalma
 	}
 }
 
-func (c *client) notifySubscribers(eventName fsm.EventName, state fsm.StateType) {
+func (c *Client) notifySubscribers(eventName fsm.EventName, state fsm.StateType) {
 	c.subscribersLk.RLock()
 	defer c.subscribersLk.RUnlock()
 	evt := eventName.(retrievalmarket.ClientEvent)
@@ -196,7 +233,9 @@ func (c *client) notifySubscribers(eventName fsm.EventName, state fsm.StateType)
 	}
 }
 
-func (c *client) SubscribeToEvents(subscriber retrievalmarket.ClientSubscriber) retrievalmarket.Unsubscribe {
+// SubscribeToEvents allows another component to listen for events on the RetrievalClient
+// in order to track deals as they progress through the deal flow
+func (c *Client) SubscribeToEvents(subscriber retrievalmarket.ClientSubscriber) retrievalmarket.Unsubscribe {
 	c.subscribersLk.Lock()
 	c.subscribers = append(c.subscribers, subscriber)
 	c.subscribersLk.Unlock()
@@ -205,31 +244,42 @@ func (c *client) SubscribeToEvents(subscriber retrievalmarket.ClientSubscriber) 
 }
 
 // V1
-func (c *client) AddMoreFunds(retrievalmarket.DealID, abi.TokenAmount) error {
+func (c *Client) AddMoreFunds(retrievalmarket.DealID, abi.TokenAmount) error {
 	panic("not implemented")
 }
 
-func (c *client) CancelDeal(retrievalmarket.DealID) error {
+func (c *Client) CancelDeal(retrievalmarket.DealID) error {
 	panic("not implemented")
 }
 
-func (c *client) RetrievalStatus(retrievalmarket.DealID) {
+func (c *Client) RetrievalStatus(retrievalmarket.DealID) {
 	panic("not implemented")
 }
 
-func (c *client) ListDeals() map[retrievalmarket.DealID]retrievalmarket.ClientDealState {
-	panic("not implemented")
+// ListDeals lists in all known retrieval deals
+func (c *Client) ListDeals() map[retrievalmarket.DealID]retrievalmarket.ClientDealState {
+	var deals []retrievalmarket.ClientDealState
+	_ = c.stateMachines.List(&deals)
+	dealMap := make(map[retrievalmarket.DealID]retrievalmarket.ClientDealState)
+	for _, deal := range deals {
+		dealMap[deal.ID] = deal
+	}
+	return dealMap
 }
 
-func (c *client) Node() retrievalmarket.RetrievalClientNode {
-	return c.node
+type clientDealEnvironment struct {
+	c *Client
 }
 
-func (c *client) DealStream(dealID retrievalmarket.DealID) rmnet.RetrievalDealStream {
-	return c.dealStreams[dealID]
+func (c *clientDealEnvironment) Node() retrievalmarket.RetrievalClientNode {
+	return c.c.node
 }
 
-func (c *client) ConsumeBlock(ctx context.Context, dealID retrievalmarket.DealID, block retrievalmarket.Block) (uint64, bool, error) {
+func (c *clientDealEnvironment) DealStream(dealID retrievalmarket.DealID) rmnet.RetrievalDealStream {
+	return c.c.dealStreams[dealID]
+}
+
+func (c *clientDealEnvironment) ConsumeBlock(ctx context.Context, dealID retrievalmarket.DealID, block retrievalmarket.Block) (uint64, bool, error) {
 	prefix, err := cid.PrefixFromBytes(block.Prefix)
 	if err != nil {
 		return 0, false, err
@@ -245,7 +295,7 @@ func (c *client) ConsumeBlock(ctx context.Context, dealID retrievalmarket.DealID
 		return 0, false, err
 	}
 
-	verifier, ok := c.blockVerifiers[dealID]
+	verifier, ok := c.c.blockVerifiers[dealID]
 	if !ok {
 		return 0, false, xerrors.New("no block verifier found")
 	}
@@ -258,7 +308,7 @@ func (c *client) ConsumeBlock(ctx context.Context, dealID retrievalmarket.DealID
 
 	// TODO: Smarter out, maybe add to filestore automagically
 	//  (Also, persist intermediate nodes)
-	err = c.bs.Put(blk)
+	err = c.c.bs.Put(blk)
 	if err != nil {
 		log.Warnf("block write failed: %s", err)
 		return 0, false, err
@@ -269,7 +319,7 @@ func (c *client) ConsumeBlock(ctx context.Context, dealID retrievalmarket.DealID
 
 // ClientFSMParameterSpec is a valid set of parameters for a client deal FSM - used in doc generation
 var ClientFSMParameterSpec = fsm.Parameters{
-	Environment:     &client{},
+	Environment:     &clientDealEnvironment{},
 	StateType:       retrievalmarket.ClientDealState{},
 	StateKeyField:   "Status",
 	Events:          clientstates.ClientEvents,

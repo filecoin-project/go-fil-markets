@@ -1,3 +1,4 @@
+// Package connmanager tracks open connections maping storage proposal CID -> StorageDealStream
 package connmanager
 
 import (

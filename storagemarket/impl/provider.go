@@ -32,16 +32,21 @@ import (
 	"github.com/filecoin-project/go-fil-markets/storagemarket/network"
 )
 
+// DefaultDealAcceptanceBuffer is the minimum number of epochs ahead of the current epoch
+// a deal's StartEpoch must be for the deal to be accepted.
+// The StartEpoch must be more than simply greater than the current epoch because we
+// need time to transfer data, publish the deal on chain, and seal the sector with the data
 var DefaultDealAcceptanceBuffer = abi.ChainEpoch(100)
 var _ storagemarket.StorageProvider = &Provider{}
 var _ network.StorageReceiver = &Provider{}
 
+// StoredAsk is an interface which provides access to a StorageAsk
 type StoredAsk interface {
 	GetAsk() *storagemarket.SignedStorageAsk
 	SetAsk(price abi.TokenAmount, duration abi.ChainEpoch, options ...storagemarket.StorageAskOption) error
 }
 
-// Provider is a storage provider implementation
+// Provider is the production implementation of the StorageProvider interface
 type Provider struct {
 	net network.StorageMarketNetwork
 
@@ -67,7 +72,7 @@ type Provider struct {
 type StorageProviderOption func(p *Provider)
 
 // EnableUniversalRetrieval causes a storage provider to track all CIDs in a piece,
-// so that any CID, not just the root, can be retrieved
+// so that any CID, not just the root payload CID, can be retrieved
 func EnableUniversalRetrieval() StorageProviderOption {
 	return func(p *Provider) {
 		p.universalRetrievalEnabled = true
@@ -129,7 +134,7 @@ func NewProvider(net network.StorageMarketNetwork,
 		pubSub:               pubsub.New(providerDispatcher),
 	}
 
-	deals, err := NewProviderStateMachine(
+	deals, err := newProviderStateMachine(
 		ds,
 		&providerDealEnvironment{h},
 		h.dispatch,
@@ -148,8 +153,10 @@ func NewProvider(net network.StorageMarketNetwork,
 	return h, nil
 }
 
+// Start initializes deal processing on a StorageProvider and restarts in progress deals.
+// It also registers the provider with a StorageMarketNetwork so it can receive incoming
+// messages on the storage market's libp2p protocols
 func (p *Provider) Start(ctx context.Context) error {
-	// TODO: restore state
 	err := p.net.SetDelegate(p)
 	if err != nil {
 		return err
@@ -163,6 +170,28 @@ func (p *Provider) Start(ctx context.Context) error {
 	return nil
 }
 
+/*
+HandleDealStream is called by the network implementation whenever a new message is received on the deal protocol
+
+It initiates the provider side of the deal flow.
+
+When a provider receives a DealProposal of the deal protocol, it takes the following steps:
+
+1. Calculates the CID for the received ClientDealProposal.
+
+2. Constructs a MinerDeal to track the state of this deal.
+
+3. Tells its statemachine to begin tracking this deal state by CID of the received ClientDealProposal
+
+4. Tracks the received deal stream by the CID of the ClientDealProposal
+
+4. Triggers a `ProviderEventOpen` event on its statemachine.
+
+From then on, the statemachine controls the deal flow in the client. Other components may listen for events in this flow by calling
+`SubscribeToEvents` on the Provider. The Provider handles loading the next block to send to the client.
+
+Documentation of the client state machine can be found at https://godoc.org/github.com/filecoin-project/go-fil-markets/storagemarket/impl/providerstates
+*/
 func (p *Provider) HandleDealStream(s network.StorageDealStream) {
 	log.Info("Handling storage deal proposal!")
 
@@ -205,6 +234,7 @@ func (p *Provider) receiveDeal(s network.StorageDealStream) error {
 	return p.deals.Send(proposalNd.Cid(), storagemarket.ProviderEventOpen)
 }
 
+// Stop terminates processing of deals on a StorageProvider
 func (p *Provider) Stop() error {
 	err := p.deals.Stop(context.TODO())
 	if err != nil {
@@ -213,6 +243,9 @@ func (p *Provider) Stop() error {
 	return p.net.StopHandlingRequests()
 }
 
+// ImportDataForDeal manually imports data for an offline storage deal
+// It will verify that the data in the passed io.Reader matches the expected piece
+// cid for the given deal or it will error
 func (p *Provider) ImportDataForDeal(ctx context.Context, propCid cid.Cid, data io.Reader) error {
 	// TODO: be able to check if we have enough disk space
 	var d storagemarket.MinerDeal
@@ -261,10 +294,12 @@ func (p *Provider) ImportDataForDeal(ctx context.Context, propCid cid.Cid, data 
 
 }
 
+// GetAsk returns the storage miner's ask, or nil if one does not exist.
 func (p *Provider) GetAsk() *storagemarket.SignedStorageAsk {
 	return p.storedAsk.GetAsk()
 }
 
+// ListDeals lists on-chain deals associated with this storage provider
 func (p *Provider) ListDeals(ctx context.Context) ([]storagemarket.StorageDeal, error) {
 	tok, _, err := p.spn.GetChainHead(ctx)
 	if err != nil {
@@ -274,6 +309,7 @@ func (p *Provider) ListDeals(ctx context.Context) ([]storagemarket.StorageDeal, 
 	return p.spn.ListProviderDeals(ctx, p.actor, tok)
 }
 
+// AddStorageCollateral adds storage collateral
 func (p *Provider) AddStorageCollateral(ctx context.Context, amount abi.TokenAmount) error {
 	done := make(chan error, 1)
 
@@ -300,6 +336,7 @@ func (p *Provider) AddStorageCollateral(ctx context.Context, amount abi.TokenAmo
 	return <-done
 }
 
+// GetStorageCollateral returns the current collateral balance
 func (p *Provider) GetStorageCollateral(ctx context.Context) (storagemarket.Balance, error) {
 	tok, _, err := p.spn.GetChainHead(ctx)
 	if err != nil {
@@ -309,6 +346,7 @@ func (p *Provider) GetStorageCollateral(ctx context.Context) (storagemarket.Bala
 	return p.spn.GetBalance(ctx, p.actor, tok)
 }
 
+// ListLocalDeals lists deals processed by this storage provider
 func (p *Provider) ListLocalDeals() ([]storagemarket.MinerDeal, error) {
 	var out []storagemarket.MinerDeal
 	if err := p.deals.List(&out); err != nil {
@@ -317,10 +355,23 @@ func (p *Provider) ListLocalDeals() ([]storagemarket.MinerDeal, error) {
 	return out, nil
 }
 
+// SetAsk configures the storage miner's ask with the provided price,
+// duration, and options. Any previously-existing ask is replaced.
 func (p *Provider) SetAsk(price abi.TokenAmount, duration abi.ChainEpoch, options ...storagemarket.StorageAskOption) error {
 	return p.storedAsk.SetAsk(price, duration, options...)
 }
 
+/*
+HandleAskStream is called by the network implementation whenever a new message is received on the ask protocol
+
+A Provider handling a `AskRequest` does the following:
+
+1. Reads the current signed storage ask from storage
+
+2. Wraps the signed ask in an AskResponse and writes it on the StorageAskStream
+
+The connection is kept open only as long as the request-response exchange.
+*/
 func (p *Provider) HandleAskStream(s network.StorageAskStream) {
 	defer s.Close()
 	ar, err := s.ReadAskRequest()
@@ -346,6 +397,23 @@ func (p *Provider) HandleAskStream(s network.StorageAskStream) {
 	}
 }
 
+/*
+HandleDealStatusStream is called by the network implementation whenever a new message is received on the deal status protocol
+
+A Provider handling a `DealStatuRequest` does the following:
+
+1. Lots the deal state from the Provider FSM
+
+2. Verifies the signature on the DealStatusRequest matches the Client for this deal
+
+3. Constructs a ProviderDealState from the deal state
+
+4. Signs the ProviderDealState with its private key
+
+5. Writes a DealStatusResponse with the ProviderDealState and signature onto the DealStatusStream
+
+The connection is kept open only as long as the request-response exchange.
+*/
 func (p *Provider) HandleDealStatusStream(s network.DealStatusStream) {
 	ctx := context.TODO()
 	defer s.Close()
@@ -408,20 +476,28 @@ func (p *Provider) HandleDealStatusStream(s network.DealStatusStream) {
 	}
 }
 
+// Configure applies the given list of StorageProviderOptions after a StorageProvider
+// is initialized
 func (p *Provider) Configure(options ...StorageProviderOption) {
 	for _, option := range options {
 		option(p)
 	}
 }
 
+// DealAcceptanceBuffer returns the current deal acceptance buffer
 func (p *Provider) DealAcceptanceBuffer() abi.ChainEpoch {
 	return p.dealAcceptanceBuffer
 }
 
+// UniversalRetrievalEnabled returns whether or not universal retrieval
+// (retrieval by any CID, not just the root payload CID) is enabled
+// for this provider
 func (p *Provider) UniversalRetrievalEnabled() bool {
 	return p.universalRetrievalEnabled
 }
 
+// SubscribeToEvents allows another component to listen for events on the StorageProvider
+// in order to track deals as they progress through the deal flow
 func (p *Provider) SubscribeToEvents(subscriber storagemarket.ProviderSubscriber) shared.Unsubscribe {
 	return shared.Unsubscribe(p.pubSub.Subscribe(subscriber))
 }
@@ -479,7 +555,7 @@ func (p *Provider) sign(ctx context.Context, data interface{}) (*crypto.Signatur
 	return providerutils.SignMinerData(ctx, data, p.actor, tok, p.spn.GetMinerWorkerAddress, p.spn.SignBytes)
 }
 
-func NewProviderStateMachine(ds datastore.Datastore, env fsm.Environment, notifier fsm.Notifier) (fsm.Group, error) {
+func newProviderStateMachine(ds datastore.Datastore, env fsm.Environment, notifier fsm.Notifier) (fsm.Group, error) {
 	return fsm.New(ds, fsm.Parameters{
 		Environment:     env,
 		StateType:       storagemarket.MinerDeal{},

@@ -1,3 +1,8 @@
+/*
+Package blockrecorder provides utilits to record locations of CIDs to a
+temporary metadata file, since writing a CAR happens BEFORE we actually hand off for sealing.
+The metadata file is later used to populate the PieceStore
+*/
 package blockrecorder
 
 import (

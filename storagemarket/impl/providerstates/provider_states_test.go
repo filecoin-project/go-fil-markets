@@ -25,7 +25,6 @@ import (
 	"github.com/filecoin-project/go-fil-markets/shared"
 	tut "github.com/filecoin-project/go-fil-markets/shared_testutil"
 	"github.com/filecoin-project/go-fil-markets/storagemarket"
-	storageimpl "github.com/filecoin-project/go-fil-markets/storagemarket/impl"
 	"github.com/filecoin-project/go-fil-markets/storagemarket/impl/blockrecorder"
 	"github.com/filecoin-project/go-fil-markets/storagemarket/impl/providerstates"
 	"github.com/filecoin-project/go-fil-markets/storagemarket/network"
@@ -686,18 +685,6 @@ func TestFailDeal(t *testing.T) {
 	}
 }
 
-func TestFinalityStates(t *testing.T) {
-	group, err := storageimpl.NewProviderStateMachine(nil, &fakeEnvironment{}, nil)
-	require.NoError(t, err)
-
-	for _, status := range []storagemarket.StorageDealStatus{
-		storagemarket.StorageDealCompleted,
-		storagemarket.StorageDealError,
-	} {
-		require.True(t, group.IsTerminated(storagemarket.MinerDeal{State: status}))
-	}
-}
-
 // all of these default parameters are setup to allow a deal to complete each handler with no errors
 var defaultHeight = abi.ChainEpoch(50)
 var defaultTipSetToken = []byte{1, 2, 3}
@@ -840,16 +827,18 @@ func makeExecutor(ctx context.Context,
 		}
 
 		common := testnodes.FakeCommonNode{
-			SMState:                smstate,
-			GetChainHeadError:      nodeParams.MostRecentStateIDError,
-			GetBalanceError:        nodeParams.ClientMarketBalanceError,
-			VerifySignatureFails:   nodeParams.VerifySignatureFails,
-			EnsureFundsError:       nodeParams.EnsureFundsError,
-			AddFundsCid:            nodeParams.AddFundsCid,
-			WaitForMessageBlocks:   nodeParams.WaitForMessageBlocks,
-			WaitForMessageError:    nodeParams.WaitForMessageError,
-			WaitForMessageExitCode: nodeParams.WaitForMessageExitCode,
-			WaitForMessageRetBytes: nodeParams.WaitForMessageRetBytes,
+			SMState:                 smstate,
+			GetChainHeadError:       nodeParams.MostRecentStateIDError,
+			GetBalanceError:         nodeParams.ClientMarketBalanceError,
+			VerifySignatureFails:    nodeParams.VerifySignatureFails,
+			EnsureFundsError:        nodeParams.EnsureFundsError,
+			DealCommittedSyncError:  nodeParams.DealCommittedSyncError,
+			DealCommittedAsyncError: nodeParams.DealCommittedAsyncError,
+			AddFundsCid:             nodeParams.AddFundsCid,
+			WaitForMessageBlocks:    nodeParams.WaitForMessageBlocks,
+			WaitForMessageError:     nodeParams.WaitForMessageError,
+			WaitForMessageExitCode:  nodeParams.WaitForMessageExitCode,
+			WaitForMessageRetBytes:  nodeParams.WaitForMessageRetBytes,
 		}
 
 		node := &testnodes.FakeProviderNode{
@@ -861,8 +850,6 @@ func makeExecutor(ctx context.Context,
 			PublishDealsError:                   nodeParams.PublishDealsError,
 			OnDealCompleteError:                 nodeParams.OnDealCompleteError,
 			LocatePieceForDealWithinSectorError: nodeParams.LocatePieceForDealWithinSectorError,
-			DealCommittedSyncError:              nodeParams.DealCommittedSyncError,
-			DealCommittedAsyncError:             nodeParams.DealCommittedAsyncError,
 		}
 
 		if nodeParams.MinerAddr == address.Undef {
