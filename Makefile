@@ -40,17 +40,13 @@ clean:
 DOTs=$(shell find docs -name '*.dot')
 MMDs=$(shell find docs -name '*.mmd')
 SVGs=$(DOTs:%=%.svg) $(MMDs:%=%.svg)
-PNGs=$(DOTs:%=%.png) $(MMDs:%=%.png)
 
 node_modules: package.json
 	npm install
 
-diagrams: ${MMDs} ${SVGs} ${PNGs}
+diagrams: ${MMDs} ${SVGs}
 
 %.mmd.svg: %.mmd
-	node_modules/.bin/mmdc -i $< -o $@
-
-%.mmd.png: %.mmd
 	node_modules/.bin/mmdc -i $< -o $@
 
 FORCE:
