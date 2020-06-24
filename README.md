@@ -27,6 +27,10 @@ Related components in other repos:
 * The [Markets in Filecoin](https://filecoin-project.github.io/specs/#systems__filecoin_markets) 
 section of the Filecoin Specification contains the canonical spec.
 
+### Technical Documentation
+* [GoDoc for Storage Market](https://godoc.org/github.com/filecoin-project/go-fil-markets/storagemarket) contains an architectural overview and robust API documentation
+* [GoDoc for Retrieval Market](https://godoc.org/github.com/filecoin-project/go-fil-markets/retrievalmarket) contains an architectural overview and robust API documentation
+
 ## Installation
 ```bash
 go get "github.com/filecoin-project/go-fil-markets/<MODULENAME>"`

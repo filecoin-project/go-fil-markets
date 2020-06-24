@@ -5,13 +5,14 @@ The node implementation must provide access to chain operations, and persistent
 data storage.
 
 ## Table of Contents
-* [Background reading](#Background_reading)
+* [Background reading](#background-reading)
 * [Installation](#Installation)
 * [Operation](#Operation)
 * [Implementation](#Implementation)
     * [StorageFunds](#StorageFunds)
     * [StorageClientNode](#StorageClientNode)
     * [StorageProviderNode](#StorageProviderNode)
+* [Technical Documentation](#technical-documentation)
 
 ## Background reading
 
@@ -358,3 +359,16 @@ See this repo's [piecestore module](../piecestore).
     ```
 * `options ...StorageProviderOption` options is a variable length parameter to provide functions that change the
     StorageProvider default configuration. See [provider.go](./impl/provider.go) for the available options.
+
+## Technical Documentation
+
+* [GoDoc](https://godoc.org/github.com/filecoin-project/go-fil-markets/storagemarket) contains an architectural overview and robust API documentation
+
+* Storage Client FSM diagram:
+
+[![Diagram of StorageClientFSM](../docs/storageclient.mmd.png)](../storageclient.mmd.svg)
+
+
+* Storage Provider FSM diagram:
+
+[![Diagram of StorageClientFSM](../docs/storageprovider.mmd.png)](../storageprovider.mmd.svg)

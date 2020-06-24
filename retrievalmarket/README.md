@@ -6,10 +6,9 @@ The node implementation must provide access to chain operations, and persistent
 data storage.
 
 ## Table of Contents
-* [Background reading](#Background_reading)
+* [Background reading](#Background-reading)
 * [Installation](#Installation)
 * [Operation](#Operation)
-* [Architecture](../docs/retrieval_architecture.md)
 * [Implementation](#Implementation)
     * [Peer Resolver](#Peer_Resolver)
     * [RetrievalClientNode](#RetrievalClientNode)
@@ -17,7 +16,7 @@ data storage.
 * [Construction](#Construction)
     * [Construct a RetrievalClient](#RetrievalClient)
     * [Construct a RetrievalProvider](#RetrievalProvider)
-
+* [Technical Documentation](#technical-documentation)
 
 ## Background reading
 Please see the 
@@ -289,3 +288,16 @@ See this repo's [piecestore module](../piecestore).
 [constructing a RetrievalClient](#RetrievalClient).
 * `ds datastore.Batching` is the same batching datastore interface as for 
 [constructing a RetrievalClient](#RetrievalClient).
+
+## Technical Documentation
+
+* [GoDoc](https://godoc.org/github.com/filecoin-project/go-fil-markets/retrievalmarket) contains an architectural overview and robust API documentation
+
+* Retrieval Client FSM diagram:
+
+[![Diagram of RetrievalClientFSM](../docs/retrievalclient.mmd.png)](../retrievalclient.mmd.svg)
+
+
+* Retrieval Provider FSM diagram:
+
+[![Diagram of RetrievalClientFSM](../docs/retrievalprovider.mmd.png)](../retrievalprovider.mmd.svg)
