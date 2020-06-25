@@ -41,7 +41,7 @@ type StorageClient interface {
 	GetProviderDealState(ctx context.Context, info StorageProviderInfo, proposalCid cid.Cid) (*ProviderDealState, error)
 
 	// ProposeStorageDeal initiates deal negotiation with a Storage Provider
-	ProposeStorageDeal(ctx context.Context, addr address.Address, info *StorageProviderInfo, data *DataRef, startEpoch abi.ChainEpoch, endEpoch abi.ChainEpoch, price abi.TokenAmount, collateral abi.TokenAmount, rt abi.RegisteredSealProof) (*ProposeStorageDealResult, error)
+	ProposeStorageDeal(ctx context.Context, addr address.Address, info *StorageProviderInfo, data *DataRef, startEpoch abi.ChainEpoch, endEpoch abi.ChainEpoch, price abi.TokenAmount, collateral abi.TokenAmount, rt abi.RegisteredSealProof, fastRetrieval bool, verifiedDeal bool) (*ProposeStorageDealResult, error)
 
 	// GetPaymentEscrow returns the current funds available for deal payment
 	GetPaymentEscrow(ctx context.Context, addr address.Address) (Balance, error)
