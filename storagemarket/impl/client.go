@@ -281,17 +281,7 @@ its implementation of the Client FSM's ClientDealEnvironment.
 
 Documentation of the client state machine can be found at https://godoc.org/github.com/filecoin-project/go-fil-markets/storagemarket/impl/clientstates
 */
-func (c *Client) ProposeStorageDeal(
-	ctx context.Context,
-	addr address.Address,
-	info *storagemarket.StorageProviderInfo,
-	data *storagemarket.DataRef,
-	startEpoch abi.ChainEpoch,
-	endEpoch abi.ChainEpoch,
-	price abi.TokenAmount,
-	collateral abi.TokenAmount,
-	rt abi.RegisteredSealProof,
-) (*storagemarket.ProposeStorageDealResult, error) {
+func (c *Client) ProposeStorageDeal(ctx context.Context, addr address.Address, info *storagemarket.StorageProviderInfo, data *storagemarket.DataRef, startEpoch abi.ChainEpoch, endEpoch abi.ChainEpoch, price abi.TokenAmount, collateral abi.TokenAmount, rt abi.RegisteredSealProof, fastRetrieval bool, verifiedDeal bool) (*storagemarket.ProposeStorageDealResult, error) {
 	commP, pieceSize, err := clientutils.CommP(ctx, c.pio, rt, data)
 	if err != nil {
 		return nil, xerrors.Errorf("computing commP failed: %w", err)

@@ -279,17 +279,7 @@ func newStorageHarness(ctx context.Context, t *testing.T) *storageHarness {
 }
 
 func (sh *storageHarness) ProposeStorageDeal(t *testing.T, dataRef *storagemarket.DataRef) *storagemarket.ProposeStorageDealResult {
-	result, err := sh.Client.ProposeStorageDeal(
-		sh.Ctx,
-		sh.ProviderAddr,
-		&sh.ProviderInfo,
-		dataRef,
-		sh.Epoch+100,
-		sh.Epoch+20100,
-		big.NewInt(1),
-		big.NewInt(0),
-		abi.RegisteredSealProof_StackedDrg2KiBV1,
-	)
+	result, err := sh.Client.ProposeStorageDeal(sh.Ctx, sh.ProviderAddr, &sh.ProviderInfo, dataRef, sh.Epoch+100, sh.Epoch+20100, big.NewInt(1), big.NewInt(0), abi.RegisteredSealProof_StackedDrg2KiBV1, false, false)
 	assert.NoError(t, err)
 	return result
 }
