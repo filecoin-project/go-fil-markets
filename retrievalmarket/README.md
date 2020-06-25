@@ -295,9 +295,9 @@ See this repo's [piecestore module](../piecestore).
 
 * Retrieval Client FSM diagram:
 
-[![Diagram of RetrievalClientFSM](../docs/retrievalclient.mmd.png)](../retrievalclient.mmd.svg)
+[![Diagram of RetrievalClientFSM](../docs/retrievalclient.mmd.png)](https://raw.githubusercontent.com/filecoin-project/go-fil-markets/master/docs/retrievalclient.mmd.svg)
 
 
 * Retrieval Provider FSM diagram:
 
-[![Diagram of RetrievalClientFSM](../docs/retrievalprovider.mmd.png)](../retrievalprovider.mmd.svg)
+[![Diagram of RetrievalClientFSM](../docs/retrievalprovider.mmd.png)](https://raw.githubusercontent.com/filecoin-project/go-fil-markets/master/docs/retrievalprovider.mmd.svg)
