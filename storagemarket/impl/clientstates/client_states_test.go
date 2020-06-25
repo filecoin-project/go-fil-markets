@@ -194,6 +194,7 @@ func TestCheckForDealAcceptance(t *testing.T) {
 			storagemarket.StorageDealActive,
 			storagemarket.StorageDealSealing,
 			storagemarket.StorageDealStaged,
+			storagemarket.StorageDealCompleted,
 		}
 
 		for _, s := range successStates {

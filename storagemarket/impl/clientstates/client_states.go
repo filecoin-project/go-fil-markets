@@ -259,7 +259,8 @@ func FailDeal(ctx fsm.Context, environment ClientDealEnvironment, deal storagema
 func dealAccepted(status storagemarket.StorageDealStatus) bool {
 	return status == storagemarket.StorageDealStaged ||
 		status == storagemarket.StorageDealSealing ||
-		status == storagemarket.StorageDealActive
+		status == storagemarket.StorageDealActive ||
+		status == storagemarket.StorageDealCompleted
 }
 
 func dealFailed(status storagemarket.StorageDealStatus) bool {

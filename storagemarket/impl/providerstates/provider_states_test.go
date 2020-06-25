@@ -414,18 +414,6 @@ func TestWaitForPublish(t *testing.T) {
 				require.Equal(t, "PublishStorageDeal error: PublishStorageDeals exit code: SysErrForbidden(8)", deal.Message)
 			},
 		},
-		"SendSignedResponse errors": {
-			nodeParams: nodeParams{
-				WaitForMessageRetBytes: psdReturnBytes,
-			},
-			environmentParams: environmentParams{
-				SendSignedResponseError: errors.New("could not send"),
-			},
-			dealInspector: func(t *testing.T, deal storagemarket.MinerDeal, env *fakeEnvironment) {
-				tut.AssertDealState(t, storagemarket.StorageDealError, deal.State)
-				require.Equal(t, "sending response to deal: could not send", deal.Message)
-			},
-		},
 	}
 	for test, data := range tests {
 		t.Run(test, func(t *testing.T) {

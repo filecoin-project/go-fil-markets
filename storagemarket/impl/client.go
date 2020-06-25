@@ -37,7 +37,7 @@ import (
 
 var log = logging.Logger("storagemarket_impl")
 
-const DefaultAcceptancePollingInterval = 30 * time.Second
+const DefaultAcceptancePollingInterval = 100 * time.Millisecond
 
 var _ storagemarket.StorageClient = &Client{}
 

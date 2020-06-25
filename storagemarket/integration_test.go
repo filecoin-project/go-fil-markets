@@ -75,10 +75,17 @@ func TestMakeDeal(t *testing.T) {
 	result := h.ProposeStorageDeal(t, &storagemarket.DataRef{TransferType: storagemarket.TTGraphsync, Root: h.PayloadCid})
 	proposalCid := result.ProposalCid
 
-	time.Sleep(time.Millisecond * 200)
-
-	ctx, canc := context.WithTimeout(context.Background(), 100*time.Millisecond)
+	ctx, canc := context.WithTimeout(context.Background(), 500*time.Millisecond)
 	defer canc()
+
+	dealStatesToStrings := func(states []storagemarket.StorageDealStatus) []string {
+		var out []string
+		for _, state := range states {
+			out = append(out, storagemarket.DealStates[state])
+		}
+		return out
+	}
+
 	var providerSeenDeal storagemarket.MinerDeal
 	var clientSeenDeal storagemarket.ClientDeal
 	var providerstates, clientstates []storagemarket.StorageDealStatus
@@ -86,9 +93,13 @@ func TestMakeDeal(t *testing.T) {
 		clientSeenDeal.State != storagemarket.StorageDealExpired {
 		select {
 		case clientSeenDeal = <-clientDealChan:
-			clientstates = append(clientstates, clientSeenDeal.State)
+			if len(clientstates) == 0 || clientSeenDeal.State != clientstates[len(clientstates)-1] {
+				clientstates = append(clientstates, clientSeenDeal.State)
+			}
 		case providerSeenDeal = <-providerDealChan:
-			providerstates = append(providerstates, providerSeenDeal.State)
+			if len(providerstates) == 0 || providerSeenDeal.State != providerstates[len(providerstates)-1] {
+				providerstates = append(providerstates, providerSeenDeal.State)
+			}
 		case <-ctx.Done():
 			t.Fatalf("deal incomplete, client deal state: %s (%d), provider deal state: %s (%d)",
 				storagemarket.DealStates[clientSeenDeal.State],
@@ -120,15 +131,15 @@ func TestMakeDeal(t *testing.T) {
 		storagemarket.StorageDealFundsEnsured,
 		storagemarket.StorageDealWaitingForDataRequest,
 		storagemarket.StorageDealTransferring,
-		storagemarket.StorageDealValidating,
+		storagemarket.StorageDealCheckForAcceptance,
 		storagemarket.StorageDealProposalAccepted,
 		storagemarket.StorageDealSealing,
 		storagemarket.StorageDealActive,
 		storagemarket.StorageDealExpired,
 	}
 
-	assert.Equal(t, expProviderStates, providerstates)
-	assert.Equal(t, expClientStates, clientstates)
+	assert.Equal(t, dealStatesToStrings(expProviderStates), dealStatesToStrings(providerstates))
+	assert.Equal(t, dealStatesToStrings(expClientStates), dealStatesToStrings(clientstates))
 
 	// check a couple of things to make sure we're getting the whole deal
 	assert.Equal(t, h.TestData.Host1.ID(), providerSeenDeal.Client)
@@ -179,7 +190,7 @@ func TestMakeDealOffline(t *testing.T) {
 
 	cd, err := h.Client.GetLocalDeal(ctx, proposalCid)
 	assert.NoError(t, err)
-	shared_testutil.AssertDealState(t, storagemarket.StorageDealValidating, cd.State)
+	shared_testutil.AssertDealState(t, storagemarket.StorageDealCheckForAcceptance, cd.State)
 
 	providerDeals, err := h.Provider.ListLocalDeals()
 	assert.NoError(t, err)
@@ -225,7 +236,7 @@ func TestMakeDealNonBlocking(t *testing.T) {
 
 	cd, err := h.Client.GetLocalDeal(ctx, result.ProposalCid)
 	assert.NoError(t, err)
-	shared_testutil.AssertDealState(t, storagemarket.StorageDealValidating, cd.State)
+	shared_testutil.AssertDealState(t, storagemarket.StorageDealCheckForAcceptance, cd.State)
 
 	providerDeals, err := h.Provider.ListLocalDeals()
 	assert.NoError(t, err)
@@ -271,7 +282,7 @@ func TestRestartClient(t *testing.T) {
 
 	wg.Add(1)
 	_ = h.Client.SubscribeToEvents(func(event storagemarket.ClientEvent, deal storagemarket.ClientDeal) {
-		if event == storagemarket.ClientEventDealActivated {
+		if event == storagemarket.ClientEventDealExpired {
 			wg.Done()
 		}
 	})

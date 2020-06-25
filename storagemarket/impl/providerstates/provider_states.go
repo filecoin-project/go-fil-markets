@@ -229,22 +229,7 @@ func WaitForPublish(ctx fsm.Context, environment ProviderDealEnvironment, deal s
 			return ctx.Trigger(storagemarket.ProviderEventDealPublishError, xerrors.Errorf("PublishStorageDeals error unmarshalling result: %w", err))
 		}
 
-		err = environment.SendSignedResponse(ctx.Context(), &network.Response{
-			State:          storagemarket.StorageDealProposalAccepted,
-			Proposal:       deal.ProposalCid,
-			PublishMessage: deal.PublishCid,
-		})
-
-		if err != nil {
-			return ctx.Trigger(storagemarket.ProviderEventSendResponseFailed, err)
-		}
-
-		if err := environment.Disconnect(deal.ProposalCid); err != nil {
-			log.Warnf("closing client connection: %+v", err)
-		}
-
 		return ctx.Trigger(storagemarket.ProviderEventDealPublished, retval.IDs[0])
-
 	})
 }
 
