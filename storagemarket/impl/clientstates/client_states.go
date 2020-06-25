@@ -32,7 +32,7 @@ type ClientDealEnvironment interface {
 	ReadDealResponse(proposalCid cid.Cid) (network.SignedResponse, error)
 	CloseStream(proposalCid cid.Cid) error
 	StartDataTransfer(ctx context.Context, to peer.ID, voucher datatransfer.Voucher, baseCid cid.Cid, selector ipld.Node) error
-	GetProviderDealState(ctx context.Context, deal storagemarket.ClientDeal) (*storagemarket.ProviderDealState, error)
+	GetProviderDealState(ctx context.Context, proposalCid cid.Cid) (*storagemarket.ProviderDealState, error)
 	PollingInterval() time.Duration
 }
 
@@ -146,7 +146,7 @@ func WaitingForDataRequest(ctx fsm.Context, environment ClientDealEnvironment, d
 
 // CheckForDealAcceptance is run until the deal is sealed and published by the provider, or errors
 func CheckForDealAcceptance(ctx fsm.Context, environment ClientDealEnvironment, deal storagemarket.ClientDeal) error {
-	dealState, err := environment.GetProviderDealState(ctx.Context(), deal)
+	dealState, err := environment.GetProviderDealState(ctx.Context(), deal.ProposalCid)
 	if err != nil {
 		log.Warnf("error when querying provider deal state: %w", err) // TODO: at what point do we fail the deal?
 		return waitAgain(ctx, environment, deal)

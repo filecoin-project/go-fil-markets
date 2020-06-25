@@ -144,10 +144,10 @@ func TestMakeDeal(t *testing.T) {
 	assert.NoError(t, err)
 
 	pd := providerDeals[0]
-	assert.Equal(t, pd.ProposalCid, proposalCid)
+	assert.Equal(t, proposalCid, pd.ProposalCid)
 	shared_testutil.AssertDealState(t, storagemarket.StorageDealCompleted, pd.State)
 
-	status, err := h.Client.GetProviderDealState(ctx, cd)
+	status, err := h.Client.GetProviderDealState(ctx, proposalCid)
 	assert.NoError(t, err)
 	shared_testutil.AssertDealState(t, storagemarket.StorageDealCompleted, status.State)
 }

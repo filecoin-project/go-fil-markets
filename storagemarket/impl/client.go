@@ -229,7 +229,13 @@ func (c *Client) GetAsk(ctx context.Context, info storagemarket.StorageProviderI
 }
 
 // GetProviderDealState queries a provider for the current state of a client's deal
-func (c *Client) GetProviderDealState(ctx context.Context, deal storagemarket.ClientDeal) (*storagemarket.ProviderDealState, error) {
+func (c *Client) GetProviderDealState(ctx context.Context, proposalCid cid.Cid) (*storagemarket.ProviderDealState, error) {
+	var deal storagemarket.ClientDeal
+	err := c.statemachines.Get(proposalCid).Get(&deal)
+	if err != nil {
+		return nil, xerrors.Errorf("could not get client deal state: %w", err)
+	}
+
 	s, err := c.net.NewDealStatusStream(deal.Miner)
 	if err != nil {
 		return nil, xerrors.Errorf("failed to open stream to miner: %w", err)
@@ -250,7 +256,7 @@ func (c *Client) GetProviderDealState(ctx context.Context, deal storagemarket.Cl
 		return nil, xerrors.Errorf("failed to sign deal status request: %w", err)
 	}
 
-	if err := s.WriteDealStatusRequest(network.DealStatusRequest{Proposal: deal.ProposalCid, Signature: *signature}); err != nil {
+	if err := s.WriteDealStatusRequest(network.DealStatusRequest{Proposal: proposalCid, Signature: *signature}); err != nil {
 		return nil, xerrors.Errorf("failed to send deal status request: %w", err)
 	}
 
@@ -592,8 +598,8 @@ func (c *clientDealEnvironment) StartDataTransfer(ctx context.Context, to peer.I
 	return err
 }
 
-func (c *clientDealEnvironment) GetProviderDealState(ctx context.Context, deal storagemarket.ClientDeal) (*storagemarket.ProviderDealState, error) {
-	return c.c.GetProviderDealState(ctx, deal)
+func (c *clientDealEnvironment) GetProviderDealState(ctx context.Context, proposalCid cid.Cid) (*storagemarket.ProviderDealState, error) {
+	return c.c.GetProviderDealState(ctx, proposalCid)
 }
 
 func (c *clientDealEnvironment) PollingInterval() time.Duration {

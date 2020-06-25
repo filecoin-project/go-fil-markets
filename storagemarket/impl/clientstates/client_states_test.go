@@ -554,7 +554,7 @@ func (fe *fakeEnvironment) CloseStream(proposalCid cid.Cid) error {
 	return fe.closeStreamErr
 }
 
-func (fe *fakeEnvironment) GetProviderDealState(ctx context.Context, cd storagemarket.ClientDeal) (*storagemarket.ProviderDealState, error) {
+func (fe *fakeEnvironment) GetProviderDealState(ctx context.Context, proposalCid cid.Cid) (*storagemarket.ProviderDealState, error) {
 	if fe.getDealStatusErr != nil {
 		return nil, fe.getDealStatusErr
 	}

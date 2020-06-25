@@ -9,7 +9,7 @@ import (
 	storageimpl "github.com/filecoin-project/go-fil-markets/storagemarket/impl"
 )
 
-func TestConfigureClient(t *testing.T) {
+func TestClient_Configure(t *testing.T) {
 	c := &storageimpl.Client{}
 	assert.Equal(t, time.Duration(0), c.PollingInterval())
 
