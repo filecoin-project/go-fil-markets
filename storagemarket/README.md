@@ -366,9 +366,9 @@ See this repo's [piecestore module](../piecestore).
 
 * Storage Client FSM diagram:
 
-[![Diagram of StorageClientFSM](../docs/storageclient.mmd.png)](../storageclient.mmd.svg)
+[![Diagram of StorageClientFSM](../docs/storageclient.mmd.png)](https://raw.githubusercontent.com/filecoin-project/go-fil-markets/master/docs/storageclient.mmd.svg)
 
 
 * Storage Provider FSM diagram:
 
-[![Diagram of StorageClientFSM](../docs/storageprovider.mmd.png)](../storageprovider.mmd.svg)
+[![Diagram of StorageClientFSM](../docs/storageprovider.mmd.png)](https://raw.githubusercontent.com/filecoin-project/go-fil-markets/master/docs/storageprovider.mmd.svg)
