@@ -18,7 +18,6 @@ import (
 	"github.com/ipld/go-ipld-prime"
 	"github.com/libp2p/go-libp2p-core/peer"
 	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 	"golang.org/x/xerrors"
 
 	tut "github.com/filecoin-project/go-fil-markets/shared_testutil"

@@ -4,28 +4,28 @@ stateDiagram-v2
 	state "StorageDealSealing" as 5
 	state "StorageDealActive" as 6
 	state "StorageDealFailing" as 9
-	state "StorageDealValidating" as 12
-	state "StorageDealAcceptWait" as 13
-	state "StorageDealTransferring" as 14
-	state "StorageDealWaitingForData" as 15
-	state "StorageDealVerifyData" as 16
-	state "StorageDealEnsureProviderFunds" as 17
-	state "StorageDealProviderFunding" as 19
-	state "StorageDealPublish" as 21
-	state "StorageDealPublishing" as 22
-	state "StorageDealError" as 23
-	state "StorageDealCompleted" as 24
+	state "StorageDealValidating" as 13
+	state "StorageDealAcceptWait" as 14
+	state "StorageDealTransferring" as 15
+	state "StorageDealWaitingForData" as 16
+	state "StorageDealVerifyData" as 17
+	state "StorageDealEnsureProviderFunds" as 18
+	state "StorageDealProviderFunding" as 20
+	state "StorageDealPublish" as 22
+	state "StorageDealPublishing" as 23
+	state "StorageDealError" as 24
+	state "StorageDealCompleted" as 25
 	4 : On entry runs HandoffDeal
 	5 : On entry runs VerifyDealActivated
 	6 : On entry runs RecordPieceInfo
 	9 : On entry runs FailDeal
-	12 : On entry runs ValidateDealProposal
-	13 : On entry runs DecideOnProposal
-	16 : On entry runs VerifyData
-	17 : On entry runs EnsureProviderFunds
-	19 : On entry runs WaitForFunding
-	21 : On entry runs PublishDeal
-	22 : On entry runs WaitForPublish
+	13 : On entry runs ValidateDealProposal
+	14 : On entry runs DecideOnProposal
+	17 : On entry runs VerifyData
+	18 : On entry runs EnsureProviderFunds
+	20 : On entry runs WaitForFunding
+	22 : On entry runs PublishDeal
+	23 : On entry runs WaitForPublish
 	[*] --> 0
 	note right of 0
 		The following events are not shown cause they can trigger from any state.
@@ -33,27 +33,27 @@ stateDiagram-v2
 		ProviderEventNodeErrored - transitions state to StorageDealFailing
 		ProviderEventRestart - does not transition state
 	end note
-	0 --> 12 : ProviderEventOpen
-	12 --> 9 : ProviderEventDealRejected
+	0 --> 13 : ProviderEventOpen
 	13 --> 9 : ProviderEventDealRejected
-	16 --> 9 : ProviderEventDealRejected
-	12 --> 13 : ProviderEventDealDeciding
-	13 --> 15 : ProviderEventDataRequested
-	14 --> 9 : ProviderEventDataTransferFailed
-	15 --> 14 : ProviderEventDataTransferInitiated
-	14 --> 16 : ProviderEventDataTransferCompleted
-	16 --> 9 : ProviderEventGeneratePieceCIDFailed
-	15 --> 17 : ProviderEventVerifiedData
-	16 --> 17 : ProviderEventVerifiedData
-	17 --> 19 : ProviderEventFundingInitiated
-	17 --> 21 : ProviderEventFunded
-	19 --> 21 : ProviderEventFunded
-	21 --> 22 : ProviderEventDealPublishInitiated
-	22 --> 9 : ProviderEventDealPublishError
-	9 --> 23 : ProviderEventSendResponseFailed
-	13 --> 23 : ProviderEventSendResponseFailed
-	22 --> 23 : ProviderEventSendResponseFailed
-	22 --> 4 : ProviderEventDealPublished
+	14 --> 9 : ProviderEventDealRejected
+	17 --> 9 : ProviderEventDealRejected
+	13 --> 14 : ProviderEventDealDeciding
+	14 --> 16 : ProviderEventDataRequested
+	15 --> 9 : ProviderEventDataTransferFailed
+	16 --> 15 : ProviderEventDataTransferInitiated
+	15 --> 17 : ProviderEventDataTransferCompleted
+	17 --> 9 : ProviderEventGeneratePieceCIDFailed
+	16 --> 18 : ProviderEventVerifiedData
+	17 --> 18 : ProviderEventVerifiedData
+	18 --> 20 : ProviderEventFundingInitiated
+	18 --> 22 : ProviderEventFunded
+	20 --> 22 : ProviderEventFunded
+	22 --> 23 : ProviderEventDealPublishInitiated
+	23 --> 9 : ProviderEventDealPublishError
+	9 --> 24 : ProviderEventSendResponseFailed
+	14 --> 24 : ProviderEventSendResponseFailed
+	23 --> 24 : ProviderEventSendResponseFailed
+	23 --> 4 : ProviderEventDealPublished
 	4 --> 9 : ProviderEventFileStoreErrored
 	5 --> 9 : ProviderEventFileStoreErrored
 	6 --> 9 : ProviderEventFileStoreErrored
@@ -62,9 +62,9 @@ stateDiagram-v2
 	5 --> 9 : ProviderEventDealActivationFailed
 	5 --> 6 : ProviderEventDealActivated
 	6 --> 9 : ProviderEventPieceStoreErrored
-	6 --> 24 : ProviderEventDealCompleted
+	6 --> 25 : ProviderEventDealCompleted
 	6 --> 9 : ProviderEventUnableToLocatePiece
 	6 --> 9 : ProviderEventReadMetadataErrored
-	9 --> 23 : ProviderEventFailed
-	23 --> [*]
+	9 --> 24 : ProviderEventFailed
 	24 --> [*]
+	25 --> [*]

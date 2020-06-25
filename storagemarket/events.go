@@ -28,6 +28,9 @@ const (
 	// ClientEventDataTransferComplete happens when piece data transfer has been completed
 	ClientEventDataTransferComplete
 
+	// ClientEventWaitForDealState happens when the client needs to continue waiting for an actionable deal state
+	ClientEventWaitForDealState
+
 	// ClientEventDataTransferFailed happens the client can't initiate a push data transfer to the provider
 	ClientEventDataTransferFailed
 
@@ -90,6 +93,7 @@ var ClientEvents = map[ClientEvent]string{
 	ClientEventDealProposed:               "ClientEventDealProposed",
 	ClientEventDataTransferInitiated:      "ClientEventDataTransferInitiated",
 	ClientEventDataTransferComplete:       "ClientEventDataTransferComplete",
+	ClientEventWaitForDealState:           "ClientEventWaitForDealState",
 	ClientEventDataTransferFailed:         "ClientEventDataTransferFailed",
 	ClientEventReadResponseFailed:         "ClientEventReadResponseFailed",
 	ClientEventResponseVerificationFailed: "ClientEventResponseVerificationFailed",

@@ -46,6 +46,9 @@ const (
 	// StorageDealWaitingForDataRequest means the client is waiting for a request for the deal data from the provider
 	StorageDealWaitingForDataRequest
 
+	// StorageDealCheckForAcceptance means the client is waiting for a provider to seal and publish a deal
+	StorageDealCheckForAcceptance
+
 	// StorageDealValidating means the provider is validating that deal parameters are good for a proposal
 	StorageDealValidating
 
@@ -104,6 +107,7 @@ var DealStates = map[StorageDealStatus]string{
 	StorageDealFailing:               "StorageDealFailing",
 	StorageDealFundsEnsured:          "StorageDealFundsEnsured",
 	StorageDealWaitingForDataRequest: "StorageDealWaitingForDataRequest",
+	StorageDealCheckForAcceptance:    "StorageDealCheckForAcceptance",
 	StorageDealValidating:            "StorageDealValidating",
 	StorageDealTransferring:          "StorageDealTransferring",
 	StorageDealWaitingForData:        "StorageDealWaitingForData",

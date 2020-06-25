@@ -152,11 +152,11 @@ func CheckForDealAcceptance(ctx fsm.Context, environment ClientDealEnvironment, 
 		return waitAgain(ctx, environment, deal)
 	}
 
-	if dealFailed(dealState.State) {
+	if isFailed(dealState.State) {
 		return ctx.Trigger(storagemarket.ClientEventDealRejected, dealState.State, dealState.Message)
 	}
 
-	if dealAccepted(dealState.State) {
+	if isAccepted(dealState.State) {
 		if *dealState.ProposalCid != deal.ProposalCid {
 			return ctx.Trigger(storagemarket.ClientEventResponseDealDidNotMatch, *dealState.ProposalCid, deal.ProposalCid)
 		}
@@ -256,14 +256,14 @@ func FailDeal(ctx fsm.Context, environment ClientDealEnvironment, deal storagema
 	return ctx.Trigger(storagemarket.ClientEventFailed)
 }
 
-func dealAccepted(status storagemarket.StorageDealStatus) bool {
+func isAccepted(status storagemarket.StorageDealStatus) bool {
 	return status == storagemarket.StorageDealStaged ||
 		status == storagemarket.StorageDealSealing ||
 		status == storagemarket.StorageDealActive ||
 		status == storagemarket.StorageDealCompleted
 }
 
-func dealFailed(status storagemarket.StorageDealStatus) bool {
+func isFailed(status storagemarket.StorageDealStatus) bool {
 	return status == storagemarket.StorageDealFailing ||
 		status == storagemarket.StorageDealError
 }
