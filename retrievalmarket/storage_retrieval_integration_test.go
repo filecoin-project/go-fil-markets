@@ -229,6 +229,7 @@ func newStorageHarness(ctx context.Context, t *testing.T) *storageHarness {
 		discovery.NewLocal(td.Ds1),
 		td.Ds1,
 		&clientNode,
+		stormkt.DealPollingInterval(0),
 	)
 	require.NoError(t, err)
 

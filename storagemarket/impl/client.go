@@ -37,7 +37,7 @@ import (
 
 var log = logging.Logger("storagemarket_impl")
 
-const DefaultAcceptancePollingInterval = 100 * time.Millisecond
+const DefaultPollingInterval = 30 * time.Second
 
 var _ storagemarket.StorageClient = &Client{}
 
@@ -50,10 +50,22 @@ type Client struct {
 	pio          pieceio.PieceIO
 	discovery    *discovery.Local
 
-	node          storagemarket.StorageClientNode
-	pubSub        *pubsub.PubSub
-	statemachines fsm.Group
-	conns         *connmanager.ConnManager
+	node            storagemarket.StorageClientNode
+	pubSub          *pubsub.PubSub
+	statemachines   fsm.Group
+	conns           *connmanager.ConnManager
+	pollingInterval time.Duration
+}
+
+// StorageClientOption allows custom configuration of a storage client
+type StorageClientOption func(c *Client)
+
+// DealPollingInterval sets the interval at which this client will query the Provider for deal state while
+// waiting for deal acceptance
+func DealPollingInterval(t time.Duration) StorageClientOption {
+	return func(c *Client) {
+		c.pollingInterval = t
+	}
 }
 
 // NewClient creates a new storage client
@@ -64,30 +76,34 @@ func NewClient(
 	discovery *discovery.Local,
 	ds datastore.Batching,
 	scn storagemarket.StorageClientNode,
+	options ...StorageClientOption,
 ) (*Client, error) {
 	carIO := cario.NewCarIO()
 	pio := pieceio.NewPieceIO(carIO, bs)
 
 	c := &Client{
-		net:          net,
-		dataTransfer: dataTransfer,
-		bs:           bs,
-		pio:          pio,
-		discovery:    discovery,
-		node:         scn,
-		pubSub:       pubsub.New(clientDispatcher),
-		conns:        connmanager.NewConnManager(),
+		net:             net,
+		dataTransfer:    dataTransfer,
+		bs:              bs,
+		pio:             pio,
+		discovery:       discovery,
+		node:            scn,
+		pubSub:          pubsub.New(clientDispatcher),
+		conns:           connmanager.NewConnManager(),
+		pollingInterval: DefaultPollingInterval,
 	}
 
 	statemachines, err := newClientStateMachine(
 		ds,
-		NewClientDealEnvironment(c),
+		&clientDealEnvironment{c},
 		c.dispatch,
 	)
 	if err != nil {
 		return nil, err
 	}
 	c.statemachines = statemachines
+
+	c.Configure(options...)
 
 	// register a data transfer event handler -- this will send events to the state machines based on DT events
 	dataTransfer.SubscribeToEvents(dtutils.ClientDataTransferSubscriber(statemachines))
@@ -389,6 +405,19 @@ func (c *Client) SubscribeToEvents(subscriber storagemarket.ClientSubscriber) sh
 	return shared.Unsubscribe(c.pubSub.Subscribe(subscriber))
 }
 
+// PollingInterval is a getter for the polling interval option
+func (c *Client) PollingInterval() time.Duration {
+	return c.pollingInterval
+}
+
+// Configure applies the given list of StorageClientOptions after a StorageClient
+// is initialized
+func (c *Client) Configure(options ...StorageClientOption) {
+	for _, option := range options {
+		option(c)
+	}
+}
+
 func (c *Client) restartDeals() error {
 	var deals []storagemarket.ClientDeal
 	err := c.statemachines.List(&deals)
@@ -515,15 +544,7 @@ func clientDispatcher(evt pubsub.Event, fn pubsub.SubscriberFn) error {
 // -------
 
 type clientDealEnvironment struct {
-	c               *Client
-	pollingInterval time.Duration
-}
-
-func NewClientDealEnvironment(c *Client) clientstates.ClientDealEnvironment {
-	return &clientDealEnvironment{
-		c:               c,
-		pollingInterval: DefaultAcceptancePollingInterval,
-	}
+	c *Client
 }
 
 func (c *clientDealEnvironment) Node() storagemarket.StorageClientNode {
@@ -576,7 +597,7 @@ func (c *clientDealEnvironment) GetProviderDealState(ctx context.Context, deal s
 }
 
 func (c *clientDealEnvironment) PollingInterval() time.Duration {
-	return c.pollingInterval
+	return c.c.pollingInterval
 }
 
 // ClientFSMParameterSpec is a valid set of parameters for a client deal FSM - used in doc generation

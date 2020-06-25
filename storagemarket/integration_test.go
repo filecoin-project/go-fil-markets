@@ -371,6 +371,7 @@ func newHarnessWithTestData(t *testing.T, ctx context.Context, td *shared_testut
 		discovery.NewLocal(td.Ds1),
 		td.Ds1,
 		&clientNode,
+		storageimpl.DealPollingInterval(0),
 	)
 	require.NoError(t, err)
 

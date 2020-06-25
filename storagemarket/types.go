@@ -107,7 +107,7 @@ type ClientDeal struct {
 	PublishMessage   *cid.Cid
 	SlashEpoch       abi.ChainEpoch
 	ConnectionClosed bool
-	PollRetryCount   int
+	PollRetryCount   uint64
 }
 
 // StorageDeal is a local combination of a proposal and a current deal state
