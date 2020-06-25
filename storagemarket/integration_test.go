@@ -9,7 +9,6 @@ import (
 	"path/filepath"
 	"sync"
 	"testing"
-	"time"
 
 	"github.com/filecoin-project/go-address"
 	graphsync "github.com/filecoin-project/go-data-transfer/impl/graphsync"
@@ -75,9 +74,6 @@ func TestMakeDeal(t *testing.T) {
 	result := h.ProposeStorageDeal(t, &storagemarket.DataRef{TransferType: storagemarket.TTGraphsync, Root: h.PayloadCid})
 	proposalCid := result.ProposalCid
 
-	ctx, canc := context.WithTimeout(context.Background(), 500*time.Millisecond)
-	defer canc()
-
 	dealStatesToStrings := func(states []storagemarket.StorageDealStatus) []string {
 		var out []string
 		for _, state := range states {
@@ -100,13 +96,6 @@ func TestMakeDeal(t *testing.T) {
 			if len(providerstates) == 0 || providerSeenDeal.State != providerstates[len(providerstates)-1] {
 				providerstates = append(providerstates, providerSeenDeal.State)
 			}
-		case <-ctx.Done():
-			t.Fatalf("deal incomplete, client deal state: %s (%d), provider deal state: %s (%d)",
-				storagemarket.DealStates[clientSeenDeal.State],
-				clientSeenDeal.State,
-				storagemarket.DealStates[providerSeenDeal.State],
-				providerSeenDeal.State,
-			)
 		}
 	}
 
@@ -186,7 +175,11 @@ func TestMakeDealOffline(t *testing.T) {
 	result := h.ProposeStorageDeal(t, dataRef)
 	proposalCid := result.ProposalCid
 
-	time.Sleep(time.Millisecond * 100)
+	wg := sync.WaitGroup{}
+
+	h.WaitForClientEvent(&wg, storagemarket.ClientEventDataTransferComplete)
+	h.WaitForProviderEvent(&wg, storagemarket.ProviderEventDataRequested)
+	wg.Wait()
 
 	cd, err := h.Client.GetLocalDeal(ctx, proposalCid)
 	assert.NoError(t, err)
@@ -204,7 +197,9 @@ func TestMakeDealOffline(t *testing.T) {
 	err = h.Provider.ImportDataForDeal(ctx, pd.ProposalCid, carBuf)
 	require.NoError(t, err)
 
-	time.Sleep(time.Millisecond * 100)
+	h.WaitForClientEvent(&wg, storagemarket.ClientEventDealExpired)
+	h.WaitForProviderEvent(&wg, storagemarket.ProviderEventDealCompleted)
+	wg.Wait()
 
 	cd, err = h.Client.GetLocalDeal(ctx, proposalCid)
 	assert.NoError(t, err)
@@ -232,7 +227,10 @@ func TestMakeDealNonBlocking(t *testing.T) {
 
 	result := h.ProposeStorageDeal(t, &storagemarket.DataRef{TransferType: storagemarket.TTGraphsync, Root: h.PayloadCid})
 
-	time.Sleep(time.Millisecond * 500)
+	wg := sync.WaitGroup{}
+	h.WaitForClientEvent(&wg, storagemarket.ClientEventDataTransferComplete)
+	h.WaitForProviderEvent(&wg, storagemarket.ProviderEventFundingInitiated)
+	wg.Wait()
 
 	cd, err := h.Client.GetLocalDeal(ctx, result.ProposalCid)
 	assert.NoError(t, err)
@@ -432,4 +430,22 @@ func (h *harness) ProposeStorageDeal(t *testing.T, dataRef *storagemarket.DataRe
 	result, err := h.Client.ProposeStorageDeal(h.Ctx, h.ProviderAddr, &h.ProviderInfo, dataRef, h.Epoch+100, h.Epoch+20100, big.NewInt(1), big.NewInt(0), abi.RegisteredSealProof_StackedDrg2KiBV1, false, false)
 	assert.NoError(t, err)
 	return result
+}
+
+func (h *harness) WaitForProviderEvent(wg *sync.WaitGroup, waitEvent storagemarket.ProviderEvent) {
+	wg.Add(1)
+	h.Provider.SubscribeToEvents(func(event storagemarket.ProviderEvent, deal storagemarket.MinerDeal) {
+		if event == waitEvent {
+			wg.Done()
+		}
+	})
+}
+
+func (h *harness) WaitForClientEvent(wg *sync.WaitGroup, waitEvent storagemarket.ClientEvent) {
+	wg.Add(1)
+	h.Client.SubscribeToEvents(func(event storagemarket.ClientEvent, deal storagemarket.ClientDeal) {
+		if event == waitEvent {
+			wg.Done()
+		}
+	})
 }
