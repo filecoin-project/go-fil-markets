@@ -6,7 +6,6 @@ import (
 	"fmt"
 
 	"github.com/filecoin-project/go-address"
-	datatransfer "github.com/filecoin-project/go-data-transfer"
 	"github.com/filecoin-project/go-padreader"
 	"github.com/filecoin-project/go-statemachine/fsm"
 	"github.com/filecoin-project/specs-actors/actors/abi"
@@ -16,7 +15,6 @@ import (
 	"github.com/ipfs/go-cid"
 	logging "github.com/ipfs/go-log/v2"
 	"github.com/ipld/go-ipld-prime"
-	"github.com/libp2p/go-libp2p-core/peer"
 	"golang.org/x/xerrors"
 
 	"github.com/filecoin-project/go-fil-markets/filestore"
@@ -35,10 +33,8 @@ type ProviderDealEnvironment interface {
 	Address() address.Address
 	Node() storagemarket.StorageProviderNode
 	Ask() storagemarket.StorageAsk
-	StartDataTransfer(ctx context.Context, to peer.ID, voucher datatransfer.Voucher, baseCid cid.Cid, selector ipld.Node) error
 	GeneratePieceCommitmentToFile(payloadCid cid.Cid, selector ipld.Node) (cid.Cid, filestore.Path, filestore.Path, error)
 	SendSignedResponse(ctx context.Context, response *network.Response) error
-	TagConnection(proposalCid cid.Cid) error
 	Disconnect(proposalCid cid.Cid) error
 	FileStore() filestore.FileStore
 	PieceStore() piecestore.PieceStore
@@ -103,11 +99,6 @@ func ValidateDealProposal(ctx fsm.Context, environment ProviderDealEnvironment, 
 		return ctx.Trigger(storagemarket.ProviderEventDealRejected, xerrors.New("clientMarketBalance.Available too small"))
 	}
 
-	if err := environment.TagConnection(deal.ProposalCid); err != nil {
-		// some conns may not support tagging, just log
-		log.Warnf("Error tagging deal connection: %w", err)
-	}
-	// TODO: Send intent to accept
 	return ctx.Trigger(storagemarket.ProviderEventDealDeciding)
 }
 
@@ -131,6 +122,10 @@ func DecideOnProposal(ctx fsm.Context, environment ProviderDealEnvironment, deal
 
 	if err != nil {
 		return ctx.Trigger(storagemarket.ProviderEventSendResponseFailed, err)
+	}
+
+	if err := environment.Disconnect(deal.ProposalCid); err != nil {
+		log.Warnf("closing client connection: %+v", err)
 	}
 
 	return ctx.Trigger(storagemarket.ProviderEventDataRequested)

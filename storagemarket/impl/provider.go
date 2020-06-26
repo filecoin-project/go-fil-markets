@@ -16,7 +16,6 @@ import (
 	"github.com/ipfs/go-datastore"
 	blockstore "github.com/ipfs/go-ipfs-blockstore"
 	"github.com/ipld/go-ipld-prime"
-	"github.com/libp2p/go-libp2p-core/peer"
 	"golang.org/x/xerrors"
 
 	"github.com/filecoin-project/go-fil-markets/filestore"
@@ -603,11 +602,6 @@ func (p *providerDealEnvironment) Ask() storagemarket.StorageAsk {
 	return *sask.Ask
 }
 
-func (p *providerDealEnvironment) StartDataTransfer(ctx context.Context, to peer.ID, voucher datatransfer.Voucher, baseCid cid.Cid, selector ipld.Node) error {
-	_, err := p.p.dataTransfer.OpenPullDataChannel(ctx, to, voucher, baseCid, selector)
-	return err
-}
-
 func (p *providerDealEnvironment) GeneratePieceCommitmentToFile(payloadCid cid.Cid, selector ipld.Node) (cid.Cid, filestore.Path, filestore.Path, error) {
 	if p.p.universalRetrievalEnabled {
 		return providerutils.GeneratePieceCommitmentWithMetadata(p.p.fs, p.p.pio.GeneratePieceCommitmentToFile, p.p.proofType, payloadCid, selector)
@@ -646,15 +640,6 @@ func (p *providerDealEnvironment) SendSignedResponse(ctx context.Context, resp *
 		_ = p.p.conns.Disconnect(resp.Proposal)
 	}
 	return err
-}
-
-func (p *providerDealEnvironment) TagConnection(proposalCid cid.Cid) error {
-	s, err := p.p.conns.DealStream(proposalCid)
-	if err != nil {
-		return err
-	}
-	s.TagProtectedConnection(proposalCid.String())
-	return nil
 }
 
 func (p *providerDealEnvironment) Disconnect(proposalCid cid.Cid) error {

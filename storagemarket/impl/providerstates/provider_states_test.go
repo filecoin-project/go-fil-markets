@@ -9,7 +9,6 @@ import (
 	"testing"
 
 	"github.com/filecoin-project/go-address"
-	datatransfer "github.com/filecoin-project/go-data-transfer"
 	"github.com/filecoin-project/go-statemachine/fsm"
 	fsmtest "github.com/filecoin-project/go-statemachine/fsm/testutil"
 	"github.com/filecoin-project/specs-actors/actors/abi"
@@ -17,7 +16,6 @@ import (
 	"github.com/filecoin-project/specs-actors/actors/runtime/exitcode"
 	"github.com/ipfs/go-cid"
 	"github.com/ipld/go-ipld-prime"
-	"github.com/libp2p/go-libp2p-core/peer"
 	"github.com/stretchr/testify/require"
 
 	"github.com/filecoin-project/go-fil-markets/filestore"
@@ -47,9 +45,6 @@ func TestValidateDealProposal(t *testing.T) {
 		dealInspector     func(t *testing.T, deal storagemarket.MinerDeal, env *fakeEnvironment)
 	}{
 		"succeeds": {
-			environmentParams: environmentParams{
-				TagsProposal: true,
-			},
 			dealInspector: func(t *testing.T, deal storagemarket.MinerDeal, env *fakeEnvironment) {
 				tut.AssertDealState(t, storagemarket.StorageDealAcceptWait, deal.State)
 			},
@@ -82,7 +77,7 @@ func TestValidateDealProposal(t *testing.T) {
 			},
 		},
 		"CurrentHeight <= StartEpoch - DealAcceptanceBuffer() succeeds": {
-			environmentParams: environmentParams{DealAcceptanceBuffer: 10, TagsProposal: true},
+			environmentParams: environmentParams{DealAcceptanceBuffer: 10},
 			dealParams:        dealParams{StartEpoch: 200},
 			nodeParams:        nodeParams{Height: 190},
 			dealInspector: func(t *testing.T, deal storagemarket.MinerDeal, env *fakeEnvironment) {
@@ -953,21 +948,12 @@ func (fe *fakeEnvironment) Ask() storagemarket.StorageAsk {
 	return fe.ask
 }
 
-func (fe *fakeEnvironment) StartDataTransfer(ctx context.Context, to peer.ID, voucher datatransfer.Voucher, baseCid cid.Cid, selector ipld.Node) error {
-	return fe.dataTransferError
-}
-
 func (fe *fakeEnvironment) GeneratePieceCommitmentToFile(payloadCid cid.Cid, selector ipld.Node) (cid.Cid, filestore.Path, filestore.Path, error) {
 	return fe.pieceCid, fe.path, fe.metadataPath, fe.generateCommPError
 }
 
 func (fe *fakeEnvironment) SendSignedResponse(ctx context.Context, response *network.Response) error {
 	return fe.sendSignedResponseError
-}
-
-func (fe *fakeEnvironment) TagConnection(proposalCid cid.Cid) error {
-	fe.receivedTags[proposalCid.String()] = struct{}{}
-	return nil
 }
 
 func (fe *fakeEnvironment) VerifyExpectations(t *testing.T) {
