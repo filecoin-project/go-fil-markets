@@ -250,11 +250,11 @@ func (c *Client) GetProviderDealState(ctx context.Context, info storagemarket.St
 }
 
 /*
-ProposeStorageDeal initiates the retrieval deal flow, which involes multiple requests and responses.
+ProposeStorageDeal initiates the retrieval deal flow, which involves multiple requests and responses.
 
 This function is called after using ListProviders and QueryAs are used to identify an appropriate provider
 to store data. The parameters passed to ProposeStorageDeal should matched those returned by the miner from
-QueryAsk to insure the greatest likelyhood the provider will accept the deal.
+QueryAsk to ensure the greatest likelihood the provider will accept the deal.
 
 When called, the client takes the following actions:
 

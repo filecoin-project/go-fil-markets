@@ -123,7 +123,7 @@ const (
 	// ClientEventPaymentSent indicates a payment was sent to the provider
 	ClientEventPaymentSent
 
-	// ClientEventConsumeBlockFailed indicates an error occurrect while trying to
+	// ClientEventConsumeBlockFailed indicates an error occurred while trying to
 	// read a block from the provider
 	ClientEventConsumeBlockFailed
 
@@ -227,7 +227,7 @@ type RetrievalClientNode interface {
 	GetChainHead(ctx context.Context) (shared.TipSetToken, abi.ChainEpoch, error)
 
 	// GetOrCreatePaymentChannel sets up a new payment channel if one does not exist
-	// between a client and a miner and insures the client has the given amount of funds available in the channel
+	// between a client and a miner and ensures the client has the given amount of funds available in the channel
 	GetOrCreatePaymentChannel(ctx context.Context, clientAddress, minerAddress address.Address,
 		clientFundsAvailable abi.TokenAmount, tok shared.TipSetToken) (address.Address, cid.Cid, error)
 
@@ -292,7 +292,7 @@ const (
 	// ProviderEventDecisioningError means the Deciding function returned an error
 	ProviderEventDecisioningError
 
-	// ProviderEventWriteResponseFailed happens when a network error ocurrs writing a deal response
+	// ProviderEventWriteResponseFailed happens when a network error occurs writing a deal response
 	ProviderEventWriteResponseFailed
 
 	// ProviderEventReadPaymentFailed happens when a network error occurs trying to read a
@@ -318,7 +318,7 @@ const (
 	// trying to read the next block from the piece
 	ProviderEventBlockErrored
 
-	// ProviderEventBlocksCompleted happeds when the provider reads the last block
+	// ProviderEventBlocksCompleted happens when the provider reads the last block
 	// in the piece
 	ProviderEventBlocksCompleted
 

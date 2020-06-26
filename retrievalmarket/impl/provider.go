@@ -194,7 +194,7 @@ A Provider handling a retrieval `Query` does the following:
 
 2. Look in its piece store for determine if it can serve the given payload CID.
 
-3. Combine these results with it's existing parameters for retrieval deals to construct a `retrievalmarket.QueryResponse` struct.
+3. Combine these results with its existing parameters for retrieval deals to construct a `retrievalmarket.QueryResponse` struct.
 
 4.0 Writes this response to the `Query` stream.
 
