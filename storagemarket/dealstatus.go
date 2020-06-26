@@ -9,7 +9,7 @@ const (
 	// StorageDealUnknown means the current status of a deal is undefined
 	StorageDealUnknown = StorageDealStatus(iota)
 
-	// StorageDealProposalNotFound is a status returned in responses when the deal itself cannont
+	// StorageDealProposalNotFound is a status returned in responses when the deal itself cannot
 	// be located
 	StorageDealProposalNotFound
 
@@ -37,10 +37,10 @@ const (
 	StorageDealSlashed
 
 	// StorageDealFailing means something has gone wrong in a deal. Once data is cleaned up the deal will
-	// finalize on StorateDealError
+	// finalize on StorageDealError
 	StorageDealFailing
 
-	// StorageDealFundsEnsured means we've deposited funds as neccesary to create a deal, ready to move forward
+	// StorageDealFundsEnsured means we've deposited funds as necessary to create a deal, ready to move forward
 	StorageDealFundsEnsured
 
 	// StorageDealWaitingForDataRequest means the client is waiting for a request for the deal data from the provider

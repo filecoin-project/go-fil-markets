@@ -69,7 +69,7 @@ type StorageProviderNode interface {
 	// GetMinerWorkerAddress returns the worker address associated with a miner
 	GetMinerWorkerAddress(ctx context.Context, addr address.Address, tok shared.TipSetToken) (address.Address, error)
 
-	// LocatePieceForDealWithinSector looks up a given dealID in the miners sectors, and returns it's sectorID and location
+	// LocatePieceForDealWithinSector looks up a given dealID in the miners sectors, and returns its sectorID and location
 	LocatePieceForDealWithinSector(ctx context.Context, dealID abi.DealID, tok shared.TipSetToken) (sectorID uint64, offset uint64, length uint64, err error)
 }
 

@@ -30,8 +30,8 @@ type Balance struct {
 
 // StorageAsk defines the parameters by which a miner will choose to accept or
 // reject a deal. Note: making a storage deal proposal which matches the miner's
-// ask is a precondition, but not sufficient to insure the deal is accepted (the
-// storage provider may run it's own decision logic).
+// ask is a precondition, but not sufficient to ensure the deal is accepted (the
+// storage provider may run its own decision logic).
 type StorageAsk struct {
 	// Price per GiB / Epoch
 	Price abi.TokenAmount
@@ -56,14 +56,14 @@ var SignedStorageAskUndefined = SignedStorageAsk{}
 // StorageAskOption allows custom configuration of a storage ask
 type StorageAskOption func(*StorageAsk)
 
-// MinPieceSize configures a minimum piece size on a StorageAsk
+// MinPieceSize configures a minimum piece size of a StorageAsk
 func MinPieceSize(minPieceSize abi.PaddedPieceSize) StorageAskOption {
 	return func(sa *StorageAsk) {
 		sa.MinPieceSize = minPieceSize
 	}
 }
 
-// MaxPieceSize configures maxiumum piece size on a StorageAsk
+// MaxPieceSize configures maxiumum piece size of a StorageAsk
 func MaxPieceSize(maxPieceSize abi.PaddedPieceSize) StorageAskOption {
 	return func(sa *StorageAsk) {
 		sa.MaxPieceSize = maxPieceSize

@@ -123,7 +123,7 @@ func (n *FakeCommonNode) AddFunds(ctx context.Context, addr address.Address, amo
 	return n.AddFundsCid, nil
 }
 
-// EnsureFunds adds funds to the given actor in the storage market state to insure it has at least the given amount
+// EnsureFunds adds funds to the given actor in the storage market state to ensure it has at least the given amount
 func (n *FakeCommonNode) EnsureFunds(ctx context.Context, addr, wallet address.Address, amount abi.TokenAmount, tok shared.TipSetToken) (cid.Cid, error) {
 	if n.EnsureFundsError == nil {
 		balance := n.SMState.Balance(addr)

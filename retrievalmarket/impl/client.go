@@ -92,7 +92,7 @@ func (c *Client) FindProviders(payloadCID cid.Cid) []retrievalmarket.RetrievalPe
 
 /*
 Query sends a retrieval query to a specific retrieval provider, to determine
-if the provider can serve a retrieval request and what it's specific parameters for
+if the provider can serve a retrieval request and what its specific parameters for
 the request are.
 
 The client a new `RetrievalQueryStream` for the chosen peer ID,
@@ -119,15 +119,15 @@ func (c *Client) Query(_ context.Context, p retrievalmarket.RetrievalPeer, paylo
 }
 
 /*
-Retrieve initiates the retrieval deal flow, which involes multiple requests and responses
+Retrieve initiates the retrieval deal flow, which involves multiple requests and responses
 
 To start this processes, the client creates a new `RetrievalDealStream`.  Currently, this connection is
 kept open through the entire deal until completion or failure.  Make deals pauseable as well as surviving
 a restart is a planned future feature.
 
 Retrieve should be called after using FindProviders and Query are used to identify an appropriate provider to
-retrieve the deal from. The parameters identified in Query should be passed to Retrieve to insure the
-greatest likelyhood the provider will accept the deal
+retrieve the deal from. The parameters identified in Query should be passed to Retrieve to ensure the
+greatest likelihood the provider will accept the deal
 
 When called, the client takes the following actions:
 

@@ -26,7 +26,7 @@ type CarIO interface {
 	// WriteCar writes a given payload to a CAR file and into the passed IO stream
 	WriteCar(ctx context.Context, bs ReadStore, payloadCid cid.Cid, node ipld.Node, w io.Writer, userOnNewCarBlocks ...car.OnNewCarBlockFunc) error
 
-	// PrepareCar prepares a car so that it's total size can be calculated without writing it to a file.
+	// PrepareCar prepares a car so that its total size can be calculated without writing it to a file.
 	// It can then be written with PreparedCar.Dump
 	PrepareCar(ctx context.Context, bs ReadStore, payloadCid cid.Cid, node ipld.Node) (PreparedCar, error)
 
