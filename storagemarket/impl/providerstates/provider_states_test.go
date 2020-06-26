@@ -402,7 +402,6 @@ func TestWaitForPublish(t *testing.T) {
 			dealInspector: func(t *testing.T, deal storagemarket.MinerDeal, env *fakeEnvironment) {
 				tut.AssertDealState(t, storagemarket.StorageDealStaged, deal.State)
 				require.Equal(t, expDealID, deal.DealID)
-				require.Equal(t, true, deal.ConnectionClosed)
 			},
 		},
 		"PublishStorageDeal errors": {
@@ -628,21 +627,6 @@ func TestFailDeal(t *testing.T) {
 				tut.AssertDealState(t, storagemarket.StorageDealError, deal.State)
 			},
 		},
-		"succeeds, skips response": {
-			environmentParams: environmentParams{
-				// no send response should happen, so this error should not prevent
-				// success
-				SendSignedResponseError: errors.New("could not send"),
-			},
-			dealParams: dealParams{
-				ConnectionClosed: true,
-			},
-			dealInspector: func(t *testing.T, deal storagemarket.MinerDeal, env *fakeEnvironment) {
-				tut.AssertDealState(t, storagemarket.StorageDealError, deal.State)
-				// should not have additional error message
-				require.Equal(t, "", deal.Message)
-			},
-		},
 		"succeeds, file deletions": {
 			dealParams: dealParams{
 				PiecePath:    defaultPath,
@@ -654,15 +638,6 @@ func TestFailDeal(t *testing.T) {
 			},
 			dealInspector: func(t *testing.T, deal storagemarket.MinerDeal, env *fakeEnvironment) {
 				tut.AssertDealState(t, storagemarket.StorageDealError, deal.State)
-			},
-		},
-		"SendSignedResponse errors": {
-			environmentParams: environmentParams{
-				SendSignedResponseError: errors.New("could not send"),
-			},
-			dealInspector: func(t *testing.T, deal storagemarket.MinerDeal, env *fakeEnvironment) {
-				tut.AssertDealState(t, storagemarket.StorageDealError, deal.State)
-				require.Equal(t, "sending response to deal: could not send", deal.Message)
 			},
 		},
 	}
@@ -753,7 +728,6 @@ type nodeParams struct {
 type dealParams struct {
 	PiecePath            filestore.Path
 	MetadataPath         filestore.Path
-	ConnectionClosed     bool
 	DealID               abi.DealID
 	DataRef              *storagemarket.DataRef
 	StoragePricePerEpoch abi.TokenAmount
@@ -888,9 +862,6 @@ func makeExecutor(ctx context.Context,
 		}
 		if dealParams.MetadataPath != filestore.Path("") {
 			dealState.MetadataPath = dealParams.MetadataPath
-		}
-		if dealParams.ConnectionClosed {
-			dealState.ConnectionClosed = true
 		}
 		if dealParams.DealID != abi.DealID(0) {
 			dealState.DealID = dealParams.DealID

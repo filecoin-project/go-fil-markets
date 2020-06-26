@@ -22,7 +22,6 @@ var ClientEvents = fsm.Events{
 	fsm.Event(storagemarket.ClientEventEnsureFundsFailed).
 		FromMany(storagemarket.StorageDealClientFunding, storagemarket.StorageDealEnsureClientFunds).To(storagemarket.StorageDealFailing).
 		Action(func(deal *storagemarket.ClientDeal, err error) error {
-			deal.ConnectionClosed = true
 			deal.Message = xerrors.Errorf("adding market funds failed: %w", err).Error()
 			return nil
 		}),

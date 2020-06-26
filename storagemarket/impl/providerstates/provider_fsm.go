@@ -80,7 +80,6 @@ var ProviderEvents = fsm.Events{
 	fsm.Event(storagemarket.ProviderEventDealPublished).
 		From(storagemarket.StorageDealPublishing).To(storagemarket.StorageDealStaged).
 		Action(func(deal *storagemarket.MinerDeal, dealID abi.DealID) error {
-			deal.ConnectionClosed = true
 			deal.DealID = dealID
 			return nil
 		}),

@@ -22,7 +22,7 @@ func (t *ClientDeal) MarshalCBOR(w io.Writer) error {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	if _, err := w.Write([]byte{141}); err != nil {
+	if _, err := w.Write([]byte{140}); err != nil {
 		return err
 	}
 
@@ -118,11 +118,6 @@ func (t *ClientDeal) MarshalCBOR(w io.Writer) error {
 		}
 	}
 
-	// t.ConnectionClosed (bool) (bool)
-	if err := cbg.WriteBool(w, t.ConnectionClosed); err != nil {
-		return err
-	}
-
 	// t.PollRetryCount (uint64) (uint64)
 
 	if _, err := w.Write(cbg.CborEncodeMajorType(cbg.MajUnsignedInt, uint64(t.PollRetryCount))); err != nil {
@@ -143,7 +138,7 @@ func (t *ClientDeal) UnmarshalCBOR(r io.Reader) error {
 		return fmt.Errorf("cbor input should be of type array")
 	}
 
-	if extra != 13 {
+	if extra != 12 {
 		return fmt.Errorf("cbor input had wrong number of fields")
 	}
 
@@ -319,23 +314,6 @@ func (t *ClientDeal) UnmarshalCBOR(r io.Reader) error {
 
 		t.SlashEpoch = abi.ChainEpoch(extraI)
 	}
-	// t.ConnectionClosed (bool) (bool)
-
-	maj, extra, err = cbg.CborReadHeader(br)
-	if err != nil {
-		return err
-	}
-	if maj != cbg.MajOther {
-		return fmt.Errorf("booleans must be major type 7")
-	}
-	switch extra {
-	case 20:
-		t.ConnectionClosed = false
-	case 21:
-		t.ConnectionClosed = true
-	default:
-		return fmt.Errorf("booleans are either major type 7, value 20 or 21 (got %d)", extra)
-	}
 	// t.PollRetryCount (uint64) (uint64)
 
 	{
@@ -358,7 +336,7 @@ func (t *MinerDeal) MarshalCBOR(w io.Writer) error {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	if _, err := w.Write([]byte{141}); err != nil {
+	if _, err := w.Write([]byte{140}); err != nil {
 		return err
 	}
 
@@ -451,11 +429,6 @@ func (t *MinerDeal) MarshalCBOR(w io.Writer) error {
 		return err
 	}
 
-	// t.ConnectionClosed (bool) (bool)
-	if err := cbg.WriteBool(w, t.ConnectionClosed); err != nil {
-		return err
-	}
-
 	// t.Message (string) (string)
 	if len(t.Message) > cbg.MaxLength {
 		return xerrors.Errorf("Value in field t.Message was too long")
@@ -493,7 +466,7 @@ func (t *MinerDeal) UnmarshalCBOR(r io.Reader) error {
 		return fmt.Errorf("cbor input should be of type array")
 	}
 
-	if extra != 13 {
+	if extra != 12 {
 		return fmt.Errorf("cbor input had wrong number of fields")
 	}
 
@@ -619,23 +592,6 @@ func (t *MinerDeal) UnmarshalCBOR(r io.Reader) error {
 		}
 
 		t.MetadataPath = filestore.Path(sval)
-	}
-	// t.ConnectionClosed (bool) (bool)
-
-	maj, extra, err = cbg.CborReadHeader(br)
-	if err != nil {
-		return err
-	}
-	if maj != cbg.MajOther {
-		return fmt.Errorf("booleans must be major type 7")
-	}
-	switch extra {
-	case 20:
-		t.ConnectionClosed = false
-	case 21:
-		t.ConnectionClosed = true
-	default:
-		return fmt.Errorf("booleans are either major type 7, value 20 or 21 (got %d)", extra)
 	}
 	// t.Message (string) (string)
 

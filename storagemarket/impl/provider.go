@@ -532,12 +532,6 @@ func (p *Provider) restartDeals() error {
 			continue
 		}
 
-		if deal.ConnectionClosed {
-			continue
-		}
-
-		// TODO: Fixup deal streams if necessary...
-
 		err = p.deals.Send(deal.ProposalCid, storagemarket.ProviderEventRestart)
 		if err != nil {
 			return err

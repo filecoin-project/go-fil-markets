@@ -79,7 +79,7 @@ func TestWaitForFunding(t *testing.T) {
 }
 
 func TestProposeDeal(t *testing.T) {
-	t.Run("succeeds and closes the deal stream", func(t *testing.T) {
+	t.Run("succeeds and closes stream", func(t *testing.T) {
 		ds := tut.NewTestStorageDealStream(tut.TestStorageDealStreamParams{
 			ResponseReader: testResponseReader(t, responseParams{
 				state:    storagemarket.StorageDealWaitingForData,
@@ -91,7 +91,7 @@ func TestProposeDeal(t *testing.T) {
 			nodeParams: nodeParams{WaitForMessageExitCode: exitcode.Ok},
 			inspector: func(deal storagemarket.ClientDeal, env *fakeEnvironment) {
 				tut.AssertDealState(t, storagemarket.StorageDealStartDataTransfer, deal.State)
-				assert.Len(t, env.closeStreamCalls, 1)
+				assert.Equal(t, 1, env.closeStreamCount)
 			},
 		})
 	})
@@ -410,36 +410,6 @@ func TestWaitForDealCompletion(t *testing.T) {
 	})
 }
 
-func TestFailDeal(t *testing.T) {
-	t.Run("closes an open stream", func(t *testing.T) {
-		runAndInspect(t, storagemarket.StorageDealFailing, clientstates.FailDeal, testCase{
-			stateParams: dealStateParams{connectionClosed: false},
-			inspector: func(deal storagemarket.ClientDeal, env *fakeEnvironment) {
-				assert.Equal(t, storagemarket.StorageDealError, deal.State)
-			},
-		})
-	})
-	t.Run("unable to close an the open stream", func(t *testing.T) {
-		runAndInspect(t, storagemarket.StorageDealFailing, clientstates.FailDeal, testCase{
-			stateParams: dealStateParams{connectionClosed: false},
-			envParams:   envParams{closeStreamErr: errors.New("unable to close")},
-			inspector: func(deal storagemarket.ClientDeal, env *fakeEnvironment) {
-				assert.Equal(t, storagemarket.StorageDealError, deal.State)
-				assert.Equal(t, "error attempting to close stream: unable to close", deal.Message)
-			},
-		})
-	})
-	t.Run("doesn't try to close a closed stream", func(t *testing.T) {
-		runAndInspect(t, storagemarket.StorageDealFailing, clientstates.FailDeal, testCase{
-			stateParams: dealStateParams{connectionClosed: true},
-			inspector: func(deal storagemarket.ClientDeal, env *fakeEnvironment) {
-				assert.Len(t, env.closeStreamCalls, 0)
-				assert.Equal(t, storagemarket.StorageDealError, deal.State)
-			},
-		})
-	})
-}
-
 type envParams struct {
 	dealStream             smnet.StorageDealStream
 	closeStreamErr         error
@@ -451,8 +421,7 @@ type envParams struct {
 }
 
 type dealStateParams struct {
-	connectionClosed bool
-	addFundsCid      *cid.Cid
+	addFundsCid *cid.Cid
 }
 
 type executor func(t *testing.T,
@@ -474,7 +443,6 @@ func makeExecutor(ctx context.Context,
 		dealState, err := tut.MakeTestClientDeal(initialState, clientDealProposal, envParams.manualTransfer)
 		assert.NoError(t, err)
 		dealState.AddFundsCid = &tut.GenerateCids(1)[0]
-		dealState.ConnectionClosed = dealParams.connectionClosed
 
 		if dealParams.addFundsCid != nil {
 			dealState.AddFundsCid = dealParams.addFundsCid
@@ -554,7 +522,7 @@ type fakeEnvironment struct {
 	node                   storagemarket.StorageClientNode
 	dealStream             smnet.StorageDealStream
 	closeStreamErr         error
-	closeStreamCalls       []cid.Cid
+	closeStreamCount       int
 	startDataTransferError error
 	startDataTransferCalls []dataTransferParams
 	providerDealState      *storagemarket.ProviderDealState
@@ -587,17 +555,12 @@ func (fe *fakeEnvironment) WriteDealProposal(_ peer.ID, _ cid.Cid, proposal smne
 	return fe.dealStream.WriteDealProposal(proposal)
 }
 
-func (fe *fakeEnvironment) ReadDealResponse(_ cid.Cid) (smnet.SignedResponse, error) {
-	return fe.dealStream.ReadDealResponse()
+func (fe *fakeEnvironment) NewDealStream(_ peer.ID) (smnet.StorageDealStream, error) {
+	return fe.dealStream, nil
 }
 
-func (fe *fakeEnvironment) TagConnection(proposalCid cid.Cid) error {
-	fe.dealStream.TagProtectedConnection(proposalCid.String())
-	return nil
-}
-
-func (fe *fakeEnvironment) CloseStream(proposalCid cid.Cid) error {
-	fe.closeStreamCalls = append(fe.closeStreamCalls, proposalCid)
+func (fe *fakeEnvironment) CloseDealStream(_ smnet.StorageDealStream) error {
+	fe.closeStreamCount += 1
 	return fe.closeStreamErr
 }
 

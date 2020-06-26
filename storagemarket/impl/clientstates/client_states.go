@@ -27,10 +27,8 @@ var log = logging.Logger("storagemarket_impl")
 // dependencies from the storage client environment
 type ClientDealEnvironment interface {
 	Node() storagemarket.StorageClientNode
-	WriteDealProposal(p peer.ID, proposalCid cid.Cid, proposal network.Proposal) error
-	TagConnection(proposalCid cid.Cid) error
-	ReadDealResponse(proposalCid cid.Cid) (network.SignedResponse, error)
-	CloseStream(proposalCid cid.Cid) error
+	NewDealStream(p peer.ID) (network.StorageDealStream, error)
+	CloseDealStream(s network.StorageDealStream) error
 	StartDataTransfer(ctx context.Context, to peer.ID, voucher datatransfer.Voucher, baseCid cid.Cid, selector ipld.Node) error
 	GetProviderDealState(ctx context.Context, proposalCid cid.Cid) (*storagemarket.ProviderDealState, error)
 	PollingInterval() time.Duration
@@ -81,16 +79,22 @@ func WaitForFunding(ctx fsm.Context, environment ClientDealEnvironment, deal sto
 // ProposeDeal sends the deal proposal to the provider
 func ProposeDeal(ctx fsm.Context, environment ClientDealEnvironment, deal storagemarket.ClientDeal) error {
 	proposal := network.Proposal{DealProposal: &deal.ClientDealProposal, Piece: deal.DataRef}
-	if err := environment.WriteDealProposal(deal.Miner, deal.ProposalCid, proposal); err != nil {
+
+	s, err := environment.NewDealStream(deal.Miner)
+	if err != nil {
 		return ctx.Trigger(storagemarket.ClientEventWriteProposalFailed, err)
 	}
 
-	resp, err := environment.ReadDealResponse(deal.ProposalCid)
+	if err := s.WriteDealProposal(proposal); err != nil {
+		return ctx.Trigger(storagemarket.ClientEventWriteProposalFailed, err)
+	}
+
+	resp, err := s.ReadDealResponse()
 	if err != nil {
 		return ctx.Trigger(storagemarket.ClientEventReadResponseFailed, err)
 	}
 
-	err = environment.CloseStream(deal.ProposalCid)
+	err = environment.CloseDealStream(s)
 	if err != nil {
 		return ctx.Trigger(storagemarket.ClientEventStreamCloseError, err)
 	}
@@ -234,13 +238,6 @@ func WaitForDealCompletion(ctx fsm.Context, environment ClientDealEnvironment, d
 
 // FailDeal cleans up a failing deal
 func FailDeal(ctx fsm.Context, environment ClientDealEnvironment, deal storagemarket.ClientDeal) error {
-
-	if !deal.ConnectionClosed {
-		if err := environment.CloseStream(deal.ProposalCid); err != nil {
-			return ctx.Trigger(storagemarket.ClientEventStreamCloseError, err)
-		}
-	}
-
 	// TODO: store in some sort of audit log
 	log.Errorf("deal %s failed: %s", deal.ProposalCid, deal.Message)
 

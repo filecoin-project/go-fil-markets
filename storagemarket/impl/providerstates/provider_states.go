@@ -341,22 +341,6 @@ func FailDeal(ctx fsm.Context, environment ProviderDealEnvironment, deal storage
 
 	log.Warnf("deal %s failed: %s", deal.ProposalCid, deal.Message)
 
-	if !deal.ConnectionClosed {
-		err := environment.SendSignedResponse(ctx.Context(), &network.Response{
-			State:    storagemarket.StorageDealFailing,
-			Message:  deal.Message,
-			Proposal: deal.ProposalCid,
-		})
-
-		if err != nil {
-			return ctx.Trigger(storagemarket.ProviderEventSendResponseFailed, err)
-		}
-
-		if err := environment.Disconnect(deal.ProposalCid); err != nil {
-			log.Warnf("closing client connection: %+v", err)
-		}
-	}
-
 	if deal.PiecePath != filestore.Path("") {
 		err := environment.FileStore().Delete(deal.PiecePath)
 		if err != nil {
