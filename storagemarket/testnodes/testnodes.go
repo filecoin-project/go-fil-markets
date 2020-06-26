@@ -225,12 +225,12 @@ func (n *FakeClientNode) GetDefaultWalletAddress(ctx context.Context) (address.A
 	return n.ClientAddr, nil
 }
 
+// GetMinerInfo returns stubbed information for the first miner in storage market state
 func (n *FakeClientNode) GetMinerInfo(ctx context.Context, maddr address.Address, tok shared.TipSetToken) (*storagemarket.StorageProviderInfo, error) {
 	if len(n.SMState.Providers) == 0 {
 		return nil, errors.New("Provider not found")
-	} else {
-		return n.SMState.Providers[0], nil
 	}
+	return n.SMState.Providers[0], nil
 }
 
 // ValidateAskSignature returns the stubbed validation error and a boolean value
