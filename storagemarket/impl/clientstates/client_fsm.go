@@ -65,8 +65,11 @@ var ClientEvents = fsm.Events{
 		FromMany(storagemarket.StorageDealTransferring, storagemarket.StorageDealStartDataTransfer).To(storagemarket.StorageDealCheckForAcceptance),
 	fsm.Event(storagemarket.ClientEventWaitForDealState).
 		From(storagemarket.StorageDealCheckForAcceptance).ToNoChange().
-		Action(func(deal *storagemarket.ClientDeal) error {
+		Action(func(deal *storagemarket.ClientDeal, pollError bool) error {
 			deal.PollRetryCount += 1
+			if pollError {
+				deal.PollErrorCount += 1
+			}
 			return nil
 		}),
 	fsm.Event(storagemarket.ClientEventResponseDealDidNotMatch).

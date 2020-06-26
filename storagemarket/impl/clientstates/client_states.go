@@ -145,7 +145,7 @@ func CheckForDealAcceptance(ctx fsm.Context, environment ClientDealEnvironment, 
 	dealState, err := environment.GetProviderDealState(ctx.Context(), deal.ProposalCid)
 	if err != nil {
 		log.Warnf("error when querying provider deal state: %w", err) // TODO: at what point do we fail the deal?
-		return waitAgain(ctx, environment, deal)
+		return waitAgain(ctx, environment, true)
 	}
 
 	if isFailed(dealState.State) {
@@ -160,16 +160,16 @@ func CheckForDealAcceptance(ctx fsm.Context, environment ClientDealEnvironment, 
 		return ctx.Trigger(storagemarket.ClientEventDealAccepted, dealState.PublishCid)
 	}
 
-	return waitAgain(ctx, environment, deal)
+	return waitAgain(ctx, environment, false)
 }
 
-func waitAgain(ctx fsm.Context, environment ClientDealEnvironment, _ storagemarket.ClientDeal) error {
+func waitAgain(ctx fsm.Context, environment ClientDealEnvironment, pollError bool) error {
 	t := time.NewTimer(environment.PollingInterval())
 
 	go func() {
 		select {
 		case <-t.C:
-			_ = ctx.Trigger(storagemarket.ClientEventWaitForDealState)
+			_ = ctx.Trigger(storagemarket.ClientEventWaitForDealState, pollError)
 		case <-ctx.Context().Done():
 			t.Stop()
 			return

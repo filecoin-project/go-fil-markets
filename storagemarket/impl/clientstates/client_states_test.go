@@ -281,6 +281,7 @@ func TestCheckForDealAcceptance(t *testing.T) {
 			inspector: func(deal storagemarket.ClientDeal, env *fakeEnvironment) {
 				tut.AssertDealState(t, storagemarket.StorageDealCheckForAcceptance, deal.State)
 				assert.Equal(t, uint64(1), deal.PollRetryCount)
+				assert.Equal(t, uint64(1), deal.PollErrorCount)
 			},
 		})
 	})
