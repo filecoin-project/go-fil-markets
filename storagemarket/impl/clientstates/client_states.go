@@ -85,17 +85,6 @@ func ProposeDeal(ctx fsm.Context, environment ClientDealEnvironment, deal storag
 		return ctx.Trigger(storagemarket.ClientEventWriteProposalFailed, err)
 	}
 
-	if err := environment.TagConnection(deal.ProposalCid); err != nil {
-		// some conns may not support tagging, just log
-		log.Warnf("Error tagging deal connection: %w", err)
-	}
-
-	return ctx.Trigger(storagemarket.ClientEventDealProposed)
-}
-
-// WaitingForDataRequest reads the deal response from the provider then initiates a data request if the
-// provider indicates it intends to accept the request
-func WaitingForDataRequest(ctx fsm.Context, environment ClientDealEnvironment, deal storagemarket.ClientDeal) error {
 	resp, err := environment.ReadDealResponse(deal.ProposalCid)
 	if err != nil {
 		return ctx.Trigger(storagemarket.ClientEventReadResponseFailed, err)
@@ -119,10 +108,13 @@ func WaitingForDataRequest(ctx fsm.Context, environment ClientDealEnvironment, d
 		return ctx.Trigger(storagemarket.ClientEventUnexpectedDealState, resp.Response.State, resp.Response.Message)
 	}
 
+	return ctx.Trigger(storagemarket.ClientEventInitiateDataTransfer)
+}
+
+// InitiateDataTransfer initiates data transfer to the provider
+func InitiateDataTransfer(ctx fsm.Context, environment ClientDealEnvironment, deal storagemarket.ClientDeal) error {
 	if deal.DataRef.TransferType == storagemarket.TTManual {
 		log.Infof("manual data transfer for deal %s", deal.ProposalCid)
-
-		// Temporary, we will move to a query/response protocol to check on deal status
 		return ctx.Trigger(storagemarket.ClientEventDataTransferComplete)
 	}
 
@@ -130,7 +122,7 @@ func WaitingForDataRequest(ctx fsm.Context, environment ClientDealEnvironment, d
 
 	// initiate a push data transfer. This will complete asynchronously and the
 	// completion of the data transfer will trigger a change in deal state
-	err = environment.StartDataTransfer(ctx.Context(),
+	err := environment.StartDataTransfer(ctx.Context(),
 		deal.Miner,
 		&requestvalidation.StorageDataTransferVoucher{Proposal: deal.ProposalCid},
 		deal.DataRef.Root,
@@ -167,7 +159,7 @@ func CheckForDealAcceptance(ctx fsm.Context, environment ClientDealEnvironment, 
 	return waitAgain(ctx, environment, deal)
 }
 
-func waitAgain(ctx fsm.Context, environment ClientDealEnvironment, deal storagemarket.ClientDeal) error {
+func waitAgain(ctx fsm.Context, environment ClientDealEnvironment, _ storagemarket.ClientDeal) error {
 	t := time.NewTimer(environment.PollingInterval())
 
 	go func() {
@@ -180,7 +172,6 @@ func waitAgain(ctx fsm.Context, environment ClientDealEnvironment, deal storagem
 		}
 	}()
 
-	// track timer and cancel?
 	return nil
 }
 

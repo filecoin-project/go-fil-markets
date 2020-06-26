@@ -7,21 +7,21 @@ stateDiagram-v2
 	state "StorageDealSlashed" as 8
 	state "StorageDealFailing" as 9
 	state "StorageDealFundsEnsured" as 10
-	state "StorageDealWaitingForDataRequest" as 11
 	state "StorageDealCheckForAcceptance" as 12
-	state "StorageDealTransferring" as 15
-	state "StorageDealEnsureClientFunds" as 19
-	state "StorageDealClientFunding" as 21
-	state "StorageDealError" as 24
+	state "StorageDealStartDataTransfer" as 15
+	state "StorageDealTransferring" as 16
+	state "StorageDealEnsureClientFunds" as 20
+	state "StorageDealClientFunding" as 22
+	state "StorageDealError" as 25
 	3 : On entry runs ValidateDealPublished
 	5 : On entry runs VerifyDealActivated
 	6 : On entry runs WaitForDealCompletion
 	9 : On entry runs FailDeal
 	10 : On entry runs ProposeDeal
-	11 : On entry runs WaitingForDataRequest
 	12 : On entry runs CheckForDealAcceptance
-	19 : On entry runs EnsureClientFunds
-	21 : On entry runs WaitForFunding
+	15 : On entry runs InitiateDataTransfer
+	20 : On entry runs EnsureClientFunds
+	22 : On entry runs WaitForFunding
 	[*] --> 0
 	note right of 0
 		The following events are not shown cause they can trigger from any state.
@@ -29,34 +29,34 @@ stateDiagram-v2
 		ClientEventStreamCloseError - transitions state to StorageDealError
 		ClientEventRestart - does not transition state
 	end note
-	0 --> 19 : ClientEventOpen
-	19 --> 21 : ClientEventFundingInitiated
-	19 --> 9 : ClientEventEnsureFundsFailed
-	21 --> 9 : ClientEventEnsureFundsFailed
-	19 --> 10 : ClientEventFundsEnsured
-	21 --> 10 : ClientEventFundsEnsured
-	10 --> 24 : ClientEventWriteProposalFailed
-	10 --> 11 : ClientEventDealProposed
-	11 --> 24 : ClientEventReadResponseFailed
-	11 --> 9 : ClientEventResponseVerificationFailed
-	11 --> 9 : ClientEventUnexpectedDealState
-	11 --> 9 : ClientEventDataTransferFailed
+	0 --> 20 : ClientEventOpen
+	20 --> 22 : ClientEventFundingInitiated
+	20 --> 9 : ClientEventEnsureFundsFailed
+	22 --> 9 : ClientEventEnsureFundsFailed
+	20 --> 10 : ClientEventFundsEnsured
+	22 --> 10 : ClientEventFundsEnsured
+	10 --> 25 : ClientEventWriteProposalFailed
+	10 --> 9 : ClientEventReadResponseFailed
+	10 --> 9 : ClientEventResponseVerificationFailed
+	10 --> 15 : ClientEventInitiateDataTransfer
+	10 --> 9 : ClientEventUnexpectedDealState
 	15 --> 9 : ClientEventDataTransferFailed
-	11 --> 15 : ClientEventDataTransferInitiated
-	11 --> 12 : ClientEventDataTransferComplete
+	16 --> 9 : ClientEventDataTransferFailed
+	15 --> 16 : ClientEventDataTransferInitiated
 	15 --> 12 : ClientEventDataTransferComplete
+	16 --> 12 : ClientEventDataTransferComplete
 	12 --> 12 : ClientEventWaitForDealState
 	12 --> 9 : ClientEventResponseDealDidNotMatch
 	12 --> 9 : ClientEventDealRejected
 	12 --> 3 : ClientEventDealAccepted
-	3 --> 24 : ClientEventDealPublishFailed
+	3 --> 25 : ClientEventDealPublishFailed
 	3 --> 5 : ClientEventDealPublished
-	5 --> 24 : ClientEventDealActivationFailed
+	5 --> 25 : ClientEventDealActivationFailed
 	5 --> 6 : ClientEventDealActivated
 	6 --> 8 : ClientEventDealSlashed
 	6 --> 7 : ClientEventDealExpired
-	6 --> 24 : ClientEventDealCompletionFailed
-	9 --> 24 : ClientEventFailed
+	6 --> 25 : ClientEventDealCompletionFailed
+	9 --> 25 : ClientEventFailed
 	8 --> [*]
 	7 --> [*]
-	24 --> [*]
+	25 --> [*]

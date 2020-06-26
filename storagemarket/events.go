@@ -19,8 +19,8 @@ const (
 	// ClientEventWriteProposalFailed indicates an attempt to send a deal proposal to a provider failed
 	ClientEventWriteProposalFailed
 
-	// ClientEventDealProposed happens when a new proposal is sent to a provider
-	ClientEventDealProposed
+	// ClientEventInitiateDataTransfer happens when a a client is ready to transfer data to a provider
+	ClientEventInitiateDataTransfer
 
 	// ClientEventDataTransferInitiated happens when piece data transfer has started
 	ClientEventDataTransferInitiated
@@ -90,7 +90,7 @@ var ClientEvents = map[ClientEvent]string{
 	ClientEventFundingInitiated:           "ClientEventFundingInitiated",
 	ClientEventFundsEnsured:               "ClientEventFundsEnsured",
 	ClientEventWriteProposalFailed:        "ClientEventWriteProposalFailed",
-	ClientEventDealProposed:               "ClientEventDealProposed",
+	ClientEventInitiateDataTransfer:       "ClientEventInitiateDataTransfer",
 	ClientEventDataTransferInitiated:      "ClientEventDataTransferInitiated",
 	ClientEventDataTransferComplete:       "ClientEventDataTransferComplete",
 	ClientEventWaitForDealState:           "ClientEventWaitForDealState",

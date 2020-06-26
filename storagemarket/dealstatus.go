@@ -55,6 +55,9 @@ const (
 	// StorageDealAcceptWait means the provider is running any custom decision logic to decide whether or not to accept the deal
 	StorageDealAcceptWait
 
+	// StorageDealStartDataTransfer means data transfer is beginning
+	StorageDealStartDataTransfer
+
 	// StorageDealTransferring means data is being sent from the client to the provider via the data transfer module
 	StorageDealTransferring
 
@@ -99,6 +102,7 @@ var DealStates = map[StorageDealStatus]string{
 	StorageDealProposalRejected:      "StorageDealProposalRejected",
 	StorageDealProposalAccepted:      "StorageDealProposalAccepted",
 	StorageDealAcceptWait:            "StorageDealAcceptWait",
+	StorageDealStartDataTransfer:     "StorageDealStartDataTransfer",
 	StorageDealStaged:                "StorageDealStaged",
 	StorageDealSealing:               "StorageDealSealing",
 	StorageDealActive:                "StorageDealActive",
