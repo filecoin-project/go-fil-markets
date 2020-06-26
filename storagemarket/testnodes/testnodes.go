@@ -4,6 +4,7 @@ package testnodes
 
 import (
 	"context"
+	"errors"
 	"io"
 
 	"github.com/filecoin-project/go-address"
@@ -225,7 +226,11 @@ func (n *FakeClientNode) GetDefaultWalletAddress(ctx context.Context) (address.A
 }
 
 func (n *FakeClientNode) GetMinerInfo(ctx context.Context, maddr address.Address, tok shared.TipSetToken) (*storagemarket.StorageProviderInfo, error) {
-	return &storagemarket.StorageProviderInfo{PeerID: "peer id"}, nil
+	if len(n.SMState.Providers) == 0 {
+		return nil, errors.New("Provider not found")
+	} else {
+		return n.SMState.Providers[0], nil
+	}
 }
 
 // ValidateAskSignature returns the stubbed validation error and a boolean value
