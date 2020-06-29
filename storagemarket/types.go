@@ -7,6 +7,7 @@ import (
 	"github.com/filecoin-project/specs-actors/actors/crypto"
 	"github.com/ipfs/go-cid"
 	"github.com/libp2p/go-libp2p-core/peer"
+	ma "github.com/multiformats/go-multiaddr"
 
 	"github.com/filecoin-project/go-fil-markets/filestore"
 )
@@ -122,6 +123,7 @@ type StorageProviderInfo struct {
 	Worker     address.Address // signs messages
 	SectorSize uint64
 	PeerID     peer.ID
+	Addrs []ma.Multiaddr
 }
 
 // ProposeStorageDealResult returns the result for a proposing a deal

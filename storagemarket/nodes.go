@@ -97,4 +97,7 @@ type StorageClientNode interface {
 
 	// ValidateAskSignature verifies a the signature is valid for a given SignedStorageAsk
 	ValidateAskSignature(ctx context.Context, ask *SignedStorageAsk, tok shared.TipSetToken) (bool, error)
+
+	// GetMinerInfo returns info for a single miner with the given address
+	GetMinerInfo(ctx context.Context, maddr address.Address, tok shared.TipSetToken) (*StorageProviderInfo, error)
 }
