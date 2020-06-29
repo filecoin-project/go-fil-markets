@@ -2,6 +2,7 @@ package testnodes
 
 import (
 	"context"
+	"errors"
 	"io"
 
 	"github.com/filecoin-project/go-address"
@@ -203,6 +204,16 @@ func (n *FakeClientNode) OnDealSectorCommitted(ctx context.Context, provider add
 	}
 	return n.DealCommittedSyncError
 }
+
+// GetMinerInfo returns stubbed information for the first miner in storage market state
+func (n *FakeClientNode) GetMinerInfo(ctx context.Context, maddr address.Address, tok shared.TipSetToken) (*storagemarket.StorageProviderInfo, error) {
+	if len(n.SMState.Providers) == 0 {
+		return nil, errors.New("Provider not found")
+	}
+	return n.SMState.Providers[0], nil
+}
+
+
 
 // ValidateAskSignature returns the stubbed validation error and a boolean value
 // communicating the validity of the provided signature

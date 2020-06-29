@@ -12,6 +12,7 @@ import (
 	"github.com/ipfs/go-cid"
 	cbor "github.com/ipfs/go-ipld-cbor"
 	"github.com/libp2p/go-libp2p-core/peer"
+	ma "github.com/multiformats/go-multiaddr"
 
 	"github.com/filecoin-project/go-fil-markets/filestore"
 	"github.com/filecoin-project/go-fil-markets/shared"
@@ -506,6 +507,8 @@ type StorageClientNode interface {
 	OnDealSectorCommitted(ctx context.Context, provider address.Address, dealID abi.DealID, cb DealSectorCommittedCallback) error
 
 	ValidateAskSignature(ctx context.Context, ask *SignedStorageAsk, tok shared.TipSetToken) (bool, error)
+	// GetMinerInfo returns info for a single miner with the given address
+	GetMinerInfo(ctx context.Context, maddr address.Address, tok shared.TipSetToken) (*StorageProviderInfo, error)
 }
 
 type StorageClientProofs interface {
@@ -519,7 +522,7 @@ type StorageProviderInfo struct {
 	Worker     address.Address // signs messages
 	SectorSize uint64
 	PeerID     peer.ID
-	// probably more like how much storage power, available collateral etc
+	Addrs      []ma.Multiaddr
 }
 
 type ProposeStorageDealResult struct {

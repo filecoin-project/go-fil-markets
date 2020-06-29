@@ -262,6 +262,7 @@ func newStorageHarness(ctx context.Context, t *testing.T) *storageHarness {
 		PeerID:     td.Host2.ID(),
 	}
 
+	smState.Providers = []*storagemarket.StorageProviderInfo{&providerInfo}
 	return &storageHarness{
 		Ctx:          ctx,
 		Epoch:        epoch,

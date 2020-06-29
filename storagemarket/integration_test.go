@@ -396,6 +396,7 @@ func newHarnessWithTestData(t *testing.T, ctx context.Context, td *shared_testut
 		PeerID:     td.Host2.ID(),
 	}
 
+	smState.Providers = []*storagemarket.StorageProviderInfo{&providerInfo}
 	return &harness{
 		Ctx:          ctx,
 		Epoch:        epoch,

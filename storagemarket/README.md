@@ -252,6 +252,16 @@ func ValidateAskSignature(ctx context.Context, ask *SignedStorageAsk, tok shared
 ```
 Verify the signature in `ask`, returning true (valid) or false (invalid).
 
+
+#### GetMinerInfo
+```go
+func GetMinerInfo(ctx context.Context, maddr address.Address, tok shared.TipSetToken,
+                         ) (*StorageProviderInfo, error)
+```
+
+Returns `StorageProviderInfo` for a specific provider at the given address
+
+
 ## Construction
 
 ### StorageClient

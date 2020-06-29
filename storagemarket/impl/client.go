@@ -151,6 +151,9 @@ func (c *Client) GetLocalDeal(ctx context.Context, cid cid.Cid) (storagemarket.C
 }
 
 func (c *Client) GetAsk(ctx context.Context, info storagemarket.StorageProviderInfo) (*storagemarket.SignedStorageAsk, error) {
+	if len(info.Addrs) > 0 {
+		c.net.AddAddrs(info.PeerID, info.Addrs)
+	}
 	s, err := c.net.NewAskStream(info.PeerID)
 	if err != nil {
 		return nil, xerrors.Errorf("failed to open stream to miner: %w", err)
@@ -315,7 +318,7 @@ func (c *Client) restartDeals() error {
 			continue
 		}
 
-		_, err := c.ensureDealStream(deal.Miner, deal.ProposalCid)
+		_, err := c.ensureDealStream(context.TODO(), deal.ProposalCid, deal.ClientDealProposal.Proposal.Provider)
 		if err != nil {
 			return err
 		}
@@ -344,13 +347,22 @@ func (c *Client) dispatch(eventName fsm.EventName, deal fsm.StateType) {
 	}
 }
 
-func (c *Client) ensureDealStream(provider peer.ID, proposalCid cid.Cid) (network.StorageDealStream, error) {
+func (c *Client) ensureDealStream(ctx context.Context, proposalCid cid.Cid, maddr address.Address) (network.StorageDealStream, error) {
 	s, err := c.conns.DealStream(proposalCid)
 	if err == nil {
 		return s, nil
 	}
 
-	s, err = c.net.NewDealStream(provider)
+	minfo, err := c.node.GetMinerInfo(ctx, maddr, nil)
+	if err != nil {
+		return nil, err
+	}
+
+	if len(minfo.Addrs) > 0 {
+		c.net.AddAddrs(minfo.PeerID, minfo.Addrs)
+	}
+
+	s, err = c.net.NewDealStream(minfo.PeerID)
 	if err != nil {
 		return nil, err
 	}
@@ -405,7 +417,7 @@ func (c *clientDealEnvironment) Node() storagemarket.StorageClientNode {
 }
 
 func (c *clientDealEnvironment) WriteDealProposal(p peer.ID, proposalCid cid.Cid, proposal network.Proposal) error {
-	s, err := c.c.ensureDealStream(p, proposalCid)
+	s, err := c.c.ensureDealStream(context.TODO(), proposalCid, proposal.DealProposal.Proposal.Provider)
 	if err != nil {
 		return err
 	}

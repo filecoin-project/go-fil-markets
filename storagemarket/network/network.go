@@ -2,6 +2,8 @@ package network
 
 import (
 	"github.com/libp2p/go-libp2p-core/peer"
+
+	ma "github.com/multiformats/go-multiaddr"
 )
 
 // StorageAskStream is a stream for reading/writing requests &
@@ -41,4 +43,5 @@ type StorageMarketNetwork interface {
 	SetDelegate(StorageReceiver) error
 	StopHandlingRequests() error
 	ID() peer.ID
+	AddAddrs(peer.ID, []ma.Multiaddr)
 }
