@@ -123,7 +123,7 @@ type StorageProviderInfo struct {
 	Worker     address.Address // signs messages
 	SectorSize uint64
 	PeerID     peer.ID
-	Addrs []ma.Multiaddr
+	Addrs      []ma.Multiaddr
 }
 
 // ProposeStorageDealResult returns the result for a proposing a deal

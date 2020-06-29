@@ -401,6 +401,20 @@ Deal Resumability release. We now attempt to resume storage deals when the appli
 | Łukasz Magiera | 1 | +48/-43 | 15 |
 | Erin Swenson-Healey | 2 | +39/-42 | 10 |
 
+# go-fil-markets 0.3.1
+
+Hotfix release to get `use addresses from miner info for connecting to miners` task merged for downstream dependencies to used
+
+### Changelog
+- github.com/filecoin-project/go-fil-markets:
+  - use addresses from miner info for connecting to miners (#290) ([filecoin-project/go-fil-markets#290](https://github.com/filecoin-project/go-fil-markets/pull/290))
+
+### Contributors
+
+| Contributor | Commits | Lines ± | Files Changed |
+|-------------|---------|---------|---------------|
+| Whyrusleeping | 1 | +53/-5 | 9 |
+
 ### 🙌🏽 Want to contribute?
 
 Would you like to contribute to this repo and don’t know how? Here are a few places you can get started:
