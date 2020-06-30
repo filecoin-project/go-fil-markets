@@ -199,10 +199,6 @@ type FakeClientNode struct {
 	OnDealSlashedEpoch         abi.ChainEpoch
 }
 
-func (n *FakeClientNode) SignBytes(ctx context.Context, signer address.Address, b []byte) (*crypto.Signature, error) {
-	return shared_testutil.MakeTestSignature(), nil
-}
-
 // ListClientDeals just returns the deals in the storage market state
 func (n *FakeClientNode) ListClientDeals(ctx context.Context, addr address.Address, tok shared.TipSetToken) ([]storagemarket.StorageDeal, error) {
 	return n.SMState.Deals(addr), nil

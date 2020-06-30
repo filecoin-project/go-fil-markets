@@ -30,7 +30,6 @@ import (
 	"github.com/filecoin-project/go-fil-markets/storagemarket"
 	"github.com/filecoin-project/go-fil-markets/storagemarket/impl/clientstates"
 	"github.com/filecoin-project/go-fil-markets/storagemarket/impl/clientutils"
-	"github.com/filecoin-project/go-fil-markets/storagemarket/impl/connmanager"
 	"github.com/filecoin-project/go-fil-markets/storagemarket/impl/dtutils"
 	"github.com/filecoin-project/go-fil-markets/storagemarket/network"
 )
@@ -53,7 +52,6 @@ type Client struct {
 	node            storagemarket.StorageClientNode
 	pubSub          *pubsub.PubSub
 	statemachines   fsm.Group
-	conns           *connmanager.ConnManager
 	pollingInterval time.Duration
 }
 
@@ -89,7 +87,6 @@ func NewClient(
 		discovery:       discovery,
 		node:            scn,
 		pubSub:          pubsub.New(clientDispatcher),
-		conns:           connmanager.NewConnManager(),
 		pollingInterval: DefaultPollingInterval,
 	}
 
