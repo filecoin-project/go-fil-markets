@@ -643,11 +643,6 @@ func (p *providerDealEnvironment) SendSignedResponse(ctx context.Context, resp *
 }
 
 func (p *providerDealEnvironment) Disconnect(proposalCid cid.Cid) error {
-	s, err := p.p.conns.DealStream(proposalCid)
-	if err != nil {
-		return err
-	}
-	s.UntagProtectedConnection(proposalCid.String())
 	return p.p.conns.Disconnect(proposalCid)
 }
 
