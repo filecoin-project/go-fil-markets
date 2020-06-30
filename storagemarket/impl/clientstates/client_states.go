@@ -77,7 +77,11 @@ func WaitForFunding(ctx fsm.Context, environment ClientDealEnvironment, deal sto
 
 // ProposeDeal sends the deal proposal to the provider
 func ProposeDeal(ctx fsm.Context, environment ClientDealEnvironment, deal storagemarket.ClientDeal) error {
-	proposal := network.Proposal{DealProposal: &deal.ClientDealProposal, Piece: deal.DataRef}
+	proposal := network.Proposal{
+		DealProposal:  &deal.ClientDealProposal,
+		Piece:         deal.DataRef,
+		FastRetrieval: deal.FastRetrieval,
+	}
 
 	s, err := environment.NewDealStream(deal.Miner)
 	if err != nil {

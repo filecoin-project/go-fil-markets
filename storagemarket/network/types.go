@@ -14,9 +14,9 @@ import (
 // Proposal is the data sent over the network from client to provider when proposing
 // a deal
 type Proposal struct {
-	DealProposal *market.ClientDealProposal
-
-	Piece *storagemarket.DataRef
+	DealProposal  *market.ClientDealProposal
+	Piece         *storagemarket.DataRef
+	FastRetrieval bool
 }
 
 // ProposalUndefined is an empty Proposal message

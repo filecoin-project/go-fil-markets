@@ -220,6 +220,7 @@ func (p *Provider) receiveDeal(s network.StorageDealStream) error {
 		ProposalCid:        proposalNd.Cid(),
 		State:              storagemarket.StorageDealUnknown,
 		Ref:                proposal.Piece,
+		FastRetrieval:      proposal.FastRetrieval,
 	}
 
 	err = p.deals.Begin(proposalNd.Cid(), deal)
