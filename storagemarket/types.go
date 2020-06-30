@@ -153,11 +153,12 @@ type DataRef struct {
 
 // ProviderDealState represents a Provider's current state of a deal
 type ProviderDealState struct {
-	State       StorageDealStatus
-	Message     string
-	Proposal    *market.DealProposal
-	ProposalCid *cid.Cid
-	AddFundsCid *cid.Cid
-	PublishCid  *cid.Cid
-	DealID      abi.DealID
+	State         StorageDealStatus
+	Message       string
+	Proposal      *market.DealProposal
+	ProposalCid   *cid.Cid
+	AddFundsCid   *cid.Cid
+	PublishCid    *cid.Cid
+	DealID        abi.DealID
+	FastRetrieval bool
 }
