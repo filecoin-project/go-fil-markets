@@ -415,6 +415,38 @@ Hotfix release to get `use addresses from miner info for connecting to miners` t
 |-------------|---------|---------|---------------|
 | Whyrusleeping | 1 | +53/-5 | 9 |
 
+# go-fil-markets 0.3.2
+
+New release with expanded documentation, query protocol, deal tracking to expiry/slashing & better error messages!
+
+### Changelog
+
+- github.com/filecoin-project/go-fil-markets:
+  - Add fastRetrieval and verifiedDeal params to ProposeStorageDeal (#303) ([filecoin-project/go-fil-markets#303](https://github.com/filecoin-project/go-fil-markets/pull/303))
+  - use addresses from miner info for connecting to miners (#290) ([filecoin-project/go-fil-markets#290](https://github.com/filecoin-project/go-fil-markets/pull/290))
+  - Godoc improvements (#299) ([filecoin-project/go-fil-markets#299](https://github.com/filecoin-project/go-fil-markets/pull/299))
+  - docs(README): fix links (#298) ([filecoin-project/go-fil-markets#298](https://github.com/filecoin-project/go-fil-markets/pull/298))
+  - Robust GoDoc to document module operation and architecture (#293) ([filecoin-project/go-fil-markets#293](https://github.com/filecoin-project/go-fil-markets/pull/293))
+  - Query protocol (#282) ([filecoin-project/go-fil-markets#282](https://github.com/filecoin-project/go-fil-markets/pull/282))
+  - State Diagrams! (#283) ([filecoin-project/go-fil-markets#283](https://github.com/filecoin-project/go-fil-markets/pull/283))
+  - export the default constants (#280) ([filecoin-project/go-fil-markets#280](https://github.com/filecoin-project/go-fil-markets/pull/280))
+  - Storage client - track deals to expiry or slashing (#284) ([filecoin-project/go-fil-markets#284](https://github.com/filecoin-project/go-fil-markets/pull/284))
+  - Store more detailed information when a deal is rejected (#281) ([filecoin-project/go-fil-markets#281](https://github.com/filecoin-project/go-fil-markets/pull/281))
+  - Release/v0.3.0 ([filecoin-project/go-fil-markets#277](https://github.com/filecoin-project/go-fil-markets/pull/277))
+- github.com/filecoin-project/go-statemachine (v0.0.0-20200612181802-4eb3d0c68eba -> v0.0.0-20200619205156-c7bf525c06ef):
+  - Generate UMLs from FSM Parameters (#14) ([filecoin-project/go-statemachine#14](https://github.com/filecoin-project/go-statemachine/pull/14))
+
+### Contributors
+
+| Contributor | Commits | Lines ± | Files Changed |
+|-------------|---------|---------|---------------|
+| Hannah Howard | 5 | +3049/-928 | 99 |
+| Ingar Shu | 2 | +823/-55 | 22 |
+| dirkmc | 1 | +232/-30 | 9 |
+| Aayush Rajasekaran | 1 | +65/-56 | 11 |
+| Whyrusleeping | 1 | +52/-4 | 10 |
+| Erin Swenson-Healey | 1 | +7/-7 | 1 |
+
 ### 🙌🏽 Want to contribute?
 
 Would you like to contribute to this repo and don’t know how? Here are a few places you can get started:
