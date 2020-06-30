@@ -22,7 +22,6 @@ var ClientEvents = fsm.Events{
 	fsm.Event(storagemarket.ClientEventEnsureFundsFailed).
 		FromMany(storagemarket.StorageDealClientFunding, storagemarket.StorageDealEnsureClientFunds).To(storagemarket.StorageDealFailing).
 		Action(func(deal *storagemarket.ClientDeal, err error) error {
-			deal.ConnectionClosed = true
 			deal.Message = xerrors.Errorf("adding market funds failed: %w", err).Error()
 			return nil
 		}),
@@ -34,50 +33,59 @@ var ClientEvents = fsm.Events{
 			deal.Message = xerrors.Errorf("sending proposal to storage provider failed: %w", err).Error()
 			return nil
 		}),
-	fsm.Event(storagemarket.ClientEventDealProposed).
-		From(storagemarket.StorageDealFundsEnsured).To(storagemarket.StorageDealWaitingForDataRequest),
 	fsm.Event(storagemarket.ClientEventReadResponseFailed).
-		FromMany(storagemarket.StorageDealWaitingForDataRequest, storagemarket.StorageDealValidating).To(storagemarket.StorageDealError).
+		From(storagemarket.StorageDealFundsEnsured).To(storagemarket.StorageDealFailing).
 		Action(func(deal *storagemarket.ClientDeal, err error) error {
 			deal.Message = xerrors.Errorf("error reading Response message: %w", err).Error()
 			return nil
 		}),
 	fsm.Event(storagemarket.ClientEventResponseVerificationFailed).
-		FromMany(storagemarket.StorageDealWaitingForDataRequest, storagemarket.StorageDealValidating).To(storagemarket.StorageDealFailing).
+		From(storagemarket.StorageDealFundsEnsured).To(storagemarket.StorageDealFailing).
 		Action(func(deal *storagemarket.ClientDeal) error {
 			deal.Message = "unable to verify signature on deal response"
 			return nil
 		}),
+	fsm.Event(storagemarket.ClientEventInitiateDataTransfer).
+		From(storagemarket.StorageDealFundsEnsured).To(storagemarket.StorageDealStartDataTransfer),
 	fsm.Event(storagemarket.ClientEventUnexpectedDealState).
-		From(storagemarket.StorageDealWaitingForDataRequest).To(storagemarket.StorageDealFailing).
+		From(storagemarket.StorageDealFundsEnsured).To(storagemarket.StorageDealFailing).
 		Action(func(deal *storagemarket.ClientDeal, status storagemarket.StorageDealStatus, providerMessage string) error {
 			deal.Message = xerrors.Errorf("unexpected deal status while waiting for data request: %d (%s). Provider message: %s", status, storagemarket.DealStates[status], providerMessage).Error()
 			return nil
 		}),
 	fsm.Event(storagemarket.ClientEventDataTransferFailed).
-		FromMany(storagemarket.StorageDealWaitingForDataRequest, storagemarket.StorageDealTransferring).To(storagemarket.StorageDealFailing).
+		FromMany(storagemarket.StorageDealStartDataTransfer, storagemarket.StorageDealTransferring).To(storagemarket.StorageDealFailing).
 		Action(func(deal *storagemarket.ClientDeal, err error) error {
 			deal.Message = xerrors.Errorf("failed to initiate data transfer: %w", err).Error()
 			return nil
 		}),
 	fsm.Event(storagemarket.ClientEventDataTransferInitiated).
-		From(storagemarket.StorageDealWaitingForDataRequest).To(storagemarket.StorageDealTransferring),
+		From(storagemarket.StorageDealStartDataTransfer).To(storagemarket.StorageDealTransferring),
 	fsm.Event(storagemarket.ClientEventDataTransferComplete).
-		FromMany(storagemarket.StorageDealTransferring, storagemarket.StorageDealWaitingForDataRequest).To(storagemarket.StorageDealValidating),
+		FromMany(storagemarket.StorageDealTransferring, storagemarket.StorageDealStartDataTransfer).To(storagemarket.StorageDealCheckForAcceptance),
+	fsm.Event(storagemarket.ClientEventWaitForDealState).
+		From(storagemarket.StorageDealCheckForAcceptance).ToNoChange().
+		Action(func(deal *storagemarket.ClientDeal, pollError bool) error {
+			deal.PollRetryCount += 1
+			if pollError {
+				deal.PollErrorCount += 1
+			}
+			return nil
+		}),
 	fsm.Event(storagemarket.ClientEventResponseDealDidNotMatch).
-		From(storagemarket.StorageDealValidating).To(storagemarket.StorageDealFailing).
+		From(storagemarket.StorageDealCheckForAcceptance).To(storagemarket.StorageDealFailing).
 		Action(func(deal *storagemarket.ClientDeal, responseCid cid.Cid, proposalCid cid.Cid) error {
 			deal.Message = xerrors.Errorf("miner responded to a wrong proposal: %s != %s", responseCid, proposalCid).Error()
 			return nil
 		}),
 	fsm.Event(storagemarket.ClientEventDealRejected).
-		From(storagemarket.StorageDealValidating).To(storagemarket.StorageDealFailing).
+		From(storagemarket.StorageDealCheckForAcceptance).To(storagemarket.StorageDealFailing).
 		Action(func(deal *storagemarket.ClientDeal, state storagemarket.StorageDealStatus, reason string) error {
 			deal.Message = xerrors.Errorf("deal failed: (State=%d) %s", state, reason).Error()
 			return nil
 		}),
 	fsm.Event(storagemarket.ClientEventDealAccepted).
-		From(storagemarket.StorageDealValidating).To(storagemarket.StorageDealProposalAccepted).
+		From(storagemarket.StorageDealCheckForAcceptance).To(storagemarket.StorageDealProposalAccepted).
 		Action(func(deal *storagemarket.ClientDeal, publishMessage *cid.Cid) error {
 			deal.PublishMessage = publishMessage
 			return nil
@@ -129,15 +137,15 @@ var ClientEvents = fsm.Events{
 
 // ClientStateEntryFuncs are the handlers for different states in a storage client
 var ClientStateEntryFuncs = fsm.StateEntryFuncs{
-	storagemarket.StorageDealEnsureClientFunds:     EnsureClientFunds,
-	storagemarket.StorageDealClientFunding:         WaitForFunding,
-	storagemarket.StorageDealFundsEnsured:          ProposeDeal,
-	storagemarket.StorageDealWaitingForDataRequest: WaitingForDataRequest,
-	storagemarket.StorageDealValidating:            VerifyDealResponse,
-	storagemarket.StorageDealProposalAccepted:      ValidateDealPublished,
-	storagemarket.StorageDealSealing:               VerifyDealActivated,
-	storagemarket.StorageDealActive:                WaitForDealCompletion,
-	storagemarket.StorageDealFailing:               FailDeal,
+	storagemarket.StorageDealEnsureClientFunds:  EnsureClientFunds,
+	storagemarket.StorageDealClientFunding:      WaitForFunding,
+	storagemarket.StorageDealFundsEnsured:       ProposeDeal,
+	storagemarket.StorageDealStartDataTransfer:  InitiateDataTransfer,
+	storagemarket.StorageDealCheckForAcceptance: CheckForDealAcceptance,
+	storagemarket.StorageDealProposalAccepted:   ValidateDealPublished,
+	storagemarket.StorageDealSealing:            VerifyDealActivated,
+	storagemarket.StorageDealActive:             WaitForDealCompletion,
+	storagemarket.StorageDealFailing:            FailDeal,
 }
 
 // ClientFinalityStates are the states that terminate deal processing for a deal.

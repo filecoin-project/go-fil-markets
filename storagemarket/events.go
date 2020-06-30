@@ -19,14 +19,17 @@ const (
 	// ClientEventWriteProposalFailed indicates an attempt to send a deal proposal to a provider failed
 	ClientEventWriteProposalFailed
 
-	// ClientEventDealProposed happens when a new proposal is sent to a provider
-	ClientEventDealProposed
+	// ClientEventInitiateDataTransfer happens when a a client is ready to transfer data to a provider
+	ClientEventInitiateDataTransfer
 
 	// ClientEventDataTransferInitiated happens when piece data transfer has started
 	ClientEventDataTransferInitiated
 
 	// ClientEventDataTransferComplete happens when piece data transfer has been completed
 	ClientEventDataTransferComplete
+
+	// ClientEventWaitForDealState happens when the client needs to continue waiting for an actionable deal state
+	ClientEventWaitForDealState
 
 	// ClientEventDataTransferFailed happens the client can't initiate a push data transfer to the provider
 	ClientEventDataTransferFailed
@@ -87,9 +90,10 @@ var ClientEvents = map[ClientEvent]string{
 	ClientEventFundingInitiated:           "ClientEventFundingInitiated",
 	ClientEventFundsEnsured:               "ClientEventFundsEnsured",
 	ClientEventWriteProposalFailed:        "ClientEventWriteProposalFailed",
-	ClientEventDealProposed:               "ClientEventDealProposed",
+	ClientEventInitiateDataTransfer:       "ClientEventInitiateDataTransfer",
 	ClientEventDataTransferInitiated:      "ClientEventDataTransferInitiated",
 	ClientEventDataTransferComplete:       "ClientEventDataTransferComplete",
+	ClientEventWaitForDealState:           "ClientEventWaitForDealState",
 	ClientEventDataTransferFailed:         "ClientEventDataTransferFailed",
 	ClientEventReadResponseFailed:         "ClientEventReadResponseFailed",
 	ClientEventResponseVerificationFailed: "ClientEventResponseVerificationFailed",
@@ -125,6 +129,9 @@ const (
 	// ProviderEventDealRejected happens when a deal proposal is rejected for not meeting criteria
 	ProviderEventDealRejected
 
+	// ProviderEventRejectionSent happens after a deal proposal rejection has been sent to the client
+	ProviderEventRejectionSent
+
 	// ProviderEventDealAccepted happens when a deal is accepted based on provider criteria
 	ProviderEventDealAccepted
 
@@ -152,8 +159,8 @@ const (
 	// ProviderEventManualDataReceived happens when data is received manually for an offline deal
 	ProviderEventManualDataReceived
 
-	// ProviderEventGeneratePieceCIDFailed happens when generating a piece cid from received data errors
-	ProviderEventGeneratePieceCIDFailed
+	// ProviderEventDataVerificationFailed happens when an error occurs validating deal data
+	ProviderEventDataVerificationFailed
 
 	// ProviderEventVerifiedData happens when received data is verified as matching the pieceCID in a deal proposal
 	ProviderEventVerifiedData
@@ -210,6 +217,7 @@ var ProviderEvents = map[ProviderEvent]string{
 	ProviderEventOpen:                   "ProviderEventOpen",
 	ProviderEventNodeErrored:            "ProviderEventNodeErrored",
 	ProviderEventDealRejected:           "ProviderEventDealRejected",
+	ProviderEventRejectionSent:          "ProviderEventRejectionSent",
 	ProviderEventDealAccepted:           "ProviderEventDealAccepted",
 	ProviderEventDealDeciding:           "ProviderEventDealDeciding",
 	ProviderEventInsufficientFunds:      "ProviderEventInsufficientFunds",
@@ -220,7 +228,7 @@ var ProviderEvents = map[ProviderEvent]string{
 	ProviderEventDataTransferInitiated:  "ProviderEventDataTransferInitiated",
 	ProviderEventDataTransferCompleted:  "ProviderEventDataTransferCompleted",
 	ProviderEventManualDataReceived:     "ProviderEventManualDataReceived",
-	ProviderEventGeneratePieceCIDFailed: "ProviderEventGeneratePieceCIDFailed",
+	ProviderEventDataVerificationFailed: "ProviderEventDataVerificationFailed",
 	ProviderEventVerifiedData:           "ProviderEventVerifiedData",
 	ProviderEventSendResponseFailed:     "ProviderEventSendResponseFailed",
 	ProviderEventDealPublishInitiated:   "ProviderEventDealPublishInitiated",

@@ -3,29 +3,31 @@ stateDiagram-v2
 	state "StorageDealStaged" as 4
 	state "StorageDealSealing" as 5
 	state "StorageDealActive" as 6
-	state "StorageDealFailing" as 9
-	state "StorageDealValidating" as 12
-	state "StorageDealAcceptWait" as 13
-	state "StorageDealTransferring" as 14
-	state "StorageDealWaitingForData" as 15
-	state "StorageDealVerifyData" as 16
-	state "StorageDealEnsureProviderFunds" as 17
-	state "StorageDealProviderFunding" as 19
-	state "StorageDealPublish" as 21
-	state "StorageDealPublishing" as 22
-	state "StorageDealError" as 23
-	state "StorageDealCompleted" as 24
+	state "StorageDealRejecting" as 9
+	state "StorageDealFailing" as 10
+	state "StorageDealValidating" as 13
+	state "StorageDealAcceptWait" as 14
+	state "StorageDealTransferring" as 16
+	state "StorageDealWaitingForData" as 17
+	state "StorageDealVerifyData" as 18
+	state "StorageDealEnsureProviderFunds" as 19
+	state "StorageDealProviderFunding" as 21
+	state "StorageDealPublish" as 23
+	state "StorageDealPublishing" as 24
+	state "StorageDealError" as 25
+	state "StorageDealCompleted" as 26
 	4 : On entry runs HandoffDeal
 	5 : On entry runs VerifyDealActivated
 	6 : On entry runs RecordPieceInfo
-	9 : On entry runs FailDeal
-	12 : On entry runs ValidateDealProposal
-	13 : On entry runs DecideOnProposal
-	16 : On entry runs VerifyData
-	17 : On entry runs EnsureProviderFunds
-	19 : On entry runs WaitForFunding
-	21 : On entry runs PublishDeal
-	22 : On entry runs WaitForPublish
+	9 : On entry runs RejectDeal
+	10 : On entry runs FailDeal
+	13 : On entry runs ValidateDealProposal
+	14 : On entry runs DecideOnProposal
+	18 : On entry runs VerifyData
+	19 : On entry runs EnsureProviderFunds
+	21 : On entry runs WaitForFunding
+	23 : On entry runs PublishDeal
+	24 : On entry runs WaitForPublish
 	[*] --> 0
 	note right of 0
 		The following events are not shown cause they can trigger from any state.
@@ -33,38 +35,41 @@ stateDiagram-v2
 		ProviderEventNodeErrored - transitions state to StorageDealFailing
 		ProviderEventRestart - does not transition state
 	end note
-	0 --> 12 : ProviderEventOpen
-	12 --> 9 : ProviderEventDealRejected
+	0 --> 13 : ProviderEventOpen
 	13 --> 9 : ProviderEventDealRejected
-	16 --> 9 : ProviderEventDealRejected
-	12 --> 13 : ProviderEventDealDeciding
-	13 --> 15 : ProviderEventDataRequested
-	14 --> 9 : ProviderEventDataTransferFailed
-	15 --> 14 : ProviderEventDataTransferInitiated
-	14 --> 16 : ProviderEventDataTransferCompleted
-	16 --> 9 : ProviderEventGeneratePieceCIDFailed
-	15 --> 17 : ProviderEventVerifiedData
-	16 --> 17 : ProviderEventVerifiedData
-	17 --> 19 : ProviderEventFundingInitiated
-	17 --> 21 : ProviderEventFunded
-	19 --> 21 : ProviderEventFunded
-	21 --> 22 : ProviderEventDealPublishInitiated
-	22 --> 9 : ProviderEventDealPublishError
-	9 --> 23 : ProviderEventSendResponseFailed
-	13 --> 23 : ProviderEventSendResponseFailed
-	22 --> 23 : ProviderEventSendResponseFailed
-	22 --> 4 : ProviderEventDealPublished
-	4 --> 9 : ProviderEventFileStoreErrored
-	5 --> 9 : ProviderEventFileStoreErrored
-	6 --> 9 : ProviderEventFileStoreErrored
-	4 --> 9 : ProviderEventDealHandoffFailed
+	14 --> 9 : ProviderEventDealRejected
+	18 --> 9 : ProviderEventDealRejected
+	9 --> 10 : ProviderEventRejectionSent
+	13 --> 14 : ProviderEventDealDeciding
+	14 --> 17 : ProviderEventDataRequested
+	16 --> 10 : ProviderEventDataTransferFailed
+	17 --> 16 : ProviderEventDataTransferInitiated
+	16 --> 18 : ProviderEventDataTransferCompleted
+	18 --> 10 : ProviderEventDataVerificationFailed
+	17 --> 19 : ProviderEventVerifiedData
+	18 --> 19 : ProviderEventVerifiedData
+	19 --> 21 : ProviderEventFundingInitiated
+	19 --> 23 : ProviderEventFunded
+	21 --> 23 : ProviderEventFunded
+	23 --> 24 : ProviderEventDealPublishInitiated
+	24 --> 10 : ProviderEventDealPublishError
+	9 --> 10 : ProviderEventSendResponseFailed
+	14 --> 10 : ProviderEventSendResponseFailed
+	24 --> 4 : ProviderEventDealPublished
+	4 --> 10 : ProviderEventFileStoreErrored
+	5 --> 10 : ProviderEventFileStoreErrored
+	6 --> 10 : ProviderEventFileStoreErrored
+	4 --> 10 : ProviderEventDealHandoffFailed
 	4 --> 5 : ProviderEventDealHandedOff
-	5 --> 9 : ProviderEventDealActivationFailed
+	5 --> 10 : ProviderEventDealActivationFailed
 	5 --> 6 : ProviderEventDealActivated
-	6 --> 9 : ProviderEventPieceStoreErrored
-	6 --> 24 : ProviderEventDealCompleted
-	6 --> 9 : ProviderEventUnableToLocatePiece
-	6 --> 9 : ProviderEventReadMetadataErrored
-	9 --> 23 : ProviderEventFailed
-	23 --> [*]
-	24 --> [*]
+	6 --> 10 : ProviderEventPieceStoreErrored
+	6 --> 26 : ProviderEventDealCompleted
+	6 --> 10 : ProviderEventUnableToLocatePiece
+	6 --> 10 : ProviderEventReadMetadataErrored
+	10 --> 25 : ProviderEventFailed
+	9 --> 25 : ProviderEventRestart
+	13 --> 25 : ProviderEventRestart
+	14 --> 25 : ProviderEventRestart
+	25 --> [*]
+	26 --> [*]

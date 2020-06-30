@@ -19,11 +19,13 @@ var ProviderEvents = fsm.Events{
 			return nil
 		}),
 	fsm.Event(storagemarket.ProviderEventDealRejected).
-		FromMany(storagemarket.StorageDealValidating, storagemarket.StorageDealVerifyData, storagemarket.StorageDealAcceptWait).To(storagemarket.StorageDealFailing).
+		FromMany(storagemarket.StorageDealValidating, storagemarket.StorageDealVerifyData, storagemarket.StorageDealAcceptWait).To(storagemarket.StorageDealRejecting).
 		Action(func(deal *storagemarket.MinerDeal, err error) error {
 			deal.Message = xerrors.Errorf("deal rejected: %w", err).Error()
 			return nil
 		}),
+	fsm.Event(storagemarket.ProviderEventRejectionSent).
+		From(storagemarket.StorageDealRejecting).To(storagemarket.StorageDealFailing),
 	fsm.Event(storagemarket.ProviderEventDealDeciding).
 		From(storagemarket.StorageDealValidating).To(storagemarket.StorageDealAcceptWait),
 	fsm.Event(storagemarket.ProviderEventDataRequested).
@@ -38,10 +40,10 @@ var ProviderEvents = fsm.Events{
 		From(storagemarket.StorageDealWaitingForData).To(storagemarket.StorageDealTransferring),
 	fsm.Event(storagemarket.ProviderEventDataTransferCompleted).
 		From(storagemarket.StorageDealTransferring).To(storagemarket.StorageDealVerifyData),
-	fsm.Event(storagemarket.ProviderEventGeneratePieceCIDFailed).
+	fsm.Event(storagemarket.ProviderEventDataVerificationFailed).
 		From(storagemarket.StorageDealVerifyData).To(storagemarket.StorageDealFailing).
 		Action(func(deal *storagemarket.MinerDeal, err error) error {
-			deal.Message = xerrors.Errorf("generating piece committment: %w", err).Error()
+			deal.Message = xerrors.Errorf("deal data verification failed: %w", err).Error()
 			return nil
 		}),
 	fsm.Event(storagemarket.ProviderEventVerifiedData).
@@ -72,7 +74,7 @@ var ProviderEvents = fsm.Events{
 			return nil
 		}),
 	fsm.Event(storagemarket.ProviderEventSendResponseFailed).
-		FromMany(storagemarket.StorageDealAcceptWait, storagemarket.StorageDealPublishing, storagemarket.StorageDealFailing).To(storagemarket.StorageDealError).
+		FromMany(storagemarket.StorageDealAcceptWait, storagemarket.StorageDealRejecting).To(storagemarket.StorageDealFailing).
 		Action(func(deal *storagemarket.MinerDeal, err error) error {
 			deal.Message = xerrors.Errorf("sending response to deal: %w", err).Error()
 			return nil
@@ -80,7 +82,6 @@ var ProviderEvents = fsm.Events{
 	fsm.Event(storagemarket.ProviderEventDealPublished).
 		From(storagemarket.StorageDealPublishing).To(storagemarket.StorageDealStaged).
 		Action(func(deal *storagemarket.MinerDeal, dealID abi.DealID) error {
-			deal.ConnectionClosed = true
 			deal.DealID = dealID
 			return nil
 		}),
@@ -120,7 +121,9 @@ var ProviderEvents = fsm.Events{
 			return nil
 		}),
 	fsm.Event(storagemarket.ProviderEventFailed).From(storagemarket.StorageDealFailing).To(storagemarket.StorageDealError),
-	fsm.Event(storagemarket.ProviderEventRestart).FromAny().ToNoChange(),
+	fsm.Event(storagemarket.ProviderEventRestart).
+		FromMany(storagemarket.StorageDealValidating, storagemarket.StorageDealAcceptWait, storagemarket.StorageDealRejecting).To(storagemarket.StorageDealError).
+		FromAny().ToNoChange(),
 }
 
 // ProviderStateEntryFuncs are the handlers for different states in a storage client
@@ -135,6 +138,7 @@ var ProviderStateEntryFuncs = fsm.StateEntryFuncs{
 	storagemarket.StorageDealStaged:              HandoffDeal,
 	storagemarket.StorageDealSealing:             VerifyDealActivated,
 	storagemarket.StorageDealActive:              RecordPieceInfo,
+	storagemarket.StorageDealRejecting:           RejectDeal,
 	storagemarket.StorageDealFailing:             FailDeal,
 }
 

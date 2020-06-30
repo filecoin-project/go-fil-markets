@@ -188,6 +188,8 @@ var _ storagemarket.StorageCommon = (*FakeCommonNode)(nil)
 type FakeClientNode struct {
 	FakeCommonNode
 	ClientAddr                 address.Address
+	MinerAddr                  address.Address
+	WorkerAddr                 address.Address
 	ValidationError            error
 	ValidatePublishedDealID    abi.DealID
 	ValidatePublishedError     error

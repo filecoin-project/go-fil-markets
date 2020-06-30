@@ -9,7 +9,7 @@ data storage.
 * [Installation](#Installation)
 * [Operation](#Operation)
 * [Implementation](#Implementation)
-    * [StorageFunds](#StorageFunds)
+    * [StorageCommon](#StorageCommon)
     * [StorageClientNode](#StorageClientNode)
     * [StorageProviderNode](#StorageProviderNode)
 * [Technical Documentation](#technical-documentation)
@@ -30,7 +30,7 @@ go get github.com/filecoin-project/go-fil-markets/storagemarket
 ## Operation
 The `storagemarket` package provides high level APIs to execute data storage deals between a
 storage client and a storage provider (a.k.a. storage miner) on the Filecoin network.
-The Filecoin node must implement the [`StorageFunds`](#StorageFunds), [`StorageProviderNode`](#StorageProviderNode), and
+The Filecoin node must implement the [`StorageCommon`](#StorageCommon), [`StorageProviderNode`](#StorageProviderNode), and
 [`StorageClientNode`](#StorageClientNode) interfaces in order to construct and use the module.
 
 Deals are expected to survive a node restart; deals and related information are
@@ -53,12 +53,12 @@ function in the appropriate place.
 1. Expose desired `storagemarket` functionality to whatever internal modules desired, such as
  command line interface, JSON RPC, or HTTP API.
 
-Implement the [`StorageFunds`](#StorageFunds), [`StorageProviderNode`](#StorageProviderNode), and
+Implement the [`StorageCommon`](#StorageCommon), [`StorageProviderNode`](#StorageProviderNode), and
               [`StorageClientNode`](#StorageClientNode) interfaces in 
               [storagemarket/types.go](./types.go), described below:
 
-### StorageFunds
-`StorageFunds` is an interface common to both `StorageProviderNode` and `StorageClientNode`. Its
+### StorageCommon
+`StorageCommon` is an interface common to both `StorageProviderNode` and `StorageClientNode`. Its
  functions are:
 * [`GetChainHead`](#GetChainHead)
 * [`AddFunds`](#AddFunds)
@@ -66,6 +66,8 @@ Implement the [`StorageFunds`](#StorageFunds), [`StorageProviderNode`](#StorageP
 * [`GetBalance`](#GetBalance)
 * [`VerifySignature`](#VerifySignature)
 * [`WaitForMessage`](#WaitForMessage)
+* [`SignBytes`](#SignBytes)
+* [`GetMinerWorkerAddress`](#GetMinerWorkerAddress)
 
 #### AddFunds
 ```go
@@ -104,15 +106,28 @@ func WaitForMessage(ctx context.Context, mcid cid.Cid,
 ```
 Wait for message CID `mcid` to appear on chain, and call `onCompletion` when it does so.
 
+#### SignBytes
+```go
+func SignBytes(ctx context.Context, signer address.Address, b []byte) (*crypto.Signature, error)
+```
+
+Cryptographically sign bytes `b` using the private key referenced by address `signer`.
+
+#### GetMinerWorkerAddress
+```go
+func GetMinerWorkerAddress(ctx context.Context, addr address.Address, tok shared.TipSetToken,
+                     ) (address.Address, error)
+```
+
+Get the miner worker address for the given miner owner, as of `tok`.
+
 ---
 ### StorageProviderNode
 `StorageProviderNode` is the interface for dependencies for a `StorageProvider`. It contains:
 
-* [`StorageFunds`](#StorageFunds) interface
+* [`StorageCommon`](#StorageCommon) interface
 * [`PublishDeals`](#PublishDeals)
 * [`ListProviderDeals`](#ListProviderDeals)
-* [`GetMinerWorkerAddress`](#GetMinerWorkerAddress)
-* [`SignBytes`](#SignBytes)
 * [`OnDealSectorCommitted`](#OnDealSectorCommitted)
 * [`LocatePieceForDealWithinSector`](#LocatePieceForDealWithinSector)
 
@@ -147,21 +162,6 @@ The function to be called when MinerDeal `deal` has reached the `storagemarket.S
 A `MinerDeal` contains more information than a StorageDeal, including paths, addresses, and CIDs
 pertinent to the deal. See [storagemarket/types.go](./types.go)
 
-#### GetMinerWorkerAddress
-```go
-func GetMinerWorkerAddress(ctx context.Context, addr address.Address, tok shared.TipSetToken,
-                     ) (address.Address, error)
-```
-
-Get the miner worker address for the given miner owner, as of `tok`.
-
-#### SignBytes
-```go
-func SignBytes(ctx context.Context, signer address.Address, b []byte) (*crypto.Signature, error)
-```
-
-Cryptographically sign bytes `b` using the private key referenced by address `signer`.
-
 #### OnDealSectorCommitted
 ```go
 func OnDealSectorCommitted(ctx context.Context, provider address.Address, dealID abi.DealID, 
@@ -182,7 +182,7 @@ Find the piece associated with `dealID` as of `tok` and return the sector id, pl
 ---
 ### StorageClientNode
 `StorageClientNode` implements dependencies for a StorageClient. It contains:
-* [`StorageFunds`](#StorageFunds) interface
+* [`StorageCommon`](#StorageCommon) interface
 * [`GetChainHead`](#GetChainHead)
 * [`ListClientDeals`](#ListClientDeals)
 * [`ListStorageProviders`](#ListStorageProviders)
@@ -193,8 +193,8 @@ Find the piece associated with `dealID` as of `tok` and return the sector id, pl
 * [`OnDealExpiredOrSlashed`](#OnDealExpiredOrSlashed)
 * [`ValidateAskSignature`](#ValidateAskSignature)
 
-#### StorageFunds
-`StorageClientNode` implements `StorageFunds`, described above.
+#### StorageCommon
+`StorageClientNode` implements `StorageCommon`, described above.
 
 #### GetChainHead
 ```go

@@ -36,21 +36,27 @@ const (
 	// StorageDealSlashed means the deal was in a sector that got slashed from failing to prove
 	StorageDealSlashed
 
-	// StorageDealFailing means something has gone wrong in a deal. Once data is cleaned up the deal will
-	// finalize on StorageDealError
+	// StorageDealRejecting means the Provider has rejected the deal, and will send a rejection response
+	StorageDealRejecting
+
+	// StorageDealFailing means something has gone wrong in a deal. Once data is cleaned up the deal will finalize on
+	// StorageDealError
 	StorageDealFailing
 
 	// StorageDealFundsEnsured means we've deposited funds as necessary to create a deal, ready to move forward
 	StorageDealFundsEnsured
 
-	// StorageDealWaitingForDataRequest means the client is waiting for a request for the deal data from the provider
-	StorageDealWaitingForDataRequest
+	// StorageDealCheckForAcceptance means the client is waiting for a provider to seal and publish a deal
+	StorageDealCheckForAcceptance
 
 	// StorageDealValidating means the provider is validating that deal parameters are good for a proposal
 	StorageDealValidating
 
 	// StorageDealAcceptWait means the provider is running any custom decision logic to decide whether or not to accept the deal
 	StorageDealAcceptWait
+
+	// StorageDealStartDataTransfer means data transfer is beginning
+	StorageDealStartDataTransfer
 
 	// StorageDealTransferring means data is being sent from the client to the provider via the data transfer module
 	StorageDealTransferring
@@ -91,29 +97,31 @@ const (
 
 // DealStates maps StorageDealStatus codes to string names
 var DealStates = map[StorageDealStatus]string{
-	StorageDealUnknown:               "StorageDealUnknown",
-	StorageDealProposalNotFound:      "StorageDealProposalNotFound",
-	StorageDealProposalRejected:      "StorageDealProposalRejected",
-	StorageDealProposalAccepted:      "StorageDealProposalAccepted",
-	StorageDealAcceptWait:            "StorageDealAcceptWait",
-	StorageDealStaged:                "StorageDealStaged",
-	StorageDealSealing:               "StorageDealSealing",
-	StorageDealActive:                "StorageDealActive",
-	StorageDealExpired:               "StorageDealExpired",
-	StorageDealSlashed:               "StorageDealSlashed",
-	StorageDealFailing:               "StorageDealFailing",
-	StorageDealFundsEnsured:          "StorageDealFundsEnsured",
-	StorageDealWaitingForDataRequest: "StorageDealWaitingForDataRequest",
-	StorageDealValidating:            "StorageDealValidating",
-	StorageDealTransferring:          "StorageDealTransferring",
-	StorageDealWaitingForData:        "StorageDealWaitingForData",
-	StorageDealVerifyData:            "StorageDealVerifyData",
-	StorageDealEnsureProviderFunds:   "StorageDealEnsureProviderFunds",
-	StorageDealEnsureClientFunds:     "StorageDealEnsureClientFunds",
-	StorageDealProviderFunding:       "StorageDealProviderFunding",
-	StorageDealClientFunding:         "StorageDealClientFunding",
-	StorageDealPublish:               "StorageDealPublish",
-	StorageDealPublishing:            "StorageDealPublishing",
-	StorageDealError:                 "StorageDealError",
-	StorageDealCompleted:             "StorageDealCompleted",
+	StorageDealUnknown:             "StorageDealUnknown",
+	StorageDealProposalNotFound:    "StorageDealProposalNotFound",
+	StorageDealProposalRejected:    "StorageDealProposalRejected",
+	StorageDealProposalAccepted:    "StorageDealProposalAccepted",
+	StorageDealAcceptWait:          "StorageDealAcceptWait",
+	StorageDealStartDataTransfer:   "StorageDealStartDataTransfer",
+	StorageDealStaged:              "StorageDealStaged",
+	StorageDealSealing:             "StorageDealSealing",
+	StorageDealActive:              "StorageDealActive",
+	StorageDealExpired:             "StorageDealExpired",
+	StorageDealSlashed:             "StorageDealSlashed",
+	StorageDealRejecting:           "StorageDealRejecting",
+	StorageDealFailing:             "StorageDealFailing",
+	StorageDealFundsEnsured:        "StorageDealFundsEnsured",
+	StorageDealCheckForAcceptance:  "StorageDealCheckForAcceptance",
+	StorageDealValidating:          "StorageDealValidating",
+	StorageDealTransferring:        "StorageDealTransferring",
+	StorageDealWaitingForData:      "StorageDealWaitingForData",
+	StorageDealVerifyData:          "StorageDealVerifyData",
+	StorageDealEnsureProviderFunds: "StorageDealEnsureProviderFunds",
+	StorageDealEnsureClientFunds:   "StorageDealEnsureClientFunds",
+	StorageDealProviderFunding:     "StorageDealProviderFunding",
+	StorageDealClientFunding:       "StorageDealClientFunding",
+	StorageDealPublish:             "StorageDealPublish",
+	StorageDealPublishing:          "StorageDealPublishing",
+	StorageDealError:               "StorageDealError",
+	StorageDealCompleted:           "StorageDealCompleted",
 }

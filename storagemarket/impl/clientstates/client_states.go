@@ -2,6 +2,7 @@ package clientstates
 
 import (
 	"context"
+	"time"
 
 	datatransfer "github.com/filecoin-project/go-data-transfer"
 	"github.com/filecoin-project/go-statemachine/fsm"
@@ -26,11 +27,10 @@ var log = logging.Logger("storagemarket_impl")
 // dependencies from the storage client environment
 type ClientDealEnvironment interface {
 	Node() storagemarket.StorageClientNode
-	WriteDealProposal(p peer.ID, proposalCid cid.Cid, proposal network.Proposal) error
-	TagConnection(proposalCid cid.Cid) error
-	ReadDealResponse(proposalCid cid.Cid) (network.SignedResponse, error)
-	CloseStream(proposalCid cid.Cid) error
+	NewDealStream(p peer.ID) (network.StorageDealStream, error)
 	StartDataTransfer(ctx context.Context, to peer.ID, voucher datatransfer.Voucher, baseCid cid.Cid, selector ipld.Node) error
+	GetProviderDealState(ctx context.Context, proposalCid cid.Cid) (*storagemarket.ProviderDealState, error)
+	PollingInterval() time.Duration
 }
 
 // ClientStateEntryFunc is the type for all state entry functions on a storage client
@@ -78,24 +78,24 @@ func WaitForFunding(ctx fsm.Context, environment ClientDealEnvironment, deal sto
 // ProposeDeal sends the deal proposal to the provider
 func ProposeDeal(ctx fsm.Context, environment ClientDealEnvironment, deal storagemarket.ClientDeal) error {
 	proposal := network.Proposal{DealProposal: &deal.ClientDealProposal, Piece: deal.DataRef}
-	if err := environment.WriteDealProposal(deal.Miner, deal.ProposalCid, proposal); err != nil {
+
+	s, err := environment.NewDealStream(deal.Miner)
+	if err != nil {
 		return ctx.Trigger(storagemarket.ClientEventWriteProposalFailed, err)
 	}
 
-	if err := environment.TagConnection(deal.ProposalCid); err != nil {
-		// some conns may not support tagging, just log
-		log.Warnf("Error tagging deal connection: %w", err)
+	if err := s.WriteDealProposal(proposal); err != nil {
+		return ctx.Trigger(storagemarket.ClientEventWriteProposalFailed, err)
 	}
 
-	return ctx.Trigger(storagemarket.ClientEventDealProposed)
-}
-
-// WaitingForDataRequest reads the deal response from the provider then initiates a data request if the
-// provider indicates it intends to accept the request
-func WaitingForDataRequest(ctx fsm.Context, environment ClientDealEnvironment, deal storagemarket.ClientDeal) error {
-	resp, err := environment.ReadDealResponse(deal.ProposalCid)
+	resp, err := s.ReadDealResponse()
 	if err != nil {
 		return ctx.Trigger(storagemarket.ClientEventReadResponseFailed, err)
+	}
+
+	err = s.Close()
+	if err != nil {
+		return ctx.Trigger(storagemarket.ClientEventStreamCloseError, err)
 	}
 
 	tok, _, err := environment.Node().GetChainHead(ctx.Context())
@@ -111,10 +111,13 @@ func WaitingForDataRequest(ctx fsm.Context, environment ClientDealEnvironment, d
 		return ctx.Trigger(storagemarket.ClientEventUnexpectedDealState, resp.Response.State, resp.Response.Message)
 	}
 
+	return ctx.Trigger(storagemarket.ClientEventInitiateDataTransfer)
+}
+
+// InitiateDataTransfer initiates data transfer to the provider
+func InitiateDataTransfer(ctx fsm.Context, environment ClientDealEnvironment, deal storagemarket.ClientDeal) error {
 	if deal.DataRef.TransferType == storagemarket.TTManual {
 		log.Infof("manual data transfer for deal %s", deal.ProposalCid)
-
-		// Temporary, we will move to a query/response protocol to check on deal status
 		return ctx.Trigger(storagemarket.ClientEventDataTransferComplete)
 	}
 
@@ -122,7 +125,7 @@ func WaitingForDataRequest(ctx fsm.Context, environment ClientDealEnvironment, d
 
 	// initiate a push data transfer. This will complete asynchronously and the
 	// completion of the data transfer will trigger a change in deal state
-	err = environment.StartDataTransfer(ctx.Context(),
+	err := environment.StartDataTransfer(ctx.Context(),
 		deal.Miner,
 		&requestvalidation.StorageDataTransferVoucher{Proposal: deal.ProposalCid},
 		deal.DataRef.Root,
@@ -136,35 +139,43 @@ func WaitingForDataRequest(ctx fsm.Context, environment ClientDealEnvironment, d
 	return ctx.Trigger(storagemarket.ClientEventDataTransferInitiated)
 }
 
-// VerifyDealResponse reads and verifies the response from the provider to the proposed deal
-func VerifyDealResponse(ctx fsm.Context, environment ClientDealEnvironment, deal storagemarket.ClientDeal) error {
-	resp, err := environment.ReadDealResponse(deal.ProposalCid)
+// CheckForDealAcceptance is run until the deal is sealed and published by the provider, or errors
+func CheckForDealAcceptance(ctx fsm.Context, environment ClientDealEnvironment, deal storagemarket.ClientDeal) error {
+	dealState, err := environment.GetProviderDealState(ctx.Context(), deal.ProposalCid)
 	if err != nil {
-		return ctx.Trigger(storagemarket.ClientEventReadResponseFailed, err)
+		log.Warnf("error when querying provider deal state: %w", err) // TODO: at what point do we fail the deal?
+		return waitAgain(ctx, environment, true)
 	}
 
-	tok, _, err := environment.Node().GetChainHead(ctx.Context())
-	if err != nil {
-		return ctx.Trigger(storagemarket.ClientEventResponseVerificationFailed)
+	if isFailed(dealState.State) {
+		return ctx.Trigger(storagemarket.ClientEventDealRejected, dealState.State, dealState.Message)
 	}
 
-	if err := clientutils.VerifyResponse(ctx.Context(), resp, deal.MinerWorker, tok, environment.Node().VerifySignature); err != nil {
-		return ctx.Trigger(storagemarket.ClientEventResponseVerificationFailed)
+	if isAccepted(dealState.State) {
+		if *dealState.ProposalCid != deal.ProposalCid {
+			return ctx.Trigger(storagemarket.ClientEventResponseDealDidNotMatch, *dealState.ProposalCid, deal.ProposalCid)
+		}
+
+		return ctx.Trigger(storagemarket.ClientEventDealAccepted, dealState.PublishCid)
 	}
 
-	if resp.Response.Proposal != deal.ProposalCid {
-		return ctx.Trigger(storagemarket.ClientEventResponseDealDidNotMatch, resp.Response.Proposal, deal.ProposalCid)
-	}
+	return waitAgain(ctx, environment, false)
+}
 
-	if resp.Response.State != storagemarket.StorageDealProposalAccepted {
-		return ctx.Trigger(storagemarket.ClientEventDealRejected, resp.Response.State, resp.Response.Message)
-	}
+func waitAgain(ctx fsm.Context, environment ClientDealEnvironment, pollError bool) error {
+	t := time.NewTimer(environment.PollingInterval())
 
-	if err := environment.CloseStream(deal.ProposalCid); err != nil {
-		return ctx.Trigger(storagemarket.ClientEventStreamCloseError, err)
-	}
+	go func() {
+		select {
+		case <-t.C:
+			_ = ctx.Trigger(storagemarket.ClientEventWaitForDealState, pollError)
+		case <-ctx.Context().Done():
+			t.Stop()
+			return
+		}
+	}()
 
-	return ctx.Trigger(storagemarket.ClientEventDealAccepted, resp.Response.PublishMessage)
+	return nil
 }
 
 // ValidateDealPublished confirms with the chain that a deal was published
@@ -226,15 +237,20 @@ func WaitForDealCompletion(ctx fsm.Context, environment ClientDealEnvironment, d
 
 // FailDeal cleans up a failing deal
 func FailDeal(ctx fsm.Context, environment ClientDealEnvironment, deal storagemarket.ClientDeal) error {
-
-	if !deal.ConnectionClosed {
-		if err := environment.CloseStream(deal.ProposalCid); err != nil {
-			return ctx.Trigger(storagemarket.ClientEventStreamCloseError, err)
-		}
-	}
-
 	// TODO: store in some sort of audit log
 	log.Errorf("deal %s failed: %s", deal.ProposalCid, deal.Message)
 
 	return ctx.Trigger(storagemarket.ClientEventFailed)
+}
+
+func isAccepted(status storagemarket.StorageDealStatus) bool {
+	return status == storagemarket.StorageDealStaged ||
+		status == storagemarket.StorageDealSealing ||
+		status == storagemarket.StorageDealActive ||
+		status == storagemarket.StorageDealCompleted
+}
+
+func isFailed(status storagemarket.StorageDealStatus) bool {
+	return status == storagemarket.StorageDealFailing ||
+		status == storagemarket.StorageDealError
 }
