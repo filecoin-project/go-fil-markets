@@ -20,8 +20,8 @@ const DealProtocolID = "/fil/storage/mk/1.0.1"
 // AskProtocolID is the ID for the libp2p protocol for querying miners for their current StorageAsk.
 const AskProtocolID = "/fil/storage/ask/1.0.1"
 
-// DealStatusProtcolID is the ID for the libp2p protocol for querying miners for the current status of a deal.
-const DealStatusProtcolID = "/fil/storage/status/1.0.1"
+// DealStatusProtocolID is the ID for the libp2p protocol for querying miners for the current status of a deal.
+const DealStatusProtocolID = "/fil/storage/status/1.0.1"
 
 // Balance represents a current balance of funds in the StorageMarketActor.
 type Balance struct {
