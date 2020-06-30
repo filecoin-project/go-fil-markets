@@ -36,8 +36,11 @@ const (
 	// StorageDealSlashed means the deal was in a sector that got slashed from failing to prove
 	StorageDealSlashed
 
-	// StorageDealFailing means something has gone wrong in a deal. Once data is cleaned up the deal will
-	// finalize on StorageDealError
+	// StorageDealRejecting means the Provider has rejected the deal, and will send a rejection response
+	StorageDealRejecting
+
+	// StorageDealFailing means something has gone wrong in a deal. Once data is cleaned up the deal will finalize on
+	// StorageDealError
 	StorageDealFailing
 
 	// StorageDealFundsEnsured means we've deposited funds as necessary to create a deal, ready to move forward
@@ -108,6 +111,7 @@ var DealStates = map[StorageDealStatus]string{
 	StorageDealActive:                "StorageDealActive",
 	StorageDealExpired:               "StorageDealExpired",
 	StorageDealSlashed:               "StorageDealSlashed",
+	StorageDealRejecting:             "StorageDealRejecting",
 	StorageDealFailing:               "StorageDealFailing",
 	StorageDealFundsEnsured:          "StorageDealFundsEnsured",
 	StorageDealWaitingForDataRequest: "StorageDealWaitingForDataRequest",

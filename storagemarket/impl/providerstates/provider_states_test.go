@@ -17,6 +17,7 @@ import (
 	"github.com/ipfs/go-cid"
 	"github.com/ipld/go-ipld-prime"
 	"github.com/stretchr/testify/require"
+	"golang.org/x/xerrors"
 
 	"github.com/filecoin-project/go-fil-markets/filestore"
 	"github.com/filecoin-project/go-fil-markets/piecestore"
@@ -54,7 +55,7 @@ func TestValidateDealProposal(t *testing.T) {
 				VerifySignatureFails: true,
 			},
 			dealInspector: func(t *testing.T, deal storagemarket.MinerDeal, env *fakeEnvironment) {
-				tut.AssertDealState(t, storagemarket.StorageDealFailing, deal.State)
+				tut.AssertDealState(t, storagemarket.StorageDealRejecting, deal.State)
 				require.Equal(t, "deal rejected: verifying StorageDealProposal: could not verify signature", deal.Message)
 			},
 		},
@@ -63,7 +64,7 @@ func TestValidateDealProposal(t *testing.T) {
 				Address: otherAddr,
 			},
 			dealInspector: func(t *testing.T, deal storagemarket.MinerDeal, env *fakeEnvironment) {
-				tut.AssertDealState(t, storagemarket.StorageDealFailing, deal.State)
+				tut.AssertDealState(t, storagemarket.StorageDealRejecting, deal.State)
 				require.Equal(t, "deal rejected: incorrect provider for deal", deal.Message)
 			},
 		},
@@ -72,8 +73,8 @@ func TestValidateDealProposal(t *testing.T) {
 				MostRecentStateIDError: errors.New("couldn't get id"),
 			},
 			dealInspector: func(t *testing.T, deal storagemarket.MinerDeal, env *fakeEnvironment) {
-				tut.AssertDealState(t, storagemarket.StorageDealFailing, deal.State)
-				require.Equal(t, "error calling node: getting most recent state id: couldn't get id", deal.Message)
+				tut.AssertDealState(t, storagemarket.StorageDealRejecting, deal.State)
+				require.Equal(t, "deal rejected: node error getting most recent state id: couldn't get id", deal.Message)
 			},
 		},
 		"CurrentHeight <= StartEpoch - DealAcceptanceBuffer() succeeds": {
@@ -89,7 +90,7 @@ func TestValidateDealProposal(t *testing.T) {
 			dealParams:        dealParams{StartEpoch: 200},
 			nodeParams:        nodeParams{Height: 191},
 			dealInspector: func(t *testing.T, deal storagemarket.MinerDeal, env *fakeEnvironment) {
-				tut.AssertDealState(t, storagemarket.StorageDealFailing, deal.State)
+				tut.AssertDealState(t, storagemarket.StorageDealRejecting, deal.State)
 				require.Equal(t, "deal rejected: deal start epoch is too soon or deal already expired", deal.Message)
 			},
 		},
@@ -98,7 +99,7 @@ func TestValidateDealProposal(t *testing.T) {
 				StoragePricePerEpoch: abi.NewTokenAmount(5000),
 			},
 			dealInspector: func(t *testing.T, deal storagemarket.MinerDeal, env *fakeEnvironment) {
-				tut.AssertDealState(t, storagemarket.StorageDealFailing, deal.State)
+				tut.AssertDealState(t, storagemarket.StorageDealRejecting, deal.State)
 				require.Equal(t, "deal rejected: storage price per epoch less than asking price: 5000 < 9765", deal.Message)
 			},
 		},
@@ -107,7 +108,7 @@ func TestValidateDealProposal(t *testing.T) {
 				PieceSize: abi.PaddedPieceSize(128),
 			},
 			dealInspector: func(t *testing.T, deal storagemarket.MinerDeal, env *fakeEnvironment) {
-				tut.AssertDealState(t, storagemarket.StorageDealFailing, deal.State)
+				tut.AssertDealState(t, storagemarket.StorageDealRejecting, deal.State)
 				require.Equal(t, "deal rejected: piece size less than minimum required size: 128 < 256", deal.Message)
 			},
 		},
@@ -116,8 +117,8 @@ func TestValidateDealProposal(t *testing.T) {
 				ClientMarketBalanceError: errors.New("could not get balance"),
 			},
 			dealInspector: func(t *testing.T, deal storagemarket.MinerDeal, env *fakeEnvironment) {
-				tut.AssertDealState(t, storagemarket.StorageDealFailing, deal.State)
-				require.Equal(t, "error calling node: getting client market balance failed: could not get balance", deal.Message)
+				tut.AssertDealState(t, storagemarket.StorageDealRejecting, deal.State)
+				require.Equal(t, "deal rejected: node error getting client market balance failed: could not get balance", deal.Message)
 			},
 		},
 		"Not enough funds": {
@@ -125,7 +126,7 @@ func TestValidateDealProposal(t *testing.T) {
 				ClientMarketBalance: abi.NewTokenAmount(150 * 10000),
 			},
 			dealInspector: func(t *testing.T, deal storagemarket.MinerDeal, env *fakeEnvironment) {
-				tut.AssertDealState(t, storagemarket.StorageDealFailing, deal.State)
+				tut.AssertDealState(t, storagemarket.StorageDealRejecting, deal.State)
 				require.Equal(t, "deal rejected: clientMarketBalance.Available too small", deal.Message)
 			},
 		},
@@ -161,7 +162,7 @@ func TestDecideOnProposal(t *testing.T) {
 				RejectReason: "I just don't like it",
 			},
 			dealInspector: func(t *testing.T, deal storagemarket.MinerDeal, env *fakeEnvironment) {
-				tut.AssertDealState(t, storagemarket.StorageDealFailing, deal.State)
+				tut.AssertDealState(t, storagemarket.StorageDealRejecting, deal.State)
 				require.Equal(t, "deal rejected: I just don't like it", deal.Message)
 			},
 		},
@@ -170,8 +171,8 @@ func TestDecideOnProposal(t *testing.T) {
 				DecisionError: errors.New("I can't make up my mind"),
 			},
 			dealInspector: func(t *testing.T, deal storagemarket.MinerDeal, env *fakeEnvironment) {
-				tut.AssertDealState(t, storagemarket.StorageDealFailing, deal.State)
-				require.Equal(t, "error calling node: custom deal decision logic failed: I can't make up my mind", deal.Message)
+				tut.AssertDealState(t, storagemarket.StorageDealRejecting, deal.State)
+				require.Equal(t, "deal rejected: custom deal decision logic failed: I can't make up my mind", deal.Message)
 			},
 		},
 		"SendSignedResponse errors": {
@@ -179,7 +180,7 @@ func TestDecideOnProposal(t *testing.T) {
 				SendSignedResponseError: errors.New("could not send"),
 			},
 			dealInspector: func(t *testing.T, deal storagemarket.MinerDeal, env *fakeEnvironment) {
-				tut.AssertDealState(t, storagemarket.StorageDealError, deal.State)
+				tut.AssertDealState(t, storagemarket.StorageDealFailing, deal.State)
 				require.Equal(t, "sending response to deal: could not send", deal.Message)
 			},
 		},
@@ -223,7 +224,7 @@ func TestVerifyData(t *testing.T) {
 			},
 			dealInspector: func(t *testing.T, deal storagemarket.MinerDeal, env *fakeEnvironment) {
 				tut.AssertDealState(t, storagemarket.StorageDealFailing, deal.State)
-				require.Equal(t, "generating piece committment: could not generate CommP", deal.Message)
+				require.Equal(t, "deal data verification failed: error generating CommP: could not generate CommP", deal.Message)
 			},
 		},
 		"piece CIDs do not match": {
@@ -232,7 +233,7 @@ func TestVerifyData(t *testing.T) {
 			},
 			dealInspector: func(t *testing.T, deal storagemarket.MinerDeal, env *fakeEnvironment) {
 				tut.AssertDealState(t, storagemarket.StorageDealFailing, deal.State)
-				require.Equal(t, "deal rejected: proposal CommP doesn't match calculated CommP", deal.Message)
+				require.Equal(t, "deal data verification failed: proposal CommP doesn't match calculated CommP", deal.Message)
 			},
 		},
 	}
@@ -604,6 +605,42 @@ func TestRecordPieceInfo(t *testing.T) {
 	}
 }
 
+func TestRejectDeal(t *testing.T) {
+	ctx := context.Background()
+	eventProcessor, err := fsm.NewEventProcessor(storagemarket.MinerDeal{}, "State", providerstates.ProviderEvents)
+	require.NoError(t, err)
+	runRejectDeal := makeExecutor(ctx, eventProcessor, providerstates.RejectDeal, storagemarket.StorageDealRejecting)
+	tests := map[string]struct {
+		nodeParams        nodeParams
+		dealParams        dealParams
+		environmentParams environmentParams
+		fileStoreParams   tut.TestFileStoreParams
+		pieceStoreParams  tut.TestPieceStoreParams
+		dealInspector     func(t *testing.T, deal storagemarket.MinerDeal, env *fakeEnvironment)
+	}{
+		"succeeds": {
+			dealInspector: func(t *testing.T, deal storagemarket.MinerDeal, env *fakeEnvironment) {
+				tut.AssertDealState(t, storagemarket.StorageDealFailing, deal.State)
+				require.Equal(t, 1, env.disconnectCalls)
+			},
+		},
+		"fails if it cannot send a response": {
+			environmentParams: environmentParams{
+				SendSignedResponseError: xerrors.New("error sending response"),
+			},
+			dealInspector: func(t *testing.T, deal storagemarket.MinerDeal, env *fakeEnvironment) {
+				tut.AssertDealState(t, storagemarket.StorageDealFailing, deal.State)
+				require.Equal(t, deal.Message, "sending response to deal: error sending response")
+			},
+		},
+	}
+	for test, data := range tests {
+		t.Run(test, func(t *testing.T) {
+			runRejectDeal(t, data.nodeParams, data.environmentParams, data.dealParams, data.fileStoreParams, data.pieceStoreParams, data.dealInspector)
+		})
+	}
+}
+
 func TestFailDeal(t *testing.T) {
 	ctx := context.Background()
 	eventProcessor, err := fsm.NewEventProcessor(storagemarket.MinerDeal{}, "State", providerstates.ProviderEvents)
@@ -925,6 +962,7 @@ type fakeEnvironment struct {
 	metadataPath            filestore.Path
 	generateCommPError      error
 	sendSignedResponseError error
+	disconnectCalls         int
 	disconnectError         error
 	rejectDeal              bool
 	rejectReason            string
@@ -961,6 +999,7 @@ func (fe *fakeEnvironment) VerifyExpectations(t *testing.T) {
 }
 
 func (fe *fakeEnvironment) Disconnect(proposalCid cid.Cid) error {
+	fe.disconnectCalls += 1
 	return fe.disconnectError
 }
 

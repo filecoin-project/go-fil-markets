@@ -47,9 +47,9 @@ type ProviderStateEntryFunc func(ctx fsm.Context, environment ProviderDealEnviro
 
 // ValidateDealProposal validates a proposed deal against the provider criteria
 func ValidateDealProposal(ctx fsm.Context, environment ProviderDealEnvironment, deal storagemarket.MinerDeal) error {
-	tok, _, err := environment.Node().GetChainHead(ctx.Context())
+	tok, height, err := environment.Node().GetChainHead(ctx.Context())
 	if err != nil {
-		return ctx.Trigger(storagemarket.ProviderEventNodeErrored, xerrors.Errorf("getting most recent state id: %w", err))
+		return ctx.Trigger(storagemarket.ProviderEventDealRejected, xerrors.Errorf("node error getting most recent state id: %w", err))
 	}
 
 	if err := providerutils.VerifyProposal(ctx.Context(), deal.ClientDealProposal, tok, environment.Node().VerifySignature); err != nil {
@@ -58,11 +58,6 @@ func ValidateDealProposal(ctx fsm.Context, environment ProviderDealEnvironment, 
 
 	if deal.Proposal.Provider != environment.Address() {
 		return ctx.Trigger(storagemarket.ProviderEventDealRejected, xerrors.Errorf("incorrect provider for deal"))
-	}
-
-	tok, height, err := environment.Node().GetChainHead(ctx.Context())
-	if err != nil {
-		return ctx.Trigger(storagemarket.ProviderEventNodeErrored, xerrors.Errorf("getting most recent state id: %w", err))
 	}
 
 	if height > deal.Proposal.StartEpoch-environment.DealAcceptanceBuffer() {
@@ -90,7 +85,7 @@ func ValidateDealProposal(ctx fsm.Context, environment ProviderDealEnvironment, 
 	// check market funds
 	clientMarketBalance, err := environment.Node().GetBalance(ctx.Context(), deal.Proposal.Client, tok)
 	if err != nil {
-		return ctx.Trigger(storagemarket.ProviderEventNodeErrored, xerrors.Errorf("getting client market balance failed: %w", err))
+		return ctx.Trigger(storagemarket.ProviderEventDealRejected, xerrors.Errorf("node error getting client market balance failed: %w", err))
 	}
 
 	// This doesn't guarantee that the client won't withdraw / lock those funds
@@ -107,7 +102,7 @@ func ValidateDealProposal(ctx fsm.Context, environment ProviderDealEnvironment, 
 func DecideOnProposal(ctx fsm.Context, environment ProviderDealEnvironment, deal storagemarket.MinerDeal) error {
 	accept, reason, err := environment.RunCustomDecisionLogic(ctx.Context(), deal)
 	if err != nil {
-		return ctx.Trigger(storagemarket.ProviderEventNodeErrored, xerrors.Errorf("custom deal decision logic failed: %w", err))
+		return ctx.Trigger(storagemarket.ProviderEventDealRejected, xerrors.Errorf("custom deal decision logic failed: %w", err))
 	}
 
 	if !accept {
@@ -137,12 +132,12 @@ func VerifyData(ctx fsm.Context, environment ProviderDealEnvironment, deal stora
 
 	pieceCid, piecePath, metadataPath, err := environment.GeneratePieceCommitmentToFile(deal.Ref.Root, shared.AllSelector())
 	if err != nil {
-		return ctx.Trigger(storagemarket.ProviderEventGeneratePieceCIDFailed, err)
+		return ctx.Trigger(storagemarket.ProviderEventDataVerificationFailed, xerrors.Errorf("error generating CommP: %w", err))
 	}
 
 	// Verify CommP matches
 	if pieceCid != deal.Proposal.PieceCID {
-		return ctx.Trigger(storagemarket.ProviderEventDealRejected, xerrors.Errorf("proposal CommP doesn't match calculated CommP"))
+		return ctx.Trigger(storagemarket.ProviderEventDataVerificationFailed, xerrors.Errorf("proposal CommP doesn't match calculated CommP"))
 	}
 
 	return ctx.Trigger(storagemarket.ProviderEventVerifiedData, piecePath, metadataPath)
@@ -277,7 +272,6 @@ func VerifyDealActivated(ctx fsm.Context, environment ProviderDealEnvironment, d
 // RecordPieceInfo records sector information about an activated deal so that the data
 // can be retrieved later
 func RecordPieceInfo(ctx fsm.Context, environment ProviderDealEnvironment, deal storagemarket.MinerDeal) error {
-
 	tok, _, err := environment.Node().GetChainHead(ctx.Context())
 	if err != nil {
 		return ctx.Trigger(storagemarket.ProviderEventUnableToLocatePiece, deal.DealID, err)
@@ -331,7 +325,26 @@ func RecordPieceInfo(ctx fsm.Context, environment ProviderDealEnvironment, deal 
 	return ctx.Trigger(storagemarket.ProviderEventDealCompleted)
 }
 
-// FailDeal sends a failure response before terminating a deal
+// RejectDeal sends a failure response before terminating a deal
+func RejectDeal(ctx fsm.Context, environment ProviderDealEnvironment, deal storagemarket.MinerDeal) error {
+	err := environment.SendSignedResponse(ctx.Context(), &network.Response{
+		State:    storagemarket.StorageDealFailing,
+		Message:  deal.Message,
+		Proposal: deal.ProposalCid,
+	})
+
+	if err != nil {
+		return ctx.Trigger(storagemarket.ProviderEventSendResponseFailed, err)
+	}
+
+	if err := environment.Disconnect(deal.ProposalCid); err != nil {
+		log.Warnf("closing client connection: %+v", err)
+	}
+
+	return ctx.Trigger(storagemarket.ProviderEventRejectionSent)
+}
+
+// FailDeal cleans up before terminating a deal
 func FailDeal(ctx fsm.Context, environment ProviderDealEnvironment, deal storagemarket.MinerDeal) error {
 
 	log.Warnf("deal %s failed: %s", deal.ProposalCid, deal.Message)

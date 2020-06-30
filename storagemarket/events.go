@@ -129,6 +129,9 @@ const (
 	// ProviderEventDealRejected happens when a deal proposal is rejected for not meeting criteria
 	ProviderEventDealRejected
 
+	// ProviderEventRejectionSent happens after a deal proposal rejection has been sent to the client
+	ProviderEventRejectionSent
+
 	// ProviderEventDealAccepted happens when a deal is accepted based on provider criteria
 	ProviderEventDealAccepted
 
@@ -156,8 +159,8 @@ const (
 	// ProviderEventManualDataReceived happens when data is received manually for an offline deal
 	ProviderEventManualDataReceived
 
-	// ProviderEventGeneratePieceCIDFailed happens when generating a piece cid from received data errors
-	ProviderEventGeneratePieceCIDFailed
+	// ProviderEventDataVerificationFailed happens when an error occurs validating deal data
+	ProviderEventDataVerificationFailed
 
 	// ProviderEventVerifiedData happens when received data is verified as matching the pieceCID in a deal proposal
 	ProviderEventVerifiedData
@@ -214,6 +217,7 @@ var ProviderEvents = map[ProviderEvent]string{
 	ProviderEventOpen:                   "ProviderEventOpen",
 	ProviderEventNodeErrored:            "ProviderEventNodeErrored",
 	ProviderEventDealRejected:           "ProviderEventDealRejected",
+	ProviderEventRejectionSent:          "ProviderEventRejectionSent",
 	ProviderEventDealAccepted:           "ProviderEventDealAccepted",
 	ProviderEventDealDeciding:           "ProviderEventDealDeciding",
 	ProviderEventInsufficientFunds:      "ProviderEventInsufficientFunds",
@@ -224,7 +228,7 @@ var ProviderEvents = map[ProviderEvent]string{
 	ProviderEventDataTransferInitiated:  "ProviderEventDataTransferInitiated",
 	ProviderEventDataTransferCompleted:  "ProviderEventDataTransferCompleted",
 	ProviderEventManualDataReceived:     "ProviderEventManualDataReceived",
-	ProviderEventGeneratePieceCIDFailed: "ProviderEventGeneratePieceCIDFailed",
+	ProviderEventDataVerificationFailed: "ProviderEventDataVerificationFailed",
 	ProviderEventVerifiedData:           "ProviderEventVerifiedData",
 	ProviderEventSendResponseFailed:     "ProviderEventSendResponseFailed",
 	ProviderEventDealPublishInitiated:   "ProviderEventDealPublishInitiated",
