@@ -68,5 +68,8 @@ stateDiagram-v2
 	6 --> 10 : ProviderEventUnableToLocatePiece
 	6 --> 10 : ProviderEventReadMetadataErrored
 	10 --> 25 : ProviderEventFailed
+	9 --> 25 : ProviderEventRestart
+	13 --> 25 : ProviderEventRestart
+	14 --> 25 : ProviderEventRestart
 	25 --> [*]
 	26 --> [*]
