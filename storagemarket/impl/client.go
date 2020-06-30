@@ -514,10 +514,6 @@ func (c *clientDealEnvironment) NewDealStream(p peer.ID) (network.StorageDealStr
 	return c.c.net.NewDealStream(p)
 }
 
-func (c *clientDealEnvironment) CloseDealStream(s network.StorageDealStream) error {
-	return s.Close()
-}
-
 func (c *clientDealEnvironment) Node() storagemarket.StorageClientNode {
 	return c.c.node
 }

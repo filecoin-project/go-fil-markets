@@ -91,7 +91,7 @@ func TestProposeDeal(t *testing.T) {
 			nodeParams: nodeParams{WaitForMessageExitCode: exitcode.Ok},
 			inspector: func(deal storagemarket.ClientDeal, env *fakeEnvironment) {
 				tut.AssertDealState(t, storagemarket.StorageDealStartDataTransfer, deal.State)
-				assert.Equal(t, 1, env.closeStreamCount)
+				assert.Equal(t, 1, env.dealStream.CloseCount)
 			},
 		})
 	})
@@ -124,11 +124,9 @@ func TestProposeDeal(t *testing.T) {
 	})
 	t.Run("closing the stream fails", func(t *testing.T) {
 		ds := tut.NewTestStorageDealStream(tut.TestStorageDealStreamParams{})
+		ds.CloseError = xerrors.Errorf("failed to close stream")
 		runAndInspect(t, storagemarket.StorageDealFundsEnsured, clientstates.ProposeDeal, testCase{
-			envParams: envParams{
-				dealStream:     ds,
-				closeStreamErr: xerrors.Errorf("failed to close stream"),
-			},
+			envParams: envParams{dealStream: ds},
 			inspector: func(deal storagemarket.ClientDeal, env *fakeEnvironment) {
 				tut.AssertDealState(t, storagemarket.StorageDealError, deal.State)
 				assert.Equal(t, "error attempting to close stream: failed to close stream", deal.Message)
@@ -412,8 +410,7 @@ func TestWaitForDealCompletion(t *testing.T) {
 }
 
 type envParams struct {
-	dealStream             smnet.StorageDealStream
-	closeStreamErr         error
+	dealStream             *tut.TestStorageDealStream
 	startDataTransferError error
 	manualTransfer         bool
 	providerDealState      *storagemarket.ProviderDealState
@@ -452,7 +449,6 @@ func makeExecutor(ctx context.Context,
 		environment := &fakeEnvironment{
 			node:                   node,
 			dealStream:             envParams.dealStream,
-			closeStreamErr:         envParams.closeStreamErr,
 			startDataTransferError: envParams.startDataTransferError,
 			providerDealState:      envParams.providerDealState,
 			getDealStatusErr:       envParams.getDealStatusErr,
@@ -521,9 +517,7 @@ func makeNode(params nodeParams) storagemarket.StorageClientNode {
 
 type fakeEnvironment struct {
 	node                   storagemarket.StorageClientNode
-	dealStream             smnet.StorageDealStream
-	closeStreamErr         error
-	closeStreamCount       int
+	dealStream             *tut.TestStorageDealStream
 	startDataTransferError error
 	startDataTransferCalls []dataTransferParams
 	providerDealState      *storagemarket.ProviderDealState
@@ -558,11 +552,6 @@ func (fe *fakeEnvironment) WriteDealProposal(_ peer.ID, _ cid.Cid, proposal smne
 
 func (fe *fakeEnvironment) NewDealStream(_ peer.ID) (smnet.StorageDealStream, error) {
 	return fe.dealStream, nil
-}
-
-func (fe *fakeEnvironment) CloseDealStream(_ smnet.StorageDealStream) error {
-	fe.closeStreamCount += 1
-	return fe.closeStreamErr
 }
 
 func (fe *fakeEnvironment) GetProviderDealState(_ context.Context, _ cid.Cid) (*storagemarket.ProviderDealState, error) {

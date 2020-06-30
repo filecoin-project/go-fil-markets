@@ -525,6 +525,9 @@ type TestStorageDealStream struct {
 	responseReader StorageDealResponseReader
 	responseWriter StorageDealResponseWriter
 	tags           map[string]struct{}
+
+	CloseCount int
+	CloseError error
 }
 
 // TestStorageDealStreamParams are parameters used to setup a TestStorageDealStream.
@@ -587,7 +590,10 @@ func (tsds *TestStorageDealStream) WriteDealResponse(dealResponse smnet.SignedRe
 func (tsds TestStorageDealStream) RemotePeer() peer.ID { return tsds.p }
 
 // Close closes the stream (does nothing for mocked stream)
-func (tsds TestStorageDealStream) Close() error { return nil }
+func (tsds *TestStorageDealStream) Close() error {
+	tsds.CloseCount += 1
+	return tsds.CloseError
+}
 
 // TagProtectedConnection preserves this connection as higher priority than others
 func (tsds TestStorageDealStream) TagProtectedConnection(identifier string) {
