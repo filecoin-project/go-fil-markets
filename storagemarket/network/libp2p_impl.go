@@ -29,8 +29,8 @@ type libp2pStorageMarketNetwork struct {
 	receiver StorageReceiver
 }
 
-func (impl *libp2pStorageMarketNetwork) NewAskStream(id peer.ID) (StorageAskStream, error) {
-	s, err := impl.host.NewStream(context.Background(), id, storagemarket.AskProtocolID)
+func (impl *libp2pStorageMarketNetwork) NewAskStream(ctx context.Context, id peer.ID) (StorageAskStream, error) {
+	s, err := impl.host.NewStream(ctx, id, storagemarket.AskProtocolID)
 	if err != nil {
 		log.Warn(err)
 		return nil, err

@@ -191,7 +191,7 @@ func (c *Client) GetAsk(ctx context.Context, info storagemarket.StorageProviderI
 	if len(info.Addrs) > 0 {
 		c.net.AddAddrs(info.PeerID, info.Addrs)
 	}
-	s, err := c.net.NewAskStream(info.PeerID)
+	s, err := c.net.NewAskStream(ctx, info.PeerID)
 	if err != nil {
 		return nil, xerrors.Errorf("failed to open stream to miner: %w", err)
 	}
