@@ -51,6 +51,9 @@ type StorageCommon interface {
 
 	// OnDealSectorCommitted waits for a deal's sector to be sealed and proved, indicating the deal is active
 	OnDealSectorCommitted(ctx context.Context, provider address.Address, dealID abi.DealID, cb DealSectorCommittedCallback) error
+
+	// OnDealExpiredOrSlashed registers callbacks to be called when the deal expires or is slashed
+	OnDealExpiredOrSlashed(ctx context.Context, dealID abi.DealID, onDealExpired DealExpiredCallback, onDealSlashed DealSlashedCallback) error
 }
 
 // StorageProviderNode are node dependencies for a StorageProvider
@@ -91,9 +94,6 @@ type StorageClientNode interface {
 
 	// GetDefaultWalletAddress returns the address for this client
 	GetDefaultWalletAddress(ctx context.Context) (address.Address, error)
-
-	// OnDealExpiredOrSlashed registers callbacks to be called when the deal expires or is slashed
-	OnDealExpiredOrSlashed(ctx context.Context, dealID abi.DealID, onDealExpired DealExpiredCallback, onDealSlashed DealSlashedCallback) error
 
 	// ValidateAskSignature verifies a the signature is valid for a given SignedStorageAsk
 	ValidateAskSignature(ctx context.Context, ask *SignedStorageAsk, tok shared.TipSetToken) (bool, error)

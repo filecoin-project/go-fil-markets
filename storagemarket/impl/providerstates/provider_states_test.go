@@ -493,7 +493,7 @@ func TestVerifyDealActivated(t *testing.T) {
 	}{
 		"succeeds": {
 			dealInspector: func(t *testing.T, deal storagemarket.MinerDeal, env *fakeEnvironment) {
-				tut.AssertDealState(t, storagemarket.StorageDealActive, deal.State)
+				tut.AssertDealState(t, storagemarket.StorageDealRecordPiece, deal.State)
 			},
 		},
 		"sync error": {
@@ -526,7 +526,7 @@ func TestRecordPieceInfo(t *testing.T) {
 	ctx := context.Background()
 	eventProcessor, err := fsm.NewEventProcessor(storagemarket.MinerDeal{}, "State", providerstates.ProviderEvents)
 	require.NoError(t, err)
-	runRecordPieceInfo := makeExecutor(ctx, eventProcessor, providerstates.RecordPieceInfo, storagemarket.StorageDealActive)
+	runRecordPieceInfo := makeExecutor(ctx, eventProcessor, providerstates.RecordPieceInfo, storagemarket.StorageDealRecordPiece)
 	tests := map[string]struct {
 		nodeParams        nodeParams
 		dealParams        dealParams
@@ -544,7 +544,7 @@ func TestRecordPieceInfo(t *testing.T) {
 				ExpectedDeletions: []filestore.Path{defaultPath},
 			},
 			dealInspector: func(t *testing.T, deal storagemarket.MinerDeal, env *fakeEnvironment) {
-				tut.AssertDealState(t, storagemarket.StorageDealCompleted, deal.State)
+				tut.AssertDealState(t, storagemarket.StorageDealActive, deal.State)
 			},
 		},
 		"succeeds w metadata": {
@@ -558,7 +558,7 @@ func TestRecordPieceInfo(t *testing.T) {
 				ExpectedDeletions: []filestore.Path{defaultMetadataPath, defaultPath},
 			},
 			dealInspector: func(t *testing.T, deal storagemarket.MinerDeal, env *fakeEnvironment) {
-				tut.AssertDealState(t, storagemarket.StorageDealCompleted, deal.State)
+				tut.AssertDealState(t, storagemarket.StorageDealActive, deal.State)
 			},
 		},
 		"locate piece fails": {
@@ -604,6 +604,63 @@ func TestRecordPieceInfo(t *testing.T) {
 	for test, data := range tests {
 		t.Run(test, func(t *testing.T) {
 			runRecordPieceInfo(t, data.nodeParams, data.environmentParams, data.dealParams, data.fileStoreParams, data.pieceStoreParams, data.dealInspector)
+		})
+	}
+}
+
+func TestWaitForDealCompletion(t *testing.T) {
+	ctx := context.Background()
+	eventProcessor, err := fsm.NewEventProcessor(storagemarket.MinerDeal{}, "State", providerstates.ProviderEvents)
+	require.NoError(t, err)
+	runWaitForDealCompletion := makeExecutor(ctx, eventProcessor, providerstates.WaitForDealCompletion, storagemarket.StorageDealActive)
+	tests := map[string]struct {
+		nodeParams        nodeParams
+		dealParams        dealParams
+		environmentParams environmentParams
+		fileStoreParams   tut.TestFileStoreParams
+		pieceStoreParams  tut.TestPieceStoreParams
+		dealInspector     func(t *testing.T, deal storagemarket.MinerDeal, env *fakeEnvironment)
+	}{
+		"slashing succeeds": {
+			nodeParams: nodeParams{OnDealSlashedEpoch: abi.ChainEpoch(5)},
+			dealInspector: func(t *testing.T, deal storagemarket.MinerDeal, env *fakeEnvironment) {
+				tut.AssertDealState(t, storagemarket.StorageDealSlashed, deal.State)
+				require.Equal(t, abi.ChainEpoch(5), deal.SlashEpoch)
+			},
+		},
+		"expiration succeeds": {
+			// OnDealSlashedEpoch of zero signals to test node to call onDealExpired()
+			nodeParams: nodeParams{OnDealSlashedEpoch: abi.ChainEpoch(0)},
+			dealInspector: func(t *testing.T, deal storagemarket.MinerDeal, env *fakeEnvironment) {
+				tut.AssertDealState(t, storagemarket.StorageDealExpired, deal.State)
+			},
+		},
+		"slashing fails": {
+			nodeParams: nodeParams{OnDealSlashedError: errors.New("an err")},
+			dealInspector: func(t *testing.T, deal storagemarket.MinerDeal, env *fakeEnvironment) {
+				tut.AssertDealState(t, storagemarket.StorageDealError, deal.State)
+				require.Equal(t, "error waiting for deal completion: deal slashing err: an err", deal.Message)
+			},
+		},
+		"expiration fails": {
+			nodeParams: nodeParams{OnDealExpiredError: errors.New("an err")},
+			dealInspector: func(t *testing.T, deal storagemarket.MinerDeal, env *fakeEnvironment) {
+				tut.AssertDealState(t, storagemarket.StorageDealError, deal.State)
+				require.Equal(t, "error waiting for deal completion: deal expiration err: an err", deal.Message)
+			},
+		},
+		"fails synchronously": {
+			nodeParams: nodeParams{WaitForDealCompletionError: errors.New("an err")},
+			dealInspector: func(t *testing.T, deal storagemarket.MinerDeal, env *fakeEnvironment) {
+				tut.AssertDealState(t, storagemarket.StorageDealError, deal.State)
+				require.Equal(t, "error waiting for deal completion: an err", deal.Message)
+			},
+		},
+	}
+
+	for test, data := range tests {
+		t.Run(test, func(t *testing.T) {
+			runWaitForDealCompletion(t, data.nodeParams, data.environmentParams, data.dealParams, data.fileStoreParams, data.pieceStoreParams, data.dealInspector)
 		})
 	}
 }
@@ -758,6 +815,10 @@ type nodeParams struct {
 	WaitForMessageError                 error
 	WaitForMessageExitCode              exitcode.ExitCode
 	WaitForMessageRetBytes              []byte
+	WaitForDealCompletionError          error
+	OnDealExpiredError                  error
+	OnDealSlashedError                  error
+	OnDealSlashedEpoch                  abi.ChainEpoch
 }
 
 type dealParams struct {
@@ -825,18 +886,22 @@ func makeExecutor(ctx context.Context,
 		}
 
 		common := testnodes.FakeCommonNode{
-			SMState:                 smstate,
-			GetChainHeadError:       nodeParams.MostRecentStateIDError,
-			GetBalanceError:         nodeParams.ClientMarketBalanceError,
-			VerifySignatureFails:    nodeParams.VerifySignatureFails,
-			EnsureFundsError:        nodeParams.EnsureFundsError,
-			DealCommittedSyncError:  nodeParams.DealCommittedSyncError,
-			DealCommittedAsyncError: nodeParams.DealCommittedAsyncError,
-			AddFundsCid:             nodeParams.AddFundsCid,
-			WaitForMessageBlocks:    nodeParams.WaitForMessageBlocks,
-			WaitForMessageError:     nodeParams.WaitForMessageError,
-			WaitForMessageExitCode:  nodeParams.WaitForMessageExitCode,
-			WaitForMessageRetBytes:  nodeParams.WaitForMessageRetBytes,
+			SMState:                    smstate,
+			GetChainHeadError:          nodeParams.MostRecentStateIDError,
+			GetBalanceError:            nodeParams.ClientMarketBalanceError,
+			VerifySignatureFails:       nodeParams.VerifySignatureFails,
+			EnsureFundsError:           nodeParams.EnsureFundsError,
+			DealCommittedSyncError:     nodeParams.DealCommittedSyncError,
+			DealCommittedAsyncError:    nodeParams.DealCommittedAsyncError,
+			AddFundsCid:                nodeParams.AddFundsCid,
+			WaitForMessageBlocks:       nodeParams.WaitForMessageBlocks,
+			WaitForMessageError:        nodeParams.WaitForMessageError,
+			WaitForMessageExitCode:     nodeParams.WaitForMessageExitCode,
+			WaitForMessageRetBytes:     nodeParams.WaitForMessageRetBytes,
+			WaitForDealCompletionError: nodeParams.WaitForDealCompletionError,
+			OnDealExpiredError:         nodeParams.OnDealExpiredError,
+			OnDealSlashedError:         nodeParams.OnDealSlashedError,
+			OnDealSlashedEpoch:         nodeParams.OnDealSlashedEpoch,
 		}
 
 		node := &testnodes.FakeProviderNode{

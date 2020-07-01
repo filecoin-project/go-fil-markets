@@ -90,15 +90,19 @@ func (sma *StorageMarketState) AddDeal(deal storagemarket.StorageDeal) (shared.T
 // FakeCommonNode implements common methods for the storage & client node adapters
 // where responses are stubbed
 type FakeCommonNode struct {
-	SMState                 *StorageMarketState
-	AddFundsCid             cid.Cid
-	EnsureFundsError        error
-	VerifySignatureFails    bool
-	GetBalanceError         error
-	GetChainHeadError       error
-	SignBytesError          error
-	DealCommittedSyncError  error
-	DealCommittedAsyncError error
+	SMState                    *StorageMarketState
+	AddFundsCid                cid.Cid
+	EnsureFundsError           error
+	VerifySignatureFails       bool
+	GetBalanceError            error
+	GetChainHeadError          error
+	SignBytesError             error
+	DealCommittedSyncError     error
+	DealCommittedAsyncError    error
+	WaitForDealCompletionError error
+	OnDealExpiredError         error
+	OnDealSlashedError         error
+	OnDealSlashedEpoch         abi.ChainEpoch
 
 	WaitForMessageBlocks    bool
 	WaitForMessageError     error
@@ -181,22 +185,43 @@ func (n *FakeCommonNode) OnDealSectorCommitted(ctx context.Context, provider add
 	return n.DealCommittedSyncError
 }
 
+// OnDealExpiredOrSlashed simulates waiting for a deal to be expired or slashed, but provides stubbed behavior
+func (n *FakeCommonNode) OnDealExpiredOrSlashed(ctx context.Context, dealID abi.DealID, onDealExpired storagemarket.DealExpiredCallback, onDealSlashed storagemarket.DealSlashedCallback) error {
+	if n.WaitForDealCompletionError != nil {
+		return n.WaitForDealCompletionError
+	}
+
+	if n.OnDealSlashedError != nil {
+		onDealSlashed(abi.ChainEpoch(0), n.OnDealSlashedError)
+		return nil
+	}
+
+	if n.OnDealExpiredError != nil {
+		onDealExpired(n.OnDealExpiredError)
+		return nil
+	}
+
+	if n.OnDealSlashedEpoch == 0 {
+		onDealExpired(nil)
+		return nil
+	}
+
+	onDealSlashed(n.OnDealSlashedEpoch, nil)
+	return nil
+}
+
 var _ storagemarket.StorageCommon = (*FakeCommonNode)(nil)
 
 // FakeClientNode is a node adapter for a storage client whose responses
 // are stubbed
 type FakeClientNode struct {
 	FakeCommonNode
-	ClientAddr                 address.Address
-	MinerAddr                  address.Address
-	WorkerAddr                 address.Address
-	ValidationError            error
-	ValidatePublishedDealID    abi.DealID
-	ValidatePublishedError     error
-	WaitForDealCompletionError error
-	OnDealExpiredError         error
-	OnDealSlashedError         error
-	OnDealSlashedEpoch         abi.ChainEpoch
+	ClientAddr              address.Address
+	MinerAddr               address.Address
+	WorkerAddr              address.Address
+	ValidationError         error
+	ValidatePublishedDealID abi.DealID
+	ValidatePublishedError  error
 }
 
 // ListClientDeals just returns the deals in the storage market state
@@ -239,31 +264,6 @@ func (n *FakeClientNode) GetMinerInfo(ctx context.Context, maddr address.Address
 // communicating the validity of the provided signature
 func (n *FakeClientNode) ValidateAskSignature(ctx context.Context, ask *storagemarket.SignedStorageAsk, tok shared.TipSetToken) (bool, error) {
 	return n.ValidationError == nil, n.ValidationError
-}
-
-// OnDealExpiredOrSlashed simulates waiting for a deal to be expired or slashed, but provides stubbed behavior
-func (n *FakeClientNode) OnDealExpiredOrSlashed(ctx context.Context, dealID abi.DealID, onDealExpired storagemarket.DealExpiredCallback, onDealSlashed storagemarket.DealSlashedCallback) error {
-	if n.WaitForDealCompletionError != nil {
-		return n.WaitForDealCompletionError
-	}
-
-	if n.OnDealSlashedError != nil {
-		onDealSlashed(abi.ChainEpoch(0), n.OnDealSlashedError)
-		return nil
-	}
-
-	if n.OnDealExpiredError != nil {
-		onDealExpired(n.OnDealExpiredError)
-		return nil
-	}
-
-	if n.OnDealSlashedEpoch == 0 {
-		onDealExpired(nil)
-		return nil
-	}
-
-	onDealSlashed(n.OnDealSlashedEpoch, nil)
-	return nil
 }
 
 var _ storagemarket.StorageClientNode = (*FakeClientNode)(nil)

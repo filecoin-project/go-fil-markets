@@ -85,7 +85,7 @@ func TestMakeDeal(t *testing.T) {
 	var providerSeenDeal storagemarket.MinerDeal
 	var clientSeenDeal storagemarket.ClientDeal
 	var providerstates, clientstates []storagemarket.StorageDealStatus
-	for providerSeenDeal.State != storagemarket.StorageDealCompleted ||
+	for providerSeenDeal.State != storagemarket.StorageDealExpired ||
 		clientSeenDeal.State != storagemarket.StorageDealExpired {
 		select {
 		case clientSeenDeal = <-clientDealChan:
@@ -110,8 +110,9 @@ func TestMakeDeal(t *testing.T) {
 		storagemarket.StorageDealPublishing,
 		storagemarket.StorageDealStaged,
 		storagemarket.StorageDealSealing,
+		storagemarket.StorageDealRecordPiece,
 		storagemarket.StorageDealActive,
-		storagemarket.StorageDealCompleted,
+		storagemarket.StorageDealExpired,
 	}
 
 	expClientStates := []storagemarket.StorageDealStatus{
@@ -147,12 +148,12 @@ func TestMakeDeal(t *testing.T) {
 	pd := providerDeals[0]
 	assert.Equal(t, proposalCid, pd.ProposalCid)
 	assert.True(t, pd.FastRetrieval)
-	shared_testutil.AssertDealState(t, storagemarket.StorageDealCompleted, pd.State)
+	shared_testutil.AssertDealState(t, storagemarket.StorageDealExpired, pd.State)
 
 	// test out query protocol
 	status, err := h.Client.GetProviderDealState(ctx, proposalCid)
 	assert.NoError(t, err)
-	shared_testutil.AssertDealState(t, storagemarket.StorageDealCompleted, status.State)
+	shared_testutil.AssertDealState(t, storagemarket.StorageDealExpired, status.State)
 	assert.True(t, status.FastRetrieval)
 
 	// ensure that the handoff has fast retrieval info
@@ -206,7 +207,7 @@ func TestMakeDealOffline(t *testing.T) {
 	require.NoError(t, err)
 
 	h.WaitForClientEvent(&wg, storagemarket.ClientEventDealExpired)
-	h.WaitForProviderEvent(&wg, storagemarket.ProviderEventDealCompleted)
+	h.WaitForProviderEvent(&wg, storagemarket.ProviderEventDealExpired)
 	wg.Wait()
 
 	cd, err = h.Client.GetLocalDeal(ctx, proposalCid)
@@ -218,7 +219,7 @@ func TestMakeDealOffline(t *testing.T) {
 
 	pd = providerDeals[0]
 	assert.True(t, pd.ProposalCid.Equals(proposalCid))
-	shared_testutil.AssertDealState(t, storagemarket.StorageDealCompleted, pd.State)
+	shared_testutil.AssertDealState(t, storagemarket.StorageDealExpired, pd.State)
 }
 
 func TestMakeDealNonBlocking(t *testing.T) {
@@ -295,7 +296,7 @@ func TestRestartClient(t *testing.T) {
 
 	wg.Add(1)
 	_ = h.Provider.SubscribeToEvents(func(event storagemarket.ProviderEvent, deal storagemarket.MinerDeal) {
-		if event == storagemarket.ProviderEventDealCompleted {
+		if event == storagemarket.ProviderEventDealExpired {
 			wg.Done()
 		}
 	})
@@ -314,7 +315,7 @@ func TestRestartClient(t *testing.T) {
 
 	pd := providerDeals[0]
 	assert.Equal(t, pd.ProposalCid, proposalCid)
-	shared_testutil.AssertDealState(t, storagemarket.StorageDealCompleted, pd.State)
+	shared_testutil.AssertDealState(t, storagemarket.StorageDealExpired, pd.State)
 }
 
 type harness struct {

@@ -323,7 +323,36 @@ func RecordPieceInfo(ctx fsm.Context, environment ProviderDealEnvironment, deal 
 		}
 	}
 
-	return ctx.Trigger(storagemarket.ProviderEventDealCompleted)
+	return ctx.Trigger(storagemarket.ProviderEventPieceRecorded)
+}
+
+// WaitForDealCompletion waits for the deal to be slashed or to expire
+func WaitForDealCompletion(ctx fsm.Context, environment ProviderDealEnvironment, deal storagemarket.MinerDeal) error {
+	node := environment.Node()
+
+	// Called when the deal expires
+	expiredCb := func(err error) {
+		if err != nil {
+			_ = ctx.Trigger(storagemarket.ProviderEventDealCompletionFailed, xerrors.Errorf("deal expiration err: %w", err))
+		} else {
+			_ = ctx.Trigger(storagemarket.ProviderEventDealExpired)
+		}
+	}
+
+	// Called when the deal is slashed
+	slashedCb := func(slashEpoch abi.ChainEpoch, err error) {
+		if err != nil {
+			_ = ctx.Trigger(storagemarket.ProviderEventDealCompletionFailed, xerrors.Errorf("deal slashing err: %w", err))
+		} else {
+			_ = ctx.Trigger(storagemarket.ProviderEventDealSlashed, slashEpoch)
+		}
+	}
+
+	if err := node.OnDealExpiredOrSlashed(ctx.Context(), deal.DealID, expiredCb, slashedCb); err != nil {
+		return ctx.Trigger(storagemarket.ProviderEventDealCompletionFailed, err)
+	}
+
+	return nil
 }
 
 // RejectDeal sends a failure response before terminating a deal
