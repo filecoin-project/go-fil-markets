@@ -239,7 +239,7 @@ func (c *Client) GetProviderDealState(ctx context.Context, proposalCid cid.Cid) 
 		return nil, xerrors.Errorf("could not get client deal state: %w", err)
 	}
 
-	s, err := c.net.NewDealStatusStream(deal.Miner)
+	s, err := c.net.NewDealStatusStream(ctx, deal.Miner)
 	if err != nil {
 		return nil, xerrors.Errorf("failed to open stream to miner: %w", err)
 	}

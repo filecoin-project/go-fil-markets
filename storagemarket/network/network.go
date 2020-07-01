@@ -56,7 +56,7 @@ type StorageReceiver interface {
 type StorageMarketNetwork interface {
 	NewAskStream(context.Context, peer.ID) (StorageAskStream, error)
 	NewDealStream(context.Context, peer.ID) (StorageDealStream, error)
-	NewDealStatusStream(peer.ID) (DealStatusStream, error)
+	NewDealStatusStream(context.Context, peer.ID) (DealStatusStream, error)
 	SetDelegate(StorageReceiver) error
 	StopHandlingRequests() error
 	ID() peer.ID

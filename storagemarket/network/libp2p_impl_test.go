@@ -298,7 +298,7 @@ func TestDealStatusStreamSendReceiveMultipleSuccessful(t *testing.T) {
 	ctx, cancel := context.WithTimeout(ctxBg, 10*time.Second)
 	defer cancel()
 
-	qs, err := nw1.NewDealStatusStream(td.Host2.ID())
+	qs, err := nw1.NewDealStatusStream(ctx, td.Host2.ID())
 	require.NoError(t, err)
 
 	var resp network.DealStatusResponse
@@ -439,7 +439,7 @@ func assertDealStatusRequestReceived(inCtx context.Context, t *testing.T, fromNe
 	ctx, cancel := context.WithTimeout(inCtx, 10*time.Second)
 	defer cancel()
 
-	as1, err := fromNetwork.NewDealStatusStream(toHost)
+	as1, err := fromNetwork.NewDealStatusStream(ctx, toHost)
 	require.NoError(t, err)
 
 	// send query to host2
@@ -465,7 +465,7 @@ func assertDealStatusResponseReceived(inCtx context.Context, t *testing.T,
 	defer cancel()
 
 	// setup query stream host1 --> host 2
-	as1, err := fromNetwork.NewDealStatusStream(toHost)
+	as1, err := fromNetwork.NewDealStatusStream(ctx, toHost)
 	require.NoError(t, err)
 
 	// send queryresponse to host2
