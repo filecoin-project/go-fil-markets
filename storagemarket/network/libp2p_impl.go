@@ -39,8 +39,8 @@ func (impl *libp2pStorageMarketNetwork) NewAskStream(ctx context.Context, id pee
 	return &askStream{p: id, rw: s, buffered: buffered}, nil
 }
 
-func (impl *libp2pStorageMarketNetwork) NewDealStream(id peer.ID) (StorageDealStream, error) {
-	s, err := impl.host.NewStream(context.Background(), id, storagemarket.DealProtocolID)
+func (impl *libp2pStorageMarketNetwork) NewDealStream(ctx context.Context, id peer.ID) (StorageDealStream, error) {
+	s, err := impl.host.NewStream(ctx, id, storagemarket.DealProtocolID)
 	if err != nil {
 		return nil, err
 	}

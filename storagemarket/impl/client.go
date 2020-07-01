@@ -518,8 +518,8 @@ type clientDealEnvironment struct {
 	c *Client
 }
 
-func (c *clientDealEnvironment) NewDealStream(p peer.ID) (network.StorageDealStream, error) {
-	return c.c.net.NewDealStream(p)
+func (c *clientDealEnvironment) NewDealStream(ctx context.Context, p peer.ID) (network.StorageDealStream, error) {
+	return c.c.net.NewDealStream(ctx, p)
 }
 
 func (c *clientDealEnvironment) Node() storagemarket.StorageClientNode {

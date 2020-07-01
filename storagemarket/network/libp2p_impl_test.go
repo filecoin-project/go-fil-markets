@@ -203,14 +203,14 @@ func TestDealStreamSendReceiveMultipleSuccessful(t *testing.T) {
 	}}
 	require.NoError(t, toNetwork.SetDelegate(tr2))
 
+	ctx, cancel := context.WithTimeout(bgCtx, 10*time.Second)
+	defer cancel()
+
 	// start sending deal proposal
-	ds1, err := fromNetwork.NewDealStream(toPeer)
+	ds1, err := fromNetwork.NewDealStream(ctx, toPeer)
 	require.NoError(t, err)
 
 	dp := shared_testutil.MakeTestStorageNetworkProposal()
-
-	ctx, cancel := context.WithTimeout(bgCtx, 10*time.Second)
-	defer cancel()
 
 	// write proposal
 	require.NoError(t, ds1.WriteDealProposal(dp))
@@ -347,7 +347,7 @@ func assertDealProposalReceived(inCtx context.Context, t *testing.T, fromNetwork
 	ctx, cancel := context.WithTimeout(inCtx, 10*time.Second)
 	defer cancel()
 
-	qs1, err := fromNetwork.NewDealStream(toPeer)
+	qs1, err := fromNetwork.NewDealStream(ctx, toPeer)
 	require.NoError(t, err)
 
 	// send query to host2
@@ -368,7 +368,7 @@ func assertDealResponseReceived(parentCtx context.Context, t *testing.T, fromNet
 	ctx, cancel := context.WithTimeout(parentCtx, 10*time.Second)
 	defer cancel()
 
-	ds1, err := fromNetwork.NewDealStream(toPeer)
+	ds1, err := fromNetwork.NewDealStream(ctx, toPeer)
 	require.NoError(t, err)
 
 	dr := shared_testutil.MakeTestStorageNetworkSignedResponse()
