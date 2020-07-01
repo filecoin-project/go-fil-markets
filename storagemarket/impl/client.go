@@ -326,6 +326,7 @@ func (c *Client) ProposeStorageDeal(ctx context.Context, addr address.Address, i
 		StoragePricePerEpoch: price,
 		ProviderCollateral:   abi.NewTokenAmount(int64(pieceSize)), // TODO: real calc
 		ClientCollateral:     big.Zero(),
+		VerifiedDeal:         verifiedDeal,
 	}
 
 	clientDealProposal, err := c.node.SignProposal(ctx, addr, dealProposal)
