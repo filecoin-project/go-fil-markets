@@ -432,7 +432,8 @@ func TestHandoffDeal(t *testing.T) {
 	}{
 		"succeeds": {
 			dealParams: dealParams{
-				PiecePath: defaultPath,
+				PiecePath:     defaultPath,
+				FastRetrieval: true,
 			},
 			fileStoreParams: tut.TestFileStoreParams{
 				Files:         []filestore.File{defaultDataFile},
@@ -440,6 +441,8 @@ func TestHandoffDeal(t *testing.T) {
 			},
 			dealInspector: func(t *testing.T, deal storagemarket.MinerDeal, env *fakeEnvironment) {
 				tut.AssertDealState(t, storagemarket.StorageDealSealing, deal.State)
+				require.Len(t, env.node.OnDealCompleteCalls, 1)
+				require.True(t, env.node.OnDealCompleteCalls[0].FastRetrieval)
 			},
 		},
 		"opening file errors": {
@@ -767,6 +770,7 @@ type dealParams struct {
 	PieceSize            abi.PaddedPieceSize
 	StartEpoch           abi.ChainEpoch
 	EndEpoch             abi.ChainEpoch
+	FastRetrieval        bool
 }
 
 type environmentParams struct {
@@ -898,6 +902,7 @@ func makeExecutor(ctx context.Context,
 		if dealParams.DealID != abi.DealID(0) {
 			dealState.DealID = dealParams.DealID
 		}
+		dealState.FastRetrieval = dealParams.FastRetrieval
 		fs := tut.NewTestFileStore(fileStoreParams)
 		pieceStore := tut.NewTestPieceStoreWithParams(pieceStoreParams)
 		expectedTags := make(map[string]struct{})
@@ -954,7 +959,7 @@ func makeExecutor(ctx context.Context,
 
 type fakeEnvironment struct {
 	address                 address.Address
-	node                    storagemarket.StorageProviderNode
+	node                    *testnodes.FakeProviderNode
 	ask                     storagemarket.StorageAsk
 	dataTransferError       error
 	pieceCid                cid.Cid

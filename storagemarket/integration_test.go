@@ -149,10 +149,15 @@ func TestMakeDeal(t *testing.T) {
 	assert.True(t, pd.FastRetrieval)
 	shared_testutil.AssertDealState(t, storagemarket.StorageDealCompleted, pd.State)
 
+	// test out query protocol
 	status, err := h.Client.GetProviderDealState(ctx, proposalCid)
 	assert.NoError(t, err)
 	shared_testutil.AssertDealState(t, storagemarket.StorageDealCompleted, status.State)
 	assert.True(t, status.FastRetrieval)
+
+	// ensure that the handoff has fast retrieval info
+	assert.Len(t, h.ProviderNode.OnDealCompleteCalls, 1)
+	assert.True(t, h.ProviderNode.OnDealCompleteCalls[0].FastRetrieval)
 }
 
 func TestMakeDealOffline(t *testing.T) {
