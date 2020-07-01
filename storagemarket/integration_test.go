@@ -71,7 +71,7 @@ func TestMakeDeal(t *testing.T) {
 	err := h.Provider.SetAsk(big.NewInt(0), 50_000)
 	assert.NoError(t, err)
 
-	result := h.ProposeStorageDeal(t, &storagemarket.DataRef{TransferType: storagemarket.TTGraphsync, Root: h.PayloadCid})
+	result := h.ProposeStorageDeal(t, &storagemarket.DataRef{TransferType: storagemarket.TTGraphsync, Root: h.PayloadCid}, true, false)
 	proposalCid := result.ProposalCid
 
 	dealStatesToStrings := func(states []storagemarket.StorageDealStatus) []string {
@@ -139,17 +139,25 @@ func TestMakeDeal(t *testing.T) {
 	cd, err := h.Client.GetLocalDeal(ctx, proposalCid)
 	assert.NoError(t, err)
 	shared_testutil.AssertDealState(t, storagemarket.StorageDealExpired, cd.State)
+	assert.True(t, cd.FastRetrieval)
 
 	providerDeals, err := h.Provider.ListLocalDeals()
 	assert.NoError(t, err)
 
 	pd := providerDeals[0]
 	assert.Equal(t, proposalCid, pd.ProposalCid)
+	assert.True(t, pd.FastRetrieval)
 	shared_testutil.AssertDealState(t, storagemarket.StorageDealCompleted, pd.State)
 
+	// test out query protocol
 	status, err := h.Client.GetProviderDealState(ctx, proposalCid)
 	assert.NoError(t, err)
 	shared_testutil.AssertDealState(t, storagemarket.StorageDealCompleted, status.State)
+	assert.True(t, status.FastRetrieval)
+
+	// ensure that the handoff has fast retrieval info
+	assert.Len(t, h.ProviderNode.OnDealCompleteCalls, 1)
+	assert.True(t, h.ProviderNode.OnDealCompleteCalls[0].FastRetrieval)
 }
 
 func TestMakeDealOffline(t *testing.T) {
@@ -172,7 +180,7 @@ func TestMakeDealOffline(t *testing.T) {
 		PieceSize:    size,
 	}
 
-	result := h.ProposeStorageDeal(t, dataRef)
+	result := h.ProposeStorageDeal(t, dataRef, false, false)
 	proposalCid := result.ProposalCid
 
 	wg := sync.WaitGroup{}
@@ -225,7 +233,7 @@ func TestMakeDealNonBlocking(t *testing.T) {
 	h.ClientNode.AddFundsCid = testCids[0]
 	require.NoError(t, h.Client.Start(ctx))
 
-	result := h.ProposeStorageDeal(t, &storagemarket.DataRef{TransferType: storagemarket.TTGraphsync, Root: h.PayloadCid})
+	result := h.ProposeStorageDeal(t, &storagemarket.DataRef{TransferType: storagemarket.TTGraphsync, Root: h.PayloadCid}, false, false)
 
 	wg := sync.WaitGroup{}
 	h.WaitForClientEvent(&wg, storagemarket.ClientEventDataTransferComplete)
@@ -267,7 +275,7 @@ func TestRestartClient(t *testing.T) {
 		}
 	})
 
-	result := h.ProposeStorageDeal(t, &storagemarket.DataRef{TransferType: storagemarket.TTGraphsync, Root: h.PayloadCid})
+	result := h.ProposeStorageDeal(t, &storagemarket.DataRef{TransferType: storagemarket.TTGraphsync, Root: h.PayloadCid}, false, false)
 	proposalCid := result.ProposalCid
 
 	wg.Wait()
@@ -427,8 +435,8 @@ func newHarnessWithTestData(t *testing.T, ctx context.Context, td *shared_testut
 	}
 }
 
-func (h *harness) ProposeStorageDeal(t *testing.T, dataRef *storagemarket.DataRef) *storagemarket.ProposeStorageDealResult {
-	result, err := h.Client.ProposeStorageDeal(h.Ctx, h.ProviderAddr, &h.ProviderInfo, dataRef, h.Epoch+100, h.Epoch+20100, big.NewInt(1), big.NewInt(0), abi.RegisteredSealProof_StackedDrg2KiBV1, false, false)
+func (h *harness) ProposeStorageDeal(t *testing.T, dataRef *storagemarket.DataRef, fastRetrieval, verifiedDeal bool) *storagemarket.ProposeStorageDealResult {
+	result, err := h.Client.ProposeStorageDeal(h.Ctx, h.ProviderAddr, &h.ProviderInfo, dataRef, h.Epoch+100, h.Epoch+20100, big.NewInt(1), big.NewInt(0), abi.RegisteredSealProof_StackedDrg2KiBV1, fastRetrieval, verifiedDeal)
 	assert.NoError(t, err)
 	return result
 }

@@ -20,8 +20,8 @@ const DealProtocolID = "/fil/storage/mk/1.0.1"
 // AskProtocolID is the ID for the libp2p protocol for querying miners for their current StorageAsk.
 const AskProtocolID = "/fil/storage/ask/1.0.1"
 
-// DealStatusProtcolID is the ID for the libp2p protocol for querying miners for the current status of a deal.
-const DealStatusProtcolID = "/fil/storage/status/1.0.1"
+// DealStatusProtocolID is the ID for the libp2p protocol for querying miners for the current status of a deal.
+const DealStatusProtocolID = "/fil/storage/status/1.0.1"
 
 // Balance represents a current balance of funds in the StorageMarketActor.
 type Balance struct {
@@ -77,15 +77,16 @@ var StorageAskUndefined = StorageAsk{}
 // MinerDeal is the local state tracked for a deal by a StorageProvider
 type MinerDeal struct {
 	market.ClientDealProposal
-	ProposalCid  cid.Cid
-	AddFundsCid  *cid.Cid
-	PublishCid   *cid.Cid
-	Miner        peer.ID
-	Client       peer.ID
-	State        StorageDealStatus
-	PiecePath    filestore.Path
-	MetadataPath filestore.Path
-	Message      string
+	ProposalCid   cid.Cid
+	AddFundsCid   *cid.Cid
+	PublishCid    *cid.Cid
+	Miner         peer.ID
+	Client        peer.ID
+	State         StorageDealStatus
+	PiecePath     filestore.Path
+	MetadataPath  filestore.Path
+	Message       string
+	FastRetrieval bool
 
 	Ref *DataRef
 
@@ -107,6 +108,7 @@ type ClientDeal struct {
 	SlashEpoch     abi.ChainEpoch
 	PollRetryCount uint64
 	PollErrorCount uint64
+	FastRetrieval  bool
 }
 
 // StorageDeal is a local combination of a proposal and a current deal state
@@ -151,11 +153,12 @@ type DataRef struct {
 
 // ProviderDealState represents a Provider's current state of a deal
 type ProviderDealState struct {
-	State       StorageDealStatus
-	Message     string
-	Proposal    *market.DealProposal
-	ProposalCid *cid.Cid
-	AddFundsCid *cid.Cid
-	PublishCid  *cid.Cid
-	DealID      abi.DealID
+	State         StorageDealStatus
+	Message       string
+	Proposal      *market.DealProposal
+	ProposalCid   *cid.Cid
+	AddFundsCid   *cid.Cid
+	PublishCid    *cid.Cid
+	DealID        abi.DealID
+	FastRetrieval bool
 }

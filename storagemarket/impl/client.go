@@ -346,6 +346,7 @@ func (c *Client) ProposeStorageDeal(ctx context.Context, addr address.Address, i
 		Miner:              info.PeerID,
 		MinerWorker:        info.Worker,
 		DataRef:            data,
+		FastRetrieval:      fastRetrieval,
 	}
 
 	err = c.statemachines.Begin(proposalNd.Cid(), deal)

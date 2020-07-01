@@ -95,6 +95,30 @@ func TestProposeDeal(t *testing.T) {
 			},
 		})
 	})
+	t.Run("sends a fast retrieval flag", func(t *testing.T) {
+		var sentProposal *smnet.Proposal
+
+		ds := tut.NewTestStorageDealStream(tut.TestStorageDealStreamParams{
+			ResponseReader: testResponseReader(t, responseParams{
+				state:    storagemarket.StorageDealWaitingForData,
+				proposal: clientDealProposal,
+			}),
+			ProposalWriter: func(proposal smnet.Proposal) error {
+				sentProposal = &proposal
+				return nil
+			},
+		})
+
+		runAndInspect(t, storagemarket.StorageDealFundsEnsured, clientstates.ProposeDeal, testCase{
+			envParams:   envParams{dealStream: ds},
+			stateParams: dealStateParams{fastRetrieval: true},
+			inspector: func(deal storagemarket.ClientDeal, env *fakeEnvironment) {
+				tut.AssertDealState(t, storagemarket.StorageDealStartDataTransfer, deal.State)
+				assert.Equal(t, true, sentProposal.FastRetrieval)
+			},
+		})
+	})
+
 	t.Run("write proposal fails fails", func(t *testing.T) {
 		ds := tut.NewTestStorageDealStream(tut.TestStorageDealStreamParams{
 			ProposalWriter: tut.FailStorageProposalWriter,
@@ -419,7 +443,8 @@ type envParams struct {
 }
 
 type dealStateParams struct {
-	addFundsCid *cid.Cid
+	addFundsCid   *cid.Cid
+	fastRetrieval bool
 }
 
 type executor func(t *testing.T,
@@ -441,6 +466,7 @@ func makeExecutor(ctx context.Context,
 		dealState, err := tut.MakeTestClientDeal(initialState, clientDealProposal, envParams.manualTransfer)
 		assert.NoError(t, err)
 		dealState.AddFundsCid = &tut.GenerateCids(1)[0]
+		dealState.FastRetrieval = dealParams.fastRetrieval
 
 		if dealParams.addFundsCid != nil {
 			dealState.AddFundsCid = dealParams.addFundsCid

@@ -239,6 +239,7 @@ func HandoffDeal(ctx fsm.Context, environment ProviderDealEnvironment, deal stor
 			State:              deal.State,
 			Ref:                deal.Ref,
 			DealID:             deal.DealID,
+			FastRetrieval:      deal.FastRetrieval,
 		},
 		paddedSize,
 		paddedReader,

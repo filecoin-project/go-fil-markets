@@ -220,6 +220,7 @@ func (p *Provider) receiveDeal(s network.StorageDealStream) error {
 		ProposalCid:        proposalNd.Cid(),
 		State:              storagemarket.StorageDealUnknown,
 		Ref:                proposal.Piece,
+		FastRetrieval:      proposal.FastRetrieval,
 	}
 
 	err = p.deals.Begin(proposalNd.Cid(), deal)
@@ -449,13 +450,14 @@ func (p *Provider) HandleDealStatusStream(s network.DealStatusStream) {
 	}
 
 	dealState := storagemarket.ProviderDealState{
-		State:       md.State,
-		Message:     md.Message,
-		Proposal:    &md.Proposal,
-		ProposalCid: &md.ProposalCid,
-		AddFundsCid: md.AddFundsCid,
-		PublishCid:  md.PublishCid,
-		DealID:      md.DealID,
+		State:         md.State,
+		Message:       md.Message,
+		Proposal:      &md.Proposal,
+		ProposalCid:   &md.ProposalCid,
+		AddFundsCid:   md.AddFundsCid,
+		PublishCid:    md.PublishCid,
+		DealID:        md.DealID,
+		FastRetrieval: md.FastRetrieval,
 	}
 
 	signature, err := p.sign(ctx, &dealState)

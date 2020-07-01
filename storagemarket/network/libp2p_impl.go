@@ -49,7 +49,7 @@ func (impl *libp2pStorageMarketNetwork) NewDealStream(id peer.ID) (StorageDealSt
 }
 
 func (impl *libp2pStorageMarketNetwork) NewDealStatusStream(id peer.ID) (DealStatusStream, error) {
-	s, err := impl.host.NewStream(context.Background(), id, storagemarket.DealStatusProtcolID)
+	s, err := impl.host.NewStream(context.Background(), id, storagemarket.DealStatusProtocolID)
 	if err != nil {
 		log.Warn(err)
 		return nil, err
@@ -62,7 +62,7 @@ func (impl *libp2pStorageMarketNetwork) SetDelegate(r StorageReceiver) error {
 	impl.receiver = r
 	impl.host.SetStreamHandler(storagemarket.DealProtocolID, impl.handleNewDealStream)
 	impl.host.SetStreamHandler(storagemarket.AskProtocolID, impl.handleNewAskStream)
-	impl.host.SetStreamHandler(storagemarket.DealStatusProtcolID, impl.handleNewDealStatusStream)
+	impl.host.SetStreamHandler(storagemarket.DealStatusProtocolID, impl.handleNewDealStatusStream)
 	return nil
 }
 
@@ -70,7 +70,7 @@ func (impl *libp2pStorageMarketNetwork) StopHandlingRequests() error {
 	impl.receiver = nil
 	impl.host.RemoveStreamHandler(storagemarket.DealProtocolID)
 	impl.host.RemoveStreamHandler(storagemarket.AskProtocolID)
-	impl.host.RemoveStreamHandler(storagemarket.DealStatusProtcolID)
+	impl.host.RemoveStreamHandler(storagemarket.DealStatusProtocolID)
 	return nil
 }
 
