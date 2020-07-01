@@ -12,7 +12,9 @@ import (
 	"github.com/filecoin-project/go-statemachine/fsm"
 	fsmtest "github.com/filecoin-project/go-statemachine/fsm/testutil"
 	"github.com/filecoin-project/specs-actors/actors/abi"
+	"github.com/filecoin-project/specs-actors/actors/abi/big"
 	"github.com/filecoin-project/specs-actors/actors/builtin/market"
+	"github.com/filecoin-project/specs-actors/actors/builtin/verifreg"
 	"github.com/filecoin-project/specs-actors/actors/runtime/exitcode"
 	"github.com/ipfs/go-cid"
 	"github.com/ipld/go-ipld-prime"
@@ -128,6 +130,44 @@ func TestValidateDealProposal(t *testing.T) {
 			dealInspector: func(t *testing.T, deal storagemarket.MinerDeal, env *fakeEnvironment) {
 				tut.AssertDealState(t, storagemarket.StorageDealRejecting, deal.State)
 				require.Equal(t, "deal rejected: clientMarketBalance.Available too small", deal.Message)
+			},
+		},
+		"verified deal succeeds": {
+			dealParams: dealParams{
+				VerifiedDeal: true,
+			},
+			nodeParams: nodeParams{
+				DataCap: big.NewIntUnsigned(uint64(defaultPieceSize)),
+			},
+			dealInspector: func(t *testing.T, deal storagemarket.MinerDeal, env *fakeEnvironment) {
+				require.True(t, deal.Proposal.VerifiedDeal)
+				tut.AssertDealState(t, storagemarket.StorageDealAcceptWait, deal.State)
+			},
+		},
+		"verified deal fails getting client data cap": {
+			dealParams: dealParams{
+				VerifiedDeal: true,
+			},
+			nodeParams: nodeParams{
+				GetDataCapError: xerrors.Errorf("failure getting data cap"),
+			},
+			dealInspector: func(t *testing.T, deal storagemarket.MinerDeal, env *fakeEnvironment) {
+				require.True(t, deal.Proposal.VerifiedDeal)
+				tut.AssertDealState(t, storagemarket.StorageDealRejecting, deal.State)
+				require.Equal(t, "deal rejected: node error fetching verified data cap: failure getting data cap", deal.Message)
+			},
+		},
+		"verified deal fails with insufficient data cap": {
+			dealParams: dealParams{
+				VerifiedDeal: true,
+			},
+			nodeParams: nodeParams{
+				DataCap: big.NewIntUnsigned(uint64(defaultPieceSize - 1)),
+			},
+			dealInspector: func(t *testing.T, deal storagemarket.MinerDeal, env *fakeEnvironment) {
+				require.True(t, deal.Proposal.VerifiedDeal)
+				tut.AssertDealState(t, storagemarket.StorageDealRejecting, deal.State)
+				require.Equal(t, "deal rejected: verified deal DataCap too small for proposed piece size", deal.Message)
 			},
 		},
 	}
@@ -819,6 +859,8 @@ type nodeParams struct {
 	OnDealExpiredError                  error
 	OnDealSlashedError                  error
 	OnDealSlashedEpoch                  abi.ChainEpoch
+	DataCap                             verifreg.DataCap
+	GetDataCapError                     error
 }
 
 type dealParams struct {
@@ -832,6 +874,7 @@ type dealParams struct {
 	StartEpoch           abi.ChainEpoch
 	EndEpoch             abi.ChainEpoch
 	FastRetrieval        bool
+	VerifiedDeal         bool
 }
 
 type environmentParams struct {
@@ -913,6 +956,8 @@ func makeExecutor(ctx context.Context,
 			PublishDealsError:                   nodeParams.PublishDealsError,
 			OnDealCompleteError:                 nodeParams.OnDealCompleteError,
 			LocatePieceForDealWithinSectorError: nodeParams.LocatePieceForDealWithinSectorError,
+			DataCap:                             nodeParams.DataCap,
+			GetDataCapErr:                       nodeParams.GetDataCapError,
 		}
 
 		if nodeParams.MinerAddr == address.Undef {
@@ -945,6 +990,7 @@ func makeExecutor(ctx context.Context,
 		if dealParams.PieceSize != abi.PaddedPieceSize(0) {
 			proposal.PieceSize = dealParams.PieceSize
 		}
+		proposal.VerifiedDeal = dealParams.VerifiedDeal
 		signedProposal := &market.ClientDealProposal{
 			Proposal:        proposal,
 			ClientSignature: *tut.MakeTestSignature(),

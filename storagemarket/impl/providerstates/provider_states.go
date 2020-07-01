@@ -56,42 +56,57 @@ func ValidateDealProposal(ctx fsm.Context, environment ProviderDealEnvironment, 
 		return ctx.Trigger(storagemarket.ProviderEventDealRejected, xerrors.Errorf("verifying StorageDealProposal: %w", err))
 	}
 
-	if deal.Proposal.Provider != environment.Address() {
+	proposal := deal.Proposal
+
+	if proposal.Provider != environment.Address() {
 		return ctx.Trigger(storagemarket.ProviderEventDealRejected, xerrors.Errorf("incorrect provider for deal"))
 	}
 
-	if height > deal.Proposal.StartEpoch-environment.DealAcceptanceBuffer() {
+	if height > proposal.StartEpoch-environment.DealAcceptanceBuffer() {
 		return ctx.Trigger(storagemarket.ProviderEventDealRejected, xerrors.Errorf("deal start epoch is too soon or deal already expired"))
 	}
 
 	// TODO: check StorageCollateral
 
-	minPrice := big.Div(big.Mul(environment.Ask().Price, abi.NewTokenAmount(int64(deal.Proposal.PieceSize))), abi.NewTokenAmount(1<<30))
-	if deal.Proposal.StoragePricePerEpoch.LessThan(minPrice) {
+	minPrice := big.Div(big.Mul(environment.Ask().Price, abi.NewTokenAmount(int64(proposal.PieceSize))), abi.NewTokenAmount(1<<30))
+	if proposal.StoragePricePerEpoch.LessThan(minPrice) {
 		return ctx.Trigger(storagemarket.ProviderEventDealRejected,
-			xerrors.Errorf("storage price per epoch less than asking price: %s < %s", deal.Proposal.StoragePricePerEpoch, minPrice))
+			xerrors.Errorf("storage price per epoch less than asking price: %s < %s", proposal.StoragePricePerEpoch, minPrice))
 	}
 
-	if deal.Proposal.PieceSize < environment.Ask().MinPieceSize {
+	if proposal.PieceSize < environment.Ask().MinPieceSize {
 		return ctx.Trigger(storagemarket.ProviderEventDealRejected,
-			xerrors.Errorf("piece size less than minimum required size: %d < %d", deal.Proposal.PieceSize, environment.Ask().MinPieceSize))
+			xerrors.Errorf("piece size less than minimum required size: %d < %d", proposal.PieceSize, environment.Ask().MinPieceSize))
 	}
 
-	if deal.Proposal.PieceSize > environment.Ask().MaxPieceSize {
+	if proposal.PieceSize > environment.Ask().MaxPieceSize {
 		return ctx.Trigger(storagemarket.ProviderEventDealRejected,
-			xerrors.Errorf("piece size more than maximum allowed size: %d > %d", deal.Proposal.PieceSize, environment.Ask().MaxPieceSize))
+			xerrors.Errorf("piece size more than maximum allowed size: %d > %d", proposal.PieceSize, environment.Ask().MaxPieceSize))
 	}
 
 	// check market funds
-	clientMarketBalance, err := environment.Node().GetBalance(ctx.Context(), deal.Proposal.Client, tok)
+	clientMarketBalance, err := environment.Node().GetBalance(ctx.Context(), proposal.Client, tok)
 	if err != nil {
 		return ctx.Trigger(storagemarket.ProviderEventDealRejected, xerrors.Errorf("node error getting client market balance failed: %w", err))
 	}
 
 	// This doesn't guarantee that the client won't withdraw / lock those funds
 	// but it's a decent first filter
-	if clientMarketBalance.Available.LessThan(deal.Proposal.TotalStorageFee()) {
+	if clientMarketBalance.Available.LessThan(proposal.TotalStorageFee()) {
 		return ctx.Trigger(storagemarket.ProviderEventDealRejected, xerrors.New("clientMarketBalance.Available too small"))
+	}
+
+	// Verified deal checks
+	if proposal.VerifiedDeal {
+		dataCap, err := environment.Node().GetDataCap(ctx.Context(), proposal.Client, tok)
+		if err != nil {
+			return ctx.Trigger(storagemarket.ProviderEventDealRejected, xerrors.Errorf("node error fetching verified data cap: %w", err))
+		}
+
+		pieceSize := big.NewIntUnsigned(uint64(proposal.PieceSize))
+		if dataCap.LessThan(pieceSize) {
+			return ctx.Trigger(storagemarket.ProviderEventDealRejected, xerrors.Errorf("verified deal DataCap too small for proposed piece size"))
+		}
 	}
 
 	return ctx.Trigger(storagemarket.ProviderEventDealDeciding)
