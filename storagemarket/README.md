@@ -130,6 +130,7 @@ Get the miner worker address for the given miner owner, as of `tok`.
 * [`ListProviderDeals`](#ListProviderDeals)
 * [`OnDealSectorCommitted`](#OnDealSectorCommitted)
 * [`LocatePieceForDealWithinSector`](#LocatePieceForDealWithinSector)
+* [`OnDealExpiredOrSlashed`](#OnDealExpiredOrSlashed)
 
 #### GetChainHead
 ```go
@@ -179,6 +180,17 @@ func LocatePieceForDealWithinSector(ctx context.Context, dealID abi.DealID, tok 
 Find the piece associated with `dealID` as of `tok` and return the sector id, plus the offset and
  length of the data within the sector.
  
+#### OnDealExpiredOrSlashed
+```go
+func OnDealExpiredOrSlashed(
+    ctx context.Context,
+    dealID abi.DealID,
+    onDealExpired DealExpiredCallback,
+    onDealSlashed DealSlashedCallback) error
+```
+
+Register callbacks to be called when a deal expires or is slashed.
+
 ---
 ### StorageClientNode
 `StorageClientNode` implements dependencies for a StorageClient. It contains:

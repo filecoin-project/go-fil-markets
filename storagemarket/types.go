@@ -85,8 +85,9 @@ type MinerDeal struct {
 	State         StorageDealStatus
 	PiecePath     filestore.Path
 	MetadataPath  filestore.Path
-	Message       string
+	SlashEpoch    abi.ChainEpoch
 	FastRetrieval bool
+	Message       string
 
 	Ref *DataRef
 

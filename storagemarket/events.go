@@ -202,8 +202,17 @@ const (
 	// ProviderEventReadMetadataErrored happens when an error occurs reading recorded piece metadata
 	ProviderEventReadMetadataErrored
 
-	// ProviderEventDealCompleted happens when a deal completes successfully
-	ProviderEventDealCompleted
+	// ProviderEventPieceRecorded happens when a piece is successfully recorded
+	ProviderEventPieceRecorded
+
+	// ProviderEventDealCompletionFailed happens when a miner cannot verify a deal expired or was slashed
+	ProviderEventDealCompletionFailed
+
+	// ProviderEventDealExpired happens when a deal expires
+	ProviderEventDealExpired
+
+	// ProviderEventDealSlashed happens when a deal is slashed
+	ProviderEventDealSlashed
 
 	// ProviderEventFailed indicates a deal has failed and should no longer be processed
 	ProviderEventFailed
@@ -242,7 +251,10 @@ var ProviderEvents = map[ProviderEvent]string{
 	ProviderEventDealActivated:          "ProviderEventDealActivated",
 	ProviderEventPieceStoreErrored:      "ProviderEventPieceStoreErrored",
 	ProviderEventReadMetadataErrored:    "ProviderEventReadMetadataErrored",
-	ProviderEventDealCompleted:          "ProviderEventDealCompleted",
+	ProviderEventPieceRecorded:          "ProviderEventPieceRecorded",
+	ProviderEventDealCompletionFailed:   "ProviderEventDealCompletionFailed",
+	ProviderEventDealExpired:            "ProviderEventDealExpired",
+	ProviderEventDealSlashed:            "ProviderEventDealSlashed",
 	ProviderEventFailed:                 "ProviderEventFailed",
 	ProviderEventRestart:                "ProviderEventRestart",
 }

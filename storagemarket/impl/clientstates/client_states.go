@@ -251,7 +251,8 @@ func isAccepted(status storagemarket.StorageDealStatus) bool {
 	return status == storagemarket.StorageDealStaged ||
 		status == storagemarket.StorageDealSealing ||
 		status == storagemarket.StorageDealActive ||
-		status == storagemarket.StorageDealCompleted
+		status == storagemarket.StorageDealExpired ||
+		status == storagemarket.StorageDealSlashed
 }
 
 func isFailed(status storagemarket.StorageDealStatus) bool {
