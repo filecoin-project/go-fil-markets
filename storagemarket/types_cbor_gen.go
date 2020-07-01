@@ -377,7 +377,7 @@ func (t *MinerDeal) MarshalCBOR(w io.Writer) error {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	if _, err := w.Write([]byte{141}); err != nil {
+	if _, err := w.Write([]byte{142}); err != nil {
 		return err
 	}
 
@@ -470,6 +470,22 @@ func (t *MinerDeal) MarshalCBOR(w io.Writer) error {
 		return err
 	}
 
+	// t.SlashEpoch (abi.ChainEpoch) (int64)
+	if t.SlashEpoch >= 0 {
+		if _, err := w.Write(cbg.CborEncodeMajorType(cbg.MajUnsignedInt, uint64(t.SlashEpoch))); err != nil {
+			return err
+		}
+	} else {
+		if _, err := w.Write(cbg.CborEncodeMajorType(cbg.MajNegativeInt, uint64(-t.SlashEpoch)-1)); err != nil {
+			return err
+		}
+	}
+
+	// t.FastRetrieval (bool) (bool)
+	if err := cbg.WriteBool(w, t.FastRetrieval); err != nil {
+		return err
+	}
+
 	// t.Message (string) (string)
 	if len(t.Message) > cbg.MaxLength {
 		return xerrors.Errorf("Value in field t.Message was too long")
@@ -479,11 +495,6 @@ func (t *MinerDeal) MarshalCBOR(w io.Writer) error {
 		return err
 	}
 	if _, err := w.Write([]byte(t.Message)); err != nil {
-		return err
-	}
-
-	// t.FastRetrieval (bool) (bool)
-	if err := cbg.WriteBool(w, t.FastRetrieval); err != nil {
 		return err
 	}
 
@@ -512,7 +523,7 @@ func (t *MinerDeal) UnmarshalCBOR(r io.Reader) error {
 		return fmt.Errorf("cbor input should be of type array")
 	}
 
-	if extra != 13 {
+	if extra != 14 {
 		return fmt.Errorf("cbor input had wrong number of fields")
 	}
 
@@ -639,15 +650,30 @@ func (t *MinerDeal) UnmarshalCBOR(r io.Reader) error {
 
 		t.MetadataPath = filestore.Path(sval)
 	}
-	// t.Message (string) (string)
-
+	// t.SlashEpoch (abi.ChainEpoch) (int64)
 	{
-		sval, err := cbg.ReadString(br)
+		maj, extra, err := cbg.CborReadHeader(br)
+		var extraI int64
 		if err != nil {
 			return err
 		}
+		switch maj {
+		case cbg.MajUnsignedInt:
+			extraI = int64(extra)
+			if extraI < 0 {
+				return fmt.Errorf("int64 positive overflow")
+			}
+		case cbg.MajNegativeInt:
+			extraI = int64(extra)
+			if extraI < 0 {
+				return fmt.Errorf("int64 negative oveflow")
+			}
+			extraI = -1 - extraI
+		default:
+			return fmt.Errorf("wrong type for int64 field: %d", maj)
+		}
 
-		t.Message = string(sval)
+		t.SlashEpoch = abi.ChainEpoch(extraI)
 	}
 	// t.FastRetrieval (bool) (bool)
 
@@ -665,6 +691,16 @@ func (t *MinerDeal) UnmarshalCBOR(r io.Reader) error {
 		t.FastRetrieval = true
 	default:
 		return fmt.Errorf("booleans are either major type 7, value 20 or 21 (got %d)", extra)
+	}
+	// t.Message (string) (string)
+
+	{
+		sval, err := cbg.ReadString(br)
+		if err != nil {
+			return err
+		}
+
+		t.Message = string(sval)
 	}
 	// t.Ref (storagemarket.DataRef) (struct)
 
