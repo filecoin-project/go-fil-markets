@@ -415,6 +415,23 @@ Hotfix release to get `use addresses from miner info for connecting to miners` t
 |-------------|---------|---------|---------------|
 | Whyrusleeping | 1 | +53/-5 | 9 |
 
+# go-fil-markets 0.3.1.1
+
+Hotfix bug release to address critical issues affecting node startup
+
+### Changelog
+
+- github.com/filecoin-project/go-fil-markets:
+  - add locks protecting retrieval market maps (#311) ([filecoin-project/go-fil-markets#311](https://github.com/filecoin-project/go-fil-markets/pull/311))
+  - fix(storagemarket): run deal restarts in go routine (#309) ([filecoin-project/go-fil-markets#309](https://github.com/filecoin-project/go-fil-markets/pull/309))
+
+### Contributors
+
+| Contributor | Commits | Lines ± | Files Changed |
+|-------------|---------|---------|---------------|
+| Hannah Howard | 1 | +13/-7 | 2 |
+| vyzo | 1 | +10/-0 | 1 |
+
 ### 🙌🏽 Want to contribute?
 
 Would you like to contribute to this repo and don’t know how? Here are a few places you can get started:
