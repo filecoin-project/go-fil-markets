@@ -160,12 +160,12 @@ func (p *Provider) Start(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-
-	err = p.restartDeals()
-	if err != nil {
-		return err
-	}
-
+	go func() {
+		err := p.restartDeals()
+		if err != nil {
+			log.Errorf("Failed to restart deals: %s", err.Error())
+		}
+	}()
 	return nil
 }
 
