@@ -1,6 +1,8 @@
 package network
 
 import (
+	"context"
+
 	"github.com/libp2p/go-libp2p-core/peer"
 
 	ma "github.com/multiformats/go-multiaddr"
@@ -52,9 +54,9 @@ type StorageReceiver interface {
 
 // StorageMarketNetwork is a network abstraction for the storage market
 type StorageMarketNetwork interface {
-	NewAskStream(peer.ID) (StorageAskStream, error)
-	NewDealStream(peer.ID) (StorageDealStream, error)
-	NewDealStatusStream(peer.ID) (DealStatusStream, error)
+	NewAskStream(context.Context, peer.ID) (StorageAskStream, error)
+	NewDealStream(context.Context, peer.ID) (StorageDealStream, error)
+	NewDealStatusStream(context.Context, peer.ID) (DealStatusStream, error)
 	SetDelegate(StorageReceiver) error
 	StopHandlingRequests() error
 	ID() peer.ID

@@ -115,7 +115,7 @@ func TestAskStreamSendReceiveMultipleSuccessful(t *testing.T) {
 	ctx, cancel := context.WithTimeout(ctxBg, 10*time.Second)
 	defer cancel()
 
-	qs, err := nw1.NewAskStream(td.Host2.ID())
+	qs, err := nw1.NewAskStream(ctx, td.Host2.ID())
 	require.NoError(t, err)
 
 	var resp network.AskResponse
@@ -203,14 +203,14 @@ func TestDealStreamSendReceiveMultipleSuccessful(t *testing.T) {
 	}}
 	require.NoError(t, toNetwork.SetDelegate(tr2))
 
+	ctx, cancel := context.WithTimeout(bgCtx, 10*time.Second)
+	defer cancel()
+
 	// start sending deal proposal
-	ds1, err := fromNetwork.NewDealStream(toPeer)
+	ds1, err := fromNetwork.NewDealStream(ctx, toPeer)
 	require.NoError(t, err)
 
 	dp := shared_testutil.MakeTestStorageNetworkProposal()
-
-	ctx, cancel := context.WithTimeout(bgCtx, 10*time.Second)
-	defer cancel()
 
 	// write proposal
 	require.NoError(t, ds1.WriteDealProposal(dp))
@@ -298,7 +298,7 @@ func TestDealStatusStreamSendReceiveMultipleSuccessful(t *testing.T) {
 	ctx, cancel := context.WithTimeout(ctxBg, 10*time.Second)
 	defer cancel()
 
-	qs, err := nw1.NewDealStatusStream(td.Host2.ID())
+	qs, err := nw1.NewDealStatusStream(ctx, td.Host2.ID())
 	require.NoError(t, err)
 
 	var resp network.DealStatusResponse
@@ -338,7 +338,7 @@ func TestLibp2pStorageMarketNetwork_StopHandlingRequests(t *testing.T) {
 
 	require.NoError(t, toNetwork.StopHandlingRequests())
 
-	_, err := fromNetwork.NewAskStream(toHost)
+	_, err := fromNetwork.NewAskStream(bgCtx, toHost)
 	require.Error(t, err, "protocol not supported")
 }
 
@@ -347,7 +347,7 @@ func assertDealProposalReceived(inCtx context.Context, t *testing.T, fromNetwork
 	ctx, cancel := context.WithTimeout(inCtx, 10*time.Second)
 	defer cancel()
 
-	qs1, err := fromNetwork.NewDealStream(toPeer)
+	qs1, err := fromNetwork.NewDealStream(ctx, toPeer)
 	require.NoError(t, err)
 
 	// send query to host2
@@ -368,7 +368,7 @@ func assertDealResponseReceived(parentCtx context.Context, t *testing.T, fromNet
 	ctx, cancel := context.WithTimeout(parentCtx, 10*time.Second)
 	defer cancel()
 
-	ds1, err := fromNetwork.NewDealStream(toPeer)
+	ds1, err := fromNetwork.NewDealStream(ctx, toPeer)
 	require.NoError(t, err)
 
 	dr := shared_testutil.MakeTestStorageNetworkSignedResponse()
@@ -389,7 +389,7 @@ func assertAskRequestReceived(inCtx context.Context, t *testing.T, fromNetwork n
 	ctx, cancel := context.WithTimeout(inCtx, 10*time.Second)
 	defer cancel()
 
-	as1, err := fromNetwork.NewAskStream(toHost)
+	as1, err := fromNetwork.NewAskStream(ctx, toHost)
 	require.NoError(t, err)
 
 	// send query to host2
@@ -415,7 +415,7 @@ func assertAskResponseReceived(inCtx context.Context, t *testing.T,
 	defer cancel()
 
 	// setup query stream host1 --> host 2
-	as1, err := fromNetwork.NewAskStream(toHost)
+	as1, err := fromNetwork.NewAskStream(ctx, toHost)
 	require.NoError(t, err)
 
 	// send queryresponse to host2
@@ -439,7 +439,7 @@ func assertDealStatusRequestReceived(inCtx context.Context, t *testing.T, fromNe
 	ctx, cancel := context.WithTimeout(inCtx, 10*time.Second)
 	defer cancel()
 
-	as1, err := fromNetwork.NewDealStatusStream(toHost)
+	as1, err := fromNetwork.NewDealStatusStream(ctx, toHost)
 	require.NoError(t, err)
 
 	// send query to host2
@@ -465,7 +465,7 @@ func assertDealStatusResponseReceived(inCtx context.Context, t *testing.T,
 	defer cancel()
 
 	// setup query stream host1 --> host 2
-	as1, err := fromNetwork.NewDealStatusStream(toHost)
+	as1, err := fromNetwork.NewDealStatusStream(ctx, toHost)
 	require.NoError(t, err)
 
 	// send queryresponse to host2

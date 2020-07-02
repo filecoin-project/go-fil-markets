@@ -27,7 +27,7 @@ var log = logging.Logger("storagemarket_impl")
 // dependencies from the storage client environment
 type ClientDealEnvironment interface {
 	Node() storagemarket.StorageClientNode
-	NewDealStream(p peer.ID) (network.StorageDealStream, error)
+	NewDealStream(ctx context.Context, p peer.ID) (network.StorageDealStream, error)
 	StartDataTransfer(ctx context.Context, to peer.ID, voucher datatransfer.Voucher, baseCid cid.Cid, selector ipld.Node) error
 	GetProviderDealState(ctx context.Context, proposalCid cid.Cid) (*storagemarket.ProviderDealState, error)
 	PollingInterval() time.Duration
@@ -83,7 +83,7 @@ func ProposeDeal(ctx fsm.Context, environment ClientDealEnvironment, deal storag
 		FastRetrieval: deal.FastRetrieval,
 	}
 
-	s, err := environment.NewDealStream(deal.Miner)
+	s, err := environment.NewDealStream(ctx.Context(), deal.Miner)
 	if err != nil {
 		return ctx.Trigger(storagemarket.ClientEventWriteProposalFailed, err)
 	}

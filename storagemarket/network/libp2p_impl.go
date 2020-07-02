@@ -29,8 +29,8 @@ type libp2pStorageMarketNetwork struct {
 	receiver StorageReceiver
 }
 
-func (impl *libp2pStorageMarketNetwork) NewAskStream(id peer.ID) (StorageAskStream, error) {
-	s, err := impl.host.NewStream(context.Background(), id, storagemarket.AskProtocolID)
+func (impl *libp2pStorageMarketNetwork) NewAskStream(ctx context.Context, id peer.ID) (StorageAskStream, error) {
+	s, err := impl.host.NewStream(ctx, id, storagemarket.AskProtocolID)
 	if err != nil {
 		log.Warn(err)
 		return nil, err
@@ -39,8 +39,8 @@ func (impl *libp2pStorageMarketNetwork) NewAskStream(id peer.ID) (StorageAskStre
 	return &askStream{p: id, rw: s, buffered: buffered}, nil
 }
 
-func (impl *libp2pStorageMarketNetwork) NewDealStream(id peer.ID) (StorageDealStream, error) {
-	s, err := impl.host.NewStream(context.Background(), id, storagemarket.DealProtocolID)
+func (impl *libp2pStorageMarketNetwork) NewDealStream(ctx context.Context, id peer.ID) (StorageDealStream, error) {
+	s, err := impl.host.NewStream(ctx, id, storagemarket.DealProtocolID)
 	if err != nil {
 		return nil, err
 	}
@@ -48,8 +48,8 @@ func (impl *libp2pStorageMarketNetwork) NewDealStream(id peer.ID) (StorageDealSt
 	return &dealStream{p: id, rw: s, buffered: buffered, host: impl.host}, nil
 }
 
-func (impl *libp2pStorageMarketNetwork) NewDealStatusStream(id peer.ID) (DealStatusStream, error) {
-	s, err := impl.host.NewStream(context.Background(), id, storagemarket.DealStatusProtocolID)
+func (impl *libp2pStorageMarketNetwork) NewDealStatusStream(ctx context.Context, id peer.ID) (DealStatusStream, error) {
+	s, err := impl.host.NewStream(ctx, id, storagemarket.DealStatusProtocolID)
 	if err != nil {
 		log.Warn(err)
 		return nil, err

@@ -191,7 +191,7 @@ func (c *Client) GetAsk(ctx context.Context, info storagemarket.StorageProviderI
 	if len(info.Addrs) > 0 {
 		c.net.AddAddrs(info.PeerID, info.Addrs)
 	}
-	s, err := c.net.NewAskStream(info.PeerID)
+	s, err := c.net.NewAskStream(ctx, info.PeerID)
 	if err != nil {
 		return nil, xerrors.Errorf("failed to open stream to miner: %w", err)
 	}
@@ -239,7 +239,7 @@ func (c *Client) GetProviderDealState(ctx context.Context, proposalCid cid.Cid) 
 		return nil, xerrors.Errorf("could not get client deal state: %w", err)
 	}
 
-	s, err := c.net.NewDealStatusStream(deal.Miner)
+	s, err := c.net.NewDealStatusStream(ctx, deal.Miner)
 	if err != nil {
 		return nil, xerrors.Errorf("failed to open stream to miner: %w", err)
 	}
@@ -518,8 +518,8 @@ type clientDealEnvironment struct {
 	c *Client
 }
 
-func (c *clientDealEnvironment) NewDealStream(p peer.ID) (network.StorageDealStream, error) {
-	return c.c.net.NewDealStream(p)
+func (c *clientDealEnvironment) NewDealStream(ctx context.Context, p peer.ID) (network.StorageDealStream, error) {
+	return c.c.net.NewDealStream(ctx, p)
 }
 
 func (c *clientDealEnvironment) Node() storagemarket.StorageClientNode {

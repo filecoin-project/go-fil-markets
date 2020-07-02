@@ -577,7 +577,7 @@ func (fe *fakeEnvironment) WriteDealProposal(_ peer.ID, _ cid.Cid, proposal smne
 	return fe.dealStream.WriteDealProposal(proposal)
 }
 
-func (fe *fakeEnvironment) NewDealStream(_ peer.ID) (smnet.StorageDealStream, error) {
+func (fe *fakeEnvironment) NewDealStream(_ context.Context, _ peer.ID) (smnet.StorageDealStream, error) {
 	return fe.dealStream, nil
 }
 
