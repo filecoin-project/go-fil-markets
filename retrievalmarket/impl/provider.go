@@ -41,7 +41,9 @@ type Provider struct {
 	subscribers             []retrievalmarket.ProviderSubscriber
 	subscribersLk           sync.RWMutex
 	dealStreams             map[retrievalmarket.ProviderDealIdentifier]rmnet.RetrievalDealStream
+	dealStreamsLk           sync.Mutex
 	blockReaders            map[retrievalmarket.ProviderDealIdentifier]blockio.BlockReader
+	blockReadersLk          sync.Mutex
 	stateMachines           fsm.Group
 	dealDecider             DealDecider
 }
@@ -248,7 +250,9 @@ func (p *Provider) newProviderDeal(stream rmnet.RetrievalDealStream) error {
 		Receiver:     stream.Receiver(),
 	}
 
+	p.dealStreamsLk.Lock()
 	p.dealStreams[pds.Identifier()] = stream
+	p.dealStreamsLk.Unlock()
 
 	loaderWithUnsealing := blockunsealing.NewLoaderWithUnsealing(context.TODO(), p.bs, p.pieceStore, cario.NewCarIO(), p.node.UnsealSector, dealProposal.PieceCID)
 
@@ -264,7 +268,9 @@ func (p *Provider) newProviderDeal(stream rmnet.RetrievalDealStream) error {
 	}
 
 	br := blockio.NewSelectorBlockReader(cidlink.Link{Cid: dealProposal.PayloadCID}, sel, loaderWithUnsealing.Load)
+	p.blockReadersLk.Lock()
 	p.blockReaders[pds.Identifier()] = br
+	p.blockReadersLk.Unlock()
 
 	// start the deal processing, synchronously so we can log the error and close the stream if it doesn't start
 	err = p.stateMachines.Begin(pds.Identifier(), &pds)
@@ -285,6 +291,8 @@ func (p *Provider) Node() retrievalmarket.RetrievalProviderNode {
 }
 
 func (p *Provider) DealStream(id retrievalmarket.ProviderDealIdentifier) rmnet.RetrievalDealStream {
+	p.dealStreamsLk.Lock()
+	defer p.dealStreamsLk.Unlock()
 	return p.dealStreams[id]
 }
 
@@ -302,7 +310,9 @@ func (p *Provider) CheckDealParams(pricePerByte abi.TokenAmount, paymentInterval
 }
 
 func (p *Provider) NextBlock(ctx context.Context, id retrievalmarket.ProviderDealIdentifier) (retrievalmarket.Block, bool, error) {
+	p.blockReadersLk.Lock()
 	br, ok := p.blockReaders[id]
+	p.blockReadersLk.Unlock()
 	if !ok {
 		return retrievalmarket.Block{}, false, errors.New("Could not read block")
 	}
