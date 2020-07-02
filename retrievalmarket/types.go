@@ -477,9 +477,19 @@ type Query struct {
 // QueryUndefined is a query with no values
 var QueryUndefined = Query{}
 
-// NewQueryV0 creates a V0 query (which only specifies a piece)
+// NewQueryV0 creates a V0 query (which only specifies a payload)
 func NewQueryV0(payloadCID cid.Cid) Query {
 	return Query{PayloadCID: payloadCID}
+}
+
+// NewQueryV1 creates a V1 query (which has an optional pieceCID)
+func NewQueryV1(payloadCID cid.Cid, pieceCID *cid.Cid) Query {
+	return Query{
+		PayloadCID: payloadCID,
+		QueryParams: QueryParams{
+			PieceCID: pieceCID,
+		},
+	}
 }
 
 // QueryResponse is a miners response to a given retrieval query

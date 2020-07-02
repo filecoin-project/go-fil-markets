@@ -381,8 +381,8 @@ func assertQueryReceived(inCtx context.Context, t *testing.T, fromNetwork networ
 	require.NoError(t, err)
 
 	// send query to host2
-	cid := shared_testutil.GenerateCids(1)[0]
-	q := retrievalmarket.NewQueryV0(cid)
+	cids := shared_testutil.GenerateCids(2)
+	q := retrievalmarket.NewQueryV1(cids[0], &cids[1])
 	require.NoError(t, qs1.WriteQuery(q))
 
 	var inq retrievalmarket.Query
@@ -393,6 +393,7 @@ func assertQueryReceived(inCtx context.Context, t *testing.T, fromNetwork networ
 	}
 	require.NotNil(t, inq)
 	assert.Equal(t, q.PayloadCID, inq.PayloadCID)
+	assert.Equal(t, q.PieceCID, inq.PieceCID)
 }
 
 // assertQueryResponseReceived performs the verification that a DealStatusResponse is received
