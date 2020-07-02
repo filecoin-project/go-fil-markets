@@ -91,7 +91,13 @@ func NewClient(
 }
 
 func (c *Client) Start(ctx context.Context) error {
-	return c.restartDeals()
+	go func() {
+		err := c.restartDeals()
+		if err != nil {
+			log.Errorf("Failed to restart deals: %s", err.Error())
+		}
+	}()
+	return nil
 }
 
 func (c *Client) Stop() error {
