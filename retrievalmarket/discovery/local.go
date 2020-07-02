@@ -1,16 +1,24 @@
 package discovery
 
+//go:generate cbor-gen-for retrievalPeers
+
 import (
+	"bytes"
+
 	"github.com/ipfs/go-cid"
 	"github.com/ipfs/go-datastore"
 	dshelp "github.com/ipfs/go-ipfs-ds-help"
-	cbor "github.com/ipfs/go-ipld-cbor"
 
 	"github.com/filecoin-project/go-fil-markets/retrievalmarket"
 )
 
 type Local struct {
 	ds datastore.Datastore
+}
+
+// convenience struct for encoding slices of RetrievalPeer
+type retrievalPeers struct {
+	Peers []retrievalmarket.RetrievalPeer
 }
 
 func NewLocal(ds datastore.Batching) *Local {
@@ -24,10 +32,11 @@ func (l *Local) AddPeer(cid cid.Cid, peer retrievalmarket.RetrievalPeer) error {
 		return err
 	}
 
-	var newRecord []byte
+	var newRecord bytes.Buffer
 
 	if !exists {
-		newRecord, err = cbor.DumpObject([]retrievalmarket.RetrievalPeer{peer})
+		peers := retrievalPeers{Peers: []retrievalmarket.RetrievalPeer{peer}}
+		err = peers.MarshalCBOR(&newRecord)
 		if err != nil {
 			return err
 		}
@@ -36,25 +45,25 @@ func (l *Local) AddPeer(cid cid.Cid, peer retrievalmarket.RetrievalPeer) error {
 		if err != nil {
 			return err
 		}
-		var peerList []retrievalmarket.RetrievalPeer
-		if err = cbor.DecodeInto(entry, &peerList); err != nil {
+		var peers retrievalPeers
+		if err = peers.UnmarshalCBOR(bytes.NewReader(entry)); err != nil {
 			return err
 		}
-		if hasPeer(peerList, peer) {
+		if hasPeer(peers, peer) {
 			return nil
 		}
-		peerList = append(peerList, peer)
-		newRecord, err = cbor.DumpObject(peerList)
+		peers.Peers = append(peers.Peers, peer)
+		err = peers.MarshalCBOR(&newRecord)
 		if err != nil {
 			return err
 		}
 	}
 
-	return l.ds.Put(key, newRecord)
+	return l.ds.Put(key, newRecord.Bytes())
 }
 
-func hasPeer(peerList []retrievalmarket.RetrievalPeer, peer retrievalmarket.RetrievalPeer) bool {
-	for _, p := range peerList {
+func hasPeer(peerList retrievalPeers, peer retrievalmarket.RetrievalPeer) bool {
+	for _, p := range peerList.Peers {
 		if p == peer {
 			return true
 		}
@@ -70,11 +79,11 @@ func (l *Local) GetPeers(payloadCID cid.Cid) ([]retrievalmarket.RetrievalPeer, e
 	if err != nil {
 		return nil, err
 	}
-	var peerList []retrievalmarket.RetrievalPeer
-	if err := cbor.DecodeInto(entry, &peerList); err != nil {
+	var peers retrievalPeers
+	if err := peers.UnmarshalCBOR(bytes.NewReader(entry)); err != nil {
 		return nil, err
 	}
-	return peerList, nil
+	return peers.Peers, nil
 }
 
 var _ retrievalmarket.PeerResolver = &Local{}

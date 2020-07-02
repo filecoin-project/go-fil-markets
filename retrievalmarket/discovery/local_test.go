@@ -17,12 +17,15 @@ import (
 func TestLocal_AddPeer(t *testing.T) {
 
 	peer1 := retrievalmarket.RetrievalPeer{
-		Address: specst.NewIDAddr(t, 1),
-		ID:      peer.NewPeerRecord().PeerID,
+		Address:  specst.NewIDAddr(t, 1),
+		ID:       peer.NewPeerRecord().PeerID,
+		PieceCID: nil,
 	}
+	pieceCid := shared_testutil.GenerateCids(1)[0]
 	peer2 := retrievalmarket.RetrievalPeer{
-		Address: specst.NewIDAddr(t, 2),
-		ID:      peer.NewPeerRecord().PeerID,
+		Address:  specst.NewIDAddr(t, 2),
+		ID:       peer.NewPeerRecord().PeerID,
+		PieceCID: &pieceCid,
 	}
 	testCases := []struct {
 		name      string
