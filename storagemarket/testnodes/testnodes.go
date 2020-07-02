@@ -11,6 +11,7 @@ import (
 	"github.com/filecoin-project/specs-actors/actors/abi"
 	"github.com/filecoin-project/specs-actors/actors/abi/big"
 	"github.com/filecoin-project/specs-actors/actors/builtin/market"
+	"github.com/filecoin-project/specs-actors/actors/builtin/verifreg"
 	"github.com/filecoin-project/specs-actors/actors/crypto"
 	"github.com/filecoin-project/specs-actors/actors/runtime/exitcode"
 	"github.com/ipfs/go-cid"
@@ -280,6 +281,8 @@ type FakeProviderNode struct {
 	OnDealCompleteError                 error
 	OnDealCompleteCalls                 []storagemarket.MinerDeal
 	LocatePieceForDealWithinSectorError error
+	DataCap                             verifreg.DataCap
+	GetDataCapErr                       error
 }
 
 // PublishDeals simulates publishing a deal by adding it to the storage market state
@@ -322,6 +325,11 @@ func (n *FakeProviderNode) LocatePieceForDealWithinSector(ctx context.Context, d
 		return n.PieceSectorID, 0, n.PieceLength, nil
 	}
 	return 0, 0, 0, n.LocatePieceForDealWithinSectorError
+}
+
+// GetDataCap gets the current data cap for addr
+func (n *FakeProviderNode) GetDataCap(ctx context.Context, addr address.Address, tok shared.TipSetToken) (verifreg.DataCap, error) {
+	return n.DataCap, n.GetDataCapErr
 }
 
 var _ storagemarket.StorageProviderNode = (*FakeProviderNode)(nil)

@@ -4,6 +4,7 @@ import (
 	"context"
 	"io"
 
+	"github.com/filecoin-project/specs-actors/actors/builtin/verifreg"
 	"github.com/ipfs/go-cid"
 
 	"github.com/filecoin-project/go-address"
@@ -74,6 +75,9 @@ type StorageProviderNode interface {
 
 	// LocatePieceForDealWithinSector looks up a given dealID in the miners sectors, and returns its sectorID and location
 	LocatePieceForDealWithinSector(ctx context.Context, dealID abi.DealID, tok shared.TipSetToken) (sectorID uint64, offset uint64, length uint64, err error)
+
+	// GetDataCap gets the current data cap for addr
+	GetDataCap(ctx context.Context, addr address.Address, tok shared.TipSetToken) (verifreg.DataCap, error)
 }
 
 // StorageClientNode are node dependencies for a StorageClient
