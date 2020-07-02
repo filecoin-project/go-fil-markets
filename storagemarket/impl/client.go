@@ -111,7 +111,13 @@ func NewClient(
 // Start initializes deal processing on a StorageClient and restarts
 // in progress deals
 func (c *Client) Start(ctx context.Context) error {
-	return c.restartDeals()
+	go func() {
+		err := c.restartDeals()
+		if err != nil {
+			log.Errorf("Failed to restart deals: %s", err.Error())
+		}
+	}()
+	return nil
 }
 
 // Stop ends deal processing on a StorageClient
