@@ -231,10 +231,10 @@ func (c *client) Node() retrievalmarket.RetrievalClientNode {
 	return c.node
 }
 
-func (c *clientDealEnvironment) DealStream(dealID retrievalmarket.DealID) rmnet.RetrievalDealStream {
-	c.c.dealStreamsLk.Lock()
-	defer c.c.dealStreamsLk.Unlock()
-	return c.c.dealStreams[dealID]
+func (c *client) DealStream(dealID retrievalmarket.DealID) rmnet.RetrievalDealStream {
+	c.dealStreamsLk.Lock()
+	defer c.dealStreamsLk.Unlock()
+	return c.dealStreams[dealID]
 }
 
 func (c *client) ConsumeBlock(ctx context.Context, dealID retrievalmarket.DealID, block retrievalmarket.Block) (uint64, bool, error) {
@@ -253,9 +253,9 @@ func (c *client) ConsumeBlock(ctx context.Context, dealID retrievalmarket.DealID
 		return 0, false, err
 	}
 
-	c.c.blockVerifiersLk.Lock()
-	verifier, ok := c.c.blockVerifiers[dealID]
-	c.c.blockVerifiersLk.Unlock()
+	c.blockVerifiersLk.Lock()
+	verifier, ok := c.blockVerifiers[dealID]
+	c.blockVerifiersLk.Unlock()
 	if !ok {
 		return 0, false, xerrors.New("no block verifier found")
 	}
