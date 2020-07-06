@@ -539,6 +539,14 @@ func (c *clientDealEnvironment) PollingInterval() time.Duration {
 	return c.c.pollingInterval
 }
 
+func (c *clientDealEnvironment) TagPeer(peer peer.ID, tag string) {
+	c.c.net.TagPeer(peer, tag)
+}
+
+func (c *clientDealEnvironment) UntagPeer(peer peer.ID, tag string) {
+	c.c.net.UntagPeer(peer, tag)
+}
+
 // ClientFSMParameterSpec is a valid set of parameters for a client deal FSM - used in doc generation
 var ClientFSMParameterSpec = fsm.Parameters{
 	Environment:     &clientDealEnvironment{},

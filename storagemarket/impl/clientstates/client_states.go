@@ -31,6 +31,8 @@ type ClientDealEnvironment interface {
 	StartDataTransfer(ctx context.Context, to peer.ID, voucher datatransfer.Voucher, baseCid cid.Cid, selector ipld.Node) error
 	GetProviderDealState(ctx context.Context, proposalCid cid.Cid) (*storagemarket.ProviderDealState, error)
 	PollingInterval() time.Duration
+	TagPeer(id peer.ID, ident string)
+	UntagPeer(id peer.ID, ident string)
 }
 
 // ClientStateEntryFunc is the type for all state entry functions on a storage client
@@ -91,6 +93,7 @@ func ProposeDeal(ctx fsm.Context, environment ClientDealEnvironment, deal storag
 	if err := s.WriteDealProposal(proposal); err != nil {
 		return ctx.Trigger(storagemarket.ClientEventWriteProposalFailed, err)
 	}
+	environment.TagPeer(deal.Miner, deal.ProposalCid.String())
 
 	resp, err := s.ReadDealResponse()
 	if err != nil {
@@ -145,6 +148,9 @@ func InitiateDataTransfer(ctx fsm.Context, environment ClientDealEnvironment, de
 
 // CheckForDealAcceptance is run until the deal is sealed and published by the provider, or errors
 func CheckForDealAcceptance(ctx fsm.Context, environment ClientDealEnvironment, deal storagemarket.ClientDeal) error {
+	// at this point data transfer is complete, so unprotect peer connection
+	environment.UntagPeer(deal.Miner, deal.ProposalCid.String())
+
 	dealState, err := environment.GetProviderDealState(ctx.Context(), deal.ProposalCid)
 	if err != nil {
 		log.Warnf("error when querying provider deal state: %w", err) // TODO: at what point do we fail the deal?
@@ -243,6 +249,9 @@ func WaitForDealCompletion(ctx fsm.Context, environment ClientDealEnvironment, d
 func FailDeal(ctx fsm.Context, environment ClientDealEnvironment, deal storagemarket.ClientDeal) error {
 	// TODO: store in some sort of audit log
 	log.Errorf("deal %s failed: %s", deal.ProposalCid, deal.Message)
+
+	// TODO: Will this be ok if this tag doesn't exist?  No error returned, so maybe ok?
+	environment.UntagPeer(deal.Miner, deal.ProposalCid.String())
 
 	return ctx.Trigger(storagemarket.ClientEventFailed)
 }

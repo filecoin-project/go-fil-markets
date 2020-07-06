@@ -114,3 +114,11 @@ func (impl *libp2pStorageMarketNetwork) ID() peer.ID {
 func (impl *libp2pStorageMarketNetwork) AddAddrs(p peer.ID, addrs []ma.Multiaddr) {
 	impl.host.Peerstore().AddAddrs(p, addrs, time.Minute*10)
 }
+
+func (impl *libp2pStorageMarketNetwork) TagPeer(p peer.ID, id string) {
+	impl.host.ConnManager().TagPeer(p, id, TagPriority)
+}
+
+func (impl *libp2pStorageMarketNetwork) UntagPeer(p peer.ID, id string) {
+	impl.host.ConnManager().UntagPeer(p, id)
+}

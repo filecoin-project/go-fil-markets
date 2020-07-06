@@ -79,7 +79,7 @@ func TestWaitForFunding(t *testing.T) {
 }
 
 func TestProposeDeal(t *testing.T) {
-	t.Run("succeeds and closes stream", func(t *testing.T) {
+	t.Run("succeeds, closes stream, and tags connection", func(t *testing.T) {
 		ds := tut.NewTestStorageDealStream(tut.TestStorageDealStreamParams{
 			ResponseReader: testResponseReader(t, responseParams{
 				state:    storagemarket.StorageDealWaitingForData,
@@ -92,6 +92,8 @@ func TestProposeDeal(t *testing.T) {
 			inspector: func(deal storagemarket.ClientDeal, env *fakeEnvironment) {
 				tut.AssertDealState(t, storagemarket.StorageDealStartDataTransfer, deal.State)
 				assert.Equal(t, 1, env.dealStream.CloseCount)
+				assert.Len(t, env.peerTagger.TagCalls, 1)
+				assert.Equal(t, deal.Miner, env.peerTagger.TagCalls[0])
 			},
 		})
 	})
@@ -118,7 +120,6 @@ func TestProposeDeal(t *testing.T) {
 			},
 		})
 	})
-
 	t.Run("write proposal fails fails", func(t *testing.T) {
 		ds := tut.NewTestStorageDealStream(tut.TestStorageDealStreamParams{
 			ProposalWriter: tut.FailStorageProposalWriter,
@@ -273,6 +274,8 @@ func TestCheckForDealAcceptance(t *testing.T) {
 				},
 				inspector: func(deal storagemarket.ClientDeal, env *fakeEnvironment) {
 					tut.AssertDealState(t, storagemarket.StorageDealProposalAccepted, deal.State)
+					assert.Len(t, env.peerTagger.UntagCalls, 1)
+					assert.Equal(t, deal.Miner, env.peerTagger.UntagCalls[0])
 				},
 			})
 		}
@@ -480,6 +483,7 @@ func makeExecutor(ctx context.Context,
 			providerDealState:      envParams.providerDealState,
 			getDealStatusErr:       envParams.getDealStatusErr,
 			pollingInterval:        envParams.pollingInterval,
+			peerTagger:             tut.NewTestPeerTagger(),
 		}
 
 		if environment.pollingInterval == 0 {
@@ -550,6 +554,7 @@ type fakeEnvironment struct {
 	providerDealState      *storagemarket.ProviderDealState
 	getDealStatusErr       error
 	pollingInterval        time.Duration
+	peerTagger             *tut.TestPeerTagger
 }
 
 type dataTransferParams struct {
@@ -590,6 +595,14 @@ func (fe *fakeEnvironment) GetProviderDealState(_ context.Context, _ cid.Cid) (*
 
 func (fe *fakeEnvironment) PollingInterval() time.Duration {
 	return fe.pollingInterval
+}
+
+func (fe *fakeEnvironment) TagPeer(id peer.ID, ident string) {
+	fe.peerTagger.TagPeer(id, ident)
+}
+
+func (fe *fakeEnvironment) UntagPeer(id peer.ID, ident string) {
+	fe.peerTagger.UntagPeer(id, ident)
 }
 
 var _ clientstates.ClientDealEnvironment = &fakeEnvironment{}
