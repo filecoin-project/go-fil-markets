@@ -34,8 +34,7 @@ type ClientDealEnvironment interface {
 	GetProviderDealState(ctx context.Context, proposalCid cid.Cid) (*storagemarket.ProviderDealState, error)
 	PollingInterval() time.Duration
 	DealFunds() funds.DealFunds
-	TagPeer(id peer.ID, ident string)
-	UntagPeer(id peer.ID, ident string)
+	network.PeerTagger
 }
 
 // ClientStateEntryFunc is the type for all state entry functions on a storage client

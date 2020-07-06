@@ -10,6 +10,7 @@ import (
 
 	"github.com/ipfs/go-cid"
 	"github.com/ipld/go-ipld-prime"
+	"github.com/libp2p/go-libp2p-core/peer"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"golang.org/x/xerrors"
@@ -56,6 +57,8 @@ func TestValidateDealProposal(t *testing.T) {
 		"succeeds": {
 			dealInspector: func(t *testing.T, deal storagemarket.MinerDeal, env *fakeEnvironment) {
 				tut.AssertDealState(t, storagemarket.StorageDealAcceptWait, deal.State)
+				require.Len(t, env.peerTagger.TagCalls, 1)
+				require.Equal(t, deal.Client, env.peerTagger.TagCalls[0])
 			},
 		},
 		"verify signature fails": {
@@ -255,6 +258,7 @@ func TestVerifyData(t *testing.T) {
 				tut.AssertDealState(t, storagemarket.StorageDealEnsureProviderFunds, deal.State)
 				require.Equal(t, expPath, deal.PiecePath)
 				require.Equal(t, expMetaPath, deal.MetadataPath)
+
 			},
 		},
 		"generate piece CID fails": {
@@ -741,6 +745,8 @@ func TestWaitForDealCompletion(t *testing.T) {
 			dealInspector: func(t *testing.T, deal storagemarket.MinerDeal, env *fakeEnvironment) {
 				tut.AssertDealState(t, storagemarket.StorageDealSlashed, deal.State)
 				require.Equal(t, abi.ChainEpoch(5), deal.SlashEpoch)
+				require.Len(t, env.peerTagger.UntagCalls, 1)
+				require.Equal(t, deal.Client, env.peerTagger.UntagCalls[0])
 			},
 		},
 		"expiration succeeds": {
@@ -748,6 +754,8 @@ func TestWaitForDealCompletion(t *testing.T) {
 			nodeParams: nodeParams{OnDealSlashedEpoch: abi.ChainEpoch(0)},
 			dealInspector: func(t *testing.T, deal storagemarket.MinerDeal, env *fakeEnvironment) {
 				tut.AssertDealState(t, storagemarket.StorageDealExpired, deal.State)
+				require.Len(t, env.peerTagger.UntagCalls, 1)
+				require.Equal(t, deal.Client, env.peerTagger.UntagCalls[0])
 			},
 		},
 		"slashing fails": {
@@ -1131,6 +1139,7 @@ func makeExecutor(ctx context.Context,
 			fs:                      fs,
 			pieceStore:              pieceStore,
 			dealFunds:               tut.NewTestDealFunds(),
+			peerTagger:              tut.NewTestPeerTagger(),
 		}
 		if environment.pieceCid == cid.Undef {
 			environment.pieceCid = defaultPieceCid
@@ -1181,6 +1190,7 @@ type fakeEnvironment struct {
 	expectedTags            map[string]struct{}
 	receivedTags            map[string]struct{}
 	dealFunds               *tut.TestDealFunds
+	peerTagger              *tut.TestPeerTagger
 }
 
 func (fe *fakeEnvironment) Address() address.Address {
@@ -1231,3 +1241,13 @@ func (fe *fakeEnvironment) RunCustomDecisionLogic(context.Context, storagemarket
 func (fe *fakeEnvironment) DealFunds() funds.DealFunds {
 	return fe.dealFunds
 }
+
+func (fe *fakeEnvironment) TagPeer(id peer.ID, s string) {
+	fe.peerTagger.TagPeer(id, s)
+}
+
+func (fe *fakeEnvironment) UntagPeer(id peer.ID, s string) {
+	fe.peerTagger.UntagPeer(id, s)
+}
+
+var _ providerstates.ProviderDealEnvironment = &fakeEnvironment{}
