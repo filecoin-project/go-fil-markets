@@ -34,6 +34,8 @@ type ClientDealEnvironment interface {
 	GetProviderDealState(ctx context.Context, proposalCid cid.Cid) (*storagemarket.ProviderDealState, error)
 	PollingInterval() time.Duration
 	DealFunds() funds.DealFunds
+	TagPeer(id peer.ID, ident string)
+	UntagPeer(id peer.ID, ident string)
 }
 
 // ClientStateEntryFunc is the type for all state entry functions on a storage client
@@ -103,9 +105,12 @@ func ProposeDeal(ctx fsm.Context, environment ClientDealEnvironment, deal storag
 		return ctx.Trigger(storagemarket.ClientEventWriteProposalFailed, err)
 	}
 
+	environment.TagPeer(deal.Miner, deal.ProposalCid.String())
+
 	if err := s.WriteDealProposal(proposal); err != nil {
 		return ctx.Trigger(storagemarket.ClientEventWriteProposalFailed, err)
 	}
+
 
 	resp, err := s.ReadDealResponse()
 	if err != nil {
@@ -160,6 +165,8 @@ func InitiateDataTransfer(ctx fsm.Context, environment ClientDealEnvironment, de
 
 // CheckForDealAcceptance is run until the deal is sealed and published by the provider, or errors
 func CheckForDealAcceptance(ctx fsm.Context, environment ClientDealEnvironment, deal storagemarket.ClientDeal) error {
+
+
 	dealState, err := environment.GetProviderDealState(ctx.Context(), deal.ProposalCid)
 	if err != nil {
 		log.Warnf("error when querying provider deal state: %w", err) // TODO: at what point do we fail the deal?
@@ -213,6 +220,9 @@ func ValidateDealPublished(ctx fsm.Context, environment ClientDealEnvironment, d
 		}
 		_ = ctx.Trigger(storagemarket.ClientEventFundsReleased, deal.FundsReserved)
 	}
+
+	// at this point data transfer is complete, so unprotect peer connection
+	environment.UntagPeer(deal.Miner, deal.ProposalCid.String())
 
 	return ctx.Trigger(storagemarket.ClientEventDealPublished, dealID)
 }
@@ -276,6 +286,8 @@ func FailDeal(ctx fsm.Context, environment ClientDealEnvironment, deal storagema
 
 	// TODO: store in some sort of audit log
 	log.Errorf("deal %s failed: %s", deal.ProposalCid, deal.Message)
+
+	environment.UntagPeer(deal.Miner, deal.ProposalCid.String())
 
 	return ctx.Trigger(storagemarket.ClientEventFailed)
 }

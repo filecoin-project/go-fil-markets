@@ -56,11 +56,3 @@ func (d *dealStream) Close() error {
 func (d *dealStream) RemotePeer() peer.ID {
 	return d.p
 }
-
-func (d *dealStream) TagProtectedConnection(identifier string) {
-	d.host.ConnManager().TagPeer(d.p, identifier, TagPriority)
-}
-
-func (d *dealStream) UntagProtectedConnection(identifier string) {
-	d.host.ConnManager().UntagPeer(d.p, identifier)
-}
