@@ -40,6 +40,8 @@ type ProviderDealEnvironment interface {
 	PieceStore() piecestore.PieceStore
 	DealAcceptanceBuffer() abi.ChainEpoch
 	RunCustomDecisionLogic(context.Context, storagemarket.MinerDeal) (bool, string, error)
+
+	network.PeerTagger
 }
 
 // ProviderStateEntryFunc is the signature for a StateEntryFunc in the provider FSM
@@ -138,12 +140,16 @@ func DecideOnProposal(ctx fsm.Context, environment ProviderDealEnvironment, deal
 		log.Warnf("closing client connection: %+v", err)
 	}
 
+	environment.TagPeer(deal.Client, deal.ProposalCid.String())
+
 	return ctx.Trigger(storagemarket.ProviderEventDataRequested)
 }
 
 // VerifyData verifies that data received for a deal matches the pieceCID
 // in the proposal
 func VerifyData(ctx fsm.Context, environment ProviderDealEnvironment, deal storagemarket.MinerDeal) error {
+	// At this point we have all the data so we can unprotect the connection
+	environment.UntagPeer(deal.Client, deal.ProposalCid.String())
 
 	pieceCid, piecePath, metadataPath, err := environment.GeneratePieceCommitmentToFile(deal.Ref.Root, shared.AllSelector())
 	if err != nil {
@@ -391,8 +397,9 @@ func RejectDeal(ctx fsm.Context, environment ProviderDealEnvironment, deal stora
 
 // FailDeal cleans up before terminating a deal
 func FailDeal(ctx fsm.Context, environment ProviderDealEnvironment, deal storagemarket.MinerDeal) error {
-
 	log.Warnf("deal %s failed: %s", deal.ProposalCid, deal.Message)
+
+	environment.UntagPeer(deal.Client, deal.ProposalCid.String())
 
 	if deal.PiecePath != filestore.Path("") {
 		err := environment.FileStore().Delete(deal.PiecePath)

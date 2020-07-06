@@ -16,6 +16,7 @@ import (
 	"github.com/ipfs/go-datastore"
 	blockstore "github.com/ipfs/go-ipfs-blockstore"
 	"github.com/ipld/go-ipld-prime"
+	"github.com/libp2p/go-libp2p-core/peer"
 	"golang.org/x/xerrors"
 
 	"github.com/filecoin-project/go-fil-markets/filestore"
@@ -657,6 +658,14 @@ func (p *providerDealEnvironment) RunCustomDecisionLogic(ctx context.Context, de
 		return true, "", nil
 	}
 	return p.p.customDealDeciderFunc(ctx, deal)
+}
+
+func (p *providerDealEnvironment) TagPeer(id peer.ID, s string) {
+	p.p.net.TagPeer(id, s)
+}
+
+func (p *providerDealEnvironment) UntagPeer(id peer.ID, s string) {
+	p.p.net.UntagPeer(id, s)
 }
 
 var _ providerstates.ProviderDealEnvironment = &providerDealEnvironment{}

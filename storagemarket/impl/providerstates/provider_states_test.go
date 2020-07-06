@@ -18,6 +18,7 @@ import (
 	"github.com/filecoin-project/specs-actors/actors/runtime/exitcode"
 	"github.com/ipfs/go-cid"
 	"github.com/ipld/go-ipld-prime"
+	"github.com/libp2p/go-libp2p-core/peer"
 	"github.com/stretchr/testify/require"
 	"golang.org/x/xerrors"
 
@@ -194,6 +195,8 @@ func TestDecideOnProposal(t *testing.T) {
 		"succeeds": {
 			dealInspector: func(t *testing.T, deal storagemarket.MinerDeal, env *fakeEnvironment) {
 				tut.AssertDealState(t, storagemarket.StorageDealWaitingForData, deal.State)
+				require.Len(t, env.peerTagger.TagCalls, 1)
+				require.Equal(t, deal.Client, env.peerTagger.TagCalls[0])
 			},
 		},
 		"Custom Decision Rejects Deal": {
@@ -256,6 +259,8 @@ func TestVerifyData(t *testing.T) {
 				tut.AssertDealState(t, storagemarket.StorageDealEnsureProviderFunds, deal.State)
 				require.Equal(t, expPath, deal.PiecePath)
 				require.Equal(t, expMetaPath, deal.MetadataPath)
+				require.Len(t, env.peerTagger.UntagCalls, 1)
+				require.Equal(t, deal.Client, env.peerTagger.UntagCalls[0])
 			},
 		},
 		"generate piece CID fails": {
@@ -1039,6 +1044,7 @@ func makeExecutor(ctx context.Context,
 			dealAcceptanceBuffer:    abi.ChainEpoch(params.DealAcceptanceBuffer),
 			fs:                      fs,
 			pieceStore:              pieceStore,
+			peerTagger:              tut.NewTestPeerTagger(),
 		}
 		if environment.pieceCid == cid.Undef {
 			environment.pieceCid = defaultPieceCid
@@ -1088,6 +1094,7 @@ type fakeEnvironment struct {
 	dealAcceptanceBuffer    abi.ChainEpoch
 	expectedTags            map[string]struct{}
 	receivedTags            map[string]struct{}
+	peerTagger              *tut.TestPeerTagger
 }
 
 func (fe *fakeEnvironment) Address() address.Address {
@@ -1134,3 +1141,13 @@ func (fe *fakeEnvironment) DealAcceptanceBuffer() abi.ChainEpoch {
 func (fe *fakeEnvironment) RunCustomDecisionLogic(context.Context, storagemarket.MinerDeal) (bool, string, error) {
 	return !fe.rejectDeal, fe.rejectReason, fe.decisionError
 }
+
+func (fe *fakeEnvironment) TagPeer(id peer.ID, s string) {
+	fe.peerTagger.TagPeer(id, s)
+}
+
+func (fe *fakeEnvironment) UntagPeer(id peer.ID, s string) {
+	fe.peerTagger.UntagPeer(id, s)
+}
+
+var _ providerstates.ProviderDealEnvironment = &fakeEnvironment{}
