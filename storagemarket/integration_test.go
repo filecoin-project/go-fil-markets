@@ -11,7 +11,8 @@ import (
 	"testing"
 
 	"github.com/filecoin-project/go-address"
-	graphsync "github.com/filecoin-project/go-data-transfer/impl/graphsync"
+	dtimpl "github.com/filecoin-project/go-data-transfer/impl"
+	dtgstransport "github.com/filecoin-project/go-data-transfer/transport/graphsync"
 	"github.com/filecoin-project/go-statestore"
 	"github.com/filecoin-project/specs-actors/actors/abi"
 	"github.com/filecoin-project/specs-actors/actors/abi/big"
@@ -369,7 +370,11 @@ func newHarnessWithTestData(t *testing.T, ctx context.Context, td *shared_testut
 	assert.NoError(t, err)
 
 	// create provider and client
-	dt1 := graphsync.NewGraphSyncDataTransfer(td.Host1, td.GraphSync1, td.DTStoredCounter1)
+	dtTransport1 := dtgstransport.NewTransport(td.Host1.ID(), td.GraphSync1)
+	dt1, err := dtimpl.NewDataTransfer(td.DTStore1, td.DTNet1, dtTransport1, td.DTStoredCounter1)
+	require.NoError(t, err)
+	err = dt1.Start(ctx)
+	require.NoError(t, err)
 	rv1 := requestvalidation.NewUnifiedRequestValidator(nil, statestore.New(td.Ds1))
 	require.NoError(t, dt1.RegisterVoucherType(&requestvalidation.StorageDataTransferVoucher{}, rv1))
 
@@ -384,7 +389,12 @@ func newHarnessWithTestData(t *testing.T, ctx context.Context, td *shared_testut
 	)
 	require.NoError(t, err)
 
-	dt2 := graphsync.NewGraphSyncDataTransfer(td.Host2, td.GraphSync2, td.DTStoredCounter2)
+	dtTransport2 := dtgstransport.NewTransport(td.Host2.ID(), td.GraphSync2)
+	dt2, err := dtimpl.NewDataTransfer(td.DTStore2, td.DTNet2, dtTransport2, td.DTStoredCounter2)
+	require.NoError(t, err)
+	err = dt2.Start(ctx)
+	require.NoError(t, err)
+
 	rv2 := requestvalidation.NewUnifiedRequestValidator(statestore.New(td.Ds2), nil)
 	require.NoError(t, dt2.RegisterVoucherType(&requestvalidation.StorageDataTransferVoucher{}, rv2))
 

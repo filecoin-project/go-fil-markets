@@ -304,12 +304,12 @@ func RequireGenerateRetrievalPeers(t *testing.T, numPeers int) []retrievalmarket
 
 type FakeDTValidator struct{}
 
-func (v *FakeDTValidator) ValidatePush(sender peer.ID, voucher datatransfer.Voucher, baseCid cid.Cid, selector ipld.Node) error {
-	return nil
+func (v *FakeDTValidator) ValidatePush(sender peer.ID, voucher datatransfer.Voucher, baseCid cid.Cid, selector ipld.Node) (datatransfer.VoucherResult, error) {
+	return nil, nil
 }
 
-func (v *FakeDTValidator) ValidatePull(receiver peer.ID, voucher datatransfer.Voucher, baseCid cid.Cid, selector ipld.Node) error {
-	return nil
+func (v *FakeDTValidator) ValidatePull(receiver peer.ID, voucher datatransfer.Voucher, baseCid cid.Cid, selector ipld.Node) (datatransfer.VoucherResult, error) {
+	return nil, nil
 }
 
 var _ datatransfer.RequestValidator = (*FakeDTValidator)(nil)

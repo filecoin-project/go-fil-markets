@@ -10,9 +10,12 @@ import (
 	"runtime"
 	"testing"
 
+	dtnet "github.com/filecoin-project/go-data-transfer/network"
+	"github.com/filecoin-project/go-storedcounter"
 	blocks "github.com/ipfs/go-block-format"
 	"github.com/ipfs/go-blockservice"
 	"github.com/ipfs/go-datastore"
+	"github.com/ipfs/go-datastore/namespace"
 	dss "github.com/ipfs/go-datastore/sync"
 	"github.com/ipfs/go-graphsync"
 	graphsyncimpl "github.com/ipfs/go-graphsync/impl"
@@ -32,8 +35,6 @@ import (
 	mocknet "github.com/libp2p/go-libp2p/p2p/net/mock"
 	"github.com/stretchr/testify/require"
 	"golang.org/x/net/context"
-
-	"github.com/filecoin-project/go-storedcounter"
 )
 
 type Libp2pTestData struct {
@@ -50,6 +51,10 @@ type Libp2pTestData struct {
 	DagService2             ipldformat.DAGService
 	GraphSync1              graphsync.GraphExchange
 	GraphSync2              graphsync.GraphExchange
+	DTNet1                  dtnet.DataTransferNetwork
+	DTNet2                  dtnet.DataTransferNetwork
+	DTStore1                datastore.Batching
+	DTStore2                datastore.Batching
 	Loader1                 ipld.Loader
 	Loader2                 ipld.Loader
 	Storer1                 ipld.Storer
@@ -133,6 +138,12 @@ func NewLibp2pTestData(ctx context.Context, t *testing.T) *Libp2pTestData {
 
 	testData.GraphSync1 = graphsyncimpl.New(ctx, network.NewFromLibp2pHost(testData.Host1), testData.Loader1, testData.Storer1)
 	testData.GraphSync2 = graphsyncimpl.New(ctx, network.NewFromLibp2pHost(testData.Host2), testData.Loader2, testData.Storer2)
+
+	testData.DTNet1 = dtnet.NewFromLibp2pHost(testData.Host1)
+	testData.DTNet2 = dtnet.NewFromLibp2pHost(testData.Host2)
+
+	testData.DTStore1 = namespace.Wrap(testData.Ds1, datastore.NewKey("DataTransfer1"))
+	testData.DTStore2 = namespace.Wrap(testData.Ds1, datastore.NewKey("DataTransfer2"))
 
 	return testData
 }

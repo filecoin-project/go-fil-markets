@@ -5,8 +5,6 @@ import (
 
 	datatransfer "github.com/filecoin-project/go-data-transfer"
 	"github.com/filecoin-project/go-statemachine/fsm"
-	"github.com/ipfs/go-cid"
-	"github.com/libp2p/go-libp2p-core/peer"
 	"github.com/stretchr/testify/require"
 
 	"github.com/filecoin-project/go-fil-markets/shared_testutil"
@@ -19,6 +17,7 @@ func TestProviderDataTransferSubscriber(t *testing.T) {
 	expectedProposalCID := shared_testutil.GenerateCids(1)[0]
 	tests := map[string]struct {
 		code          datatransfer.EventCode
+		status        datatransfer.Status
 		called        bool
 		voucher       datatransfer.Voucher
 		expectedID    interface{}
@@ -31,6 +30,7 @@ func TestProviderDataTransferSubscriber(t *testing.T) {
 		},
 		"open event": {
 			code:   datatransfer.Open,
+			status: datatransfer.Requested,
 			called: true,
 			voucher: &requestvalidation.StorageDataTransferVoucher{
 				Proposal: expectedProposalCID,
@@ -38,8 +38,9 @@ func TestProviderDataTransferSubscriber(t *testing.T) {
 			expectedID:    expectedProposalCID,
 			expectedEvent: storagemarket.ProviderEventDataTransferInitiated,
 		},
-		"completion event": {
+		"completion status": {
 			code:   datatransfer.Complete,
+			status: datatransfer.Completed,
 			called: true,
 			voucher: &requestvalidation.StorageDataTransferVoucher{
 				Proposal: expectedProposalCID,
@@ -49,6 +50,7 @@ func TestProviderDataTransferSubscriber(t *testing.T) {
 		},
 		"error event": {
 			code:   datatransfer.Error,
+			status: datatransfer.Failed,
 			called: true,
 			voucher: &requestvalidation.StorageDataTransferVoucher{
 				Proposal: expectedProposalCID,
@@ -59,6 +61,7 @@ func TestProviderDataTransferSubscriber(t *testing.T) {
 		},
 		"other event": {
 			code:   datatransfer.Progress,
+			status: datatransfer.Ongoing,
 			called: false,
 			voucher: &requestvalidation.StorageDataTransferVoucher{
 				Proposal: expectedProposalCID,
@@ -69,9 +72,9 @@ func TestProviderDataTransferSubscriber(t *testing.T) {
 		t.Run(test, func(t *testing.T) {
 			fdg := &fakeDealGroup{}
 			subscriber := dtutils.ProviderDataTransferSubscriber(fdg)
-			subscriber(datatransfer.Event{Code: data.code}, datatransfer.ChannelState{
-				Channel: datatransfer.NewChannel(datatransfer.TransferID(0), cid.Undef, nil, data.voucher, peer.ID(""), peer.ID(""), 0),
-			})
+			subscriber(datatransfer.Event{Code: data.code}, shared_testutil.NewTestChannel(
+				shared_testutil.TestChannelParams{Vouchers: []datatransfer.Voucher{data.voucher}, Status: data.status},
+			))
 			if data.called {
 				require.True(t, fdg.called)
 				require.Equal(t, fdg.lastID, data.expectedID)
@@ -88,6 +91,7 @@ func TestClientDataTransferSubscriber(t *testing.T) {
 	expectedProposalCID := shared_testutil.GenerateCids(1)[0]
 	tests := map[string]struct {
 		code          datatransfer.EventCode
+		status        datatransfer.Status
 		called        bool
 		voucher       datatransfer.Voucher
 		expectedID    interface{}
@@ -100,6 +104,7 @@ func TestClientDataTransferSubscriber(t *testing.T) {
 		},
 		"completion event": {
 			code:   datatransfer.Complete,
+			status: datatransfer.Completed,
 			called: true,
 			voucher: &requestvalidation.StorageDataTransferVoucher{
 				Proposal: expectedProposalCID,
@@ -109,6 +114,7 @@ func TestClientDataTransferSubscriber(t *testing.T) {
 		},
 		"error event": {
 			code:   datatransfer.Error,
+			status: datatransfer.Failed,
 			called: true,
 			voucher: &requestvalidation.StorageDataTransferVoucher{
 				Proposal: expectedProposalCID,
@@ -119,6 +125,7 @@ func TestClientDataTransferSubscriber(t *testing.T) {
 		},
 		"other event": {
 			code:   datatransfer.Progress,
+			status: datatransfer.Ongoing,
 			called: false,
 			voucher: &requestvalidation.StorageDataTransferVoucher{
 				Proposal: expectedProposalCID,
@@ -129,9 +136,9 @@ func TestClientDataTransferSubscriber(t *testing.T) {
 		t.Run(test, func(t *testing.T) {
 			fdg := &fakeDealGroup{}
 			subscriber := dtutils.ClientDataTransferSubscriber(fdg)
-			subscriber(datatransfer.Event{Code: data.code}, datatransfer.ChannelState{
-				Channel: datatransfer.NewChannel(datatransfer.TransferID(0), cid.Undef, nil, data.voucher, peer.ID(""), peer.ID(""), 0),
-			})
+			subscriber(datatransfer.Event{Code: data.code}, shared_testutil.NewTestChannel(
+				shared_testutil.TestChannelParams{Vouchers: []datatransfer.Voucher{data.voucher}, Status: data.status},
+			))
 			if data.called {
 				require.True(t, fdg.called)
 				require.Equal(t, fdg.lastID, data.expectedID)
