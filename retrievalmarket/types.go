@@ -20,7 +20,7 @@ import (
 	"github.com/filecoin-project/go-fil-markets/shared"
 )
 
-//go:generate cbor-gen-for Query QueryResponse DealProposal DealResponse Params QueryParams DealPayment Block ClientDealState ProviderDealState PaymentInfo
+//go:generate cbor-gen-for Query QueryResponse DealProposal DealResponse Params QueryParams DealPayment Block ClientDealState ProviderDealState PaymentInfo RetrievalPeer
 
 // ProtocolID is the protocol for proposing / responding to retrieval deals
 const ProtocolID = "/fil/retrieval/0.0.1"
@@ -416,8 +416,9 @@ type PeerResolver interface {
 // RetrievalPeer is a provider address/peer.ID pair (everything needed to make
 // deals for with a miner)
 type RetrievalPeer struct {
-	Address address.Address
-	ID      peer.ID // optional
+	Address  address.Address
+	ID       peer.ID // optional
+	PieceCID *cid.Cid
 }
 
 // QueryResponseStatus indicates whether a queried piece is available

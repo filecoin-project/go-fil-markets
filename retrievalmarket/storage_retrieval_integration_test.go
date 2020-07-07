@@ -112,9 +112,12 @@ func TestStorageRetrieval(t *testing.T) {
 
 	// **** Send the query for the Piece
 	// set up retrieval params
-	retrievalPeer := &retrievalmarket.RetrievalPeer{Address: sh.ProviderAddr, ID: sh.TestData.Host2.ID()}
+	peers := rh.Client.FindProviders(sh.PayloadCid)
+	require.Len(t, peers, 1)
+	retrievalPeer := peers[0]
+	require.NotNil(t, retrievalPeer.PieceCID)
 
-	resp, err := rh.Client.Query(bgCtx, *retrievalPeer, sh.PayloadCid, retrievalmarket.QueryParams{})
+	resp, err := rh.Client.Query(bgCtx, retrievalPeer, sh.PayloadCid, retrievalmarket.QueryParams{})
 	require.NoError(t, err)
 	require.Equal(t, retrievalmarket.QueryResponseAvailable, resp.Status)
 
@@ -180,6 +183,7 @@ type storageHarness struct {
 	ProviderInfo storagemarket.StorageProviderInfo
 	TestData     *shared_testutil.Libp2pTestData
 	PieceStore   piecestore.PieceStore
+	PeerResolver retrievalmarket.PeerResolver
 }
 
 func newStorageHarness(ctx context.Context, t *testing.T) *storageHarness {
@@ -222,11 +226,13 @@ func newStorageHarness(ctx context.Context, t *testing.T) *storageHarness {
 	rv1 := requestvalidation.NewUnifiedRequestValidator(nil, statestore.New(td.Ds1))
 	require.NoError(t, dt1.RegisterVoucherType(&requestvalidation.StorageDataTransferVoucher{}, rv1))
 
+	peerResolver := discovery.NewLocal(td.Ds1)
+
 	client, err := stormkt.NewClient(
 		stornet.NewFromLibp2pHost(td.Host1),
 		td.Bs1,
 		dt1,
-		discovery.NewLocal(td.Ds1),
+		peerResolver,
 		td.Ds1,
 		&clientNode,
 		stormkt.DealPollingInterval(0),
@@ -280,6 +286,7 @@ func newStorageHarness(ctx context.Context, t *testing.T) *storageHarness {
 		ProviderNode: providerNode,
 		ProviderInfo: providerInfo,
 		TestData:     td,
+		PeerResolver: peerResolver,
 	}
 }
 
@@ -339,7 +346,7 @@ func newRetrievalHarness(ctx context.Context, t *testing.T, sh *storageHarness, 
 	})
 
 	nw1 := rmnet.NewFromLibp2pHost(sh.TestData.Host1)
-	client, err := retrievalimpl.NewClient(nw1, sh.TestData.Bs1, clientNode, &tut.TestPeerResolver{}, sh.TestData.Ds1, sh.TestData.RetrievalStoredCounter1)
+	client, err := retrievalimpl.NewClient(nw1, sh.TestData.Bs1, clientNode, sh.PeerResolver, sh.TestData.Ds1, sh.TestData.RetrievalStoredCounter1)
 	require.NoError(t, err)
 
 	payloadCID := deal.DataRef.Root
