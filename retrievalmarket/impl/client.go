@@ -35,12 +35,14 @@ type Client struct {
 	node          retrievalmarket.RetrievalClientNode
 	storedCounter *storedcounter.StoredCounter
 
-	subscribersLk  sync.RWMutex
-	subscribers    []retrievalmarket.ClientSubscriber
-	resolver       retrievalmarket.PeerResolver
-	blockVerifiers map[retrievalmarket.DealID]blockio.BlockVerifier
-	dealStreams    map[retrievalmarket.DealID]rmnet.RetrievalDealStream
-	stateMachines  fsm.Group
+	subscribersLk    sync.RWMutex
+	subscribers      []retrievalmarket.ClientSubscriber
+	resolver         retrievalmarket.PeerResolver
+	blockVerifiers   map[retrievalmarket.DealID]blockio.BlockVerifier
+	blockVerifiersLk sync.Mutex
+	dealStreams      map[retrievalmarket.DealID]rmnet.RetrievalDealStream
+	dealStreamsLk    sync.Mutex
+	stateMachines    fsm.Group
 }
 
 var _ retrievalmarket.RetrievalClient = &Client{}
@@ -184,7 +186,9 @@ func (c *Client) Retrieve(ctx context.Context, payloadCID cid.Cid, params retrie
 		return 0, err
 	}
 
+	c.dealStreamsLk.Lock()
 	c.dealStreams[dealID] = s
+	c.dealStreamsLk.Unlock()
 
 	sel := shared.AllSelector()
 	if params.Selector != nil {
@@ -194,7 +198,9 @@ func (c *Client) Retrieve(ctx context.Context, payloadCID cid.Cid, params retrie
 		}
 	}
 
+	c.blockVerifiersLk.Lock()
 	c.blockVerifiers[dealID] = blockio.NewSelectorVerifier(cidlink.Link{Cid: dealState.DealProposal.PayloadCID}, sel)
+	c.blockVerifiersLk.Unlock()
 
 	err = c.stateMachines.Send(dealState.ID, retrievalmarket.ClientEventOpen)
 	if err != nil {
@@ -276,6 +282,8 @@ func (c *clientDealEnvironment) Node() retrievalmarket.RetrievalClientNode {
 }
 
 func (c *clientDealEnvironment) DealStream(dealID retrievalmarket.DealID) rmnet.RetrievalDealStream {
+	c.c.dealStreamsLk.Lock()
+	defer c.c.dealStreamsLk.Unlock()
 	return c.c.dealStreams[dealID]
 }
 
@@ -295,7 +303,9 @@ func (c *clientDealEnvironment) ConsumeBlock(ctx context.Context, dealID retriev
 		return 0, false, err
 	}
 
+	c.c.blockVerifiersLk.Lock()
 	verifier, ok := c.c.blockVerifiers[dealID]
+	c.c.blockVerifiersLk.Unlock()
 	if !ok {
 		return 0, false, xerrors.New("no block verifier found")
 	}
