@@ -11,7 +11,9 @@ import (
 
 	"github.com/filecoin-project/go-address"
 	datatransfer "github.com/filecoin-project/go-data-transfer"
-	graphsyncimpl "github.com/filecoin-project/go-data-transfer/impl/graphsync"
+	dtimpl "github.com/filecoin-project/go-data-transfer/impl"
+	dtgstransport "github.com/filecoin-project/go-data-transfer/transport/graphsync"
+
 	"github.com/filecoin-project/go-statestore"
 	"github.com/filecoin-project/specs-actors/actors/abi"
 	"github.com/filecoin-project/specs-actors/actors/abi/big"
@@ -222,7 +224,11 @@ func newStorageHarness(ctx context.Context, t *testing.T) *storageHarness {
 	require.NoError(t, err)
 
 	// create provider and client
-	dt1 := graphsyncimpl.NewGraphSyncDataTransfer(td.Host1, td.GraphSync1, td.DTStoredCounter1)
+	dtTransport1 := dtgstransport.NewTransport(td.Host1.ID(), td.GraphSync1)
+	dt1, err := dtimpl.NewDataTransfer(td.DTStore1, td.DTNet1, dtTransport1, td.DTStoredCounter1)
+	require.NoError(t, err)
+	err = dt1.Start(ctx)
+	require.NoError(t, err)
 	rv1 := requestvalidation.NewUnifiedRequestValidator(nil, statestore.New(td.Ds1))
 	require.NoError(t, dt1.RegisterVoucherType(&requestvalidation.StorageDataTransferVoucher{}, rv1))
 
@@ -239,7 +245,11 @@ func newStorageHarness(ctx context.Context, t *testing.T) *storageHarness {
 	)
 	require.NoError(t, err)
 
-	dt2 := graphsyncimpl.NewGraphSyncDataTransfer(td.Host2, td.GraphSync2, td.DTStoredCounter2)
+	dtTransport2 := dtgstransport.NewTransport(td.Host2.ID(), td.GraphSync2)
+	dt2, err := dtimpl.NewDataTransfer(td.DTStore2, td.DTNet2, dtTransport2, td.DTStoredCounter2)
+	require.NoError(t, err)
+	err = dt2.Start(ctx)
+	require.NoError(t, err)
 	rv2 := requestvalidation.NewUnifiedRequestValidator(statestore.New(td.Ds2), nil)
 	require.NoError(t, dt2.RegisterVoucherType(&requestvalidation.StorageDataTransferVoucher{}, rv2))
 
@@ -421,10 +431,10 @@ func newRetrievalHarness(ctx context.Context, t *testing.T, sh *storageHarness, 
 
 type fakeDTValidator struct{}
 
-func (v *fakeDTValidator) ValidatePush(sender peer.ID, voucher datatransfer.Voucher, baseCid cid.Cid, selector ipld.Node) error {
-	return nil
+func (v *fakeDTValidator) ValidatePush(sender peer.ID, voucher datatransfer.Voucher, baseCid cid.Cid, selector ipld.Node) (datatransfer.VoucherResult, error) {
+	return nil, nil
 }
 
-func (v *fakeDTValidator) ValidatePull(receiver peer.ID, voucher datatransfer.Voucher, baseCid cid.Cid, selector ipld.Node) error {
-	return nil
+func (v *fakeDTValidator) ValidatePull(receiver peer.ID, voucher datatransfer.Voucher, baseCid cid.Cid, selector ipld.Node) (datatransfer.VoucherResult, error) {
+	return nil, nil
 }

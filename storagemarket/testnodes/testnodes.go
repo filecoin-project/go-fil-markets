@@ -281,7 +281,7 @@ type FakeProviderNode struct {
 	OnDealCompleteError                 error
 	OnDealCompleteCalls                 []storagemarket.MinerDeal
 	LocatePieceForDealWithinSectorError error
-	DataCap                             verifreg.DataCap
+	DataCap                             *verifreg.DataCap
 	GetDataCapErr                       error
 }
 
@@ -328,7 +328,7 @@ func (n *FakeProviderNode) LocatePieceForDealWithinSector(ctx context.Context, d
 }
 
 // GetDataCap gets the current data cap for addr
-func (n *FakeProviderNode) GetDataCap(ctx context.Context, addr address.Address, tok shared.TipSetToken) (verifreg.DataCap, error) {
+func (n *FakeProviderNode) GetDataCap(ctx context.Context, addr address.Address, tok shared.TipSetToken) (*verifreg.DataCap, error) {
 	return n.DataCap, n.GetDataCapErr
 }
 

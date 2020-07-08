@@ -38,15 +38,17 @@ func ProviderDataTransferSubscriber(deals EventReceiver) datatransfer.Subscriber
 			return
 		}
 
+		if channelState.Status() == datatransfer.Completed {
+			err := deals.Send(voucher.Proposal, storagemarket.ProviderEventDataTransferCompleted)
+			if err != nil {
+				log.Errorf("processing dt event: %w", err)
+			}
+		}
+
 		// data transfer events for progress do not affect deal state
 		switch event.Code {
 		case datatransfer.Open:
 			err := deals.Send(voucher.Proposal, storagemarket.ProviderEventDataTransferInitiated)
-			if err != nil {
-				log.Errorf("processing dt event: %w", err)
-			}
-		case datatransfer.Complete:
-			err := deals.Send(voucher.Proposal, storagemarket.ProviderEventDataTransferCompleted)
 			if err != nil {
 				log.Errorf("processing dt event: %w", err)
 			}
@@ -72,13 +74,15 @@ func ClientDataTransferSubscriber(deals EventReceiver) datatransfer.Subscriber {
 			return
 		}
 
-		// data transfer events for progress do not affect deal state
-		switch event.Code {
-		case datatransfer.Complete:
+		if channelState.Status() == datatransfer.Completed {
 			err := deals.Send(voucher.Proposal, storagemarket.ClientEventDataTransferComplete)
 			if err != nil {
 				log.Errorf("processing dt event: %w", err)
 			}
+		}
+
+		// data transfer events for progress do not affect deal state
+		switch event.Code {
 		case datatransfer.Error:
 			err := deals.Send(voucher.Proposal, storagemarket.ClientEventDataTransferFailed, ErrDataTransferFailed)
 			if err != nil {

@@ -39,6 +39,8 @@ func TestValidateDealProposal(t *testing.T) {
 	runValidateDealProposal := makeExecutor(ctx, eventProcessor, providerstates.ValidateDealProposal, storagemarket.StorageDealValidating)
 	otherAddr, err := address.NewActorAddress([]byte("applesauce"))
 	require.NoError(t, err)
+	bigDataCap := big.NewIntUnsigned(uint64(defaultPieceSize))
+	smallDataCap := big.NewIntUnsigned(uint64(defaultPieceSize - 1))
 	tests := map[string]struct {
 		nodeParams        nodeParams
 		dealParams        dealParams
@@ -137,7 +139,7 @@ func TestValidateDealProposal(t *testing.T) {
 				VerifiedDeal: true,
 			},
 			nodeParams: nodeParams{
-				DataCap: big.NewIntUnsigned(uint64(defaultPieceSize)),
+				DataCap: &bigDataCap,
 			},
 			dealInspector: func(t *testing.T, deal storagemarket.MinerDeal, env *fakeEnvironment) {
 				require.True(t, deal.Proposal.VerifiedDeal)
@@ -157,12 +159,22 @@ func TestValidateDealProposal(t *testing.T) {
 				require.Equal(t, "deal rejected: node error fetching verified data cap: failure getting data cap", deal.Message)
 			},
 		},
+		"verified deal fails data cap not found": {
+			dealParams: dealParams{
+				VerifiedDeal: true,
+			},
+			dealInspector: func(t *testing.T, deal storagemarket.MinerDeal, env *fakeEnvironment) {
+				require.True(t, deal.Proposal.VerifiedDeal)
+				tut.AssertDealState(t, storagemarket.StorageDealRejecting, deal.State)
+				require.Equal(t, "deal rejected: node error fetching verified data cap: data cap missing -- client not verified", deal.Message)
+			},
+		},
 		"verified deal fails with insufficient data cap": {
 			dealParams: dealParams{
 				VerifiedDeal: true,
 			},
 			nodeParams: nodeParams{
-				DataCap: big.NewIntUnsigned(uint64(defaultPieceSize - 1)),
+				DataCap: &smallDataCap,
 			},
 			dealInspector: func(t *testing.T, deal storagemarket.MinerDeal, env *fakeEnvironment) {
 				require.True(t, deal.Proposal.VerifiedDeal)
@@ -859,7 +871,7 @@ type nodeParams struct {
 	OnDealExpiredError                  error
 	OnDealSlashedError                  error
 	OnDealSlashedEpoch                  abi.ChainEpoch
-	DataCap                             verifreg.DataCap
+	DataCap                             *verifreg.DataCap
 	GetDataCapError                     error
 }
 

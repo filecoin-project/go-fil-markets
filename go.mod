@@ -5,9 +5,9 @@ go 1.13
 require (
 	github.com/filecoin-project/go-address v0.0.2-0.20200218010043-eb9bb40ed5be
 	github.com/filecoin-project/go-cbor-util v0.0.0-20191219014500-08c40a1e63a2
-	github.com/filecoin-project/go-data-transfer v0.3.0
+	github.com/filecoin-project/go-data-transfer v0.4.0
 	github.com/filecoin-project/go-padreader v0.0.0-20200210211231-548257017ca6
-	github.com/filecoin-project/go-statemachine v0.0.0-20200619205156-c7bf525c06ef
+	github.com/filecoin-project/go-statemachine v0.0.0-20200703171610-a74a697973b9
 	github.com/filecoin-project/go-statestore v0.1.0
 	github.com/filecoin-project/go-storedcounter v0.0.0-20200421200003-1c99c62e8a5b
 	github.com/filecoin-project/sector-storage v0.0.0-20200615154852-728a47ab99d6
@@ -18,7 +18,7 @@ require (
 	github.com/ipfs/go-blockservice v0.1.3
 	github.com/ipfs/go-cid v0.0.5
 	github.com/ipfs/go-datastore v0.4.4
-	github.com/ipfs/go-graphsync v0.0.6-0.20200504202014-9d5f2c26a103
+	github.com/ipfs/go-graphsync v0.0.6-0.20200708073926-caa872f68b2c
 	github.com/ipfs/go-ipfs-blockstore v1.0.0
 	github.com/ipfs/go-ipfs-blocksutil v0.0.1
 	github.com/ipfs/go-ipfs-chunker v0.0.5
@@ -40,6 +40,7 @@ require (
 	github.com/multiformats/go-multihash v0.0.13
 	github.com/stretchr/testify v1.5.1
 	github.com/whyrusleeping/cbor-gen v0.0.0-20200414195334-429a0b5e922e
+	golang.org/x/exp v0.0.0-20190121172915-509febef88a4
 	golang.org/x/net v0.0.0-20190724013045-ca1201d0de80
 	golang.org/x/xerrors v0.0.0-20191204190536-9bdfabe68543
 	gotest.tools v2.2.0+incompatible

@@ -102,7 +102,9 @@ func ValidateDealProposal(ctx fsm.Context, environment ProviderDealEnvironment, 
 		if err != nil {
 			return ctx.Trigger(storagemarket.ProviderEventDealRejected, xerrors.Errorf("node error fetching verified data cap: %w", err))
 		}
-
+		if dataCap == nil {
+			return ctx.Trigger(storagemarket.ProviderEventDealRejected, xerrors.Errorf("node error fetching verified data cap: data cap missing -- client not verified"))
+		}
 		pieceSize := big.NewIntUnsigned(uint64(proposal.PieceSize))
 		if dataCap.LessThan(pieceSize) {
 			return ctx.Trigger(storagemarket.ProviderEventDealRejected, xerrors.Errorf("verified deal DataCap too small for proposed piece size"))
