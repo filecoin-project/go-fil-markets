@@ -432,6 +432,48 @@ Hotfix bug release to address critical issues affecting node startup
 | Hannah Howard | 1 | +13/-7 | 2 |
 | vyzo | 1 | +10/-0 | 1 |
 
+# go-fil-markets 0.4.0
+
+Major release with touchups to deal protocol (does not hold open connections), major rewrite of underlying data transfer library, and features like fast retrieval and verified client support
+
+### Changelog
+
+- github.com/filecoin-project/go-fil-markets:
+  - Update to new data transfer (#317) ([filecoin-project/go-fil-markets#317](https://github.com/filecoin-project/go-fil-markets/pull/317))
+  - Add NewQueryV1, which has an optional PieceID param (#313) ([filecoin-project/go-fil-markets#313](https://github.com/filecoin-project/go-fil-markets/pull/313))
+  - Add PieceCid to RetrievalPeer (#312) ([filecoin-project/go-fil-markets#312](https://github.com/filecoin-project/go-fil-markets/pull/312))
+  - add locks around client deals (#315) ([filecoin-project/go-fil-markets#315](https://github.com/filecoin-project/go-fil-markets/pull/315))
+  - Merge branch 'release/v0.3.1.1'
+  - add locks protecting retrieval market maps (#311) ([filecoin-project/go-fil-markets#311](https://github.com/filecoin-project/go-fil-markets/pull/311))
+  - Fix/make streams context aware (#308) ([filecoin-project/go-fil-markets#308](https://github.com/filecoin-project/go-fil-markets/pull/308))
+  - Reject deals based on verifreg.DataCap for client (#307) ([filecoin-project/go-fil-markets#307](https://github.com/filecoin-project/go-fil-markets/pull/307))
+  - fix(storagemarket): run deal restarts in go routine (#309) ([filecoin-project/go-fil-markets#309](https://github.com/filecoin-project/go-fil-markets/pull/309))
+  - StorageProvider records Slashed Or Expired Deals (#306) ([filecoin-project/go-fil-markets#306](https://github.com/filecoin-project/go-fil-markets/pull/306))
+  - Fast retrieval support (#305) ([filecoin-project/go-fil-markets#305](https://github.com/filecoin-project/go-fil-markets/pull/305))
+  - Clients can create verified deals (#304) ([filecoin-project/go-fil-markets#304](https://github.com/filecoin-project/go-fil-markets/pull/304))
+  - Use Query Protocol in storage deal negotiation (#297) ([filecoin-project/go-fil-markets#297](https://github.com/filecoin-project/go-fil-markets/pull/297))
+- github.com/filecoin-project/go-data-transfer (v0.3.0 -> v0.4.0):
+  - The new data transfer (#55) ([filecoin-project/go-data-transfer#55](https://github.com/filecoin-project/go-data-transfer/pull/55))
+  - Actually track progress for send/receive (#53) ([filecoin-project/go-data-transfer#53](https://github.com/filecoin-project/go-data-transfer/pull/53))
+- github.com/filecoin-project/go-statemachine (v0.0.0-20200619205156-c7bf525c06ef -> v0.0.0-20200703171610-a74a697973b9):
+  - feat(statemachine): add Has method
+- github.com/ipfs/go-graphsync (v0.0.6-0.20200504202014-9d5f2c26a103 -> v0.0.6-0.20200708073926-caa872f68b2c):
+  - All changes to date including pause requests & start paused, along with new adds for cleanups and checking of execution (#75) ([ipfs/go-graphsync#75](https://github.com/ipfs/go-graphsync/pull/75))
+  - More fine grained response controls (#71) ([ipfs/go-graphsync#71](https://github.com/ipfs/go-graphsync/pull/71))
+  - Refactor request execution and use IPLD SkipMe functionality for proper partial results on a request (#70) ([ipfs/go-graphsync#70](https://github.com/ipfs/go-graphsync/pull/70))
+  - feat(graphsync): implement do-no-send-cids extension (#69) ([ipfs/go-graphsync#69](https://github.com/ipfs/go-graphsync/pull/69))
+  - Incoming Block Hooks (#68) ([ipfs/go-graphsync#68](https://github.com/ipfs/go-graphsync/pull/68))
+
+### Contributors
+
+| Contributor | Commits | Lines ± | Files Changed |
+|-------------|---------|---------|---------------|
+| Hannah Howard | 10 | +12777/-4664 | 152 |
+| Ingar Shu | 7 | +1318/-834 | 61 |
+| dirkmc | 1 | +401/-212 | 20 |
+| vyzo | 3 | +36/-6 | 3 |
+| hannahhoward | 2 | +25/-0 | 3 |
+
 ### 🙌🏽 Want to contribute?
 
 Would you like to contribute to this repo and don’t know how? Here are a few places you can get started:
