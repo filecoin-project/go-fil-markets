@@ -77,7 +77,7 @@ type StorageProviderNode interface {
 	LocatePieceForDealWithinSector(ctx context.Context, dealID abi.DealID, tok shared.TipSetToken) (sectorID uint64, offset uint64, length uint64, err error)
 
 	// GetDataCap gets the current data cap for addr
-	GetDataCap(ctx context.Context, addr address.Address, tok shared.TipSetToken) (verifreg.DataCap, error)
+	GetDataCap(ctx context.Context, addr address.Address, tok shared.TipSetToken) (*verifreg.DataCap, error)
 }
 
 // StorageClientNode are node dependencies for a StorageClient
