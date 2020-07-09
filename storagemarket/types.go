@@ -35,7 +35,8 @@ type Balance struct {
 // storage provider may run its own decision logic).
 type StorageAsk struct {
 	// Price per GiB / Epoch
-	Price abi.TokenAmount
+	Price 		  abi.TokenAmount
+	VerifiedPrice abi.TokenAmount
 
 	MinPieceSize abi.PaddedPieceSize
 	MaxPieceSize abi.PaddedPieceSize

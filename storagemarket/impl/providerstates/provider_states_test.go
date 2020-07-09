@@ -814,9 +814,10 @@ var defaultDataRef = storagemarket.DataRef{
 var defaultClientMarketBalance = abi.NewTokenAmount(200 * 10000)
 
 var defaultAsk = storagemarket.StorageAsk{
-	Price:        abi.NewTokenAmount(10000000),
-	MinPieceSize: abi.PaddedPieceSize(256),
-	MaxPieceSize: 1 << 20,
+	Price:         abi.NewTokenAmount(10000000),
+	VerifiedPrice: abi.NewTokenAmount(1000000),
+	MinPieceSize:  abi.PaddedPieceSize(256),
+	MaxPieceSize:  1 << 20,
 }
 
 var testData = tut.NewTestIPLDTree()

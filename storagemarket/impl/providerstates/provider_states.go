@@ -68,7 +68,12 @@ func ValidateDealProposal(ctx fsm.Context, environment ProviderDealEnvironment, 
 
 	// TODO: check StorageCollateral
 
-	minPrice := big.Div(big.Mul(environment.Ask().Price, abi.NewTokenAmount(int64(proposal.PieceSize))), abi.NewTokenAmount(1<<30))
+	askPrice := environment.Ask().Price
+	if deal.Proposal.VerifiedDeal {
+		askPrice = environment.Ask().VerifiedPrice
+	}
+
+	minPrice := big.Div(big.Mul(askPrice, abi.NewTokenAmount(int64(proposal.PieceSize))), abi.NewTokenAmount(1<<30))
 	if proposal.StoragePricePerEpoch.LessThan(minPrice) {
 		return ctx.Trigger(storagemarket.ProviderEventDealRejected,
 			xerrors.Errorf("storage price per epoch less than asking price: %s < %s", proposal.StoragePricePerEpoch, minPrice))

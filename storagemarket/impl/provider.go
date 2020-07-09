@@ -42,7 +42,7 @@ var _ network.StorageReceiver = &Provider{}
 // StoredAsk is an interface which provides access to a StorageAsk
 type StoredAsk interface {
 	GetAsk() *storagemarket.SignedStorageAsk
-	SetAsk(price abi.TokenAmount, duration abi.ChainEpoch, options ...storagemarket.StorageAskOption) error
+	SetAsk(price abi.TokenAmount, verifiedPrice abi.TokenAmount, duration abi.ChainEpoch, options ...storagemarket.StorageAskOption) error
 }
 
 // Provider is the production implementation of the StorageProvider interface
@@ -357,8 +357,8 @@ func (p *Provider) ListLocalDeals() ([]storagemarket.MinerDeal, error) {
 
 // SetAsk configures the storage miner's ask with the provided price,
 // duration, and options. Any previously-existing ask is replaced.
-func (p *Provider) SetAsk(price abi.TokenAmount, duration abi.ChainEpoch, options ...storagemarket.StorageAskOption) error {
-	return p.storedAsk.SetAsk(price, duration, options...)
+func (p *Provider) SetAsk(price abi.TokenAmount, verifiedPrice abi.TokenAmount, duration abi.ChainEpoch, options ...storagemarket.StorageAskOption) error {
+	return p.storedAsk.SetAsk(price, verifiedPrice, duration, options...)
 }
 
 /*

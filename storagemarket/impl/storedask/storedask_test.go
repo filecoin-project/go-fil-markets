@@ -27,6 +27,7 @@ func TestStoredAsk(t *testing.T) {
 	require.NoError(t, err)
 
 	testPrice := abi.NewTokenAmount(1000000000)
+	testVerifiedPrice := abi.NewTokenAmount(100000000)
 	testDuration := abi.ChainEpoch(200)
 	t.Run("auto initializing", func(t *testing.T) {
 		ask := storedAsk.GetAsk()
@@ -34,7 +35,7 @@ func TestStoredAsk(t *testing.T) {
 	})
 	t.Run("setting ask price", func(t *testing.T) {
 		minPieceSize := abi.PaddedPieceSize(1024)
-		err := storedAsk.SetAsk(testPrice, testDuration, storagemarket.MinPieceSize(minPieceSize))
+		err := storedAsk.SetAsk(testPrice, testVerifiedPrice, testDuration, storagemarket.MinPieceSize(minPieceSize))
 		require.NoError(t, err)
 		ask := storedAsk.GetAsk()
 		require.Equal(t, ask.Ask.Price, testPrice)
@@ -46,6 +47,7 @@ func TestStoredAsk(t *testing.T) {
 		require.NoError(t, err)
 		ask := storedAsk2.GetAsk()
 		require.Equal(t, ask.Ask.Price, testPrice)
+		require.Equal(t, ask.Ask.VerifiedPrice, testVerifiedPrice)
 		require.Equal(t, ask.Ask.Expiry-ask.Ask.Timestamp, testDuration)
 	})
 	t.Run("node errors", func(t *testing.T) {
@@ -58,7 +60,7 @@ func TestStoredAsk(t *testing.T) {
 		// should load cause ask is is still in data store
 		storedAskError, err := storedask.NewStoredAsk(ds, datastore.NewKey("latest-ask"), spnStateIDErr, actor)
 		require.NoError(t, err)
-		err = storedAskError.SetAsk(testPrice, testDuration)
+		err = storedAskError.SetAsk(testPrice, testVerifiedPrice, testDuration)
 		require.Error(t, err)
 
 		spnMinerWorkerErr := &testnodes.FakeProviderNode{
@@ -70,7 +72,7 @@ func TestStoredAsk(t *testing.T) {
 		// should load cause ask is is still in data store
 		storedAskError, err = storedask.NewStoredAsk(ds, datastore.NewKey("latest-ask"), spnMinerWorkerErr, actor)
 		require.NoError(t, err)
-		err = storedAskError.SetAsk(testPrice, testDuration)
+		err = storedAskError.SetAsk(testPrice, testVerifiedPrice, testDuration)
 		require.Error(t, err)
 
 		spnSignBytesErr := &testnodes.FakeProviderNode{
@@ -82,7 +84,7 @@ func TestStoredAsk(t *testing.T) {
 		// should load cause ask is is still in data store
 		storedAskError, err = storedask.NewStoredAsk(ds, datastore.NewKey("latest-ask"), spnSignBytesErr, actor)
 		require.NoError(t, err)
-		err = storedAskError.SetAsk(testPrice, testDuration)
+		err = storedAskError.SetAsk(testPrice, testVerifiedPrice, testDuration)
 		require.Error(t, err)
 	})
 }
