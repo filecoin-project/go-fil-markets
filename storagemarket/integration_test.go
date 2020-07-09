@@ -82,7 +82,7 @@ func TestMakeDeal(t *testing.T) {
 			_ = h.Client.SubscribeToEvents(clientSubscriber)
 
 			// set ask price where we'll accept any price
-			err := h.Provider.SetAsk(big.NewInt(0), 50_000)
+			err := h.Provider.SetAsk(big.NewInt(0), big.NewInt(0), 50_000)
 			assert.NoError(t, err)
 
 			result := h.ProposeStorageDeal(t, &storagemarket.DataRef{TransferType: storagemarket.TTGraphsync, Root: h.PayloadCid}, true, false)
@@ -291,7 +291,7 @@ func TestRestartClient(t *testing.T) {
 	require.NoError(t, h.Client.Start(ctx))
 
 	// set ask price where we'll accept any price
-	err := h.Provider.SetAsk(big.NewInt(0), 50_000)
+	err := h.Provider.SetAsk(big.NewInt(0), big.NewInt(0), 50_000)
 	assert.NoError(t, err)
 
 	wg := sync.WaitGroup{}
@@ -461,7 +461,7 @@ func newHarnessWithTestData(t *testing.T, ctx context.Context, td *shared_testut
 	assert.NoError(t, err)
 
 	// set ask price where we'll accept any price
-	err = provider.SetAsk(big.NewInt(0), 50_000)
+	err = provider.SetAsk(big.NewInt(0), big.NewInt(0), 50_000)
 	assert.NoError(t, err)
 
 	err = provider.Start(ctx)

@@ -230,6 +230,7 @@ func MakeTestMinerDeal(state storagemarket.StorageDealStatus, clientDealProposal
 func MakeTestStorageAsk() *storagemarket.StorageAsk {
 	return &storagemarket.StorageAsk{
 		Price:        MakeTestTokenAmount(),
+		VerifiedPrice:        MakeTestTokenAmount(),
 		MinPieceSize: abi.PaddedPieceSize(rand.Uint64()),
 		Miner:        address.TestAddress2,
 		Timestamp:    abi.ChainEpoch(rand.Int63()),

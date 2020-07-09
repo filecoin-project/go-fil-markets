@@ -28,7 +28,7 @@ type StorageProvider interface {
 
 	// SetAsk configures the storage miner's ask with the provided price,
 	// duration, and options. Any previously-existing ask is replaced.
-	SetAsk(price abi.TokenAmount, duration abi.ChainEpoch, options ...StorageAskOption) error
+	SetAsk(price abi.TokenAmount, verifiedPrice abi.TokenAmount, duration abi.ChainEpoch, options ...StorageAskOption) error
 
 	// GetAsk returns the storage miner's ask, or nil if one does not exist.
 	GetAsk() *SignedStorageAsk
