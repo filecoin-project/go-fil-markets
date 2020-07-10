@@ -38,10 +38,6 @@ type RetrievalReceiver interface {
 	// HandleQueryStream sends and receives data-transfer data via the
 	// RetrievalQueryStream provided
 	HandleQueryStream(RetrievalQueryStream)
-
-	// HandleDealStream sends and receives data-transfer data via the
-	// RetrievalDealStream provided
-	HandleDealStream(RetrievalDealStream)
 }
 
 // RetrievalMarketNetwork is the API for creating query and deal streams and

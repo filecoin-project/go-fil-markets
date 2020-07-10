@@ -103,7 +103,7 @@ func TestSetupPaymentChannel(t *testing.T) {
 		}
 		runSetupPaymentChannel(t, envParams, dealState)
 		require.NotEmpty(t, dealState.Message)
-		require.Equal(t, dealState.Status, retrievalmarket.DealStatusFailed)
+		require.Equal(t, dealState.Status, retrievalmarket.DealStatusFailing)
 	})
 
 }
@@ -151,7 +151,7 @@ func TestWaitForPaymentChannelCreate(t *testing.T) {
 		}
 		runWaitForPaychCreate(t, params, dealState)
 		require.Contains(t, dealState.Message, "boom")
-		require.Equal(t, dealState.Status, retrievalmarket.DealStatusFailed)
+		require.Equal(t, dealState.Status, retrievalmarket.DealStatusFailing)
 	})
 
 	t.Run("if AllocateLane fails", func(t *testing.T) {
@@ -164,7 +164,7 @@ func TestWaitForPaymentChannelCreate(t *testing.T) {
 		}
 		runWaitForPaychCreate(t, params, dealState)
 		require.Contains(t, dealState.Message, "boom")
-		require.Equal(t, dealState.Status, retrievalmarket.DealStatusFailed)
+		require.Equal(t, dealState.Status, retrievalmarket.DealStatusFailing)
 	})
 }
 
@@ -216,7 +216,7 @@ func TestWaitForPaymentChannelAddFunds(t *testing.T) {
 		}
 		runWaitForPaychAddFunds(t, params, dealState)
 		assert.Contains(t, dealState.Message, "boom")
-		assert.Equal(t, dealState.Status, retrievalmarket.DealStatusFailed)
+		assert.Equal(t, dealState.Status, retrievalmarket.DealStatusFailing)
 		assert.Equal(t, uint64(0), dealState.PaymentInfo.Lane)
 	})
 	t.Run("if AllocateLane fails", func(t *testing.T) {
@@ -231,7 +231,7 @@ func TestWaitForPaymentChannelAddFunds(t *testing.T) {
 		}
 		runWaitForPaychAddFunds(t, params, dealState)
 		assert.Contains(t, dealState.Message, "boom")
-		assert.Equal(t, dealState.Status, retrievalmarket.DealStatusFailed)
+		assert.Equal(t, dealState.Status, retrievalmarket.DealStatusFailing)
 		assert.Equal(t, uint64(0), dealState.PaymentInfo.Lane)
 	})
 }
@@ -370,7 +370,7 @@ func TestProcessPaymentRequested(t *testing.T) {
 		}
 		runProcessPaymentRequested(t, dealStreamParams, nodeParams, dealState)
 		require.NotEmpty(t, dealState.Message)
-		require.Equal(t, dealState.Status, retrievalmarket.DealStatusFailed)
+		require.Equal(t, dealState.Status, retrievalmarket.DealStatusFailing)
 	})
 
 	t.Run("not enough bytes since last payment", func(t *testing.T) {
@@ -382,7 +382,7 @@ func TestProcessPaymentRequested(t *testing.T) {
 		}
 		runProcessPaymentRequested(t, dealStreamParams, nodeParams, dealState)
 		require.NotEmpty(t, dealState.Message)
-		require.Equal(t, dealState.Status, retrievalmarket.DealStatusFailed)
+		require.Equal(t, dealState.Status, retrievalmarket.DealStatusFailing)
 	})
 
 	t.Run("more bytes since last payment than interval works, can charge more", func(t *testing.T) {
@@ -412,7 +412,7 @@ func TestProcessPaymentRequested(t *testing.T) {
 		}
 		runProcessPaymentRequested(t, dealStreamParams, nodeParams, dealState)
 		require.NotEmpty(t, dealState.Message)
-		require.Equal(t, dealState.Status, retrievalmarket.DealStatusFailed)
+		require.Equal(t, dealState.Status, retrievalmarket.DealStatusFailing)
 	})
 
 	t.Run("too little payment requested works but records correctly", func(t *testing.T) {
@@ -442,7 +442,7 @@ func TestProcessPaymentRequested(t *testing.T) {
 		}
 		runProcessPaymentRequested(t, dealStreamParams, nodeParams, dealState)
 		require.NotEmpty(t, dealState.Message)
-		require.Equal(t, dealState.Status, retrievalmarket.DealStatusFailed)
+		require.Equal(t, dealState.Status, retrievalmarket.DealStatusFailing)
 	})
 
 	t.Run("unable to send payment", func(t *testing.T) {
@@ -539,7 +539,7 @@ func TestProcessNextResponse(t *testing.T) {
 		runProcessNextResponse(t, dealStreamParams, consumeBlockResponses, dealState)
 		require.NotEmpty(t, dealState.Message)
 		require.Equal(t, dealState.TotalReceived, defaultTotalReceived)
-		require.Equal(t, dealState.Status, retrievalmarket.DealStatusFailed)
+		require.Equal(t, dealState.Status, retrievalmarket.DealStatusFailing)
 	})
 	t.Run("payment requested", func(t *testing.T) {
 		dealState := makeDealState(retrievalmarket.DealStatusOngoing)
@@ -572,7 +572,7 @@ func TestProcessNextResponse(t *testing.T) {
 		runProcessNextResponse(t, dealStreamParams, consumeBlockResponses, dealState)
 		require.NotEmpty(t, dealState.Message)
 		require.Equal(t, dealState.TotalReceived, defaultTotalReceived)
-		require.Equal(t, dealState.Status, retrievalmarket.DealStatusFailed)
+		require.Equal(t, dealState.Status, retrievalmarket.DealStatusFailing)
 	})
 
 	t.Run("consume block errors", func(t *testing.T) {
@@ -588,7 +588,7 @@ func TestProcessNextResponse(t *testing.T) {
 		runProcessNextResponse(t, dealStreamParams, consumeBlockResponses, dealState)
 		require.NotEmpty(t, dealState.Message)
 		require.Equal(t, dealState.TotalReceived, defaultTotalReceived)
-		require.Equal(t, dealState.Status, retrievalmarket.DealStatusFailed)
+		require.Equal(t, dealState.Status, retrievalmarket.DealStatusFailing)
 	})
 
 	t.Run("read response errors", func(t *testing.T) {

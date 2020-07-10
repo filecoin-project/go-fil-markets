@@ -178,8 +178,10 @@ type storageHarness struct {
 	PieceLink    ipld.Link
 	PayloadCid   cid.Cid
 	ProviderAddr address.Address
+	DTClient     datatransfer.Manager
 	Client       storagemarket.StorageClient
 	ClientNode   *testnodes.FakeClientNode
+	DTProvider   datatransfer.Manager
 	Provider     storagemarket.StorageProvider
 	ProviderNode *testnodes.FakeProviderNode
 	ProviderInfo storagemarket.StorageProviderInfo
@@ -288,10 +290,12 @@ func newStorageHarness(ctx context.Context, t *testing.T) *storageHarness {
 		Epoch:        epoch,
 		PayloadCid:   payloadCid,
 		ProviderAddr: providerAddr,
+		DTClient:     dt1,
 		Client:       client,
 		ClientNode:   &clientNode,
 		PieceLink:    rootLink,
 		PieceStore:   ps,
+		DTProvider:   dt2,
 		Provider:     provider,
 		ProviderNode: providerNode,
 		ProviderInfo: providerInfo,
@@ -356,7 +360,7 @@ func newRetrievalHarness(ctx context.Context, t *testing.T, sh *storageHarness, 
 	})
 
 	nw1 := rmnet.NewFromLibp2pHost(sh.TestData.Host1)
-	client, err := retrievalimpl.NewClient(nw1, sh.TestData.Bs1, clientNode, sh.PeerResolver, sh.TestData.Ds1, sh.TestData.RetrievalStoredCounter1)
+	client, err := retrievalimpl.NewClient(nw1, sh.TestData.Bs1, sh.DTClient, clientNode, sh.PeerResolver, sh.TestData.Ds1, sh.TestData.RetrievalStoredCounter1)
 	require.NoError(t, err)
 
 	payloadCID := deal.DataRef.Root
@@ -370,6 +374,7 @@ func newRetrievalHarness(ctx context.Context, t *testing.T, sh *storageHarness, 
 	sectorID := uint64(100000)
 	offset := uint64(1000)
 	pieceInfo := piecestore.PieceInfo{
+		PieceCID: tut.GenerateCids(1)[0],
 		Deals: []piecestore.DealInfo{
 			{
 				SectorID: sectorID,
@@ -399,7 +404,7 @@ func newRetrievalHarness(ctx context.Context, t *testing.T, sh *storageHarness, 
 	}
 	pieceStore.ExpectCID(payloadCID, cidInfo)
 	pieceStore.ExpectPiece(expectedPiece, pieceInfo)
-	provider, err := retrievalimpl.NewProvider(providerPaymentAddr, providerNode, nw2, pieceStore, sh.TestData.Bs2, sh.TestData.Ds2)
+	provider, err := retrievalimpl.NewProvider(providerPaymentAddr, providerNode, nw2, pieceStore, sh.TestData.Bs2, sh.DTProvider, sh.TestData.Ds2)
 	require.NoError(t, err)
 
 	params := retrievalmarket.Params{

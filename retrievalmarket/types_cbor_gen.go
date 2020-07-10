@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 
+	"github.com/filecoin-project/go-fil-markets/piecestore"
 	"github.com/filecoin-project/specs-actors/actors/builtin/paych"
 	"github.com/libp2p/go-libp2p-core/peer"
 	cbg "github.com/whyrusleeping/cbor-gen"
@@ -876,12 +877,27 @@ func (t *ClientDealState) MarshalCBOR(w io.Writer) error {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	if _, err := w.Write([]byte{142}); err != nil {
+	if _, err := w.Write([]byte{145}); err != nil {
 		return err
 	}
 
 	// t.DealProposal (retrievalmarket.DealProposal) (struct)
 	if err := t.DealProposal.MarshalCBOR(w); err != nil {
+		return err
+	}
+
+	// t.ChannelID (datatransfer.ChannelID) (struct)
+	if err := t.ChannelID.MarshalCBOR(w); err != nil {
+		return err
+	}
+
+	// t.LastPaymentRequested (bool) (bool)
+	if err := cbg.WriteBool(w, t.LastPaymentRequested); err != nil {
+		return err
+	}
+
+	// t.AllBlocksReceived (bool) (bool)
+	if err := cbg.WriteBool(w, t.AllBlocksReceived); err != nil {
 		return err
 	}
 
@@ -989,7 +1005,7 @@ func (t *ClientDealState) UnmarshalCBOR(r io.Reader) error {
 		return fmt.Errorf("cbor input should be of type array")
 	}
 
-	if extra != 14 {
+	if extra != 17 {
 		return fmt.Errorf("cbor input had wrong number of fields")
 	}
 
@@ -1001,6 +1017,49 @@ func (t *ClientDealState) UnmarshalCBOR(r io.Reader) error {
 			return xerrors.Errorf("unmarshaling t.DealProposal: %w", err)
 		}
 
+	}
+	// t.ChannelID (datatransfer.ChannelID) (struct)
+
+	{
+
+		if err := t.ChannelID.UnmarshalCBOR(br); err != nil {
+			return xerrors.Errorf("unmarshaling t.ChannelID: %w", err)
+		}
+
+	}
+	// t.LastPaymentRequested (bool) (bool)
+
+	maj, extra, err = cbg.CborReadHeader(br)
+	if err != nil {
+		return err
+	}
+	if maj != cbg.MajOther {
+		return fmt.Errorf("booleans must be major type 7")
+	}
+	switch extra {
+	case 20:
+		t.LastPaymentRequested = false
+	case 21:
+		t.LastPaymentRequested = true
+	default:
+		return fmt.Errorf("booleans are either major type 7, value 20 or 21 (got %d)", extra)
+	}
+	// t.AllBlocksReceived (bool) (bool)
+
+	maj, extra, err = cbg.CborReadHeader(br)
+	if err != nil {
+		return err
+	}
+	if maj != cbg.MajOther {
+		return fmt.Errorf("booleans must be major type 7")
+	}
+	switch extra {
+	case 20:
+		t.AllBlocksReceived = false
+	case 21:
+		t.AllBlocksReceived = true
+	default:
+		return fmt.Errorf("booleans are either major type 7, value 20 or 21 (got %d)", extra)
 	}
 	// t.TotalFunds (big.Int) (struct)
 
@@ -1176,12 +1235,22 @@ func (t *ProviderDealState) MarshalCBOR(w io.Writer) error {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	if _, err := w.Write([]byte{135}); err != nil {
+	if _, err := w.Write([]byte{137}); err != nil {
 		return err
 	}
 
 	// t.DealProposal (retrievalmarket.DealProposal) (struct)
 	if err := t.DealProposal.MarshalCBOR(w); err != nil {
+		return err
+	}
+
+	// t.ChannelID (datatransfer.ChannelID) (struct)
+	if err := t.ChannelID.MarshalCBOR(w); err != nil {
+		return err
+	}
+
+	// t.PieceInfo (piecestore.PieceInfo) (struct)
+	if err := t.PieceInfo.MarshalCBOR(w); err != nil {
 		return err
 	}
 
@@ -1246,7 +1315,7 @@ func (t *ProviderDealState) UnmarshalCBOR(r io.Reader) error {
 		return fmt.Errorf("cbor input should be of type array")
 	}
 
-	if extra != 7 {
+	if extra != 9 {
 		return fmt.Errorf("cbor input had wrong number of fields")
 	}
 
@@ -1256,6 +1325,36 @@ func (t *ProviderDealState) UnmarshalCBOR(r io.Reader) error {
 
 		if err := t.DealProposal.UnmarshalCBOR(br); err != nil {
 			return xerrors.Errorf("unmarshaling t.DealProposal: %w", err)
+		}
+
+	}
+	// t.ChannelID (datatransfer.ChannelID) (struct)
+
+	{
+
+		if err := t.ChannelID.UnmarshalCBOR(br); err != nil {
+			return xerrors.Errorf("unmarshaling t.ChannelID: %w", err)
+		}
+
+	}
+	// t.PieceInfo (piecestore.PieceInfo) (struct)
+
+	{
+
+		pb, err := br.PeekByte()
+		if err != nil {
+			return err
+		}
+		if pb == cbg.CborNull[0] {
+			var nbuf [1]byte
+			if _, err := br.Read(nbuf[:]); err != nil {
+				return err
+			}
+		} else {
+			t.PieceInfo = new(piecestore.PieceInfo)
+			if err := t.PieceInfo.UnmarshalCBOR(br); err != nil {
+				return xerrors.Errorf("unmarshaling t.PieceInfo pointer: %w", err)
+			}
 		}
 
 	}

@@ -140,8 +140,17 @@ func (tc *TestChannel) TotalSize() uint64 {
 }
 
 // IsPull returns whether this is a pull request based on who initiated it
-func (tc *TestChannel) IsPull(initiator peer.ID) bool {
+func (tc *TestChannel) IsPull() bool {
 	return tc.isPull
+}
+
+// ChannelID returns the channel id for this channel
+func (tc *TestChannel) ChannelID() datatransfer.ChannelID {
+	if tc.isPull {
+		return datatransfer.ChannelID{ID: tc.transferID, Initiator: tc.recipient, Responder: tc.sender}
+	} else {
+		return datatransfer.ChannelID{ID: tc.transferID, Initiator: tc.sender, Responder: tc.recipient}
+	}
 }
 
 // OtherParty returns the opposite party in the channel to the passed in party

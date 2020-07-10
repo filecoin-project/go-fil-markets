@@ -178,13 +178,13 @@ func TestSendBlocks(t *testing.T) {
 		dealState := makeDealState(retrievalmarket.DealStatusAccepted)
 		dealStreamParams := testnet.TestDealStreamParams{
 			ResponseWriter: testnet.ExpectDealResponseWriter(t, retrievalmarket.DealResponse{
-				Status:  retrievalmarket.DealStatusFailed,
+				Status:  retrievalmarket.DealStatusFailing,
 				Message: responses[0].Err.Error(),
 				ID:      dealState.ID,
 			}),
 		}
 		runSendBlocks(t, dealStreamParams, responses, dealState)
-		require.Equal(t, dealState.Status, retrievalmarket.DealStatusFailed)
+		require.Equal(t, dealState.Status, retrievalmarket.DealStatusFailing)
 		require.NotEmpty(t, dealState.Message)
 	})
 
@@ -304,12 +304,12 @@ func TestProcessPayment(t *testing.T) {
 			PaymentReader: testnet.StubbedDealPaymentReader(dealPayment),
 			ResponseWriter: testnet.ExpectDealResponseWriter(t, rm.DealResponse{
 				ID:      dealState.ID,
-				Status:  retrievalmarket.DealStatusFailed,
+				Status:  retrievalmarket.DealStatusFailing,
 				Message: message,
 			}),
 		}
 		runProcessPayment(t, node, dealStreamParams, dealState)
-		require.Equal(t, dealState.Status, retrievalmarket.DealStatusFailed)
+		require.Equal(t, dealState.Status, retrievalmarket.DealStatusFailing)
 		require.NotEmpty(t, dealState.Message)
 	})
 

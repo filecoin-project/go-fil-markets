@@ -266,11 +266,6 @@ func (trmn *TestRetrievalMarketNetwork) ReceiveQueryStream(qs rmnet.RetrievalQue
 	trmn.receiver.HandleQueryStream(qs)
 }
 
-// ReceiveDealStream simulates receiving a deal stream
-func (trmn *TestRetrievalMarketNetwork) ReceiveDealStream(ds rmnet.RetrievalDealStream) {
-	trmn.receiver.HandleDealStream(ds)
-}
-
 // StopHandlingRequests sets receiver to nil
 func (trmn *TestRetrievalMarketNetwork) StopHandlingRequests() error {
 	trmn.receiver = nil
