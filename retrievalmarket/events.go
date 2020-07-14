@@ -51,15 +51,6 @@ const (
 	// failed
 	ClientEventPaymentChannelAddFundsErrored
 
-	// ClientEventUnpauseDeal happens when a deal is unpaused and begins receiving data
-	ClientEventUnpauseDeal
-
-	// ClientEventUnpauseToFundsNeeded happens when a deal is unpaused and already owes payment
-	ClientEventUnpauseToFundsNeeded
-
-	// ClientEventUnpauseToFundsNeeded happens when a deal is unpaused and already owes the last payment
-	ClientEventUnpauseToFundsNeededLastPayment
-
 	// ClientEventLastPaymentRequested indicates the provider requested a final payment
 	ClientEventLastPaymentRequested
 
@@ -104,34 +95,31 @@ const (
 
 // ClientEvents is a human readable map of client event name -> event description
 var ClientEvents = map[ClientEvent]string{
-	ClientEventOpen:                            "ClientEventOpen",
-	ClientEventPaymentChannelErrored:           "ClientEventPaymentChannelErrored",
-	ClientEventDealProposed:                    "ClientEventDealProposed",
-	ClientEventAllocateLaneErrored:             "ClientEventAllocateLaneErrored",
-	ClientEventPaymentChannelCreateInitiated:   "ClientEventPaymentChannelCreateInitiated",
-	ClientEventPaymentChannelReady:             "ClientEventPaymentChannelReady",
-	ClientEventPaymentChannelAddingFunds:       "ClientEventPaymentChannelAddingFunds",
-	ClientEventPaymentChannelAddFundsErrored:   "ClientEventPaymentChannelAddFundsErrored",
-	ClientEventUnpauseDeal:                     "ClientEventUnpauseDeal",
-	ClientEventUnpauseToFundsNeeded:            "ClientEventUnpauseToFundsNeeded",
-	ClientEventUnpauseToFundsNeededLastPayment: "ClientEventUnpauseToFundsNeededLastPayment",
-	ClientEventWriteDealProposalErrored:        "ClientEventWriteDealProposalErrored",
-	ClientEventDealRejected:                    "ClientEventDealRejected",
-	ClientEventDealNotFound:                    "ClientEventDealNotFound",
-	ClientEventDealAccepted:                    "ClientEventDealAccepted",
-	ClientEventUnknownResponseReceived:         "ClientEventUnknownResponseReceived",
-	ClientEventLastPaymentRequested:            "ClientEventLastPaymentRequested",
-	ClientEventAllBlocksReceived:               "ClientEventAllBlocksReceived",
-	ClientEventPaymentRequested:                "ClientEventPaymentRequested",
-	ClientEventBlocksReceived:                  "ClientEventBlocksReceived",
-	ClientEventSendFunds:                       "ClientEventSendFunds",
-	ClientEventFundsExpended:                   "ClientEventFundsExpended",
-	ClientEventBadPaymentRequested:             "ClientEventBadPaymentRequested",
-	ClientEventCreateVoucherFailed:             "ClientEventCreateVoucherFailed",
-	ClientEventWriteDealPaymentErrored:         "ClientEventWriteDealPaymentErrored",
-	ClientEventPaymentSent:                     "ClientEventPaymentSent",
-	ClientEventDataTransferError:               "ClientEventDataTransferError",
-	ClientEventComplete:                        "ClientEventComplete",
+	ClientEventOpen:                          "ClientEventOpen",
+	ClientEventPaymentChannelErrored:         "ClientEventPaymentChannelErrored",
+	ClientEventDealProposed:                  "ClientEventDealProposed",
+	ClientEventAllocateLaneErrored:           "ClientEventAllocateLaneErrored",
+	ClientEventPaymentChannelCreateInitiated: "ClientEventPaymentChannelCreateInitiated",
+	ClientEventPaymentChannelReady:           "ClientEventPaymentChannelReady",
+	ClientEventPaymentChannelAddingFunds:     "ClientEventPaymentChannelAddingFunds",
+	ClientEventPaymentChannelAddFundsErrored: "ClientEventPaymentChannelAddFundsErrored",
+	ClientEventWriteDealProposalErrored:      "ClientEventWriteDealProposalErrored",
+	ClientEventDealRejected:                  "ClientEventDealRejected",
+	ClientEventDealNotFound:                  "ClientEventDealNotFound",
+	ClientEventDealAccepted:                  "ClientEventDealAccepted",
+	ClientEventUnknownResponseReceived:       "ClientEventUnknownResponseReceived",
+	ClientEventLastPaymentRequested:          "ClientEventLastPaymentRequested",
+	ClientEventAllBlocksReceived:             "ClientEventAllBlocksReceived",
+	ClientEventPaymentRequested:              "ClientEventPaymentRequested",
+	ClientEventBlocksReceived:                "ClientEventBlocksReceived",
+	ClientEventSendFunds:                     "ClientEventSendFunds",
+	ClientEventFundsExpended:                 "ClientEventFundsExpended",
+	ClientEventBadPaymentRequested:           "ClientEventBadPaymentRequested",
+	ClientEventCreateVoucherFailed:           "ClientEventCreateVoucherFailed",
+	ClientEventWriteDealPaymentErrored:       "ClientEventWriteDealPaymentErrored",
+	ClientEventPaymentSent:                   "ClientEventPaymentSent",
+	ClientEventDataTransferError:             "ClientEventDataTransferError",
+	ClientEventComplete:                      "ClientEventComplete",
 }
 
 // ProviderEvent is an event that occurs in a deal lifecycle on the provider
@@ -152,9 +140,9 @@ const (
 	// ProviderEventDealAccepted happens when a provider accepts a deal
 	ProviderEventDealAccepted
 
-	// ProviderEventBlockReceived happens when the provider reads another block
+	// ProviderEventBlockSent happens when the provider reads another block
 	// in the piece
-	ProviderEventBlockReceived
+	ProviderEventBlockSent
 
 	// ProviderEventBlocksCompleted happens when the provider reads the last block
 	// in the piece
@@ -201,7 +189,7 @@ var ProviderEvents = map[ProviderEvent]string{
 	ProviderEventDealNotFound:           "ProviderEventDealNotFound",
 	ProviderEventDealRejected:           "ProviderEventDealRejected",
 	ProviderEventDealAccepted:           "ProviderEventDealAccepted",
-	ProviderEventBlockReceived:          "ProviderEventBlockReceived",
+	ProviderEventBlockSent:              "ProviderEventBlockSent",
 	ProviderEventBlocksCompleted:        "ProviderEventBlocksCompleted",
 	ProviderEventPaymentRequested:       "ProviderEventPaymentRequested",
 	ProviderEventSaveVoucherFailed:      "ProviderEventSaveVoucherFailed",

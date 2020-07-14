@@ -21,7 +21,6 @@ func recordReceived(deal *rm.ClientDealState, totalReceived uint64) error {
 
 var paymentChannelCreationStates = []fsm.StateKey{
 	rm.DealStatusAccepted,
-	rm.DealStatusPaymentChannelReady,
 	rm.DealStatusPaymentChannelCreating,
 	rm.DealStatusPaymentChannelAddingFunds,
 }
@@ -62,8 +61,8 @@ var ClientEvents = fsm.Events{
 		From(rm.DealStatusWaitForAcceptance).To(rm.DealStatusAccepted),
 	fsm.Event(rm.ClientEventUnknownResponseReceived).
 		FromAny().To(rm.DealStatusFailing).
-		Action(func(deal *rm.ClientDealState) error {
-			deal.Message = "Unexpected deal response status"
+		Action(func(deal *rm.ClientDealState, status rm.DealStatus) error {
+			deal.Message = fmt.Sprintf("Unexpected deal response status: %s", rm.DealStatuses[status])
 			return nil
 		}),
 
@@ -91,7 +90,7 @@ var ClientEvents = fsm.Events{
 		}),
 	fsm.Event(rm.ClientEventPaymentChannelReady).
 		FromMany(rm.DealStatusPaymentChannelCreating, rm.DealStatusPaymentChannelAddingFunds).
-		To(rm.DealStatusPaymentChannelReady).
+		To(rm.DealStatusOngoing).
 		Action(func(deal *rm.ClientDealState, payCh address.Address, lane uint64) error {
 			deal.PaymentInfo = &rm.PaymentInfo{
 				PayCh: payCh,
@@ -112,10 +111,6 @@ var ClientEvents = fsm.Events{
 			deal.Message = xerrors.Errorf("wait for add funds: %w", err).Error()
 			return nil
 		}),
-
-	// Unpause deal
-	fsm.Event(rm.ClientEventUnpauseDeal).
-		From(rm.DealStatusPaymentChannelReady).To(rm.DealStatusOngoing),
 
 	// Transfer Channel Errors
 	fsm.Event(rm.ClientEventDataTransferError).
@@ -235,7 +230,6 @@ var ClientStateEntryFuncs = fsm.StateEntryFuncs{
 	rm.DealStatusAccepted:                  SetupPaymentChannelStart,
 	rm.DealStatusPaymentChannelCreating:    WaitForPaymentChannelCreate,
 	rm.DealStatusPaymentChannelAddingFunds: WaitForPaymentChannelAddFunds,
-	rm.DealStatusPaymentChannelReady:       UnpauseDeal,
 	rm.DealStatusOngoing:                   Ongoing,
 	rm.DealStatusFundsNeeded:               ProcessPaymentRequested,
 	rm.DealStatusFundsNeededLastPayment:    ProcessPaymentRequested,

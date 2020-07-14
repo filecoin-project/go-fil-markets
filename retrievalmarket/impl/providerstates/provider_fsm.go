@@ -48,7 +48,7 @@ var ProviderEvents = fsm.Events{
 		From(rm.DealStatusUnsealed).To(rm.DealStatusOngoing),
 
 	// receiving blocks
-	fsm.Event(rm.ProviderEventBlockReceived).
+	fsm.Event(rm.ProviderEventBlockSent).
 		FromMany(rm.DealStatusOngoing).ToNoChange().
 		Action(func(deal *rm.ProviderDealState, totalSent uint64) error {
 			deal.TotalSent = totalSent

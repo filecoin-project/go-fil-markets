@@ -180,7 +180,7 @@ func (pr *ProviderRevalidator) OnPullDataSent(chid datatransfer.ChannelID, addit
 			PaymentOwed: paymentOwed,
 		}, datatransfer.ErrPause
 	}
-	return nil, pr.env.SendEvent(channel.dealID, rm.ProviderEventBlockReceived, channel.totalSent)
+	return nil, pr.env.SendEvent(channel.dealID, rm.ProviderEventBlockSent, channel.totalSent)
 }
 
 // OnPushDataReceived is called on the responder side when more bytes are received

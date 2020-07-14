@@ -32,6 +32,10 @@ type EventReceiver interface {
 // event or moving to error if a data transfer error occurs
 func ProviderDataTransferSubscriber(deals EventReceiver) datatransfer.Subscriber {
 	return func(event datatransfer.Event, channelState datatransfer.ChannelState) {
+		if event.Code == datatransfer.PauseResponder || event.Code == datatransfer.PauseInitiator ||
+			event.Code == datatransfer.ResumeInitiator || event.Code == datatransfer.ResumeResponder {
+			log.Errorf("Provider %s : %s", datatransfer.Events[event.Code], datatransfer.Statuses[channelState.Status()])
+		}
 		dealProposal, ok := channelState.Voucher().(*rm.DealProposal)
 		// if this event is for a transfer not related to storage, ignore
 		if !ok {
@@ -112,7 +116,6 @@ func clientEvent(event datatransfer.Event, channelState datatransfer.ChannelStat
 // an event to the appropriate state machine
 func ClientDataTransferSubscriber(deals EventReceiver) datatransfer.Subscriber {
 	return func(event datatransfer.Event, channelState datatransfer.ChannelState) {
-
 		dealProposal, ok := channelState.Voucher().(*rm.DealProposal)
 
 		// if this event is for a transfer not related to retrieval, ignore

@@ -25,13 +25,6 @@ const (
 	// to finish being sent to the payment channel
 	DealStatusPaymentChannelAddingFunds
 
-	// DealStatusPaymentChannelReady is a deal status that has a payment channel
-	// & lane setup
-	DealStatusPaymentChannelReady
-
-	// DealStatusAwaitingAcceptance - deal is waiting for the decider function to finish
-	DealStatusAwaitingAcceptance
-
 	// DealStatusAccepted means a deal has been accepted by a provider
 	// and its is ready to proceed with retrieval
 	DealStatusAccepted
@@ -69,9 +62,6 @@ const (
 	// not be identified
 	DealStatusDealNotFound
 
-	// DealStatusVerified means a deal has been verified as having the right parameters
-	DealStatusVerified
-
 	// DealStatusErrored indicates a deal has terminated in an error
 	DealStatusErrored
 
@@ -91,8 +81,6 @@ var DealStatuses = map[DealStatus]string{
 	DealStatusWaitForAcceptance:         "DealStatusWaitForAcceptance",
 	DealStatusPaymentChannelCreating:    "DealStatusPaymentChannelCreating",
 	DealStatusPaymentChannelAddingFunds: "DealStatusPaymentChannelAddingFunds",
-	DealStatusPaymentChannelReady:       "DealStatusPaymentChannelReady",
-	DealStatusAwaitingAcceptance:        "DealStatusAwaitingAcceptance",
 	DealStatusAccepted:                  "DealStatusAccepted",
 	DealStatusFailing:                   "DealStatusFailed",
 	DealStatusRejected:                  "DealStatusRejected",
@@ -103,7 +91,6 @@ var DealStatuses = map[DealStatus]string{
 	DealStatusFundsNeededLastPayment:    "DealStatusFundsNeededLastPayment",
 	DealStatusCompleted:                 "DealStatusCompleted",
 	DealStatusDealNotFound:              "DealStatusDealNotFound",
-	DealStatusVerified:                  "DealStatusVerified",
 	DealStatusErrored:                   "DealStatusErrored",
 	DealStatusBlocksComplete:            "DealStatusBlocksComplete",
 	DealStatusFinalizing:                "DealStatusFinalizing",

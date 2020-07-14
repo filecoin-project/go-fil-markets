@@ -276,14 +276,6 @@ func (c *clientDealEnvironment) OpenDataTransfer(ctx context.Context, to peer.ID
 	return c.c.dataTransfer.OpenPullDataChannel(ctx, to, proposal, proposal.PayloadCID, sel)
 }
 
-func (c *clientDealEnvironment) PauseDataTransfer(ctx context.Context, channelID datatransfer.ChannelID) error {
-	return c.c.dataTransfer.PauseDataTransferChannel(ctx, channelID)
-}
-
-func (c *clientDealEnvironment) ResumeDataTransfer(ctx context.Context, channelID datatransfer.ChannelID) error {
-	return c.c.dataTransfer.ResumeDataTransferChannel(ctx, channelID)
-}
-
 func (c *clientDealEnvironment) SendDataTransferVoucher(ctx context.Context, channelID datatransfer.ChannelID, payment *retrievalmarket.DealPayment) error {
 	return c.c.dataTransfer.SendVoucher(ctx, channelID, payment)
 }

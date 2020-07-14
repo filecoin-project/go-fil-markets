@@ -22,8 +22,6 @@ type ClientDealEnvironment interface {
 	// Node returns the node interface for this deal
 	Node() rm.RetrievalClientNode
 	OpenDataTransfer(ctx context.Context, to peer.ID, proposal *rm.DealProposal) (datatransfer.ChannelID, error)
-	PauseDataTransfer(context.Context, datatransfer.ChannelID) error
-	ResumeDataTransfer(context.Context, datatransfer.ChannelID) error
 	SendDataTransferVoucher(context.Context, datatransfer.ChannelID, *rm.DealPayment) error
 	CloseDataTransfer(context.Context, datatransfer.ChannelID) error
 }
@@ -39,10 +37,6 @@ func ProposeDeal(ctx fsm.Context, environment ClientDealEnvironment, deal rm.Cli
 
 // SetupPaymentChannelStart initiates setting up a payment channel for a deal
 func SetupPaymentChannelStart(ctx fsm.Context, environment ClientDealEnvironment, deal rm.ClientDealState) error {
-	err := environment.PauseDataTransfer(ctx.Context(), deal.ChannelID)
-	if err != nil {
-		return ctx.Trigger(rm.ClientEventDataTransferError, err)
-	}
 
 	tok, _, err := environment.Node().GetChainHead(ctx.Context())
 	if err != nil {
@@ -88,15 +82,6 @@ func WaitForPaymentChannelAddFunds(ctx fsm.Context, environment ClientDealEnviro
 		return ctx.Trigger(rm.ClientEventAllocateLaneErrored, err)
 	}
 	return ctx.Trigger(rm.ClientEventPaymentChannelReady, deal.PaymentInfo.PayCh, lane)
-}
-
-// UnpauseDeal resumes a deal so we can start receiving data after the payment channel is setup
-func UnpauseDeal(ctx fsm.Context, environment ClientDealEnvironment, deal rm.ClientDealState) error {
-	err := environment.ResumeDataTransfer(ctx.Context(), deal.ChannelID)
-	if err != nil {
-		return ctx.Trigger(rm.ClientEventDataTransferError, err)
-	}
-	return ctx.Trigger(rm.ClientEventUnpauseDeal)
 }
 
 // Ongoing just double checks that we may need to move out of the ongoing state cause a payment was previously requested
