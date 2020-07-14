@@ -19,6 +19,7 @@ type ProviderDealEnvironment interface {
 	Node() rm.RetrievalProviderNode
 	ReadIntoBlockstore(pieceData io.Reader) error
 	TrackTransfer(deal rm.ProviderDealState) error
+	UntrackTransfer(deal rm.ProviderDealState) error
 	ResumeDataTransfer(context.Context, datatransfer.ChannelID) error
 	CloseDataTransfer(context.Context, datatransfer.ChannelID) error
 }
@@ -50,8 +51,11 @@ func UnsealData(ctx fsm.Context, environment ProviderDealEnvironment, deal rm.Pr
 
 // UnpauseDeal resumes a deal so we can start sending data after its unsealed
 func UnpauseDeal(ctx fsm.Context, environment ProviderDealEnvironment, deal rm.ProviderDealState) error {
-	environment.TrackTransfer(deal)
-	err := environment.ResumeDataTransfer(ctx.Context(), deal.ChannelID)
+	err := environment.TrackTransfer(deal)
+	if err != nil {
+		return ctx.Trigger(rm.ProviderEventDataTransferError, err)
+	}
+	err = environment.ResumeDataTransfer(ctx.Context(), deal.ChannelID)
 	if err != nil {
 		return ctx.Trigger(rm.ProviderEventDataTransferError, err)
 	}
@@ -61,10 +65,23 @@ func UnpauseDeal(ctx fsm.Context, environment ProviderDealEnvironment, deal rm.P
 // CancelDeal clears a deal that went wrong for an unknown reason
 func CancelDeal(ctx fsm.Context, environment ProviderDealEnvironment, deal rm.ProviderDealState) error {
 	// Read next response (or fail)
-	err := environment.CloseDataTransfer(ctx.Context(), deal.ChannelID)
+	err := environment.UntrackTransfer(deal)
+	if err != nil {
+		return ctx.Trigger(rm.ProviderEventDataTransferError, err)
+	}
+	err = environment.CloseDataTransfer(ctx.Context(), deal.ChannelID)
 	if err != nil {
 		return ctx.Trigger(rm.ProviderEventDataTransferError, err)
 	}
 
 	return ctx.Trigger(rm.ProviderEventCancelComplete)
+}
+
+// CleanupDeal runs to do memory cleanup for an in progress deal
+func CleanupDeal(ctx fsm.Context, environment ProviderDealEnvironment, deal rm.ProviderDealState) error {
+	err := environment.UntrackTransfer(deal)
+	if err != nil {
+		return ctx.Trigger(rm.ProviderEventDataTransferError, err)
+	}
+	return ctx.Trigger(rm.ProviderEventCleanupComplete)
 }

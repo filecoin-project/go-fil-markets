@@ -11,6 +11,8 @@ import (
 	"github.com/filecoin-project/specs-actors/actors/abi/big"
 )
 
+// RevalidatorEnvironment are the dependencies needed to
+// build the logic of revalidation -- essentially, access to the node at statemachines
 type RevalidatorEnvironment interface {
 	Node() rm.RetrievalProviderNode
 	SendEvent(dealID rm.ProviderDealIdentifier, evt rm.ProviderEvent, args ...interface{}) error
@@ -26,18 +28,25 @@ type channelData struct {
 	reload       bool
 }
 
+// ProviderRevalidator defines data transfer revalidation logic in the context of
+// a provider for a retrieval deal
 type ProviderRevalidator struct {
 	env               RevalidatorEnvironment
 	trackedChannelsLk sync.RWMutex
 	trackedChannels   map[datatransfer.ChannelID]*channelData
 }
 
+// NewProviderRevalidator returns a new instance of a ProviderRevalidator
 func NewProviderRevalidator(env RevalidatorEnvironment) *ProviderRevalidator {
 	return &ProviderRevalidator{
 		env:             env,
 		trackedChannels: make(map[datatransfer.ChannelID]*channelData),
 	}
 }
+
+// TrackChannel indicates a retrieval deal tracked by this provider. It associates
+// a given channel ID with a retrieval deal, so that checks run for data sent
+// on the channel
 func (pr *ProviderRevalidator) TrackChannel(deal rm.ProviderDealState) {
 	pr.trackedChannelsLk.Lock()
 	defer pr.trackedChannelsLk.Unlock()

@@ -314,7 +314,7 @@ Message:         %s
 			providerDealStateChan := make(chan retrievalmarket.ProviderDealState)
 			provider.SubscribeToEvents(func(event retrievalmarket.ProviderEvent, state retrievalmarket.ProviderDealState) {
 				switch event {
-				case retrievalmarket.ProviderEventComplete:
+				case retrievalmarket.ProviderEventCleanupComplete:
 					providerDealStateChan <- state
 				default:
 					msg := `

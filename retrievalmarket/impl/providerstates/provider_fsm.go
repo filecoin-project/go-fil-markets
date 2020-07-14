@@ -86,7 +86,11 @@ var ProviderEvents = fsm.Events{
 		}),
 
 	// completing
-	fsm.Event(rm.ProviderEventComplete).From(rm.DealStatusFinalizing).To(rm.DealStatusCompleted),
+	fsm.Event(rm.ProviderEventComplete).From(rm.DealStatusFinalizing).To(rm.DealStatusCompleting),
+	fsm.Event(rm.ProviderEventCleanupComplete).From(rm.DealStatusCompleting).To(rm.DealStatusCompleted),
+
+	// Error cleanup
+	fsm.Event(rm.ProviderEventCancelComplete).FromMany(rm.DealStatusFailing).To(rm.DealStatusErrored),
 
 	// data transfer errors
 	fsm.Event(rm.ProviderEventDataTransferError).
@@ -96,7 +100,8 @@ var ProviderEvents = fsm.Events{
 
 // ProviderStateEntryFuncs are the handlers for different states in a retrieval provider
 var ProviderStateEntryFuncs = fsm.StateEntryFuncs{
-	rm.DealStatusUnsealing: UnsealData,
-	rm.DealStatusUnsealed:  UnpauseDeal,
-	rm.DealStatusFailing:   CancelDeal,
+	rm.DealStatusUnsealing:  UnsealData,
+	rm.DealStatusUnsealed:   UnpauseDeal,
+	rm.DealStatusFailing:    CancelDeal,
+	rm.DealStatusCompleting: CleanupDeal,
 }

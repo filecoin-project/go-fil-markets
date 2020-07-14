@@ -71,6 +71,10 @@ const (
 	// DealStatusFinalizing means the last payment has been received and
 	// we are just confirming the deal is complete
 	DealStatusFinalizing
+
+	// DealStatusCompleting is just an inbetween state to perform final cleanup of
+	// complete deals
+	DealStatusCompleting
 )
 
 // DealStatuses maps deal status to a human readable representation
@@ -94,4 +98,5 @@ var DealStatuses = map[DealStatus]string{
 	DealStatusErrored:                   "DealStatusErrored",
 	DealStatusBlocksComplete:            "DealStatusBlocksComplete",
 	DealStatusFinalizing:                "DealStatusFinalizing",
+	DealStatusCompleting:                "DealStatusCompleting",
 }

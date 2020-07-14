@@ -100,6 +100,11 @@ func (pde *providerDealEnvironment) TrackTransfer(deal retrievalmarket.ProviderD
 	return nil
 }
 
+func (pde *providerDealEnvironment) UntrackTransfer(deal retrievalmarket.ProviderDealState) error {
+	pde.p.revalidator.UntrackChannel(deal)
+	return nil
+}
+
 func (pde *providerDealEnvironment) ResumeDataTransfer(ctx context.Context, chid datatransfer.ChannelID) error {
 	return pde.p.dataTransfer.ResumeDataTransferChannel(ctx, chid)
 }

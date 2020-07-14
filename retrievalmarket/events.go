@@ -181,6 +181,9 @@ const (
 
 	// ProviderEventCancelComplete happens when a deal cancellation is transmitted to the provider
 	ProviderEventCancelComplete
+
+	// ProviderEventCleanupComplete happens when a deal is finished cleaning up and enters a complete state
+	ProviderEventCleanupComplete
 )
 
 // ProviderEvents is a human readable map of provider event name -> event description
@@ -201,4 +204,5 @@ var ProviderEvents = map[ProviderEvent]string{
 	ProviderEventUnsealComplete:         "ProviderEventUnsealComplete",
 	ProviderEventDataTransferError:      "ProviderEventDataTransferError",
 	ProviderEventCancelComplete:         "ProviderEventCancelComplete",
+	ProviderEventCleanupComplete:        "ProviderEventCleanupComplete",
 }
