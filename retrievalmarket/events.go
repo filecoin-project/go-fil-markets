@@ -167,9 +167,6 @@ const (
 	// ProviderEventComplete indicates a retrieval deal was completed for a client
 	ProviderEventComplete
 
-	// ProviderEventUnpauseDeal happens when a deal is unpaused and begins receiving data
-	ProviderEventUnpauseDeal
-
 	// ProviderEventUnsealError emits when something wrong occurs while unsealing data
 	ProviderEventUnsealError
 
@@ -199,7 +196,6 @@ var ProviderEvents = map[ProviderEvent]string{
 	ProviderEventPartialPaymentReceived: "ProviderEventPartialPaymentReceived",
 	ProviderEventPaymentReceived:        "ProviderEventPaymentReceived",
 	ProviderEventComplete:               "ProviderEventComplete",
-	ProviderEventUnpauseDeal:            "ProviderEventUnpauseDeal",
 	ProviderEventUnsealError:            "ProviderEventUnsealError",
 	ProviderEventUnsealComplete:         "ProviderEventUnsealComplete",
 	ProviderEventDataTransferError:      "ProviderEventDataTransferError",
