@@ -59,7 +59,7 @@ func UnpauseDeal(ctx fsm.Context, environment ProviderDealEnvironment, deal rm.P
 	if err != nil {
 		return ctx.Trigger(rm.ProviderEventDataTransferError, err)
 	}
-	return ctx.Trigger(rm.ProviderEventUnpauseDeal)
+	return nil
 }
 
 // CancelDeal clears a deal that went wrong for an unknown reason

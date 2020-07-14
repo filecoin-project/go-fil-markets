@@ -43,13 +43,10 @@ var ProviderEvents = fsm.Events{
 	fsm.Event(rm.ProviderEventUnsealComplete).
 		From(rm.DealStatusUnsealing).To(rm.DealStatusUnsealed),
 
-	// start sending data
-	fsm.Event(rm.ProviderEventUnpauseDeal).
-		From(rm.DealStatusUnsealed).To(rm.DealStatusOngoing),
-
 	// receiving blocks
 	fsm.Event(rm.ProviderEventBlockSent).
 		FromMany(rm.DealStatusOngoing).ToNoChange().
+		From(rm.DealStatusUnsealed).To(rm.DealStatusOngoing).
 		Action(func(deal *rm.ProviderDealState, totalSent uint64) error {
 			deal.TotalSent = totalSent
 			return nil
