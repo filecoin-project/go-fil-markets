@@ -474,6 +474,33 @@ Major release with touchups to deal protocol (does not hold open connections), m
 | vyzo | 3 | +36/-6 | 3 |
 | hannahhoward | 2 | +25/-0 | 3 |
 
+# go-fil-markets 0.5.0
+
+Major release with rewrite of retrieval to operate on top of data transfer protocol.
+
+### Changelog
+
+- github.com/filecoin-project/go-fil-markets:
+  - Retrieval on data transfer (#321) ([filecoin-project/go-fil-markets#321](https://github.com/filecoin-project/go-fil-markets/pull/321))
+  - docs(CHANGELOG): update for 0.4.0 ([filecoin-project/go-fil-markets#318](https://github.com/filecoin-project/go-fil-markets/pull/318))
+- github.com/filecoin-project/go-data-transfer (v0.4.0 -> v0.5.0):
+  - Minor fixes for retrieval on data transfer (#56) ([filecoin-project/go-data-transfer#56](https://github.com/filecoin-project/go-data-transfer/pull/56))
+- github.com/filecoin-project/go-statemachine (v0.0.0-20200703171610-a74a697973b9 -> v0.0.0-20200714194326-a77c3ae20989):
+  - Just Record Events (#17) ([filecoin-project/go-statemachine#17](https://github.com/filecoin-project/go-statemachine/pull/17))
+  - GetSync method (#16) ([filecoin-project/go-statemachine#16](https://github.com/filecoin-project/go-statemachine/pull/16))
+  - feat(statemachine): add Has method (#15) ([filecoin-project/go-statemachine#15](https://github.com/filecoin-project/go-statemachine/pull/15))
+- github.com/ipfs/go-graphsync (v0.0.6-0.20200708073926-caa872f68b2c -> v0.0.6-0.20200715204712-ef06b3d32e83):
+  - feat(requestmanager): run response hooks on completed requests (#77) ([ipfs/go-graphsync#77](https://github.com/ipfs/go-graphsync/pull/77))
+  - Revert "add extensions on complete (#76)"
+  - add extensions on complete (#76) ([ipfs/go-graphsync#76](https://github.com/ipfs/go-graphsync/pull/76))
+
+### Contributors
+
+| Contributor | Commits | Lines ± | Files Changed |
+|-------------|---------|---------|---------------|
+| Hannah Howard | 7 | +3865/-3792 | 96 |
+| hannahhoward | 1 | +155/-270 | 9 |
+
 ### 🙌🏽 Want to contribute?
 
 Would you like to contribute to this repo and don’t know how? Here are a few places you can get started:
