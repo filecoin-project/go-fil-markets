@@ -2,17 +2,19 @@ stateDiagram-v2
 	state "DealStatusNew" as 0
 	state "DealStatusUnsealing" as 1
 	state "DealStatusUnsealed" as 2
-	state "DealStatusFailed" as 9
-	state "DealStatusFundsNeeded" as 11
-	state "DealStatusOngoing" as 14
-	state "DealStatusFundsNeededLastPayment" as 15
-	state "DealStatusCompleted" as 16
-	state "DealStatusErrored" as 19
-	state "DealStatusBlocksComplete" as 20
-	state "DealStatusFinalizing" as 21
+	state "DealStatusFailed" as 7
+	state "DealStatusFundsNeeded" as 9
+	state "DealStatusOngoing" as 12
+	state "DealStatusFundsNeededLastPayment" as 13
+	state "DealStatusCompleted" as 14
+	state "DealStatusErrored" as 16
+	state "DealStatusBlocksComplete" as 17
+	state "DealStatusFinalizing" as 18
+	state "DealStatusCompleting" as 19
 	1 : On entry runs UnsealData
 	2 : On entry runs UnpauseDeal
-	9 : On entry runs CancelDeal
+	7 : On entry runs CancelDeal
+	19 : On entry runs CleanupDeal
 	[*] --> 0
 	note right of 0
 		The following events are not shown cause they can trigger from any state.
@@ -21,17 +23,19 @@ stateDiagram-v2
 	end note
 	0 --> 0 : ProviderEventOpen
 	0 --> 1 : ProviderEventDealAccepted
-	1 --> 9 : ProviderEventUnsealError
+	1 --> 7 : ProviderEventUnsealError
 	1 --> 2 : ProviderEventUnsealComplete
-	2 --> 14 : ProviderEventUnpauseDeal
-	14 --> 14 : ProviderEventBlockReceived
-	14 --> 20 : ProviderEventBlocksCompleted
-	14 --> 11 : ProviderEventPaymentRequested
-	20 --> 15 : ProviderEventPaymentRequested
-	11 --> 9 : ProviderEventSaveVoucherFailed
-	15 --> 9 : ProviderEventSaveVoucherFailed
-	11 --> 11 : ProviderEventPartialPaymentReceived
-	15 --> 15 : ProviderEventPartialPaymentReceived
-	11 --> 14 : ProviderEventPaymentReceived
-	15 --> 21 : ProviderEventPaymentReceived
-	21 --> 16 : ProviderEventComplete
+	2 --> 12 : ProviderEventBlockSent
+	12 --> 12 : ProviderEventBlockSent
+	12 --> 17 : ProviderEventBlocksCompleted
+	12 --> 9 : ProviderEventPaymentRequested
+	17 --> 13 : ProviderEventPaymentRequested
+	9 --> 7 : ProviderEventSaveVoucherFailed
+	13 --> 7 : ProviderEventSaveVoucherFailed
+	9 --> 9 : ProviderEventPartialPaymentReceived
+	13 --> 13 : ProviderEventPartialPaymentReceived
+	9 --> 12 : ProviderEventPaymentReceived
+	13 --> 18 : ProviderEventPaymentReceived
+	18 --> 19 : ProviderEventComplete
+	19 --> 14 : ProviderEventCleanupComplete
+	7 --> 16 : ProviderEventCancelComplete

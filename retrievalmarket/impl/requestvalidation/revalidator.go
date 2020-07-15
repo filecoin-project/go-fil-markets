@@ -56,6 +56,8 @@ func (pr *ProviderRevalidator) TrackChannel(deal rm.ProviderDealState) {
 	pr.writeDealState(deal)
 }
 
+// UntrackChannel indicates a retrieval deal is finish and no longer is tracked
+// by this provider
 func (pr *ProviderRevalidator) UntrackChannel(deal rm.ProviderDealState) {
 	pr.trackedChannelsLk.Lock()
 	defer pr.trackedChannelsLk.Unlock()

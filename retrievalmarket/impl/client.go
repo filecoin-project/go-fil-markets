@@ -219,7 +219,7 @@ func (c *Client) Retrieve(ctx context.Context, payloadCID cid.Cid, params retrie
 func (c *Client) notifySubscribers(eventName fsm.EventName, state fsm.StateType) {
 	evt := eventName.(retrievalmarket.ClientEvent)
 	ds := state.(retrievalmarket.ClientDealState)
-	c.subscribers.Publish(internalEvent{evt, ds})
+	_ = c.subscribers.Publish(internalEvent{evt, ds})
 }
 
 // SubscribeToEvents allows another component to listen for events on the RetrievalClient

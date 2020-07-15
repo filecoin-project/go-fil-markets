@@ -8,13 +8,10 @@ import (
 	"github.com/filecoin-project/go-statemachine/fsm"
 	"github.com/filecoin-project/specs-actors/actors/abi"
 	"github.com/filecoin-project/specs-actors/actors/abi/big"
-	logging "github.com/ipfs/go-log/v2"
 	peer "github.com/libp2p/go-libp2p-core/peer"
 
 	rm "github.com/filecoin-project/go-fil-markets/retrievalmarket"
 )
-
-var log = logging.Logger("retrieval_clientstates")
 
 // ClientDealEnvironment is a bridge to the environment a client deal is executing in.
 // It provides access to relevant functionality on the retrieval client

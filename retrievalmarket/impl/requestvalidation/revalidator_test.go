@@ -310,7 +310,6 @@ type eventSent struct {
 }
 type fakeRevalidatorEnvironment struct {
 	node           rm.RetrievalProviderNode
-	sent           bool
 	sentEvents     []eventSent
 	sendEventError error
 	returnedDeal   rm.ProviderDealState

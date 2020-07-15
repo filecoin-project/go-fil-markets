@@ -167,7 +167,7 @@ func (p *Provider) SetPaymentInterval(paymentInterval uint64, paymentIntervalInc
 func (p *Provider) notifySubscribers(eventName fsm.EventName, state fsm.StateType) {
 	evt := eventName.(retrievalmarket.ProviderEvent)
 	ds := state.(retrievalmarket.ProviderDealState)
-	p.subscribers.Publish(internalProviderEvent{evt, ds})
+	_ = p.subscribers.Publish(internalProviderEvent{evt, ds})
 }
 
 // SubscribeToEvents listens for events that happen related to client retrievals

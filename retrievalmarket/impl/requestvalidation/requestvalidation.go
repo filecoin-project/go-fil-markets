@@ -7,7 +7,6 @@ import (
 
 	"github.com/filecoin-project/specs-actors/actors/abi"
 	"github.com/ipfs/go-cid"
-	logging "github.com/ipfs/go-log/v2"
 	"github.com/ipld/go-ipld-prime"
 	"github.com/ipld/go-ipld-prime/codec/dagcbor"
 	peer "github.com/libp2p/go-libp2p-core/peer"
@@ -18,7 +17,6 @@ import (
 	"github.com/filecoin-project/go-fil-markets/shared"
 )
 
-var log = logging.Logger("retrievalprovider")
 var allSelectorBytes []byte
 
 func init() {
