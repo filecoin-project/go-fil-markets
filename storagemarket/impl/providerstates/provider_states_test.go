@@ -81,23 +81,6 @@ func TestValidateDealProposal(t *testing.T) {
 				require.Equal(t, "deal rejected: node error getting most recent state id: couldn't get id", deal.Message)
 			},
 		},
-		"CurrentHeight <= StartEpoch - DealAcceptanceBuffer() succeeds": {
-			environmentParams: environmentParams{DealAcceptanceBuffer: 10},
-			dealParams:        dealParams{StartEpoch: 200},
-			nodeParams:        nodeParams{Height: 190},
-			dealInspector: func(t *testing.T, deal storagemarket.MinerDeal, env *fakeEnvironment) {
-				tut.AssertDealState(t, storagemarket.StorageDealAcceptWait, deal.State)
-			},
-		},
-		"CurrentHeight > StartEpoch - DealAcceptanceBuffer() fails": {
-			environmentParams: environmentParams{DealAcceptanceBuffer: 10},
-			dealParams:        dealParams{StartEpoch: 200},
-			nodeParams:        nodeParams{Height: 191},
-			dealInspector: func(t *testing.T, deal storagemarket.MinerDeal, env *fakeEnvironment) {
-				tut.AssertDealState(t, storagemarket.StorageDealRejecting, deal.State)
-				require.Equal(t, "deal rejected: deal start epoch is too soon or deal already expired", deal.Message)
-			},
-		},
 		"PricePerEpoch too low": {
 			dealParams: dealParams{
 				StoragePricePerEpoch: abi.NewTokenAmount(5000),
@@ -899,7 +882,6 @@ type environmentParams struct {
 	GenerateCommPError      error
 	SendSignedResponseError error
 	DisconnectError         error
-	DealAcceptanceBuffer    int64
 	TagsProposal            bool
 	RejectDeal              bool
 	RejectReason            string
@@ -1048,7 +1030,6 @@ func makeExecutor(ctx context.Context,
 			rejectDeal:              params.RejectDeal,
 			rejectReason:            params.RejectReason,
 			decisionError:           params.DecisionError,
-			dealAcceptanceBuffer:    abi.ChainEpoch(params.DealAcceptanceBuffer),
 			fs:                      fs,
 			pieceStore:              pieceStore,
 		}
@@ -1097,7 +1078,6 @@ type fakeEnvironment struct {
 	decisionError           error
 	fs                      filestore.FileStore
 	pieceStore              piecestore.PieceStore
-	dealAcceptanceBuffer    abi.ChainEpoch
 	expectedTags            map[string]struct{}
 	receivedTags            map[string]struct{}
 }
@@ -1137,10 +1117,6 @@ func (fe *fakeEnvironment) FileStore() filestore.FileStore {
 
 func (fe *fakeEnvironment) PieceStore() piecestore.PieceStore {
 	return fe.pieceStore
-}
-
-func (fe *fakeEnvironment) DealAcceptanceBuffer() abi.ChainEpoch {
-	return fe.dealAcceptanceBuffer
 }
 
 func (fe *fakeEnvironment) RunCustomDecisionLogic(context.Context, storagemarket.MinerDeal) (bool, string, error) {
