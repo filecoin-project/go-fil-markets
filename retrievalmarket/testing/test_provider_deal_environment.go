@@ -12,7 +12,6 @@ import (
 
 	rm "github.com/filecoin-project/go-fil-markets/retrievalmarket"
 	retrievalimpl "github.com/filecoin-project/go-fil-markets/retrievalmarket/impl"
-	rmnet "github.com/filecoin-project/go-fil-markets/retrievalmarket/network"
 )
 
 // TestProviderDealEnvironment is a test implementation of ProviderDealEnvironment used
@@ -20,7 +19,6 @@ import (
 type TestProviderDealEnvironment struct {
 	decider              retrievalimpl.DealDecider
 	node                 rm.RetrievalProviderNode
-	ds                   rmnet.RetrievalDealStream
 	nextResponse         int
 	responses            []ReadBlockResponse
 	expectedParams       map[dealParamsKey]error
@@ -35,12 +33,10 @@ type TestProviderDealEnvironment struct {
 
 // NewTestProviderDealEnvironment returns a new TestProviderDealEnvironment instance
 func NewTestProviderDealEnvironment(node rm.RetrievalProviderNode,
-	ds rmnet.RetrievalDealStream,
 	decider retrievalimpl.DealDecider,
 	responses []ReadBlockResponse) *TestProviderDealEnvironment {
 	return &TestProviderDealEnvironment{
 		node:                 node,
-		ds:                   ds,
 		nextResponse:         0,
 		responses:            responses,
 		expectedParams:       make(map[dealParamsKey]error),
@@ -91,11 +87,6 @@ func (te *TestProviderDealEnvironment) Node() rm.RetrievalProviderNode {
 	return te.node
 }
 
-// DealStream returns a provided RetrievalDealStream instance
-func (te *TestProviderDealEnvironment) DealStream(_ rm.ProviderDealIdentifier) rmnet.RetrievalDealStream {
-	return te.ds
-}
-
 // GetPieceSize returns a stubbed response for a piece
 func (te *TestProviderDealEnvironment) GetPieceSize(c cid.Cid, pieceCID *cid.Cid) (uint64, error) {
 	pio, ok := te.expectedCIDs[c]
@@ -120,16 +111,6 @@ func (te *TestProviderDealEnvironment) CheckDealParams(pricePerByte abi.TokenAmo
 	}
 	te.receivedParams[key] = true
 	return err
-}
-
-// NextBlock returns a series of stubbed responses
-func (te *TestProviderDealEnvironment) NextBlock(_ context.Context, _ rm.ProviderDealIdentifier) (rm.Block, bool, error) {
-	if te.nextResponse >= len(te.responses) {
-		return rm.EmptyBlock, false, errors.New("Something went wrong")
-	}
-	response := te.responses[te.nextResponse]
-	te.nextResponse++
-	return response.Block, response.Done, response.Err
 }
 
 // RunDealDecisioningLogic simulates running deal decision logic

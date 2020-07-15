@@ -101,14 +101,39 @@ func TestStorageRetrieval(t *testing.T) {
 		switch event {
 		case retrievalmarket.ClientEventComplete:
 			clientDealStateChan <- state
+		default:
+			msg := `
+			Client:
+			Event:           %s
+			Status:          %s
+			TotalReceived:   %d
+			BytesPaidFor:    %d
+			CurrentInterval: %d
+			TotalFunds:      %s
+			Message:         %s
+			`
+			t.Logf(msg, retrievalmarket.ClientEvents[event], retrievalmarket.DealStatuses[state.Status], state.TotalReceived, state.BytesPaidFor, state.CurrentInterval,
+				state.TotalFunds.String(), state.Message)
 		}
 	})
 
 	providerDealStateChan := make(chan retrievalmarket.ProviderDealState)
 	rh.Provider.SubscribeToEvents(func(event retrievalmarket.ProviderEvent, state retrievalmarket.ProviderDealState) {
 		switch event {
-		case retrievalmarket.ProviderEventComplete:
+		case retrievalmarket.ProviderEventCleanupComplete:
 			providerDealStateChan <- state
+		default:
+			msg := `
+			Provider:
+			Event:           %s
+			Status:          %s
+			TotalSent:       %d
+			FundsReceived:   %s
+			Message:		 %s
+			CurrentInterval: %d
+			`
+			t.Logf(msg, retrievalmarket.ProviderEvents[event], retrievalmarket.DealStatuses[state.Status], state.TotalSent, state.FundsReceived.String(), state.Message,
+				state.CurrentInterval)
 		}
 	})
 

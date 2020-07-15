@@ -41,16 +41,6 @@ func (impl *libp2pRetrievalMarketNetwork) NewQueryStream(id peer.ID) (RetrievalQ
 	return &queryStream{p: id, rw: s, buffered: buffered}, nil
 }
 
-//  NewDealStream creates a new RetrievalDealStream using the provided peer.ID
-func (impl *libp2pRetrievalMarketNetwork) NewDealStream(id peer.ID) (RetrievalDealStream, error) {
-	s, err := impl.host.NewStream(context.Background(), id, retrievalmarket.ProtocolID)
-	if err != nil {
-		return nil, err
-	}
-	buffered := bufio.NewReaderSize(s, 16)
-	return &dealStream{p: id, rw: s, buffered: buffered}, nil
-}
-
 // SetDelegate sets a RetrievalReceiver to handle stream data
 func (impl *libp2pRetrievalMarketNetwork) SetDelegate(r RetrievalReceiver) error {
 	impl.receiver = r
@@ -62,7 +52,6 @@ func (impl *libp2pRetrievalMarketNetwork) SetDelegate(r RetrievalReceiver) error
 // shutdown logic.
 func (impl *libp2pRetrievalMarketNetwork) StopHandlingRequests() error {
 	impl.receiver = nil
-	impl.host.RemoveStreamHandler(retrievalmarket.ProtocolID)
 	impl.host.RemoveStreamHandler(retrievalmarket.QueryProtocolID)
 	return nil
 }

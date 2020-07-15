@@ -135,93 +135,19 @@ type TestDealStreamParams struct {
 	PaymentWriter  DealPaymentWriter
 }
 
-// NewTestRetrievalDealStream returns a new TestRetrievalDealStream with the
-// behavior specified by the paramaters, or default behaviors if not specified.
-func NewTestRetrievalDealStream(params TestDealStreamParams) rmnet.RetrievalDealStream {
-	stream := TestRetrievalDealStream{
-		p:              params.PeerID,
-		proposalReader: TrivialDealProposalReader,
-		proposalWriter: TrivialDealProposalWriter,
-		responseReader: TrivialDealResponseReader,
-		responseWriter: TrivialDealResponseWriter,
-		paymentReader:  TrivialDealPaymentReader,
-		paymentWriter:  TrivialDealPaymentWriter,
-	}
-	if params.ProposalReader != nil {
-		stream.proposalReader = params.ProposalReader
-	}
-	if params.ProposalWriter != nil {
-		stream.proposalWriter = params.ProposalWriter
-	}
-	if params.ResponseReader != nil {
-		stream.responseReader = params.ResponseReader
-	}
-	if params.ResponseWriter != nil {
-		stream.responseWriter = params.ResponseWriter
-	}
-	if params.PaymentReader != nil {
-		stream.paymentReader = params.PaymentReader
-	}
-	if params.PaymentWriter != nil {
-		stream.paymentWriter = params.PaymentWriter
-	}
-	return &stream
-}
-
-// ReadDealProposal calls the mocked deal proposal reader function.
-func (trds *TestRetrievalDealStream) ReadDealProposal() (rm.DealProposal, error) {
-	return trds.proposalReader()
-}
-
-// WriteDealProposal calls the mocked deal proposal writer function.
-func (trds *TestRetrievalDealStream) WriteDealProposal(dealProposal rm.DealProposal) error {
-	return trds.proposalWriter(dealProposal)
-}
-
-// ReadDealResponse calls the mocked deal response reader function.
-func (trds *TestRetrievalDealStream) ReadDealResponse() (rm.DealResponse, error) {
-	return trds.responseReader()
-}
-
-// WriteDealResponse calls the mocked deal response writer function.
-func (trds *TestRetrievalDealStream) WriteDealResponse(dealResponse rm.DealResponse) error {
-	return trds.responseWriter(dealResponse)
-}
-
-// ReadDealPayment calls the mocked deal payment reader function.
-func (trds *TestRetrievalDealStream) ReadDealPayment() (rm.DealPayment, error) {
-	return trds.paymentReader()
-}
-
-// WriteDealPayment calls the mocked deal payment writer function.
-func (trds *TestRetrievalDealStream) WriteDealPayment(dealPayment rm.DealPayment) error {
-	return trds.paymentWriter(dealPayment)
-}
-
-// Receiver returns the other peer
-func (trds TestRetrievalDealStream) Receiver() peer.ID { return trds.p }
-
-// Close closes the stream (does nothing for mocked stream)
-func (trds TestRetrievalDealStream) Close() error { return nil }
-
 // QueryStreamBuilder is a function that builds retrieval query streams.
 type QueryStreamBuilder func(peer.ID) (rmnet.RetrievalQueryStream, error)
-
-// DealStreamBuilder if a function that builds retrieval deal streams
-type DealStreamBuilder func(peer.ID) (rmnet.RetrievalDealStream, error)
 
 // TestRetrievalMarketNetwork is a test network that has stubbed behavior
 // for testing the retrieval market implementation
 type TestRetrievalMarketNetwork struct {
 	receiver  rmnet.RetrievalReceiver
-	dsbuilder DealStreamBuilder
 	qsbuilder QueryStreamBuilder
 }
 
 // TestNetworkParams are parameters for setting up a test network. All
 // parameters other than the receiver are optional
 type TestNetworkParams struct {
-	DealStreamBuilder  DealStreamBuilder
 	QueryStreamBuilder QueryStreamBuilder
 	Receiver           rmnet.RetrievalReceiver
 }
@@ -230,13 +156,10 @@ type TestNetworkParams struct {
 // behavior specified by the paramaters, or default behaviors if not specified.
 func NewTestRetrievalMarketNetwork(params TestNetworkParams) *TestRetrievalMarketNetwork {
 	trmn := TestRetrievalMarketNetwork{
-		dsbuilder: TrivialNewDealStream,
 		qsbuilder: TrivialNewQueryStream,
 		receiver:  params.Receiver,
 	}
-	if params.DealStreamBuilder != nil {
-		trmn.dsbuilder = params.DealStreamBuilder
-	}
+
 	if params.QueryStreamBuilder != nil {
 		trmn.qsbuilder = params.QueryStreamBuilder
 	}
@@ -247,12 +170,6 @@ func NewTestRetrievalMarketNetwork(params TestNetworkParams) *TestRetrievalMarke
 // Note this always returns the same stream.  This is fine for testing for now.
 func (trmn *TestRetrievalMarketNetwork) NewQueryStream(id peer.ID) (rmnet.RetrievalQueryStream, error) {
 	return trmn.qsbuilder(id)
-}
-
-// NewDealStream returns a deal stream
-// Note this always returns the same stream.  This is fine for testing for now.
-func (trmn *TestRetrievalMarketNetwork) NewDealStream(id peer.ID) (rmnet.RetrievalDealStream, error) {
-	return trmn.dsbuilder(id)
 }
 
 // SetDelegate sets the market receiver
@@ -279,11 +196,6 @@ var _ rmnet.RetrievalMarketNetwork = &TestRetrievalMarketNetwork{}
 // FailNewQueryStream always fails
 func FailNewQueryStream(peer.ID) (rmnet.RetrievalQueryStream, error) {
 	return nil, errors.New("new query stream failed")
-}
-
-// FailNewDealStream always fails
-func FailNewDealStream(peer.ID) (rmnet.RetrievalDealStream, error) {
-	return nil, errors.New("new deal stream failed")
 }
 
 // FailQueryReader always fails
@@ -349,11 +261,6 @@ func ExpectPeerOnQueryStreamBuilder(t *testing.T, expectedPeer peer.ID, qb Query
 	}
 }
 
-// TrivialNewDealStream succeeds trivially, returning an empty deal stream.
-func TrivialNewDealStream(p peer.ID) (rmnet.RetrievalDealStream, error) {
-	return NewTestRetrievalDealStream(TestDealStreamParams{PeerID: p}), nil
-}
-
 // TrivialQueryReader succeeds trivially, returning an empty query.
 func TrivialQueryReader() (rm.Query, error) {
 	return rm.Query{}, nil
@@ -371,36 +278,6 @@ func TrivialQueryWriter(rm.Query) error {
 
 // TrivialQueryResponseWriter succeeds trivially, returning no error.
 func TrivialQueryResponseWriter(rm.QueryResponse) error {
-	return nil
-}
-
-// TrivialDealProposalReader succeeds trivially, returning an empty proposal.
-func TrivialDealProposalReader() (rm.DealProposal, error) {
-	return rm.DealProposal{}, nil
-}
-
-// TrivialDealResponseReader succeeds trivially, returning an empty deal response.
-func TrivialDealResponseReader() (rm.DealResponse, error) {
-	return rm.DealResponse{}, nil
-}
-
-// TrivialDealPaymentReader succeeds trivially, returning an empty deal payment.
-func TrivialDealPaymentReader() (rm.DealPayment, error) {
-	return rm.DealPayment{}, nil
-}
-
-// TrivialDealProposalWriter succeeds trivially, returning no error.
-func TrivialDealProposalWriter(rm.DealProposal) error {
-	return nil
-}
-
-// TrivialDealResponseWriter succeeds trivially, returning no error.
-func TrivialDealResponseWriter(rm.DealResponse) error {
-	return nil
-}
-
-// TrivialDealPaymentWriter succeeds trivially, returning no error.
-func TrivialDealPaymentWriter(rm.DealPayment) error {
 	return nil
 }
 
