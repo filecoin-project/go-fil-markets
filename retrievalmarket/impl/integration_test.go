@@ -263,7 +263,7 @@ func TestClientCanMakeDealWithProvider(t *testing.T) {
 				require.NoError(t, err)
 			}
 
-			decider := rmtesting.TrivalTestDecider
+			decider := rmtesting.TrivialTestDecider
 			if testCase.decider != nil {
 				decider = testCase.decider
 			}

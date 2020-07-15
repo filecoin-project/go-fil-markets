@@ -36,13 +36,11 @@ require (
 	github.com/libp2p/go-libp2p v0.6.0
 	github.com/libp2p/go-libp2p-core v0.5.0
 	github.com/multiformats/go-multiaddr v0.2.1
-	github.com/multiformats/go-multihash v0.0.13
 	github.com/stretchr/testify v1.5.1
 	github.com/whyrusleeping/cbor-gen v0.0.0-20200414195334-429a0b5e922e
 	golang.org/x/exp v0.0.0-20190121172915-509febef88a4
 	golang.org/x/net v0.0.0-20190724013045-ca1201d0de80
 	golang.org/x/xerrors v0.0.0-20191204190536-9bdfabe68543
-	gotest.tools v2.2.0+incompatible
 )
 
 replace github.com/filecoin-project/filecoin-ffi => ./extern/filecoin-ffi

@@ -341,7 +341,7 @@ func (t *DealResponse) MarshalCBOR(w io.Writer) error {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	if _, err := w.Write([]byte{133}); err != nil {
+	if _, err := w.Write([]byte{132}); err != nil {
 		return err
 	}
 
@@ -373,20 +373,6 @@ func (t *DealResponse) MarshalCBOR(w io.Writer) error {
 	if _, err := w.Write([]byte(t.Message)); err != nil {
 		return err
 	}
-
-	// t.Blocks ([]retrievalmarket.Block) (slice)
-	if len(t.Blocks) > cbg.MaxLength {
-		return xerrors.Errorf("Slice value in field t.Blocks was too long")
-	}
-
-	if _, err := w.Write(cbg.CborEncodeMajorType(cbg.MajArray, uint64(len(t.Blocks)))); err != nil {
-		return err
-	}
-	for _, v := range t.Blocks {
-		if err := v.MarshalCBOR(w); err != nil {
-			return err
-		}
-	}
 	return nil
 }
 
@@ -401,7 +387,7 @@ func (t *DealResponse) UnmarshalCBOR(r io.Reader) error {
 		return fmt.Errorf("cbor input should be of type array")
 	}
 
-	if extra != 5 {
+	if extra != 4 {
 		return fmt.Errorf("cbor input had wrong number of fields")
 	}
 
@@ -452,35 +438,6 @@ func (t *DealResponse) UnmarshalCBOR(r io.Reader) error {
 
 		t.Message = string(sval)
 	}
-	// t.Blocks ([]retrievalmarket.Block) (slice)
-
-	maj, extra, err = cbg.CborReadHeader(br)
-	if err != nil {
-		return err
-	}
-
-	if extra > cbg.MaxLength {
-		return fmt.Errorf("t.Blocks: array too large (%d)", extra)
-	}
-
-	if maj != cbg.MajArray {
-		return fmt.Errorf("expected cbor array")
-	}
-
-	if extra > 0 {
-		t.Blocks = make([]Block, extra)
-	}
-
-	for i := 0; i < int(extra); i++ {
-
-		var v Block
-		if err := v.UnmarshalCBOR(br); err != nil {
-			return err
-		}
-
-		t.Blocks[i] = v
-	}
-
 	return nil
 }
 
@@ -781,93 +738,6 @@ func (t *DealPayment) UnmarshalCBOR(r io.Reader) error {
 			}
 		}
 
-	}
-	return nil
-}
-
-func (t *Block) MarshalCBOR(w io.Writer) error {
-	if t == nil {
-		_, err := w.Write(cbg.CborNull)
-		return err
-	}
-	if _, err := w.Write([]byte{130}); err != nil {
-		return err
-	}
-
-	// t.Prefix ([]uint8) (slice)
-	if len(t.Prefix) > cbg.ByteArrayMaxLen {
-		return xerrors.Errorf("Byte array in field t.Prefix was too long")
-	}
-
-	if _, err := w.Write(cbg.CborEncodeMajorType(cbg.MajByteString, uint64(len(t.Prefix)))); err != nil {
-		return err
-	}
-	if _, err := w.Write(t.Prefix); err != nil {
-		return err
-	}
-
-	// t.Data ([]uint8) (slice)
-	if len(t.Data) > cbg.ByteArrayMaxLen {
-		return xerrors.Errorf("Byte array in field t.Data was too long")
-	}
-
-	if _, err := w.Write(cbg.CborEncodeMajorType(cbg.MajByteString, uint64(len(t.Data)))); err != nil {
-		return err
-	}
-	if _, err := w.Write(t.Data); err != nil {
-		return err
-	}
-	return nil
-}
-
-func (t *Block) UnmarshalCBOR(r io.Reader) error {
-	br := cbg.GetPeeker(r)
-
-	maj, extra, err := cbg.CborReadHeader(br)
-	if err != nil {
-		return err
-	}
-	if maj != cbg.MajArray {
-		return fmt.Errorf("cbor input should be of type array")
-	}
-
-	if extra != 2 {
-		return fmt.Errorf("cbor input had wrong number of fields")
-	}
-
-	// t.Prefix ([]uint8) (slice)
-
-	maj, extra, err = cbg.CborReadHeader(br)
-	if err != nil {
-		return err
-	}
-
-	if extra > cbg.ByteArrayMaxLen {
-		return fmt.Errorf("t.Prefix: byte array too large (%d)", extra)
-	}
-	if maj != cbg.MajByteString {
-		return fmt.Errorf("expected byte array")
-	}
-	t.Prefix = make([]byte, extra)
-	if _, err := io.ReadFull(br, t.Prefix); err != nil {
-		return err
-	}
-	// t.Data ([]uint8) (slice)
-
-	maj, extra, err = cbg.CborReadHeader(br)
-	if err != nil {
-		return err
-	}
-
-	if extra > cbg.ByteArrayMaxLen {
-		return fmt.Errorf("t.Data: byte array too large (%d)", extra)
-	}
-	if maj != cbg.MajByteString {
-		return fmt.Errorf("expected byte array")
-	}
-	t.Data = make([]byte, extra)
-	if _, err := io.ReadFull(br, t.Data); err != nil {
-		return err
 	}
 	return nil
 }

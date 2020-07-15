@@ -112,7 +112,6 @@ func clientEvent(event datatransfer.Event, channelState datatransfer.ChannelStat
 // an event to the appropriate state machine
 func ClientDataTransferSubscriber(deals EventReceiver) datatransfer.Subscriber {
 	return func(event datatransfer.Event, channelState datatransfer.ChannelState) {
-		log.Error(datatransfer.Events[event.Code])
 		dealProposal, ok := channelState.Voucher().(*rm.DealProposal)
 
 		// if this event is for a transfer not related to retrieval, ignore

@@ -18,7 +18,7 @@ import (
 	cbg "github.com/whyrusleeping/cbor-gen"
 )
 
-//go:generate cbor-gen-for Query QueryResponse DealProposal DealResponse Params QueryParams DealPayment Block ClientDealState ProviderDealState PaymentInfo RetrievalPeer
+//go:generate cbor-gen-for Query QueryResponse DealProposal DealResponse Params QueryParams DealPayment ClientDealState ProviderDealState PaymentInfo RetrievalPeer
 
 // ProtocolID is the protocol for proposing / responding to retrieval deals
 const ProtocolID = "/fil/retrieval/0.0.1"
@@ -279,15 +279,6 @@ func (dp *DealProposal) Type() datatransfer.TypeIdentifier {
 // DealProposalUndefined is an undefined deal proposal
 var DealProposalUndefined = DealProposal{}
 
-// Block is an IPLD block in bitswap format
-type Block struct {
-	Prefix []byte
-	Data   []byte
-}
-
-// EmptyBlock is just a block with no content
-var EmptyBlock = Block{}
-
 // DealResponse is a response to a retrieval deal proposal
 type DealResponse struct {
 	Status DealStatus
@@ -297,7 +288,6 @@ type DealResponse struct {
 	PaymentOwed abi.TokenAmount
 
 	Message string
-	Blocks  []Block // V0 only
 }
 
 // Type method makes DealResponse usable as a voucher result

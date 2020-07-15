@@ -16,7 +16,6 @@ import (
 
 type testReceiver struct {
 	t                  *testing.T
-	dealStreamHandler  func(network.RetrievalDealStream)
 	queryStreamHandler func(network.RetrievalQueryStream)
 }
 

@@ -87,7 +87,6 @@ func WaitForPaymentChannelAddFunds(ctx fsm.Context, environment ClientDealEnviro
 // Ongoing just double checks that we may need to move out of the ongoing state cause a payment was previously requested
 func Ongoing(ctx fsm.Context, environment ClientDealEnvironment, deal rm.ClientDealState) error {
 	if deal.PaymentRequested.GreaterThan(big.Zero()) {
-		log.Error(deal.PaymentRequested)
 		if deal.LastPaymentRequested {
 			return ctx.Trigger(rm.ClientEventLastPaymentRequested, big.Zero())
 		}

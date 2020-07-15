@@ -39,6 +39,7 @@ type voucherResult struct {
 // TestRetrievalProviderNode is a node adapter for a retrieval provider whose
 // responses are mocked
 type TestRetrievalProviderNode struct {
+	ChainHeadError   error
 	sectorStubs      map[sectorKey][]byte
 	expectations     map[sectorKey]struct{}
 	received         map[sectorKey]struct{}
@@ -122,7 +123,7 @@ func (trpn *TestRetrievalProviderNode) GetMinerWorkerAddress(ctx context.Context
 
 // GetChainHead returns a mock value for the chain head
 func (trpn *TestRetrievalProviderNode) GetChainHead(ctx context.Context) (shared.TipSetToken, abi.ChainEpoch, error) {
-	return []byte{42}, 0, nil
+	return []byte{42}, 0, trpn.ChainHeadError
 }
 
 // --- Non-interface Functions

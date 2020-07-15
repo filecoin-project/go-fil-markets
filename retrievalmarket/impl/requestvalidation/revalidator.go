@@ -113,6 +113,9 @@ func (pr *ProviderRevalidator) processPayment(dealID rm.ProviderDealIdentifier, 
 	}
 
 	deal, err := pr.env.Get(dealID)
+	if err != nil {
+		return errorDealResponse(dealID, err), err
+	}
 
 	// attempt to redeem voucher
 	// (totalSent * pricePerbyte) - fundsReceived

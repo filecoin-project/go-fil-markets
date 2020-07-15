@@ -172,13 +172,13 @@ var ClientEvents = fsm.Events{
 
 	// Sending Payments
 	fsm.Event(rm.ClientEventFundsExpended).
-		FromMany(rm.DealStatusSendFundsLastPayment, rm.DealStatusSendFundsLastPayment).To(rm.DealStatusFailing).
+		FromMany(rm.DealStatusSendFunds, rm.DealStatusSendFundsLastPayment).To(rm.DealStatusFailing).
 		Action(func(deal *rm.ClientDealState, expectedTotal string, actualTotal string) error {
 			deal.Message = fmt.Sprintf("not enough funds left: expected amt = %s, actual amt = %s", expectedTotal, actualTotal)
 			return nil
 		}),
 	fsm.Event(rm.ClientEventBadPaymentRequested).
-		FromMany(rm.DealStatusFundsNeeded, rm.DealStatusSendFundsLastPayment).To(rm.DealStatusFailing).
+		FromMany(rm.DealStatusSendFunds, rm.DealStatusSendFundsLastPayment).To(rm.DealStatusFailing).
 		Action(func(deal *rm.ClientDealState, message string) error {
 			deal.Message = message
 			return nil
