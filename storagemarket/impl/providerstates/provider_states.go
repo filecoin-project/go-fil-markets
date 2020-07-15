@@ -38,7 +38,6 @@ type ProviderDealEnvironment interface {
 	Disconnect(proposalCid cid.Cid) error
 	FileStore() filestore.FileStore
 	PieceStore() piecestore.PieceStore
-	DealAcceptanceBuffer() abi.ChainEpoch
 	RunCustomDecisionLogic(context.Context, storagemarket.MinerDeal) (bool, string, error)
 }
 
@@ -47,7 +46,7 @@ type ProviderStateEntryFunc func(ctx fsm.Context, environment ProviderDealEnviro
 
 // ValidateDealProposal validates a proposed deal against the provider criteria
 func ValidateDealProposal(ctx fsm.Context, environment ProviderDealEnvironment, deal storagemarket.MinerDeal) error {
-	tok, height, err := environment.Node().GetChainHead(ctx.Context())
+	tok, _, err := environment.Node().GetChainHead(ctx.Context())
 	if err != nil {
 		return ctx.Trigger(storagemarket.ProviderEventDealRejected, xerrors.Errorf("node error getting most recent state id: %w", err))
 	}
@@ -60,10 +59,6 @@ func ValidateDealProposal(ctx fsm.Context, environment ProviderDealEnvironment, 
 
 	if proposal.Provider != environment.Address() {
 		return ctx.Trigger(storagemarket.ProviderEventDealRejected, xerrors.Errorf("incorrect provider for deal"))
-	}
-
-	if height > proposal.StartEpoch-environment.DealAcceptanceBuffer() {
-		return ctx.Trigger(storagemarket.ProviderEventDealRejected, xerrors.Errorf("deal start epoch is too soon or deal already expired"))
 	}
 
 	// TODO: check StorageCollateral
