@@ -5,7 +5,7 @@ go 1.13
 require (
 	github.com/filecoin-project/go-address v0.0.2-0.20200218010043-eb9bb40ed5be
 	github.com/filecoin-project/go-cbor-util v0.0.0-20191219014500-08c40a1e63a2
-	github.com/filecoin-project/go-data-transfer v0.4.1-0.20200715144713-b3311844e1a5
+	github.com/filecoin-project/go-data-transfer v0.5.0
 	github.com/filecoin-project/go-padreader v0.0.0-20200210211231-548257017ca6
 	github.com/filecoin-project/go-statemachine v0.0.0-20200714194326-a77c3ae20989
 	github.com/filecoin-project/go-statestore v0.1.0
@@ -18,7 +18,7 @@ require (
 	github.com/ipfs/go-blockservice v0.1.3
 	github.com/ipfs/go-cid v0.0.5
 	github.com/ipfs/go-datastore v0.4.4
-	github.com/ipfs/go-graphsync v0.0.6-0.20200715142715-e2f27c4754e6
+	github.com/ipfs/go-graphsync v0.0.6-0.20200715204712-ef06b3d32e83
 	github.com/ipfs/go-ipfs-blockstore v1.0.0
 	github.com/ipfs/go-ipfs-blocksutil v0.0.1
 	github.com/ipfs/go-ipfs-chunker v0.0.5

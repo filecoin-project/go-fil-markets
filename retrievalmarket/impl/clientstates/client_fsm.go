@@ -224,6 +224,8 @@ var ClientEvents = fsm.Events{
 var ClientFinalityStates = []fsm.StateKey{
 	rm.DealStatusErrored,
 	rm.DealStatusCompleted,
+	rm.DealStatusRejected,
+	rm.DealStatusDealNotFound,
 }
 
 // ClientStateEntryFuncs are the handlers for different states in a retrieval client
