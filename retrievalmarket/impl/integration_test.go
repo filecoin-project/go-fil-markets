@@ -8,6 +8,8 @@ import (
 	"time"
 
 	"github.com/filecoin-project/go-address"
+	dtimpl "github.com/filecoin-project/go-data-transfer/impl"
+	dtgstransport "github.com/filecoin-project/go-data-transfer/transport/graphsync"
 	"github.com/filecoin-project/specs-actors/actors/abi"
 	"github.com/filecoin-project/specs-actors/actors/abi/big"
 	"github.com/filecoin-project/specs-actors/actors/builtin/paych"
@@ -87,7 +89,12 @@ func requireSetupTestClientAndProvider(bgCtx context.Context, t *testing.T, payC
 		CreatePaychCID: cids[0],
 		AddFundsCID:    cids[1],
 	})
-	client, err := retrievalimpl.NewClient(nw1, testData.Bs1, rcNode1, &tut.TestPeerResolver{}, testData.Ds1, testData.RetrievalStoredCounter1)
+	dtTransport1 := dtgstransport.NewTransport(testData.Host1.ID(), testData.GraphSync1)
+	dt1, err := dtimpl.NewDataTransfer(testData.DTStore1, testData.DTNet1, dtTransport1, testData.DTStoredCounter1)
+	require.NoError(t, err)
+	err = dt1.Start(bgCtx)
+	require.NoError(t, err)
+	client, err := retrievalimpl.NewClient(nw1, testData.Bs1, dt1, rcNode1, &tut.TestPeerResolver{}, testData.Ds1, testData.RetrievalStoredCounter1)
 	require.NoError(t, err)
 	nw2 := rmnet.NewFromLibp2pHost(testData.Host2)
 	providerNode := testnodes.NewTestRetrievalProviderNode()
@@ -118,7 +125,12 @@ func requireSetupTestClientAndProvider(bgCtx context.Context, t *testing.T, payC
 	}
 
 	paymentAddress := address.TestAddress2
-	provider, err := retrievalimpl.NewProvider(paymentAddress, providerNode, nw2, pieceStore, testData.Bs2, testData.Ds2)
+	dtTransport2 := dtgstransport.NewTransport(testData.Host2.ID(), testData.GraphSync2)
+	dt2, err := dtimpl.NewDataTransfer(testData.DTStore2, testData.DTNet2, dtTransport2, testData.DTStoredCounter2)
+	require.NoError(t, err)
+	err = dt2.Start(bgCtx)
+	require.NoError(t, err)
+	provider, err := retrievalimpl.NewProvider(paymentAddress, providerNode, nw2, pieceStore, testData.Bs2, dt2, testData.Ds2)
 	require.NoError(t, err)
 
 	provider.SetPaymentInterval(expectedQR.MaxPaymentInterval, expectedQR.MaxPaymentIntervalIncrease)
@@ -146,53 +158,41 @@ func TestClientCanMakeDealWithProvider(t *testing.T) {
 	var customDeciderRan bool
 
 	testCases := []struct {
-		name                          string
-		decider                       retrievalimpl.DealDecider
-		filename                      string
-		filesize                      uint64
-		voucherAmts                   []abi.TokenAmount
-		selector                      ipld.Node
-		paramsV1, unsealing, addFunds bool
+		name               string
+		decider            retrievalimpl.DealDecider
+		filename           string
+		filesize           uint64
+		voucherAmts        []abi.TokenAmount
+		selector           ipld.Node
+		paramsV1, addFunds bool
 	}{
 		{name: "1 block file retrieval succeeds",
 			filename:    "lorem_under_1_block.txt",
 			filesize:    410,
 			voucherAmts: []abi.TokenAmount{abi.NewTokenAmount(410000)},
-			unsealing:   false},
+		},
 		{name: "1 block file retrieval succeeds with existing payment channel",
 			filename:    "lorem_under_1_block.txt",
 			filesize:    410,
 			voucherAmts: []abi.TokenAmount{abi.NewTokenAmount(410000)},
-			unsealing:   false, addFunds: true},
-		{name: "1 block file retrieval succeeds with unsealing",
-			filename:    "lorem_under_1_block.txt",
-			filesize:    410,
-			voucherAmts: []abi.TokenAmount{abi.NewTokenAmount(410000)},
-			unsealing:   true},
+			addFunds:    true},
 		{name: "multi-block file retrieval succeeds",
 			filename:    "lorem.txt",
 			filesize:    19000,
 			voucherAmts: []abi.TokenAmount{abi.NewTokenAmount(10136000), abi.NewTokenAmount(9784000)},
-			unsealing:   false},
-		{name: "multi-block file retrieval succeeds with unsealing",
-			filename:    "lorem.txt",
-			filesize:    19000,
-			voucherAmts: []abi.TokenAmount{abi.NewTokenAmount(10136000), abi.NewTokenAmount(9784000)},
-			unsealing:   true},
+		},
 		{name: "multi-block file retrieval succeeds with V1 params and AllSelector",
 			filename:    "lorem.txt",
 			filesize:    19000,
 			voucherAmts: []abi.TokenAmount{abi.NewTokenAmount(10136000), abi.NewTokenAmount(9784000)},
 			paramsV1:    true,
-			selector:    shared.AllSelector(),
-			unsealing:   false},
+			selector:    shared.AllSelector()},
 		{name: "partial file retrieval succeeds with V1 params and selector recursion depth 1",
 			filename:    "lorem.txt",
 			filesize:    1024,
 			voucherAmts: []abi.TokenAmount{abi.NewTokenAmount(1944000)},
 			paramsV1:    true,
-			selector:    partialSelector,
-			unsealing:   false},
+			selector:    partialSelector},
 		{name: "succeeds when using a custom decider function",
 			decider: func(ctx context.Context, state retrievalmarket.ProviderDealState) (bool, string, error) {
 				customDeciderRan = true
@@ -201,7 +201,6 @@ func TestClientCanMakeDealWithProvider(t *testing.T) {
 			filename:    "lorem_under_1_block.txt",
 			filesize:    410,
 			voucherAmts: []abi.TokenAmount{abi.NewTokenAmount(410000)},
-			unsealing:   false,
 		},
 	}
 
@@ -238,46 +237,37 @@ func TestClientCanMakeDealWithProvider(t *testing.T) {
 
 			providerNode := testnodes.NewTestRetrievalProviderNode()
 			var pieceInfo piecestore.PieceInfo
-			if testCase.unsealing {
-				cio := cario.NewCarIO()
-				var buf bytes.Buffer
-				err := cio.WriteCar(bgCtx, testData.Bs2, payloadCID, shared.AllSelector(), &buf)
-				require.NoError(t, err)
-				carData := buf.Bytes()
-				sectorID := uint64(100000)
-				offset := uint64(1000)
-				pieceInfo = piecestore.PieceInfo{
-					Deals: []piecestore.DealInfo{
-						{
-							SectorID: sectorID,
-							Offset:   offset,
-							Length:   uint64(len(carData)),
-						},
+			cio := cario.NewCarIO()
+			var buf bytes.Buffer
+			err = cio.WriteCar(bgCtx, testData.Bs2, payloadCID, shared.AllSelector(), &buf)
+			require.NoError(t, err)
+			carData := buf.Bytes()
+			sectorID := uint64(100000)
+			offset := uint64(1000)
+			pieceInfo = piecestore.PieceInfo{
+				PieceCID: tut.GenerateCids(1)[0],
+				Deals: []piecestore.DealInfo{
+					{
+						SectorID: sectorID,
+						Offset:   offset,
+						Length:   uint64(len(carData)),
 					},
-				}
-				providerNode.ExpectUnseal(sectorID, offset, uint64(len(carData)), carData)
-				// clearout provider blockstore
-				allCids, err := testData.Bs2.AllKeysChan(bgCtx)
+				},
+			}
+			providerNode.ExpectUnseal(sectorID, offset, uint64(len(carData)), carData)
+			// clearout provider blockstore
+			allCids, err := testData.Bs2.AllKeysChan(bgCtx)
+			require.NoError(t, err)
+			for c := range allCids {
+				err = testData.Bs2.DeleteBlock(c)
 				require.NoError(t, err)
-				for c := range allCids {
-					err = testData.Bs2.DeleteBlock(c)
-					require.NoError(t, err)
-				}
-			} else {
-				pieceInfo = piecestore.PieceInfo{
-					Deals: []piecestore.DealInfo{
-						{
-							Length: expectedQR.Size,
-						},
-					},
-				}
 			}
 
-			decider := rmtesting.TrivalTestDecider
+			decider := rmtesting.TrivialTestDecider
 			if testCase.decider != nil {
 				decider = testCase.decider
 			}
-			provider := setupProvider(t, testData, payloadCID, pieceInfo, expectedQR,
+			provider := setupProvider(bgCtx, t, testData, payloadCID, pieceInfo, expectedQR,
 				providerPaymentAddr, providerNode, decider)
 
 			retrievalPeer := &retrievalmarket.RetrievalPeer{Address: providerPaymentAddr, ID: testData.Host2.ID()}
@@ -297,7 +287,7 @@ func TestClientCanMakeDealWithProvider(t *testing.T) {
 			// ------- SET UP CLIENT
 			nw1 := rmnet.NewFromLibp2pHost(testData.Host1)
 
-			createdChan, newLaneAddr, createdVoucher, client, err := setupClient(clientPaymentChannel, expectedVoucher, nw1, testData, testCase.addFunds)
+			createdChan, newLaneAddr, createdVoucher, client, err := setupClient(bgCtx, t, clientPaymentChannel, expectedVoucher, nw1, testData, testCase.addFunds)
 			require.NoError(t, err)
 
 			clientDealStateChan := make(chan retrievalmarket.ClientDealState)
@@ -308,6 +298,7 @@ func TestClientCanMakeDealWithProvider(t *testing.T) {
 				default:
 					msg := `
 Client:
+Event:           %s
 Status:          %s
 TotalReceived:   %d
 BytesPaidFor:    %d
@@ -315,7 +306,7 @@ CurrentInterval: %d
 TotalFunds:      %s
 Message:         %s
 `
-					t.Logf(msg, retrievalmarket.DealStatuses[state.Status], state.TotalReceived, state.BytesPaidFor, state.CurrentInterval,
+					t.Logf(msg, retrievalmarket.ClientEvents[event], retrievalmarket.DealStatuses[state.Status], state.TotalReceived, state.BytesPaidFor, state.CurrentInterval,
 						state.TotalFunds.String(), state.Message)
 				}
 			})
@@ -323,18 +314,19 @@ Message:         %s
 			providerDealStateChan := make(chan retrievalmarket.ProviderDealState)
 			provider.SubscribeToEvents(func(event retrievalmarket.ProviderEvent, state retrievalmarket.ProviderDealState) {
 				switch event {
-				case retrievalmarket.ProviderEventComplete:
+				case retrievalmarket.ProviderEventCleanupComplete:
 					providerDealStateChan <- state
 				default:
 					msg := `
 Provider:
+Event:           %s
 Status:          %s
 TotalSent:       %d
 FundsReceived:   %s
 Message:		 %s
 CurrentInterval: %d
 `
-					t.Logf(msg, retrievalmarket.DealStatuses[state.Status], state.TotalSent, state.FundsReceived.String(), state.Message,
+					t.Logf(msg, retrievalmarket.ProviderEvents[event], retrievalmarket.DealStatuses[state.Status], state.TotalSent, state.FundsReceived.String(), state.Message,
 						state.CurrentInterval)
 				}
 			})
@@ -403,6 +395,8 @@ CurrentInterval: %d
 }
 
 func setupClient(
+	ctx context.Context,
+	t *testing.T,
 	clientPaymentChannel address.Address,
 	expectedVoucher *paych.SignedVoucher,
 	nw1 rmnet.RetrievalMarketNetwork,
@@ -440,11 +434,19 @@ func setupClient(
 		CreatePaychCID:         cids[0],
 		AddFundsCID:            cids[1],
 	})
-	client, err := retrievalimpl.NewClient(nw1, testData.Bs1, clientNode, &tut.TestPeerResolver{}, testData.Ds1, testData.RetrievalStoredCounter1)
+	dtTransport1 := dtgstransport.NewTransport(testData.Host1.ID(), testData.GraphSync1)
+	dt1, err := dtimpl.NewDataTransfer(testData.DTStore1, testData.DTNet1, dtTransport1, testData.DTStoredCounter1)
+	require.NoError(t, err)
+	err = dt1.Start(ctx)
+	require.NoError(t, err)
+
+	client, err := retrievalimpl.NewClient(nw1, testData.Bs1, dt1, clientNode, &tut.TestPeerResolver{}, testData.Ds1, testData.RetrievalStoredCounter1)
 	return &createdChan, &newLaneAddr, &createdVoucher, client, err
 }
 
-func setupProvider(t *testing.T,
+func setupProvider(
+	ctx context.Context,
+	t *testing.T,
 	testData *tut.Libp2pTestData,
 	payloadCID cid.Cid,
 	pieceInfo piecestore.PieceInfo,
@@ -465,8 +467,14 @@ func setupProvider(t *testing.T,
 	}
 	pieceStore.ExpectCID(payloadCID, cidInfo)
 	pieceStore.ExpectPiece(expectedPiece, pieceInfo)
+	dtTransport2 := dtgstransport.NewTransport(testData.Host2.ID(), testData.GraphSync2)
+	dt2, err := dtimpl.NewDataTransfer(testData.DTStore2, testData.DTNet2, dtTransport2, testData.DTStoredCounter2)
+	require.NoError(t, err)
+	err = dt2.Start(ctx)
+	require.NoError(t, err)
+
 	provider, err := retrievalimpl.NewProvider(providerPaymentAddr, providerNode, nw2,
-		pieceStore, testData.Bs2, testData.Ds2,
+		pieceStore, testData.Bs2, dt2, testData.Ds2,
 		retrievalimpl.DealDeciderOpt(decider))
 	require.NoError(t, err)
 	provider.SetPaymentInterval(expectedQR.MaxPaymentInterval, expectedQR.MaxPaymentIntervalIncrease)

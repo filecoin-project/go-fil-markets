@@ -18,6 +18,7 @@ import (
 	"github.com/filecoin-project/go-fil-markets/piecestore"
 	"github.com/filecoin-project/go-fil-markets/retrievalmarket"
 	retrievalimpl "github.com/filecoin-project/go-fil-markets/retrievalmarket/impl"
+	"github.com/filecoin-project/go-fil-markets/retrievalmarket/impl/requestvalidation"
 	"github.com/filecoin-project/go-fil-markets/retrievalmarket/impl/testnodes"
 	"github.com/filecoin-project/go-fil-markets/retrievalmarket/network"
 	tut "github.com/filecoin-project/go-fil-markets/shared_testutil"
@@ -66,8 +67,9 @@ func TestHandleQueryStream(t *testing.T) {
 		node := testnodes.NewTestRetrievalProviderNode()
 		ds := dss.MutexWrap(datastore.NewMapDatastore())
 		bs := bstore.NewBlockstore(ds)
+		dt := tut.NewTestDataTransfer()
 		net := tut.NewTestRetrievalMarketNetwork(tut.TestNetworkParams{})
-		c, err := retrievalimpl.NewProvider(expectedAddress, node, net, pieceStore, bs, ds)
+		c, err := retrievalimpl.NewProvider(expectedAddress, node, net, pieceStore, bs, dt, ds)
 		require.NoError(t, err)
 		c.SetPricePerByte(expectedPricePerByte)
 		c.SetPaymentInterval(expectedPaymentInterval, expectedPaymentIntervalIncrease)
@@ -216,6 +218,36 @@ func TestHandleQueryStream(t *testing.T) {
 
 }
 
+func TestProvider_Construct(t *testing.T) {
+	ds := datastore.NewMapDatastore()
+	bs := bstore.NewBlockstore(ds)
+	dt := tut.NewTestDataTransfer()
+	_, err := retrievalimpl.NewProvider(
+		spect.NewIDAddr(t, 2344),
+		testnodes.NewTestRetrievalProviderNode(),
+		tut.NewTestRetrievalMarketNetwork(tut.TestNetworkParams{}),
+		tut.NewTestPieceStore(),
+		bs,
+		dt,
+		ds,
+	)
+	require.NoError(t, err)
+	require.Len(t, dt.Subscribers, 1)
+	require.Len(t, dt.RegisteredVoucherResultTypes, 1)
+	_, ok := dt.RegisteredVoucherResultTypes[0].(*retrievalmarket.DealResponse)
+	require.True(t, ok)
+	require.Len(t, dt.RegisteredVoucherTypes, 1)
+	_, ok = dt.RegisteredVoucherTypes[0].VoucherType.(*retrievalmarket.DealProposal)
+	require.True(t, ok)
+	_, ok = dt.RegisteredVoucherTypes[0].Validator.(*requestvalidation.ProviderRequestValidator)
+	require.True(t, ok)
+	require.Len(t, dt.RegisteredRevalidators, 1)
+	_, ok = dt.RegisteredRevalidators[0].VoucherType.(*retrievalmarket.DealPayment)
+	require.True(t, ok)
+	_, ok = dt.RegisteredRevalidators[0].Revalidator.(*requestvalidation.ProviderRevalidator)
+	require.True(t, ok)
+
+}
 func TestProviderConfigOpts(t *testing.T) {
 	var sawOpt int
 	opt1 := func(p *retrievalimpl.Provider) { sawOpt++ }
@@ -227,7 +259,9 @@ func TestProviderConfigOpts(t *testing.T) {
 		testnodes.NewTestRetrievalProviderNode(),
 		tut.NewTestRetrievalMarketNetwork(tut.TestNetworkParams{}),
 		tut.NewTestPieceStore(),
-		bs, ds, opt1, opt2,
+		bs,
+		tut.NewTestDataTransfer(),
+		ds, opt1, opt2,
 	)
 	require.NoError(t, err)
 	assert.NotNil(t, p)
@@ -245,7 +279,9 @@ func TestProviderConfigOpts(t *testing.T) {
 		testnodes.NewTestRetrievalProviderNode(),
 		tut.NewTestRetrievalMarketNetwork(tut.TestNetworkParams{}),
 		tut.NewTestPieceStore(),
-		bs, ds, ddOpt)
+		bs,
+		tut.NewTestDataTransfer(),
+		ds, ddOpt)
 	require.NoError(t, err)
 	require.NotNil(t, p)
 }

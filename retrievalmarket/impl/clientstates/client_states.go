@@ -4,12 +4,13 @@ import (
 	"context"
 
 	"github.com/filecoin-project/go-address"
+	datatransfer "github.com/filecoin-project/go-data-transfer"
 	"github.com/filecoin-project/go-statemachine/fsm"
 	"github.com/filecoin-project/specs-actors/actors/abi"
 	"github.com/filecoin-project/specs-actors/actors/abi/big"
+	peer "github.com/libp2p/go-libp2p-core/peer"
 
 	rm "github.com/filecoin-project/go-fil-markets/retrievalmarket"
-	rmnet "github.com/filecoin-project/go-fil-markets/retrievalmarket/network"
 )
 
 // ClientDealEnvironment is a bridge to the environment a client deal is executing in.
@@ -17,14 +18,23 @@ import (
 type ClientDealEnvironment interface {
 	// Node returns the node interface for this deal
 	Node() rm.RetrievalClientNode
-	// DealStream returns the relevant libp2p interface for this deal
-	DealStream(id rm.DealID) rmnet.RetrievalDealStream
-	// ConsumeBlock allows us to validate an incoming block sent over the retrieval protocol
-	ConsumeBlock(context.Context, rm.DealID, rm.Block) (uint64, bool, error)
+	OpenDataTransfer(ctx context.Context, to peer.ID, proposal *rm.DealProposal) (datatransfer.ChannelID, error)
+	SendDataTransferVoucher(context.Context, datatransfer.ChannelID, *rm.DealPayment) error
+	CloseDataTransfer(context.Context, datatransfer.ChannelID) error
+}
+
+// ProposeDeal sends the proposal to the other party
+func ProposeDeal(ctx fsm.Context, environment ClientDealEnvironment, deal rm.ClientDealState) error {
+	channelID, err := environment.OpenDataTransfer(ctx.Context(), deal.Sender, &deal.DealProposal)
+	if err != nil {
+		return ctx.Trigger(rm.ClientEventWriteDealProposalErrored, err)
+	}
+	return ctx.Trigger(rm.ClientEventDealProposed, channelID)
 }
 
 // SetupPaymentChannelStart initiates setting up a payment channel for a deal
 func SetupPaymentChannelStart(ctx fsm.Context, environment ClientDealEnvironment, deal rm.ClientDealState) error {
+
 	tok, _, err := environment.Node().GetChainHead(ctx.Context())
 	if err != nil {
 		return ctx.Trigger(rm.ClientEventPaymentChannelErrored, err)
@@ -71,41 +81,34 @@ func WaitForPaymentChannelAddFunds(ctx fsm.Context, environment ClientDealEnviro
 	return ctx.Trigger(rm.ClientEventPaymentChannelReady, deal.PaymentInfo.PayCh, lane)
 }
 
-// ProposeDeal sends the proposal to the other party
-func ProposeDeal(ctx fsm.Context, environment ClientDealEnvironment, deal rm.ClientDealState) error {
-	stream := environment.DealStream(deal.ID)
-	err := stream.WriteDealProposal(deal.DealProposal)
-	if err != nil {
-		return ctx.Trigger(rm.ClientEventWriteDealProposalErrored, err)
+// Ongoing just double checks that we may need to move out of the ongoing state cause a payment was previously requested
+func Ongoing(ctx fsm.Context, environment ClientDealEnvironment, deal rm.ClientDealState) error {
+	if deal.PaymentRequested.GreaterThan(big.Zero()) {
+		if deal.LastPaymentRequested {
+			return ctx.Trigger(rm.ClientEventLastPaymentRequested, big.Zero())
+		}
+		return ctx.Trigger(rm.ClientEventPaymentRequested, big.Zero())
 	}
-	response, err := stream.ReadDealResponse()
-	if err != nil {
-		return ctx.Trigger(rm.ClientEventReadDealResponseErrored, err)
-	}
-	switch response.Status {
-	case rm.DealStatusRejected:
-		return ctx.Trigger(rm.ClientEventDealRejected, response.Message)
-	case rm.DealStatusDealNotFound:
-		return ctx.Trigger(rm.ClientEventDealNotFound, response.Message)
-	case rm.DealStatusAccepted:
-		return ctx.Trigger(rm.ClientEventDealAccepted)
-	default:
-		return ctx.Trigger(rm.ClientEventUnknownResponseReceived)
-	}
+	return nil
 }
 
 // ProcessPaymentRequested processes a request for payment from the provider
 func ProcessPaymentRequested(ctx fsm.Context, environment ClientDealEnvironment, deal rm.ClientDealState) error {
+
+	// check that totalReceived - bytesPaidFor >= currentInterval, and send money if we meet that threshold
+	if deal.TotalReceived-deal.BytesPaidFor >= deal.CurrentInterval || deal.AllBlocksReceived {
+		return ctx.Trigger(rm.ClientEventSendFunds)
+	}
+	return nil
+}
+
+// SendFunds sends the next amount requested by the provider
+func SendFunds(ctx fsm.Context, environment ClientDealEnvironment, deal rm.ClientDealState) error {
 	// check that fundsSpent + paymentRequested <= totalFunds, or fail
 	if big.Add(deal.FundsSpent, deal.PaymentRequested).GreaterThan(deal.TotalFunds) {
 		expectedTotal := deal.TotalFunds.String()
 		actualTotal := big.Add(deal.FundsSpent, deal.PaymentRequested).String()
 		return ctx.Trigger(rm.ClientEventFundsExpended, expectedTotal, actualTotal)
-	}
-
-	// check that totalReceived - bytesPaidFor >= currentInterval, or fail
-	if (deal.TotalReceived-deal.BytesPaidFor < deal.CurrentInterval) && deal.Status != rm.DealStatusFundsNeededLastPayment {
-		return ctx.Trigger(rm.ClientEventBadPaymentRequested, "not enough bytes received between payment request")
 	}
 
 	// check that paymentRequest <= (totalReceived - bytesPaidFor) * pricePerByte, or fail
@@ -127,7 +130,7 @@ func ProcessPaymentRequested(ctx fsm.Context, environment ClientDealEnvironment,
 	}
 
 	// send payment voucher (or fail)
-	err = environment.DealStream(deal.ID).WriteDealPayment(rm.DealPayment{
+	err = environment.SendDataTransferVoucher(ctx.Context(), deal.ChannelID, &rm.DealPayment{
 		ID:             deal.DealProposal.ID,
 		PaymentChannel: deal.PaymentInfo.PayCh,
 		PaymentVoucher: voucher,
@@ -139,67 +142,13 @@ func ProcessPaymentRequested(ctx fsm.Context, environment ClientDealEnvironment,
 	return ctx.Trigger(rm.ClientEventPaymentSent)
 }
 
-// ProcessNextResponse reads and processes the next response from the provider
-func ProcessNextResponse(ctx fsm.Context, environment ClientDealEnvironment, deal rm.ClientDealState) error {
+// CancelDeal clears a deal that went wrong for an unknown reason
+func CancelDeal(ctx fsm.Context, environment ClientDealEnvironment, deal rm.ClientDealState) error {
 	// Read next response (or fail)
-	response, err := environment.DealStream(deal.ID).ReadDealResponse()
+	err := environment.CloseDataTransfer(ctx.Context(), deal.ChannelID)
 	if err != nil {
-		return ctx.Trigger(rm.ClientEventReadDealResponseErrored, err)
+		return ctx.Trigger(rm.ClientEventDataTransferError, err)
 	}
 
-	// Process Blocks
-	totalProcessed := uint64(0)
-	completed := deal.Status == rm.DealStatusBlocksComplete
-	if !completed {
-		var processed uint64
-		for _, block := range response.Blocks {
-			processed, completed, err = environment.ConsumeBlock(ctx.Context(), deal.ID, block)
-			if err != nil {
-				return ctx.Trigger(rm.ClientEventConsumeBlockFailed, err)
-			}
-			totalProcessed += processed
-			if completed {
-				break
-			}
-		}
-	}
-
-	if completed {
-		switch response.Status {
-		case rm.DealStatusFundsNeededLastPayment:
-			return ctx.Trigger(rm.ClientEventLastPaymentRequested, totalProcessed, response.PaymentOwed)
-		case rm.DealStatusBlocksComplete:
-			return ctx.Trigger(rm.ClientEventAllBlocksReceived, totalProcessed)
-		case rm.DealStatusCompleted:
-			return ctx.Trigger(rm.ClientEventComplete, totalProcessed)
-		default:
-			return ctx.Trigger(rm.ClientEventUnknownResponseReceived)
-		}
-	}
-	switch response.Status {
-	// Error on complete status, but not all blocks received
-	case rm.DealStatusFundsNeededLastPayment, rm.DealStatusCompleted:
-		return ctx.Trigger(rm.ClientEventEarlyTermination)
-	case rm.DealStatusFundsNeeded:
-		return ctx.Trigger(rm.ClientEventPaymentRequested, totalProcessed, response.PaymentOwed)
-	case rm.DealStatusOngoing:
-		return ctx.Trigger(rm.ClientEventBlocksReceived, totalProcessed)
-	default:
-		return ctx.Trigger(rm.ClientEventUnknownResponseReceived)
-	}
-}
-
-// Finalize completes a deal
-func Finalize(ctx fsm.Context, environment ClientDealEnvironment, deal rm.ClientDealState) error {
-	// Read next response (or fail)
-	response, err := environment.DealStream(deal.ID).ReadDealResponse()
-	if err != nil {
-		return ctx.Trigger(rm.ClientEventReadDealResponseErrored, err)
-	}
-
-	if response.Status != rm.DealStatusCompleted {
-		return ctx.Trigger(rm.ClientEventUnknownResponseReceived)
-	}
-
-	return ctx.Trigger(rm.ClientEventComplete, uint64(0))
+	return ctx.Trigger(rm.ClientEventCancelComplete)
 }

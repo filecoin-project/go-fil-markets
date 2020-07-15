@@ -3,27 +3,23 @@ package retrievalimpl
 import (
 	"context"
 	"errors"
-	"reflect"
-	"sync"
 
 	"github.com/filecoin-project/go-address"
+	datatransfer "github.com/filecoin-project/go-data-transfer"
 	"github.com/filecoin-project/go-statemachine/fsm"
 	"github.com/filecoin-project/specs-actors/actors/abi"
+	"github.com/hannahhoward/go-pubsub"
 	"github.com/ipfs/go-cid"
 	"github.com/ipfs/go-datastore"
 	blockstore "github.com/ipfs/go-ipfs-blockstore"
-	"github.com/ipld/go-ipld-prime"
-	cidlink "github.com/ipld/go-ipld-prime/linking/cid"
 	"golang.org/x/xerrors"
 
-	"github.com/filecoin-project/go-fil-markets/pieceio/cario"
 	"github.com/filecoin-project/go-fil-markets/piecestore"
 	"github.com/filecoin-project/go-fil-markets/retrievalmarket"
-	"github.com/filecoin-project/go-fil-markets/retrievalmarket/impl/blockio"
-	"github.com/filecoin-project/go-fil-markets/retrievalmarket/impl/blockunsealing"
+	"github.com/filecoin-project/go-fil-markets/retrievalmarket/impl/dtutils"
 	"github.com/filecoin-project/go-fil-markets/retrievalmarket/impl/providerstates"
+	"github.com/filecoin-project/go-fil-markets/retrievalmarket/impl/requestvalidation"
 	rmnet "github.com/filecoin-project/go-fil-markets/retrievalmarket/network"
-	"github.com/filecoin-project/go-fil-markets/shared"
 )
 
 // RetrievalProviderOption is a function that configures a retrieval provider
@@ -35,25 +31,40 @@ type DealDecider func(ctx context.Context, state retrievalmarket.ProviderDealSta
 // Provider is the production implementation of the RetrievalProvider interface
 type Provider struct {
 	bs                      blockstore.Blockstore
+	dataTransfer            datatransfer.Manager
 	node                    retrievalmarket.RetrievalProviderNode
 	network                 rmnet.RetrievalMarketNetwork
 	paymentInterval         uint64
 	paymentIntervalIncrease uint64
+	requestValidator        *requestvalidation.ProviderRequestValidator
+	revalidator             *requestvalidation.ProviderRevalidator
 	minerAddress            address.Address
 	pieceStore              piecestore.PieceStore
 	pricePerByte            abi.TokenAmount
-	subscribers             []retrievalmarket.ProviderSubscriber
-	subscribersLk           sync.RWMutex
-	dealStreams             map[retrievalmarket.ProviderDealIdentifier]rmnet.RetrievalDealStream
-	dealStreamsLk           sync.Mutex
-	blockReaders            map[retrievalmarket.ProviderDealIdentifier]blockio.BlockReader
-	blockReadersLk          sync.Mutex
+	subscribers             *pubsub.PubSub
 	stateMachines           fsm.Group
 	dealDecider             DealDecider
 }
 
+type internalProviderEvent struct {
+	evt   retrievalmarket.ProviderEvent
+	state retrievalmarket.ProviderDealState
+}
+
+func providerDispatcher(evt pubsub.Event, subscriberFn pubsub.SubscriberFn) error {
+	ie, ok := evt.(internalProviderEvent)
+	if !ok {
+		return errors.New("wrong type of event")
+	}
+	cb, ok := subscriberFn.(retrievalmarket.ProviderSubscriber)
+	if !ok {
+		return errors.New("wrong type of event")
+	}
+	cb(ie.evt, ie.state)
+	return nil
+}
+
 var _ retrievalmarket.RetrievalProvider = new(Provider)
-var _ providerstates.ProviderDealEnvironment = new(providerDealEnvironment)
 
 // DefaultPricePerByte is the charge per byte retrieved if the miner does
 // not specifically set it
@@ -75,22 +86,27 @@ func DealDeciderOpt(dd DealDecider) RetrievalProviderOption {
 }
 
 // NewProvider returns a new retrieval Provider
-func NewProvider(minerAddress address.Address, node retrievalmarket.RetrievalProviderNode,
-	network rmnet.RetrievalMarketNetwork, pieceStore piecestore.PieceStore,
-	bs blockstore.Blockstore, ds datastore.Batching, opts ...RetrievalProviderOption,
+func NewProvider(minerAddress address.Address,
+	node retrievalmarket.RetrievalProviderNode,
+	network rmnet.RetrievalMarketNetwork,
+	pieceStore piecestore.PieceStore,
+	bs blockstore.Blockstore,
+	dataTransfer datatransfer.Manager,
+	ds datastore.Batching,
+	opts ...RetrievalProviderOption,
 ) (retrievalmarket.RetrievalProvider, error) {
 
 	p := &Provider{
 		bs:                      bs,
+		dataTransfer:            dataTransfer,
 		node:                    node,
 		network:                 network,
 		minerAddress:            minerAddress,
 		pieceStore:              pieceStore,
 		pricePerByte:            DefaultPricePerByte, // TODO: allow setting
+		subscribers:             pubsub.New(providerDispatcher),
 		paymentInterval:         DefaultPaymentInterval,
 		paymentIntervalIncrease: DefaultPaymentIntervalIncrease,
-		dealStreams:             make(map[retrievalmarket.ProviderDealIdentifier]rmnet.RetrievalDealStream),
-		blockReaders:            make(map[retrievalmarket.ProviderDealIdentifier]blockio.BlockReader),
 	}
 	statemachines, err := fsm.New(ds, fsm.Parameters{
 		Environment:     &providerDealEnvironment{p},
@@ -105,6 +121,21 @@ func NewProvider(minerAddress address.Address, node retrievalmarket.RetrievalPro
 	}
 	p.Configure(opts...)
 	p.stateMachines = statemachines
+	p.requestValidator = requestvalidation.NewProviderRequestValidator(&providerValidationEnvironment{p})
+	err = p.dataTransfer.RegisterVoucherType(&retrievalmarket.DealProposal{}, p.requestValidator)
+	if err != nil {
+		return nil, err
+	}
+	p.revalidator = requestvalidation.NewProviderRevalidator(&providerRevalidatorEnvironment{p})
+	err = p.dataTransfer.RegisterRevalidator(&retrievalmarket.DealPayment{}, p.revalidator)
+	if err != nil {
+		return nil, err
+	}
+	err = p.dataTransfer.RegisterVoucherResultType(&retrievalmarket.DealResponse{})
+	if err != nil {
+		return nil, err
+	}
+	dataTransfer.SubscribeToEvents(dtutils.ProviderDataTransferSubscriber(p.stateMachines))
 	return p, nil
 }
 
@@ -133,41 +164,15 @@ func (p *Provider) SetPaymentInterval(paymentInterval uint64, paymentIntervalInc
 	p.paymentIntervalIncrease = paymentIntervalIncrease
 }
 
-// unsubscribeAt returns a function that removes an item from the subscribers list by comparing
-// their reflect.ValueOf before pulling the item out of the slice.  Does not preserve order.
-// Subsequent, repeated calls to the func with the same Subscriber are a no-op.
-func (p *Provider) unsubscribeAt(sub retrievalmarket.ProviderSubscriber) retrievalmarket.Unsubscribe {
-	return func() {
-		p.subscribersLk.Lock()
-		defer p.subscribersLk.Unlock()
-		curLen := len(p.subscribers)
-		for i, el := range p.subscribers {
-			if reflect.ValueOf(sub) == reflect.ValueOf(el) {
-				p.subscribers[i] = p.subscribers[curLen-1]
-				p.subscribers = p.subscribers[:curLen-1]
-				return
-			}
-		}
-	}
-}
-
 func (p *Provider) notifySubscribers(eventName fsm.EventName, state fsm.StateType) {
-	p.subscribersLk.RLock()
-	defer p.subscribersLk.RUnlock()
 	evt := eventName.(retrievalmarket.ProviderEvent)
 	ds := state.(retrievalmarket.ProviderDealState)
-	for _, cb := range p.subscribers {
-		cb(evt, ds)
-	}
+	_ = p.subscribers.Publish(internalProviderEvent{evt, ds})
 }
 
 // SubscribeToEvents listens for events that happen related to client retrievals
 func (p *Provider) SubscribeToEvents(subscriber retrievalmarket.ProviderSubscriber) retrievalmarket.Unsubscribe {
-	p.subscribersLk.Lock()
-	p.subscribers = append(p.subscribers, subscriber)
-	p.subscribersLk.Unlock()
-
-	return p.unsubscribeAt(subscriber)
+	return retrievalmarket.Unsubscribe(p.subscribers.Subscribe(subscriber))
 }
 
 // V1
@@ -177,12 +182,12 @@ func (p *Provider) SetPricePerUnseal(price abi.TokenAmount) {
 }
 
 // ListDeals lists in all known retrieval deals
-func (p *Provider) ListDeals() map[retrievalmarket.ProviderDealID]retrievalmarket.ProviderDealState {
+func (p *Provider) ListDeals() map[retrievalmarket.ProviderDealIdentifier]retrievalmarket.ProviderDealState {
 	var deals []retrievalmarket.ProviderDealState
 	_ = p.stateMachines.List(&deals)
-	dealMap := make(map[retrievalmarket.ProviderDealID]retrievalmarket.ProviderDealState)
+	dealMap := make(map[retrievalmarket.ProviderDealIdentifier]retrievalmarket.ProviderDealState)
 	for _, deal := range deals {
-		dealMap[retrievalmarket.ProviderDealID{From: deal.Receiver, ID: deal.ID}] = deal
+		dealMap[retrievalmarket.ProviderDealIdentifier{Receiver: deal.Receiver, DealID: deal.ID}] = deal
 	}
 	return dealMap
 }
@@ -259,162 +264,11 @@ func (p *Provider) HandleQueryStream(stream rmnet.RetrievalQueryStream) {
 	}
 }
 
-/*
-HandleDealStream is called by the network implementation whenever a new message is received on the deal protocol
-
-When a provider receives a DealProposal of the deal protocol, it takes the following steps:
-
-1. Tells its statemachine to begin tracking this deal state by dealID.
-
-2. Constructs a `blockunsealing.LoaderWithUnsealing` that abstracts the process of unsealing pieces as needed when loading blocks
-
-3. Constructs a `blockio.BlockReader` and adds it to its dealID-keyed map of block readers.
-
-4. Triggers a `ProviderEventOpen` event on its statemachine.
-
-From then on, the statemachine controls the deal flow in the client. Other components may listen for events in this flow by calling
-`SubscribeToEvents` on the Provider. The Provider handles loading the next block to send to the client.*/
-func (p *Provider) HandleDealStream(stream rmnet.RetrievalDealStream) {
-	// read deal proposal (or fail)
-	err := p.newProviderDeal(stream)
-	if err != nil {
-		log.Error(err)
-		stream.Close()
-	}
-}
-
 // Configure reconfigures a provider after initialization
 func (p *Provider) Configure(opts ...RetrievalProviderOption) {
 	for _, opt := range opts {
 		opt(p)
 	}
-}
-
-func (p *Provider) newProviderDeal(stream rmnet.RetrievalDealStream) error {
-	dealProposal, err := stream.ReadDealProposal()
-	if err != nil {
-		return err
-	}
-
-	pds := retrievalmarket.ProviderDealState{
-		DealProposal: dealProposal,
-		Receiver:     stream.Receiver(),
-	}
-
-	p.dealStreamsLk.Lock()
-	p.dealStreams[pds.Identifier()] = stream
-	p.dealStreamsLk.Unlock()
-
-	loaderWithUnsealing := blockunsealing.NewLoaderWithUnsealing(context.TODO(), p.bs, p.pieceStore, cario.NewCarIO(), p.node.UnsealSector, dealProposal.PieceCID)
-
-	// validate the selector, if provided
-	var sel ipld.Node
-	if dealProposal.Params.Selector != nil {
-		sel, err = retrievalmarket.DecodeNode(dealProposal.Params.Selector)
-		if err != nil {
-			return xerrors.Errorf("selector is invalid: %w", err)
-		}
-	} else {
-		sel = shared.AllSelector()
-	}
-
-	br := blockio.NewSelectorBlockReader(cidlink.Link{Cid: dealProposal.PayloadCID}, sel, loaderWithUnsealing.Load)
-	p.blockReadersLk.Lock()
-	p.blockReaders[pds.Identifier()] = br
-	p.blockReadersLk.Unlock()
-
-	// start the deal processing, synchronously so we can log the error and close the stream if it doesn't start
-	err = p.stateMachines.Begin(pds.Identifier(), &pds)
-	if err != nil {
-		return err
-	}
-
-	err = p.stateMachines.Send(pds.Identifier(), retrievalmarket.ProviderEventOpen)
-	if err != nil {
-		return err
-	}
-
-	return nil
-}
-
-type providerDealEnvironment struct {
-	p *Provider
-}
-
-func (p *providerDealEnvironment) Node() retrievalmarket.RetrievalProviderNode {
-	return p.p.node
-}
-
-func (p *providerDealEnvironment) DealStream(id retrievalmarket.ProviderDealIdentifier) rmnet.RetrievalDealStream {
-	p.p.dealStreamsLk.Lock()
-	defer p.p.dealStreamsLk.Unlock()
-	return p.p.dealStreams[id]
-}
-
-func (p *providerDealEnvironment) CheckDealParams(pricePerByte abi.TokenAmount, paymentInterval uint64, paymentIntervalIncrease uint64) error {
-	if pricePerByte.LessThan(p.p.pricePerByte) {
-		return errors.New("Price per byte too low")
-	}
-	if paymentInterval > p.p.paymentInterval {
-		return errors.New("Payment interval too large")
-	}
-	if paymentIntervalIncrease > p.p.paymentIntervalIncrease {
-		return errors.New("Payment interval increase too large")
-	}
-	return nil
-}
-
-func (p *providerDealEnvironment) NextBlock(ctx context.Context, id retrievalmarket.ProviderDealIdentifier) (retrievalmarket.Block, bool, error) {
-	p.p.blockReadersLk.Lock()
-	br, ok := p.p.blockReaders[id]
-	p.p.blockReadersLk.Unlock()
-	if !ok {
-		return retrievalmarket.Block{}, false, errors.New("Could not read block")
-	}
-	return br.ReadBlock(ctx)
-}
-
-func (p *providerDealEnvironment) GetPieceSize(c cid.Cid, pieceCID *cid.Cid) (uint64, error) {
-	inPieceCid := cid.Undef
-	if pieceCID != nil {
-		inPieceCid = *pieceCID
-	}
-	pieceInfo, err := getPieceInfoFromCid(p.p.pieceStore, c, inPieceCid)
-	if err != nil {
-		return 0, err
-	}
-	if len(pieceInfo.Deals) == 0 {
-		return 0, errors.New("Not enough piece info")
-	}
-	return pieceInfo.Deals[0].Length, nil
-}
-
-func (p *providerDealEnvironment) RunDealDecisioningLogic(ctx context.Context, state retrievalmarket.ProviderDealState) (bool, string, error) {
-	if p.p.dealDecider == nil {
-		return true, "", nil
-	}
-	return p.p.dealDecider(ctx, state)
-}
-
-func getPieceInfoFromCid(pieceStore piecestore.PieceStore, payloadCID, pieceCID cid.Cid) (piecestore.PieceInfo, error) {
-	cidInfo, err := pieceStore.GetCIDInfo(payloadCID)
-	if err != nil {
-		return piecestore.PieceInfoUndefined, xerrors.Errorf("get cid info: %w", err)
-	}
-	var lastErr error
-	for _, pieceBlockLocation := range cidInfo.PieceBlockLocations {
-		pieceInfo, err := pieceStore.GetPieceInfo(pieceBlockLocation.PieceCID)
-		if err == nil {
-			if pieceCID.Equals(cid.Undef) || pieceInfo.PieceCID.Equals(pieceCID) {
-				return pieceInfo, nil
-			}
-		}
-		lastErr = err
-	}
-	if lastErr == nil {
-		lastErr = xerrors.Errorf("unknown pieceCID %s", pieceCID.String())
-	}
-	return piecestore.PieceInfoUndefined, xerrors.Errorf("could not locate piece: %w", lastErr)
 }
 
 // ProviderFSMParameterSpec is a valid set of parameters for a provider FSM - used in doc generation

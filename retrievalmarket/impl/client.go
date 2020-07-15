@@ -2,24 +2,23 @@ package retrievalimpl
 
 import (
 	"context"
-	"reflect"
-	"sync"
+	"errors"
 
 	"github.com/filecoin-project/go-address"
+	datatransfer "github.com/filecoin-project/go-data-transfer"
 	"github.com/filecoin-project/go-statemachine/fsm"
 	"github.com/filecoin-project/specs-actors/actors/abi"
-	blocks "github.com/ipfs/go-block-format"
+	"github.com/hannahhoward/go-pubsub"
 	"github.com/ipfs/go-cid"
 	"github.com/ipfs/go-datastore"
 	blockstore "github.com/ipfs/go-ipfs-blockstore"
 	logging "github.com/ipfs/go-log/v2"
-	cidlink "github.com/ipld/go-ipld-prime/linking/cid"
 	"github.com/libp2p/go-libp2p-core/peer"
 	"golang.org/x/xerrors"
 
 	"github.com/filecoin-project/go-fil-markets/retrievalmarket"
-	"github.com/filecoin-project/go-fil-markets/retrievalmarket/impl/blockio"
 	"github.com/filecoin-project/go-fil-markets/retrievalmarket/impl/clientstates"
+	"github.com/filecoin-project/go-fil-markets/retrievalmarket/impl/dtutils"
 	rmnet "github.com/filecoin-project/go-fil-markets/retrievalmarket/network"
 	"github.com/filecoin-project/go-fil-markets/shared"
 
@@ -31,18 +30,32 @@ var log = logging.Logger("retrieval")
 // Client is the production implementation of the RetrievalClient interface
 type Client struct {
 	network       rmnet.RetrievalMarketNetwork
+	dataTransfer  datatransfer.Manager
 	bs            blockstore.Blockstore
 	node          retrievalmarket.RetrievalClientNode
 	storedCounter *storedcounter.StoredCounter
 
-	subscribersLk    sync.RWMutex
-	subscribers      []retrievalmarket.ClientSubscriber
-	resolver         retrievalmarket.PeerResolver
-	blockVerifiers   map[retrievalmarket.DealID]blockio.BlockVerifier
-	blockVerifiersLk sync.Mutex
-	dealStreams      map[retrievalmarket.DealID]rmnet.RetrievalDealStream
-	dealStreamsLk    sync.Mutex
-	stateMachines    fsm.Group
+	subscribers   *pubsub.PubSub
+	resolver      retrievalmarket.PeerResolver
+	stateMachines fsm.Group
+}
+
+type internalEvent struct {
+	evt   retrievalmarket.ClientEvent
+	state retrievalmarket.ClientDealState
+}
+
+func dispatcher(evt pubsub.Event, subscriberFn pubsub.SubscriberFn) error {
+	ie, ok := evt.(internalEvent)
+	if !ok {
+		return errors.New("wrong type of event")
+	}
+	cb, ok := subscriberFn.(retrievalmarket.ClientSubscriber)
+	if !ok {
+		return errors.New("wrong type of event")
+	}
+	cb(ie.evt, ie.state)
+	return nil
 }
 
 var _ retrievalmarket.RetrievalClient = &Client{}
@@ -51,19 +64,20 @@ var _ retrievalmarket.RetrievalClient = &Client{}
 func NewClient(
 	network rmnet.RetrievalMarketNetwork,
 	bs blockstore.Blockstore,
+	dataTransfer datatransfer.Manager,
 	node retrievalmarket.RetrievalClientNode,
 	resolver retrievalmarket.PeerResolver,
 	ds datastore.Batching,
 	storedCounter *storedcounter.StoredCounter,
 ) (retrievalmarket.RetrievalClient, error) {
 	c := &Client{
-		network:        network,
-		bs:             bs,
-		node:           node,
-		resolver:       resolver,
-		storedCounter:  storedCounter,
-		dealStreams:    make(map[retrievalmarket.DealID]rmnet.RetrievalDealStream),
-		blockVerifiers: make(map[retrievalmarket.DealID]blockio.BlockVerifier),
+		network:       network,
+		bs:            bs,
+		dataTransfer:  dataTransfer,
+		node:          node,
+		resolver:      resolver,
+		storedCounter: storedCounter,
+		subscribers:   pubsub.New(dispatcher),
 	}
 	stateMachines, err := fsm.New(ds, fsm.Parameters{
 		Environment:     &clientDealEnvironment{c},
@@ -71,12 +85,26 @@ func NewClient(
 		StateKeyField:   "Status",
 		Events:          clientstates.ClientEvents,
 		StateEntryFuncs: clientstates.ClientStateEntryFuncs,
+		FinalityStates:  clientstates.ClientFinalityStates,
 		Notifier:        c.notifySubscribers,
 	})
 	if err != nil {
 		return nil, err
 	}
 	c.stateMachines = stateMachines
+	err = dataTransfer.RegisterVoucherResultType(&retrievalmarket.DealResponse{})
+	if err != nil {
+		return nil, err
+	}
+	err = dataTransfer.RegisterVoucherType(&retrievalmarket.DealProposal{}, nil)
+	if err != nil {
+		return nil, err
+	}
+	err = dataTransfer.RegisterVoucherType(&retrievalmarket.DealPayment{}, nil)
+	if err != nil {
+		return nil, err
+	}
+	dataTransfer.SubscribeToEvents(dtutils.ClientDataTransferSubscriber(c.stateMachines))
 	return c, nil
 }
 
@@ -180,73 +208,24 @@ func (c *Client) Retrieve(ctx context.Context, payloadCID cid.Cid, params retrie
 		return 0, err
 	}
 
-	// open stream
-	s, err := c.network.NewDealStream(dealState.Sender)
-	if err != nil {
-		return 0, err
-	}
-
-	c.dealStreamsLk.Lock()
-	c.dealStreams[dealID] = s
-	c.dealStreamsLk.Unlock()
-
-	sel := shared.AllSelector()
-	if params.Selector != nil {
-		sel, err = retrievalmarket.DecodeNode(params.Selector)
-		if err != nil {
-			return 0, xerrors.Errorf("selector is invalid: %w", err)
-		}
-	}
-
-	c.blockVerifiersLk.Lock()
-	c.blockVerifiers[dealID] = blockio.NewSelectorVerifier(cidlink.Link{Cid: dealState.DealProposal.PayloadCID}, sel)
-	c.blockVerifiersLk.Unlock()
-
 	err = c.stateMachines.Send(dealState.ID, retrievalmarket.ClientEventOpen)
 	if err != nil {
-		s.Close()
 		return 0, err
 	}
 
 	return dealID, nil
 }
 
-// unsubscribeAt returns a function that removes an item from the subscribers list by comparing
-// their reflect.ValueOf before pulling the item out of the slice.  Does not preserve order.
-// Subsequent, repeated calls to the func with the same Subscriber are a no-op.
-func (c *Client) unsubscribeAt(sub retrievalmarket.ClientSubscriber) retrievalmarket.Unsubscribe {
-	return func() {
-		c.subscribersLk.Lock()
-		defer c.subscribersLk.Unlock()
-		curLen := len(c.subscribers)
-		for i, el := range c.subscribers {
-			if reflect.ValueOf(sub) == reflect.ValueOf(el) {
-				c.subscribers[i] = c.subscribers[curLen-1]
-				c.subscribers = c.subscribers[:curLen-1]
-				return
-			}
-		}
-	}
-}
-
 func (c *Client) notifySubscribers(eventName fsm.EventName, state fsm.StateType) {
-	c.subscribersLk.RLock()
-	defer c.subscribersLk.RUnlock()
 	evt := eventName.(retrievalmarket.ClientEvent)
 	ds := state.(retrievalmarket.ClientDealState)
-	for _, cb := range c.subscribers {
-		cb(evt, ds)
-	}
+	_ = c.subscribers.Publish(internalEvent{evt, ds})
 }
 
 // SubscribeToEvents allows another component to listen for events on the RetrievalClient
 // in order to track deals as they progress through the deal flow
 func (c *Client) SubscribeToEvents(subscriber retrievalmarket.ClientSubscriber) retrievalmarket.Unsubscribe {
-	c.subscribersLk.Lock()
-	c.subscribers = append(c.subscribers, subscriber)
-	c.subscribersLk.Unlock()
-
-	return c.unsubscribeAt(subscriber)
+	return retrievalmarket.Unsubscribe(c.subscribers.Subscribe(subscriber))
 }
 
 // V1
@@ -273,58 +252,36 @@ func (c *Client) ListDeals() map[retrievalmarket.DealID]retrievalmarket.ClientDe
 	return dealMap
 }
 
+var _ clientstates.ClientDealEnvironment = &clientDealEnvironment{}
+
 type clientDealEnvironment struct {
 	c *Client
 }
 
+// Node returns the node interface for this deal
 func (c *clientDealEnvironment) Node() retrievalmarket.RetrievalClientNode {
 	return c.c.node
 }
 
-func (c *clientDealEnvironment) DealStream(dealID retrievalmarket.DealID) rmnet.RetrievalDealStream {
-	c.c.dealStreamsLk.Lock()
-	defer c.c.dealStreamsLk.Unlock()
-	return c.c.dealStreams[dealID]
+func (c *clientDealEnvironment) OpenDataTransfer(ctx context.Context, to peer.ID, proposal *retrievalmarket.DealProposal) (datatransfer.ChannelID, error) {
+	sel := shared.AllSelector()
+	if proposal.Selector != nil {
+		var err error
+		sel, err = retrievalmarket.DecodeNode(proposal.Selector)
+		if err != nil {
+			return datatransfer.ChannelID{}, xerrors.Errorf("selector is invalid: %w", err)
+		}
+	}
+
+	return c.c.dataTransfer.OpenPullDataChannel(ctx, to, proposal, proposal.PayloadCID, sel)
 }
 
-func (c *clientDealEnvironment) ConsumeBlock(ctx context.Context, dealID retrievalmarket.DealID, block retrievalmarket.Block) (uint64, bool, error) {
-	prefix, err := cid.PrefixFromBytes(block.Prefix)
-	if err != nil {
-		return 0, false, err
-	}
+func (c *clientDealEnvironment) SendDataTransferVoucher(ctx context.Context, channelID datatransfer.ChannelID, payment *retrievalmarket.DealPayment) error {
+	return c.c.dataTransfer.SendVoucher(ctx, channelID, payment)
+}
 
-	scid, err := prefix.Sum(block.Data)
-	if err != nil {
-		return 0, false, err
-	}
-
-	blk, err := blocks.NewBlockWithCid(block.Data, scid)
-	if err != nil {
-		return 0, false, err
-	}
-
-	c.c.blockVerifiersLk.Lock()
-	verifier, ok := c.c.blockVerifiers[dealID]
-	c.c.blockVerifiersLk.Unlock()
-	if !ok {
-		return 0, false, xerrors.New("no block verifier found")
-	}
-
-	done, err := verifier.Verify(ctx, blk)
-	if err != nil {
-		log.Warnf("block verify failed: %s", err)
-		return 0, false, err
-	}
-
-	// TODO: Smarter out, maybe add to filestore automagically
-	//  (Also, persist intermediate nodes)
-	err = c.c.bs.Put(blk)
-	if err != nil {
-		log.Warnf("block write failed: %s", err)
-		return 0, false, err
-	}
-
-	return uint64(len(block.Data)), done, nil
+func (c *clientDealEnvironment) CloseDataTransfer(ctx context.Context, channelID datatransfer.ChannelID) error {
+	return c.c.dataTransfer.CloseDataTransferChannel(ctx, channelID)
 }
 
 // ClientFSMParameterSpec is a valid set of parameters for a client deal FSM - used in doc generation

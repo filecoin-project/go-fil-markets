@@ -23,12 +23,41 @@ import (
 	"github.com/filecoin-project/go-storedcounter"
 )
 
+func TestClient_Construction(t *testing.T) {
+
+	ds := dss.MutexWrap(datastore.NewMapDatastore())
+	storedCounter := storedcounter.New(ds, datastore.NewKey("nextDealID"))
+	bs := bstore.NewBlockstore(ds)
+	dt := tut.NewTestDataTransfer()
+	net := tut.NewTestRetrievalMarketNetwork(tut.TestNetworkParams{})
+	_, err := retrievalimpl.NewClient(
+		net,
+		bs,
+		dt,
+		testnodes.NewTestRetrievalClientNode(testnodes.TestRetrievalClientNodeParams{}),
+		&tut.TestPeerResolver{},
+		ds,
+		storedCounter)
+	require.NoError(t, err)
+
+	require.Len(t, dt.Subscribers, 1)
+	require.Len(t, dt.RegisteredVoucherResultTypes, 1)
+	_, ok := dt.RegisteredVoucherResultTypes[0].(*retrievalmarket.DealResponse)
+	require.True(t, ok)
+	require.Len(t, dt.RegisteredVoucherTypes, 2)
+	_, ok = dt.RegisteredVoucherTypes[0].VoucherType.(*retrievalmarket.DealProposal)
+	require.True(t, ok)
+	_, ok = dt.RegisteredVoucherTypes[1].VoucherType.(*retrievalmarket.DealPayment)
+	require.True(t, ok)
+}
+
 func TestClient_Query(t *testing.T) {
 	ctx := context.Background()
 
 	ds := dss.MutexWrap(datastore.NewMapDatastore())
 	storedCounter := storedcounter.New(ds, datastore.NewKey("nextDealID"))
 	bs := bstore.NewBlockstore(ds)
+	dt := tut.NewTestDataTransfer()
 
 	pcid := tut.GenerateCids(1)[0]
 	expectedPeer := peer.ID("somevalue")
@@ -63,6 +92,7 @@ func TestClient_Query(t *testing.T) {
 		c, err := retrievalimpl.NewClient(
 			net,
 			bs,
+			dt,
 			testnodes.NewTestRetrievalClientNode(testnodes.TestRetrievalClientNodeParams{}),
 			&tut.TestPeerResolver{},
 			ds,
@@ -82,6 +112,7 @@ func TestClient_Query(t *testing.T) {
 		c, err := retrievalimpl.NewClient(
 			net,
 			bs,
+			dt,
 			testnodes.NewTestRetrievalClientNode(testnodes.TestRetrievalClientNodeParams{}),
 			&tut.TestPeerResolver{},
 			ds,
@@ -108,6 +139,7 @@ func TestClient_Query(t *testing.T) {
 		c, err := retrievalimpl.NewClient(
 			net,
 			bs,
+			dt,
 			testnodes.NewTestRetrievalClientNode(testnodes.TestRetrievalClientNodeParams{}),
 			&tut.TestPeerResolver{},
 			ds,
@@ -133,6 +165,7 @@ func TestClient_Query(t *testing.T) {
 		c, err := retrievalimpl.NewClient(
 			net,
 			bs,
+			dt,
 			testnodes.NewTestRetrievalClientNode(testnodes.TestRetrievalClientNodeParams{}),
 			&tut.TestPeerResolver{},
 			ds,
@@ -149,6 +182,7 @@ func TestClient_FindProviders(t *testing.T) {
 	ds := dss.MutexWrap(datastore.NewMapDatastore())
 	storedCounter := storedcounter.New(ds, datastore.NewKey("nextDealID"))
 	bs := bstore.NewBlockstore(ds)
+	dt := tut.NewTestDataTransfer()
 	expectedPeer := peer.ID("somevalue")
 
 	var qsb tut.QueryStreamBuilder = func(p peer.ID) (rmnet.RetrievalQueryStream, error) {
@@ -165,7 +199,7 @@ func TestClient_FindProviders(t *testing.T) {
 		peers := tut.RequireGenerateRetrievalPeers(t, 3)
 		testResolver := tut.TestPeerResolver{Peers: peers}
 
-		c, err := retrievalimpl.NewClient(net, bs, &testnodes.TestRetrievalClientNode{}, &testResolver, ds, storedCounter)
+		c, err := retrievalimpl.NewClient(net, bs, dt, &testnodes.TestRetrievalClientNode{}, &testResolver, ds, storedCounter)
 		require.NoError(t, err)
 
 		testCid := tut.GenerateCids(1)[0]
@@ -174,7 +208,7 @@ func TestClient_FindProviders(t *testing.T) {
 
 	t.Run("when there is an error, returns empty provider list", func(t *testing.T) {
 		testResolver := tut.TestPeerResolver{Peers: []retrievalmarket.RetrievalPeer{}, ResolverError: errors.New("boom")}
-		c, err := retrievalimpl.NewClient(net, bs, &testnodes.TestRetrievalClientNode{}, &testResolver, ds, storedCounter)
+		c, err := retrievalimpl.NewClient(net, bs, dt, &testnodes.TestRetrievalClientNode{}, &testResolver, ds, storedCounter)
 		require.NoError(t, err)
 
 		badCid := tut.GenerateCids(1)[0]
@@ -183,7 +217,7 @@ func TestClient_FindProviders(t *testing.T) {
 
 	t.Run("when there are no providers", func(t *testing.T) {
 		testResolver := tut.TestPeerResolver{Peers: []retrievalmarket.RetrievalPeer{}}
-		c, err := retrievalimpl.NewClient(net, bs, &testnodes.TestRetrievalClientNode{}, &testResolver, ds, storedCounter)
+		c, err := retrievalimpl.NewClient(net, bs, dt, &testnodes.TestRetrievalClientNode{}, &testResolver, ds, storedCounter)
 		require.NoError(t, err)
 
 		testCid := tut.GenerateCids(1)[0]

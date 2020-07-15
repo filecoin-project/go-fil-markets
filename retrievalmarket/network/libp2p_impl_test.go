@@ -2,13 +2,9 @@ package network_test
 
 import (
 	"context"
-	"math/big"
-	"math/rand"
 	"testing"
 	"time"
 
-	"github.com/filecoin-project/go-address"
-	"github.com/filecoin-project/specs-actors/actors/abi"
 	"github.com/libp2p/go-libp2p-core/peer"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -20,16 +16,9 @@ import (
 
 type testReceiver struct {
 	t                  *testing.T
-	dealStreamHandler  func(network.RetrievalDealStream)
 	queryStreamHandler func(network.RetrievalQueryStream)
 }
 
-func (tr *testReceiver) HandleDealStream(s network.RetrievalDealStream) {
-	defer s.Close()
-	if tr.dealStreamHandler != nil {
-		tr.dealStreamHandler(s)
-	}
-}
 func (tr *testReceiver) HandleQueryStream(s network.RetrievalQueryStream) {
 	defer s.Close()
 	if tr.queryStreamHandler != nil {
@@ -128,144 +117,6 @@ func TestQueryStreamSendReceiveMultipleSuccessful(t *testing.T) {
 	assert.Equal(t, qr, resp)
 }
 
-func TestDealStreamSendReceiveDealProposal(t *testing.T) {
-	// send proposal, read in handler
-	ctx := context.Background()
-	td := shared_testutil.NewLibp2pTestData(ctx, t)
-	fromNetwork := network.NewFromLibp2pHost(td.Host1)
-	toNetwork := network.NewFromLibp2pHost(td.Host2)
-	toHost := td.Host2.ID()
-
-	tr := &testReceiver{t: t}
-	require.NoError(t, fromNetwork.SetDelegate(tr))
-
-	dchan := make(chan retrievalmarket.DealProposal)
-	tr2 := &testReceiver{
-		t: t,
-		dealStreamHandler: func(s network.RetrievalDealStream) {
-			readD, err := s.ReadDealProposal()
-			require.NoError(t, err)
-			dchan <- readD
-		},
-	}
-	require.NoError(t, toNetwork.SetDelegate(tr2))
-
-	assertDealProposalReceived(ctx, t, fromNetwork, toHost, dchan)
-}
-
-func TestDealStreamSendReceiveDealResponse(t *testing.T) {
-	ctx := context.Background()
-	td := shared_testutil.NewLibp2pTestData(ctx, t)
-	fromNetwork := network.NewFromLibp2pHost(td.Host1)
-	toNetwork := network.NewFromLibp2pHost(td.Host2)
-	toPeer := td.Host2.ID()
-
-	tr := &testReceiver{t: t}
-	require.NoError(t, fromNetwork.SetDelegate(tr))
-
-	drChan := make(chan retrievalmarket.DealResponse)
-	tr2 := &testReceiver{
-		t: t,
-		dealStreamHandler: func(s network.RetrievalDealStream) {
-			readDP, err := s.ReadDealResponse()
-			require.NoError(t, err)
-			drChan <- readDP
-		},
-	}
-	require.NoError(t, toNetwork.SetDelegate(tr2))
-	assertDealResponseReceived(ctx, t, fromNetwork, toPeer, drChan)
-}
-
-func TestDealStreamSendReceiveDealPayment(t *testing.T) {
-	// send payment, read in handler
-	ctx := context.Background()
-	td := shared_testutil.NewLibp2pTestData(ctx, t)
-	fromNetwork := network.NewFromLibp2pHost(td.Host1)
-	toNetwork := network.NewFromLibp2pHost(td.Host2)
-	toPeer := td.Host2.ID()
-
-	tr := &testReceiver{t: t}
-	require.NoError(t, fromNetwork.SetDelegate(tr))
-
-	dpyChan := make(chan retrievalmarket.DealPayment)
-	tr2 := &testReceiver{
-		t: t,
-		dealStreamHandler: func(s network.RetrievalDealStream) {
-			readDpy, err := s.ReadDealPayment()
-			require.NoError(t, err)
-			dpyChan <- readDpy
-		},
-	}
-	require.NoError(t, toNetwork.SetDelegate(tr2))
-	assertDealPaymentReceived(ctx, t, fromNetwork, toPeer, dpyChan)
-}
-
-func TestDealStreamSendReceiveMultipleSuccessful(t *testing.T) {
-	// send proposal, read in handler, send response back,
-	// read response,
-	// send payment, read farther in handler
-
-	bgCtx := context.Background()
-	td := shared_testutil.NewLibp2pTestData(bgCtx, t)
-	fromNetwork := network.NewFromLibp2pHost(td.Host1)
-	toNetwork := network.NewFromLibp2pHost(td.Host2)
-	toPeer := td.Host2.ID()
-
-	// set up stream handler, channels, and response
-	// dpChan := make(chan retrievalmarket.DealProposal)
-	dpyChan := make(chan retrievalmarket.DealPayment)
-	dr := shared_testutil.MakeTestDealResponse()
-
-	tr2 := &testReceiver{t: t, dealStreamHandler: func(s network.RetrievalDealStream) {
-		_, err := s.ReadDealProposal()
-		require.NoError(t, err)
-
-		require.NoError(t, s.WriteDealResponse(dr))
-
-		readDp, err := s.ReadDealPayment()
-		require.NoError(t, err)
-		dpyChan <- readDp
-	}}
-	require.NoError(t, toNetwork.SetDelegate(tr2))
-
-	// start sending deal proposal
-	ds1, err := fromNetwork.NewDealStream(toPeer)
-	require.NoError(t, err)
-
-	dp := shared_testutil.MakeTestDealProposal()
-
-	var receivedPayment retrievalmarket.DealPayment
-
-	ctx, cancel := context.WithTimeout(bgCtx, 10*time.Second)
-	defer cancel()
-
-	// write proposal
-	require.NoError(t, ds1.WriteDealProposal(dp))
-
-	// read response and verify it's the one we told toNetwork to send
-	responseReceived, err := ds1.ReadDealResponse()
-	require.NoError(t, err)
-	assert.Equal(t, dr.ID, responseReceived.ID)
-	assert.Equal(t, dr.Message, responseReceived.Message)
-	assert.Equal(t, dr.Status, responseReceived.Status)
-
-	// send payment
-	dpy := retrievalmarket.DealPayment{
-		ID:             dp.ID,
-		PaymentChannel: address.TestAddress,
-		PaymentVoucher: shared_testutil.MakeTestSignedVoucher(),
-	}
-	require.NoError(t, ds1.WriteDealPayment(dpy))
-
-	select {
-	case <-ctx.Done():
-		t.Errorf("failed to receive messages")
-	case receivedPayment = <-dpyChan:
-	}
-
-	assert.Equal(t, dpy, receivedPayment)
-}
-
 func TestLibp2pRetrievalMarketNetwork_StopHandlingRequests(t *testing.T) {
 	bgCtx := context.Background()
 	td := shared_testutil.NewLibp2pTestData(bgCtx, t)
@@ -291,85 +142,6 @@ func TestLibp2pRetrievalMarketNetwork_StopHandlingRequests(t *testing.T) {
 
 	_, err := fromNetwork.NewQueryStream(toHost)
 	require.Error(t, err, "protocol not supported")
-}
-
-// assertDealProposalReceived performs the verification that a deal proposal is received
-func assertDealProposalReceived(inCtx context.Context, t *testing.T, fromNetwork network.RetrievalMarketNetwork, toPeer peer.ID, inChan chan retrievalmarket.DealProposal) {
-	ctx, cancel := context.WithTimeout(inCtx, 10*time.Second)
-	defer cancel()
-
-	qs1, err := fromNetwork.NewDealStream(toPeer)
-	require.NoError(t, err)
-
-	// send query to host2
-	dp := shared_testutil.MakeTestDealProposal()
-	require.NoError(t, qs1.WriteDealProposal(dp))
-
-	var dealReceived retrievalmarket.DealProposal
-	select {
-	case <-ctx.Done():
-		t.Error("deal proposal not received")
-	case dealReceived = <-inChan:
-	}
-	require.NotNil(t, dealReceived)
-	assert.Equal(t, dp, dealReceived)
-}
-
-func assertDealResponseReceived(parentCtx context.Context, t *testing.T, fromNetwork network.RetrievalMarketNetwork, toPeer peer.ID, inChan chan retrievalmarket.DealResponse) {
-	ctx, cancel := context.WithTimeout(parentCtx, 10*time.Second)
-	defer cancel()
-
-	ds1, err := fromNetwork.NewDealStream(toPeer)
-	require.NoError(t, err)
-
-	fakeBlk := retrievalmarket.Block{
-		Prefix: []byte("prefix"),
-		Data:   []byte("data"),
-	}
-
-	dr := retrievalmarket.DealResponse{
-		Status:      retrievalmarket.DealStatusCompleted,
-		ID:          retrievalmarket.DealID(rand.Uint64()),
-		PaymentOwed: abi.TokenAmount{Int: big.NewInt(rand.Int63())},
-		Message:     "some message",
-		Blocks:      []retrievalmarket.Block{fakeBlk},
-	}
-	require.NoError(t, ds1.WriteDealResponse(dr))
-
-	var responseReceived retrievalmarket.DealResponse
-	select {
-	case <-ctx.Done():
-		t.Error("response not received")
-	case responseReceived = <-inChan:
-	}
-	require.NotNil(t, responseReceived)
-	assert.Equal(t, dr, responseReceived)
-}
-
-func assertDealPaymentReceived(parentCtx context.Context, t *testing.T, fromNetwork network.RetrievalMarketNetwork, toPeer peer.ID, inChan chan retrievalmarket.DealPayment) {
-	ctx, cancel := context.WithTimeout(parentCtx, 10*time.Second)
-	defer cancel()
-
-	ds1, err := fromNetwork.NewDealStream(toPeer)
-	require.NoError(t, err)
-
-	dp := retrievalmarket.DealPayment{
-		ID:             retrievalmarket.DealID(rand.Uint64()),
-		PaymentChannel: address.TestAddress,
-		PaymentVoucher: shared_testutil.MakeTestSignedVoucher(),
-	}
-	require.NoError(t, ds1.WriteDealPayment(dp))
-
-	var responseReceived retrievalmarket.DealPayment
-	select {
-	case <-ctx.Done():
-		t.Error("response not received")
-	case responseReceived = <-inChan:
-	}
-	require.NotNil(t, responseReceived)
-	assert.Equal(t, dp.ID, responseReceived.ID)
-	assert.Equal(t, dp.PaymentChannel, responseReceived.PaymentChannel)
-	assert.Equal(t, *dp.PaymentVoucher, *responseReceived.PaymentVoucher)
 }
 
 // assertQueryReceived performs the verification that a DealStatusRequest is received

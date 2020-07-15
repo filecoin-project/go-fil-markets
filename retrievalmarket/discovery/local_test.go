@@ -6,8 +6,8 @@ import (
 	specst "github.com/filecoin-project/specs-actors/support/testing"
 	"github.com/ipfs/go-datastore"
 	"github.com/libp2p/go-libp2p-core/peer"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"gotest.tools/assert"
 
 	"github.com/filecoin-project/go-fil-markets/retrievalmarket"
 	"github.com/filecoin-project/go-fil-markets/retrievalmarket/discovery"

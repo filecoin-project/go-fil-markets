@@ -1,7 +1,6 @@
 package shared_testutil
 
 import (
-	"math/big"
 	"math/rand"
 	"testing"
 
@@ -9,6 +8,7 @@ import (
 	cborutil "github.com/filecoin-project/go-cbor-util"
 	datatransfer "github.com/filecoin-project/go-data-transfer"
 	"github.com/filecoin-project/specs-actors/actors/abi"
+	"github.com/filecoin-project/specs-actors/actors/abi/big"
 	"github.com/filecoin-project/specs-actors/actors/builtin/market"
 	"github.com/filecoin-project/specs-actors/actors/builtin/paych"
 	"github.com/filecoin-project/specs-actors/actors/crypto"
@@ -65,7 +65,7 @@ func MakeTestSignature() *crypto.Signature {
 
 // MakeTestTokenAmount generates a valid yet random TokenAmount with a non-zero value.
 func MakeTestTokenAmount() abi.TokenAmount {
-	return abi.TokenAmount{Int: big.NewInt(rand.Int63())}
+	return abi.TokenAmount(big.NewInt(rand.Int63()))
 }
 
 // MakeTestQueryResponse generates a valid, random QueryResponse with no non-zero fields
@@ -90,19 +90,38 @@ func MakeTestDealProposal() retrievalmarket.DealProposal {
 	}
 }
 
-// MakeTestDealProposal generates a valid, random DealResponse
+// MakeTestDealResponse generates a valid, random DealResponse
 func MakeTestDealResponse() retrievalmarket.DealResponse {
-	fakeBlk := retrievalmarket.Block{
-		Prefix: []byte("prefix"),
-		Data:   []byte("data"),
-	}
-
 	return retrievalmarket.DealResponse{
 		Status:      retrievalmarket.DealStatusOngoing,
 		ID:          retrievalmarket.DealID(rand.Uint64()),
 		PaymentOwed: MakeTestTokenAmount(),
 		Message:     "deal response message",
-		Blocks:      []retrievalmarket.Block{fakeBlk},
+	}
+}
+
+// MakeTestChannelID makes a new empty data transfer channel ID
+func MakeTestChannelID() datatransfer.ChannelID {
+	testPeers := GeneratePeers(2)
+	transferID := datatransfer.TransferID(rand.Uint64())
+	return datatransfer.ChannelID{ID: transferID, Initiator: testPeers[0], Responder: testPeers[1]}
+}
+
+// MakeTestRetrievalProviderDeal returns a random valid retrieval provider deal
+func MakeTestRetrievalProviderDeal(status retrievalmarket.DealStatus) *retrievalmarket.ProviderDealState {
+	interval := rand.Uint64()
+	channelID := MakeTestChannelID()
+	return &retrievalmarket.ProviderDealState{
+		Status:          status,
+		ChannelID:       channelID,
+		Receiver:        channelID.Initiator,
+		TotalSent:       interval,
+		CurrentInterval: interval,
+		FundsReceived:   big.Zero(),
+		DealProposal: retrievalmarket.DealProposal{
+			ID:     retrievalmarket.DealID(rand.Uint64()),
+			Params: retrievalmarket.NewParamsV0(MakeTestTokenAmount(), interval, rand.Uint64()),
+		},
 	}
 }
 
