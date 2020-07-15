@@ -20,6 +20,7 @@ func recordReceived(deal *rm.ClientDealState, totalReceived uint64) error {
 }
 
 var paymentChannelCreationStates = []fsm.StateKey{
+	rm.DealStatusWaitForAcceptance,
 	rm.DealStatusAccepted,
 	rm.DealStatusPaymentChannelCreating,
 	rm.DealStatusPaymentChannelAddingFunds,
@@ -137,6 +138,7 @@ var ClientEvents = fsm.Events{
 	fsm.Event(rm.ClientEventPaymentRequested).
 		FromMany(
 			rm.DealStatusOngoing,
+			rm.DealStatusBlocksComplete,
 			rm.DealStatusFundsNeeded).To(rm.DealStatusFundsNeeded).
 		FromMany(
 			paymentChannelCreationStates...).ToJustRecord().
