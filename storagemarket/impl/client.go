@@ -249,12 +249,7 @@ func (c *Client) GetProviderDealState(ctx context.Context, proposalCid cid.Cid) 
 		return nil, xerrors.Errorf("failed serialize deal status request: %w", err)
 	}
 
-	addr, err := c.node.GetDefaultWalletAddress(ctx)
-	if err != nil {
-		return nil, xerrors.Errorf("failed to get client address: %w", err)
-	}
-
-	signature, err := c.node.SignBytes(ctx, addr, buf)
+	signature, err := c.node.SignBytes(ctx, deal.Proposal.Client, buf)
 	if err != nil {
 		return nil, xerrors.Errorf("failed to sign deal status request: %w", err)
 	}
