@@ -3,12 +3,13 @@ package clientstates
 import (
 	"context"
 
+	peer "github.com/libp2p/go-libp2p-core/peer"
+
 	"github.com/filecoin-project/go-address"
 	datatransfer "github.com/filecoin-project/go-data-transfer"
 	"github.com/filecoin-project/go-statemachine/fsm"
 	"github.com/filecoin-project/specs-actors/actors/abi"
 	"github.com/filecoin-project/specs-actors/actors/abi/big"
-	peer "github.com/libp2p/go-libp2p-core/peer"
 
 	rm "github.com/filecoin-project/go-fil-markets/retrievalmarket"
 )

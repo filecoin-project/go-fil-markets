@@ -4,15 +4,16 @@ package providerutils
 import (
 	"context"
 
+	"github.com/ipfs/go-cid"
+	"github.com/ipld/go-car"
+	"github.com/ipld/go-ipld-prime"
+	"golang.org/x/xerrors"
+
 	"github.com/filecoin-project/go-address"
 	cborutil "github.com/filecoin-project/go-cbor-util"
 	"github.com/filecoin-project/specs-actors/actors/abi"
 	"github.com/filecoin-project/specs-actors/actors/builtin/market"
 	"github.com/filecoin-project/specs-actors/actors/crypto"
-	"github.com/ipfs/go-cid"
-	"github.com/ipld/go-car"
-	"github.com/ipld/go-ipld-prime"
-	"golang.org/x/xerrors"
 
 	"github.com/filecoin-project/go-fil-markets/filestore"
 	"github.com/filecoin-project/go-fil-markets/piecestore"

@@ -1,6 +1,7 @@
 #!/bin/bash
 
 find . -type f -name \*.go | xargs -I '{}' goimports -w -local "github.com/filecoin-project" '{}'
+find . -type f -name \*.go | xargs -I '{}' goimports -w -local "github.com/filecoin-project/go-fil-markets" '{}'
 find . -type f -name \*.go | xargs -I '{}' sed -i.bak -e '/import (/ {
   :1
   $!N
@@ -9,6 +10,7 @@ find . -type f -name \*.go | xargs -I '{}' sed -i.bak -e '/import (/ {
 }' '{}'
 cd extern/filecoin-ffi ; git clean -fd ; cd ../.. ; git clean -fd
 find . -type f -name \*.go | xargs -I '{}' goimports -w -local "github.com/filecoin-project" '{}'
+find . -type f -name \*.go | xargs -I '{}' goimports -w -local "github.com/filecoin-project/go-fil-markets" '{}'
 cd extern/filecoin-ffi ; git checkout . ; cd ../..
 
 

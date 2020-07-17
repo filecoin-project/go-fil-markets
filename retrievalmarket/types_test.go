@@ -4,10 +4,11 @@ import (
 	"bytes"
 	"testing"
 
-	"github.com/filecoin-project/specs-actors/actors/abi"
 	"github.com/ipld/go-ipld-prime/codec/dagcbor"
 	basicnode "github.com/ipld/go-ipld-prime/node/basic"
 	"github.com/stretchr/testify/assert"
+
+	"github.com/filecoin-project/specs-actors/actors/abi"
 
 	"github.com/filecoin-project/go-fil-markets/retrievalmarket"
 	"github.com/filecoin-project/go-fil-markets/shared"

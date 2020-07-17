@@ -1,8 +1,9 @@
 package piecestore
 
 import (
-	"github.com/filecoin-project/specs-actors/actors/abi"
 	"github.com/ipfs/go-cid"
+
+	"github.com/filecoin-project/specs-actors/actors/abi"
 )
 
 //go:generate cbor-gen-for PieceInfo DealInfo BlockLocation PieceBlockLocation CIDInfo

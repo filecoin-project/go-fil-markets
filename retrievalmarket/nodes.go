@@ -4,11 +4,13 @@ import (
 	"context"
 	"io"
 
+	"github.com/ipfs/go-cid"
+
 	"github.com/filecoin-project/go-address"
-	"github.com/filecoin-project/go-fil-markets/shared"
 	"github.com/filecoin-project/specs-actors/actors/abi"
 	"github.com/filecoin-project/specs-actors/actors/builtin/paych"
-	"github.com/ipfs/go-cid"
+
+	"github.com/filecoin-project/go-fil-markets/shared"
 )
 
 // RetrievalClientNode are the node dependencies for a RetrievalClient
