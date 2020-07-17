@@ -59,3 +59,14 @@ docsgen: FORCE .update-modules .filecoin-build
 	go run ./docsgen
 
 $(MMDs): docsgen node_modules
+
+imports: FORCE
+	scripts/fiximports
+
+cbor-gen: FORCE
+	go generate ./...
+
+tidy: FORCE
+	go mod tidy
+
+prepare-pr: cbor-gen tidy diagrams imports

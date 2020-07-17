@@ -61,6 +61,8 @@ import (
         <single, empty line>
         [external packages]
         <single, empty line>
+        [other-filecoin-project packages]
+        <single, empty line>
         [go-fil-markets packages]
 )
 ```
@@ -79,10 +81,13 @@ import (
 	ipld "github.com/ipfs/go-ipld-format"
 	"github.com/stretchr/testify/assert"
 
+	datatransfer "github.com/filecoin-project/go-data-transfer"
+	
 	"github.com/filecoin-project/go-fil-markets/filestore/file"
 )
 ```
 
+You can run `script/fiximports` to put all your code in the desired format
 #### Comments
 Comments are a communication to other developers (including your future self) to help them understand and maintain code. Good comments describe the _intent_ of the code, without repeating the procedures directly.
 
