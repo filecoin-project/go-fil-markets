@@ -205,4 +205,5 @@ workflows:
       - mod-tidy-check
       - cbor-gen-check
       - docs-check
+      - imports-check
       - build-all

@@ -6,15 +6,13 @@ import (
 	"fmt"
 	"io"
 
-	"github.com/libp2p/go-libp2p-core/peer"
-	cbg "github.com/whyrusleeping/cbor-gen"
-	xerrors "golang.org/x/xerrors"
-
+	"github.com/filecoin-project/go-fil-markets/filestore"
 	"github.com/filecoin-project/specs-actors/actors/abi"
 	"github.com/filecoin-project/specs-actors/actors/builtin/market"
 	"github.com/filecoin-project/specs-actors/actors/crypto"
-
-	"github.com/filecoin-project/go-fil-markets/filestore"
+	"github.com/libp2p/go-libp2p-core/peer"
+	cbg "github.com/whyrusleeping/cbor-gen"
+	xerrors "golang.org/x/xerrors"
 )
 
 var _ = xerrors.Errorf

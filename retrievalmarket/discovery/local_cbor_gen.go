@@ -6,10 +6,9 @@ import (
 	"fmt"
 	"io"
 
+	"github.com/filecoin-project/go-fil-markets/retrievalmarket"
 	cbg "github.com/whyrusleeping/cbor-gen"
 	xerrors "golang.org/x/xerrors"
-
-	"github.com/filecoin-project/go-fil-markets/retrievalmarket"
 )
 
 var _ = xerrors.Errorf
