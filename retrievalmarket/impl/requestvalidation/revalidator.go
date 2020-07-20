@@ -6,9 +6,10 @@ import (
 	"sync"
 
 	datatransfer "github.com/filecoin-project/go-data-transfer"
-	rm "github.com/filecoin-project/go-fil-markets/retrievalmarket"
 	"github.com/filecoin-project/specs-actors/actors/abi"
 	"github.com/filecoin-project/specs-actors/actors/abi/big"
+
+	rm "github.com/filecoin-project/go-fil-markets/retrievalmarket"
 )
 
 // RevalidatorEnvironment are the dependencies needed to

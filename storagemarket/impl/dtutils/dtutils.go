@@ -5,9 +5,10 @@ package dtutils
 import (
 	"errors"
 
+	logging "github.com/ipfs/go-log/v2"
+
 	datatransfer "github.com/filecoin-project/go-data-transfer"
 	"github.com/filecoin-project/go-statemachine/fsm"
-	logging "github.com/ipfs/go-log/v2"
 
 	"github.com/filecoin-project/go-fil-markets/storagemarket"
 	"github.com/filecoin-project/go-fil-markets/storagemarket/impl/requestvalidation"

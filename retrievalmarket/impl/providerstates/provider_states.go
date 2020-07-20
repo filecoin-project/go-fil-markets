@@ -4,9 +4,10 @@ import (
 	"context"
 	"io"
 
+	"golang.org/x/xerrors"
+
 	datatransfer "github.com/filecoin-project/go-data-transfer"
 	"github.com/filecoin-project/go-statemachine/fsm"
-	"golang.org/x/xerrors"
 
 	"github.com/filecoin-project/go-fil-markets/piecestore"
 	rm "github.com/filecoin-project/go-fil-markets/retrievalmarket"

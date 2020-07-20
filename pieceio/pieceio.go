@@ -6,13 +6,14 @@ import (
 	"os"
 	"sync"
 
-	"github.com/filecoin-project/go-padreader"
-	"github.com/filecoin-project/sector-storage/ffiwrapper"
-	"github.com/filecoin-project/specs-actors/actors/abi"
 	"github.com/ipfs/go-cid"
 	blockstore "github.com/ipfs/go-ipfs-blockstore"
 	"github.com/ipld/go-car"
 	"github.com/ipld/go-ipld-prime"
+
+	"github.com/filecoin-project/go-padreader"
+	"github.com/filecoin-project/sector-storage/ffiwrapper"
+	"github.com/filecoin-project/specs-actors/actors/abi"
 
 	"github.com/filecoin-project/go-fil-markets/filestore"
 )

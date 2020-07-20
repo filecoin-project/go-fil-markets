@@ -3,9 +3,10 @@ package dtutils_test
 import (
 	"testing"
 
+	"github.com/stretchr/testify/require"
+
 	datatransfer "github.com/filecoin-project/go-data-transfer"
 	"github.com/filecoin-project/go-statemachine/fsm"
-	"github.com/stretchr/testify/require"
 
 	"github.com/filecoin-project/go-fil-markets/shared_testutil"
 	"github.com/filecoin-project/go-fil-markets/storagemarket"

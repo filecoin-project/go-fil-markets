@@ -3,11 +3,12 @@ package pieceio
 import (
 	"io"
 
-	"github.com/filecoin-project/specs-actors/actors/abi"
 	blocks "github.com/ipfs/go-block-format"
 	"github.com/ipfs/go-cid"
 	"github.com/ipld/go-car"
 	"github.com/ipld/go-ipld-prime"
+
+	"github.com/filecoin-project/specs-actors/actors/abi"
 
 	"github.com/filecoin-project/go-fil-markets/filestore"
 )

@@ -5,15 +5,17 @@ import (
 	"errors"
 	"io"
 
+	"github.com/ipfs/go-cid"
+	"golang.org/x/xerrors"
+
 	datatransfer "github.com/filecoin-project/go-data-transfer"
+	"github.com/filecoin-project/specs-actors/actors/abi"
+
 	"github.com/filecoin-project/go-fil-markets/pieceio/cario"
 	"github.com/filecoin-project/go-fil-markets/piecestore"
 	"github.com/filecoin-project/go-fil-markets/retrievalmarket"
 	"github.com/filecoin-project/go-fil-markets/retrievalmarket/impl/providerstates"
 	"github.com/filecoin-project/go-fil-markets/retrievalmarket/impl/requestvalidation"
-	"github.com/filecoin-project/specs-actors/actors/abi"
-	"github.com/ipfs/go-cid"
-	"golang.org/x/xerrors"
 )
 
 var _ requestvalidation.ValidationEnvironment = new(providerValidationEnvironment)

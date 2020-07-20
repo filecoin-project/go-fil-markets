@@ -1,10 +1,11 @@
 package piecestore
 
 import (
-	"github.com/filecoin-project/go-statestore"
 	"github.com/ipfs/go-cid"
 	"github.com/ipfs/go-datastore"
 	"github.com/ipfs/go-datastore/namespace"
+
+	"github.com/filecoin-project/go-statestore"
 )
 
 // DSPiecePrefix is the name space for storing piece infos

@@ -3,8 +3,9 @@ package requestvalidation
 import (
 	"errors"
 
-	datatransfer "github.com/filecoin-project/go-data-transfer"
 	"github.com/ipfs/go-cid"
+
+	datatransfer "github.com/filecoin-project/go-data-transfer"
 
 	"github.com/filecoin-project/go-fil-markets/storagemarket"
 )
