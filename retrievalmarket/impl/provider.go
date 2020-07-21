@@ -45,6 +45,7 @@ type Provider struct {
 	subscribers             *pubsub.PubSub
 	stateMachines           fsm.Group
 	dealDecider             DealDecider
+	unsealPrice             abi.TokenAmount
 }
 
 type internalProviderEvent struct {
@@ -179,7 +180,7 @@ func (p *Provider) SubscribeToEvents(subscriber retrievalmarket.ProviderSubscrib
 // V1
 
 func (p *Provider) SetPricePerUnseal(price abi.TokenAmount) {
-	panic("not implemented")
+	p.unsealPrice = price
 }
 
 // ListDeals lists in all known retrieval deals

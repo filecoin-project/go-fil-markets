@@ -507,6 +507,7 @@ var defaultTotalReceived = uint64(6000)
 var defaultBytesPaidFor = uint64(5000)
 var defaultFundsSpent = abi.NewTokenAmount(2500000)
 var defaultPaymentRequested = abi.NewTokenAmount(500000)
+var defaultUnsealFundsPaid = abi.NewTokenAmount(0)
 
 func makeDealState(status retrievalmarket.DealStatus) *retrievalmarket.ClientDealState {
 	return &retrievalmarket.ClientDealState{
@@ -519,6 +520,7 @@ func makeDealState(status retrievalmarket.DealStatus) *retrievalmarket.ClientDea
 		TotalReceived:    defaultTotalReceived,
 		CurrentInterval:  defaultCurrentInterval,
 		FundsSpent:       defaultFundsSpent,
+		UnsealFundsPaid:  defaultUnsealFundsPaid,
 		PaymentRequested: defaultPaymentRequested,
 		DealProposal: retrievalmarket.DealProposal{
 			ID:     retrievalmarket.DealID(10),

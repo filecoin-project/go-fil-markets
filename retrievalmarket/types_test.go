@@ -9,6 +9,7 @@ import (
 	"github.com/stretchr/testify/assert"
 
 	"github.com/filecoin-project/specs-actors/actors/abi"
+	"github.com/filecoin-project/specs-actors/actors/abi/big"
 
 	"github.com/filecoin-project/go-fil-markets/retrievalmarket"
 	"github.com/filecoin-project/go-fil-markets/shared"
@@ -19,7 +20,7 @@ func TestParamsMarshalUnmarshal(t *testing.T) {
 	pieceCid := tut.GenerateCids(1)[0]
 
 	allSelector := shared.AllSelector()
-	params := retrievalmarket.NewParamsV1(abi.NewTokenAmount(123), 456, 789, allSelector, &pieceCid)
+	params := retrievalmarket.NewParamsV1(abi.NewTokenAmount(123), 456, 789, allSelector, &pieceCid, big.Zero())
 
 	buf := new(bytes.Buffer)
 	err := params.MarshalCBOR(buf)

@@ -29,6 +29,10 @@ const (
 	// and its is ready to proceed with retrieval
 	DealStatusAccepted
 
+	// DealStatusFundsNeededUnseal means a deal has been accepted by a provider
+	// and payment is needed to unseal the data
+	DealStatusFundsNeededUnseal
+
 	// DealStatusFailing indicates something went wrong during a retrieval,
 	// and we are cleaning up before termianting with an error
 	DealStatusFailing
@@ -86,6 +90,7 @@ var DealStatuses = map[DealStatus]string{
 	DealStatusPaymentChannelCreating:    "DealStatusPaymentChannelCreating",
 	DealStatusPaymentChannelAddingFunds: "DealStatusPaymentChannelAddingFunds",
 	DealStatusAccepted:                  "DealStatusAccepted",
+	DealStatusFundsNeededUnseal:         "DealStatusFundsNeededUnseal",
 	DealStatusFailing:                   "DealStatusFailed",
 	DealStatusRejected:                  "DealStatusRejected",
 	DealStatusFundsNeeded:               "DealStatusFundsNeeded",

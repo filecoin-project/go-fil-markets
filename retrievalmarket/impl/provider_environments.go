@@ -10,6 +10,7 @@ import (
 
 	datatransfer "github.com/filecoin-project/go-data-transfer"
 	"github.com/filecoin-project/specs-actors/actors/abi"
+	"github.com/filecoin-project/specs-actors/actors/abi/big"
 
 	"github.com/filecoin-project/go-fil-markets/pieceio/cario"
 	"github.com/filecoin-project/go-fil-markets/piecestore"
@@ -60,6 +61,11 @@ func (pve *providerValidationEnvironment) BeginTracking(pds retrievalmarket.Prov
 	if err != nil {
 		return err
 	}
+
+	if pds.UnsealPrice.GreaterThan(big.Zero()) {
+		return pve.p.stateMachines.Send(pds.Identifier(), retrievalmarket.ProviderEventPaymentRequested)
+	}
+
 	return pve.p.stateMachines.Send(pds.Identifier(), retrievalmarket.ProviderEventOpen)
 }
 

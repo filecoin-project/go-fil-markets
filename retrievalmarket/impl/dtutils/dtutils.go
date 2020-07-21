@@ -71,6 +71,8 @@ func clientEventForResponse(response *rm.DealResponse) (rm.ClientEvent, []interf
 		return rm.ClientEventDealNotFound, []interface{}{response.Message}
 	case rm.DealStatusAccepted:
 		return rm.ClientEventDealAccepted, nil
+	case rm.DealStatusFundsNeededUnseal:
+		return rm.ClientEventPaymentRequested, []interface{}{response.PaymentOwed}
 	case rm.DealStatusFundsNeededLastPayment:
 		return rm.ClientEventLastPaymentRequested, []interface{}{response.PaymentOwed}
 	case rm.DealStatusCompleted:

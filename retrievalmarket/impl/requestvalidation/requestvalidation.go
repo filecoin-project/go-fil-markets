@@ -12,6 +12,7 @@ import (
 
 	datatransfer "github.com/filecoin-project/go-data-transfer"
 	"github.com/filecoin-project/specs-actors/actors/abi"
+	"github.com/filecoin-project/specs-actors/actors/abi/big"
 
 	"github.com/filecoin-project/go-fil-markets/piecestore"
 	"github.com/filecoin-project/go-fil-markets/retrievalmarket"
@@ -87,6 +88,11 @@ func (rv *ProviderRequestValidator) ValidatePull(receiver peer.ID, voucher datat
 		ID:     proposal.ID,
 		Status: status,
 	}
+
+	if status == retrievalmarket.DealStatusFundsNeededUnseal {
+		response.PaymentOwed = pds.UnsealPrice
+	}
+
 	if err != nil {
 		response.Message = err.Error()
 		return &response, err
@@ -128,5 +134,10 @@ func (rv *ProviderRequestValidator) acceptDeal(deal *retrievalmarket.ProviderDea
 	if !accepted {
 		return retrievalmarket.DealStatusRejected, errors.New(reason)
 	}
+
+	if deal.UnsealPrice.GreaterThan(big.Zero()) {
+		return retrievalmarket.DealStatusFundsNeededUnseal, nil
+	}
+
 	return retrievalmarket.DealStatusAccepted, nil
 }

@@ -76,6 +76,7 @@ var ProviderEvents = fsm.Events{
 	fsm.Event(rm.ProviderEventPaymentReceived).
 		From(rm.DealStatusFundsNeeded).To(rm.DealStatusOngoing).
 		From(rm.DealStatusFundsNeededLastPayment).To(rm.DealStatusFinalizing).
+		From(rm.DealStatusFundsNeededUnseal).To(rm.DealStatusUnsealing).
 		Action(func(deal *rm.ProviderDealState, fundsReceived abi.TokenAmount) error {
 			deal.FundsReceived = big.Add(deal.FundsReceived, fundsReceived)
 			deal.CurrentInterval += deal.PaymentIntervalIncrease

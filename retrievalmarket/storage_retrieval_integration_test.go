@@ -3,30 +3,10 @@ package retrievalmarket_test
 import (
 	"bytes"
 	"context"
-	"io/ioutil"
-	"math/rand"
-	"path/filepath"
-	"testing"
-	"time"
-
-	"github.com/ipfs/go-cid"
-	"github.com/ipfs/go-datastore"
-	"github.com/ipld/go-ipld-prime"
-	cidlink "github.com/ipld/go-ipld-prime/linking/cid"
-	"github.com/libp2p/go-libp2p-core/peer"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
-
 	"github.com/filecoin-project/go-address"
 	datatransfer "github.com/filecoin-project/go-data-transfer"
 	dtimpl "github.com/filecoin-project/go-data-transfer/impl"
 	dtgstransport "github.com/filecoin-project/go-data-transfer/transport/graphsync"
-	"github.com/filecoin-project/go-statestore"
-	"github.com/filecoin-project/specs-actors/actors/abi"
-	"github.com/filecoin-project/specs-actors/actors/abi/big"
-	"github.com/filecoin-project/specs-actors/actors/builtin/market"
-	"github.com/filecoin-project/specs-actors/actors/builtin/paych"
-
 	"github.com/filecoin-project/go-fil-markets/filestore"
 	"github.com/filecoin-project/go-fil-markets/pieceio/cario"
 	"github.com/filecoin-project/go-fil-markets/piecestore"
@@ -44,6 +24,23 @@ import (
 	"github.com/filecoin-project/go-fil-markets/storagemarket/impl/storedask"
 	stornet "github.com/filecoin-project/go-fil-markets/storagemarket/network"
 	"github.com/filecoin-project/go-fil-markets/storagemarket/testnodes"
+	"github.com/filecoin-project/go-statestore"
+	"github.com/filecoin-project/specs-actors/actors/abi"
+	"github.com/filecoin-project/specs-actors/actors/abi/big"
+	"github.com/filecoin-project/specs-actors/actors/builtin/market"
+	"github.com/filecoin-project/specs-actors/actors/builtin/paych"
+	"github.com/ipfs/go-cid"
+	"github.com/ipfs/go-datastore"
+	"github.com/ipld/go-ipld-prime"
+	cidlink "github.com/ipld/go-ipld-prime/linking/cid"
+	"github.com/libp2p/go-libp2p-core/peer"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+	"io/ioutil"
+	"math/rand"
+	"path/filepath"
+	"testing"
+	"time"
 )
 
 func TestStorageRetrieval(t *testing.T) {
@@ -149,9 +146,7 @@ func TestStorageRetrieval(t *testing.T) {
 	require.Equal(t, retrievalmarket.QueryResponseAvailable, resp.Status)
 
 	// testing V1 only
-	rmParams := retrievalmarket.NewParamsV1(rh.RetrievalParams.PricePerByte,
-		rh.RetrievalParams.PaymentInterval,
-		rh.RetrievalParams.PaymentIntervalIncrease, shared.AllSelector(), nil)
+	rmParams := retrievalmarket.NewParamsV1(rh.RetrievalParams.PricePerByte, rh.RetrievalParams.PaymentInterval, rh.RetrievalParams.PaymentIntervalIncrease, shared.AllSelector(), nil, big.Zero())
 
 	voucherAmts := []abi.TokenAmount{abi.NewTokenAmount(10136000), abi.NewTokenAmount(9784000)}
 	proof := []byte("")
@@ -436,6 +431,7 @@ func newRetrievalHarness(ctx context.Context, t *testing.T, sh *storageHarness, 
 		PricePerByte:            abi.NewTokenAmount(1000),
 		PaymentInterval:         uint64(10000),
 		PaymentIntervalIncrease: uint64(1000),
+		UnsealPrice:             big.Zero(),
 	}
 
 	provider.SetPaymentInterval(params.PaymentInterval, params.PaymentIntervalIncrease)
