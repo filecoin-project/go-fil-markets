@@ -146,7 +146,8 @@ func TestStorageRetrieval(t *testing.T) {
 	require.Equal(t, retrievalmarket.QueryResponseAvailable, resp.Status)
 
 	// testing V1 only
-	rmParams := retrievalmarket.NewParamsV1(rh.RetrievalParams.PricePerByte, rh.RetrievalParams.PaymentInterval, rh.RetrievalParams.PaymentIntervalIncrease, shared.AllSelector(), nil, big.Zero())
+	rmParams, err := retrievalmarket.NewParamsV1(rh.RetrievalParams.PricePerByte, rh.RetrievalParams.PaymentInterval, rh.RetrievalParams.PaymentIntervalIncrease, shared.AllSelector(), nil, big.Zero())
+	require.NoError(t, err)
 
 	voucherAmts := []abi.TokenAmount{abi.NewTokenAmount(10136000), abi.NewTokenAmount(9784000)}
 	proof := []byte("")

@@ -10,6 +10,7 @@ import (
 	"github.com/ipld/go-ipld-prime/codec/dagcbor"
 	"github.com/libp2p/go-libp2p-core/peer"
 	cbg "github.com/whyrusleeping/cbor-gen"
+	"golang.org/x/xerrors"
 
 	"github.com/filecoin-project/go-address"
 	datatransfer "github.com/filecoin-project/go-data-transfer"
@@ -247,11 +248,16 @@ func NewParamsV0(pricePerByte abi.TokenAmount, paymentInterval uint64, paymentIn
 }
 
 // NewParamsV1 generates parameters for a retrieval deal, including a selector
-func NewParamsV1(pricePerByte abi.TokenAmount, paymentInterval uint64, paymentIntervalIncrease uint64, sel ipld.Node, pieceCid *cid.Cid, unsealPrice abi.TokenAmount) Params {
+func NewParamsV1(pricePerByte abi.TokenAmount, paymentInterval uint64, paymentIntervalIncrease uint64, sel ipld.Node, pieceCid *cid.Cid, unsealPrice abi.TokenAmount) (Params, error) {
 	var buffer bytes.Buffer
+
+	if sel == nil {
+		return Params{}, xerrors.New("selector required for NewParamsV1")
+	}
+
 	err := dagcbor.Encoder(sel, &buffer)
 	if err != nil {
-		return Params{}
+		return Params{}, xerrors.Errorf("error encoding selector: %w", err)
 	}
 
 	return Params{
@@ -261,7 +267,7 @@ func NewParamsV1(pricePerByte abi.TokenAmount, paymentInterval uint64, paymentIn
 		PaymentInterval:         paymentInterval,
 		PaymentIntervalIncrease: paymentIntervalIncrease,
 		UnsealPrice:             unsealPrice,
-	}
+	}, nil
 }
 
 // DealID is an identifier for a retrieval deal (unique to a client)

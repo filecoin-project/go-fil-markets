@@ -20,10 +20,11 @@ func TestParamsMarshalUnmarshal(t *testing.T) {
 	pieceCid := tut.GenerateCids(1)[0]
 
 	allSelector := shared.AllSelector()
-	params := retrievalmarket.NewParamsV1(abi.NewTokenAmount(123), 456, 789, allSelector, &pieceCid, big.Zero())
+	params, err := retrievalmarket.NewParamsV1(abi.NewTokenAmount(123), 456, 789, allSelector, &pieceCid, big.Zero())
+	assert.NoError(t, err)
 
 	buf := new(bytes.Buffer)
-	err := params.MarshalCBOR(buf)
+	err = params.MarshalCBOR(buf)
 	assert.NoError(t, err)
 
 	unmarshalled := &retrievalmarket.Params{}
