@@ -30,7 +30,7 @@ var ProviderEvents = fsm.Events{
 
 	// accepting
 	fsm.Event(rm.ProviderEventDealAccepted).
-		From(rm.DealStatusFundsNeededUnseal).To(rm.DealStatusUnsealing).
+		From(rm.DealStatusFundsNeededUnseal).ToNoChange().
 		From(rm.DealStatusNew).To(rm.DealStatusUnsealing).
 		Action(func(deal *rm.ProviderDealState, channelID datatransfer.ChannelID) error {
 			deal.ChannelID = channelID
@@ -100,8 +100,9 @@ var ProviderEvents = fsm.Events{
 
 // ProviderStateEntryFuncs are the handlers for different states in a retrieval provider
 var ProviderStateEntryFuncs = fsm.StateEntryFuncs{
-	rm.DealStatusUnsealing:  UnsealData,
-	rm.DealStatusUnsealed:   UnpauseDeal,
-	rm.DealStatusFailing:    CancelDeal,
-	rm.DealStatusCompleting: CleanupDeal,
+	rm.DealStatusFundsNeededUnseal: TrackTransfer,
+	rm.DealStatusUnsealing:         UnsealData,
+	rm.DealStatusUnsealed:          UnpauseDeal,
+	rm.DealStatusFailing:           CancelDeal,
+	rm.DealStatusCompleting:        CleanupDeal,
 }

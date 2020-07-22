@@ -148,6 +148,13 @@ var ClientEvents = fsm.Events{
 			return nil
 		}),
 
+	fsm.Event(rm.ClientEventUnsealPaymentRequested).
+		From(rm.DealStatusWaitForAcceptance).To(rm.DealStatusAccepted).
+		Action(func(deal *rm.ClientDealState, paymentOwed abi.TokenAmount) error {
+			deal.PaymentRequested = big.Add(deal.PaymentRequested, paymentOwed)
+			return nil
+		}),
+
 	// Receiving data
 	fsm.Event(rm.ClientEventAllBlocksReceived).
 		FromMany(
@@ -214,6 +221,7 @@ var ClientEvents = fsm.Events{
 				deal.CurrentInterval += deal.DealProposal.PaymentIntervalIncrease
 			}
 			deal.BytesPaidFor += bytesPaidFor
+			deal.UnsealFundsPaid = big.Add(deal.UnsealFundsPaid, paymentForUnsealing)
 			deal.PaymentRequested = abi.NewTokenAmount(0)
 			return nil
 		}),

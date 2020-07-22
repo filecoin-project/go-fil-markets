@@ -2,19 +2,21 @@ stateDiagram-v2
 	state "DealStatusNew" as 0
 	state "DealStatusUnsealing" as 1
 	state "DealStatusUnsealed" as 2
-	state "DealStatusFailed" as 7
-	state "DealStatusFundsNeeded" as 9
-	state "DealStatusOngoing" as 12
-	state "DealStatusFundsNeededLastPayment" as 13
-	state "DealStatusCompleted" as 14
-	state "DealStatusErrored" as 16
-	state "DealStatusBlocksComplete" as 17
-	state "DealStatusFinalizing" as 18
-	state "DealStatusCompleting" as 19
+	state "DealStatusFundsNeededUnseal" as 7
+	state "DealStatusFailed" as 8
+	state "DealStatusFundsNeeded" as 10
+	state "DealStatusOngoing" as 13
+	state "DealStatusFundsNeededLastPayment" as 14
+	state "DealStatusCompleted" as 15
+	state "DealStatusErrored" as 17
+	state "DealStatusBlocksComplete" as 18
+	state "DealStatusFinalizing" as 19
+	state "DealStatusCompleting" as 20
 	1 : On entry runs UnsealData
 	2 : On entry runs UnpauseDeal
-	7 : On entry runs CancelDeal
-	19 : On entry runs CleanupDeal
+	7 : On entry runs TrackTransfer
+	8 : On entry runs CancelDeal
+	20 : On entry runs CleanupDeal
 	[*] --> 0
 	note right of 0
 		The following events are not shown cause they can trigger from any state.
@@ -23,19 +25,23 @@ stateDiagram-v2
 	end note
 	0 --> 0 : ProviderEventOpen
 	0 --> 1 : ProviderEventDealAccepted
-	1 --> 7 : ProviderEventUnsealError
+	7 --> 7 : ProviderEventDealAccepted
+	1 --> 8 : ProviderEventUnsealError
 	1 --> 2 : ProviderEventUnsealComplete
-	2 --> 12 : ProviderEventBlockSent
-	12 --> 12 : ProviderEventBlockSent
-	12 --> 17 : ProviderEventBlocksCompleted
-	12 --> 9 : ProviderEventPaymentRequested
-	17 --> 13 : ProviderEventPaymentRequested
-	9 --> 7 : ProviderEventSaveVoucherFailed
-	13 --> 7 : ProviderEventSaveVoucherFailed
-	9 --> 9 : ProviderEventPartialPaymentReceived
-	13 --> 13 : ProviderEventPartialPaymentReceived
-	9 --> 12 : ProviderEventPaymentReceived
-	13 --> 18 : ProviderEventPaymentReceived
-	18 --> 19 : ProviderEventComplete
-	19 --> 14 : ProviderEventCleanupComplete
-	7 --> 16 : ProviderEventCancelComplete
+	2 --> 13 : ProviderEventBlockSent
+	13 --> 13 : ProviderEventBlockSent
+	13 --> 18 : ProviderEventBlocksCompleted
+	0 --> 7 : ProviderEventPaymentRequested
+	2 --> 10 : ProviderEventPaymentRequested
+	13 --> 10 : ProviderEventPaymentRequested
+	18 --> 14 : ProviderEventPaymentRequested
+	10 --> 8 : ProviderEventSaveVoucherFailed
+	14 --> 8 : ProviderEventSaveVoucherFailed
+	10 --> 10 : ProviderEventPartialPaymentReceived
+	14 --> 14 : ProviderEventPartialPaymentReceived
+	7 --> 1 : ProviderEventPaymentReceived
+	10 --> 13 : ProviderEventPaymentReceived
+	14 --> 19 : ProviderEventPaymentReceived
+	19 --> 20 : ProviderEventComplete
+	20 --> 15 : ProviderEventCleanupComplete
+	8 --> 17 : ProviderEventCancelComplete

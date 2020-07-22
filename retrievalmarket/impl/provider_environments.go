@@ -44,7 +44,7 @@ func (pve *providerValidationEnvironment) CheckDealParams(pricePerByte abi.Token
 	if paymentIntervalIncrease > pve.p.paymentIntervalIncrease {
 		return errors.New("Payment interval increase too large")
 	}
-	if unsealPrice.LessThan(pve.p.unsealPrice) {
+	if !pve.p.unsealPrice.Nil() && unsealPrice.LessThan(pve.p.unsealPrice) {
 		return errors.New("Unseal price too small")
 	}
 	return nil
