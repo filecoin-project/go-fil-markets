@@ -31,7 +31,7 @@ func init() {
 type ValidationEnvironment interface {
 	GetPiece(c cid.Cid, pieceCID *cid.Cid) (piecestore.PieceInfo, error)
 	// CheckDealParams verifies the given deal params are acceptable
-	CheckDealParams(pricePerByte abi.TokenAmount, paymentInterval uint64, paymentIntervalIncrease uint64) error
+	CheckDealParams(pricePerByte abi.TokenAmount, paymentInterval uint64, paymentIntervalIncrease uint64, unsealPrice abi.TokenAmount) error
 	// RunDealDecisioningLogic runs custom deal decision logic to decide if a deal is accepted, if present
 	RunDealDecisioningLogic(ctx context.Context, state retrievalmarket.ProviderDealState) (bool, string, error)
 	// StateMachines returns the FSM Group to begin tracking with
@@ -120,9 +120,7 @@ func (rv *ProviderRequestValidator) acceptDeal(deal *retrievalmarket.ProviderDea
 
 	// check that the deal parameters match our required parameters or
 	// reject outright
-	err = rv.env.CheckDealParams(deal.PricePerByte,
-		deal.PaymentInterval,
-		deal.PaymentIntervalIncrease)
+	err = rv.env.CheckDealParams(deal.PricePerByte, deal.PaymentInterval, deal.PaymentIntervalIncrease, deal.UnsealPrice)
 	if err != nil {
 		return retrievalmarket.DealStatusRejected, err
 	}

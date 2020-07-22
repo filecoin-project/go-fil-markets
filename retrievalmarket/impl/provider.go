@@ -222,6 +222,7 @@ func (p *Provider) HandleQueryStream(stream rmnet.RetrievalQueryStream) {
 		MinPricePerByte:            p.pricePerByte,
 		MaxPaymentInterval:         p.paymentInterval,
 		MaxPaymentIntervalIncrease: p.paymentIntervalIncrease,
+		UnsealPrice:                p.unsealPrice,
 	}
 
 	ctx := context.TODO()
