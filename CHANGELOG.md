@@ -501,6 +501,32 @@ Major release with rewrite of retrieval to operate on top of data transfer proto
 | Hannah Howard | 7 | +3865/-3792 | 96 |
 | hannahhoward | 1 | +155/-270 | 9 |
 
+# go-fil-markets 0.5.1
+
+Minor improvements and bug fixes, retrieval market now supports unseal price
+
+### Changelog
+
+- github.com/filecoin-project/go-fil-markets:
+  - fix(queryresponse): set piece retrieval price correctly (#334) ([filecoin-project/go-fil-markets#334](https://github.com/filecoin-project/go-fil-markets/pull/334))
+  - feat(deps): upgrade specs actors to lotus/next sha (#333) ([filecoin-project/go-fil-markets#333](https://github.com/filecoin-project/go-fil-markets/pull/333))
+  - Support retrieval UnsealPrice (#325) (#330) ([filecoin-project/go-fil-markets#330](https://github.com/filecoin-project/go-fil-markets/pull/330))
+  - Cleanup project imports (#327) ([filecoin-project/go-fil-markets#327](https://github.com/filecoin-project/go-fil-markets/pull/327))
+  - Use client address, not default address, to sign proposals (#326) ([filecoin-project/go-fil-markets#326](https://github.com/filecoin-project/go-fil-markets/pull/326))
+  - Remove DealAcceptanceBuffer (#322) ([filecoin-project/go-fil-markets#322](https://github.com/filecoin-project/go-fil-markets/pull/322))
+  - docs(CHANGELOG): update for 0.5.0 release ([filecoin-project/go-fil-markets#324](https://github.com/filecoin-project/go-fil-markets/pull/324))
+- github.com/hannahhoward/cbor-gen-for (v0.0.0-20191218204337-9ab7b1bcc099 -> v0.0.0-20200723175505-5892b522820a):
+  - fix(deps): update cbor-gen-to-latest
+
+### Contributors
+
+| Contributor | Commits | Lines ± | Files Changed |
+|-------------|---------|---------|---------------|
+| Hannah Howard | 3 | +1363/-723 | 94 |
+| Ingar Shu | 1 | +262/-122 | 26 |
+| Aayush Rajasekaran | 2 | +13/-75 | 5 |
+| hannahhoward | 1 | +25/-32 | 2 |
+
 ### 🙌🏽 Want to contribute?
 
 Would you like to contribute to this repo and don’t know how? Here are a few places you can get started:
