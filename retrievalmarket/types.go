@@ -198,7 +198,7 @@ var QueryResponseUndefined = QueryResponse{}
 
 // PieceRetrievalPrice is the total price to retrieve the piece (size * MinPricePerByte)
 func (qr QueryResponse) PieceRetrievalPrice() abi.TokenAmount {
-	return big.Mul(qr.MinPricePerByte, abi.NewTokenAmount(int64(qr.Size)))
+	return big.Add(big.Mul(qr.MinPricePerByte, abi.NewTokenAmount(int64(qr.Size))), qr.UnsealPrice)
 }
 
 // PayloadRetrievalPrice is the expected price to retrieve just the given payload
