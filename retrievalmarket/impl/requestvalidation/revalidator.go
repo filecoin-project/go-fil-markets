@@ -81,7 +81,7 @@ func (pr *ProviderRevalidator) loadDealState(channel *channelData) error {
 func (pr *ProviderRevalidator) writeDealState(deal rm.ProviderDealState) {
 	channel := pr.trackedChannels[deal.ChannelID]
 	channel.totalSent = deal.TotalSent
-	channel.totalPaidFor = big.Div(deal.FundsReceived, deal.PricePerByte).Uint64()
+	channel.totalPaidFor = big.Div(big.Max(big.Sub(deal.FundsReceived, deal.UnsealPrice), big.Zero()), deal.PricePerByte).Uint64()
 	channel.interval = deal.CurrentInterval
 	channel.pricePerByte = deal.PricePerByte
 }
@@ -121,8 +121,8 @@ func (pr *ProviderRevalidator) processPayment(dealID rm.ProviderDealIdentifier, 
 	}
 
 	// attempt to redeem voucher
-	// (totalSent * pricePerbyte) - fundsReceived
-	paymentOwed := big.Sub(big.Mul(abi.NewTokenAmount(int64(deal.TotalSent)), deal.PricePerByte), deal.FundsReceived)
+	// (totalSent * pricePerByte + unsealPrice) - fundsReceived
+	paymentOwed := big.Sub(big.Add(big.Mul(abi.NewTokenAmount(int64(deal.TotalSent)), deal.PricePerByte), deal.UnsealPrice), deal.FundsReceived)
 	received, err := pr.env.Node().SavePaymentVoucher(context.TODO(), payment.PaymentChannel, payment.PaymentVoucher, nil, paymentOwed, tok)
 	if err != nil {
 		_ = pr.env.SendEvent(dealID, rm.ProviderEventSaveVoucherFailed, err)

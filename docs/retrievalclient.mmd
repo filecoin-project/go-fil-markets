@@ -4,28 +4,28 @@ stateDiagram-v2
 	state "DealStatusPaymentChannelCreating" as 4
 	state "DealStatusPaymentChannelAddingFunds" as 5
 	state "DealStatusAccepted" as 6
-	state "DealStatusFailed" as 7
-	state "DealStatusRejected" as 8
-	state "DealStatusFundsNeeded" as 9
-	state "DealStatusSendFunds" as 10
-	state "DealStatusSendFundsLastPayment" as 11
-	state "DealStatusOngoing" as 12
-	state "DealStatusFundsNeededLastPayment" as 13
-	state "DealStatusCompleted" as 14
-	state "DealStatusDealNotFound" as 15
-	state "DealStatusErrored" as 16
-	state "DealStatusBlocksComplete" as 17
-	state "DealStatusFinalizing" as 18
+	state "DealStatusFailed" as 8
+	state "DealStatusRejected" as 9
+	state "DealStatusFundsNeeded" as 10
+	state "DealStatusSendFunds" as 11
+	state "DealStatusSendFundsLastPayment" as 12
+	state "DealStatusOngoing" as 13
+	state "DealStatusFundsNeededLastPayment" as 14
+	state "DealStatusCompleted" as 15
+	state "DealStatusDealNotFound" as 16
+	state "DealStatusErrored" as 17
+	state "DealStatusBlocksComplete" as 18
+	state "DealStatusFinalizing" as 19
 	0 : On entry runs ProposeDeal
 	4 : On entry runs WaitForPaymentChannelCreate
 	5 : On entry runs WaitForPaymentChannelAddFunds
 	6 : On entry runs SetupPaymentChannelStart
-	7 : On entry runs CancelDeal
-	9 : On entry runs ProcessPaymentRequested
-	10 : On entry runs SendFunds
+	8 : On entry runs CancelDeal
+	10 : On entry runs ProcessPaymentRequested
 	11 : On entry runs SendFunds
-	12 : On entry runs Ongoing
-	13 : On entry runs ProcessPaymentRequested
+	12 : On entry runs SendFunds
+	13 : On entry runs Ongoing
+	14 : On entry runs ProcessPaymentRequested
 	[*] --> 0
 	note right of 0
 		The following events are not shown cause they can trigger from any state.
@@ -37,43 +37,44 @@ stateDiagram-v2
 	end note
 	0 --> 0 : ClientEventOpen
 	0 --> 3 : ClientEventDealProposed
-	3 --> 8 : ClientEventDealRejected
-	3 --> 15 : ClientEventDealNotFound
+	3 --> 9 : ClientEventDealRejected
+	3 --> 16 : ClientEventDealNotFound
 	3 --> 6 : ClientEventDealAccepted
-	4 --> 7 : ClientEventPaymentChannelErrored
-	6 --> 7 : ClientEventPaymentChannelErrored
+	4 --> 8 : ClientEventPaymentChannelErrored
+	6 --> 8 : ClientEventPaymentChannelErrored
 	6 --> 4 : ClientEventPaymentChannelCreateInitiated
 	6 --> 5 : ClientEventPaymentChannelAddingFunds
-	4 --> 12 : ClientEventPaymentChannelReady
-	5 --> 12 : ClientEventPaymentChannelReady
-	4 --> 7 : ClientEventAllocateLaneErrored
-	5 --> 7 : ClientEventAllocateLaneErrored
-	5 --> 7 : ClientEventPaymentChannelAddFundsErrored
-	9 --> 13 : ClientEventLastPaymentRequested
-	12 --> 13 : ClientEventLastPaymentRequested
-	13 --> 13 : ClientEventLastPaymentRequested
-	17 --> 11 : ClientEventLastPaymentRequested
-	9 --> 9 : ClientEventPaymentRequested
-	12 --> 9 : ClientEventPaymentRequested
-	17 --> 9 : ClientEventPaymentRequested
-	12 --> 17 : ClientEventAllBlocksReceived
-	13 --> 11 : ClientEventAllBlocksReceived
-	17 --> 17 : ClientEventAllBlocksReceived
-	9 --> 9 : ClientEventBlocksReceived
-	12 --> 12 : ClientEventBlocksReceived
+	4 --> 13 : ClientEventPaymentChannelReady
+	5 --> 13 : ClientEventPaymentChannelReady
+	4 --> 8 : ClientEventAllocateLaneErrored
+	5 --> 8 : ClientEventAllocateLaneErrored
+	5 --> 8 : ClientEventPaymentChannelAddFundsErrored
+	10 --> 14 : ClientEventLastPaymentRequested
+	13 --> 14 : ClientEventLastPaymentRequested
+	14 --> 14 : ClientEventLastPaymentRequested
+	18 --> 12 : ClientEventLastPaymentRequested
+	10 --> 10 : ClientEventPaymentRequested
+	13 --> 10 : ClientEventPaymentRequested
+	18 --> 10 : ClientEventPaymentRequested
+	3 --> 6 : ClientEventUnsealPaymentRequested
+	13 --> 18 : ClientEventAllBlocksReceived
+	14 --> 12 : ClientEventAllBlocksReceived
+	18 --> 18 : ClientEventAllBlocksReceived
+	10 --> 10 : ClientEventBlocksReceived
 	13 --> 13 : ClientEventBlocksReceived
-	9 --> 10 : ClientEventSendFunds
-	13 --> 11 : ClientEventSendFunds
-	10 --> 7 : ClientEventFundsExpended
-	11 --> 7 : ClientEventFundsExpended
-	10 --> 7 : ClientEventBadPaymentRequested
-	11 --> 7 : ClientEventBadPaymentRequested
-	10 --> 7 : ClientEventCreateVoucherFailed
-	11 --> 7 : ClientEventCreateVoucherFailed
-	10 --> 12 : ClientEventPaymentSent
-	11 --> 18 : ClientEventPaymentSent
-	18 --> 14 : ClientEventComplete
-	7 --> 16 : <invalid Value>
+	14 --> 14 : ClientEventBlocksReceived
+	10 --> 11 : ClientEventSendFunds
+	14 --> 12 : ClientEventSendFunds
+	11 --> 8 : ClientEventFundsExpended
+	12 --> 8 : ClientEventFundsExpended
+	11 --> 8 : ClientEventBadPaymentRequested
+	12 --> 8 : ClientEventBadPaymentRequested
+	11 --> 8 : ClientEventCreateVoucherFailed
+	12 --> 8 : ClientEventCreateVoucherFailed
+	11 --> 13 : ClientEventPaymentSent
+	12 --> 19 : ClientEventPaymentSent
+	19 --> 15 : ClientEventComplete
+	8 --> 17 : <invalid Value>
 
 	note left of 3 : The following events only record in this state.<br><br>ClientEventLastPaymentRequested<br>ClientEventPaymentRequested<br>ClientEventAllBlocksReceived<br>ClientEventBlocksReceived
 

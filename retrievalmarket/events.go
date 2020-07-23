@@ -60,6 +60,9 @@ const (
 	// ClientEventPaymentRequested indicates the provider requested a payment
 	ClientEventPaymentRequested
 
+	// ClientEventUnsealPaymentRequested indicates the provider requested a payment for unsealing the sector
+	ClientEventUnsealPaymentRequested
+
 	// ClientEventBlocksReceived indicates the provider has sent blocks
 	ClientEventBlocksReceived
 
@@ -111,6 +114,7 @@ var ClientEvents = map[ClientEvent]string{
 	ClientEventLastPaymentRequested:          "ClientEventLastPaymentRequested",
 	ClientEventAllBlocksReceived:             "ClientEventAllBlocksReceived",
 	ClientEventPaymentRequested:              "ClientEventPaymentRequested",
+	ClientEventUnsealPaymentRequested:        "ClientEventUnsealPaymentRequested",
 	ClientEventBlocksReceived:                "ClientEventBlocksReceived",
 	ClientEventSendFunds:                     "ClientEventSendFunds",
 	ClientEventFundsExpended:                 "ClientEventFundsExpended",

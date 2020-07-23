@@ -10,6 +10,7 @@ import (
 	"github.com/ipld/go-ipld-prime/codec/dagcbor"
 	"github.com/libp2p/go-libp2p-core/peer"
 	cbg "github.com/whyrusleeping/cbor-gen"
+	"golang.org/x/xerrors"
 
 	"github.com/filecoin-project/go-address"
 	datatransfer "github.com/filecoin-project/go-data-transfer"
@@ -58,6 +59,7 @@ type ClientDealState struct {
 	CurrentInterval      uint64
 	PaymentRequested     abi.TokenAmount
 	FundsSpent           abi.TokenAmount
+	UnsealFundsPaid      abi.TokenAmount
 	WaitMsgCID           *cid.Cid // the CID of any message the client deal is waiting for
 }
 
@@ -188,6 +190,7 @@ type QueryResponse struct {
 	MaxPaymentInterval         uint64
 	MaxPaymentIntervalIncrease uint64
 	Message                    string
+	UnsealPrice                abi.TokenAmount
 }
 
 // QueryResponseUndefined is an empty QueryResponse
@@ -230,7 +233,8 @@ type Params struct {
 	PieceCID                *cid.Cid
 	PricePerByte            abi.TokenAmount
 	PaymentInterval         uint64 // when to request payment
-	PaymentIntervalIncrease uint64 //
+	PaymentIntervalIncrease uint64
+	UnsealPrice             abi.TokenAmount
 }
 
 // NewParamsV0 generates parameters for a retrieval deal, which is always a whole piece deal
@@ -239,15 +243,21 @@ func NewParamsV0(pricePerByte abi.TokenAmount, paymentInterval uint64, paymentIn
 		PricePerByte:            pricePerByte,
 		PaymentInterval:         paymentInterval,
 		PaymentIntervalIncrease: paymentIntervalIncrease,
+		UnsealPrice:             big.Zero(),
 	}
 }
 
 // NewParamsV1 generates parameters for a retrieval deal, including a selector
-func NewParamsV1(pricePerByte abi.TokenAmount, paymentInterval uint64, paymentIntervalIncrease uint64, sel ipld.Node, pieceCid *cid.Cid) Params {
+func NewParamsV1(pricePerByte abi.TokenAmount, paymentInterval uint64, paymentIntervalIncrease uint64, sel ipld.Node, pieceCid *cid.Cid, unsealPrice abi.TokenAmount) (Params, error) {
 	var buffer bytes.Buffer
+
+	if sel == nil {
+		return Params{}, xerrors.New("selector required for NewParamsV1")
+	}
+
 	err := dagcbor.Encoder(sel, &buffer)
 	if err != nil {
-		return Params{}
+		return Params{}, xerrors.Errorf("error encoding selector: %w", err)
 	}
 
 	return Params{
@@ -256,7 +266,8 @@ func NewParamsV1(pricePerByte abi.TokenAmount, paymentInterval uint64, paymentIn
 		PricePerByte:            pricePerByte,
 		PaymentInterval:         paymentInterval,
 		PaymentIntervalIncrease: paymentIntervalIncrease,
-	}
+		UnsealPrice:             unsealPrice,
+	}, nil
 }
 
 // DealID is an identifier for a retrieval deal (unique to a client)

@@ -17,6 +17,7 @@ import (
 	"github.com/filecoin-project/go-statemachine/fsm"
 	"github.com/filecoin-project/go-storedcounter"
 	"github.com/filecoin-project/specs-actors/actors/abi"
+	"github.com/filecoin-project/specs-actors/actors/abi/big"
 
 	"github.com/filecoin-project/go-fil-markets/retrievalmarket"
 	"github.com/filecoin-project/go-fil-markets/retrievalmarket/impl/clientstates"
@@ -200,6 +201,7 @@ func (c *Client) Retrieve(ctx context.Context, payloadCID cid.Cid, params retrie
 		FundsSpent:       abi.NewTokenAmount(0),
 		Status:           retrievalmarket.DealStatusNew,
 		Sender:           miner,
+		UnsealFundsPaid:  big.Zero(),
 	}
 
 	// start the deal processing

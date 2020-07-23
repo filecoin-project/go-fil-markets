@@ -81,7 +81,7 @@ func (t *QueryResponse) MarshalCBOR(w io.Writer) error {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	if _, err := w.Write([]byte{136}); err != nil {
+	if _, err := w.Write([]byte{137}); err != nil {
 		return err
 	}
 
@@ -136,6 +136,11 @@ func (t *QueryResponse) MarshalCBOR(w io.Writer) error {
 	if _, err := w.Write([]byte(t.Message)); err != nil {
 		return err
 	}
+
+	// t.UnsealPrice (big.Int) (struct)
+	if err := t.UnsealPrice.MarshalCBOR(w); err != nil {
+		return err
+	}
 	return nil
 }
 
@@ -150,7 +155,7 @@ func (t *QueryResponse) UnmarshalCBOR(r io.Reader) error {
 		return fmt.Errorf("cbor input should be of type array")
 	}
 
-	if extra != 8 {
+	if extra != 9 {
 		return fmt.Errorf("cbor input had wrong number of fields")
 	}
 
@@ -251,6 +256,15 @@ func (t *QueryResponse) UnmarshalCBOR(r io.Reader) error {
 		}
 
 		t.Message = string(sval)
+	}
+	// t.UnsealPrice (big.Int) (struct)
+
+	{
+
+		if err := t.UnsealPrice.UnmarshalCBOR(br); err != nil {
+			return xerrors.Errorf("unmarshaling t.UnsealPrice: %w", err)
+		}
+
 	}
 	return nil
 }
@@ -446,7 +460,7 @@ func (t *Params) MarshalCBOR(w io.Writer) error {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	if _, err := w.Write([]byte{133}); err != nil {
+	if _, err := w.Write([]byte{134}); err != nil {
 		return err
 	}
 
@@ -484,6 +498,10 @@ func (t *Params) MarshalCBOR(w io.Writer) error {
 		return err
 	}
 
+	// t.UnsealPrice (big.Int) (struct)
+	if err := t.UnsealPrice.MarshalCBOR(w); err != nil {
+		return err
+	}
 	return nil
 }
 
@@ -498,7 +516,7 @@ func (t *Params) UnmarshalCBOR(r io.Reader) error {
 		return fmt.Errorf("cbor input should be of type array")
 	}
 
-	if extra != 5 {
+	if extra != 6 {
 		return fmt.Errorf("cbor input had wrong number of fields")
 	}
 
@@ -582,6 +600,15 @@ func (t *Params) UnmarshalCBOR(r io.Reader) error {
 			return fmt.Errorf("wrong type for uint64 field")
 		}
 		t.PaymentIntervalIncrease = uint64(extra)
+
+	}
+	// t.UnsealPrice (big.Int) (struct)
+
+	{
+
+		if err := t.UnsealPrice.UnmarshalCBOR(br); err != nil {
+			return xerrors.Errorf("unmarshaling t.UnsealPrice: %w", err)
+		}
 
 	}
 	return nil
@@ -747,7 +774,7 @@ func (t *ClientDealState) MarshalCBOR(w io.Writer) error {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	if _, err := w.Write([]byte{145}); err != nil {
+	if _, err := w.Write([]byte{146}); err != nil {
 		return err
 	}
 
@@ -849,6 +876,11 @@ func (t *ClientDealState) MarshalCBOR(w io.Writer) error {
 		return err
 	}
 
+	// t.UnsealFundsPaid (big.Int) (struct)
+	if err := t.UnsealFundsPaid.MarshalCBOR(w); err != nil {
+		return err
+	}
+
 	// t.WaitMsgCID (cid.Cid) (struct)
 
 	if t.WaitMsgCID == nil {
@@ -875,7 +907,7 @@ func (t *ClientDealState) UnmarshalCBOR(r io.Reader) error {
 		return fmt.Errorf("cbor input should be of type array")
 	}
 
-	if extra != 17 {
+	if extra != 18 {
 		return fmt.Errorf("cbor input had wrong number of fields")
 	}
 
@@ -1070,6 +1102,15 @@ func (t *ClientDealState) UnmarshalCBOR(r io.Reader) error {
 
 		if err := t.FundsSpent.UnmarshalCBOR(br); err != nil {
 			return xerrors.Errorf("unmarshaling t.FundsSpent: %w", err)
+		}
+
+	}
+	// t.UnsealFundsPaid (big.Int) (struct)
+
+	{
+
+		if err := t.UnsealFundsPaid.UnmarshalCBOR(br); err != nil {
+			return xerrors.Errorf("unmarshaling t.UnsealFundsPaid: %w", err)
 		}
 
 	}

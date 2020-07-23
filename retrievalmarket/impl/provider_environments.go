@@ -10,6 +10,7 @@ import (
 
 	datatransfer "github.com/filecoin-project/go-data-transfer"
 	"github.com/filecoin-project/specs-actors/actors/abi"
+	"github.com/filecoin-project/specs-actors/actors/abi/big"
 
 	"github.com/filecoin-project/go-fil-markets/pieceio/cario"
 	"github.com/filecoin-project/go-fil-markets/piecestore"
@@ -33,7 +34,7 @@ func (pve *providerValidationEnvironment) GetPiece(c cid.Cid, pieceCID *cid.Cid)
 }
 
 // CheckDealParams verifies the given deal params are acceptable
-func (pve *providerValidationEnvironment) CheckDealParams(pricePerByte abi.TokenAmount, paymentInterval uint64, paymentIntervalIncrease uint64) error {
+func (pve *providerValidationEnvironment) CheckDealParams(pricePerByte abi.TokenAmount, paymentInterval uint64, paymentIntervalIncrease uint64, unsealPrice abi.TokenAmount) error {
 	if pricePerByte.LessThan(pve.p.pricePerByte) {
 		return errors.New("Price per byte too low")
 	}
@@ -42,6 +43,9 @@ func (pve *providerValidationEnvironment) CheckDealParams(pricePerByte abi.Token
 	}
 	if paymentIntervalIncrease > pve.p.paymentIntervalIncrease {
 		return errors.New("Payment interval increase too large")
+	}
+	if !pve.p.unsealPrice.Nil() && unsealPrice.LessThan(pve.p.unsealPrice) {
+		return errors.New("Unseal price too small")
 	}
 	return nil
 }
@@ -60,6 +64,11 @@ func (pve *providerValidationEnvironment) BeginTracking(pds retrievalmarket.Prov
 	if err != nil {
 		return err
 	}
+
+	if pds.UnsealPrice.GreaterThan(big.Zero()) {
+		return pve.p.stateMachines.Send(pds.Identifier(), retrievalmarket.ProviderEventPaymentRequested, uint64(0))
+	}
+
 	return pve.p.stateMachines.Send(pds.Identifier(), retrievalmarket.ProviderEventOpen)
 }
 

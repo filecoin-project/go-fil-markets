@@ -12,6 +12,7 @@ import (
 
 	datatransfer "github.com/filecoin-project/go-data-transfer"
 	"github.com/filecoin-project/specs-actors/actors/abi"
+	"github.com/filecoin-project/specs-actors/actors/abi/big"
 
 	"github.com/filecoin-project/go-fil-markets/piecestore"
 	"github.com/filecoin-project/go-fil-markets/retrievalmarket"
@@ -30,7 +31,7 @@ func init() {
 type ValidationEnvironment interface {
 	GetPiece(c cid.Cid, pieceCID *cid.Cid) (piecestore.PieceInfo, error)
 	// CheckDealParams verifies the given deal params are acceptable
-	CheckDealParams(pricePerByte abi.TokenAmount, paymentInterval uint64, paymentIntervalIncrease uint64) error
+	CheckDealParams(pricePerByte abi.TokenAmount, paymentInterval uint64, paymentIntervalIncrease uint64, unsealPrice abi.TokenAmount) error
 	// RunDealDecisioningLogic runs custom deal decision logic to decide if a deal is accepted, if present
 	RunDealDecisioningLogic(ctx context.Context, state retrievalmarket.ProviderDealState) (bool, string, error)
 	// StateMachines returns the FSM Group to begin tracking with
@@ -87,6 +88,11 @@ func (rv *ProviderRequestValidator) ValidatePull(receiver peer.ID, voucher datat
 		ID:     proposal.ID,
 		Status: status,
 	}
+
+	if status == retrievalmarket.DealStatusFundsNeededUnseal {
+		response.PaymentOwed = pds.UnsealPrice
+	}
+
 	if err != nil {
 		response.Message = err.Error()
 		return &response, err
@@ -114,9 +120,7 @@ func (rv *ProviderRequestValidator) acceptDeal(deal *retrievalmarket.ProviderDea
 
 	// check that the deal parameters match our required parameters or
 	// reject outright
-	err = rv.env.CheckDealParams(deal.PricePerByte,
-		deal.PaymentInterval,
-		deal.PaymentIntervalIncrease)
+	err = rv.env.CheckDealParams(deal.PricePerByte, deal.PaymentInterval, deal.PaymentIntervalIncrease, deal.UnsealPrice)
 	if err != nil {
 		return retrievalmarket.DealStatusRejected, err
 	}
@@ -128,5 +132,10 @@ func (rv *ProviderRequestValidator) acceptDeal(deal *retrievalmarket.ProviderDea
 	if !accepted {
 		return retrievalmarket.DealStatusRejected, errors.New(reason)
 	}
+
+	if deal.UnsealPrice.GreaterThan(big.Zero()) {
+		return retrievalmarket.DealStatusFundsNeededUnseal, nil
+	}
+
 	return retrievalmarket.DealStatusAccepted, nil
 }

@@ -30,6 +30,7 @@ var ProviderEvents = fsm.Events{
 
 	// accepting
 	fsm.Event(rm.ProviderEventDealAccepted).
+		From(rm.DealStatusFundsNeededUnseal).ToNoChange().
 		From(rm.DealStatusNew).To(rm.DealStatusUnsealing).
 		Action(func(deal *rm.ProviderDealState, channelID datatransfer.ChannelID) error {
 			deal.ChannelID = channelID
@@ -56,8 +57,9 @@ var ProviderEvents = fsm.Events{
 
 	// request payment
 	fsm.Event(rm.ProviderEventPaymentRequested).
-		FromMany(rm.DealStatusOngoing).To(rm.DealStatusFundsNeeded).
+		FromMany(rm.DealStatusOngoing, rm.DealStatusUnsealed).To(rm.DealStatusFundsNeeded).
 		From(rm.DealStatusBlocksComplete).To(rm.DealStatusFundsNeededLastPayment).
+		From(rm.DealStatusNew).To(rm.DealStatusFundsNeededUnseal).
 		Action(func(deal *rm.ProviderDealState, totalSent uint64) error {
 			deal.TotalSent = totalSent
 			return nil
@@ -76,6 +78,7 @@ var ProviderEvents = fsm.Events{
 	fsm.Event(rm.ProviderEventPaymentReceived).
 		From(rm.DealStatusFundsNeeded).To(rm.DealStatusOngoing).
 		From(rm.DealStatusFundsNeededLastPayment).To(rm.DealStatusFinalizing).
+		From(rm.DealStatusFundsNeededUnseal).To(rm.DealStatusUnsealing).
 		Action(func(deal *rm.ProviderDealState, fundsReceived abi.TokenAmount) error {
 			deal.FundsReceived = big.Add(deal.FundsReceived, fundsReceived)
 			deal.CurrentInterval += deal.PaymentIntervalIncrease
@@ -97,8 +100,9 @@ var ProviderEvents = fsm.Events{
 
 // ProviderStateEntryFuncs are the handlers for different states in a retrieval provider
 var ProviderStateEntryFuncs = fsm.StateEntryFuncs{
-	rm.DealStatusUnsealing:  UnsealData,
-	rm.DealStatusUnsealed:   UnpauseDeal,
-	rm.DealStatusFailing:    CancelDeal,
-	rm.DealStatusCompleting: CleanupDeal,
+	rm.DealStatusFundsNeededUnseal: TrackTransfer,
+	rm.DealStatusUnsealing:         UnsealData,
+	rm.DealStatusUnsealed:          UnpauseDeal,
+	rm.DealStatusFailing:           CancelDeal,
+	rm.DealStatusCompleting:        CleanupDeal,
 }

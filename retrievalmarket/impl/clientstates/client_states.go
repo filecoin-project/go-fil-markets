@@ -95,9 +95,10 @@ func Ongoing(ctx fsm.Context, environment ClientDealEnvironment, deal rm.ClientD
 
 // ProcessPaymentRequested processes a request for payment from the provider
 func ProcessPaymentRequested(ctx fsm.Context, environment ClientDealEnvironment, deal rm.ClientDealState) error {
-
-	// check that totalReceived - bytesPaidFor >= currentInterval, and send money if we meet that threshold
-	if deal.TotalReceived-deal.BytesPaidFor >= deal.CurrentInterval || deal.AllBlocksReceived {
+	// see if we need to send payment
+	if deal.TotalReceived-deal.BytesPaidFor >= deal.CurrentInterval ||
+		deal.AllBlocksReceived ||
+		deal.UnsealPrice.GreaterThan(deal.UnsealFundsPaid) {
 		return ctx.Trigger(rm.ClientEventSendFunds)
 	}
 	return nil
@@ -112,8 +113,10 @@ func SendFunds(ctx fsm.Context, environment ClientDealEnvironment, deal rm.Clien
 		return ctx.Trigger(rm.ClientEventFundsExpended, expectedTotal, actualTotal)
 	}
 
-	// check that paymentRequest <= (totalReceived - bytesPaidFor) * pricePerByte, or fail
-	if deal.PaymentRequested.GreaterThan(big.Mul(abi.NewTokenAmount(int64(deal.TotalReceived-deal.BytesPaidFor)), deal.PricePerByte)) {
+	// check that paymentRequest <= (totalReceived - bytesPaidFor) * pricePerByte + (unsealPrice - unsealFundsPaid), or fail
+	retrievalPrice := big.Mul(abi.NewTokenAmount(int64(deal.TotalReceived-deal.BytesPaidFor)), deal.PricePerByte)
+	unsealPrice := big.Sub(deal.UnsealPrice, deal.UnsealFundsPaid)
+	if deal.PaymentRequested.GreaterThan(big.Add(retrievalPrice, unsealPrice)) {
 		return ctx.Trigger(rm.ClientEventBadPaymentRequested, "too much money requested for bytes sent")
 	}
 

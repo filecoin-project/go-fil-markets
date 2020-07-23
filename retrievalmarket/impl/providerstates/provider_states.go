@@ -50,6 +50,15 @@ func UnsealData(ctx fsm.Context, environment ProviderDealEnvironment, deal rm.Pr
 	return ctx.Trigger(rm.ProviderEventUnsealComplete)
 }
 
+// TrackTransfer resumes a deal so we can start sending data after its unsealed
+func TrackTransfer(ctx fsm.Context, environment ProviderDealEnvironment, deal rm.ProviderDealState) error {
+	err := environment.TrackTransfer(deal)
+	if err != nil {
+		return ctx.Trigger(rm.ProviderEventDataTransferError, err)
+	}
+	return nil
+}
+
 // UnpauseDeal resumes a deal so we can start sending data after its unsealed
 func UnpauseDeal(ctx fsm.Context, environment ProviderDealEnvironment, deal rm.ProviderDealState) error {
 	err := environment.TrackTransfer(deal)

@@ -78,6 +78,7 @@ func MakeTestQueryResponse() retrievalmarket.QueryResponse {
 		MinPricePerByte:            MakeTestTokenAmount(),
 		MaxPaymentInterval:         rand.Uint64(),
 		MaxPaymentIntervalIncrease: rand.Uint64(),
+		UnsealPrice:                big.Zero(),
 	}
 }
 

@@ -165,12 +165,22 @@ func TestClientCanMakeDealWithProvider(t *testing.T) {
 		filesize           uint64
 		voucherAmts        []abi.TokenAmount
 		selector           ipld.Node
+		unsealPrice        abi.TokenAmount
 		paramsV1, addFunds bool
 	}{
-		{name: "1 block file retrieval succeeds",
+		{name: "1 block file retrieval succeeds with existing payment channel",
 			filename:    "lorem_under_1_block.txt",
 			filesize:    410,
 			voucherAmts: []abi.TokenAmount{abi.NewTokenAmount(410000)},
+			addFunds:    true,
+		},
+		{name: "1 block file retrieval succeeds with unseal price",
+			filename:    "lorem_under_1_block.txt",
+			filesize:    410,
+			unsealPrice: abi.NewTokenAmount(100),
+			voucherAmts: []abi.TokenAmount{abi.NewTokenAmount(100), abi.NewTokenAmount(410000)},
+			selector:    shared.AllSelector(),
+			paramsV1:    true,
 		},
 		{name: "1 block file retrieval succeeds with existing payment channel",
 			filename:    "lorem_under_1_block.txt",
@@ -227,6 +237,10 @@ func TestClientCanMakeDealWithProvider(t *testing.T) {
 			paymentInterval := uint64(10000)
 			paymentIntervalIncrease := uint64(1000)
 			pricePerByte := abi.NewTokenAmount(1000)
+			unsealPrice := testCase.unsealPrice
+			if unsealPrice.Int == nil {
+				unsealPrice = big.Zero()
+			}
 
 			expectedQR := retrievalmarket.QueryResponse{
 				Size:                       1024,
@@ -234,6 +248,7 @@ func TestClientCanMakeDealWithProvider(t *testing.T) {
 				MinPricePerByte:            pricePerByte,
 				MaxPaymentInterval:         paymentInterval,
 				MaxPaymentIntervalIncrease: paymentIntervalIncrease,
+				UnsealPrice:                unsealPrice,
 			}
 
 			providerNode := testnodes.NewTestRetrievalProviderNode()
@@ -329,9 +344,9 @@ CurrentInterval: %d
 `
 					t.Logf(msg, retrievalmarket.ProviderEvents[event], retrievalmarket.DealStatuses[state.Status], state.TotalSent, state.FundsReceived.String(), state.Message,
 						state.CurrentInterval)
+
 				}
 			})
-
 			// **** Send the query for the Piece
 			// set up retrieval params
 			resp, err := client.Query(bgCtx, *retrievalPeer, payloadCID, retrievalmarket.QueryParams{})
@@ -340,8 +355,8 @@ CurrentInterval: %d
 
 			var rmParams retrievalmarket.Params
 			if testCase.paramsV1 {
-				rmParams = retrievalmarket.NewParamsV1(pricePerByte, paymentInterval, paymentIntervalIncrease, testCase.selector, nil)
-
+				rmParams, err = retrievalmarket.NewParamsV1(pricePerByte, paymentInterval, paymentIntervalIncrease, testCase.selector, nil, unsealPrice)
+				require.NoError(t, err)
 			} else {
 				rmParams = retrievalmarket.NewParamsV0(pricePerByte, paymentInterval, paymentIntervalIncrease)
 			}
@@ -480,6 +495,7 @@ func setupProvider(
 	require.NoError(t, err)
 	provider.SetPaymentInterval(expectedQR.MaxPaymentInterval, expectedQR.MaxPaymentIntervalIncrease)
 	provider.SetPricePerByte(expectedQR.MinPricePerByte)
+	provider.SetPricePerUnseal(expectedQR.UnsealPrice)
 	require.NoError(t, provider.Start())
 	return provider
 }

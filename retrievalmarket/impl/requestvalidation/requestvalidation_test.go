@@ -181,7 +181,7 @@ func (fve *fakeValidationEnvironment) GetPiece(c cid.Cid, pieceCID *cid.Cid) (pi
 }
 
 // CheckDealParams verifies the given deal params are acceptable
-func (fve *fakeValidationEnvironment) CheckDealParams(pricePerByte abi.TokenAmount, paymentInterval uint64, paymentIntervalIncrease uint64) error {
+func (fve *fakeValidationEnvironment) CheckDealParams(pricePerByte abi.TokenAmount, paymentInterval uint64, paymentIntervalIncrease uint64, unsealPrice abi.TokenAmount) error {
 	return fve.CheckDealParamsError
 }
 
