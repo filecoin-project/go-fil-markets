@@ -13,18 +13,22 @@ import (
 
 var _ = xerrors.Errorf
 
+var lengthBufPieceInfo = []byte{130}
+
 func (t *PieceInfo) MarshalCBOR(w io.Writer) error {
 	if t == nil {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	if _, err := w.Write([]byte{130}); err != nil {
+	if _, err := w.Write(lengthBufPieceInfo); err != nil {
 		return err
 	}
 
+	scratch := make([]byte, 9)
+
 	// t.PieceCID (cid.Cid) (struct)
 
-	if err := cbg.WriteCid(w, t.PieceCID); err != nil {
+	if err := cbg.WriteCidBuf(scratch, w, t.PieceCID); err != nil {
 		return xerrors.Errorf("failed to write cid field t.PieceCID: %w", err)
 	}
 
@@ -33,7 +37,7 @@ func (t *PieceInfo) MarshalCBOR(w io.Writer) error {
 		return xerrors.Errorf("Slice value in field t.Deals was too long")
 	}
 
-	if _, err := w.Write(cbg.CborEncodeMajorType(cbg.MajArray, uint64(len(t.Deals)))); err != nil {
+	if err := cbg.WriteMajorTypeHeaderBuf(scratch, w, cbg.MajArray, uint64(len(t.Deals))); err != nil {
 		return err
 	}
 	for _, v := range t.Deals {
@@ -45,9 +49,12 @@ func (t *PieceInfo) MarshalCBOR(w io.Writer) error {
 }
 
 func (t *PieceInfo) UnmarshalCBOR(r io.Reader) error {
-	br := cbg.GetPeeker(r)
+	*t = PieceInfo{}
 
-	maj, extra, err := cbg.CborReadHeader(br)
+	br := cbg.GetPeeker(r)
+	scratch := make([]byte, 8)
+
+	maj, extra, err := cbg.CborReadHeaderBuf(br, scratch)
 	if err != nil {
 		return err
 	}
@@ -73,7 +80,7 @@ func (t *PieceInfo) UnmarshalCBOR(r io.Reader) error {
 	}
 	// t.Deals ([]piecestore.DealInfo) (slice)
 
-	maj, extra, err = cbg.CborReadHeader(br)
+	maj, extra, err = cbg.CborReadHeaderBuf(br, scratch)
 	if err != nil {
 		return err
 	}
@@ -103,36 +110,40 @@ func (t *PieceInfo) UnmarshalCBOR(r io.Reader) error {
 	return nil
 }
 
+var lengthBufDealInfo = []byte{132}
+
 func (t *DealInfo) MarshalCBOR(w io.Writer) error {
 	if t == nil {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	if _, err := w.Write([]byte{132}); err != nil {
+	if _, err := w.Write(lengthBufDealInfo); err != nil {
 		return err
 	}
 
+	scratch := make([]byte, 9)
+
 	// t.DealID (abi.DealID) (uint64)
 
-	if _, err := w.Write(cbg.CborEncodeMajorType(cbg.MajUnsignedInt, uint64(t.DealID))); err != nil {
+	if err := cbg.WriteMajorTypeHeaderBuf(scratch, w, cbg.MajUnsignedInt, uint64(t.DealID)); err != nil {
 		return err
 	}
 
 	// t.SectorID (uint64) (uint64)
 
-	if _, err := w.Write(cbg.CborEncodeMajorType(cbg.MajUnsignedInt, uint64(t.SectorID))); err != nil {
+	if err := cbg.WriteMajorTypeHeaderBuf(scratch, w, cbg.MajUnsignedInt, uint64(t.SectorID)); err != nil {
 		return err
 	}
 
 	// t.Offset (uint64) (uint64)
 
-	if _, err := w.Write(cbg.CborEncodeMajorType(cbg.MajUnsignedInt, uint64(t.Offset))); err != nil {
+	if err := cbg.WriteMajorTypeHeaderBuf(scratch, w, cbg.MajUnsignedInt, uint64(t.Offset)); err != nil {
 		return err
 	}
 
 	// t.Length (uint64) (uint64)
 
-	if _, err := w.Write(cbg.CborEncodeMajorType(cbg.MajUnsignedInt, uint64(t.Length))); err != nil {
+	if err := cbg.WriteMajorTypeHeaderBuf(scratch, w, cbg.MajUnsignedInt, uint64(t.Length)); err != nil {
 		return err
 	}
 
@@ -140,9 +151,12 @@ func (t *DealInfo) MarshalCBOR(w io.Writer) error {
 }
 
 func (t *DealInfo) UnmarshalCBOR(r io.Reader) error {
-	br := cbg.GetPeeker(r)
+	*t = DealInfo{}
 
-	maj, extra, err := cbg.CborReadHeader(br)
+	br := cbg.GetPeeker(r)
+	scratch := make([]byte, 8)
+
+	maj, extra, err := cbg.CborReadHeaderBuf(br, scratch)
 	if err != nil {
 		return err
 	}
@@ -158,7 +172,7 @@ func (t *DealInfo) UnmarshalCBOR(r io.Reader) error {
 
 	{
 
-		maj, extra, err = cbg.CborReadHeader(br)
+		maj, extra, err = cbg.CborReadHeaderBuf(br, scratch)
 		if err != nil {
 			return err
 		}
@@ -172,7 +186,7 @@ func (t *DealInfo) UnmarshalCBOR(r io.Reader) error {
 
 	{
 
-		maj, extra, err = cbg.CborReadHeader(br)
+		maj, extra, err = cbg.CborReadHeaderBuf(br, scratch)
 		if err != nil {
 			return err
 		}
@@ -186,7 +200,7 @@ func (t *DealInfo) UnmarshalCBOR(r io.Reader) error {
 
 	{
 
-		maj, extra, err = cbg.CborReadHeader(br)
+		maj, extra, err = cbg.CborReadHeaderBuf(br, scratch)
 		if err != nil {
 			return err
 		}
@@ -200,7 +214,7 @@ func (t *DealInfo) UnmarshalCBOR(r io.Reader) error {
 
 	{
 
-		maj, extra, err = cbg.CborReadHeader(br)
+		maj, extra, err = cbg.CborReadHeaderBuf(br, scratch)
 		if err != nil {
 			return err
 		}
@@ -213,24 +227,28 @@ func (t *DealInfo) UnmarshalCBOR(r io.Reader) error {
 	return nil
 }
 
+var lengthBufBlockLocation = []byte{130}
+
 func (t *BlockLocation) MarshalCBOR(w io.Writer) error {
 	if t == nil {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	if _, err := w.Write([]byte{130}); err != nil {
+	if _, err := w.Write(lengthBufBlockLocation); err != nil {
 		return err
 	}
 
+	scratch := make([]byte, 9)
+
 	// t.RelOffset (uint64) (uint64)
 
-	if _, err := w.Write(cbg.CborEncodeMajorType(cbg.MajUnsignedInt, uint64(t.RelOffset))); err != nil {
+	if err := cbg.WriteMajorTypeHeaderBuf(scratch, w, cbg.MajUnsignedInt, uint64(t.RelOffset)); err != nil {
 		return err
 	}
 
 	// t.BlockSize (uint64) (uint64)
 
-	if _, err := w.Write(cbg.CborEncodeMajorType(cbg.MajUnsignedInt, uint64(t.BlockSize))); err != nil {
+	if err := cbg.WriteMajorTypeHeaderBuf(scratch, w, cbg.MajUnsignedInt, uint64(t.BlockSize)); err != nil {
 		return err
 	}
 
@@ -238,9 +256,12 @@ func (t *BlockLocation) MarshalCBOR(w io.Writer) error {
 }
 
 func (t *BlockLocation) UnmarshalCBOR(r io.Reader) error {
-	br := cbg.GetPeeker(r)
+	*t = BlockLocation{}
 
-	maj, extra, err := cbg.CborReadHeader(br)
+	br := cbg.GetPeeker(r)
+	scratch := make([]byte, 8)
+
+	maj, extra, err := cbg.CborReadHeaderBuf(br, scratch)
 	if err != nil {
 		return err
 	}
@@ -256,7 +277,7 @@ func (t *BlockLocation) UnmarshalCBOR(r io.Reader) error {
 
 	{
 
-		maj, extra, err = cbg.CborReadHeader(br)
+		maj, extra, err = cbg.CborReadHeaderBuf(br, scratch)
 		if err != nil {
 			return err
 		}
@@ -270,7 +291,7 @@ func (t *BlockLocation) UnmarshalCBOR(r io.Reader) error {
 
 	{
 
-		maj, extra, err = cbg.CborReadHeader(br)
+		maj, extra, err = cbg.CborReadHeaderBuf(br, scratch)
 		if err != nil {
 			return err
 		}
@@ -283,14 +304,18 @@ func (t *BlockLocation) UnmarshalCBOR(r io.Reader) error {
 	return nil
 }
 
+var lengthBufPieceBlockLocation = []byte{130}
+
 func (t *PieceBlockLocation) MarshalCBOR(w io.Writer) error {
 	if t == nil {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	if _, err := w.Write([]byte{130}); err != nil {
+	if _, err := w.Write(lengthBufPieceBlockLocation); err != nil {
 		return err
 	}
+
+	scratch := make([]byte, 9)
 
 	// t.BlockLocation (piecestore.BlockLocation) (struct)
 	if err := t.BlockLocation.MarshalCBOR(w); err != nil {
@@ -299,7 +324,7 @@ func (t *PieceBlockLocation) MarshalCBOR(w io.Writer) error {
 
 	// t.PieceCID (cid.Cid) (struct)
 
-	if err := cbg.WriteCid(w, t.PieceCID); err != nil {
+	if err := cbg.WriteCidBuf(scratch, w, t.PieceCID); err != nil {
 		return xerrors.Errorf("failed to write cid field t.PieceCID: %w", err)
 	}
 
@@ -307,9 +332,12 @@ func (t *PieceBlockLocation) MarshalCBOR(w io.Writer) error {
 }
 
 func (t *PieceBlockLocation) UnmarshalCBOR(r io.Reader) error {
-	br := cbg.GetPeeker(r)
+	*t = PieceBlockLocation{}
 
-	maj, extra, err := cbg.CborReadHeader(br)
+	br := cbg.GetPeeker(r)
+	scratch := make([]byte, 8)
+
+	maj, extra, err := cbg.CborReadHeaderBuf(br, scratch)
 	if err != nil {
 		return err
 	}
@@ -345,18 +373,22 @@ func (t *PieceBlockLocation) UnmarshalCBOR(r io.Reader) error {
 	return nil
 }
 
+var lengthBufCIDInfo = []byte{130}
+
 func (t *CIDInfo) MarshalCBOR(w io.Writer) error {
 	if t == nil {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	if _, err := w.Write([]byte{130}); err != nil {
+	if _, err := w.Write(lengthBufCIDInfo); err != nil {
 		return err
 	}
 
+	scratch := make([]byte, 9)
+
 	// t.CID (cid.Cid) (struct)
 
-	if err := cbg.WriteCid(w, t.CID); err != nil {
+	if err := cbg.WriteCidBuf(scratch, w, t.CID); err != nil {
 		return xerrors.Errorf("failed to write cid field t.CID: %w", err)
 	}
 
@@ -365,7 +397,7 @@ func (t *CIDInfo) MarshalCBOR(w io.Writer) error {
 		return xerrors.Errorf("Slice value in field t.PieceBlockLocations was too long")
 	}
 
-	if _, err := w.Write(cbg.CborEncodeMajorType(cbg.MajArray, uint64(len(t.PieceBlockLocations)))); err != nil {
+	if err := cbg.WriteMajorTypeHeaderBuf(scratch, w, cbg.MajArray, uint64(len(t.PieceBlockLocations))); err != nil {
 		return err
 	}
 	for _, v := range t.PieceBlockLocations {
@@ -377,9 +409,12 @@ func (t *CIDInfo) MarshalCBOR(w io.Writer) error {
 }
 
 func (t *CIDInfo) UnmarshalCBOR(r io.Reader) error {
-	br := cbg.GetPeeker(r)
+	*t = CIDInfo{}
 
-	maj, extra, err := cbg.CborReadHeader(br)
+	br := cbg.GetPeeker(r)
+	scratch := make([]byte, 8)
+
+	maj, extra, err := cbg.CborReadHeaderBuf(br, scratch)
 	if err != nil {
 		return err
 	}
@@ -405,7 +440,7 @@ func (t *CIDInfo) UnmarshalCBOR(r io.Reader) error {
 	}
 	// t.PieceBlockLocations ([]piecestore.PieceBlockLocation) (slice)
 
-	maj, extra, err = cbg.CborReadHeader(br)
+	maj, extra, err = cbg.CborReadHeaderBuf(br, scratch)
 	if err != nil {
 		return err
 	}

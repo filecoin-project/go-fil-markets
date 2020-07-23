@@ -15,12 +15,14 @@ import (
 
 var _ = xerrors.Errorf
 
+var lengthBufAskRequest = []byte{129}
+
 func (t *AskRequest) MarshalCBOR(w io.Writer) error {
 	if t == nil {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	if _, err := w.Write([]byte{129}); err != nil {
+	if _, err := w.Write(lengthBufAskRequest); err != nil {
 		return err
 	}
 
@@ -32,9 +34,12 @@ func (t *AskRequest) MarshalCBOR(w io.Writer) error {
 }
 
 func (t *AskRequest) UnmarshalCBOR(r io.Reader) error {
-	br := cbg.GetPeeker(r)
+	*t = AskRequest{}
 
-	maj, extra, err := cbg.CborReadHeader(br)
+	br := cbg.GetPeeker(r)
+	scratch := make([]byte, 8)
+
+	maj, extra, err := cbg.CborReadHeaderBuf(br, scratch)
 	if err != nil {
 		return err
 	}
@@ -58,12 +63,14 @@ func (t *AskRequest) UnmarshalCBOR(r io.Reader) error {
 	return nil
 }
 
+var lengthBufAskResponse = []byte{129}
+
 func (t *AskResponse) MarshalCBOR(w io.Writer) error {
 	if t == nil {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	if _, err := w.Write([]byte{129}); err != nil {
+	if _, err := w.Write(lengthBufAskResponse); err != nil {
 		return err
 	}
 
@@ -75,9 +82,12 @@ func (t *AskResponse) MarshalCBOR(w io.Writer) error {
 }
 
 func (t *AskResponse) UnmarshalCBOR(r io.Reader) error {
-	br := cbg.GetPeeker(r)
+	*t = AskResponse{}
 
-	maj, extra, err := cbg.CborReadHeader(br)
+	br := cbg.GetPeeker(r)
+	scratch := make([]byte, 8)
+
+	maj, extra, err := cbg.CborReadHeaderBuf(br, scratch)
 	if err != nil {
 		return err
 	}
@@ -113,12 +123,14 @@ func (t *AskResponse) UnmarshalCBOR(r io.Reader) error {
 	return nil
 }
 
+var lengthBufProposal = []byte{131}
+
 func (t *Proposal) MarshalCBOR(w io.Writer) error {
 	if t == nil {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	if _, err := w.Write([]byte{131}); err != nil {
+	if _, err := w.Write(lengthBufProposal); err != nil {
 		return err
 	}
 
@@ -140,9 +152,12 @@ func (t *Proposal) MarshalCBOR(w io.Writer) error {
 }
 
 func (t *Proposal) UnmarshalCBOR(r io.Reader) error {
-	br := cbg.GetPeeker(r)
+	*t = Proposal{}
 
-	maj, extra, err := cbg.CborReadHeader(br)
+	br := cbg.GetPeeker(r)
+	scratch := make([]byte, 8)
+
+	maj, extra, err := cbg.CborReadHeaderBuf(br, scratch)
 	if err != nil {
 		return err
 	}
@@ -198,7 +213,7 @@ func (t *Proposal) UnmarshalCBOR(r io.Reader) error {
 	}
 	// t.FastRetrieval (bool) (bool)
 
-	maj, extra, err = cbg.CborReadHeader(br)
+	maj, extra, err = cbg.CborReadHeaderBuf(br, scratch)
 	if err != nil {
 		return err
 	}
@@ -216,18 +231,22 @@ func (t *Proposal) UnmarshalCBOR(r io.Reader) error {
 	return nil
 }
 
+var lengthBufResponse = []byte{132}
+
 func (t *Response) MarshalCBOR(w io.Writer) error {
 	if t == nil {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	if _, err := w.Write([]byte{132}); err != nil {
+	if _, err := w.Write(lengthBufResponse); err != nil {
 		return err
 	}
 
+	scratch := make([]byte, 9)
+
 	// t.State (uint64) (uint64)
 
-	if _, err := w.Write(cbg.CborEncodeMajorType(cbg.MajUnsignedInt, uint64(t.State))); err != nil {
+	if err := cbg.WriteMajorTypeHeaderBuf(scratch, w, cbg.MajUnsignedInt, uint64(t.State)); err != nil {
 		return err
 	}
 
@@ -236,16 +255,16 @@ func (t *Response) MarshalCBOR(w io.Writer) error {
 		return xerrors.Errorf("Value in field t.Message was too long")
 	}
 
-	if _, err := w.Write(cbg.CborEncodeMajorType(cbg.MajTextString, uint64(len(t.Message)))); err != nil {
+	if err := cbg.WriteMajorTypeHeaderBuf(scratch, w, cbg.MajTextString, uint64(len(t.Message))); err != nil {
 		return err
 	}
-	if _, err := w.Write([]byte(t.Message)); err != nil {
+	if _, err := io.WriteString(w, string(t.Message)); err != nil {
 		return err
 	}
 
 	// t.Proposal (cid.Cid) (struct)
 
-	if err := cbg.WriteCid(w, t.Proposal); err != nil {
+	if err := cbg.WriteCidBuf(scratch, w, t.Proposal); err != nil {
 		return xerrors.Errorf("failed to write cid field t.Proposal: %w", err)
 	}
 
@@ -256,7 +275,7 @@ func (t *Response) MarshalCBOR(w io.Writer) error {
 			return err
 		}
 	} else {
-		if err := cbg.WriteCid(w, *t.PublishMessage); err != nil {
+		if err := cbg.WriteCidBuf(scratch, w, *t.PublishMessage); err != nil {
 			return xerrors.Errorf("failed to write cid field t.PublishMessage: %w", err)
 		}
 	}
@@ -265,9 +284,12 @@ func (t *Response) MarshalCBOR(w io.Writer) error {
 }
 
 func (t *Response) UnmarshalCBOR(r io.Reader) error {
-	br := cbg.GetPeeker(r)
+	*t = Response{}
 
-	maj, extra, err := cbg.CborReadHeader(br)
+	br := cbg.GetPeeker(r)
+	scratch := make([]byte, 8)
+
+	maj, extra, err := cbg.CborReadHeaderBuf(br, scratch)
 	if err != nil {
 		return err
 	}
@@ -283,7 +305,7 @@ func (t *Response) UnmarshalCBOR(r io.Reader) error {
 
 	{
 
-		maj, extra, err = cbg.CborReadHeader(br)
+		maj, extra, err = cbg.CborReadHeaderBuf(br, scratch)
 		if err != nil {
 			return err
 		}
@@ -296,7 +318,7 @@ func (t *Response) UnmarshalCBOR(r io.Reader) error {
 	// t.Message (string) (string)
 
 	{
-		sval, err := cbg.ReadString(br)
+		sval, err := cbg.ReadStringBuf(br, scratch)
 		if err != nil {
 			return err
 		}
@@ -342,12 +364,14 @@ func (t *Response) UnmarshalCBOR(r io.Reader) error {
 	return nil
 }
 
+var lengthBufSignedResponse = []byte{130}
+
 func (t *SignedResponse) MarshalCBOR(w io.Writer) error {
 	if t == nil {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	if _, err := w.Write([]byte{130}); err != nil {
+	if _, err := w.Write(lengthBufSignedResponse); err != nil {
 		return err
 	}
 
@@ -364,9 +388,12 @@ func (t *SignedResponse) MarshalCBOR(w io.Writer) error {
 }
 
 func (t *SignedResponse) UnmarshalCBOR(r io.Reader) error {
-	br := cbg.GetPeeker(r)
+	*t = SignedResponse{}
 
-	maj, extra, err := cbg.CborReadHeader(br)
+	br := cbg.GetPeeker(r)
+	scratch := make([]byte, 8)
+
+	maj, extra, err := cbg.CborReadHeaderBuf(br, scratch)
 	if err != nil {
 		return err
 	}
@@ -411,18 +438,22 @@ func (t *SignedResponse) UnmarshalCBOR(r io.Reader) error {
 	return nil
 }
 
+var lengthBufDealStatusRequest = []byte{130}
+
 func (t *DealStatusRequest) MarshalCBOR(w io.Writer) error {
 	if t == nil {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	if _, err := w.Write([]byte{130}); err != nil {
+	if _, err := w.Write(lengthBufDealStatusRequest); err != nil {
 		return err
 	}
 
+	scratch := make([]byte, 9)
+
 	// t.Proposal (cid.Cid) (struct)
 
-	if err := cbg.WriteCid(w, t.Proposal); err != nil {
+	if err := cbg.WriteCidBuf(scratch, w, t.Proposal); err != nil {
 		return xerrors.Errorf("failed to write cid field t.Proposal: %w", err)
 	}
 
@@ -434,9 +465,12 @@ func (t *DealStatusRequest) MarshalCBOR(w io.Writer) error {
 }
 
 func (t *DealStatusRequest) UnmarshalCBOR(r io.Reader) error {
-	br := cbg.GetPeeker(r)
+	*t = DealStatusRequest{}
 
-	maj, extra, err := cbg.CborReadHeader(br)
+	br := cbg.GetPeeker(r)
+	scratch := make([]byte, 8)
+
+	maj, extra, err := cbg.CborReadHeaderBuf(br, scratch)
 	if err != nil {
 		return err
 	}
@@ -472,12 +506,14 @@ func (t *DealStatusRequest) UnmarshalCBOR(r io.Reader) error {
 	return nil
 }
 
+var lengthBufDealStatusResponse = []byte{130}
+
 func (t *DealStatusResponse) MarshalCBOR(w io.Writer) error {
 	if t == nil {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	if _, err := w.Write([]byte{130}); err != nil {
+	if _, err := w.Write(lengthBufDealStatusResponse); err != nil {
 		return err
 	}
 
@@ -494,9 +530,12 @@ func (t *DealStatusResponse) MarshalCBOR(w io.Writer) error {
 }
 
 func (t *DealStatusResponse) UnmarshalCBOR(r io.Reader) error {
-	br := cbg.GetPeeker(r)
+	*t = DealStatusResponse{}
 
-	maj, extra, err := cbg.CborReadHeader(br)
+	br := cbg.GetPeeker(r)
+	scratch := make([]byte, 8)
+
+	maj, extra, err := cbg.CborReadHeaderBuf(br, scratch)
 	if err != nil {
 		return err
 	}

@@ -12,30 +12,34 @@ import (
 
 var _ = xerrors.Errorf
 
+var lengthBufPieceBlockMetadata = []byte{131}
+
 func (t *PieceBlockMetadata) MarshalCBOR(w io.Writer) error {
 	if t == nil {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	if _, err := w.Write([]byte{131}); err != nil {
+	if _, err := w.Write(lengthBufPieceBlockMetadata); err != nil {
 		return err
 	}
 
+	scratch := make([]byte, 9)
+
 	// t.CID (cid.Cid) (struct)
 
-	if err := cbg.WriteCid(w, t.CID); err != nil {
+	if err := cbg.WriteCidBuf(scratch, w, t.CID); err != nil {
 		return xerrors.Errorf("failed to write cid field t.CID: %w", err)
 	}
 
 	// t.Offset (uint64) (uint64)
 
-	if _, err := w.Write(cbg.CborEncodeMajorType(cbg.MajUnsignedInt, uint64(t.Offset))); err != nil {
+	if err := cbg.WriteMajorTypeHeaderBuf(scratch, w, cbg.MajUnsignedInt, uint64(t.Offset)); err != nil {
 		return err
 	}
 
 	// t.Size (uint64) (uint64)
 
-	if _, err := w.Write(cbg.CborEncodeMajorType(cbg.MajUnsignedInt, uint64(t.Size))); err != nil {
+	if err := cbg.WriteMajorTypeHeaderBuf(scratch, w, cbg.MajUnsignedInt, uint64(t.Size)); err != nil {
 		return err
 	}
 
@@ -43,9 +47,12 @@ func (t *PieceBlockMetadata) MarshalCBOR(w io.Writer) error {
 }
 
 func (t *PieceBlockMetadata) UnmarshalCBOR(r io.Reader) error {
-	br := cbg.GetPeeker(r)
+	*t = PieceBlockMetadata{}
 
-	maj, extra, err := cbg.CborReadHeader(br)
+	br := cbg.GetPeeker(r)
+	scratch := make([]byte, 8)
+
+	maj, extra, err := cbg.CborReadHeaderBuf(br, scratch)
 	if err != nil {
 		return err
 	}
@@ -73,7 +80,7 @@ func (t *PieceBlockMetadata) UnmarshalCBOR(r io.Reader) error {
 
 	{
 
-		maj, extra, err = cbg.CborReadHeader(br)
+		maj, extra, err = cbg.CborReadHeaderBuf(br, scratch)
 		if err != nil {
 			return err
 		}
@@ -87,7 +94,7 @@ func (t *PieceBlockMetadata) UnmarshalCBOR(r io.Reader) error {
 
 	{
 
-		maj, extra, err = cbg.CborReadHeader(br)
+		maj, extra, err = cbg.CborReadHeaderBuf(br, scratch)
 		if err != nil {
 			return err
 		}
