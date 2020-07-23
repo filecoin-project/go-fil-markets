@@ -13,21 +13,25 @@ import (
 
 var _ = xerrors.Errorf
 
+var lengthBufretrievalPeers = []byte{129}
+
 func (t *retrievalPeers) MarshalCBOR(w io.Writer) error {
 	if t == nil {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	if _, err := w.Write([]byte{129}); err != nil {
+	if _, err := w.Write(lengthBufretrievalPeers); err != nil {
 		return err
 	}
+
+	scratch := make([]byte, 9)
 
 	// t.Peers ([]retrievalmarket.RetrievalPeer) (slice)
 	if len(t.Peers) > cbg.MaxLength {
 		return xerrors.Errorf("Slice value in field t.Peers was too long")
 	}
 
-	if _, err := w.Write(cbg.CborEncodeMajorType(cbg.MajArray, uint64(len(t.Peers)))); err != nil {
+	if err := cbg.WriteMajorTypeHeaderBuf(scratch, w, cbg.MajArray, uint64(len(t.Peers))); err != nil {
 		return err
 	}
 	for _, v := range t.Peers {
@@ -39,9 +43,12 @@ func (t *retrievalPeers) MarshalCBOR(w io.Writer) error {
 }
 
 func (t *retrievalPeers) UnmarshalCBOR(r io.Reader) error {
-	br := cbg.GetPeeker(r)
+	*t = retrievalPeers{}
 
-	maj, extra, err := cbg.CborReadHeader(br)
+	br := cbg.GetPeeker(r)
+	scratch := make([]byte, 8)
+
+	maj, extra, err := cbg.CborReadHeaderBuf(br, scratch)
 	if err != nil {
 		return err
 	}
@@ -55,7 +62,7 @@ func (t *retrievalPeers) UnmarshalCBOR(r io.Reader) error {
 
 	// t.Peers ([]retrievalmarket.RetrievalPeer) (slice)
 
-	maj, extra, err = cbg.CborReadHeader(br)
+	maj, extra, err = cbg.CborReadHeaderBuf(br, scratch)
 	if err != nil {
 		return err
 	}

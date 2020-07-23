@@ -237,6 +237,10 @@ type Params struct {
 	UnsealPrice             abi.TokenAmount
 }
 
+func (p Params) SelectorSpecified() bool {
+	return p.Selector != nil && !bytes.Equal(p.Selector.Raw, cbg.CborNull)
+}
+
 // NewParamsV0 generates parameters for a retrieval deal, which is always a whole piece deal
 func NewParamsV0(pricePerByte abi.TokenAmount, paymentInterval uint64, paymentIntervalIncrease uint64) Params {
 	return Params{

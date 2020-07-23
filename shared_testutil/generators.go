@@ -27,6 +27,7 @@ import (
 // MakeTestSignedVoucher generates a random SignedVoucher that has all non-zero fields
 func MakeTestSignedVoucher() *paych.SignedVoucher {
 	return &paych.SignedVoucher{
+		ChannelAddr:    address.TestAddress,
 		TimeLockMin:    abi.ChainEpoch(rand.Int63()),
 		TimeLockMax:    0,
 		SecretPreimage: []byte("secret-preimage"),

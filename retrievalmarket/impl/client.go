@@ -267,7 +267,7 @@ func (c *clientDealEnvironment) Node() retrievalmarket.RetrievalClientNode {
 
 func (c *clientDealEnvironment) OpenDataTransfer(ctx context.Context, to peer.ID, proposal *retrievalmarket.DealProposal) (datatransfer.ChannelID, error) {
 	sel := shared.AllSelector()
-	if proposal.Selector != nil {
+	if proposal.SelectorSpecified() {
 		var err error
 		sel, err = retrievalmarket.DecodeNode(proposal.Selector)
 		if err != nil {

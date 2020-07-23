@@ -70,7 +70,7 @@ func (rv *ProviderRequestValidator) ValidatePull(receiver peer.ID, voucher datat
 		return nil, err
 	}
 	bytesCompare := allSelectorBytes
-	if proposal.Selector != nil {
+	if proposal.SelectorSpecified() {
 		bytesCompare = proposal.Selector.Raw
 	}
 	if !bytes.Equal(buf.Bytes(), bytesCompare) {

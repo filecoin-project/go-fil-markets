@@ -9,6 +9,8 @@ import (
 	"github.com/ipfs/go-datastore"
 	dshelp "github.com/ipfs/go-ipfs-ds-help"
 
+	cborutil "github.com/filecoin-project/go-cbor-util"
+
 	"github.com/filecoin-project/go-fil-markets/retrievalmarket"
 )
 
@@ -36,7 +38,7 @@ func (l *Local) AddPeer(cid cid.Cid, peer retrievalmarket.RetrievalPeer) error {
 
 	if !exists {
 		peers := retrievalPeers{Peers: []retrievalmarket.RetrievalPeer{peer}}
-		err = peers.MarshalCBOR(&newRecord)
+		err = cborutil.WriteCborRPC(&newRecord, &peers)
 		if err != nil {
 			return err
 		}
@@ -46,14 +48,14 @@ func (l *Local) AddPeer(cid cid.Cid, peer retrievalmarket.RetrievalPeer) error {
 			return err
 		}
 		var peers retrievalPeers
-		if err = peers.UnmarshalCBOR(bytes.NewReader(entry)); err != nil {
+		if err = cborutil.ReadCborRPC(bytes.NewReader(entry), &peers); err != nil {
 			return err
 		}
 		if hasPeer(peers, peer) {
 			return nil
 		}
 		peers.Peers = append(peers.Peers, peer)
-		err = peers.MarshalCBOR(&newRecord)
+		err = cborutil.WriteCborRPC(&newRecord, &peers)
 		if err != nil {
 			return err
 		}
@@ -80,7 +82,7 @@ func (l *Local) GetPeers(payloadCID cid.Cid) ([]retrievalmarket.RetrievalPeer, e
 		return nil, err
 	}
 	var peers retrievalPeers
-	if err := peers.UnmarshalCBOR(bytes.NewReader(entry)); err != nil {
+	if err := cborutil.ReadCborRPC(bytes.NewReader(entry), &peers); err != nil {
 		return nil, err
 	}
 	return peers.Peers, nil
