@@ -36,6 +36,8 @@ func TestEnsureFunds(t *testing.T) {
 		runAndInspect(t, storagemarket.StorageDealEnsureClientFunds, clientstates.EnsureClientFunds, testCase{
 			inspector: func(deal storagemarket.ClientDeal, env *fakeEnvironment) {
 				tut.AssertDealState(t, storagemarket.StorageDealFundsEnsured, deal.State)
+				assert.Equal(t, env.dealFunds.ReserveCalls[0], deal.Proposal.ClientBalanceRequirement())
+				assert.Len(t, env.dealFunds.ReleaseCalls, 0)
 			},
 		})
 	})
@@ -44,6 +46,8 @@ func TestEnsureFunds(t *testing.T) {
 			nodeParams: nodeParams{AddFundsCid: tut.GenerateCids(1)[0]},
 			inspector: func(deal storagemarket.ClientDeal, env *fakeEnvironment) {
 				tut.AssertDealState(t, storagemarket.StorageDealClientFunding, deal.State)
+				assert.Equal(t, env.dealFunds.ReserveCalls[0], deal.Proposal.ClientBalanceRequirement())
+				assert.Len(t, env.dealFunds.ReleaseCalls, 0)
 			},
 		})
 	})
@@ -55,6 +59,8 @@ func TestEnsureFunds(t *testing.T) {
 			inspector: func(deal storagemarket.ClientDeal, env *fakeEnvironment) {
 				tut.AssertDealState(t, storagemarket.StorageDealFailing, deal.State)
 				assert.Equal(t, "adding market funds failed: Something went wrong", deal.Message)
+				assert.Equal(t, env.dealFunds.ReserveCalls[0], deal.Proposal.ClientBalanceRequirement())
+				assert.Equal(t, env.dealFunds.ReleaseCalls[0], deal.Proposal.ClientBalanceRequirement())
 			},
 		})
 	})
@@ -343,6 +349,7 @@ func TestValidateDealPublished(t *testing.T) {
 			inspector: func(deal storagemarket.ClientDeal, env *fakeEnvironment) {
 				tut.AssertDealState(t, storagemarket.StorageDealSealing, deal.State)
 				assert.Equal(t, abi.DealID(5), deal.DealID)
+				assert.Equal(t, env.dealFunds.ReleaseCalls[0], deal.Proposal.ClientBalanceRequirement())
 			},
 		})
 	})

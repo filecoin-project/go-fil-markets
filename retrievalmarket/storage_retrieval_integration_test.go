@@ -288,7 +288,7 @@ func newStorageHarness(ctx context.Context, t *testing.T) *storageHarness {
 	require.NoError(t, dt2.RegisterVoucherType(&requestvalidation.StorageDataTransferVoucher{}, rv2))
 	storedAsk, err := storedask.NewStoredAsk(td.Ds2, datastore.NewKey("latest-ask"), providerNode, providerAddr)
 	require.NoError(t, err)
-	providerDealFunds, err := funds.NewDealFunds(td.Ds1, datastore.NewKey("storage/client/dealfunds"))
+	providerDealFunds, err := funds.NewDealFunds(td.Ds1, datastore.NewKey("storage/provider/dealfunds"))
 	require.NoError(t, err)
 
 	provider, err := stormkt.NewProvider(

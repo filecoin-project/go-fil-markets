@@ -19,6 +19,10 @@ type TestDealFunds struct {
 	ReleaseCalls []abi.TokenAmount
 }
 
+func (f *TestDealFunds) Get() abi.TokenAmount {
+	return f.reserved
+}
+
 func (f *TestDealFunds) Reserve(amount abi.TokenAmount) (abi.TokenAmount, error) {
 	f.reserved = big.Add(f.reserved, amount)
 	f.ReserveCalls = append(f.ReserveCalls, amount)

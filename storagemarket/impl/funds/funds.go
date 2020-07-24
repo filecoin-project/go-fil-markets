@@ -13,6 +13,9 @@ import (
 
 // DealFunds is used to track funds needed for (possibly multiple) deals in progress
 type DealFunds interface {
+	// returns the current amount tracked
+	Get() abi.TokenAmount
+
 	// Reserve is used to mark funds as "in-use" for a deal
 	// returns the new amount tracked
 	Reserve(amount abi.TokenAmount) (abi.TokenAmount, error)
@@ -46,6 +49,10 @@ func NewDealFunds(ds datastore.Batching, key datastore.Key) (DealFunds, error) {
 	df.reserved = value
 
 	return df, nil
+}
+
+func (f *dealFundsImpl) Get() abi.TokenAmount {
+	return f.reserved
 }
 
 func (f *dealFundsImpl) Reserve(amount abi.TokenAmount) (abi.TokenAmount, error) {
