@@ -174,12 +174,20 @@ func EnsureProviderFunds(ctx fsm.Context, environment ProviderDealEnvironment, d
 		return ctx.Trigger(storagemarket.ProviderEventNodeErrored, xerrors.Errorf("looking up miner worker: %w", err))
 	}
 
-	requiredFunds, _ := environment.DealFunds().Reserve(deal.Proposal.ProviderCollateral)
+	requiredFunds, err := environment.DealFunds().Reserve(deal.Proposal.ProviderCollateral)
+	if err != nil {
+		return ctx.Trigger(storagemarket.ProviderEventTrackFundsFailed, xerrors.Errorf("reserving deal funds: %w", err))
+	}
 
 	mcid, err := node.EnsureFunds(ctx.Context(), deal.Proposal.Provider, waddr, requiredFunds, tok)
 
 	if err != nil {
-		environment.DealFunds().Release(deal.Proposal.ProviderCollateral)
+		_, err2 := environment.DealFunds().Release(deal.Proposal.ProviderCollateral)
+		if err2 != nil {
+			// nonfatal error
+			log.Warnf("failed to release funds from local tracker: %s", err2)
+		}
+
 		return ctx.Trigger(storagemarket.ProviderEventNodeErrored, xerrors.Errorf("ensuring funds: %w", err))
 	}
 
@@ -239,7 +247,11 @@ func WaitForPublish(ctx fsm.Context, environment ProviderDealEnvironment, deal s
 			return ctx.Trigger(storagemarket.ProviderEventDealPublishError, xerrors.Errorf("PublishStorageDeals error unmarshalling result: %w", err))
 		}
 
-		environment.DealFunds().Release(deal.Proposal.ProviderCollateral)
+		_, err = environment.DealFunds().Release(deal.Proposal.ProviderCollateral)
+		if err != nil {
+			// nonfatal error
+			log.Warnf("failed to release funds from local tracker: %s", err)
+		}
 
 		return ctx.Trigger(storagemarket.ProviderEventDealPublished, retval.IDs[0])
 	})

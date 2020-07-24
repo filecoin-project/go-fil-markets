@@ -58,7 +58,8 @@ func EnsureClientFunds(ctx fsm.Context, environment ClientDealEnvironment, deal 
 	if err != nil {
 		_, err2 := environment.DealFunds().Release(deal.Proposal.ClientBalanceRequirement())
 		if err2 != nil {
-			return ctx.Trigger(storagemarket.ClientEventEnsureFundsFailed, xerrors.Errorf("tracking deal funds: %w", err))
+			// nonfatal error
+			log.Warnf("failed to release funds from local tracker: %s", err2)
 		}
 		return ctx.Trigger(storagemarket.ClientEventEnsureFundsFailed, err)
 	}
@@ -202,7 +203,11 @@ func ValidateDealPublished(ctx fsm.Context, environment ClientDealEnvironment, d
 		return ctx.Trigger(storagemarket.ClientEventDealPublishFailed, err)
 	}
 
-	environment.DealFunds().Release(deal.Proposal.ClientBalanceRequirement())
+	_, err = environment.DealFunds().Release(deal.Proposal.ClientBalanceRequirement())
+	if err != nil {
+		// nonfatal error
+		log.Warnf("failed to release funds from local tracker: %s", err)
+	}
 
 	return ctx.Trigger(storagemarket.ClientEventDealPublished, dealID)
 }

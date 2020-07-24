@@ -220,6 +220,9 @@ const (
 	// ProviderEventFailed indicates a deal has failed and should no longer be processed
 	ProviderEventFailed
 
+	// ProviderEventTrackFundsFailed indicates a failure trying to locally track funds needed for deals
+	ProviderEventTrackFundsFailed
+
 	// ProviderEventRestart is used to resume the deal after a state machine shutdown
 	ProviderEventRestart
 )
@@ -260,5 +263,6 @@ var ProviderEvents = map[ProviderEvent]string{
 	ProviderEventDealExpired:            "ProviderEventDealExpired",
 	ProviderEventDealSlashed:            "ProviderEventDealSlashed",
 	ProviderEventFailed:                 "ProviderEventFailed",
+	ProviderEventTrackFundsFailed:       "ProviderEventTrackFundsFailed",
 	ProviderEventRestart:                "ProviderEventRestart",
 }

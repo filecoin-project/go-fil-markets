@@ -156,6 +156,13 @@ var ProviderEvents = fsm.Events{
 	fsm.Event(storagemarket.ProviderEventRestart).
 		FromMany(storagemarket.StorageDealValidating, storagemarket.StorageDealAcceptWait, storagemarket.StorageDealRejecting).To(storagemarket.StorageDealError).
 		FromAny().ToNoChange(),
+
+	fsm.Event(storagemarket.ProviderEventTrackFundsFailed).
+		From(storagemarket.StorageDealEnsureProviderFunds).To(storagemarket.StorageDealFailing).
+		Action(func(deal *storagemarket.MinerDeal, err error) error {
+			deal.Message = xerrors.Errorf("error tracking deal funds: %w", err).Error()
+			return nil
+		}),
 }
 
 // ProviderStateEntryFuncs are the handlers for different states in a storage client
