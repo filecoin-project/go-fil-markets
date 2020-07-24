@@ -33,6 +33,7 @@ import (
 	"github.com/filecoin-project/go-fil-markets/storagemarket/impl/clientstates"
 	"github.com/filecoin-project/go-fil-markets/storagemarket/impl/clientutils"
 	"github.com/filecoin-project/go-fil-markets/storagemarket/impl/dtutils"
+	"github.com/filecoin-project/go-fil-markets/storagemarket/impl/funds"
 	"github.com/filecoin-project/go-fil-markets/storagemarket/impl/requestvalidation"
 	"github.com/filecoin-project/go-fil-markets/storagemarket/network"
 )
@@ -56,6 +57,7 @@ type Client struct {
 	pubSub          *pubsub.PubSub
 	statemachines   fsm.Group
 	pollingInterval time.Duration
+	dealFunds       funds.DealFunds
 }
 
 // StorageClientOption allows custom configuration of a storage client
@@ -78,6 +80,7 @@ func NewClient(
 	discovery *discovery.Local,
 	ds datastore.Batching,
 	scn storagemarket.StorageClientNode,
+	dealFunds funds.DealFunds,
 	options ...StorageClientOption,
 ) (*Client, error) {
 	carIO := cario.NewCarIO()
@@ -91,6 +94,7 @@ func NewClient(
 		pio:             pio,
 		pubSub:          pubsub.New(clientDispatcher),
 		pollingInterval: DefaultPollingInterval,
+		dealFunds:       dealFunds,
 	}
 
 	statemachines, err := newClientStateMachine(
@@ -542,6 +546,10 @@ func (c *clientDealEnvironment) GetProviderDealState(ctx context.Context, propos
 
 func (c *clientDealEnvironment) PollingInterval() time.Duration {
 	return c.c.pollingInterval
+}
+
+func (c *clientDealEnvironment) DealFunds() funds.DealFunds {
+	return c.c.dealFunds
 }
 
 type clientStoreGetter struct {

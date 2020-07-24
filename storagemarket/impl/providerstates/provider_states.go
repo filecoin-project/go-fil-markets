@@ -23,6 +23,7 @@ import (
 	"github.com/filecoin-project/go-fil-markets/piecestore"
 	"github.com/filecoin-project/go-fil-markets/shared"
 	"github.com/filecoin-project/go-fil-markets/storagemarket"
+	"github.com/filecoin-project/go-fil-markets/storagemarket/impl/funds"
 	"github.com/filecoin-project/go-fil-markets/storagemarket/impl/providerutils"
 	"github.com/filecoin-project/go-fil-markets/storagemarket/network"
 )
@@ -42,6 +43,7 @@ type ProviderDealEnvironment interface {
 	FileStore() filestore.FileStore
 	PieceStore() piecestore.PieceStore
 	RunCustomDecisionLogic(context.Context, storagemarket.MinerDeal) (bool, string, error)
+	DealFunds() funds.DealFunds
 }
 
 // ProviderStateEntryFunc is the signature for a StateEntryFunc in the provider FSM
@@ -172,9 +174,12 @@ func EnsureProviderFunds(ctx fsm.Context, environment ProviderDealEnvironment, d
 		return ctx.Trigger(storagemarket.ProviderEventNodeErrored, xerrors.Errorf("looking up miner worker: %w", err))
 	}
 
-	mcid, err := node.EnsureFunds(ctx.Context(), deal.Proposal.Provider, waddr, deal.Proposal.ProviderCollateral, tok)
+	requiredFunds, _ := environment.DealFunds().Reserve(deal.Proposal.ProviderCollateral)
+
+	mcid, err := node.EnsureFunds(ctx.Context(), deal.Proposal.Provider, waddr, requiredFunds, tok)
 
 	if err != nil {
+		environment.DealFunds().Release(deal.Proposal.ProviderCollateral)
 		return ctx.Trigger(storagemarket.ProviderEventNodeErrored, xerrors.Errorf("ensuring funds: %w", err))
 	}
 
@@ -233,6 +238,8 @@ func WaitForPublish(ctx fsm.Context, environment ProviderDealEnvironment, deal s
 		if err != nil {
 			return ctx.Trigger(storagemarket.ProviderEventDealPublishError, xerrors.Errorf("PublishStorageDeals error unmarshalling result: %w", err))
 		}
+
+		environment.DealFunds().Release(deal.Proposal.ProviderCollateral)
 
 		return ctx.Trigger(storagemarket.ProviderEventDealPublished, retval.IDs[0])
 	})

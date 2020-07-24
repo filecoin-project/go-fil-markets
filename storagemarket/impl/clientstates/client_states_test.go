@@ -24,6 +24,7 @@ import (
 	tut "github.com/filecoin-project/go-fil-markets/shared_testutil"
 	"github.com/filecoin-project/go-fil-markets/storagemarket"
 	"github.com/filecoin-project/go-fil-markets/storagemarket/impl/clientstates"
+	"github.com/filecoin-project/go-fil-markets/storagemarket/impl/funds"
 	smnet "github.com/filecoin-project/go-fil-markets/storagemarket/network"
 	"github.com/filecoin-project/go-fil-markets/storagemarket/testnodes"
 )
@@ -481,6 +482,7 @@ func makeExecutor(ctx context.Context,
 			providerDealState:      envParams.providerDealState,
 			getDealStatusErr:       envParams.getDealStatusErr,
 			pollingInterval:        envParams.pollingInterval,
+			dealFunds:              tut.NewTestDealFunds(),
 		}
 
 		if environment.pollingInterval == 0 {
@@ -551,6 +553,7 @@ type fakeEnvironment struct {
 	providerDealState      *storagemarket.ProviderDealState
 	getDealStatusErr       error
 	pollingInterval        time.Duration
+	dealFunds              *tut.TestDealFunds
 }
 
 type dataTransferParams struct {
@@ -591,6 +594,10 @@ func (fe *fakeEnvironment) GetProviderDealState(_ context.Context, _ cid.Cid) (*
 
 func (fe *fakeEnvironment) PollingInterval() time.Duration {
 	return fe.pollingInterval
+}
+
+func (fe *fakeEnvironment) DealFunds() funds.DealFunds {
+	return fe.dealFunds
 }
 
 var _ clientstates.ClientDealEnvironment = &fakeEnvironment{}

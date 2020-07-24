@@ -29,6 +29,7 @@ import (
 	tut "github.com/filecoin-project/go-fil-markets/shared_testutil"
 	"github.com/filecoin-project/go-fil-markets/storagemarket"
 	"github.com/filecoin-project/go-fil-markets/storagemarket/impl/blockrecorder"
+	"github.com/filecoin-project/go-fil-markets/storagemarket/impl/funds"
 	"github.com/filecoin-project/go-fil-markets/storagemarket/impl/providerstates"
 	"github.com/filecoin-project/go-fil-markets/storagemarket/network"
 	"github.com/filecoin-project/go-fil-markets/storagemarket/testnodes"
@@ -1053,6 +1054,7 @@ func makeExecutor(ctx context.Context,
 			deleteStoreError:        params.DeleteStoreError,
 			fs:                      fs,
 			pieceStore:              pieceStore,
+			dealFunds:               tut.NewTestDealFunds(),
 		}
 		if environment.pieceCid == cid.Undef {
 			environment.pieceCid = defaultPieceCid
@@ -1102,6 +1104,7 @@ type fakeEnvironment struct {
 	pieceStore              piecestore.PieceStore
 	expectedTags            map[string]struct{}
 	receivedTags            map[string]struct{}
+	dealFunds               *tut.TestDealFunds
 }
 
 func (fe *fakeEnvironment) Address() address.Address {
@@ -1147,4 +1150,8 @@ func (fe *fakeEnvironment) PieceStore() piecestore.PieceStore {
 
 func (fe *fakeEnvironment) RunCustomDecisionLogic(context.Context, storagemarket.MinerDeal) (bool, string, error) {
 	return !fe.rejectDeal, fe.rejectReason, fe.decisionError
+}
+
+func (fe *fakeEnvironment) DealFunds() funds.DealFunds {
+	return fe.dealFunds
 }

@@ -18,6 +18,7 @@ import (
 	"github.com/filecoin-project/go-fil-markets/shared"
 	"github.com/filecoin-project/go-fil-markets/storagemarket"
 	"github.com/filecoin-project/go-fil-markets/storagemarket/impl/clientutils"
+	"github.com/filecoin-project/go-fil-markets/storagemarket/impl/funds"
 	"github.com/filecoin-project/go-fil-markets/storagemarket/impl/requestvalidation"
 	"github.com/filecoin-project/go-fil-markets/storagemarket/network"
 )
@@ -32,6 +33,7 @@ type ClientDealEnvironment interface {
 	StartDataTransfer(ctx context.Context, to peer.ID, voucher datatransfer.Voucher, baseCid cid.Cid, selector ipld.Node) error
 	GetProviderDealState(ctx context.Context, proposalCid cid.Cid) (*storagemarket.ProviderDealState, error)
 	PollingInterval() time.Duration
+	DealFunds() funds.DealFunds
 }
 
 // ClientStateEntryFunc is the type for all state entry functions on a storage client
@@ -46,9 +48,18 @@ func EnsureClientFunds(ctx fsm.Context, environment ClientDealEnvironment, deal 
 		return ctx.Trigger(storagemarket.ClientEventEnsureFundsFailed, xerrors.Errorf("acquiring chain head: %w", err))
 	}
 
-	mcid, err := node.EnsureFunds(ctx.Context(), deal.Proposal.Client, deal.Proposal.Client, deal.Proposal.ClientBalanceRequirement(), tok)
+	requiredFunds, err := environment.DealFunds().Reserve(deal.Proposal.ClientBalanceRequirement())
+	if err != nil {
+		return ctx.Trigger(storagemarket.ClientEventEnsureFundsFailed, xerrors.Errorf("tracking deal funds: %w", err))
+	}
+
+	mcid, err := node.EnsureFunds(ctx.Context(), deal.Proposal.Client, deal.Proposal.Client, requiredFunds, tok)
 
 	if err != nil {
+		_, err2 := environment.DealFunds().Release(deal.Proposal.ClientBalanceRequirement())
+		if err2 != nil {
+			return ctx.Trigger(storagemarket.ClientEventEnsureFundsFailed, xerrors.Errorf("tracking deal funds: %w", err))
+		}
 		return ctx.Trigger(storagemarket.ClientEventEnsureFundsFailed, err)
 	}
 
@@ -190,6 +201,8 @@ func ValidateDealPublished(ctx fsm.Context, environment ClientDealEnvironment, d
 	if err != nil {
 		return ctx.Trigger(storagemarket.ClientEventDealPublishFailed, err)
 	}
+
+	environment.DealFunds().Release(deal.Proposal.ClientBalanceRequirement())
 
 	return ctx.Trigger(storagemarket.ClientEventDealPublished, dealID)
 }
