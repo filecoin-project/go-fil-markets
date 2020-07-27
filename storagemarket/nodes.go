@@ -69,6 +69,7 @@ type StorageProviderNode interface {
 	ListProviderDeals(ctx context.Context, addr address.Address, tok shared.TipSetToken) ([]StorageDeal, error)
 
 	// OnDealComplete is called when a deal is complete and on chain, and data has been transferred and is ready to be added to a sector
+	// TODO: this should return the sector ID the deal was stored in
 	OnDealComplete(ctx context.Context, deal MinerDeal, pieceSize abi.UnpaddedPieceSize, pieceReader io.Reader) error
 
 	// GetMinerWorkerAddress returns the worker address associated with a miner

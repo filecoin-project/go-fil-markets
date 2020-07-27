@@ -257,10 +257,31 @@ func HandoffDeal(ctx fsm.Context, environment ProviderDealEnvironment, deal stor
 		paddedSize,
 		paddedReader,
 	)
-
 	if err != nil {
 		return ctx.Trigger(storagemarket.ProviderEventDealHandoffFailed, err)
 	}
+
+	NOT_USED_BY_METHOD, _, err := environment.Node().GetChainHead(ctx.Context())
+	if err != nil {
+		return ctx.Trigger(storagemarket.ProviderEventUnableToLocatePiece, deal.DealID, err)
+	}
+
+	// really should just use the sector ID from OnDealComplete here...
+	sectorID, offset, length, err := environment.Node().LocatePieceForDealWithinSector(ctx.Context(), deal.DealID, NOT_USED_BY_METHOD)
+	if err != nil {
+		return ctx.Trigger(storagemarket.ProviderEventUnableToLocatePiece, deal.DealID, err)
+	}
+
+	err = environment.PieceStore().AddDealForPiece(deal.Proposal.PieceCID, piecestore.DealInfo{
+		DealID:   deal.DealID,
+		SectorID: sectorID,
+		Offset:   offset,
+		Length:   length,
+	})
+	if err != nil {
+		return ctx.Trigger(storagemarket.ProviderEventPieceStoreErrored, xerrors.Errorf("adding deal info for piece: %w", err))
+	}
+
 	return ctx.Trigger(storagemarket.ProviderEventDealHandedOff)
 }
 

@@ -55,4 +55,6 @@ type PieceStore interface {
 	AddPieceBlockLocations(pieceCID cid.Cid, blockLocations map[cid.Cid]BlockLocation) error
 	GetPieceInfo(pieceCID cid.Cid) (PieceInfo, error)
 	GetCIDInfo(payloadCID cid.Cid) (CIDInfo, error)
+	ListCidInfoKeys() ([]cid.Cid, error)
+	ListPieceInfoKeys() ([]cid.Cid, error)
 }
