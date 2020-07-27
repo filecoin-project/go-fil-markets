@@ -136,3 +136,11 @@ func (tps *TestPieceStore) GetCIDInfo(c cid.Cid) (piecestore.CIDInfo, error) {
 	}
 	return piecestore.CIDInfoUndefined, errors.New("GetCIDInfo failed")
 }
+
+func (tps *TestPieceStore) ListCidInfoKeys() ([]cid.Cid, error) {
+	panic("do not call me")
+}
+
+func (tps *TestPieceStore) ListPieceInfoKeys() ([]cid.Cid, error) {
+	panic("do not call me")
+}
