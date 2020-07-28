@@ -2,7 +2,6 @@ package storageimpl
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"time"
 
@@ -556,7 +555,7 @@ func (csg *clientStoreGetter) Get(proposalCid cid.Cid) (*multistore.Store, error
 		return nil, err
 	}
 	if deal.StoreID == nil {
-		return nil, errors.New("No store for this deal")
+		return nil, nil
 	}
 	return csg.c.multiStore.Get(*deal.StoreID)
 }

@@ -124,6 +124,9 @@ func TransportConfigurer(storeGetter StoreGetter) datatransfer.TransportConfigur
 			log.Errorf("attempting to configure data store: %w", err)
 			return
 		}
+		if store == nil {
+			return
+		}
 		err = gsTransport.UseStore(channelID, store.Loader, store.Storer)
 		if err != nil {
 			log.Errorf("attempting to configure data store: %w", err)
