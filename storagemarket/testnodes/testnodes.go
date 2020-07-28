@@ -6,6 +6,7 @@ import (
 	"context"
 	"errors"
 	"io"
+	"io/ioutil"
 
 	"github.com/ipfs/go-cid"
 
@@ -280,6 +281,7 @@ type FakeProviderNode struct {
 	PublishDealID                       abi.DealID
 	PublishDealsError                   error
 	OnDealCompleteError                 error
+	LastOnDealCompleteBytes             []byte
 	OnDealCompleteCalls                 []storagemarket.MinerDeal
 	LocatePieceForDealWithinSectorError error
 	DataCap                             *verifreg.DataCap
@@ -309,6 +311,7 @@ func (n *FakeProviderNode) ListProviderDeals(ctx context.Context, addr address.A
 // OnDealComplete simulates passing of the deal to the storage miner, and does nothing
 func (n *FakeProviderNode) OnDealComplete(ctx context.Context, deal storagemarket.MinerDeal, pieceSize abi.UnpaddedPieceSize, pieceReader io.Reader) error {
 	n.OnDealCompleteCalls = append(n.OnDealCompleteCalls, deal)
+	n.LastOnDealCompleteBytes, _ = ioutil.ReadAll(pieceReader)
 	return n.OnDealCompleteError
 }
 

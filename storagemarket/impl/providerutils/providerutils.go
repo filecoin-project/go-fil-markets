@@ -11,6 +11,7 @@ import (
 
 	"github.com/filecoin-project/go-address"
 	cborutil "github.com/filecoin-project/go-cbor-util"
+	"github.com/filecoin-project/go-multistore"
 	"github.com/filecoin-project/specs-actors/actors/abi"
 	"github.com/filecoin-project/specs-actors/actors/builtin/market"
 	"github.com/filecoin-project/specs-actors/actors/crypto"
@@ -75,7 +76,7 @@ func SignMinerData(ctx context.Context, data interface{}, address address.Addres
 }
 
 // CommPGenerator is a commP generating function that writes to a file
-type CommPGenerator func(abi.RegisteredSealProof, cid.Cid, ipld.Node, ...car.OnNewCarBlockFunc) (cid.Cid, filestore.Path, abi.UnpaddedPieceSize, error)
+type CommPGenerator func(abi.RegisteredSealProof, cid.Cid, ipld.Node, multistore.StoreID, ...car.OnNewCarBlockFunc) (cid.Cid, filestore.Path, abi.UnpaddedPieceSize, error)
 
 // GeneratePieceCommitmentWithMetadata generates a piece commitment along with block metadata
 func GeneratePieceCommitmentWithMetadata(
@@ -83,13 +84,14 @@ func GeneratePieceCommitmentWithMetadata(
 	commPGenerator CommPGenerator,
 	proofType abi.RegisteredSealProof,
 	payloadCid cid.Cid,
-	selector ipld.Node) (cid.Cid, filestore.Path, filestore.Path, error) {
+	selector ipld.Node,
+	storeID multistore.StoreID) (cid.Cid, filestore.Path, filestore.Path, error) {
 	metadataFile, err := fileStore.CreateTemp()
 	if err != nil {
 		return cid.Cid{}, "", "", err
 	}
 	blockRecorder := blockrecorder.RecordEachBlockTo(metadataFile)
-	pieceCid, path, _, err := commPGenerator(proofType, payloadCid, selector, blockRecorder)
+	pieceCid, path, _, err := commPGenerator(proofType, payloadCid, selector, storeID, blockRecorder)
 	_ = metadataFile.Close()
 	if err != nil {
 		_ = fileStore.Delete(metadataFile.Path())

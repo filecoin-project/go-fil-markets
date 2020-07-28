@@ -208,6 +208,9 @@ const (
 	// ProviderEventDealCompletionFailed happens when a miner cannot verify a deal expired or was slashed
 	ProviderEventDealCompletionFailed
 
+	// ProviderEventMultistoreErrored indicates an error happened with a store for a deal
+	ProviderEventMultistoreErrored
+
 	// ProviderEventDealExpired happens when a deal expires
 	ProviderEventDealExpired
 
@@ -253,6 +256,7 @@ var ProviderEvents = map[ProviderEvent]string{
 	ProviderEventReadMetadataErrored:    "ProviderEventReadMetadataErrored",
 	ProviderEventPieceRecorded:          "ProviderEventPieceRecorded",
 	ProviderEventDealCompletionFailed:   "ProviderEventDealCompletionFailed",
+	ProviderEventMultistoreErrored:      "ProviderEventMultistoreErrored",
 	ProviderEventDealExpired:            "ProviderEventDealExpired",
 	ProviderEventDealSlashed:            "ProviderEventDealSlashed",
 	ProviderEventFailed:                 "ProviderEventFailed",

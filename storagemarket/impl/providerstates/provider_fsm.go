@@ -92,12 +92,21 @@ var ProviderEvents = fsm.Events{
 			deal.Message = xerrors.Errorf("accessing file store: %w", err).Error()
 			return nil
 		}),
+	fsm.Event(storagemarket.ProviderEventMultistoreErrored).
+		FromMany(storagemarket.StorageDealStaged).To(storagemarket.StorageDealFailing).
+		Action(func(deal *storagemarket.MinerDeal, err error) error {
+			deal.Message = xerrors.Errorf("operating on multistore: %w", err).Error()
+			return nil
+		}),
 	fsm.Event(storagemarket.ProviderEventDealHandoffFailed).From(storagemarket.StorageDealStaged).To(storagemarket.StorageDealFailing).
 		Action(func(deal *storagemarket.MinerDeal, err error) error {
 			deal.Message = xerrors.Errorf("handing off deal to node: %w", err).Error()
 			return nil
 		}),
-	fsm.Event(storagemarket.ProviderEventDealHandedOff).From(storagemarket.StorageDealStaged).To(storagemarket.StorageDealSealing),
+	fsm.Event(storagemarket.ProviderEventDealHandedOff).From(storagemarket.StorageDealStaged).To(storagemarket.StorageDealSealing).Action(func(deal *storagemarket.MinerDeal) error {
+		deal.StoreID = nil
+		return nil
+	}),
 	fsm.Event(storagemarket.ProviderEventDealActivationFailed).
 		From(storagemarket.StorageDealSealing).To(storagemarket.StorageDealFailing).
 		Action(func(deal *storagemarket.MinerDeal, err error) error {

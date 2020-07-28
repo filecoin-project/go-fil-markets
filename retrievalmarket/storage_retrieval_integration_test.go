@@ -21,6 +21,7 @@ import (
 	datatransfer "github.com/filecoin-project/go-data-transfer"
 	dtimpl "github.com/filecoin-project/go-data-transfer/impl"
 	dtgstransport "github.com/filecoin-project/go-data-transfer/transport/graphsync"
+	"github.com/filecoin-project/go-multistore"
 	"github.com/filecoin-project/go-statestore"
 	"github.com/filecoin-project/specs-actors/actors/abi"
 	"github.com/filecoin-project/specs-actors/actors/abi/big"
@@ -28,7 +29,6 @@ import (
 	"github.com/filecoin-project/specs-actors/actors/builtin/paych"
 
 	"github.com/filecoin-project/go-fil-markets/filestore"
-	"github.com/filecoin-project/go-fil-markets/pieceio/cario"
 	"github.com/filecoin-project/go-fil-markets/piecestore"
 	"github.com/filecoin-project/go-fil-markets/retrievalmarket"
 	"github.com/filecoin-project/go-fil-markets/retrievalmarket/discovery"
@@ -74,7 +74,7 @@ func TestStorageRetrieval(t *testing.T) {
 
 	time.Sleep(time.Millisecond * 200)
 
-	ctxTimeout, canc := context.WithTimeout(bgCtx, 100*time.Millisecond)
+	ctxTimeout, canc := context.WithTimeout(bgCtx, 25*time.Second)
 	defer canc()
 
 	var storageProviderSeenDeal storagemarket.MinerDeal
@@ -201,6 +201,7 @@ type storageHarness struct {
 	Epoch        abi.ChainEpoch
 	PieceLink    ipld.Link
 	PayloadCid   cid.Cid
+	StoreID      multistore.StoreID
 	ProviderAddr address.Address
 	DTClient     datatransfer.Manager
 	Client       storagemarket.StorageClient
@@ -218,7 +219,7 @@ func newStorageHarness(ctx context.Context, t *testing.T) *storageHarness {
 	epoch := abi.ChainEpoch(100)
 	td := shared_testutil.NewLibp2pTestData(ctx, t)
 	fpath := filepath.Join("retrievalmarket", "impl", "fixtures", "lorem.txt")
-	rootLink := td.LoadUnixFSFile(t, fpath, false)
+	rootLink, storeID := td.LoadUnixFSFileToStore(t, fpath, false)
 	payloadCid := rootLink.(cidlink.Link).Cid
 	clientAddr := address.TestAddress
 	providerAddr := address.TestAddress2
@@ -262,7 +263,7 @@ func newStorageHarness(ctx context.Context, t *testing.T) *storageHarness {
 
 	client, err := stormkt.NewClient(
 		stornet.NewFromLibp2pHost(td.Host1),
-		td.Bs1,
+		td.MultiStore1,
 		dt1,
 		peerResolver,
 		td.Ds1,
@@ -284,8 +285,8 @@ func newStorageHarness(ctx context.Context, t *testing.T) *storageHarness {
 	provider, err := stormkt.NewProvider(
 		stornet.NewFromLibp2pHost(td.Host2),
 		td.Ds2,
-		td.Bs2,
 		fs,
+		td.MultiStore2,
 		ps,
 		dt2,
 		providerNode,
@@ -313,6 +314,7 @@ func newStorageHarness(ctx context.Context, t *testing.T) *storageHarness {
 		Ctx:          ctx,
 		Epoch:        epoch,
 		PayloadCid:   payloadCid,
+		StoreID:      storeID,
 		ProviderAddr: providerAddr,
 		DTClient:     dt1,
 		Client:       client,
@@ -329,7 +331,19 @@ func newStorageHarness(ctx context.Context, t *testing.T) *storageHarness {
 }
 
 func (sh *storageHarness) ProposeStorageDeal(t *testing.T, dataRef *storagemarket.DataRef) *storagemarket.ProposeStorageDealResult {
-	result, err := sh.Client.ProposeStorageDeal(sh.Ctx, sh.ProviderAddr, &sh.ProviderInfo, dataRef, sh.Epoch+100, sh.Epoch+20100, big.NewInt(1), big.NewInt(0), abi.RegisteredSealProof_StackedDrg2KiBV1, false, false)
+	result, err := sh.Client.ProposeStorageDeal(sh.Ctx, storagemarket.ProposeStorageDealParams{
+		Addr:          sh.ProviderAddr,
+		Info:          &sh.ProviderInfo,
+		Data:          dataRef,
+		StartEpoch:    sh.Epoch + 100,
+		EndEpoch:      sh.Epoch + 20100,
+		Price:         big.NewInt(1),
+		Collateral:    big.NewInt(0),
+		Rt:            abi.RegisteredSealProof_StackedDrg2KiBV1,
+		FastRetrieval: false,
+		VerifiedDeal:  false,
+		StoreID:       &sh.StoreID,
+	})
 	assert.NoError(t, err)
 	return result
 }
@@ -390,11 +404,8 @@ func newRetrievalHarness(ctx context.Context, t *testing.T, sh *storageHarness, 
 	payloadCID := deal.DataRef.Root
 	providerPaymentAddr := deal.MinerWorker
 	providerNode := testnodes2.NewTestRetrievalProviderNode()
-	cio := cario.NewCarIO()
 
-	var buf bytes.Buffer
-	require.NoError(t, cio.WriteCar(sh.Ctx, sh.TestData.Bs2, payloadCID, shared.AllSelector(), &buf))
-	carData := buf.Bytes()
+	carData := sh.ProviderNode.LastOnDealCompleteBytes
 	sectorID := uint64(100000)
 	offset := uint64(1000)
 	pieceInfo := piecestore.PieceInfo{

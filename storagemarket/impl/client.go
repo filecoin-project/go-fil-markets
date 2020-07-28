@@ -2,13 +2,13 @@ package storageimpl
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"time"
 
 	"github.com/hannahhoward/go-pubsub"
 	"github.com/ipfs/go-cid"
 	"github.com/ipfs/go-datastore"
-	blockstore "github.com/ipfs/go-ipfs-blockstore"
 	logging "github.com/ipfs/go-log/v2"
 	"github.com/ipld/go-ipld-prime"
 	"github.com/libp2p/go-libp2p-core/peer"
@@ -17,6 +17,7 @@ import (
 	"github.com/filecoin-project/go-address"
 	cborutil "github.com/filecoin-project/go-cbor-util"
 	datatransfer "github.com/filecoin-project/go-data-transfer"
+	"github.com/filecoin-project/go-multistore"
 	"github.com/filecoin-project/go-statemachine/fsm"
 	"github.com/filecoin-project/specs-actors/actors/abi"
 	"github.com/filecoin-project/specs-actors/actors/abi/big"
@@ -32,11 +33,13 @@ import (
 	"github.com/filecoin-project/go-fil-markets/storagemarket/impl/clientstates"
 	"github.com/filecoin-project/go-fil-markets/storagemarket/impl/clientutils"
 	"github.com/filecoin-project/go-fil-markets/storagemarket/impl/dtutils"
+	"github.com/filecoin-project/go-fil-markets/storagemarket/impl/requestvalidation"
 	"github.com/filecoin-project/go-fil-markets/storagemarket/network"
 )
 
 var log = logging.Logger("storagemarket_impl")
 
+// DefaultPollingInterval is the frequency with which we query the provider for a status update
 const DefaultPollingInterval = 30 * time.Second
 
 var _ storagemarket.StorageClient = &Client{}
@@ -45,11 +48,10 @@ var _ storagemarket.StorageClient = &Client{}
 type Client struct {
 	net network.StorageMarketNetwork
 
-	dataTransfer datatransfer.Manager
-	bs           blockstore.Blockstore
-	pio          pieceio.PieceIO
-	discovery    *discovery.Local
-
+	dataTransfer    datatransfer.Manager
+	multiStore      *multistore.MultiStore
+	discovery       *discovery.Local
+	pio             pieceio.PieceIO
 	node            storagemarket.StorageClientNode
 	pubSub          *pubsub.PubSub
 	statemachines   fsm.Group
@@ -70,7 +72,7 @@ func DealPollingInterval(t time.Duration) StorageClientOption {
 // NewClient creates a new storage client
 func NewClient(
 	net network.StorageMarketNetwork,
-	bs blockstore.Blockstore,
+	multiStore *multistore.MultiStore,
 	dataTransfer datatransfer.Manager,
 	discovery *discovery.Local,
 	ds datastore.Batching,
@@ -78,15 +80,14 @@ func NewClient(
 	options ...StorageClientOption,
 ) (*Client, error) {
 	carIO := cario.NewCarIO()
-	pio := pieceio.NewPieceIO(carIO, bs)
-
+	pio := pieceio.NewPieceIO(carIO, multiStore)
 	c := &Client{
 		net:             net,
 		dataTransfer:    dataTransfer,
-		bs:              bs,
-		pio:             pio,
+		multiStore:      multiStore,
 		discovery:       discovery,
 		node:            scn,
+		pio:             pio,
 		pubSub:          pubsub.New(clientDispatcher),
 		pollingInterval: DefaultPollingInterval,
 	}
@@ -105,6 +106,8 @@ func NewClient(
 
 	// register a data transfer event handler -- this will send events to the state machines based on DT events
 	dataTransfer.SubscribeToEvents(dtutils.ClientDataTransferSubscriber(statemachines))
+
+	dataTransfer.RegisterTransportConfigurer(&requestvalidation.StorageDataTransferVoucher{}, dtutils.TransportConfigurer(&clientStoreGetter{c}))
 
 	return c, nil
 }
@@ -308,30 +311,30 @@ its implementation of the Client FSM's ClientDealEnvironment.
 
 Documentation of the client state machine can be found at https://godoc.org/github.com/filecoin-project/go-fil-markets/storagemarket/impl/clientstates
 */
-func (c *Client) ProposeStorageDeal(ctx context.Context, addr address.Address, info *storagemarket.StorageProviderInfo, data *storagemarket.DataRef, startEpoch abi.ChainEpoch, endEpoch abi.ChainEpoch, price abi.TokenAmount, collateral abi.TokenAmount, rt abi.RegisteredSealProof, fastRetrieval bool, verifiedDeal bool) (*storagemarket.ProposeStorageDealResult, error) {
-	commP, pieceSize, err := clientutils.CommP(ctx, c.pio, rt, data)
+func (c *Client) ProposeStorageDeal(ctx context.Context, params storagemarket.ProposeStorageDealParams) (*storagemarket.ProposeStorageDealResult, error) {
+	commP, pieceSize, err := clientutils.CommP(ctx, c.pio, params.Rt, params.Data, params.StoreID)
 	if err != nil {
 		return nil, xerrors.Errorf("computing commP failed: %w", err)
 	}
 
-	if uint64(pieceSize.Padded()) > info.SectorSize {
-		return nil, fmt.Errorf("cannot propose a deal whose piece size (%d) is greater than sector size (%d)", pieceSize.Padded(), info.SectorSize)
+	if uint64(pieceSize.Padded()) > params.Info.SectorSize {
+		return nil, fmt.Errorf("cannot propose a deal whose piece size (%d) is greater than sector size (%d)", pieceSize.Padded(), params.Info.SectorSize)
 	}
 
 	dealProposal := market.DealProposal{
 		PieceCID:             commP,
 		PieceSize:            pieceSize.Padded(),
-		Client:               addr,
-		Provider:             info.Address,
-		StartEpoch:           startEpoch,
-		EndEpoch:             endEpoch,
-		StoragePricePerEpoch: price,
+		Client:               params.Addr,
+		Provider:             params.Info.Address,
+		StartEpoch:           params.StartEpoch,
+		EndEpoch:             params.EndEpoch,
+		StoragePricePerEpoch: params.Price,
 		ProviderCollateral:   abi.NewTokenAmount(int64(pieceSize)), // TODO: real calc
 		ClientCollateral:     big.Zero(),
-		VerifiedDeal:         verifiedDeal,
+		VerifiedDeal:         params.VerifiedDeal,
 	}
 
-	clientDealProposal, err := c.node.SignProposal(ctx, addr, dealProposal)
+	clientDealProposal, err := c.node.SignProposal(ctx, params.Addr, dealProposal)
 	if err != nil {
 		return nil, xerrors.Errorf("signing deal proposal failed: %w", err)
 	}
@@ -345,10 +348,11 @@ func (c *Client) ProposeStorageDeal(ctx context.Context, addr address.Address, i
 		ProposalCid:        proposalNd.Cid(),
 		ClientDealProposal: *clientDealProposal,
 		State:              storagemarket.StorageDealUnknown,
-		Miner:              info.PeerID,
-		MinerWorker:        info.Worker,
-		DataRef:            data,
-		FastRetrieval:      fastRetrieval,
+		Miner:              params.Info.PeerID,
+		MinerWorker:        params.Info.Worker,
+		DataRef:            params.Data,
+		FastRetrieval:      params.FastRetrieval,
+		StoreID:            params.StoreID,
 	}
 
 	err = c.statemachines.Begin(proposalNd.Cid(), deal)
@@ -363,7 +367,7 @@ func (c *Client) ProposeStorageDeal(ctx context.Context, addr address.Address, i
 
 	return &storagemarket.ProposeStorageDealResult{
 			ProposalCid: deal.ProposalCid,
-		}, c.discovery.AddPeer(data.Root, retrievalmarket.RetrievalPeer{
+		}, c.discovery.AddPeer(params.Data.Root, retrievalmarket.RetrievalPeer{
 			Address:  dealProposal.Provider,
 			ID:       deal.Miner,
 			PieceCID: &commP,
@@ -534,6 +538,22 @@ func (c *clientDealEnvironment) GetProviderDealState(ctx context.Context, propos
 
 func (c *clientDealEnvironment) PollingInterval() time.Duration {
 	return c.c.pollingInterval
+}
+
+type clientStoreGetter struct {
+	c *Client
+}
+
+func (csg *clientStoreGetter) Get(proposalCid cid.Cid) (*multistore.Store, error) {
+	var deal storagemarket.ClientDeal
+	err := csg.c.statemachines.Get(proposalCid).Get(&deal)
+	if err != nil {
+		return nil, err
+	}
+	if deal.StoreID == nil {
+		return nil, errors.New("No store for this deal")
+	}
+	return csg.c.multiStore.Get(*deal.StoreID)
 }
 
 // ClientFSMParameterSpec is a valid set of parameters for a client deal FSM - used in doc generation

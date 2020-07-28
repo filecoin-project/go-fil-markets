@@ -11,6 +11,7 @@ import (
 	"golang.org/x/xerrors"
 
 	"github.com/filecoin-project/go-address"
+	"github.com/filecoin-project/go-multistore"
 	"github.com/filecoin-project/go-padreader"
 	"github.com/filecoin-project/go-statemachine/fsm"
 	"github.com/filecoin-project/specs-actors/actors/abi"
@@ -34,7 +35,8 @@ type ProviderDealEnvironment interface {
 	Address() address.Address
 	Node() storagemarket.StorageProviderNode
 	Ask() storagemarket.StorageAsk
-	GeneratePieceCommitmentToFile(payloadCid cid.Cid, selector ipld.Node) (cid.Cid, filestore.Path, filestore.Path, error)
+	DeleteStore(storeID multistore.StoreID) error
+	GeneratePieceCommitmentToFile(storeID multistore.StoreID, payloadCid cid.Cid, selector ipld.Node) (cid.Cid, filestore.Path, filestore.Path, error)
 	SendSignedResponse(ctx context.Context, response *network.Response) error
 	Disconnect(proposalCid cid.Cid) error
 	FileStore() filestore.FileStore
@@ -143,7 +145,7 @@ func DecideOnProposal(ctx fsm.Context, environment ProviderDealEnvironment, deal
 // in the proposal
 func VerifyData(ctx fsm.Context, environment ProviderDealEnvironment, deal storagemarket.MinerDeal) error {
 
-	pieceCid, piecePath, metadataPath, err := environment.GeneratePieceCommitmentToFile(deal.Ref.Root, shared.AllSelector())
+	pieceCid, piecePath, metadataPath, err := environment.GeneratePieceCommitmentToFile(*deal.StoreID, deal.Ref.Root, shared.AllSelector())
 	if err != nil {
 		return ctx.Trigger(storagemarket.ProviderEventDataVerificationFailed, xerrors.Errorf("error generating CommP: %w", err))
 	}
@@ -242,6 +244,13 @@ func HandoffDeal(ctx fsm.Context, environment ProviderDealEnvironment, deal stor
 	if err != nil {
 		return ctx.Trigger(storagemarket.ProviderEventFileStoreErrored, xerrors.Errorf("reading piece at path %s: %w", deal.PiecePath, err))
 	}
+	if deal.StoreID != nil {
+		err := environment.DeleteStore(*deal.StoreID)
+		if err != nil {
+			return ctx.Trigger(storagemarket.ProviderEventMultistoreErrored, xerrors.Errorf("unable to delete store %d: %w", *deal.StoreID, err))
+		}
+	}
+
 	paddedReader, paddedSize := padreader.New(file, uint64(file.Size()))
 	err = environment.Node().OnDealComplete(
 		ctx.Context(),
@@ -402,6 +411,12 @@ func FailDeal(ctx fsm.Context, environment ProviderDealEnvironment, deal storage
 		err := environment.FileStore().Delete(deal.MetadataPath)
 		if err != nil {
 			log.Warnf("deleting piece at path %s: %w", deal.MetadataPath, err)
+		}
+	}
+	if deal.StoreID != nil {
+		err := environment.DeleteStore(*deal.StoreID)
+		if err != nil {
+			log.Warnf("deleting store id %d: %w", *deal.StoreID, err)
 		}
 	}
 	return ctx.Trigger(storagemarket.ProviderEventFailed)

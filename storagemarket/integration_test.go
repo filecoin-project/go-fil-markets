@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 	"sync"
 	"testing"
+	"time"
 
 	"github.com/ipfs/go-cid"
 	"github.com/ipfs/go-datastore"
@@ -19,6 +20,7 @@ import (
 	"github.com/filecoin-project/go-address"
 	dtimpl "github.com/filecoin-project/go-data-transfer/impl"
 	dtgstransport "github.com/filecoin-project/go-data-transfer/transport/graphsync"
+	"github.com/filecoin-project/go-multistore"
 	"github.com/filecoin-project/go-statestore"
 	"github.com/filecoin-project/specs-actors/actors/abi"
 	"github.com/filecoin-project/specs-actors/actors/abi/big"
@@ -41,6 +43,8 @@ import (
 
 func TestMakeDeal(t *testing.T) {
 	ctx := context.Background()
+	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
+	defer cancel()
 	h := newHarness(t, ctx)
 	require.NoError(t, h.Provider.Start(ctx))
 	require.NoError(t, h.Client.Start(ctx))
@@ -90,6 +94,10 @@ func TestMakeDeal(t *testing.T) {
 	for providerSeenDeal.State != storagemarket.StorageDealExpired ||
 		clientSeenDeal.State != storagemarket.StorageDealExpired {
 		select {
+		case <-ctx.Done():
+			t.Fatalf(`did not see all states before context closed
+			saw client: %v,
+			saw provider: %v`, dealStatesToStrings(clientstates), dealStatesToStrings(providerstates))
 		case clientSeenDeal = <-clientDealChan:
 			if len(clientstates) == 0 || clientSeenDeal.State != clientstates[len(clientstates)-1] {
 				clientstates = append(clientstates, clientSeenDeal.State)
@@ -165,12 +173,17 @@ func TestMakeDeal(t *testing.T) {
 
 func TestMakeDealOffline(t *testing.T) {
 	ctx := context.Background()
+	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
+	defer cancel()
 	h := newHarness(t, ctx)
 	require.NoError(t, h.Client.Start(ctx))
 
 	carBuf := new(bytes.Buffer)
 
-	err := cario.NewCarIO().WriteCar(ctx, h.TestData.Bs1, h.PayloadCid, shared.AllSelector(), carBuf)
+	store, err := h.TestData.MultiStore1.Get(h.StoreID)
+	require.NoError(t, err)
+
+	err = cario.NewCarIO().WriteCar(ctx, store.Bstore, h.PayloadCid, shared.AllSelector(), carBuf)
 	require.NoError(t, err)
 
 	commP, size, err := pieceio.GeneratePieceCommitment(abi.RegisteredSealProof_StackedDrg2KiBV1, carBuf, uint64(carBuf.Len()))
@@ -203,7 +216,7 @@ func TestMakeDealOffline(t *testing.T) {
 	assert.True(t, pd.ProposalCid.Equals(proposalCid))
 	shared_testutil.AssertDealState(t, storagemarket.StorageDealWaitingForData, pd.State)
 
-	err = cario.NewCarIO().WriteCar(ctx, h.TestData.Bs1, h.PayloadCid, shared.AllSelector(), carBuf)
+	err = cario.NewCarIO().WriteCar(ctx, store.Bstore, h.PayloadCid, shared.AllSelector(), carBuf)
 	require.NoError(t, err)
 	err = h.Provider.ImportDataForDeal(ctx, pd.ProposalCid, carBuf)
 	require.NoError(t, err)
@@ -226,6 +239,8 @@ func TestMakeDealOffline(t *testing.T) {
 
 func TestMakeDealNonBlocking(t *testing.T) {
 	ctx := context.Background()
+	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
+	defer cancel()
 	h := newHarness(t, ctx)
 	testCids := shared_testutil.GenerateCids(2)
 
@@ -258,6 +273,8 @@ func TestMakeDealNonBlocking(t *testing.T) {
 
 func TestRestartClient(t *testing.T) {
 	ctx := context.Background()
+	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
+	defer cancel()
 	h := newHarness(t, ctx)
 
 	require.NoError(t, h.Provider.Start(ctx))
@@ -324,6 +341,7 @@ type harness struct {
 	Ctx          context.Context
 	Epoch        abi.ChainEpoch
 	PayloadCid   cid.Cid
+	StoreID      multistore.StoreID
 	ProviderAddr address.Address
 	Client       storagemarket.StorageClient
 	ClientNode   *testnodes.FakeClientNode
@@ -342,7 +360,7 @@ func newHarness(t *testing.T, ctx context.Context) *harness {
 func newHarnessWithTestData(t *testing.T, ctx context.Context, td *shared_testutil.Libp2pTestData, smState *testnodes.StorageMarketState) *harness {
 	epoch := abi.ChainEpoch(100)
 	fpath := filepath.Join("storagemarket", "fixtures", "payload.txt")
-	rootLink := td.LoadUnixFSFile(t, fpath, false)
+	rootLink, storeID := td.LoadUnixFSFileToStore(t, fpath, false)
 	payloadCid := rootLink.(cidlink.Link).Cid
 
 	clientNode := testnodes.FakeClientNode{
@@ -381,7 +399,7 @@ func newHarnessWithTestData(t *testing.T, ctx context.Context, td *shared_testut
 
 	client, err := storageimpl.NewClient(
 		network.NewFromLibp2pHost(td.Host1),
-		td.Bs1,
+		td.MultiStore1,
 		dt1,
 		discovery.NewLocal(td.Ds1),
 		td.Ds1,
@@ -404,8 +422,8 @@ func newHarnessWithTestData(t *testing.T, ctx context.Context, td *shared_testut
 	provider, err := storageimpl.NewProvider(
 		network.NewFromLibp2pHost(td.Host2),
 		td.Ds2,
-		td.Bs2,
 		fs,
+		td.MultiStore2,
 		ps,
 		dt2,
 		providerNode,
@@ -436,6 +454,7 @@ func newHarnessWithTestData(t *testing.T, ctx context.Context, td *shared_testut
 		Ctx:          ctx,
 		Epoch:        epoch,
 		PayloadCid:   payloadCid,
+		StoreID:      storeID,
 		ProviderAddr: providerAddr,
 		Client:       client,
 		ClientNode:   &clientNode,
@@ -448,7 +467,19 @@ func newHarnessWithTestData(t *testing.T, ctx context.Context, td *shared_testut
 }
 
 func (h *harness) ProposeStorageDeal(t *testing.T, dataRef *storagemarket.DataRef, fastRetrieval, verifiedDeal bool) *storagemarket.ProposeStorageDealResult {
-	result, err := h.Client.ProposeStorageDeal(h.Ctx, h.ProviderAddr, &h.ProviderInfo, dataRef, h.Epoch+100, h.Epoch+20100, big.NewInt(1), big.NewInt(0), abi.RegisteredSealProof_StackedDrg2KiBV1, fastRetrieval, verifiedDeal)
+	result, err := h.Client.ProposeStorageDeal(h.Ctx, storagemarket.ProposeStorageDealParams{
+		Addr:          h.ProviderAddr,
+		Info:          &h.ProviderInfo,
+		Data:          dataRef,
+		StartEpoch:    h.Epoch + 100,
+		EndEpoch:      h.Epoch + 20100,
+		Price:         big.NewInt(1),
+		Collateral:    big.NewInt(0),
+		Rt:            abi.RegisteredSealProof_StackedDrg2KiBV1,
+		FastRetrieval: fastRetrieval,
+		VerifiedDeal:  verifiedDeal,
+		StoreID:       &h.StoreID,
+	})
 	assert.NoError(t, err)
 	return result
 }
