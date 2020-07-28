@@ -415,17 +415,9 @@ func newRetrievalHarness(ctx context.Context, t *testing.T, sh *storageHarness, 
 	providerPaymentAddr := deal.MinerWorker
 	providerNode := testnodes2.NewTestRetrievalProviderNode()
 
-<<<<<<< HEAD
 	carData := sh.ProviderNode.LastOnDealCompleteBytes
-	sectorID := uint64(100000)
-	offset := uint64(1000)
-=======
-	var buf bytes.Buffer
-	require.NoError(t, cio.WriteCar(sh.Ctx, sh.TestData.Bs2, payloadCID, shared.AllSelector(), &buf))
-	carData := buf.Bytes()
 	sectorID := abi.SectorNumber(100000)
 	offset := abi.PaddedPieceSize(1000)
->>>>>>> fixup types for piecestore and unsealing calls
 	pieceInfo := piecestore.PieceInfo{
 		PieceCID: tut.GenerateCids(1)[0],
 		Deals: []piecestore.DealInfo{
