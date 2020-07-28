@@ -38,16 +38,17 @@ func (pve *providerValidationEnvironment) GetPiece(c cid.Cid, pieceCID *cid.Cid)
 
 // CheckDealParams verifies the given deal params are acceptable
 func (pve *providerValidationEnvironment) CheckDealParams(pricePerByte abi.TokenAmount, paymentInterval uint64, paymentIntervalIncrease uint64, unsealPrice abi.TokenAmount) error {
-	if pricePerByte.LessThan(pve.p.pricePerByte) {
+	ask := pve.p.GetAsk()
+	if pricePerByte.LessThan(ask.PricePerByte) {
 		return errors.New("Price per byte too low")
 	}
-	if paymentInterval > pve.p.paymentInterval {
+	if paymentInterval > ask.PaymentInterval {
 		return errors.New("Payment interval too large")
 	}
-	if paymentIntervalIncrease > pve.p.paymentIntervalIncrease {
+	if paymentIntervalIncrease > ask.PaymentIntervalIncrease {
 		return errors.New("Payment interval increase too large")
 	}
-	if !pve.p.unsealPrice.Nil() && unsealPrice.LessThan(pve.p.unsealPrice) {
+	if !ask.UnsealPrice.Nil() && unsealPrice.LessThan(ask.UnsealPrice) {
 		return errors.New("Unseal price too small")
 	}
 	return nil

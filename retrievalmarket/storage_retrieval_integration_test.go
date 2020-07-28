@@ -415,20 +415,28 @@ func newRetrievalHarness(ctx context.Context, t *testing.T, sh *storageHarness, 
 	providerPaymentAddr := deal.MinerWorker
 	providerNode := testnodes2.NewTestRetrievalProviderNode()
 
+<<<<<<< HEAD
 	carData := sh.ProviderNode.LastOnDealCompleteBytes
 	sectorID := uint64(100000)
 	offset := uint64(1000)
+=======
+	var buf bytes.Buffer
+	require.NoError(t, cio.WriteCar(sh.Ctx, sh.TestData.Bs2, payloadCID, shared.AllSelector(), &buf))
+	carData := buf.Bytes()
+	sectorID := abi.SectorNumber(100000)
+	offset := abi.PaddedPieceSize(1000)
+>>>>>>> fixup types for piecestore and unsealing calls
 	pieceInfo := piecestore.PieceInfo{
 		PieceCID: tut.GenerateCids(1)[0],
 		Deals: []piecestore.DealInfo{
 			{
 				SectorID: sectorID,
 				Offset:   offset,
-				Length:   uint64(len(carData)),
+				Length:   abi.UnpaddedPieceSize(uint64(len(carData))).Padded(),
 			},
 		},
 	}
-	providerNode.ExpectUnseal(sectorID, offset, uint64(len(carData)), carData)
+	providerNode.ExpectUnseal(sectorID, offset.Unpadded(), abi.UnpaddedPieceSize(uint64(len(carData))), carData)
 	// clear out provider blockstore
 	allCids, err := sh.TestData.Bs2.AllKeysChan(sh.Ctx)
 	require.NoError(t, err)
@@ -459,8 +467,12 @@ func newRetrievalHarness(ctx context.Context, t *testing.T, sh *storageHarness, 
 		UnsealPrice:             big.Zero(),
 	}
 
-	provider.SetPaymentInterval(params.PaymentInterval, params.PaymentIntervalIncrease)
-	provider.SetPricePerByte(params.PricePerByte)
+	ask := provider.GetAsk()
+	ask.PaymentInterval = params.PaymentInterval
+	ask.PaymentIntervalIncrease = params.PaymentIntervalIncrease
+	ask.PricePerByte = params.PricePerByte
+	provider.SetAsk(ask)
+
 	require.NoError(t, provider.Start())
 
 	return &retrievalHarness{

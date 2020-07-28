@@ -3,6 +3,7 @@ package retrievalimpl
 import (
 	"context"
 	"errors"
+	"sync"
 
 	"github.com/hannahhoward/go-pubsub"
 	"github.com/ipfs/go-cid"
@@ -31,21 +32,22 @@ type DealDecider func(ctx context.Context, state retrievalmarket.ProviderDealSta
 
 // Provider is the production implementation of the RetrievalProvider interface
 type Provider struct {
-	multiStore              *multistore.MultiStore
-	dataTransfer            datatransfer.Manager
-	node                    retrievalmarket.RetrievalProviderNode
-	network                 rmnet.RetrievalMarketNetwork
-	paymentInterval         uint64
-	paymentIntervalIncrease uint64
-	requestValidator        *requestvalidation.ProviderRequestValidator
-	revalidator             *requestvalidation.ProviderRevalidator
-	minerAddress            address.Address
-	pieceStore              piecestore.PieceStore
-	pricePerByte            abi.TokenAmount
-	subscribers             *pubsub.PubSub
-	stateMachines           fsm.Group
-	dealDecider             DealDecider
-	unsealPrice             abi.TokenAmount
+	multiStore       *multistore.MultiStore
+	dataTransfer     datatransfer.Manager
+	node             retrievalmarket.RetrievalProviderNode
+	network          rmnet.RetrievalMarketNetwork
+	requestValidator *requestvalidation.ProviderRequestValidator
+	revalidator      *requestvalidation.ProviderRevalidator
+	minerAddress     address.Address
+	pieceStore       piecestore.PieceStore
+	pricePerByte     abi.TokenAmount
+	subscribers      *pubsub.PubSub
+	stateMachines    fsm.Group
+	dealDecider      DealDecider
+	unsealPrice      abi.TokenAmount
+
+	askLk sync.Mutex
+	ask   *retrievalmarket.Ask
 }
 
 type internalProviderEvent struct {
@@ -99,16 +101,19 @@ func NewProvider(minerAddress address.Address,
 ) (retrievalmarket.RetrievalProvider, error) {
 
 	p := &Provider{
-		multiStore:              multiStore,
-		dataTransfer:            dataTransfer,
-		node:                    node,
-		network:                 network,
-		minerAddress:            minerAddress,
-		pieceStore:              pieceStore,
-		pricePerByte:            DefaultPricePerByte, // TODO: allow setting
-		subscribers:             pubsub.New(providerDispatcher),
-		paymentInterval:         DefaultPaymentInterval,
-		paymentIntervalIncrease: DefaultPaymentIntervalIncrease,
+		multiStore:   multiStore,
+		dataTransfer: dataTransfer,
+		node:         node,
+		network:      network,
+		minerAddress: minerAddress,
+		pieceStore:   pieceStore,
+		subscribers:  pubsub.New(providerDispatcher),
+		ask: &retrievalmarket.Ask{
+			PricePerByte:            DefaultPricePerByte,
+			PaymentInterval:         DefaultPaymentInterval,
+			PaymentIntervalIncrease: DefaultPaymentIntervalIncrease,
+			UnsealPrice:             abi.NewTokenAmount(0),
+		},
 	}
 	statemachines, err := fsm.New(ds, fsm.Parameters{
 		Environment:     &providerDealEnvironment{p},
@@ -157,20 +162,6 @@ func (p *Provider) Start() error {
 	return p.network.SetDelegate(p)
 }
 
-// V0
-
-// SetPricePerByte sets the price per byte a miner charges for retrievals
-func (p *Provider) SetPricePerByte(price abi.TokenAmount) {
-	p.pricePerByte = price
-}
-
-// SetPaymentInterval sets the maximum number of bytes a a Provider will send before
-// requesting further payment, and the rate at which that value increases
-func (p *Provider) SetPaymentInterval(paymentInterval uint64, paymentIntervalIncrease uint64) {
-	p.paymentInterval = paymentInterval
-	p.paymentIntervalIncrease = paymentIntervalIncrease
-}
-
 func (p *Provider) notifySubscribers(eventName fsm.EventName, state fsm.StateType) {
 	evt := eventName.(retrievalmarket.ProviderEvent)
 	ds := state.(retrievalmarket.ProviderDealState)
@@ -182,10 +173,17 @@ func (p *Provider) SubscribeToEvents(subscriber retrievalmarket.ProviderSubscrib
 	return retrievalmarket.Unsubscribe(p.subscribers.Subscribe(subscriber))
 }
 
-// V1
+func (p *Provider) GetAsk() *retrievalmarket.Ask {
+	p.askLk.Lock()
+	defer p.askLk.Unlock()
+	a := *p.ask
+	return &a
+}
 
-func (p *Provider) SetPricePerUnseal(price abi.TokenAmount) {
-	p.unsealPrice = price
+func (p *Provider) SetAsk(ask *retrievalmarket.Ask) {
+	p.askLk.Lock()
+	defer p.askLk.Unlock()
+	p.ask = ask
 }
 
 // ListDeals lists in all known retrieval deals
@@ -221,13 +219,15 @@ func (p *Provider) HandleQueryStream(stream rmnet.RetrievalQueryStream) {
 		return
 	}
 
+	ask := p.GetAsk()
+
 	answer := retrievalmarket.QueryResponse{
 		Status:                     retrievalmarket.QueryResponseUnavailable,
 		PieceCIDFound:              retrievalmarket.QueryItemUnavailable,
-		MinPricePerByte:            p.pricePerByte,
-		MaxPaymentInterval:         p.paymentInterval,
-		MaxPaymentIntervalIncrease: p.paymentIntervalIncrease,
-		UnsealPrice:                p.unsealPrice,
+		MinPricePerByte:            ask.PricePerByte,
+		MaxPaymentInterval:         ask.PaymentInterval,
+		MaxPaymentIntervalIncrease: ask.PaymentIntervalIncrease,
+		UnsealPrice:                ask.UnsealPrice,
 	}
 
 	ctx := context.TODO()
