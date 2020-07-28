@@ -527,6 +527,28 @@ Minor improvements and bug fixes, retrieval market now supports unseal price
 | Aayush Rajasekaran | 2 | +13/-75 | 5 |
 | hannahhoward | 1 | +25/-32 | 2 |
 
+# go-fil-markets 0.5.2
+
+In this release, we move to managing individual, garbage collected stores for each deal.
+
+### Changelog
+
+- github.com/filecoin-project/go-fil-markets:
+  - Unique Blockstores: RetrievalMarket (#342) ([filecoin-project/go-fil-markets#342](https://github.com/filecoin-project/go-fil-markets/pull/342))
+  - Unique blockstores: Storage Market (#341) ([filecoin-project/go-fil-markets#341](https://github.com/filecoin-project/go-fil-markets/pull/341))
+  - docs(CHANGLEOG): update for 0.5.1 ([filecoin-project/go-fil-markets#335](https://github.com/filecoin-project/go-fil-markets/pull/335))
+- github.com/filecoin-project/go-data-transfer (v0.5.0 -> v0.5.1):
+  - Allow custom configuration of transports (#57) ([filecoin-project/go-data-transfer#57](https://github.com/filecoin-project/go-data-transfer/pull/57))
+- github.com/ipfs/go-graphsync (v0.0.6-0.20200715204712-ef06b3d32e83 -> v0.0.6-0.20200721211002-c376cbe14c0a):
+  - feat(persistenceoptions): add unregister ability
+
+### Contributors
+
+| Contributor | Commits | Lines ± | Files Changed |
+|-------------|---------|---------|---------------|
+| Hannah Howard | 3 | +2378/-1076 | 90 |
+| hannahhoward | 1 | +113/-32 | 5 |
+
 ### 🙌🏽 Want to contribute?
 
 Would you like to contribute to this repo and don’t know how? Here are a few places you can get started:
