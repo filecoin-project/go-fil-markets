@@ -29,11 +29,7 @@ func CommP(ctx context.Context, pieceIO pieceio.PieceIO, rt abi.RegisteredSealPr
 		return cid.Undef, 0, xerrors.New("Piece CID and size must be set for manual transfer")
 	}
 
-	if storeID == nil {
-		return cid.Undef, 0, xerrors.New("StoreID must be set for a graphsync transfer")
-	}
-
-	commp, paddedSize, err := pieceIO.GeneratePieceCommitment(rt, data.Root, shared.AllSelector(), *storeID)
+	commp, paddedSize, err := pieceIO.GeneratePieceCommitment(rt, data.Root, shared.AllSelector(), storeID)
 	if err != nil {
 		return cid.Undef, 0, xerrors.Errorf("generating CommP: %w", err)
 	}

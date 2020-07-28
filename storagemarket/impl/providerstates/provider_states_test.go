@@ -1120,7 +1120,7 @@ func (fe *fakeEnvironment) DeleteStore(storeID multistore.StoreID) error {
 	return fe.deleteStoreError
 }
 
-func (fe *fakeEnvironment) GeneratePieceCommitmentToFile(storeID multistore.StoreID, payloadCid cid.Cid, selector ipld.Node) (cid.Cid, filestore.Path, filestore.Path, error) {
+func (fe *fakeEnvironment) GeneratePieceCommitmentToFile(storeID *multistore.StoreID, payloadCid cid.Cid, selector ipld.Node) (cid.Cid, filestore.Path, filestore.Path, error) {
 	return fe.pieceCid, fe.path, fe.metadataPath, fe.generateCommPError
 }
 

@@ -165,7 +165,7 @@ func TestCommPGenerationWithMetadata(t *testing.T) {
 			fcp := &fakeCommPGenerator{pieceCid, piecePath, pieceSize, testCase.commPErr}
 			fs := shared_testutil.NewTestFileStore(testCase.fileStoreParams)
 			resultPieceCid, resultPiecePath, resultMetadataPath, resultErr := providerutils.GeneratePieceCommitmentWithMetadata(
-				fs, fcp.GenerateCommPToFile, proofType, payloadCid, selector, storeID)
+				fs, fcp.GenerateCommPToFile, proofType, payloadCid, selector, &storeID)
 			require.Equal(t, resultPieceCid, testCase.expectedPieceCid)
 			require.Equal(t, resultPiecePath, testCase.expectedPiecePath)
 			require.Equal(t, resultMetadataPath, testCase.expectedMetadataPath)
@@ -186,7 +186,7 @@ type fakeCommPGenerator struct {
 	err      error
 }
 
-func (fcp *fakeCommPGenerator) GenerateCommPToFile(abi.RegisteredSealProof, cid.Cid, ipld.Node, multistore.StoreID, ...car.OnNewCarBlockFunc) (cid.Cid, filestore.Path, abi.UnpaddedPieceSize, error) {
+func (fcp *fakeCommPGenerator) GenerateCommPToFile(abi.RegisteredSealProof, cid.Cid, ipld.Node, *multistore.StoreID, ...car.OnNewCarBlockFunc) (cid.Cid, filestore.Path, abi.UnpaddedPieceSize, error) {
 	return fcp.pieceCid, fcp.path, fcp.size, fcp.err
 }
 

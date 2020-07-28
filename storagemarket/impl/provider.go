@@ -106,7 +106,7 @@ func NewProvider(net network.StorageMarketNetwork,
 	options ...StorageProviderOption,
 ) (storagemarket.StorageProvider, error) {
 	carIO := cario.NewCarIO()
-	pio := pieceio.NewPieceIOWithStore(carIO, fs, multiStore)
+	pio := pieceio.NewPieceIOWithStore(carIO, fs, nil, multiStore)
 
 	h := &Provider{
 		net:          net,
@@ -609,7 +609,7 @@ func (p *providerDealEnvironment) DeleteStore(storeID multistore.StoreID) error 
 	return p.p.multiStore.Delete(storeID)
 }
 
-func (p *providerDealEnvironment) GeneratePieceCommitmentToFile(storeID multistore.StoreID, payloadCid cid.Cid, selector ipld.Node) (cid.Cid, filestore.Path, filestore.Path, error) {
+func (p *providerDealEnvironment) GeneratePieceCommitmentToFile(storeID *multistore.StoreID, payloadCid cid.Cid, selector ipld.Node) (cid.Cid, filestore.Path, filestore.Path, error) {
 	if p.p.universalRetrievalEnabled {
 		return providerutils.GeneratePieceCommitmentWithMetadata(p.p.fs, p.p.pio.GeneratePieceCommitmentToFile, p.p.proofType, payloadCid, selector, storeID)
 	}

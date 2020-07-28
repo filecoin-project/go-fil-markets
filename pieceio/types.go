@@ -24,11 +24,11 @@ type ReadStore interface {
 
 // PieceIO converts between payloads and pieces
 type PieceIO interface {
-	GeneratePieceCommitment(rt abi.RegisteredSealProof, payloadCid cid.Cid, selector ipld.Node, storeID multistore.StoreID) (cid.Cid, abi.UnpaddedPieceSize, error)
-	ReadPiece(storeID multistore.StoreID, r io.Reader) (cid.Cid, error)
+	GeneratePieceCommitment(rt abi.RegisteredSealProof, payloadCid cid.Cid, selector ipld.Node, storeID *multistore.StoreID) (cid.Cid, abi.UnpaddedPieceSize, error)
+	ReadPiece(storeID *multistore.StoreID, r io.Reader) (cid.Cid, error)
 }
 
 type PieceIOWithStore interface {
 	PieceIO
-	GeneratePieceCommitmentToFile(rt abi.RegisteredSealProof, payloadCid cid.Cid, selector ipld.Node, storeID multistore.StoreID, userOnNewCarBlocks ...car.OnNewCarBlockFunc) (cid.Cid, filestore.Path, abi.UnpaddedPieceSize, error)
+	GeneratePieceCommitmentToFile(rt abi.RegisteredSealProof, payloadCid cid.Cid, selector ipld.Node, storeID *multistore.StoreID, userOnNewCarBlocks ...car.OnNewCarBlockFunc) (cid.Cid, filestore.Path, abi.UnpaddedPieceSize, error)
 }

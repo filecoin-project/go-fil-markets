@@ -9,6 +9,7 @@ import (
 	"github.com/hannahhoward/go-pubsub"
 	"github.com/ipfs/go-cid"
 	"github.com/ipfs/go-datastore"
+	blockstore "github.com/ipfs/go-ipfs-blockstore"
 	logging "github.com/ipfs/go-log/v2"
 	"github.com/ipld/go-ipld-prime"
 	"github.com/libp2p/go-libp2p-core/peer"
@@ -72,6 +73,7 @@ func DealPollingInterval(t time.Duration) StorageClientOption {
 // NewClient creates a new storage client
 func NewClient(
 	net network.StorageMarketNetwork,
+	bs blockstore.Blockstore,
 	multiStore *multistore.MultiStore,
 	dataTransfer datatransfer.Manager,
 	discovery *discovery.Local,
@@ -80,7 +82,7 @@ func NewClient(
 	options ...StorageClientOption,
 ) (*Client, error) {
 	carIO := cario.NewCarIO()
-	pio := pieceio.NewPieceIO(carIO, multiStore)
+	pio := pieceio.NewPieceIO(carIO, bs, multiStore)
 	c := &Client{
 		net:             net,
 		dataTransfer:    dataTransfer,

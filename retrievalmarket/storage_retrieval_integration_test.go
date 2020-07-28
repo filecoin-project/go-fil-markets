@@ -263,6 +263,7 @@ func newStorageHarness(ctx context.Context, t *testing.T) *storageHarness {
 
 	client, err := stormkt.NewClient(
 		stornet.NewFromLibp2pHost(td.Host1),
+		td.Bs1,
 		td.MultiStore1,
 		dt1,
 		peerResolver,

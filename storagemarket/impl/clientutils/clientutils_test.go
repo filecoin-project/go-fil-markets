@@ -54,7 +54,7 @@ func TestCommP(t *testing.T) {
 			pieceCid := shared_testutil.GenerateCids(1)[0]
 			pieceSize := abi.UnpaddedPieceSize(rand.Uint64())
 			storeID := multistore.StoreID(4)
-			pieceIO := &testPieceIO{t, proofType, root, allSelector, storeID, pieceCid, pieceSize, nil}
+			pieceIO := &testPieceIO{t, proofType, root, allSelector, &storeID, pieceCid, pieceSize, nil}
 			respcid, ressize, err := clientutils.CommP(ctx, pieceIO, proofType, data, &storeID)
 			require.NoError(t, err)
 			require.Equal(t, respcid, pieceCid)
@@ -62,17 +62,19 @@ func TestCommP(t *testing.T) {
 		})
 
 		t.Run("when storeID is not present", func(t *testing.T) {
-			var storeID *multistore.StoreID
-			respcid, ressize, err := clientutils.CommP(ctx, nil, proofType, data, storeID)
-			require.EqualError(t, err, fmt.Sprintf("StoreID must be set for a graphsync transfer"))
-			require.Equal(t, respcid, cid.Undef)
-			require.Equal(t, ressize, abi.UnpaddedPieceSize(0))
+			pieceCid := shared_testutil.GenerateCids(1)[0]
+			pieceSize := abi.UnpaddedPieceSize(rand.Uint64())
+			pieceIO := &testPieceIO{t, proofType, root, allSelector, nil, pieceCid, pieceSize, nil}
+			respcid, ressize, err := clientutils.CommP(ctx, pieceIO, proofType, data, nil)
+			require.NoError(t, err)
+			require.Equal(t, respcid, pieceCid)
+			require.Equal(t, ressize, pieceSize)
 		})
 
 		t.Run("when pieceIO fails", func(t *testing.T) {
 			expectedMsg := "something went wrong"
 			storeID := multistore.StoreID(4)
-			pieceIO := &testPieceIO{t, proofType, root, allSelector, storeID, cid.Undef, 0, errors.New(expectedMsg)}
+			pieceIO := &testPieceIO{t, proofType, root, allSelector, &storeID, cid.Undef, 0, errors.New(expectedMsg)}
 			respcid, ressize, err := clientutils.CommP(ctx, pieceIO, proofType, data, &storeID)
 			require.EqualError(t, err, fmt.Sprintf("generating CommP: %s", expectedMsg))
 			require.Equal(t, respcid, cid.Undef)
@@ -125,13 +127,13 @@ type testPieceIO struct {
 	expectedRt         abi.RegisteredSealProof
 	expectedPayloadCid cid.Cid
 	expectedSelector   ipld.Node
-	expectedStoreID    multistore.StoreID
+	expectedStoreID    *multistore.StoreID
 	pieceCID           cid.Cid
 	pieceSize          abi.UnpaddedPieceSize
 	err                error
 }
 
-func (t *testPieceIO) GeneratePieceCommitment(rt abi.RegisteredSealProof, payloadCid cid.Cid, selector ipld.Node, storeID multistore.StoreID) (cid.Cid, abi.UnpaddedPieceSize, error) {
+func (t *testPieceIO) GeneratePieceCommitment(rt abi.RegisteredSealProof, payloadCid cid.Cid, selector ipld.Node, storeID *multistore.StoreID) (cid.Cid, abi.UnpaddedPieceSize, error) {
 	require.Equal(t.t, rt, t.expectedRt)
 	require.Equal(t.t, payloadCid, t.expectedPayloadCid)
 	require.Equal(t.t, selector, t.expectedSelector)
@@ -139,6 +141,6 @@ func (t *testPieceIO) GeneratePieceCommitment(rt abi.RegisteredSealProof, payloa
 	return t.pieceCID, t.pieceSize, t.err
 }
 
-func (t *testPieceIO) ReadPiece(storeID multistore.StoreID, r io.Reader) (cid.Cid, error) {
+func (t *testPieceIO) ReadPiece(storeID *multistore.StoreID, r io.Reader) (cid.Cid, error) {
 	panic("not implemented")
 }

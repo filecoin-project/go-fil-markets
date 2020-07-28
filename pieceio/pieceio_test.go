@@ -10,6 +10,7 @@ import (
 	"github.com/ipfs/go-cid"
 	"github.com/ipfs/go-datastore"
 	dss "github.com/ipfs/go-datastore/sync"
+	blockstore "github.com/ipfs/go-ipfs-blockstore"
 	dag "github.com/ipfs/go-merkledag"
 	basicnode "github.com/ipld/go-ipld-prime/node/basic"
 	"github.com/ipld/go-ipld-prime/traversal/selector"
@@ -38,8 +39,9 @@ func Test_ThereAndBackAgain(t *testing.T) {
 	ds := dss.MutexWrap(datastore.NewMapDatastore())
 	multiStore, err := multistore.NewMultiDstore(ds)
 	require.NoError(t, err)
+	bs := blockstore.NewBlockstore(ds)
 
-	pio := pieceio.NewPieceIOWithStore(cio, store, multiStore)
+	pio := pieceio.NewPieceIOWithStore(cio, store, bs, multiStore)
 	require.NoError(t, err)
 
 	storeID := multiStore.Next()
@@ -75,7 +77,7 @@ func Test_ThereAndBackAgain(t *testing.T) {
 			ssb.ExploreIndex(1, ssb.ExploreRecursive(selector.RecursionLimitNone(), ssb.ExploreAll(ssb.ExploreRecursiveEdge()))))
 	}).Node()
 
-	pcid, tmpPath, _, err := pio.GeneratePieceCommitmentToFile(abi.RegisteredSealProof_StackedDrg2KiBV1, nd3.Cid(), node, storeID)
+	pcid, tmpPath, _, err := pio.GeneratePieceCommitmentToFile(abi.RegisteredSealProof_StackedDrg2KiBV1, nd3.Cid(), node, &storeID)
 	require.NoError(t, err)
 	tmpFile, err := store.Open(tmpPath)
 	require.NoError(t, err)
@@ -117,7 +119,7 @@ func Test_ThereAndBackAgain(t *testing.T) {
 		reader = tmpFile
 	}
 
-	id, err := pio.ReadPiece(storeID, reader)
+	id, err := pio.ReadPiece(&storeID, reader)
 	require.NoError(t, err)
 	require.Equal(t, nd3.Cid(), id)
 }
@@ -132,8 +134,9 @@ func Test_StoreRestoreMemoryBuffer(t *testing.T) {
 	ds := dss.MutexWrap(datastore.NewMapDatastore())
 	multiStore, err := multistore.NewMultiDstore(ds)
 	require.NoError(t, err)
+	bs := blockstore.NewBlockstore(ds)
 
-	pio := pieceio.NewPieceIOWithStore(cio, store, multiStore)
+	pio := pieceio.NewPieceIOWithStore(cio, store, bs, multiStore)
 
 	storeID := multiStore.Next()
 	mstore, err := multiStore.Get(storeID)
@@ -168,7 +171,7 @@ func Test_StoreRestoreMemoryBuffer(t *testing.T) {
 			ssb.ExploreIndex(1, ssb.ExploreRecursive(selector.RecursionLimitNone(), ssb.ExploreAll(ssb.ExploreRecursiveEdge()))))
 	}).Node()
 
-	commitment, tmpPath, paddedSize, err := pio.GeneratePieceCommitmentToFile(abi.RegisteredSealProof_StackedDrg2KiBV1, nd3.Cid(), node, storeID)
+	commitment, tmpPath, paddedSize, err := pio.GeneratePieceCommitmentToFile(abi.RegisteredSealProof_StackedDrg2KiBV1, nd3.Cid(), node, &storeID)
 	require.NoError(t, err)
 	tmpFile, err := store.Open(tmpPath)
 	require.NoError(t, err)
@@ -202,8 +205,9 @@ func Test_PieceCommitmentEquivalenceMemoryFile(t *testing.T) {
 	ds := dss.MutexWrap(datastore.NewMapDatastore())
 	multiStore, err := multistore.NewMultiDstore(ds)
 	require.NoError(t, err)
+	bs := blockstore.NewBlockstore(ds)
 
-	pio := pieceio.NewPieceIOWithStore(cio, store, multiStore)
+	pio := pieceio.NewPieceIOWithStore(cio, store, bs, multiStore)
 
 	storeID := multiStore.Next()
 	mstore, err := multiStore.Get(storeID)
@@ -239,13 +243,13 @@ func Test_PieceCommitmentEquivalenceMemoryFile(t *testing.T) {
 			ssb.ExploreIndex(1, ssb.ExploreRecursive(selector.RecursionLimitNone(), ssb.ExploreAll(ssb.ExploreRecursiveEdge()))))
 	}).Node()
 
-	fcommitment, tmpPath, fpaddedSize, ferr := pio.GeneratePieceCommitmentToFile(abi.RegisteredSealProof_StackedDrg2KiBV1, nd3.Cid(), node, storeID)
+	fcommitment, tmpPath, fpaddedSize, ferr := pio.GeneratePieceCommitmentToFile(abi.RegisteredSealProof_StackedDrg2KiBV1, nd3.Cid(), node, &storeID)
 	defer func() {
 		deferErr := store.Delete(tmpPath)
 		require.NoError(t, deferErr)
 	}()
 
-	mcommitment, mpaddedSize, merr := pio.GeneratePieceCommitment(abi.RegisteredSealProof_StackedDrg2KiBV1, nd3.Cid(), node, storeID)
+	mcommitment, mpaddedSize, merr := pio.GeneratePieceCommitment(abi.RegisteredSealProof_StackedDrg2KiBV1, nd3.Cid(), node, &storeID)
 	require.Equal(t, fcommitment, mcommitment)
 	require.Equal(t, fpaddedSize, mpaddedSize)
 	require.Equal(t, ferr, merr)
@@ -258,6 +262,7 @@ func Test_Failures(t *testing.T) {
 	ds := dss.MutexWrap(datastore.NewMapDatastore())
 	multiStore, err := multistore.NewMultiDstore(ds)
 	require.NoError(t, err)
+	bs := blockstore.NewBlockstore(ds)
 
 	storeID := multiStore.Next()
 	mstore, err := multiStore.Get(storeID)
@@ -295,8 +300,8 @@ func Test_Failures(t *testing.T) {
 	t.Run("create temp file fails", func(t *testing.T) {
 		fsmock := fsmocks.FileStore{}
 		fsmock.On("CreateTemp").Return(nil, fmt.Errorf("Failed"))
-		pio := pieceio.NewPieceIOWithStore(nil, &fsmock, multiStore)
-		_, _, _, err := pio.GeneratePieceCommitmentToFile(abi.RegisteredSealProof_StackedDrg2KiBV1, nd3.Cid(), node, storeID)
+		pio := pieceio.NewPieceIOWithStore(nil, &fsmock, bs, multiStore)
+		_, _, _, err := pio.GeneratePieceCommitmentToFile(abi.RegisteredSealProof_StackedDrg2KiBV1, nd3.Cid(), node, &storeID)
 		require.Error(t, err)
 	})
 	t.Run("write CAR fails", func(t *testing.T) {
@@ -307,8 +312,8 @@ func Test_Failures(t *testing.T) {
 		ciomock := pmocks.CarIO{}
 		any := mock.Anything
 		ciomock.On("WriteCar", any, any, any, any, any).Return(fmt.Errorf("failed to write car"))
-		pio := pieceio.NewPieceIOWithStore(&ciomock, store, multiStore)
-		_, _, _, err = pio.GeneratePieceCommitmentToFile(abi.RegisteredSealProof_StackedDrg2KiBV1, nd3.Cid(), node, storeID)
+		pio := pieceio.NewPieceIOWithStore(&ciomock, store, bs, multiStore)
+		_, _, _, err = pio.GeneratePieceCommitmentToFile(abi.RegisteredSealProof_StackedDrg2KiBV1, nd3.Cid(), node, &storeID)
 		require.Error(t, err)
 	})
 	t.Run("prepare CAR fails", func(t *testing.T) {
@@ -316,8 +321,8 @@ func Test_Failures(t *testing.T) {
 		ciomock := pmocks.CarIO{}
 		any := mock.Anything
 		ciomock.On("PrepareCar", any, any, any, any).Return(nil, fmt.Errorf("failed to prepare car"))
-		pio := pieceio.NewPieceIO(&ciomock, multiStore)
-		_, _, err := pio.GeneratePieceCommitment(abi.RegisteredSealProof_StackedDrg2KiBV1, nd3.Cid(), node, storeID)
+		pio := pieceio.NewPieceIO(&ciomock, bs, multiStore)
+		_, _, err := pio.GeneratePieceCommitment(abi.RegisteredSealProof_StackedDrg2KiBV1, nd3.Cid(), node, &storeID)
 		require.Error(t, err)
 	})
 	t.Run("PreparedCard dump operation fails", func(t *testing.T) {
@@ -327,8 +332,8 @@ func Test_Failures(t *testing.T) {
 		ciomock.On("PrepareCar", any, any, any, any).Return(&preparedCarMock, nil)
 		preparedCarMock.On("Size").Return(uint64(1000))
 		preparedCarMock.On("Dump", any).Return(fmt.Errorf("failed to write car"))
-		pio := pieceio.NewPieceIO(&ciomock, multiStore)
-		_, _, err := pio.GeneratePieceCommitment(abi.RegisteredSealProof_StackedDrg2KiBV1, nd3.Cid(), node, storeID)
+		pio := pieceio.NewPieceIO(&ciomock, bs, multiStore)
+		_, _, err := pio.GeneratePieceCommitment(abi.RegisteredSealProof_StackedDrg2KiBV1, nd3.Cid(), node, &storeID)
 		require.Error(t, err)
 	})
 	t.Run("seek fails", func(t *testing.T) {
@@ -354,8 +359,8 @@ func Test_Failures(t *testing.T) {
 		mockfile.On("Path").Return(filestore.Path("mock")).Once()
 		mockfile.On("Seek", mock.Anything, mock.Anything).Return(int64(0), fmt.Errorf("seek failed"))
 
-		pio := pieceio.NewPieceIOWithStore(cio, &fsmock, multiStore)
-		_, _, _, err := pio.GeneratePieceCommitmentToFile(abi.RegisteredSealProof_StackedDrg2KiBV1, nd3.Cid(), node, storeID)
+		pio := pieceio.NewPieceIOWithStore(cio, &fsmock, bs, multiStore)
+		_, _, _, err := pio.GeneratePieceCommitmentToFile(abi.RegisteredSealProof_StackedDrg2KiBV1, nd3.Cid(), node, &storeID)
 		require.Error(t, err)
 	})
 }
