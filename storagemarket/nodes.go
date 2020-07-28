@@ -58,6 +58,12 @@ type StorageCommon interface {
 	OnDealExpiredOrSlashed(ctx context.Context, dealID abi.DealID, onDealExpired DealExpiredCallback, onDealSlashed DealSlashedCallback) error
 }
 
+type PackingResult struct {
+	SectorNumber abi.SectorNumber
+	Offset       abi.PaddedPieceSize
+	Size         abi.PaddedPieceSize
+}
+
 // StorageProviderNode are node dependencies for a StorageProvider
 type StorageProviderNode interface {
 	StorageCommon
@@ -69,14 +75,13 @@ type StorageProviderNode interface {
 	ListProviderDeals(ctx context.Context, addr address.Address, tok shared.TipSetToken) ([]StorageDeal, error)
 
 	// OnDealComplete is called when a deal is complete and on chain, and data has been transferred and is ready to be added to a sector
-	// TODO: this should return the sector ID the deal was stored in
-	OnDealComplete(ctx context.Context, deal MinerDeal, pieceSize abi.UnpaddedPieceSize, pieceReader io.Reader) error
+	OnDealComplete(ctx context.Context, deal MinerDeal, pieceSize abi.UnpaddedPieceSize, pieceReader io.Reader) (*PackingResult, error)
 
 	// GetMinerWorkerAddress returns the worker address associated with a miner
 	GetMinerWorkerAddress(ctx context.Context, addr address.Address, tok shared.TipSetToken) (address.Address, error)
 
 	// LocatePieceForDealWithinSector looks up a given dealID in the miners sectors, and returns its sectorID and location
-	LocatePieceForDealWithinSector(ctx context.Context, dealID abi.DealID, tok shared.TipSetToken) (sectorID uint64, offset uint64, length uint64, err error)
+	LocatePieceForDealWithinSector(ctx context.Context, dealID abi.DealID, tok shared.TipSetToken) (sectorID abi.SectorNumber, offset abi.PaddedPieceSize, length abi.PaddedPieceSize, err error)
 
 	// GetDataCap gets the current data cap for addr
 	GetDataCap(ctx context.Context, addr address.Address, tok shared.TipSetToken) (*verifreg.DataCap, error)

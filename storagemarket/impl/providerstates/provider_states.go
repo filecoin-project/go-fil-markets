@@ -262,6 +262,7 @@ func WaitForPublish(ctx fsm.Context, environment ProviderDealEnvironment, deal s
 
 // HandoffDeal hands off a published deal for sealing and commitment in a sector
 func HandoffDeal(ctx fsm.Context, environment ProviderDealEnvironment, deal storagemarket.MinerDeal) error {
+	log.Warn("HAND OFF DEAL TIME: ", deal.ProposalCid)
 	file, err := environment.FileStore().Open(deal.PiecePath)
 	if err != nil {
 		return ctx.Trigger(storagemarket.ProviderEventFileStoreErrored, xerrors.Errorf("reading piece at path %s: %w", deal.PiecePath, err))
@@ -274,7 +275,7 @@ func HandoffDeal(ctx fsm.Context, environment ProviderDealEnvironment, deal stor
 	}
 
 	paddedReader, paddedSize := padreader.New(file, uint64(file.Size()))
-	err = environment.Node().OnDealComplete(
+	packingInfo, err := environment.Node().OnDealComplete(
 		ctx.Context(),
 		storagemarket.MinerDeal{
 			Client:             deal.Client,
@@ -292,28 +293,44 @@ func HandoffDeal(ctx fsm.Context, environment ProviderDealEnvironment, deal stor
 		return ctx.Trigger(storagemarket.ProviderEventDealHandoffFailed, err)
 	}
 
-	NOT_USED_BY_METHOD, _, err := environment.Node().GetChainHead(ctx.Context())
-	if err != nil {
-		return ctx.Trigger(storagemarket.ProviderEventUnableToLocatePiece, deal.DealID, err)
+	if err := registerDealDataForEarlyRetrieval(environment, deal, packingInfo.SectorNumber, packingInfo.Offset, packingInfo.Size); err != nil {
+		log.Errorf("failed to register deal data for early retrieval: %s", err)
 	}
 
-	// really should just use the sector ID from OnDealComplete here...
-	sectorID, offset, length, err := environment.Node().LocatePieceForDealWithinSector(ctx.Context(), deal.DealID, NOT_USED_BY_METHOD)
-	if err != nil {
-		return ctx.Trigger(storagemarket.ProviderEventUnableToLocatePiece, deal.DealID, err)
+	return ctx.Trigger(storagemarket.ProviderEventDealHandedOff)
+}
+
+func registerDealDataForEarlyRetrieval(environment ProviderDealEnvironment, deal storagemarket.MinerDeal, sectorID abi.SectorNumber, offset, length abi.PaddedPieceSize) error {
+
+	var blockLocations map[cid.Cid]piecestore.BlockLocation
+	if deal.MetadataPath != filestore.Path("") {
+		var err error
+		blockLocations, err = providerutils.LoadBlockLocations(environment.FileStore(), deal.MetadataPath)
+		if err != nil {
+			return xerrors.Errorf("failed to load block locations: %w", err)
+		}
+	} else {
+		blockLocations = map[cid.Cid]piecestore.BlockLocation{
+			deal.Ref.Root: {},
+		}
 	}
 
-	err = environment.PieceStore().AddDealForPiece(deal.Proposal.PieceCID, piecestore.DealInfo{
+	// TODO: Record actual block locations for all CIDs in piece by improving car writing
+	if err := environment.PieceStore().AddPieceBlockLocations(deal.Proposal.PieceCID, blockLocations); err != nil {
+		return xerrors.Errorf("failed to add piece block locations: %s", err)
+	}
+
+	err := environment.PieceStore().AddDealForPiece(deal.Proposal.PieceCID, piecestore.DealInfo{
 		DealID:   deal.DealID,
 		SectorID: sectorID,
 		Offset:   offset,
 		Length:   length,
 	})
 	if err != nil {
-		return ctx.Trigger(storagemarket.ProviderEventPieceStoreErrored, xerrors.Errorf("adding deal info for piece: %w", err))
+		return xerrors.Errorf("failed to add deal for piece: %s", err)
 	}
 
-	return ctx.Trigger(storagemarket.ProviderEventDealHandedOff)
+	return nil
 }
 
 // VerifyDealActivated verifies that a deal has been committed to a sector and activated
@@ -368,7 +385,7 @@ func RecordPieceInfo(ctx fsm.Context, environment ProviderDealEnvironment, deal 
 
 	err = environment.PieceStore().AddDealForPiece(deal.Proposal.PieceCID, piecestore.DealInfo{
 		DealID:   deal.DealID,
-		SectorID: sectorID,
+		SectorID: abi.SectorNumber(sectorID),
 		Offset:   offset,
 		Length:   length,
 	})

@@ -193,7 +193,7 @@ func (t *DealInfo) UnmarshalCBOR(r io.Reader) error {
 		if maj != cbg.MajUnsignedInt {
 			return fmt.Errorf("wrong type for uint64 field")
 		}
-		t.SectorID = uint64(extra)
+		t.SectorID = abi.SectorNumber(extra)
 
 	}
 	// t.Offset (uint64) (uint64)
@@ -207,7 +207,7 @@ func (t *DealInfo) UnmarshalCBOR(r io.Reader) error {
 		if maj != cbg.MajUnsignedInt {
 			return fmt.Errorf("wrong type for uint64 field")
 		}
-		t.Offset = uint64(extra)
+		t.Offset = abi.PaddedPieceSize(extra)
 
 	}
 	// t.Length (uint64) (uint64)
@@ -221,7 +221,7 @@ func (t *DealInfo) UnmarshalCBOR(r io.Reader) error {
 		if maj != cbg.MajUnsignedInt {
 			return fmt.Errorf("wrong type for uint64 field")
 		}
-		t.Length = uint64(extra)
+		t.Length = abi.PaddedPieceSize(extra)
 
 	}
 	return nil

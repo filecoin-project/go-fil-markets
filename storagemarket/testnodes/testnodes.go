@@ -309,10 +309,11 @@ func (n *FakeProviderNode) ListProviderDeals(ctx context.Context, addr address.A
 }
 
 // OnDealComplete simulates passing of the deal to the storage miner, and does nothing
-func (n *FakeProviderNode) OnDealComplete(ctx context.Context, deal storagemarket.MinerDeal, pieceSize abi.UnpaddedPieceSize, pieceReader io.Reader) error {
+func (n *FakeProviderNode) OnDealComplete(ctx context.Context, deal storagemarket.MinerDeal, pieceSize abi.UnpaddedPieceSize, pieceReader io.Reader) (*storagemarket.PackingResult, error) {
 	n.OnDealCompleteCalls = append(n.OnDealCompleteCalls, deal)
 	n.LastOnDealCompleteBytes, _ = ioutil.ReadAll(pieceReader)
-	return n.OnDealCompleteError
+	// TODO: probably need to return some mock value here
+	return &storagemarket.PackingResult{}, n.OnDealCompleteError
 }
 
 // GetMinerWorkerAddress returns the address specified by MinerAddr
@@ -324,9 +325,9 @@ func (n *FakeProviderNode) GetMinerWorkerAddress(ctx context.Context, miner addr
 }
 
 // LocatePieceForDealWithinSector returns stubbed data for a pieces location in a sector
-func (n *FakeProviderNode) LocatePieceForDealWithinSector(ctx context.Context, dealID abi.DealID, tok shared.TipSetToken) (sectorID uint64, offset uint64, length uint64, err error) {
+func (n *FakeProviderNode) LocatePieceForDealWithinSector(ctx context.Context, dealID abi.DealID, tok shared.TipSetToken) (sectorID abi.SectorNumber, offset abi.PaddedPieceSize, length abi.PaddedPieceSize, err error) {
 	if n.LocatePieceForDealWithinSectorError == nil {
-		return n.PieceSectorID, 0, n.PieceLength, nil
+		return abi.SectorNumber(n.PieceSectorID), 0, abi.PaddedPieceSize(n.PieceLength), nil
 	}
 	return 0, 0, 0, n.LocatePieceForDealWithinSectorError
 }

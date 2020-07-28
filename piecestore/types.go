@@ -11,9 +11,9 @@ import (
 // DealInfo is information about a single deal for a given piece
 type DealInfo struct {
 	DealID   abi.DealID
-	SectorID uint64
-	Offset   uint64
-	Length   uint64
+	SectorID abi.SectorNumber
+	Offset   abi.PaddedPieceSize
+	Length   abi.PaddedPieceSize
 }
 
 // BlockLocation is information about where a given block is relative to the overall piece

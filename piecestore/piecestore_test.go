@@ -29,9 +29,9 @@ func TestStorePieceInfo(t *testing.T) {
 		ps := initializePieceStore(t)
 		dealInfo := piecestore.DealInfo{
 			DealID:   abi.DealID(rand.Uint64()),
-			SectorID: rand.Uint64(),
-			Offset:   rand.Uint64(),
-			Length:   rand.Uint64(),
+			SectorID: abi.SectorNumber(rand.Uint64()),
+			Offset:   abi.PaddedPieceSize(rand.Uint64()),
+			Length:   abi.PaddedPieceSize(rand.Uint64()),
 		}
 		err := ps.AddDealForPiece(pieceCid, dealInfo)
 		assert.NoError(t, err)
@@ -46,9 +46,9 @@ func TestStorePieceInfo(t *testing.T) {
 		ps := initializePieceStore(t)
 		dealInfo := piecestore.DealInfo{
 			DealID:   abi.DealID(rand.Uint64()),
-			SectorID: rand.Uint64(),
-			Offset:   rand.Uint64(),
-			Length:   rand.Uint64(),
+			SectorID: abi.SectorNumber(rand.Uint64()),
+			Offset:   abi.PaddedPieceSize(rand.Uint64()),
+			Length:   abi.PaddedPieceSize(rand.Uint64()),
 		}
 		err := ps.AddDealForPiece(pieceCid, dealInfo)
 		assert.NoError(t, err)
