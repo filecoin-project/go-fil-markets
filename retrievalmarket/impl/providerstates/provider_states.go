@@ -7,6 +7,7 @@ import (
 	"golang.org/x/xerrors"
 
 	datatransfer "github.com/filecoin-project/go-data-transfer"
+	"github.com/filecoin-project/go-multistore"
 	"github.com/filecoin-project/go-statemachine/fsm"
 
 	"github.com/filecoin-project/go-fil-markets/piecestore"
@@ -18,9 +19,10 @@ import (
 type ProviderDealEnvironment interface {
 	// Node returns the node interface for this deal
 	Node() rm.RetrievalProviderNode
-	ReadIntoBlockstore(pieceData io.Reader) error
+	ReadIntoBlockstore(storeID multistore.StoreID, pieceData io.Reader) error
 	TrackTransfer(deal rm.ProviderDealState) error
 	UntrackTransfer(deal rm.ProviderDealState) error
+	DeleteStore(storeID multistore.StoreID) error
 	ResumeDataTransfer(context.Context, datatransfer.ChannelID) error
 	CloseDataTransfer(context.Context, datatransfer.ChannelID) error
 }
@@ -43,7 +45,7 @@ func UnsealData(ctx fsm.Context, environment ProviderDealEnvironment, deal rm.Pr
 	if err != nil {
 		return ctx.Trigger(rm.ProviderEventUnsealError, err)
 	}
-	err = environment.ReadIntoBlockstore(reader)
+	err = environment.ReadIntoBlockstore(deal.StoreID, reader)
 	if err != nil {
 		return ctx.Trigger(rm.ProviderEventUnsealError, err)
 	}
@@ -79,11 +81,14 @@ func CancelDeal(ctx fsm.Context, environment ProviderDealEnvironment, deal rm.Pr
 	if err != nil {
 		return ctx.Trigger(rm.ProviderEventDataTransferError, err)
 	}
+	err = environment.DeleteStore(deal.StoreID)
+	if err != nil {
+		return ctx.Trigger(rm.ProviderEventMultiStoreError, err)
+	}
 	err = environment.CloseDataTransfer(ctx.Context(), deal.ChannelID)
 	if err != nil {
 		return ctx.Trigger(rm.ProviderEventDataTransferError, err)
 	}
-
 	return ctx.Trigger(rm.ProviderEventCancelComplete)
 }
 
@@ -92,6 +97,10 @@ func CleanupDeal(ctx fsm.Context, environment ProviderDealEnvironment, deal rm.P
 	err := environment.UntrackTransfer(deal)
 	if err != nil {
 		return ctx.Trigger(rm.ProviderEventDataTransferError, err)
+	}
+	err = environment.DeleteStore(deal.StoreID)
+	if err != nil {
+		return ctx.Trigger(rm.ProviderEventMultiStoreError, err)
 	}
 	return ctx.Trigger(rm.ProviderEventCleanupComplete)
 }

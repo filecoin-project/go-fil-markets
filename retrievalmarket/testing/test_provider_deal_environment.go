@@ -6,6 +6,7 @@ import (
 	"io"
 
 	datatransfer "github.com/filecoin-project/go-data-transfer"
+	"github.com/filecoin-project/go-multistore"
 
 	rm "github.com/filecoin-project/go-fil-markets/retrievalmarket"
 	retrievalimpl "github.com/filecoin-project/go-fil-markets/retrievalmarket/impl"
@@ -20,6 +21,7 @@ type TestProviderDealEnvironment struct {
 	TrackTransferError      error
 	UntrackTransferError    error
 	CloseDataTransferError  error
+	DeleteStoreError        error
 }
 
 // NewTestProviderDealEnvironment returns a new TestProviderDealEnvironment instance
@@ -34,7 +36,11 @@ func (te *TestProviderDealEnvironment) Node() rm.RetrievalProviderNode {
 	return te.node
 }
 
-func (te *TestProviderDealEnvironment) ReadIntoBlockstore(pieceData io.Reader) error {
+func (te *TestProviderDealEnvironment) DeleteStore(storeID multistore.StoreID) error {
+	return te.DeleteStoreError
+}
+
+func (te *TestProviderDealEnvironment) ReadIntoBlockstore(storeID multistore.StoreID, pieceData io.Reader) error {
 	return te.ReadIntoBlockstoreError
 }
 

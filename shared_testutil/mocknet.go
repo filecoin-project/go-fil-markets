@@ -247,6 +247,26 @@ func (ltd *Libp2pTestData) VerifyFileTransferred(t *testing.T, link ipld.Link, u
 	} else {
 		dagService = ltd.DagService1
 	}
+	ltd.verifyFileTransferred(t, link, dagService, readLen)
+}
+
+// VerifyFileTransferredIntoStore checks that the fixture file was sent from one node to the other, into the store specified by
+// storeID
+func (ltd *Libp2pTestData) VerifyFileTransferredIntoStore(t *testing.T, link ipld.Link, storeID multistore.StoreID, useSecondNode bool, readLen uint64) {
+	var dagService ipldformat.DAGService
+	if useSecondNode {
+		store, err := ltd.MultiStore2.Get(storeID)
+		require.NoError(t, err)
+		dagService = store.DAG
+	} else {
+		store, err := ltd.MultiStore1.Get(storeID)
+		require.NoError(t, err)
+		dagService = store.DAG
+	}
+	ltd.verifyFileTransferred(t, link, dagService, readLen)
+}
+
+func (ltd *Libp2pTestData) verifyFileTransferred(t *testing.T, link ipld.Link, dagService ipldformat.DAGService, readLen uint64) {
 
 	c := link.(cidlink.Link).Cid
 

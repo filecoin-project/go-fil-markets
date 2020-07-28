@@ -7,12 +7,12 @@ import (
 	"github.com/ipfs/go-cid"
 	"github.com/ipfs/go-datastore"
 	dss "github.com/ipfs/go-datastore/sync"
-	bstore "github.com/ipfs/go-ipfs-blockstore"
 	"github.com/libp2p/go-libp2p-core/peer"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	"github.com/filecoin-project/go-address"
+	"github.com/filecoin-project/go-multistore"
 	"github.com/filecoin-project/specs-actors/actors/abi"
 	spect "github.com/filecoin-project/specs-actors/support/testing"
 
@@ -64,13 +64,14 @@ func TestHandleQueryStream(t *testing.T) {
 		return qs
 	}
 
-	receiveStreamOnProvider := func(qs network.RetrievalQueryStream, pieceStore piecestore.PieceStore) {
+	receiveStreamOnProvider := func(t *testing.T, qs network.RetrievalQueryStream, pieceStore piecestore.PieceStore) {
 		node := testnodes.NewTestRetrievalProviderNode()
 		ds := dss.MutexWrap(datastore.NewMapDatastore())
-		bs := bstore.NewBlockstore(ds)
+		multiStore, err := multistore.NewMultiDstore(ds)
+		require.NoError(t, err)
 		dt := tut.NewTestDataTransfer()
 		net := tut.NewTestRetrievalMarketNetwork(tut.TestNetworkParams{})
-		c, err := retrievalimpl.NewProvider(expectedAddress, node, net, pieceStore, bs, dt, ds)
+		c, err := retrievalimpl.NewProvider(expectedAddress, node, net, pieceStore, multiStore, dt, ds)
 		require.NoError(t, err)
 		c.SetPricePerByte(expectedPricePerByte)
 		c.SetPaymentInterval(expectedPaymentInterval, expectedPaymentIntervalIncrease)
@@ -151,7 +152,7 @@ func TestHandleQueryStream(t *testing.T) {
 
 			tc.expFunc(t, pieceStore)
 
-			receiveStreamOnProvider(qs, pieceStore)
+			receiveStreamOnProvider(t, qs, pieceStore)
 
 			actualResp, err := qs.ReadQueryResponse()
 			pieceStore.VerifyExpectations(t)
@@ -177,7 +178,7 @@ func TestHandleQueryStream(t *testing.T) {
 		require.NoError(t, err)
 		pieceStore := tut.NewTestPieceStore()
 
-		receiveStreamOnProvider(qs, pieceStore)
+		receiveStreamOnProvider(t, qs, pieceStore)
 
 		response, err := qs.ReadQueryResponse()
 		require.NoError(t, err)
@@ -189,7 +190,7 @@ func TestHandleQueryStream(t *testing.T) {
 		qs := readWriteQueryStream()
 		pieceStore := tut.NewTestPieceStore()
 
-		receiveStreamOnProvider(qs, pieceStore)
+		receiveStreamOnProvider(t, qs, pieceStore)
 
 		response, err := qs.ReadQueryResponse()
 		require.NotNil(t, err)
@@ -212,7 +213,7 @@ func TestHandleQueryStream(t *testing.T) {
 		pieceStore.ExpectCID(payloadCID, expectedCIDInfo)
 		pieceStore.ExpectPiece(expectedPieceCID, expectedPiece)
 
-		receiveStreamOnProvider(qs, pieceStore)
+		receiveStreamOnProvider(t, qs, pieceStore)
 
 		pieceStore.VerifyExpectations(t)
 	})
@@ -221,14 +222,15 @@ func TestHandleQueryStream(t *testing.T) {
 
 func TestProvider_Construct(t *testing.T) {
 	ds := datastore.NewMapDatastore()
-	bs := bstore.NewBlockstore(ds)
+	multiStore, err := multistore.NewMultiDstore(ds)
+	require.NoError(t, err)
 	dt := tut.NewTestDataTransfer()
-	_, err := retrievalimpl.NewProvider(
+	_, err = retrievalimpl.NewProvider(
 		spect.NewIDAddr(t, 2344),
 		testnodes.NewTestRetrievalProviderNode(),
 		tut.NewTestRetrievalMarketNetwork(tut.TestNetworkParams{}),
 		tut.NewTestPieceStore(),
-		bs,
+		multiStore,
 		dt,
 		ds,
 	)
@@ -247,20 +249,23 @@ func TestProvider_Construct(t *testing.T) {
 	require.True(t, ok)
 	_, ok = dt.RegisteredRevalidators[0].Revalidator.(*requestvalidation.ProviderRevalidator)
 	require.True(t, ok)
-
+	require.Len(t, dt.RegisteredTransportConfigurers, 1)
+	_, ok = dt.RegisteredTransportConfigurers[0].VoucherType.(*retrievalmarket.DealProposal)
+	require.True(t, ok)
 }
 func TestProviderConfigOpts(t *testing.T) {
 	var sawOpt int
 	opt1 := func(p *retrievalimpl.Provider) { sawOpt++ }
 	opt2 := func(p *retrievalimpl.Provider) { sawOpt += 2 }
 	ds := datastore.NewMapDatastore()
-	bs := bstore.NewBlockstore(ds)
+	multiStore, err := multistore.NewMultiDstore(ds)
+	require.NoError(t, err)
 	p, err := retrievalimpl.NewProvider(
 		spect.NewIDAddr(t, 2344),
 		testnodes.NewTestRetrievalProviderNode(),
 		tut.NewTestRetrievalMarketNetwork(tut.TestNetworkParams{}),
 		tut.NewTestPieceStore(),
-		bs,
+		multiStore,
 		tut.NewTestDataTransfer(),
 		ds, opt1, opt2,
 	)
@@ -280,7 +285,7 @@ func TestProviderConfigOpts(t *testing.T) {
 		testnodes.NewTestRetrievalProviderNode(),
 		tut.NewTestRetrievalMarketNetwork(tut.TestNetworkParams{}),
 		tut.NewTestPieceStore(),
-		bs,
+		multiStore,
 		tut.NewTestDataTransfer(),
 		ds, ddOpt)
 	require.NoError(t, err)

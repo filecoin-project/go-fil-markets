@@ -185,6 +185,9 @@ const (
 
 	// ProviderEventCleanupComplete happens when a deal is finished cleaning up and enters a complete state
 	ProviderEventCleanupComplete
+
+	// ProviderEventMultiStoreError occurs when an error happens attempting to operate on the multistore
+	ProviderEventMultiStoreError
 )
 
 // ProviderEvents is a human readable map of provider event name -> event description
@@ -205,4 +208,5 @@ var ProviderEvents = map[ProviderEvent]string{
 	ProviderEventDataTransferError:      "ProviderEventDataTransferError",
 	ProviderEventCancelComplete:         "ProviderEventCancelComplete",
 	ProviderEventCleanupComplete:        "ProviderEventCleanupComplete",
+	ProviderEventMultiStoreError:        "ProviderEventMultiStoreError",
 }

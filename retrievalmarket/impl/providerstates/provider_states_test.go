@@ -178,6 +178,15 @@ func TestCancelDeal(t *testing.T) {
 		require.Equal(t, dealState.Status, rm.DealStatusErrored)
 		require.Equal(t, dealState.Message, "something went wrong untracking")
 	})
+	t.Run("error deleting store", func(t *testing.T) {
+		dealState := makeDealState(rm.DealStatusFailing)
+		setupEnv := func(fe *rmtesting.TestProviderDealEnvironment) {
+			fe.DeleteStoreError = errors.New("something went wrong deleting store")
+		}
+		runCancelDeal(t, setupEnv, dealState)
+		require.Equal(t, dealState.Status, rm.DealStatusErrored)
+		require.Equal(t, dealState.Message, "something went wrong deleting store")
+	})
 	t.Run("error closing channel", func(t *testing.T) {
 		dealState := makeDealState(rm.DealStatusFailing)
 		setupEnv := func(fe *rmtesting.TestProviderDealEnvironment) {
@@ -221,6 +230,16 @@ func TestCleanupDeal(t *testing.T) {
 		require.Equal(t, dealState.Status, rm.DealStatusErrored)
 		require.Equal(t, dealState.Message, "something went wrong untracking")
 	})
+	t.Run("error deleting store", func(t *testing.T) {
+		dealState := makeDealState(rm.DealStatusCompleting)
+		setupEnv := func(fe *rmtesting.TestProviderDealEnvironment) {
+			fe.DeleteStoreError = errors.New("something went wrong deleting store")
+		}
+		runCleanupDeal(t, setupEnv, dealState)
+		require.Equal(t, dealState.Status, rm.DealStatusErrored)
+		require.Equal(t, dealState.Message, "something went wrong deleting store")
+	})
+
 }
 
 var dealID = rm.DealID(10)

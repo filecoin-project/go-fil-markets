@@ -18,6 +18,7 @@ import (
 	"github.com/filecoin-project/go-address"
 	dtimpl "github.com/filecoin-project/go-data-transfer/impl"
 	dtgstransport "github.com/filecoin-project/go-data-transfer/transport/graphsync"
+	"github.com/filecoin-project/go-multistore"
 	"github.com/filecoin-project/specs-actors/actors/abi"
 	"github.com/filecoin-project/specs-actors/actors/abi/big"
 	"github.com/filecoin-project/specs-actors/actors/builtin/paych"
@@ -95,7 +96,7 @@ func requireSetupTestClientAndProvider(bgCtx context.Context, t *testing.T, payC
 	require.NoError(t, err)
 	err = dt1.Start(bgCtx)
 	require.NoError(t, err)
-	client, err := retrievalimpl.NewClient(nw1, testData.Bs1, dt1, rcNode1, &tut.TestPeerResolver{}, testData.Ds1, testData.RetrievalStoredCounter1)
+	client, err := retrievalimpl.NewClient(nw1, testData.MultiStore1, dt1, rcNode1, &tut.TestPeerResolver{}, testData.Ds1, testData.RetrievalStoredCounter1)
 	require.NoError(t, err)
 	nw2 := rmnet.NewFromLibp2pHost(testData.Host2)
 	providerNode := testnodes.NewTestRetrievalProviderNode()
@@ -131,7 +132,7 @@ func requireSetupTestClientAndProvider(bgCtx context.Context, t *testing.T, payC
 	require.NoError(t, err)
 	err = dt2.Start(bgCtx)
 	require.NoError(t, err)
-	provider, err := retrievalimpl.NewProvider(paymentAddress, providerNode, nw2, pieceStore, testData.Bs2, dt2, testData.Ds2)
+	provider, err := retrievalimpl.NewProvider(paymentAddress, providerNode, nw2, pieceStore, testData.MultiStore2, dt2, testData.Ds2)
 	require.NoError(t, err)
 
 	provider.SetPaymentInterval(expectedQR.MaxPaymentInterval, expectedQR.MaxPaymentIntervalIncrease)
@@ -167,6 +168,7 @@ func TestClientCanMakeDealWithProvider(t *testing.T) {
 		selector           ipld.Node
 		unsealPrice        abi.TokenAmount
 		paramsV1, addFunds bool
+		skipStores         bool
 	}{
 		{name: "1 block file retrieval succeeds with existing payment channel",
 			filename:    "lorem_under_1_block.txt",
@@ -213,6 +215,12 @@ func TestClientCanMakeDealWithProvider(t *testing.T) {
 			filesize:    410,
 			voucherAmts: []abi.TokenAmount{abi.NewTokenAmount(410000)},
 		},
+		{name: "succeeds for regular blockstore",
+			filename:    "lorem.txt",
+			filesize:    19000,
+			voucherAmts: []abi.TokenAmount{abi.NewTokenAmount(10136000), abi.NewTokenAmount(9784000)},
+			skipStores:  true,
+		},
 	}
 
 	for i, testCase := range testCases {
@@ -228,7 +236,7 @@ func TestClientCanMakeDealWithProvider(t *testing.T) {
 
 			fpath := filepath.Join("retrievalmarket", "impl", "fixtures", testCase.filename)
 
-			pieceLink := testData.LoadUnixFSFile(t, fpath, true)
+			pieceLink, storeID := testData.LoadUnixFSFileToStore(t, fpath, true)
 			c, ok := pieceLink.(cidlink.Link)
 			require.True(t, ok)
 			payloadCID := c.Cid
@@ -255,7 +263,9 @@ func TestClientCanMakeDealWithProvider(t *testing.T) {
 			var pieceInfo piecestore.PieceInfo
 			cio := cario.NewCarIO()
 			var buf bytes.Buffer
-			err = cio.WriteCar(bgCtx, testData.Bs2, payloadCID, shared.AllSelector(), &buf)
+			store, err := testData.MultiStore2.Get(storeID)
+			require.NoError(t, err)
+			err = cio.WriteCar(bgCtx, store.Bstore, payloadCID, shared.AllSelector(), &buf)
 			require.NoError(t, err)
 			carData := buf.Bytes()
 			sectorID := uint64(100000)
@@ -272,12 +282,8 @@ func TestClientCanMakeDealWithProvider(t *testing.T) {
 			}
 			providerNode.ExpectUnseal(sectorID, offset, uint64(len(carData)), carData)
 			// clearout provider blockstore
-			allCids, err := testData.Bs2.AllKeysChan(bgCtx)
+			err = testData.MultiStore2.Delete(storeID)
 			require.NoError(t, err)
-			for c := range allCids {
-				err = testData.Bs2.DeleteBlock(c)
-				require.NoError(t, err)
-			}
 
 			decider := rmtesting.TrivialTestDecider
 			if testCase.decider != nil {
@@ -302,7 +308,6 @@ func TestClientCanMakeDealWithProvider(t *testing.T) {
 
 			// ------- SET UP CLIENT
 			nw1 := rmnet.NewFromLibp2pHost(testData.Host1)
-
 			createdChan, newLaneAddr, createdVoucher, client, err := setupClient(bgCtx, t, clientPaymentChannel, expectedVoucher, nw1, testData, testCase.addFunds)
 			require.NoError(t, err)
 
@@ -361,8 +366,13 @@ CurrentInterval: %d
 				rmParams = retrievalmarket.NewParamsV0(pricePerByte, paymentInterval, paymentIntervalIncrease)
 			}
 
+			var clientStoreID *multistore.StoreID
+			if !testCase.skipStores {
+				id := testData.MultiStore1.Next()
+				clientStoreID = &id
+			}
 			// *** Retrieve the piece
-			did, err := client.Retrieve(bgCtx, payloadCID, rmParams, expectedTotal, retrievalPeer.ID, clientPaymentChannel, retrievalPeer.Address)
+			did, err := client.Retrieve(bgCtx, payloadCID, rmParams, expectedTotal, retrievalPeer.ID, clientPaymentChannel, retrievalPeer.Address, clientStoreID)
 			assert.Equal(t, did, retrievalmarket.DealID(0))
 			require.NoError(t, err)
 
@@ -404,7 +414,11 @@ CurrentInterval: %d
 			}
 			// verify that the provider saved the same voucher values
 			providerNode.VerifyExpectations(t)
-			testData.VerifyFileTransferred(t, pieceLink, false, testCase.filesize)
+			if testCase.skipStores {
+				testData.VerifyFileTransferred(t, pieceLink, false, testCase.filesize)
+			} else {
+				testData.VerifyFileTransferredIntoStore(t, pieceLink, *clientStoreID, false, testCase.filesize)
+			}
 		})
 	}
 
@@ -456,7 +470,7 @@ func setupClient(
 	err = dt1.Start(ctx)
 	require.NoError(t, err)
 
-	client, err := retrievalimpl.NewClient(nw1, testData.Bs1, dt1, clientNode, &tut.TestPeerResolver{}, testData.Ds1, testData.RetrievalStoredCounter1)
+	client, err := retrievalimpl.NewClient(nw1, testData.MultiStore1, dt1, clientNode, &tut.TestPeerResolver{}, testData.Ds1, testData.RetrievalStoredCounter1)
 	return &createdChan, &newLaneAddr, &createdVoucher, client, err
 }
 
@@ -490,7 +504,7 @@ func setupProvider(
 	require.NoError(t, err)
 
 	provider, err := retrievalimpl.NewProvider(providerPaymentAddr, providerNode, nw2,
-		pieceStore, testData.Bs2, dt2, testData.Ds2,
+		pieceStore, testData.MultiStore2, dt2, testData.Ds2,
 		retrievalimpl.DealDeciderOpt(decider))
 	require.NoError(t, err)
 	provider.SetPaymentInterval(expectedQR.MaxPaymentInterval, expectedQR.MaxPaymentIntervalIncrease)
