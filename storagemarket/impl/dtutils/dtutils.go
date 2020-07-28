@@ -5,9 +5,12 @@ package dtutils
 import (
 	"errors"
 
+	"github.com/ipfs/go-cid"
 	logging "github.com/ipfs/go-log/v2"
+	"github.com/ipld/go-ipld-prime"
 
 	datatransfer "github.com/filecoin-project/go-data-transfer"
+	"github.com/filecoin-project/go-multistore"
 	"github.com/filecoin-project/go-statemachine/fsm"
 
 	"github.com/filecoin-project/go-fil-markets/storagemarket"
@@ -90,6 +93,43 @@ func ClientDataTransferSubscriber(deals EventReceiver) datatransfer.Subscriber {
 				log.Errorf("processing dt event: %w", err)
 			}
 		default:
+		}
+	}
+}
+
+// StoreGetter retrieves the store for a given proposal cid
+type StoreGetter interface {
+	Get(proposalCid cid.Cid) (*multistore.Store, error)
+}
+
+// StoreConfigurableTransport defines the methods needed to
+// configure a data transfer transport use a unique store for a given request
+type StoreConfigurableTransport interface {
+	UseStore(datatransfer.ChannelID, ipld.Loader, ipld.Storer) error
+}
+
+// TransportConfigurer configurers the graphsync transport to use a custom blockstore per deal
+func TransportConfigurer(storeGetter StoreGetter) datatransfer.TransportConfigurer {
+	return func(channelID datatransfer.ChannelID, voucher datatransfer.Voucher, transport datatransfer.Transport) {
+		storageVoucher, ok := voucher.(*requestvalidation.StorageDataTransferVoucher)
+		if !ok {
+			return
+		}
+		gsTransport, ok := transport.(StoreConfigurableTransport)
+		if !ok {
+			return
+		}
+		store, err := storeGetter.Get(storageVoucher.Proposal)
+		if err != nil {
+			log.Errorf("attempting to configure data store: %w", err)
+			return
+		}
+		if store == nil {
+			return
+		}
+		err = gsTransport.UseStore(channelID, store.Loader, store.Storer)
+		if err != nil {
+			log.Errorf("attempting to configure data store: %w", err)
 		}
 	}
 }

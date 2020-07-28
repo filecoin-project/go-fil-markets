@@ -7,6 +7,7 @@ import (
 	"io"
 
 	"github.com/filecoin-project/go-fil-markets/filestore"
+	"github.com/filecoin-project/go-multistore"
 	"github.com/filecoin-project/specs-actors/actors/abi"
 	"github.com/filecoin-project/specs-actors/actors/builtin/market"
 	"github.com/filecoin-project/specs-actors/actors/crypto"
@@ -17,7 +18,7 @@ import (
 
 var _ = xerrors.Errorf
 
-var lengthBufClientDeal = []byte{142}
+var lengthBufClientDeal = []byte{143}
 
 func (t *ClientDeal) MarshalCBOR(w io.Writer) error {
 	if t == nil {
@@ -138,6 +139,19 @@ func (t *ClientDeal) MarshalCBOR(w io.Writer) error {
 	if err := cbg.WriteBool(w, t.FastRetrieval); err != nil {
 		return err
 	}
+
+	// t.StoreID (multistore.StoreID) (uint64)
+
+	if t.StoreID == nil {
+		if _, err := w.Write(cbg.CborNull); err != nil {
+			return err
+		}
+	} else {
+		if err := cbg.WriteMajorTypeHeaderBuf(scratch, w, cbg.MajUnsignedInt, uint64(*t.StoreID)); err != nil {
+			return err
+		}
+	}
+
 	return nil
 }
 
@@ -155,7 +169,7 @@ func (t *ClientDeal) UnmarshalCBOR(r io.Reader) error {
 		return fmt.Errorf("cbor input should be of type array")
 	}
 
-	if extra != 14 {
+	if extra != 15 {
 		return fmt.Errorf("cbor input had wrong number of fields")
 	}
 
@@ -376,10 +390,36 @@ func (t *ClientDeal) UnmarshalCBOR(r io.Reader) error {
 	default:
 		return fmt.Errorf("booleans are either major type 7, value 20 or 21 (got %d)", extra)
 	}
+	// t.StoreID (multistore.StoreID) (uint64)
+
+	{
+
+		pb, err := br.PeekByte()
+		if err != nil {
+			return err
+		}
+		if pb == cbg.CborNull[0] {
+			var nbuf [1]byte
+			if _, err := br.Read(nbuf[:]); err != nil {
+				return err
+			}
+		} else {
+			maj, extra, err = cbg.CborReadHeaderBuf(br, scratch)
+			if err != nil {
+				return err
+			}
+			if maj != cbg.MajUnsignedInt {
+				return fmt.Errorf("wrong type for uint64 field")
+			}
+			typed := multistore.StoreID(extra)
+			t.StoreID = &typed
+		}
+
+	}
 	return nil
 }
 
-var lengthBufMinerDeal = []byte{142}
+var lengthBufMinerDeal = []byte{143}
 
 func (t *MinerDeal) MarshalCBOR(w io.Writer) error {
 	if t == nil {
@@ -509,6 +549,18 @@ func (t *MinerDeal) MarshalCBOR(w io.Writer) error {
 		return err
 	}
 
+	// t.StoreID (multistore.StoreID) (uint64)
+
+	if t.StoreID == nil {
+		if _, err := w.Write(cbg.CborNull); err != nil {
+			return err
+		}
+	} else {
+		if err := cbg.WriteMajorTypeHeaderBuf(scratch, w, cbg.MajUnsignedInt, uint64(*t.StoreID)); err != nil {
+			return err
+		}
+	}
+
 	// t.Ref (storagemarket.DataRef) (struct)
 	if err := t.Ref.MarshalCBOR(w); err != nil {
 		return err
@@ -537,7 +589,7 @@ func (t *MinerDeal) UnmarshalCBOR(r io.Reader) error {
 		return fmt.Errorf("cbor input should be of type array")
 	}
 
-	if extra != 14 {
+	if extra != 15 {
 		return fmt.Errorf("cbor input had wrong number of fields")
 	}
 
@@ -715,6 +767,32 @@ func (t *MinerDeal) UnmarshalCBOR(r io.Reader) error {
 		}
 
 		t.Message = string(sval)
+	}
+	// t.StoreID (multistore.StoreID) (uint64)
+
+	{
+
+		pb, err := br.PeekByte()
+		if err != nil {
+			return err
+		}
+		if pb == cbg.CborNull[0] {
+			var nbuf [1]byte
+			if _, err := br.Read(nbuf[:]); err != nil {
+				return err
+			}
+		} else {
+			maj, extra, err = cbg.CborReadHeaderBuf(br, scratch)
+			if err != nil {
+				return err
+			}
+			if maj != cbg.MajUnsignedInt {
+				return fmt.Errorf("wrong type for uint64 field")
+			}
+			typed := multistore.StoreID(extra)
+			t.StoreID = &typed
+		}
+
 	}
 	// t.Ref (storagemarket.DataRef) (struct)
 

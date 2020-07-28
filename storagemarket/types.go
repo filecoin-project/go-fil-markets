@@ -6,6 +6,7 @@ import (
 	ma "github.com/multiformats/go-multiaddr"
 
 	"github.com/filecoin-project/go-address"
+	"github.com/filecoin-project/go-multistore"
 	"github.com/filecoin-project/specs-actors/actors/abi"
 	"github.com/filecoin-project/specs-actors/actors/builtin/market"
 	"github.com/filecoin-project/specs-actors/actors/crypto"
@@ -89,8 +90,8 @@ type MinerDeal struct {
 	SlashEpoch    abi.ChainEpoch
 	FastRetrieval bool
 	Message       string
-
-	Ref *DataRef
+	StoreID       *multistore.StoreID
+	Ref           *DataRef
 
 	DealID abi.DealID
 }
@@ -111,6 +112,7 @@ type ClientDeal struct {
 	PollRetryCount uint64
 	PollErrorCount uint64
 	FastRetrieval  bool
+	StoreID        *multistore.StoreID
 }
 
 // StorageDeal is a local combination of a proposal and a current deal state
@@ -133,6 +135,21 @@ type StorageProviderInfo struct {
 // ProposeStorageDealResult returns the result for a proposing a deal
 type ProposeStorageDealResult struct {
 	ProposalCid cid.Cid
+}
+
+// ProposeStorageDealParams describes the parameters for proposing a storage deal
+type ProposeStorageDealParams struct {
+	Addr          address.Address
+	Info          *StorageProviderInfo
+	Data          *DataRef
+	StartEpoch    abi.ChainEpoch
+	EndEpoch      abi.ChainEpoch
+	Price         abi.TokenAmount
+	Collateral    abi.TokenAmount
+	Rt            abi.RegisteredSealProof
+	FastRetrieval bool
+	VerifiedDeal  bool
+	StoreID       *multistore.StoreID
 }
 
 const (

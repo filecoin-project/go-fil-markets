@@ -2,18 +2,19 @@ package storageimpl
 
 import (
 	"context"
+	"errors"
 	"io"
 
 	"github.com/hannahhoward/go-pubsub"
 	"github.com/ipfs/go-cid"
 	"github.com/ipfs/go-datastore"
-	blockstore "github.com/ipfs/go-ipfs-blockstore"
 	"github.com/ipld/go-ipld-prime"
 	"golang.org/x/xerrors"
 
 	"github.com/filecoin-project/go-address"
 	cborutil "github.com/filecoin-project/go-cbor-util"
 	datatransfer "github.com/filecoin-project/go-data-transfer"
+	"github.com/filecoin-project/go-multistore"
 	"github.com/filecoin-project/go-statemachine/fsm"
 	"github.com/filecoin-project/specs-actors/actors/abi"
 	"github.com/filecoin-project/specs-actors/actors/crypto"
@@ -29,6 +30,7 @@ import (
 	"github.com/filecoin-project/go-fil-markets/storagemarket/impl/dtutils"
 	"github.com/filecoin-project/go-fil-markets/storagemarket/impl/providerstates"
 	"github.com/filecoin-project/go-fil-markets/storagemarket/impl/providerutils"
+	"github.com/filecoin-project/go-fil-markets/storagemarket/impl/requestvalidation"
 	"github.com/filecoin-project/go-fil-markets/storagemarket/network"
 )
 
@@ -49,6 +51,7 @@ type Provider struct {
 
 	spn                       storagemarket.StorageProviderNode
 	fs                        filestore.FileStore
+	multiStore                *multistore.MultiStore
 	pio                       pieceio.PieceIOWithStore
 	pieceStore                piecestore.PieceStore
 	conns                     *connmanager.ConnManager
@@ -92,8 +95,8 @@ func CustomDealDecisionLogic(decider DealDeciderFunc) StorageProviderOption {
 // NewProvider returns a new storage provider
 func NewProvider(net network.StorageMarketNetwork,
 	ds datastore.Batching,
-	bs blockstore.Blockstore,
 	fs filestore.FileStore,
+	multiStore *multistore.MultiStore,
 	pieceStore piecestore.PieceStore,
 	dataTransfer datatransfer.Manager,
 	spn storagemarket.StorageProviderNode,
@@ -103,13 +106,14 @@ func NewProvider(net network.StorageMarketNetwork,
 	options ...StorageProviderOption,
 ) (storagemarket.StorageProvider, error) {
 	carIO := cario.NewCarIO()
-	pio := pieceio.NewPieceIOWithStore(carIO, fs, bs)
+	pio := pieceio.NewPieceIOWithStore(carIO, fs, nil, multiStore)
 
 	h := &Provider{
 		net:          net,
 		proofType:    rt,
 		spn:          spn,
 		fs:           fs,
+		multiStore:   multiStore,
 		pio:          pio,
 		pieceStore:   pieceStore,
 		conns:        connmanager.NewConnManager(),
@@ -134,6 +138,11 @@ func NewProvider(net network.StorageMarketNetwork,
 
 	// register a data transfer event handler -- this will send events to the state machines based on DT events
 	dataTransfer.SubscribeToEvents(dtutils.ProviderDataTransferSubscriber(deals))
+
+	err = dataTransfer.RegisterTransportConfigurer(&requestvalidation.StorageDataTransferVoucher{}, dtutils.TransportConfigurer(&providerStoreGetter{h}))
+	if err != nil {
+		return nil, err
+	}
 
 	return h, nil
 }
@@ -199,6 +208,16 @@ func (p *Provider) receiveDeal(s network.StorageDealStream) error {
 		return err
 	}
 
+	var storeIDForDeal *multistore.StoreID
+	if proposal.Piece.TransferType != storagemarket.TTManual {
+		nextStoreID := p.multiStore.Next()
+		// make sure store is initialized, even if we don't use it yet
+		_, err = p.multiStore.Get(nextStoreID)
+		if err != nil {
+			return err
+		}
+		storeIDForDeal = &nextStoreID
+	}
 	deal := &storagemarket.MinerDeal{
 		Client:             s.RemotePeer(),
 		Miner:              p.net.ID(),
@@ -207,6 +226,7 @@ func (p *Provider) receiveDeal(s network.StorageDealStream) error {
 		State:              storagemarket.StorageDealUnknown,
 		Ref:                proposal.Piece,
 		FastRetrieval:      proposal.FastRetrieval,
+		StoreID:            storeIDForDeal,
 	}
 
 	err = p.deals.Begin(proposalNd.Cid(), deal)
@@ -585,11 +605,15 @@ func (p *providerDealEnvironment) Ask() storagemarket.StorageAsk {
 	return *sask.Ask
 }
 
-func (p *providerDealEnvironment) GeneratePieceCommitmentToFile(payloadCid cid.Cid, selector ipld.Node) (cid.Cid, filestore.Path, filestore.Path, error) {
+func (p *providerDealEnvironment) DeleteStore(storeID multistore.StoreID) error {
+	return p.p.multiStore.Delete(storeID)
+}
+
+func (p *providerDealEnvironment) GeneratePieceCommitmentToFile(storeID *multistore.StoreID, payloadCid cid.Cid, selector ipld.Node) (cid.Cid, filestore.Path, filestore.Path, error) {
 	if p.p.universalRetrievalEnabled {
-		return providerutils.GeneratePieceCommitmentWithMetadata(p.p.fs, p.p.pio.GeneratePieceCommitmentToFile, p.p.proofType, payloadCid, selector)
+		return providerutils.GeneratePieceCommitmentWithMetadata(p.p.fs, p.p.pio.GeneratePieceCommitmentToFile, p.p.proofType, payloadCid, selector, storeID)
 	}
-	pieceCid, piecePath, _, err := p.p.pio.GeneratePieceCommitmentToFile(p.p.proofType, payloadCid, selector)
+	pieceCid, piecePath, _, err := p.p.pio.GeneratePieceCommitmentToFile(p.p.proofType, payloadCid, selector, storeID)
 	return pieceCid, piecePath, filestore.Path(""), err
 }
 
@@ -637,6 +661,22 @@ func (p *providerDealEnvironment) RunCustomDecisionLogic(ctx context.Context, de
 }
 
 var _ providerstates.ProviderDealEnvironment = &providerDealEnvironment{}
+
+type providerStoreGetter struct {
+	p *Provider
+}
+
+func (psg *providerStoreGetter) Get(proposalCid cid.Cid) (*multistore.Store, error) {
+	var deal storagemarket.MinerDeal
+	err := psg.p.deals.Get(proposalCid).Get(&deal)
+	if err != nil {
+		return nil, err
+	}
+	if deal.StoreID == nil {
+		return nil, errors.New("No store for this deal")
+	}
+	return psg.p.multiStore.Get(*deal.StoreID)
+}
 
 // ProviderFSMParameterSpec is a valid set of parameters for a provider FSM - used in doc generation
 var ProviderFSMParameterSpec = fsm.Parameters{

@@ -22,13 +22,20 @@ type RegisteredVoucherType struct {
 	Validator   datatransfer.RequestValidator
 }
 
+// RegisteredTransportConfigurer records transport configurer registered for a voucher type
+type RegisteredTransportConfigurer struct {
+	VoucherType datatransfer.Voucher
+	Configurer  datatransfer.TransportConfigurer
+}
+
 // TestDataTransfer is a mock implementation of the data transfer libary
 // Most of its functions have no effect
 type TestDataTransfer struct {
-	RegisteredRevalidators       []RegisteredRevalidator
-	RegisteredVoucherTypes       []RegisteredVoucherType
-	RegisteredVoucherResultTypes []datatransfer.VoucherResult
-	Subscribers                  []datatransfer.Subscriber
+	RegisteredRevalidators         []RegisteredRevalidator
+	RegisteredVoucherTypes         []RegisteredVoucherType
+	RegisteredVoucherResultTypes   []datatransfer.VoucherResult
+	RegisteredTransportConfigurers []RegisteredTransportConfigurer
+	Subscribers                    []datatransfer.Subscriber
 }
 
 // NewTestDataTransfer returns a new test interface implementation of datatransfer.Manager
@@ -61,6 +68,12 @@ func (tdt *TestDataTransfer) RegisterRevalidator(voucherType datatransfer.Vouche
 // RegisterVoucherResultType records the registered result type
 func (tdt *TestDataTransfer) RegisterVoucherResultType(resultType datatransfer.VoucherResult) error {
 	tdt.RegisteredVoucherResultTypes = append(tdt.RegisteredVoucherResultTypes, resultType)
+	return nil
+}
+
+// RegisterTransportConfigurer records the registered transport configurer
+func (tdt *TestDataTransfer) RegisterTransportConfigurer(voucherType datatransfer.Voucher, configurer datatransfer.TransportConfigurer) error {
+	tdt.RegisteredTransportConfigurers = append(tdt.RegisteredTransportConfigurers, RegisteredTransportConfigurer{voucherType, configurer})
 	return nil
 }
 
@@ -109,3 +122,5 @@ func (tdt *TestDataTransfer) SubscribeToEvents(subscriber datatransfer.Subscribe
 func (tdt *TestDataTransfer) InProgressChannels(ctx context.Context) (map[datatransfer.ChannelID]datatransfer.ChannelState, error) {
 	return map[datatransfer.ChannelID]datatransfer.ChannelState{}, nil
 }
+
+var _ datatransfer.Manager = new(TestDataTransfer)

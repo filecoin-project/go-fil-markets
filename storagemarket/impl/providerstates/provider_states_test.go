@@ -14,6 +14,7 @@ import (
 	"golang.org/x/xerrors"
 
 	"github.com/filecoin-project/go-address"
+	"github.com/filecoin-project/go-multistore"
 	"github.com/filecoin-project/go-statemachine/fsm"
 	fsmtest "github.com/filecoin-project/go-statemachine/fsm/testutil"
 	"github.com/filecoin-project/specs-actors/actors/abi"
@@ -481,6 +482,23 @@ func TestHandoffDeal(t *testing.T) {
 				require.True(t, env.node.OnDealCompleteCalls[0].FastRetrieval)
 			},
 		},
+		"deleting store fails": {
+			environmentParams: environmentParams{
+				DeleteStoreError: errors.New("something awful has happened"),
+			},
+			dealParams: dealParams{
+				PiecePath:     defaultPath,
+				FastRetrieval: true,
+			},
+			fileStoreParams: tut.TestFileStoreParams{
+				Files:         []filestore.File{defaultDataFile},
+				ExpectedOpens: []filestore.Path{defaultPath},
+			},
+			dealInspector: func(t *testing.T, deal storagemarket.MinerDeal, env *fakeEnvironment) {
+				tut.AssertDealState(t, storagemarket.StorageDealFailing, deal.State)
+				require.Equal(t, deal.Message, fmt.Sprintf("operating on multistore: unable to delete store %d: something awful has happened", *deal.StoreID))
+			},
+		},
 		"opening file errors": {
 			dealParams: dealParams{
 				PiecePath: filestore.Path("missing.txt"),
@@ -887,6 +905,7 @@ type environmentParams struct {
 	RejectDeal              bool
 	RejectReason            string
 	DecisionError           error
+	DeleteStoreError        error
 }
 
 type executor func(t *testing.T,
@@ -1031,6 +1050,7 @@ func makeExecutor(ctx context.Context,
 			rejectDeal:              params.RejectDeal,
 			rejectReason:            params.RejectReason,
 			decisionError:           params.DecisionError,
+			deleteStoreError:        params.DeleteStoreError,
 			fs:                      fs,
 			pieceStore:              pieceStore,
 		}
@@ -1077,6 +1097,7 @@ type fakeEnvironment struct {
 	rejectDeal              bool
 	rejectReason            string
 	decisionError           error
+	deleteStoreError        error
 	fs                      filestore.FileStore
 	pieceStore              piecestore.PieceStore
 	expectedTags            map[string]struct{}
@@ -1095,7 +1116,11 @@ func (fe *fakeEnvironment) Ask() storagemarket.StorageAsk {
 	return fe.ask
 }
 
-func (fe *fakeEnvironment) GeneratePieceCommitmentToFile(payloadCid cid.Cid, selector ipld.Node) (cid.Cid, filestore.Path, filestore.Path, error) {
+func (fe *fakeEnvironment) DeleteStore(storeID multistore.StoreID) error {
+	return fe.deleteStoreError
+}
+
+func (fe *fakeEnvironment) GeneratePieceCommitmentToFile(storeID *multistore.StoreID, payloadCid cid.Cid, selector ipld.Node) (cid.Cid, filestore.Path, filestore.Path, error) {
 	return fe.pieceCid, fe.path, fe.metadataPath, fe.generateCommPError
 }
 

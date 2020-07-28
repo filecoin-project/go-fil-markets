@@ -1,11 +1,17 @@
 package dtutils_test
 
 import (
+	"context"
+	"errors"
 	"testing"
 
+	"github.com/ipfs/go-cid"
+	"github.com/ipld/go-ipld-prime"
+	peer "github.com/libp2p/go-libp2p-core/peer"
 	"github.com/stretchr/testify/require"
 
 	datatransfer "github.com/filecoin-project/go-data-transfer"
+	"github.com/filecoin-project/go-multistore"
 	"github.com/filecoin-project/go-statemachine/fsm"
 
 	"github.com/filecoin-project/go-fil-markets/shared_testutil"
@@ -152,6 +158,73 @@ func TestClientDataTransferSubscriber(t *testing.T) {
 	}
 }
 
+func TestTransportConfigurer(t *testing.T) {
+	expectedProposalCID := shared_testutil.GenerateCids(1)[0]
+	expectedChannelID := shared_testutil.MakeTestChannelID()
+
+	testCases := map[string]struct {
+		voucher          datatransfer.Voucher
+		transport        datatransfer.Transport
+		returnedStore    *multistore.Store
+		returnedStoreErr error
+		getterCalled     bool
+		useStoreCalled   bool
+	}{
+		"non-storage voucher": {
+			voucher:      nil,
+			getterCalled: false,
+		},
+		"non-configurable transport": {
+			voucher: &requestvalidation.StorageDataTransferVoucher{
+				Proposal: expectedProposalCID,
+			},
+			transport:    &fakeTransport{},
+			getterCalled: false,
+		},
+		"store getter errors": {
+			voucher: &requestvalidation.StorageDataTransferVoucher{
+				Proposal: expectedProposalCID,
+			},
+			transport:        &fakeGsTransport{Transport: &fakeTransport{}},
+			getterCalled:     true,
+			useStoreCalled:   false,
+			returnedStore:    nil,
+			returnedStoreErr: errors.New("something went wrong"),
+		},
+		"store getter succeeds": {
+			voucher: &requestvalidation.StorageDataTransferVoucher{
+				Proposal: expectedProposalCID,
+			},
+			transport:        &fakeGsTransport{Transport: &fakeTransport{}},
+			getterCalled:     true,
+			useStoreCalled:   true,
+			returnedStore:    &multistore.Store{},
+			returnedStoreErr: nil,
+		},
+	}
+	for testCase, data := range testCases {
+		t.Run(testCase, func(t *testing.T) {
+			storeGetter := &fakeStoreGetter{returnedErr: data.returnedStoreErr, returnedStore: data.returnedStore}
+			transportConfigurer := dtutils.TransportConfigurer(storeGetter)
+			transportConfigurer(expectedChannelID, data.voucher, data.transport)
+			if data.getterCalled {
+				require.True(t, storeGetter.called)
+				require.Equal(t, expectedProposalCID, storeGetter.lastProposalCid)
+				fgt, ok := data.transport.(*fakeGsTransport)
+				require.True(t, ok)
+				if data.useStoreCalled {
+					require.True(t, fgt.called)
+					require.Equal(t, expectedChannelID, fgt.lastChannelID)
+				} else {
+					require.False(t, fgt.called)
+				}
+			} else {
+				require.False(t, storeGetter.called)
+			}
+		})
+	}
+}
+
 type fakeDealGroup struct {
 	returnedErr error
 	called      bool
@@ -166,4 +239,50 @@ func (fdg *fakeDealGroup) Send(id interface{}, name fsm.EventName, args ...inter
 	fdg.lastArgs = args
 	fdg.called = true
 	return fdg.returnedErr
+}
+
+type fakeStoreGetter struct {
+	lastProposalCid cid.Cid
+	returnedErr     error
+	returnedStore   *multistore.Store
+	called          bool
+}
+
+func (fsg *fakeStoreGetter) Get(proposalCid cid.Cid) (*multistore.Store, error) {
+	fsg.lastProposalCid = proposalCid
+	fsg.called = true
+	return fsg.returnedStore, fsg.returnedErr
+}
+
+type fakeTransport struct{}
+
+func (ft *fakeTransport) OpenChannel(ctx context.Context, dataSender peer.ID, channelID datatransfer.ChannelID, root ipld.Link, stor ipld.Node, msg datatransfer.Message) error {
+	return nil
+}
+
+func (ft *fakeTransport) CloseChannel(ctx context.Context, chid datatransfer.ChannelID) error {
+	return nil
+}
+
+func (ft *fakeTransport) SetEventHandler(events datatransfer.EventsHandler) error {
+	return nil
+}
+
+func (ft *fakeTransport) CleanupChannel(chid datatransfer.ChannelID) {
+}
+
+type fakeGsTransport struct {
+	datatransfer.Transport
+	lastChannelID datatransfer.ChannelID
+	lastLoader    ipld.Loader
+	lastStorer    ipld.Storer
+	called        bool
+}
+
+func (fgt *fakeGsTransport) UseStore(channelID datatransfer.ChannelID, loader ipld.Loader, storer ipld.Storer) error {
+	fgt.lastChannelID = channelID
+	fgt.lastLoader = loader
+	fgt.lastStorer = storer
+	fgt.called = true
+	return nil
 }

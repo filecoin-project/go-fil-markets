@@ -9,6 +9,7 @@ import (
 
 	"github.com/filecoin-project/go-address"
 	cborutil "github.com/filecoin-project/go-cbor-util"
+	"github.com/filecoin-project/go-multistore"
 	"github.com/filecoin-project/specs-actors/actors/abi"
 	"github.com/filecoin-project/specs-actors/actors/crypto"
 
@@ -19,7 +20,7 @@ import (
 )
 
 // CommP calculates the commP for a given dataref
-func CommP(ctx context.Context, pieceIO pieceio.PieceIO, rt abi.RegisteredSealProof, data *storagemarket.DataRef) (cid.Cid, abi.UnpaddedPieceSize, error) {
+func CommP(ctx context.Context, pieceIO pieceio.PieceIO, rt abi.RegisteredSealProof, data *storagemarket.DataRef, storeID *multistore.StoreID) (cid.Cid, abi.UnpaddedPieceSize, error) {
 	if data.PieceCid != nil {
 		return *data.PieceCid, data.PieceSize, nil
 	}
@@ -28,7 +29,7 @@ func CommP(ctx context.Context, pieceIO pieceio.PieceIO, rt abi.RegisteredSealPr
 		return cid.Undef, 0, xerrors.New("Piece CID and size must be set for manual transfer")
 	}
 
-	commp, paddedSize, err := pieceIO.GeneratePieceCommitment(rt, data.Root, shared.AllSelector())
+	commp, paddedSize, err := pieceIO.GeneratePieceCommitment(rt, data.Root, shared.AllSelector(), storeID)
 	if err != nil {
 		return cid.Undef, 0, xerrors.Errorf("generating CommP: %w", err)
 	}

@@ -11,6 +11,7 @@ import (
 	"github.com/ipld/go-car"
 	"github.com/ipld/go-ipld-prime"
 
+	"github.com/filecoin-project/go-multistore"
 	"github.com/filecoin-project/go-padreader"
 	"github.com/filecoin-project/sector-storage/ffiwrapper"
 	"github.com/filecoin-project/specs-actors/actors/abi"
@@ -36,12 +37,17 @@ type CarIO interface {
 }
 
 type pieceIO struct {
-	carIO CarIO
-	bs    blockstore.Blockstore
+	carIO      CarIO
+	bs         blockstore.Blockstore
+	multiStore MultiStore
 }
 
-func NewPieceIO(carIO CarIO, bs blockstore.Blockstore) PieceIO {
-	return &pieceIO{carIO, bs}
+type MultiStore interface {
+	Get(i multistore.StoreID) (*multistore.Store, error)
+}
+
+func NewPieceIO(carIO CarIO, bs blockstore.Blockstore, multiStore MultiStore) PieceIO {
+	return &pieceIO{carIO, bs, multiStore}
 }
 
 type pieceIOWithStore struct {
@@ -49,12 +55,16 @@ type pieceIOWithStore struct {
 	store filestore.FileStore
 }
 
-func NewPieceIOWithStore(carIO CarIO, store filestore.FileStore, bs blockstore.Blockstore) PieceIOWithStore {
-	return &pieceIOWithStore{pieceIO{carIO, bs}, store}
+func NewPieceIOWithStore(carIO CarIO, store filestore.FileStore, bs blockstore.Blockstore, multiStore MultiStore) PieceIOWithStore {
+	return &pieceIOWithStore{pieceIO{carIO, bs, multiStore}, store}
 }
 
-func (pio *pieceIO) GeneratePieceCommitment(rt abi.RegisteredSealProof, payloadCid cid.Cid, selector ipld.Node) (cid.Cid, abi.UnpaddedPieceSize, error) {
-	preparedCar, err := pio.carIO.PrepareCar(context.Background(), pio.bs, payloadCid, selector)
+func (pio *pieceIO) GeneratePieceCommitment(rt abi.RegisteredSealProof, payloadCid cid.Cid, selector ipld.Node, storeID *multistore.StoreID) (cid.Cid, abi.UnpaddedPieceSize, error) {
+	bstore, err := pio.bstore(storeID)
+	if err != nil {
+		return cid.Undef, 0, err
+	}
+	preparedCar, err := pio.carIO.PrepareCar(context.Background(), bstore, payloadCid, selector)
 	if err != nil {
 		return cid.Undef, 0, err
 	}
@@ -89,7 +99,11 @@ func (pio *pieceIO) GeneratePieceCommitment(rt abi.RegisteredSealProof, payloadC
 	return commitment, paddedSize, nil
 }
 
-func (pio *pieceIOWithStore) GeneratePieceCommitmentToFile(rt abi.RegisteredSealProof, payloadCid cid.Cid, selector ipld.Node, userOnNewCarBlocks ...car.OnNewCarBlockFunc) (cid.Cid, filestore.Path, abi.UnpaddedPieceSize, error) {
+func (pio *pieceIOWithStore) GeneratePieceCommitmentToFile(rt abi.RegisteredSealProof, payloadCid cid.Cid, selector ipld.Node, storeID *multistore.StoreID, userOnNewCarBlocks ...car.OnNewCarBlockFunc) (cid.Cid, filestore.Path, abi.UnpaddedPieceSize, error) {
+	bstore, err := pio.bstore(storeID)
+	if err != nil {
+		return cid.Undef, "", 0, err
+	}
 	f, err := pio.store.CreateTemp()
 	if err != nil {
 		return cid.Undef, "", 0, err
@@ -98,7 +112,7 @@ func (pio *pieceIOWithStore) GeneratePieceCommitmentToFile(rt abi.RegisteredSeal
 		f.Close()
 		_ = pio.store.Delete(f.Path())
 	}
-	err = pio.carIO.WriteCar(context.Background(), pio.bs, payloadCid, selector, f, userOnNewCarBlocks...)
+	err = pio.carIO.WriteCar(context.Background(), bstore, payloadCid, selector, f, userOnNewCarBlocks...)
 	if err != nil {
 		cleanup()
 		return cid.Undef, "", 0, err
@@ -127,6 +141,21 @@ func GeneratePieceCommitment(rt abi.RegisteredSealProof, rd io.Reader, pieceSize
 	return commitment, paddedSize, nil
 }
 
-func (pio *pieceIO) ReadPiece(r io.Reader) (cid.Cid, error) {
-	return pio.carIO.LoadCar(pio.bs, r)
+func (pio *pieceIO) ReadPiece(storeID *multistore.StoreID, r io.Reader) (cid.Cid, error) {
+	bstore, err := pio.bstore(storeID)
+	if err != nil {
+		return cid.Undef, err
+	}
+	return pio.carIO.LoadCar(bstore, r)
+}
+
+func (pio *pieceIO) bstore(storeID *multistore.StoreID) (blockstore.Blockstore, error) {
+	if storeID == nil {
+		return pio.bs, nil
+	}
+	store, err := pio.multiStore.Get(*storeID)
+	if err != nil {
+		return nil, err
+	}
+	return store.Bstore, nil
 }
