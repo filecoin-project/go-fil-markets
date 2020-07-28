@@ -139,7 +139,11 @@ func NewProvider(net network.StorageMarketNetwork,
 	// register a data transfer event handler -- this will send events to the state machines based on DT events
 	dataTransfer.SubscribeToEvents(dtutils.ProviderDataTransferSubscriber(deals))
 
-	dataTransfer.RegisterTransportConfigurer(&requestvalidation.StorageDataTransferVoucher{}, dtutils.TransportConfigurer(&providerStoreGetter{h}))
+	err = dataTransfer.RegisterTransportConfigurer(&requestvalidation.StorageDataTransferVoucher{}, dtutils.TransportConfigurer(&providerStoreGetter{h}))
+	if err != nil {
+		return nil, err
+	}
+
 	return h, nil
 }
 
