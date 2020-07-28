@@ -22,6 +22,7 @@ stateDiagram-v2
 		The following events are not shown cause they can trigger from any state.
 
 		ProviderEventDataTransferError - transitions state to DealStatusErrored
+		ProviderEventMultiStoreError - transitions state to DealStatusErrored
 	end note
 	0 --> 0 : ProviderEventOpen
 	0 --> 1 : ProviderEventDealAccepted

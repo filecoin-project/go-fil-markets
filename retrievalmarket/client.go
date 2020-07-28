@@ -7,6 +7,7 @@ import (
 	"github.com/libp2p/go-libp2p-core/peer"
 
 	"github.com/filecoin-project/go-address"
+	"github.com/filecoin-project/go-multistore"
 	"github.com/filecoin-project/specs-actors/actors/abi"
 )
 
@@ -37,6 +38,7 @@ type RetrievalClient interface {
 		miner peer.ID,
 		clientWallet address.Address,
 		minerWallet address.Address,
+		storeID multistore.StoreID,
 	) (DealID, error)
 
 	// SubscribeToEvents listens for events that happen related to client retrievals

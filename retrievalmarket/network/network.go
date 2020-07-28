@@ -39,4 +39,7 @@ type RetrievalMarketNetwork interface {
 	// StopHandlingRequests unsets the RetrievalReceiver and would perform any other necessary
 	// shutdown logic.
 	StopHandlingRequests() error
+
+	// ID returns the peer id of the host for this network
+	ID() peer.ID
 }

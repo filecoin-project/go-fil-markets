@@ -7,6 +7,7 @@ import (
 	"io"
 
 	"github.com/filecoin-project/go-fil-markets/piecestore"
+	"github.com/filecoin-project/go-multistore"
 	"github.com/filecoin-project/specs-actors/actors/builtin/paych"
 	"github.com/libp2p/go-libp2p-core/peer"
 	cbg "github.com/whyrusleeping/cbor-gen"
@@ -807,7 +808,7 @@ func (t *DealPayment) UnmarshalCBOR(r io.Reader) error {
 	return nil
 }
 
-var lengthBufClientDealState = []byte{146}
+var lengthBufClientDealState = []byte{147}
 
 func (t *ClientDealState) MarshalCBOR(w io.Writer) error {
 	if t == nil {
@@ -822,6 +823,12 @@ func (t *ClientDealState) MarshalCBOR(w io.Writer) error {
 
 	// t.DealProposal (retrievalmarket.DealProposal) (struct)
 	if err := t.DealProposal.MarshalCBOR(w); err != nil {
+		return err
+	}
+
+	// t.StoreID (multistore.StoreID) (uint64)
+
+	if err := cbg.WriteMajorTypeHeaderBuf(scratch, w, cbg.MajUnsignedInt, uint64(t.StoreID)); err != nil {
 		return err
 	}
 
@@ -952,7 +959,7 @@ func (t *ClientDealState) UnmarshalCBOR(r io.Reader) error {
 		return fmt.Errorf("cbor input should be of type array")
 	}
 
-	if extra != 18 {
+	if extra != 19 {
 		return fmt.Errorf("cbor input had wrong number of fields")
 	}
 
@@ -963,6 +970,20 @@ func (t *ClientDealState) UnmarshalCBOR(r io.Reader) error {
 		if err := t.DealProposal.UnmarshalCBOR(br); err != nil {
 			return xerrors.Errorf("unmarshaling t.DealProposal: %w", err)
 		}
+
+	}
+	// t.StoreID (multistore.StoreID) (uint64)
+
+	{
+
+		maj, extra, err = cbg.CborReadHeaderBuf(br, scratch)
+		if err != nil {
+			return err
+		}
+		if maj != cbg.MajUnsignedInt {
+			return fmt.Errorf("wrong type for uint64 field")
+		}
+		t.StoreID = multistore.StoreID(extra)
 
 	}
 	// t.ChannelID (datatransfer.ChannelID) (struct)
@@ -1186,7 +1207,7 @@ func (t *ClientDealState) UnmarshalCBOR(r io.Reader) error {
 	return nil
 }
 
-var lengthBufProviderDealState = []byte{137}
+var lengthBufProviderDealState = []byte{138}
 
 func (t *ProviderDealState) MarshalCBOR(w io.Writer) error {
 	if t == nil {
@@ -1201,6 +1222,12 @@ func (t *ProviderDealState) MarshalCBOR(w io.Writer) error {
 
 	// t.DealProposal (retrievalmarket.DealProposal) (struct)
 	if err := t.DealProposal.MarshalCBOR(w); err != nil {
+		return err
+	}
+
+	// t.StoreID (multistore.StoreID) (uint64)
+
+	if err := cbg.WriteMajorTypeHeaderBuf(scratch, w, cbg.MajUnsignedInt, uint64(t.StoreID)); err != nil {
 		return err
 	}
 
@@ -1278,7 +1305,7 @@ func (t *ProviderDealState) UnmarshalCBOR(r io.Reader) error {
 		return fmt.Errorf("cbor input should be of type array")
 	}
 
-	if extra != 9 {
+	if extra != 10 {
 		return fmt.Errorf("cbor input had wrong number of fields")
 	}
 
@@ -1289,6 +1316,20 @@ func (t *ProviderDealState) UnmarshalCBOR(r io.Reader) error {
 		if err := t.DealProposal.UnmarshalCBOR(br); err != nil {
 			return xerrors.Errorf("unmarshaling t.DealProposal: %w", err)
 		}
+
+	}
+	// t.StoreID (multistore.StoreID) (uint64)
+
+	{
+
+		maj, extra, err = cbg.CborReadHeaderBuf(br, scratch)
+		if err != nil {
+			return err
+		}
+		if maj != cbg.MajUnsignedInt {
+			return fmt.Errorf("wrong type for uint64 field")
+		}
+		t.StoreID = multistore.StoreID(extra)
 
 	}
 	// t.ChannelID (datatransfer.ChannelID) (struct)

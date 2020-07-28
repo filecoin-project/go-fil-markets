@@ -163,7 +163,8 @@ func TestStorageRetrieval(t *testing.T) {
 
 	// *** Retrieve the piece
 
-	did, err := rh.Client.Retrieve(bgCtx, sh.PayloadCid, rmParams, expectedTotal, retrievalPeer.ID, *rh.ExpPaych, retrievalPeer.Address)
+	clientStoreID := sh.TestData.MultiStore1.Next()
+	did, err := rh.Client.Retrieve(bgCtx, sh.PayloadCid, rmParams, expectedTotal, retrievalPeer.ID, *rh.ExpPaych, retrievalPeer.Address, clientStoreID)
 	assert.Equal(t, did, retrievalmarket.DealID(0))
 	require.NoError(t, err)
 
@@ -192,7 +193,7 @@ func TestStorageRetrieval(t *testing.T) {
 	require.Equal(t, retrievalmarket.DealStatusCompleted, providerDealState.Status)
 	require.Equal(t, retrievalmarket.DealStatusCompleted, clientDealState.Status)
 
-	sh.TestData.VerifyFileTransferred(t, sh.PieceLink, false, uint64(fsize))
+	sh.TestData.VerifyFileTransferredIntoStore(t, sh.PieceLink, clientStoreID, false, uint64(fsize))
 
 }
 
@@ -399,7 +400,7 @@ func newRetrievalHarness(ctx context.Context, t *testing.T, sh *storageHarness, 
 	})
 
 	nw1 := rmnet.NewFromLibp2pHost(sh.TestData.Host1)
-	client, err := retrievalimpl.NewClient(nw1, sh.TestData.Bs1, sh.DTClient, clientNode, sh.PeerResolver, sh.TestData.Ds1, sh.TestData.RetrievalStoredCounter1)
+	client, err := retrievalimpl.NewClient(nw1, sh.TestData.MultiStore1, sh.DTClient, clientNode, sh.PeerResolver, sh.TestData.Ds1, sh.TestData.RetrievalStoredCounter1)
 	require.NoError(t, err)
 
 	payloadCID := deal.DataRef.Root
@@ -440,7 +441,7 @@ func newRetrievalHarness(ctx context.Context, t *testing.T, sh *storageHarness, 
 	}
 	pieceStore.ExpectCID(payloadCID, cidInfo)
 	pieceStore.ExpectPiece(expectedPiece, pieceInfo)
-	provider, err := retrievalimpl.NewProvider(providerPaymentAddr, providerNode, nw2, pieceStore, sh.TestData.Bs2, sh.DTProvider, sh.TestData.Ds2)
+	provider, err := retrievalimpl.NewProvider(providerPaymentAddr, providerNode, nw2, pieceStore, sh.TestData.MultiStore2, sh.DTProvider, sh.TestData.Ds2)
 	require.NoError(t, err)
 
 	params := retrievalmarket.Params{

@@ -14,6 +14,7 @@ import (
 
 	"github.com/filecoin-project/go-address"
 	datatransfer "github.com/filecoin-project/go-data-transfer"
+	"github.com/filecoin-project/go-multistore"
 	"github.com/filecoin-project/specs-actors/actors/abi"
 	"github.com/filecoin-project/specs-actors/actors/abi/big"
 	"github.com/filecoin-project/specs-actors/actors/builtin/paych"
@@ -44,6 +45,7 @@ type PaymentInfo struct {
 // of a retrieval client
 type ClientDealState struct {
 	DealProposal
+	StoreID              multistore.StoreID
 	ChannelID            datatransfer.ChannelID
 	LastPaymentRequested bool
 	AllBlocksReceived    bool
@@ -67,6 +69,7 @@ type ClientDealState struct {
 // of a retrieval provider
 type ProviderDealState struct {
 	DealProposal
+	StoreID         multistore.StoreID
 	ChannelID       datatransfer.ChannelID
 	PieceInfo       *piecestore.PieceInfo
 	Status          DealStatus

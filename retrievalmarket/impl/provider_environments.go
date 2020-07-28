@@ -6,15 +6,18 @@ import (
 	"io"
 
 	"github.com/ipfs/go-cid"
+	"github.com/libp2p/go-libp2p-core/peer"
 	"golang.org/x/xerrors"
 
 	datatransfer "github.com/filecoin-project/go-data-transfer"
+	"github.com/filecoin-project/go-multistore"
 	"github.com/filecoin-project/specs-actors/actors/abi"
 	"github.com/filecoin-project/specs-actors/actors/abi/big"
 
 	"github.com/filecoin-project/go-fil-markets/pieceio/cario"
 	"github.com/filecoin-project/go-fil-markets/piecestore"
 	"github.com/filecoin-project/go-fil-markets/retrievalmarket"
+	"github.com/filecoin-project/go-fil-markets/retrievalmarket/impl/dtutils"
 	"github.com/filecoin-project/go-fil-markets/retrievalmarket/impl/providerstates"
 	"github.com/filecoin-project/go-fil-markets/retrievalmarket/impl/requestvalidation"
 )
@@ -72,6 +75,13 @@ func (pve *providerValidationEnvironment) BeginTracking(pds retrievalmarket.Prov
 	return pve.p.stateMachines.Send(pds.Identifier(), retrievalmarket.ProviderEventOpen)
 }
 
+// NextStoreID allocates a store for this deal
+func (pve *providerValidationEnvironment) NextStoreID() (multistore.StoreID, error) {
+	storeID := pve.p.multiStore.Next()
+	_, err := pve.p.multiStore.Get(storeID)
+	return storeID, err
+}
+
 type providerRevalidatorEnvironment struct {
 	p *Provider
 }
@@ -101,8 +111,12 @@ func (pde *providerDealEnvironment) Node() retrievalmarket.RetrievalProviderNode
 	return pde.p.node
 }
 
-func (pde *providerDealEnvironment) ReadIntoBlockstore(pieceData io.Reader) error {
-	_, err := cario.NewCarIO().LoadCar(pde.p.bs, pieceData)
+func (pde *providerDealEnvironment) ReadIntoBlockstore(storeID multistore.StoreID, pieceData io.Reader) error {
+	store, err := pde.p.multiStore.Get(storeID)
+	if err != nil {
+		return err
+	}
+	_, err = cario.NewCarIO().LoadCar(store.Bstore, pieceData)
 	return err
 }
 
@@ -124,6 +138,9 @@ func (pde *providerDealEnvironment) CloseDataTransfer(ctx context.Context, chid 
 	return pde.p.dataTransfer.CloseDataTransferChannel(ctx, chid)
 }
 
+func (pde *providerDealEnvironment) DeleteStore(storeID multistore.StoreID) error {
+	return pde.p.multiStore.Delete(storeID)
+}
 func getPieceInfoFromCid(pieceStore piecestore.PieceStore, payloadCID, pieceCID cid.Cid) (piecestore.PieceInfo, error) {
 	cidInfo, err := pieceStore.GetCIDInfo(payloadCID)
 	if err != nil {
@@ -143,4 +160,19 @@ func getPieceInfoFromCid(pieceStore piecestore.PieceStore, payloadCID, pieceCID 
 		lastErr = xerrors.Errorf("unknown pieceCID %s", pieceCID.String())
 	}
 	return piecestore.PieceInfoUndefined, xerrors.Errorf("could not locate piece: %w", lastErr)
+}
+
+var _ dtutils.StoreGetter = &providerStoreGetter{}
+
+type providerStoreGetter struct {
+	p *Provider
+}
+
+func (psg *providerStoreGetter) Get(otherPeer peer.ID, dealID retrievalmarket.DealID) (*multistore.Store, error) {
+	var deal retrievalmarket.ProviderDealState
+	err := psg.p.stateMachines.GetSync(context.TODO(), retrievalmarket.ProviderDealIdentifier{Receiver: otherPeer, DealID: dealID}, &deal)
+	if err != nil {
+		return nil, err
+	}
+	return psg.p.multiStore.Get(deal.StoreID)
 }

@@ -67,3 +67,7 @@ func (impl *libp2pRetrievalMarketNetwork) handleNewQueryStream(s network.Stream)
 	qs := &queryStream{remotePID, s, buffered}
 	impl.receiver.HandleQueryStream(qs)
 }
+
+func (impl *libp2pRetrievalMarketNetwork) ID() peer.ID {
+	return impl.host.ID()
+}

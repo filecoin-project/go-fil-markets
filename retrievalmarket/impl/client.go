@@ -7,13 +7,13 @@ import (
 	"github.com/hannahhoward/go-pubsub"
 	"github.com/ipfs/go-cid"
 	"github.com/ipfs/go-datastore"
-	blockstore "github.com/ipfs/go-ipfs-blockstore"
 	logging "github.com/ipfs/go-log/v2"
 	"github.com/libp2p/go-libp2p-core/peer"
 	"golang.org/x/xerrors"
 
 	"github.com/filecoin-project/go-address"
 	datatransfer "github.com/filecoin-project/go-data-transfer"
+	"github.com/filecoin-project/go-multistore"
 	"github.com/filecoin-project/go-statemachine/fsm"
 	"github.com/filecoin-project/go-storedcounter"
 	"github.com/filecoin-project/specs-actors/actors/abi"
@@ -32,7 +32,7 @@ var log = logging.Logger("retrieval")
 type Client struct {
 	network       rmnet.RetrievalMarketNetwork
 	dataTransfer  datatransfer.Manager
-	bs            blockstore.Blockstore
+	multiStore    *multistore.MultiStore
 	node          retrievalmarket.RetrievalClientNode
 	storedCounter *storedcounter.StoredCounter
 
@@ -64,7 +64,7 @@ var _ retrievalmarket.RetrievalClient = &Client{}
 // NewClient creates a new retrieval client
 func NewClient(
 	network rmnet.RetrievalMarketNetwork,
-	bs blockstore.Blockstore,
+	multiStore *multistore.MultiStore,
 	dataTransfer datatransfer.Manager,
 	node retrievalmarket.RetrievalClientNode,
 	resolver retrievalmarket.PeerResolver,
@@ -73,7 +73,7 @@ func NewClient(
 ) (retrievalmarket.RetrievalClient, error) {
 	c := &Client{
 		network:       network,
-		bs:            bs,
+		multiStore:    multiStore,
 		dataTransfer:  dataTransfer,
 		node:          node,
 		resolver:      resolver,
@@ -106,6 +106,10 @@ func NewClient(
 		return nil, err
 	}
 	dataTransfer.SubscribeToEvents(dtutils.ClientDataTransferSubscriber(c.stateMachines))
+	err = dataTransfer.RegisterTransportConfigurer(&retrievalmarket.DealProposal{}, dtutils.TransportConfigurer(network.ID(), &clientStoreGetter{c}))
+	if err != nil {
+		return nil, err
+	}
 	return c, nil
 }
 
@@ -177,14 +181,18 @@ From then on, the statemachine controls the deal flow in the client. Other compo
 
 Documentation of the client state machine can be found at https://godoc.org/github.com/filecoin-project/go-fil-markets/retrievalmarket/impl/clientstates
 */
-func (c *Client) Retrieve(ctx context.Context, payloadCID cid.Cid, params retrievalmarket.Params, totalFunds abi.TokenAmount, miner peer.ID, clientWallet address.Address, minerWallet address.Address) (retrievalmarket.DealID, error) {
+func (c *Client) Retrieve(ctx context.Context, payloadCID cid.Cid, params retrievalmarket.Params, totalFunds abi.TokenAmount, miner peer.ID, clientWallet address.Address, minerWallet address.Address, storeID multistore.StoreID) (retrievalmarket.DealID, error) {
 	var err error
 	next, err := c.storedCounter.Next()
 	if err != nil {
 		return 0, err
 	}
+	// make sure the store is loadable
+	_, err = c.multiStore.Get(storeID)
+	if err != nil {
+		return 0, err
+	}
 	dealID := retrievalmarket.DealID(next)
-
 	dealState := retrievalmarket.ClientDealState{
 		DealProposal: retrievalmarket.DealProposal{
 			PayloadCID: payloadCID,
@@ -202,6 +210,7 @@ func (c *Client) Retrieve(ctx context.Context, payloadCID cid.Cid, params retrie
 		Status:           retrievalmarket.DealStatusNew,
 		Sender:           miner,
 		UnsealFundsPaid:  big.Zero(),
+		StoreID:          storeID,
 	}
 
 	// start the deal processing
@@ -284,6 +293,19 @@ func (c *clientDealEnvironment) SendDataTransferVoucher(ctx context.Context, cha
 
 func (c *clientDealEnvironment) CloseDataTransfer(ctx context.Context, channelID datatransfer.ChannelID) error {
 	return c.c.dataTransfer.CloseDataTransferChannel(ctx, channelID)
+}
+
+type clientStoreGetter struct {
+	c *Client
+}
+
+func (csg *clientStoreGetter) Get(otherPeer peer.ID, dealID retrievalmarket.DealID) (*multistore.Store, error) {
+	var deal retrievalmarket.ClientDealState
+	err := csg.c.stateMachines.Get(dealID).Get(&deal)
+	if err != nil {
+		return nil, err
+	}
+	return csg.c.multiStore.Get(deal.StoreID)
 }
 
 // ClientFSMParameterSpec is a valid set of parameters for a client deal FSM - used in doc generation

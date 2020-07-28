@@ -189,6 +189,11 @@ func (trmn *TestRetrievalMarketNetwork) StopHandlingRequests() error {
 	return nil
 }
 
+// ID returns the peer id of this host (empty peer ID in test)
+func (trmn *TestRetrievalMarketNetwork) ID() peer.ID {
+	return peer.ID("")
+}
+
 var _ rmnet.RetrievalMarketNetwork = &TestRetrievalMarketNetwork{}
 
 // Some convenience builders

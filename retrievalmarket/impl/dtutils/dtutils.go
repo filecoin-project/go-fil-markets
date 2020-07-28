@@ -7,8 +7,11 @@ import (
 	"math"
 
 	logging "github.com/ipfs/go-log/v2"
+	"github.com/ipld/go-ipld-prime"
+	peer "github.com/libp2p/go-libp2p-peer"
 
 	datatransfer "github.com/filecoin-project/go-data-transfer"
+	"github.com/filecoin-project/go-multistore"
 	"github.com/filecoin-project/go-statemachine/fsm"
 
 	rm "github.com/filecoin-project/go-fil-markets/retrievalmarket"
@@ -131,6 +134,41 @@ func ClientDataTransferSubscriber(deals EventReceiver) datatransfer.Subscriber {
 		err := deals.Send(dealProposal.ID, retrievalEvent, params...)
 		if err != nil {
 			log.Errorf("processing dt event: %w", err)
+		}
+	}
+}
+
+// StoreGetter retrieves the store for a given proposal cid
+type StoreGetter interface {
+	Get(otherPeer peer.ID, dealID rm.DealID) (*multistore.Store, error)
+}
+
+// StoreConfigurableTransport defines the methods needed to
+// configure a data transfer transport use a unique store for a given request
+type StoreConfigurableTransport interface {
+	UseStore(datatransfer.ChannelID, ipld.Loader, ipld.Storer) error
+}
+
+// TransportConfigurer configurers the graphsync transport to use a custom blockstore per deal
+func TransportConfigurer(thisPeer peer.ID, storeGetter StoreGetter) datatransfer.TransportConfigurer {
+	return func(channelID datatransfer.ChannelID, voucher datatransfer.Voucher, transport datatransfer.Transport) {
+		dealProposal, ok := voucher.(*rm.DealProposal)
+		if !ok {
+			return
+		}
+		gsTransport, ok := transport.(StoreConfigurableTransport)
+		if !ok {
+			return
+		}
+		otherPeer := channelID.OtherParty(thisPeer)
+		store, err := storeGetter.Get(otherPeer, dealProposal.ID)
+		if err != nil {
+			log.Errorf("attempting to configure data store: %w", err)
+			return
+		}
+		err = gsTransport.UseStore(channelID, store.Loader, store.Storer)
+		if err != nil {
+			log.Errorf("attempting to configure data store: %w", err)
 		}
 	}
 }

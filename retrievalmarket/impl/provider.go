@@ -7,11 +7,11 @@ import (
 	"github.com/hannahhoward/go-pubsub"
 	"github.com/ipfs/go-cid"
 	"github.com/ipfs/go-datastore"
-	blockstore "github.com/ipfs/go-ipfs-blockstore"
 	"golang.org/x/xerrors"
 
 	"github.com/filecoin-project/go-address"
 	datatransfer "github.com/filecoin-project/go-data-transfer"
+	"github.com/filecoin-project/go-multistore"
 	"github.com/filecoin-project/go-statemachine/fsm"
 	"github.com/filecoin-project/specs-actors/actors/abi"
 
@@ -31,7 +31,7 @@ type DealDecider func(ctx context.Context, state retrievalmarket.ProviderDealSta
 
 // Provider is the production implementation of the RetrievalProvider interface
 type Provider struct {
-	bs                      blockstore.Blockstore
+	multiStore              *multistore.MultiStore
 	dataTransfer            datatransfer.Manager
 	node                    retrievalmarket.RetrievalProviderNode
 	network                 rmnet.RetrievalMarketNetwork
@@ -92,14 +92,14 @@ func NewProvider(minerAddress address.Address,
 	node retrievalmarket.RetrievalProviderNode,
 	network rmnet.RetrievalMarketNetwork,
 	pieceStore piecestore.PieceStore,
-	bs blockstore.Blockstore,
+	multiStore *multistore.MultiStore,
 	dataTransfer datatransfer.Manager,
 	ds datastore.Batching,
 	opts ...RetrievalProviderOption,
 ) (retrievalmarket.RetrievalProvider, error) {
 
 	p := &Provider{
-		bs:                      bs,
+		multiStore:              multiStore,
 		dataTransfer:            dataTransfer,
 		node:                    node,
 		network:                 network,
@@ -138,6 +138,11 @@ func NewProvider(minerAddress address.Address,
 		return nil, err
 	}
 	dataTransfer.SubscribeToEvents(dtutils.ProviderDataTransferSubscriber(p.stateMachines))
+	err = p.dataTransfer.RegisterTransportConfigurer(&retrievalmarket.DealProposal{},
+		dtutils.TransportConfigurer(network.ID(), &providerStoreGetter{p}))
+	if err != nil {
+		return nil, err
+	}
 	return p, nil
 }
 

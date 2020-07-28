@@ -96,6 +96,11 @@ var ProviderEvents = fsm.Events{
 	fsm.Event(rm.ProviderEventDataTransferError).
 		FromAny().To(rm.DealStatusErrored).
 		Action(recordError),
+
+	// multistore errors
+	fsm.Event(rm.ProviderEventMultiStoreError).
+		FromAny().To(rm.DealStatusErrored).
+		Action(recordError),
 }
 
 // ProviderStateEntryFuncs are the handlers for different states in a retrieval provider
