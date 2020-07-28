@@ -45,7 +45,7 @@ type PaymentInfo struct {
 // of a retrieval client
 type ClientDealState struct {
 	DealProposal
-	StoreID              multistore.StoreID
+	StoreID              *multistore.StoreID
 	ChannelID            datatransfer.ChannelID
 	LastPaymentRequested bool
 	AllBlocksReceived    bool

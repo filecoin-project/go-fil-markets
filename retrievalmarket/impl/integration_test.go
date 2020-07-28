@@ -18,6 +18,7 @@ import (
 	"github.com/filecoin-project/go-address"
 	dtimpl "github.com/filecoin-project/go-data-transfer/impl"
 	dtgstransport "github.com/filecoin-project/go-data-transfer/transport/graphsync"
+	"github.com/filecoin-project/go-multistore"
 	"github.com/filecoin-project/specs-actors/actors/abi"
 	"github.com/filecoin-project/specs-actors/actors/abi/big"
 	"github.com/filecoin-project/specs-actors/actors/builtin/paych"
@@ -167,6 +168,7 @@ func TestClientCanMakeDealWithProvider(t *testing.T) {
 		selector           ipld.Node
 		unsealPrice        abi.TokenAmount
 		paramsV1, addFunds bool
+		skipStores         bool
 	}{
 		{name: "1 block file retrieval succeeds with existing payment channel",
 			filename:    "lorem_under_1_block.txt",
@@ -212,6 +214,12 @@ func TestClientCanMakeDealWithProvider(t *testing.T) {
 			filename:    "lorem_under_1_block.txt",
 			filesize:    410,
 			voucherAmts: []abi.TokenAmount{abi.NewTokenAmount(410000)},
+		},
+		{name: "succeeds for regular blockstore",
+			filename:    "lorem.txt",
+			filesize:    19000,
+			voucherAmts: []abi.TokenAmount{abi.NewTokenAmount(10136000), abi.NewTokenAmount(9784000)},
+			skipStores:  true,
 		},
 	}
 
@@ -358,8 +366,11 @@ CurrentInterval: %d
 				rmParams = retrievalmarket.NewParamsV0(pricePerByte, paymentInterval, paymentIntervalIncrease)
 			}
 
-			clientStoreID := testData.MultiStore1.Next()
-
+			var clientStoreID *multistore.StoreID
+			if !testCase.skipStores {
+				id := testData.MultiStore1.Next()
+				clientStoreID = &id
+			}
 			// *** Retrieve the piece
 			did, err := client.Retrieve(bgCtx, payloadCID, rmParams, expectedTotal, retrievalPeer.ID, clientPaymentChannel, retrievalPeer.Address, clientStoreID)
 			assert.Equal(t, did, retrievalmarket.DealID(0))
@@ -403,7 +414,11 @@ CurrentInterval: %d
 			}
 			// verify that the provider saved the same voucher values
 			providerNode.VerifyExpectations(t)
-			testData.VerifyFileTransferredIntoStore(t, pieceLink, clientStoreID, false, testCase.filesize)
+			if testCase.skipStores {
+				testData.VerifyFileTransferred(t, pieceLink, false, testCase.filesize)
+			} else {
+				testData.VerifyFileTransferredIntoStore(t, pieceLink, *clientStoreID, false, testCase.filesize)
+			}
 		})
 	}
 

@@ -181,16 +181,18 @@ From then on, the statemachine controls the deal flow in the client. Other compo
 
 Documentation of the client state machine can be found at https://godoc.org/github.com/filecoin-project/go-fil-markets/retrievalmarket/impl/clientstates
 */
-func (c *Client) Retrieve(ctx context.Context, payloadCID cid.Cid, params retrievalmarket.Params, totalFunds abi.TokenAmount, miner peer.ID, clientWallet address.Address, minerWallet address.Address, storeID multistore.StoreID) (retrievalmarket.DealID, error) {
+func (c *Client) Retrieve(ctx context.Context, payloadCID cid.Cid, params retrievalmarket.Params, totalFunds abi.TokenAmount, miner peer.ID, clientWallet address.Address, minerWallet address.Address, storeID *multistore.StoreID) (retrievalmarket.DealID, error) {
 	var err error
 	next, err := c.storedCounter.Next()
 	if err != nil {
 		return 0, err
 	}
 	// make sure the store is loadable
-	_, err = c.multiStore.Get(storeID)
-	if err != nil {
-		return 0, err
+	if storeID != nil {
+		_, err = c.multiStore.Get(*storeID)
+		if err != nil {
+			return 0, err
+		}
 	}
 	dealID := retrievalmarket.DealID(next)
 	dealState := retrievalmarket.ClientDealState{
@@ -305,7 +307,10 @@ func (csg *clientStoreGetter) Get(otherPeer peer.ID, dealID retrievalmarket.Deal
 	if err != nil {
 		return nil, err
 	}
-	return csg.c.multiStore.Get(deal.StoreID)
+	if deal.StoreID == nil {
+		return nil, nil
+	}
+	return csg.c.multiStore.Get(*deal.StoreID)
 }
 
 // ClientFSMParameterSpec is a valid set of parameters for a client deal FSM - used in doc generation

@@ -164,7 +164,7 @@ func TestStorageRetrieval(t *testing.T) {
 	// *** Retrieve the piece
 
 	clientStoreID := sh.TestData.MultiStore1.Next()
-	did, err := rh.Client.Retrieve(bgCtx, sh.PayloadCid, rmParams, expectedTotal, retrievalPeer.ID, *rh.ExpPaych, retrievalPeer.Address, clientStoreID)
+	did, err := rh.Client.Retrieve(bgCtx, sh.PayloadCid, rmParams, expectedTotal, retrievalPeer.ID, *rh.ExpPaych, retrievalPeer.Address, &clientStoreID)
 	assert.Equal(t, did, retrievalmarket.DealID(0))
 	require.NoError(t, err)
 

@@ -828,8 +828,14 @@ func (t *ClientDealState) MarshalCBOR(w io.Writer) error {
 
 	// t.StoreID (multistore.StoreID) (uint64)
 
-	if err := cbg.WriteMajorTypeHeaderBuf(scratch, w, cbg.MajUnsignedInt, uint64(t.StoreID)); err != nil {
-		return err
+	if t.StoreID == nil {
+		if _, err := w.Write(cbg.CborNull); err != nil {
+			return err
+		}
+	} else {
+		if err := cbg.WriteMajorTypeHeaderBuf(scratch, w, cbg.MajUnsignedInt, uint64(*t.StoreID)); err != nil {
+			return err
+		}
 	}
 
 	// t.ChannelID (datatransfer.ChannelID) (struct)
@@ -976,14 +982,26 @@ func (t *ClientDealState) UnmarshalCBOR(r io.Reader) error {
 
 	{
 
-		maj, extra, err = cbg.CborReadHeaderBuf(br, scratch)
+		pb, err := br.PeekByte()
 		if err != nil {
 			return err
 		}
-		if maj != cbg.MajUnsignedInt {
-			return fmt.Errorf("wrong type for uint64 field")
+		if pb == cbg.CborNull[0] {
+			var nbuf [1]byte
+			if _, err := br.Read(nbuf[:]); err != nil {
+				return err
+			}
+		} else {
+			maj, extra, err = cbg.CborReadHeaderBuf(br, scratch)
+			if err != nil {
+				return err
+			}
+			if maj != cbg.MajUnsignedInt {
+				return fmt.Errorf("wrong type for uint64 field")
+			}
+			typed := multistore.StoreID(extra)
+			t.StoreID = &typed
 		}
-		t.StoreID = multistore.StoreID(extra)
 
 	}
 	// t.ChannelID (datatransfer.ChannelID) (struct)

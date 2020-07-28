@@ -8,7 +8,7 @@ import (
 
 	logging "github.com/ipfs/go-log/v2"
 	"github.com/ipld/go-ipld-prime"
-	peer "github.com/libp2p/go-libp2p-peer"
+	peer "github.com/libp2p/go-libp2p-core/peer"
 
 	datatransfer "github.com/filecoin-project/go-data-transfer"
 	"github.com/filecoin-project/go-multistore"
@@ -164,6 +164,9 @@ func TransportConfigurer(thisPeer peer.ID, storeGetter StoreGetter) datatransfer
 		store, err := storeGetter.Get(otherPeer, dealProposal.ID)
 		if err != nil {
 			log.Errorf("attempting to configure data store: %w", err)
+			return
+		}
+		if store == nil {
 			return
 		}
 		err = gsTransport.UseStore(channelID, store.Loader, store.Storer)

@@ -38,7 +38,7 @@ type RetrievalClient interface {
 		miner peer.ID,
 		clientWallet address.Address,
 		minerWallet address.Address,
-		storeID multistore.StoreID,
+		storeID *multistore.StoreID,
 	) (DealID, error)
 
 	// SubscribeToEvents listens for events that happen related to client retrievals
