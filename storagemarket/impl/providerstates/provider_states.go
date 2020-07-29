@@ -262,7 +262,6 @@ func WaitForPublish(ctx fsm.Context, environment ProviderDealEnvironment, deal s
 
 // HandoffDeal hands off a published deal for sealing and commitment in a sector
 func HandoffDeal(ctx fsm.Context, environment ProviderDealEnvironment, deal storagemarket.MinerDeal) error {
-	log.Warn("HAND OFF DEAL TIME: ", deal.ProposalCid)
 	file, err := environment.FileStore().Open(deal.PiecePath)
 	if err != nil {
 		return ctx.Trigger(storagemarket.ProviderEventFileStoreErrored, xerrors.Errorf("reading piece at path %s: %w", deal.PiecePath, err))
@@ -315,7 +314,6 @@ func registerDealDataForEarlyRetrieval(environment ProviderDealEnvironment, deal
 		}
 	}
 
-	// TODO: Record actual block locations for all CIDs in piece by improving car writing
 	if err := environment.PieceStore().AddPieceBlockLocations(deal.Proposal.PieceCID, blockLocations); err != nil {
 		return xerrors.Errorf("failed to add piece block locations: %s", err)
 	}
@@ -350,62 +348,6 @@ func VerifyDealActivated(ctx fsm.Context, environment ProviderDealEnvironment, d
 		return ctx.Trigger(storagemarket.ProviderEventDealActivationFailed, err)
 	}
 	return nil
-}
-
-// RecordPieceInfo records sector information about an activated deal so that the data
-// can be retrieved later
-func RecordPieceInfo(ctx fsm.Context, environment ProviderDealEnvironment, deal storagemarket.MinerDeal) error {
-	tok, _, err := environment.Node().GetChainHead(ctx.Context())
-	if err != nil {
-		return ctx.Trigger(storagemarket.ProviderEventUnableToLocatePiece, deal.DealID, err)
-	}
-
-	sectorID, offset, length, err := environment.Node().LocatePieceForDealWithinSector(ctx.Context(), deal.DealID, tok)
-	if err != nil {
-		return ctx.Trigger(storagemarket.ProviderEventUnableToLocatePiece, deal.DealID, err)
-	}
-
-	var blockLocations map[cid.Cid]piecestore.BlockLocation
-	if deal.MetadataPath != filestore.Path("") {
-		blockLocations, err = providerutils.LoadBlockLocations(environment.FileStore(), deal.MetadataPath)
-		if err != nil {
-			return ctx.Trigger(storagemarket.ProviderEventReadMetadataErrored, err)
-		}
-	} else {
-		blockLocations = map[cid.Cid]piecestore.BlockLocation{
-			deal.Ref.Root: {},
-		}
-	}
-
-	// TODO: Record actual block locations for all CIDs in piece by improving car writing
-	err = environment.PieceStore().AddPieceBlockLocations(deal.Proposal.PieceCID, blockLocations)
-	if err != nil {
-		return ctx.Trigger(storagemarket.ProviderEventPieceStoreErrored, xerrors.Errorf("adding piece block locations: %w", err))
-	}
-
-	err = environment.PieceStore().AddDealForPiece(deal.Proposal.PieceCID, piecestore.DealInfo{
-		DealID:   deal.DealID,
-		SectorID: abi.SectorNumber(sectorID),
-		Offset:   offset,
-		Length:   length,
-	})
-
-	if err != nil {
-		return ctx.Trigger(storagemarket.ProviderEventPieceStoreErrored, xerrors.Errorf("adding deal info for piece: %w", err))
-	}
-
-	err = environment.FileStore().Delete(deal.PiecePath)
-	if err != nil {
-		log.Warnf("deleting piece at path %s: %w", deal.PiecePath, err)
-	}
-	if deal.MetadataPath != filestore.Path("") {
-		err := environment.FileStore().Delete(deal.MetadataPath)
-		if err != nil {
-			log.Warnf("deleting piece at path %s: %w", deal.MetadataPath, err)
-		}
-	}
-
-	return ctx.Trigger(storagemarket.ProviderEventPieceRecorded)
 }
 
 // WaitForDealCompletion waits for the deal to be slashed or to expire

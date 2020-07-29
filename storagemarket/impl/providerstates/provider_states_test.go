@@ -581,7 +581,7 @@ func TestVerifyDealActivated(t *testing.T) {
 	}{
 		"succeeds": {
 			dealInspector: func(t *testing.T, deal storagemarket.MinerDeal, env *fakeEnvironment) {
-				tut.AssertDealState(t, storagemarket.StorageDealRecordPiece, deal.State)
+				tut.AssertDealState(t, storagemarket.StorageDealActive, deal.State)
 			},
 		},
 		"sync error": {
@@ -606,92 +606,6 @@ func TestVerifyDealActivated(t *testing.T) {
 	for test, data := range tests {
 		t.Run(test, func(t *testing.T) {
 			runVerifyDealActivated(t, data.nodeParams, data.environmentParams, data.dealParams, data.fileStoreParams, data.pieceStoreParams, data.dealInspector)
-		})
-	}
-}
-
-func TestRecordPieceInfo(t *testing.T) {
-	ctx := context.Background()
-	eventProcessor, err := fsm.NewEventProcessor(storagemarket.MinerDeal{}, "State", providerstates.ProviderEvents)
-	require.NoError(t, err)
-	runRecordPieceInfo := makeExecutor(ctx, eventProcessor, providerstates.RecordPieceInfo, storagemarket.StorageDealRecordPiece)
-	tests := map[string]struct {
-		nodeParams        nodeParams
-		dealParams        dealParams
-		environmentParams environmentParams
-		fileStoreParams   tut.TestFileStoreParams
-		pieceStoreParams  tut.TestPieceStoreParams
-		dealInspector     func(t *testing.T, deal storagemarket.MinerDeal, env *fakeEnvironment)
-	}{
-		"succeeds": {
-			dealParams: dealParams{
-				PiecePath: defaultPath,
-			},
-			fileStoreParams: tut.TestFileStoreParams{
-				Files:             []filestore.File{defaultDataFile},
-				ExpectedDeletions: []filestore.Path{defaultPath},
-			},
-			dealInspector: func(t *testing.T, deal storagemarket.MinerDeal, env *fakeEnvironment) {
-				tut.AssertDealState(t, storagemarket.StorageDealActive, deal.State)
-			},
-		},
-		"succeeds w metadata": {
-			dealParams: dealParams{
-				PiecePath:    defaultPath,
-				MetadataPath: defaultMetadataPath,
-			},
-			fileStoreParams: tut.TestFileStoreParams{
-				Files:             []filestore.File{defaultDataFile, defaultMetadataFile},
-				ExpectedOpens:     []filestore.Path{defaultMetadataPath},
-				ExpectedDeletions: []filestore.Path{defaultMetadataPath, defaultPath},
-			},
-			dealInspector: func(t *testing.T, deal storagemarket.MinerDeal, env *fakeEnvironment) {
-				tut.AssertDealState(t, storagemarket.StorageDealActive, deal.State)
-			},
-		},
-		"locate piece fails": {
-			dealParams: dealParams{
-				DealID: abi.DealID(1234),
-			},
-			nodeParams: nodeParams{
-				LocatePieceForDealWithinSectorError: errors.New("could not find piece"),
-			},
-			dealInspector: func(t *testing.T, deal storagemarket.MinerDeal, env *fakeEnvironment) {
-				tut.AssertDealState(t, storagemarket.StorageDealFailing, deal.State)
-				require.Equal(t, "locating piece for deal ID 1234 in sector: could not find piece", deal.Message)
-			},
-		},
-		"reading metadata fails": {
-			dealParams: dealParams{
-				MetadataPath: filestore.Path("Missing.txt"),
-			},
-			dealInspector: func(t *testing.T, deal storagemarket.MinerDeal, env *fakeEnvironment) {
-				tut.AssertDealState(t, storagemarket.StorageDealFailing, deal.State)
-				require.Equal(t, fmt.Sprintf("error reading piece metadata: %s", tut.TestErrNotFound.Error()), deal.Message)
-			},
-		},
-		"add piece block locations errors": {
-			pieceStoreParams: tut.TestPieceStoreParams{
-				AddPieceBlockLocationsError: errors.New("could not add block locations"),
-			},
-			dealInspector: func(t *testing.T, deal storagemarket.MinerDeal, env *fakeEnvironment) {
-				tut.AssertDealState(t, storagemarket.StorageDealFailing, deal.State)
-				require.Equal(t, "accessing piece store: adding piece block locations: could not add block locations", deal.Message)
-			},
-		},
-		"add deal for piece errors": {
-			pieceStoreParams: tut.TestPieceStoreParams{
-				AddDealForPieceError: errors.New("could not add deal info"),
-			},
-			dealInspector: func(t *testing.T, deal storagemarket.MinerDeal, env *fakeEnvironment) {
-				tut.AssertDealState(t, storagemarket.StorageDealFailing, deal.State)
-				require.Equal(t, "accessing piece store: adding deal info for piece: could not add deal info", deal.Message)
-			},
-		},
-	}
-	for test, data := range tests {
-		t.Run(test, func(t *testing.T) {
-			runRecordPieceInfo(t, data.nodeParams, data.environmentParams, data.dealParams, data.fileStoreParams, data.pieceStoreParams, data.dealInspector)
 		})
 	}
 }

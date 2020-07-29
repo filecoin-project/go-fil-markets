@@ -129,19 +129,19 @@ func (t *DealInfo) MarshalCBOR(w io.Writer) error {
 		return err
 	}
 
-	// t.SectorID (uint64) (uint64)
+	// t.SectorID (abi.SectorNumber) (uint64)
 
 	if err := cbg.WriteMajorTypeHeaderBuf(scratch, w, cbg.MajUnsignedInt, uint64(t.SectorID)); err != nil {
 		return err
 	}
 
-	// t.Offset (uint64) (uint64)
+	// t.Offset (abi.PaddedPieceSize) (uint64)
 
 	if err := cbg.WriteMajorTypeHeaderBuf(scratch, w, cbg.MajUnsignedInt, uint64(t.Offset)); err != nil {
 		return err
 	}
 
-	// t.Length (uint64) (uint64)
+	// t.Length (abi.PaddedPieceSize) (uint64)
 
 	if err := cbg.WriteMajorTypeHeaderBuf(scratch, w, cbg.MajUnsignedInt, uint64(t.Length)); err != nil {
 		return err
@@ -182,7 +182,7 @@ func (t *DealInfo) UnmarshalCBOR(r io.Reader) error {
 		t.DealID = abi.DealID(extra)
 
 	}
-	// t.SectorID (uint64) (uint64)
+	// t.SectorID (abi.SectorNumber) (uint64)
 
 	{
 
@@ -196,7 +196,7 @@ func (t *DealInfo) UnmarshalCBOR(r io.Reader) error {
 		t.SectorID = abi.SectorNumber(extra)
 
 	}
-	// t.Offset (uint64) (uint64)
+	// t.Offset (abi.PaddedPieceSize) (uint64)
 
 	{
 
@@ -210,7 +210,7 @@ func (t *DealInfo) UnmarshalCBOR(r io.Reader) error {
 		t.Offset = abi.PaddedPieceSize(extra)
 
 	}
-	// t.Length (uint64) (uint64)
+	// t.Length (abi.PaddedPieceSize) (uint64)
 
 	{
 
