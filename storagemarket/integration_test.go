@@ -353,6 +353,7 @@ type harness struct {
 	PayloadCid   cid.Cid
 	StoreID      *multistore.StoreID
 	ProviderAddr address.Address
+	ClientAddr   address.Address
 	Client       storagemarket.StorageClient
 	ClientNode   *testnodes.FakeClientNode
 	Provider     storagemarket.StorageProvider
@@ -481,6 +482,7 @@ func newHarnessWithTestData(t *testing.T, ctx context.Context, td *shared_testut
 		Epoch:        epoch,
 		PayloadCid:   payloadCid,
 		StoreID:      storeID,
+		ClientAddr:   clientNode.ClientAddr,
 		ProviderAddr: providerAddr,
 		Client:       client,
 		ClientNode:   &clientNode,
@@ -494,7 +496,7 @@ func newHarnessWithTestData(t *testing.T, ctx context.Context, td *shared_testut
 
 func (h *harness) ProposeStorageDeal(t *testing.T, dataRef *storagemarket.DataRef, fastRetrieval, verifiedDeal bool) *storagemarket.ProposeStorageDealResult {
 	result, err := h.Client.ProposeStorageDeal(h.Ctx, storagemarket.ProposeStorageDealParams{
-		Addr:          h.ProviderAddr,
+		Addr:          h.ClientAddr,
 		Info:          &h.ProviderInfo,
 		Data:          dataRef,
 		StartEpoch:    h.Epoch + 100,

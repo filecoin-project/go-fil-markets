@@ -181,7 +181,7 @@ func (n *FakeCommonNode) SignBytes(ctx context.Context, signer address.Address, 
 }
 
 func (n *FakeCommonNode) DealProviderCollateralBounds(ctx context.Context, size abi.PaddedPieceSize, isVerified bool) (abi.TokenAmount, abi.TokenAmount, error) {
-	return big.Zero(), abi.TotalFilecoin, nil
+	return abi.NewTokenAmount(5000), abi.TotalFilecoin, nil
 }
 
 // OnDealSectorCommitted returns immediately, and returns stubbed errors
