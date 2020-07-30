@@ -91,6 +91,7 @@ type MinerDeal struct {
 	FastRetrieval bool
 	Message       string
 	StoreID       *multistore.StoreID
+	FundsReserved abi.TokenAmount
 	Ref           *DataRef
 
 	DealID abi.DealID
@@ -113,6 +114,7 @@ type ClientDeal struct {
 	PollErrorCount uint64
 	FastRetrieval  bool
 	StoreID        *multistore.StoreID
+	FundsReserved  abi.TokenAmount
 }
 
 // StorageDeal is a local combination of a proposal and a current deal state

@@ -10,6 +10,7 @@ import (
 
 	"github.com/ipfs/go-cid"
 	"github.com/ipld/go-ipld-prime"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"golang.org/x/xerrors"
 
@@ -341,6 +342,17 @@ func TestEnsureProviderFunds(t *testing.T) {
 				tut.AssertDealState(t, storagemarket.StorageDealPublish, deal.State)
 				require.Equal(t, env.dealFunds.ReserveCalls[0], deal.Proposal.ProviderBalanceRequirement())
 				require.Len(t, env.dealFunds.ReleaseCalls, 0)
+				require.Equal(t, deal.Proposal.ProviderBalanceRequirement(), deal.FundsReserved)
+			},
+		},
+		"succeeds, funds already reserved": {
+			dealParams: dealParams{
+				ReserveFunds: true,
+			},
+			dealInspector: func(t *testing.T, deal storagemarket.MinerDeal, env *fakeEnvironment) {
+				tut.AssertDealState(t, storagemarket.StorageDealPublish, deal.State)
+				require.Len(t, env.dealFunds.ReserveCalls, 0)
+				require.Len(t, env.dealFunds.ReleaseCalls, 0)
 			},
 		},
 		"succeeds by sending an AddBalance message": {
@@ -374,7 +386,7 @@ func TestEnsureProviderFunds(t *testing.T) {
 				tut.AssertDealState(t, storagemarket.StorageDealFailing, deal.State)
 				require.Equal(t, "error calling node: ensuring funds: not enough funds", deal.Message)
 				require.Equal(t, env.dealFunds.ReserveCalls[0], deal.Proposal.ProviderBalanceRequirement())
-				require.Equal(t, env.dealFunds.ReleaseCalls[0], deal.Proposal.ProviderBalanceRequirement())
+				require.Len(t, env.dealFunds.ReleaseCalls, 0)
 			},
 		},
 	}
@@ -436,12 +448,27 @@ func TestWaitForPublish(t *testing.T) {
 		dealInspector     func(t *testing.T, deal storagemarket.MinerDeal, env *fakeEnvironment)
 	}{
 		"succeeds": {
+			dealParams: dealParams{
+				ReserveFunds: true,
+			},
 			nodeParams: nodeParams{
 				WaitForMessageRetBytes: psdReturnBytes,
 			},
 			dealInspector: func(t *testing.T, deal storagemarket.MinerDeal, env *fakeEnvironment) {
 				tut.AssertDealState(t, storagemarket.StorageDealStaged, deal.State)
 				require.Equal(t, expDealID, deal.DealID)
+				assert.Equal(t, env.dealFunds.ReleaseCalls[0], deal.Proposal.ProviderBalanceRequirement())
+				assert.True(t, deal.FundsReserved.Nil() || deal.FundsReserved.IsZero())
+			},
+		},
+		"succeeds, funds already released": {
+			nodeParams: nodeParams{
+				WaitForMessageRetBytes: psdReturnBytes,
+			},
+			dealInspector: func(t *testing.T, deal storagemarket.MinerDeal, env *fakeEnvironment) {
+				tut.AssertDealState(t, storagemarket.StorageDealStaged, deal.State)
+				require.Equal(t, expDealID, deal.DealID)
+				assert.Len(t, env.dealFunds.ReleaseCalls, 0)
 			},
 		},
 		"PublishStorageDeal errors": {
@@ -780,6 +807,16 @@ func TestFailDeal(t *testing.T) {
 				tut.AssertDealState(t, storagemarket.StorageDealError, deal.State)
 			},
 		},
+		"succeeds, funds released": {
+			dealParams: dealParams{
+				ReserveFunds: true,
+			},
+			dealInspector: func(t *testing.T, deal storagemarket.MinerDeal, env *fakeEnvironment) {
+				tut.AssertDealState(t, storagemarket.StorageDealError, deal.State)
+				assert.Equal(t, env.dealFunds.ReleaseCalls[0], deal.Proposal.ProviderBalanceRequirement())
+				assert.True(t, deal.FundsReserved.Nil() || deal.FundsReserved.IsZero())
+			},
+		},
 		"succeeds, file deletions": {
 			dealParams: dealParams{
 				PiecePath:    defaultPath,
@@ -815,7 +852,7 @@ var defaultClientAddress = address.TestAddress
 var defaultProviderAddress = address.TestAddress2
 var defaultMinerAddr, _ = address.NewActorAddress([]byte("miner"))
 var defaultClientCollateral = abi.NewTokenAmount(0)
-var defaultProviderCollateral = abi.NewTokenAmount(0)
+var defaultProviderCollateral = abi.NewTokenAmount(10000)
 var defaultDataRef = storagemarket.DataRef{
 	Root:         tut.GenerateCids(1)[0],
 	TransferType: storagemarket.TTGraphsync,
@@ -896,6 +933,7 @@ type dealParams struct {
 	EndEpoch             abi.ChainEpoch
 	FastRetrieval        bool
 	VerifiedDeal         bool
+	ReserveFunds         bool
 }
 
 type environmentParams struct {
@@ -1035,6 +1073,10 @@ func makeExecutor(ctx context.Context,
 			dealState.DealID = dealParams.DealID
 		}
 		dealState.FastRetrieval = dealParams.FastRetrieval
+		if dealParams.ReserveFunds {
+			dealState.FundsReserved = proposal.ProviderCollateral
+		}
+
 		fs := tut.NewTestFileStore(fileStoreParams)
 		pieceStore := tut.NewTestPieceStoreWithParams(pieceStoreParams)
 		expectedTags := make(map[string]struct{})

@@ -79,6 +79,15 @@ stateDiagram-v2
 	14 --> 26 : ProviderEventRestart
 	15 --> 26 : ProviderEventRestart
 	20 --> 11 : ProviderEventTrackFundsFailed
+
+	note left of 20 : The following events only record in this state.<br><br>ProviderEventFundsReserved
+
+
+	note left of 11 : The following events only record in this state.<br><br>ProviderEventFundsReleased
+
+
+	note left of 25 : The following events only record in this state.<br><br>ProviderEventFundsReleased
+
 	26 --> [*]
 	9 --> [*]
 	8 --> [*]

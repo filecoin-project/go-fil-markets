@@ -6,6 +6,7 @@ import (
 
 	"github.com/filecoin-project/go-statemachine/fsm"
 	"github.com/filecoin-project/specs-actors/actors/abi"
+	"github.com/filecoin-project/specs-actors/actors/abi/big"
 
 	"github.com/filecoin-project/go-fil-markets/filestore"
 	"github.com/filecoin-project/go-fil-markets/storagemarket"
@@ -161,6 +162,22 @@ var ProviderEvents = fsm.Events{
 		From(storagemarket.StorageDealEnsureProviderFunds).To(storagemarket.StorageDealFailing).
 		Action(func(deal *storagemarket.MinerDeal, err error) error {
 			deal.Message = xerrors.Errorf("error tracking deal funds: %w", err).Error()
+			return nil
+		}),
+	fsm.Event(storagemarket.ProviderEventFundsReserved).
+		From(storagemarket.StorageDealEnsureProviderFunds).ToJustRecord().
+		Action(func(deal *storagemarket.MinerDeal, fundsReserved abi.TokenAmount) error {
+			if deal.FundsReserved.Nil() {
+				deal.FundsReserved = fundsReserved
+			} else {
+				deal.FundsReserved = big.Add(deal.FundsReserved, fundsReserved)
+			}
+			return nil
+		}),
+	fsm.Event(storagemarket.ProviderEventFundsReleased).
+		FromMany(storagemarket.StorageDealPublishing, storagemarket.StorageDealFailing).ToJustRecord().
+		Action(func(deal *storagemarket.MinerDeal, fundsReleased abi.TokenAmount) error {
+			deal.FundsReserved = big.Subtract(deal.FundsReserved, fundsReleased)
 			return nil
 		}),
 }

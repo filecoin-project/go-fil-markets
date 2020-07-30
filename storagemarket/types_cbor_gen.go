@@ -18,7 +18,7 @@ import (
 
 var _ = xerrors.Errorf
 
-var lengthBufClientDeal = []byte{143}
+var lengthBufClientDeal = []byte{144}
 
 func (t *ClientDeal) MarshalCBOR(w io.Writer) error {
 	if t == nil {
@@ -152,6 +152,10 @@ func (t *ClientDeal) MarshalCBOR(w io.Writer) error {
 		}
 	}
 
+	// t.FundsReserved (big.Int) (struct)
+	if err := t.FundsReserved.MarshalCBOR(w); err != nil {
+		return err
+	}
 	return nil
 }
 
@@ -169,7 +173,7 @@ func (t *ClientDeal) UnmarshalCBOR(r io.Reader) error {
 		return fmt.Errorf("cbor input should be of type array")
 	}
 
-	if extra != 15 {
+	if extra != 16 {
 		return fmt.Errorf("cbor input had wrong number of fields")
 	}
 
@@ -416,10 +420,19 @@ func (t *ClientDeal) UnmarshalCBOR(r io.Reader) error {
 		}
 
 	}
+	// t.FundsReserved (big.Int) (struct)
+
+	{
+
+		if err := t.FundsReserved.UnmarshalCBOR(br); err != nil {
+			return xerrors.Errorf("unmarshaling t.FundsReserved: %w", err)
+		}
+
+	}
 	return nil
 }
 
-var lengthBufMinerDeal = []byte{143}
+var lengthBufMinerDeal = []byte{144}
 
 func (t *MinerDeal) MarshalCBOR(w io.Writer) error {
 	if t == nil {
@@ -561,6 +574,11 @@ func (t *MinerDeal) MarshalCBOR(w io.Writer) error {
 		}
 	}
 
+	// t.FundsReserved (big.Int) (struct)
+	if err := t.FundsReserved.MarshalCBOR(w); err != nil {
+		return err
+	}
+
 	// t.Ref (storagemarket.DataRef) (struct)
 	if err := t.Ref.MarshalCBOR(w); err != nil {
 		return err
@@ -589,7 +607,7 @@ func (t *MinerDeal) UnmarshalCBOR(r io.Reader) error {
 		return fmt.Errorf("cbor input should be of type array")
 	}
 
-	if extra != 15 {
+	if extra != 16 {
 		return fmt.Errorf("cbor input had wrong number of fields")
 	}
 
@@ -791,6 +809,15 @@ func (t *MinerDeal) UnmarshalCBOR(r io.Reader) error {
 			}
 			typed := multistore.StoreID(extra)
 			t.StoreID = &typed
+		}
+
+	}
+	// t.FundsReserved (big.Int) (struct)
+
+	{
+
+		if err := t.FundsReserved.UnmarshalCBOR(br); err != nil {
+			return xerrors.Errorf("unmarshaling t.FundsReserved: %w", err)
 		}
 
 	}
