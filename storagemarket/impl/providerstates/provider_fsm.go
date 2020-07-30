@@ -112,6 +112,7 @@ var ProviderEvents = fsm.Events{
 		}),
 	fsm.Event(storagemarket.ProviderEventDealHandedOff).From(storagemarket.StorageDealStaged).To(storagemarket.StorageDealSealing).Action(func(deal *storagemarket.MinerDeal) error {
 		deal.StoreID = nil
+		deal.AvailableForRetrieval = true
 		return nil
 	}),
 	fsm.Event(storagemarket.ProviderEventDealActivationFailed).

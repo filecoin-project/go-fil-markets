@@ -514,6 +514,7 @@ func TestHandoffDeal(t *testing.T) {
 				tut.AssertDealState(t, storagemarket.StorageDealSealing, deal.State)
 				require.Len(t, env.node.OnDealCompleteCalls, 1)
 				require.True(t, env.node.OnDealCompleteCalls[0].FastRetrieval)
+				require.True(t, deal.AvailableForRetrieval)
 			},
 		},
 		"succeeds w metadata": {
@@ -530,6 +531,7 @@ func TestHandoffDeal(t *testing.T) {
 				tut.AssertDealState(t, storagemarket.StorageDealSealing, deal.State)
 				require.Len(t, env.node.OnDealCompleteCalls, 1)
 				require.True(t, env.node.OnDealCompleteCalls[0].FastRetrieval)
+				require.True(t, deal.AvailableForRetrieval)
 			},
 		},
 		"reading metadata fails": {
