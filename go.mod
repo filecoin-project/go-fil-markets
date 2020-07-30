@@ -11,8 +11,8 @@ require (
 	github.com/filecoin-project/go-statemachine v0.0.0-20200730031800-c3336614d2a7
 	github.com/filecoin-project/go-statestore v0.1.0
 	github.com/filecoin-project/go-storedcounter v0.0.0-20200421200003-1c99c62e8a5b
-	github.com/filecoin-project/sector-storage v0.0.0-20200615154852-728a47ab99d6
-	github.com/filecoin-project/specs-actors v0.8.1-0.20200720115956-cd051eabf328
+	github.com/filecoin-project/sector-storage v0.0.0-20200730050024-3ee28c3b6d9a
+	github.com/filecoin-project/specs-actors v0.8.2
 	github.com/hannahhoward/cbor-gen-for v0.0.0-20200723175505-5892b522820a
 	github.com/hannahhoward/go-pubsub v0.0.0-20200423002714-8d62886cc36e
 	github.com/ipfs/go-block-format v0.0.2
@@ -26,7 +26,7 @@ require (
 	github.com/ipfs/go-ipfs-ds-help v1.0.0
 	github.com/ipfs/go-ipfs-exchange-offline v0.0.1
 	github.com/ipfs/go-ipfs-files v0.0.8
-	github.com/ipfs/go-ipld-cbor v0.0.4
+	github.com/ipfs/go-ipld-cbor v0.0.5-0.20200204214505-252690b78669
 	github.com/ipfs/go-ipld-format v0.2.0
 	github.com/ipfs/go-log/v2 v2.0.5
 	github.com/ipfs/go-merkledag v0.3.1
@@ -40,7 +40,7 @@ require (
 	github.com/stretchr/testify v1.6.1
 	github.com/whyrusleeping/cbor-gen v0.0.0-20200723182808-cb5de1c427f5
 	golang.org/x/exp v0.0.0-20190121172915-509febef88a4
-	golang.org/x/net v0.0.0-20190923162816-aa69164e4478
+	golang.org/x/net v0.0.0-20200226121028-0de0cce0169b
 	golang.org/x/xerrors v0.0.0-20191204190536-9bdfabe68543
 )
 
