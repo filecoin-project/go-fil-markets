@@ -329,6 +329,11 @@ func (c *Client) ProposeStorageDeal(ctx context.Context, params storagemarket.Pr
 		return nil, fmt.Errorf("cannot propose a deal whose piece size (%d) is greater than sector size (%d)", pieceSize.Padded(), params.Info.SectorSize)
 	}
 
+	pcMin, _, err := c.node.DealProviderCollateralBounds(ctx, pieceSize.Padded(), params.VerifiedDeal)
+	if err != nil {
+		return nil, xerrors.Errorf("computing deal provider collateral bound failed: %w", err)
+	}
+
 	dealProposal := market.DealProposal{
 		PieceCID:             commP,
 		PieceSize:            pieceSize.Padded(),
@@ -337,7 +342,7 @@ func (c *Client) ProposeStorageDeal(ctx context.Context, params storagemarket.Pr
 		StartEpoch:           params.StartEpoch,
 		EndEpoch:             params.EndEpoch,
 		StoragePricePerEpoch: params.Price,
-		ProviderCollateral:   abi.NewTokenAmount(int64(pieceSize)), // TODO: real calc
+		ProviderCollateral:   pcMin,
 		ClientCollateral:     big.Zero(),
 		VerifiedDeal:         params.VerifiedDeal,
 	}
