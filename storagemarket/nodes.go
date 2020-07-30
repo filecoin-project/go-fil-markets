@@ -58,6 +58,7 @@ type StorageCommon interface {
 	OnDealExpiredOrSlashed(ctx context.Context, dealID abi.DealID, onDealExpired DealExpiredCallback, onDealSlashed DealSlashedCallback) error
 }
 
+// PackingResult returns information about how a deal was put into a sector
 type PackingResult struct {
 	SectorNumber abi.SectorNumber
 	Offset       abi.PaddedPieceSize

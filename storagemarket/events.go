@@ -216,8 +216,8 @@ const (
 	// ProviderEventReadMetadataErrored happens when an error occurs reading recorded piece metadata
 	ProviderEventReadMetadataErrored
 
-	// ProviderEventPieceRecorded happens when a piece is successfully recorded
-	ProviderEventPieceRecorded
+	// ProviderEventFinalized happens when final housekeeping is complete and a deal is active
+	ProviderEventFinalized
 
 	// ProviderEventDealCompletionFailed happens when a miner cannot verify a deal expired or was slashed
 	ProviderEventDealCompletionFailed
@@ -269,11 +269,9 @@ var ProviderEvents = map[ProviderEvent]string{
 	ProviderEventDealHandoffFailed:      "ProviderEventDealHandoffFailed",
 	ProviderEventDealHandedOff:          "ProviderEventDealHandedOff",
 	ProviderEventDealActivationFailed:   "ProviderEventDealActivationFailed",
-	ProviderEventUnableToLocatePiece:    "ProviderEventUnableToLocatePiece",
 	ProviderEventDealActivated:          "ProviderEventDealActivated",
 	ProviderEventPieceStoreErrored:      "ProviderEventPieceStoreErrored",
-	ProviderEventReadMetadataErrored:    "ProviderEventReadMetadataErrored",
-	ProviderEventPieceRecorded:          "ProviderEventPieceRecorded",
+	ProviderEventFinalized:              "ProviderEventCleanupFinished",
 	ProviderEventDealCompletionFailed:   "ProviderEventDealCompletionFailed",
 	ProviderEventMultistoreErrored:      "ProviderEventMultistoreErrored",
 	ProviderEventDealExpired:            "ProviderEventDealExpired",

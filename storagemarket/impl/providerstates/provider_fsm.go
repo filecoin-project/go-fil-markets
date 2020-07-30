@@ -104,6 +104,12 @@ var ProviderEvents = fsm.Events{
 			deal.Message = xerrors.Errorf("handing off deal to node: %w", err).Error()
 			return nil
 		}),
+	fsm.Event(storagemarket.ProviderEventPieceStoreErrored).
+		From(storagemarket.StorageDealStaged).ToJustRecord().
+		Action(func(deal *storagemarket.MinerDeal, err error) error {
+			deal.Message = xerrors.Errorf("recording piece for retrieval: %w", err).Error()
+			return nil
+		}),
 	fsm.Event(storagemarket.ProviderEventDealHandedOff).From(storagemarket.StorageDealStaged).To(storagemarket.StorageDealSealing).Action(func(deal *storagemarket.MinerDeal) error {
 		deal.StoreID = nil
 		return nil
@@ -115,8 +121,9 @@ var ProviderEvents = fsm.Events{
 			return nil
 		}),
 	fsm.Event(storagemarket.ProviderEventDealActivated).
-		From(storagemarket.StorageDealSealing).To(storagemarket.StorageDealActive),
-
+		From(storagemarket.StorageDealSealing).To(storagemarket.StorageDealFinalizing),
+	fsm.Event(storagemarket.ProviderEventFinalized).
+		From(storagemarket.StorageDealFinalizing).To(storagemarket.StorageDealActive),
 	fsm.Event(storagemarket.ProviderEventDealSlashed).
 		From(storagemarket.StorageDealActive).To(storagemarket.StorageDealSlashed).
 		Action(func(deal *storagemarket.MinerDeal, slashEpoch abi.ChainEpoch) error {
@@ -173,6 +180,7 @@ var ProviderStateEntryFuncs = fsm.StateEntryFuncs{
 	storagemarket.StorageDealStaged:              HandoffDeal,
 	storagemarket.StorageDealSealing:             VerifyDealActivated,
 	storagemarket.StorageDealRejecting:           RejectDeal,
+	storagemarket.StorageDealFinalizing:          CleanupDeal,
 	storagemarket.StorageDealActive:              WaitForDealCompletion,
 	storagemarket.StorageDealFailing:             FailDeal,
 }

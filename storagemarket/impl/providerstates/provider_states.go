@@ -292,14 +292,15 @@ func HandoffDeal(ctx fsm.Context, environment ProviderDealEnvironment, deal stor
 		return ctx.Trigger(storagemarket.ProviderEventDealHandoffFailed, err)
 	}
 
-	if err := registerDealDataForEarlyRetrieval(environment, deal, packingInfo.SectorNumber, packingInfo.Offset, packingInfo.Size); err != nil {
-		log.Errorf("failed to register deal data for early retrieval: %s", err)
+	if err := recordPiece(environment, deal, packingInfo.SectorNumber, packingInfo.Offset, packingInfo.Size); err != nil {
+		log.Errorf("failed to register deal data for retrieval: %s", err)
+		ctx.Trigger(storagemarket.ProviderEventPieceStoreErrored, err)
 	}
 
 	return ctx.Trigger(storagemarket.ProviderEventDealHandedOff)
 }
 
-func registerDealDataForEarlyRetrieval(environment ProviderDealEnvironment, deal storagemarket.MinerDeal, sectorID abi.SectorNumber, offset, length abi.PaddedPieceSize) error {
+func recordPiece(environment ProviderDealEnvironment, deal storagemarket.MinerDeal, sectorID abi.SectorNumber, offset, length abi.PaddedPieceSize) error {
 
 	var blockLocations map[cid.Cid]piecestore.BlockLocation
 	if deal.MetadataPath != filestore.Path("") {
@@ -329,6 +330,22 @@ func registerDealDataForEarlyRetrieval(environment ProviderDealEnvironment, deal
 	}
 
 	return nil
+}
+
+// CleanupDeal clears the filestore once we know the mining component has read the data and it is in a sealed sector
+func CleanupDeal(ctx fsm.Context, environment ProviderDealEnvironment, deal storagemarket.MinerDeal) error {
+	err := environment.FileStore().Delete(deal.PiecePath)
+	if err != nil {
+		log.Warnf("deleting piece at path %s: %w", deal.PiecePath, err)
+	}
+	if deal.MetadataPath != filestore.Path("") {
+		err := environment.FileStore().Delete(deal.MetadataPath)
+		if err != nil {
+			log.Warnf("deleting piece at path %s: %w", deal.MetadataPath, err)
+		}
+	}
+
+	return ctx.Trigger(storagemarket.ProviderEventFinalized)
 }
 
 // VerifyDealActivated verifies that a deal has been committed to a sector and activated

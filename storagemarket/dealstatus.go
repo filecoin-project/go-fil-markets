@@ -26,9 +26,9 @@ const (
 	// StorageDealSealing means a deal is in a sector that is being sealed
 	StorageDealSealing
 
-	// StorageDealRecordPiece means a deal is in a sealed sector and the piece
-	// is being added to the piece store
-	StorageDealRecordPiece
+	// StorageDealFinalizing means a deal is in a sealed sector and we're doing final
+	// housekeeping before marking it active
+	StorageDealFinalizing
 
 	// StorageDealActive means a deal is in a sealed sector and the miner is proving the data
 	// for the deal
@@ -124,4 +124,5 @@ var DealStates = map[StorageDealStatus]string{
 	StorageDealPublish:             "StorageDealPublish",
 	StorageDealPublishing:          "StorageDealPublishing",
 	StorageDealError:               "StorageDealError",
+	StorageDealFinalizing:          "StorageDealFinalizing",
 }
