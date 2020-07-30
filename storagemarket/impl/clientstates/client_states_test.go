@@ -24,6 +24,7 @@ import (
 	tut "github.com/filecoin-project/go-fil-markets/shared_testutil"
 	"github.com/filecoin-project/go-fil-markets/storagemarket"
 	"github.com/filecoin-project/go-fil-markets/storagemarket/impl/clientstates"
+	"github.com/filecoin-project/go-fil-markets/storagemarket/impl/funds"
 	smnet "github.com/filecoin-project/go-fil-markets/storagemarket/network"
 	"github.com/filecoin-project/go-fil-markets/storagemarket/testnodes"
 )
@@ -35,6 +36,21 @@ func TestEnsureFunds(t *testing.T) {
 		runAndInspect(t, storagemarket.StorageDealEnsureClientFunds, clientstates.EnsureClientFunds, testCase{
 			inspector: func(deal storagemarket.ClientDeal, env *fakeEnvironment) {
 				tut.AssertDealState(t, storagemarket.StorageDealFundsEnsured, deal.State)
+				assert.Equal(t, env.dealFunds.ReserveCalls[0], deal.Proposal.ClientBalanceRequirement())
+				assert.Len(t, env.dealFunds.ReleaseCalls, 0)
+				assert.Equal(t, deal.Proposal.ClientBalanceRequirement(), deal.FundsReserved)
+			},
+		})
+	})
+	t.Run("resume, funds reserved prior", func(t *testing.T) {
+		runAndInspect(t, storagemarket.StorageDealEnsureClientFunds, clientstates.EnsureClientFunds, testCase{
+			stateParams: dealStateParams{
+				reserveFunds: true,
+			},
+			inspector: func(deal storagemarket.ClientDeal, env *fakeEnvironment) {
+				tut.AssertDealState(t, storagemarket.StorageDealFundsEnsured, deal.State)
+				assert.Len(t, env.dealFunds.ReserveCalls, 0)
+				assert.Len(t, env.dealFunds.ReleaseCalls, 0)
 			},
 		})
 	})
@@ -43,6 +59,9 @@ func TestEnsureFunds(t *testing.T) {
 			nodeParams: nodeParams{AddFundsCid: tut.GenerateCids(1)[0]},
 			inspector: func(deal storagemarket.ClientDeal, env *fakeEnvironment) {
 				tut.AssertDealState(t, storagemarket.StorageDealClientFunding, deal.State)
+				assert.Equal(t, env.dealFunds.ReserveCalls[0], deal.Proposal.ClientBalanceRequirement())
+				assert.Len(t, env.dealFunds.ReleaseCalls, 0)
+				assert.Equal(t, deal.Proposal.ClientBalanceRequirement(), deal.FundsReserved)
 			},
 		})
 	})
@@ -54,6 +73,9 @@ func TestEnsureFunds(t *testing.T) {
 			inspector: func(deal storagemarket.ClientDeal, env *fakeEnvironment) {
 				tut.AssertDealState(t, storagemarket.StorageDealFailing, deal.State)
 				assert.Equal(t, "adding market funds failed: Something went wrong", deal.Message)
+				assert.Equal(t, env.dealFunds.ReserveCalls[0], deal.Proposal.ClientBalanceRequirement())
+				assert.Len(t, env.dealFunds.ReleaseCalls, 0)
+				assert.Equal(t, deal.Proposal.ClientBalanceRequirement(), deal.FundsReserved)
 			},
 		})
 	})
@@ -339,9 +361,24 @@ func TestValidateDealPublished(t *testing.T) {
 	t.Run("succeeds", func(t *testing.T) {
 		runAndInspect(t, storagemarket.StorageDealProposalAccepted, clientstates.ValidateDealPublished, testCase{
 			nodeParams: nodeParams{ValidatePublishedDealID: abi.DealID(5)},
+			stateParams: dealStateParams{
+				reserveFunds: true,
+			},
 			inspector: func(deal storagemarket.ClientDeal, env *fakeEnvironment) {
 				tut.AssertDealState(t, storagemarket.StorageDealSealing, deal.State)
 				assert.Equal(t, abi.DealID(5), deal.DealID)
+				assert.Equal(t, env.dealFunds.ReleaseCalls[0], deal.Proposal.ClientBalanceRequirement())
+				assert.True(t, deal.FundsReserved.Nil() || deal.FundsReserved.IsZero())
+			},
+		})
+	})
+	t.Run("succeeds, funds already released", func(t *testing.T) {
+		runAndInspect(t, storagemarket.StorageDealProposalAccepted, clientstates.ValidateDealPublished, testCase{
+			nodeParams: nodeParams{ValidatePublishedDealID: abi.DealID(5)},
+			inspector: func(deal storagemarket.ClientDeal, env *fakeEnvironment) {
+				tut.AssertDealState(t, storagemarket.StorageDealSealing, deal.State)
+				assert.Equal(t, abi.DealID(5), deal.DealID)
+				assert.Len(t, env.dealFunds.ReleaseCalls, 0)
 			},
 		})
 	})
@@ -435,6 +472,30 @@ func TestWaitForDealCompletion(t *testing.T) {
 	})
 }
 
+func TestFailDeal(t *testing.T) {
+	t.Run("releases funds", func(t *testing.T) {
+		runAndInspect(t, storagemarket.StorageDealFailing, clientstates.FailDeal, testCase{
+			stateParams: dealStateParams{
+				reserveFunds: true,
+			},
+			inspector: func(deal storagemarket.ClientDeal, env *fakeEnvironment) {
+				tut.AssertDealState(t, storagemarket.StorageDealError, deal.State)
+				assert.Equal(t, env.dealFunds.ReleaseCalls[0], deal.Proposal.ClientBalanceRequirement())
+				assert.True(t, deal.FundsReserved.Nil() || deal.FundsReserved.IsZero())
+			},
+		})
+	})
+	t.Run("funds already released", func(t *testing.T) {
+		runAndInspect(t, storagemarket.StorageDealFailing, clientstates.FailDeal, testCase{
+			inspector: func(deal storagemarket.ClientDeal, env *fakeEnvironment) {
+				tut.AssertDealState(t, storagemarket.StorageDealError, deal.State)
+				assert.Len(t, env.dealFunds.ReleaseCalls, 0)
+				assert.True(t, deal.FundsReserved.Nil() || deal.FundsReserved.IsZero())
+			},
+		})
+	})
+}
+
 type envParams struct {
 	dealStream             *tut.TestStorageDealStream
 	startDataTransferError error
@@ -446,6 +507,7 @@ type envParams struct {
 
 type dealStateParams struct {
 	addFundsCid   *cid.Cid
+	reserveFunds  bool
 	fastRetrieval bool
 }
 
@@ -473,7 +535,9 @@ func makeExecutor(ctx context.Context,
 		if dealParams.addFundsCid != nil {
 			dealState.AddFundsCid = dealParams.addFundsCid
 		}
-
+		if dealParams.reserveFunds {
+			dealState.FundsReserved = clientDealProposal.Proposal.ClientBalanceRequirement()
+		}
 		environment := &fakeEnvironment{
 			node:                   node,
 			dealStream:             envParams.dealStream,
@@ -481,6 +545,7 @@ func makeExecutor(ctx context.Context,
 			providerDealState:      envParams.providerDealState,
 			getDealStatusErr:       envParams.getDealStatusErr,
 			pollingInterval:        envParams.pollingInterval,
+			dealFunds:              tut.NewTestDealFunds(),
 		}
 
 		if environment.pollingInterval == 0 {
@@ -551,6 +616,7 @@ type fakeEnvironment struct {
 	providerDealState      *storagemarket.ProviderDealState
 	getDealStatusErr       error
 	pollingInterval        time.Duration
+	dealFunds              *tut.TestDealFunds
 }
 
 type dataTransferParams struct {
@@ -591,6 +657,10 @@ func (fe *fakeEnvironment) GetProviderDealState(_ context.Context, _ cid.Cid) (*
 
 func (fe *fakeEnvironment) PollingInterval() time.Duration {
 	return fe.pollingInterval
+}
+
+func (fe *fakeEnvironment) DealFunds() funds.DealFunds {
+	return fe.dealFunds
 }
 
 var _ clientstates.ClientDealEnvironment = &fakeEnvironment{}

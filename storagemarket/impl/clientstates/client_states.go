@@ -18,6 +18,7 @@ import (
 	"github.com/filecoin-project/go-fil-markets/shared"
 	"github.com/filecoin-project/go-fil-markets/storagemarket"
 	"github.com/filecoin-project/go-fil-markets/storagemarket/impl/clientutils"
+	"github.com/filecoin-project/go-fil-markets/storagemarket/impl/funds"
 	"github.com/filecoin-project/go-fil-markets/storagemarket/impl/requestvalidation"
 	"github.com/filecoin-project/go-fil-markets/storagemarket/network"
 )
@@ -32,6 +33,7 @@ type ClientDealEnvironment interface {
 	StartDataTransfer(ctx context.Context, to peer.ID, voucher datatransfer.Voucher, baseCid cid.Cid, selector ipld.Node) error
 	GetProviderDealState(ctx context.Context, proposalCid cid.Cid) (*storagemarket.ProviderDealState, error)
 	PollingInterval() time.Duration
+	DealFunds() funds.DealFunds
 }
 
 // ClientStateEntryFunc is the type for all state entry functions on a storage client
@@ -46,7 +48,19 @@ func EnsureClientFunds(ctx fsm.Context, environment ClientDealEnvironment, deal 
 		return ctx.Trigger(storagemarket.ClientEventEnsureFundsFailed, xerrors.Errorf("acquiring chain head: %w", err))
 	}
 
-	mcid, err := node.EnsureFunds(ctx.Context(), deal.Proposal.Client, deal.Proposal.Client, deal.Proposal.ClientBalanceRequirement(), tok)
+	var requiredFunds abi.TokenAmount
+	if deal.FundsReserved.Nil() || deal.FundsReserved.IsZero() {
+		requiredFunds, err = environment.DealFunds().Reserve(deal.Proposal.ClientBalanceRequirement())
+		if err != nil {
+			return ctx.Trigger(storagemarket.ClientEventEnsureFundsFailed, xerrors.Errorf("tracking deal funds: %w", err))
+		}
+	} else {
+		requiredFunds = environment.DealFunds().Get()
+	}
+
+	_ = ctx.Trigger(storagemarket.ClientEventFundsReserved, deal.Proposal.ClientBalanceRequirement())
+
+	mcid, err := node.EnsureFunds(ctx.Context(), deal.Proposal.Client, deal.Proposal.Client, requiredFunds, tok)
 
 	if err != nil {
 		return ctx.Trigger(storagemarket.ClientEventEnsureFundsFailed, err)
@@ -191,6 +205,15 @@ func ValidateDealPublished(ctx fsm.Context, environment ClientDealEnvironment, d
 		return ctx.Trigger(storagemarket.ClientEventDealPublishFailed, err)
 	}
 
+	if !deal.FundsReserved.Nil() && !deal.FundsReserved.IsZero() {
+		_, err = environment.DealFunds().Release(deal.FundsReserved)
+		if err != nil {
+			// nonfatal error
+			log.Warnf("failed to release funds from local tracker: %s", err)
+		}
+		_ = ctx.Trigger(storagemarket.ClientEventFundsReleased, deal.FundsReserved)
+	}
+
 	return ctx.Trigger(storagemarket.ClientEventDealPublished, dealID)
 }
 
@@ -242,6 +265,15 @@ func WaitForDealCompletion(ctx fsm.Context, environment ClientDealEnvironment, d
 
 // FailDeal cleans up a failing deal
 func FailDeal(ctx fsm.Context, environment ClientDealEnvironment, deal storagemarket.ClientDeal) error {
+	if !deal.FundsReserved.Nil() && !deal.FundsReserved.IsZero() {
+		_, err := environment.DealFunds().Release(deal.FundsReserved)
+		if err != nil {
+			// nonfatal error
+			log.Warnf("failed to release funds from local tracker: %s", err)
+		}
+		_ = ctx.Trigger(storagemarket.ClientEventFundsReleased, deal.FundsReserved)
+	}
+
 	// TODO: store in some sort of audit log
 	log.Errorf("deal %s failed: %s", deal.ProposalCid, deal.Message)
 

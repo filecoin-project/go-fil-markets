@@ -13,6 +13,12 @@ const (
 	// ClientEventFundingInitiated happens when a client has sent a message adding funds to its balance
 	ClientEventFundingInitiated
 
+	// ClientEventFundsReserved happens when a client reserves funds for a deal (updating our tracked funds)
+	ClientEventFundsReserved
+
+	// ClientEventFundsReleased happens when a client released funds for a deal (updating our tracked funds)
+	ClientEventFundsReleased
+
 	// ClientEventFundsEnsured happens when a client successfully ensures it has funds for a deal
 	ClientEventFundsEnsured
 
@@ -88,6 +94,8 @@ var ClientEvents = map[ClientEvent]string{
 	ClientEventOpen:                       "ClientEventOpen",
 	ClientEventEnsureFundsFailed:          "ClientEventEnsureFundsFailed",
 	ClientEventFundingInitiated:           "ClientEventFundingInitiated",
+	ClientEventFundsReserved:              "ClientEventFundsReserved",
+	ClientEventFundsReleased:              "ClientEventFundsReleased",
 	ClientEventFundsEnsured:               "ClientEventFundsEnsured",
 	ClientEventWriteProposalFailed:        "ClientEventWriteProposalFailed",
 	ClientEventInitiateDataTransfer:       "ClientEventInitiateDataTransfer",
@@ -137,6 +145,12 @@ const (
 
 	// ProviderEventInsufficientFunds indicates not enough funds available for a deal
 	ProviderEventInsufficientFunds
+
+	// ProviderEventFundsReserved indicates we've reserved funds for a deal, adding to our overall total
+	ProviderEventFundsReserved
+
+	// ProviderEventFundsReleased indicates we've released funds for a deal
+	ProviderEventFundsReleased
 
 	// ProviderEventFundingInitiated indicates provider collateral funding has been initiated
 	ProviderEventFundingInitiated
@@ -220,6 +234,9 @@ const (
 	// ProviderEventFailed indicates a deal has failed and should no longer be processed
 	ProviderEventFailed
 
+	// ProviderEventTrackFundsFailed indicates a failure trying to locally track funds needed for deals
+	ProviderEventTrackFundsFailed
+
 	// ProviderEventRestart is used to resume the deal after a state machine shutdown
 	ProviderEventRestart
 )
@@ -233,6 +250,8 @@ var ProviderEvents = map[ProviderEvent]string{
 	ProviderEventDealAccepted:           "ProviderEventDealAccepted",
 	ProviderEventDealDeciding:           "ProviderEventDealDeciding",
 	ProviderEventInsufficientFunds:      "ProviderEventInsufficientFunds",
+	ProviderEventFundsReserved:          "ProviderEventFundsReserved",
+	ProviderEventFundsReleased:          "ProviderEventFundsReleased",
 	ProviderEventFundingInitiated:       "ProviderEventFundingInitiated",
 	ProviderEventFunded:                 "ProviderEventFunded",
 	ProviderEventDataTransferFailed:     "ProviderEventDataTransferFailed",
@@ -260,5 +279,6 @@ var ProviderEvents = map[ProviderEvent]string{
 	ProviderEventDealExpired:            "ProviderEventDealExpired",
 	ProviderEventDealSlashed:            "ProviderEventDealSlashed",
 	ProviderEventFailed:                 "ProviderEventFailed",
+	ProviderEventTrackFundsFailed:       "ProviderEventTrackFundsFailed",
 	ProviderEventRestart:                "ProviderEventRestart",
 }

@@ -36,6 +36,7 @@ import (
 	"github.com/filecoin-project/go-fil-markets/shared_testutil"
 	"github.com/filecoin-project/go-fil-markets/storagemarket"
 	storageimpl "github.com/filecoin-project/go-fil-markets/storagemarket/impl"
+	"github.com/filecoin-project/go-fil-markets/storagemarket/impl/funds"
 	"github.com/filecoin-project/go-fil-markets/storagemarket/impl/requestvalidation"
 	"github.com/filecoin-project/go-fil-markets/storagemarket/impl/storedask"
 	"github.com/filecoin-project/go-fil-markets/storagemarket/network"
@@ -413,6 +414,8 @@ func newHarnessWithTestData(t *testing.T, ctx context.Context, td *shared_testut
 	require.NoError(t, err)
 	rv1 := requestvalidation.NewUnifiedRequestValidator(nil, statestore.New(td.Ds1))
 	require.NoError(t, dt1.RegisterVoucherType(&requestvalidation.StorageDataTransferVoucher{}, rv1))
+	clientDealFunds, err := funds.NewDealFunds(td.Ds1, datastore.NewKey("storage/client/dealfunds"))
+	require.NoError(t, err)
 
 	client, err := storageimpl.NewClient(
 		network.NewFromLibp2pHost(td.Host1),
@@ -422,6 +425,7 @@ func newHarnessWithTestData(t *testing.T, ctx context.Context, td *shared_testut
 		discovery.NewLocal(td.Ds1),
 		td.Ds1,
 		&clientNode,
+		clientDealFunds,
 		storageimpl.DealPollingInterval(0),
 	)
 	require.NoError(t, err)
@@ -437,6 +441,9 @@ func newHarnessWithTestData(t *testing.T, ctx context.Context, td *shared_testut
 
 	storedAsk, err := storedask.NewStoredAsk(td.Ds2, datastore.NewKey("latest-ask"), providerNode, providerAddr)
 	assert.NoError(t, err)
+	providerDealFunds, err := funds.NewDealFunds(td.Ds2, datastore.NewKey("storage/provider/dealfunds"))
+	assert.NoError(t, err)
+
 	provider, err := storageimpl.NewProvider(
 		network.NewFromLibp2pHost(td.Host2),
 		td.Ds2,
@@ -448,6 +455,7 @@ func newHarnessWithTestData(t *testing.T, ctx context.Context, td *shared_testut
 		providerAddr,
 		abi.RegisteredSealProof_StackedDrg2KiBV1,
 		storedAsk,
+		providerDealFunds,
 	)
 	assert.NoError(t, err)
 

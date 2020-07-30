@@ -40,6 +40,7 @@ import (
 	tut "github.com/filecoin-project/go-fil-markets/shared_testutil"
 	"github.com/filecoin-project/go-fil-markets/storagemarket"
 	stormkt "github.com/filecoin-project/go-fil-markets/storagemarket/impl"
+	"github.com/filecoin-project/go-fil-markets/storagemarket/impl/funds"
 	"github.com/filecoin-project/go-fil-markets/storagemarket/impl/requestvalidation"
 	"github.com/filecoin-project/go-fil-markets/storagemarket/impl/storedask"
 	stornet "github.com/filecoin-project/go-fil-markets/storagemarket/network"
@@ -262,6 +263,9 @@ func newStorageHarness(ctx context.Context, t *testing.T) *storageHarness {
 
 	peerResolver := discovery.NewLocal(td.Ds1)
 
+	clientDealFunds, err := funds.NewDealFunds(td.Ds1, datastore.NewKey("storage/client/dealfunds"))
+	require.NoError(t, err)
+
 	client, err := stormkt.NewClient(
 		stornet.NewFromLibp2pHost(td.Host1),
 		td.Bs1,
@@ -270,6 +274,7 @@ func newStorageHarness(ctx context.Context, t *testing.T) *storageHarness {
 		peerResolver,
 		td.Ds1,
 		&clientNode,
+		clientDealFunds,
 		stormkt.DealPollingInterval(0),
 	)
 	require.NoError(t, err)
@@ -281,9 +286,11 @@ func newStorageHarness(ctx context.Context, t *testing.T) *storageHarness {
 	require.NoError(t, err)
 	rv2 := requestvalidation.NewUnifiedRequestValidator(statestore.New(td.Ds2), nil)
 	require.NoError(t, dt2.RegisterVoucherType(&requestvalidation.StorageDataTransferVoucher{}, rv2))
-
 	storedAsk, err := storedask.NewStoredAsk(td.Ds2, datastore.NewKey("latest-ask"), providerNode, providerAddr)
 	require.NoError(t, err)
+	providerDealFunds, err := funds.NewDealFunds(td.Ds1, datastore.NewKey("storage/provider/dealfunds"))
+	require.NoError(t, err)
+
 	provider, err := stormkt.NewProvider(
 		stornet.NewFromLibp2pHost(td.Host2),
 		td.Ds2,
@@ -295,6 +302,7 @@ func newStorageHarness(ctx context.Context, t *testing.T) *storageHarness {
 		providerAddr,
 		abi.RegisteredSealProof_StackedDrg2KiBV1,
 		storedAsk,
+		providerDealFunds,
 	)
 	require.NoError(t, err)
 

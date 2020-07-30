@@ -6,6 +6,7 @@ import (
 
 	"github.com/filecoin-project/go-statemachine/fsm"
 	"github.com/filecoin-project/specs-actors/actors/abi"
+	"github.com/filecoin-project/specs-actors/actors/abi/big"
 
 	"github.com/filecoin-project/go-fil-markets/storagemarket"
 )
@@ -24,6 +25,22 @@ var ClientEvents = fsm.Events{
 		FromMany(storagemarket.StorageDealClientFunding, storagemarket.StorageDealEnsureClientFunds).To(storagemarket.StorageDealFailing).
 		Action(func(deal *storagemarket.ClientDeal, err error) error {
 			deal.Message = xerrors.Errorf("adding market funds failed: %w", err).Error()
+			return nil
+		}),
+	fsm.Event(storagemarket.ClientEventFundsReserved).
+		From(storagemarket.StorageDealEnsureClientFunds).ToJustRecord().
+		Action(func(deal *storagemarket.ClientDeal, fundsReserved abi.TokenAmount) error {
+			if deal.FundsReserved.Nil() {
+				deal.FundsReserved = fundsReserved
+			} else {
+				deal.FundsReserved = big.Add(deal.FundsReserved, fundsReserved)
+			}
+			return nil
+		}),
+	fsm.Event(storagemarket.ClientEventFundsReleased).
+		FromMany(storagemarket.StorageDealProposalAccepted, storagemarket.StorageDealFailing).ToJustRecord().
+		Action(func(deal *storagemarket.ClientDeal, fundsReleased abi.TokenAmount) error {
+			deal.FundsReserved = big.Subtract(deal.FundsReserved, fundsReleased)
 			return nil
 		}),
 	fsm.Event(storagemarket.ClientEventFundsEnsured).
@@ -67,9 +84,9 @@ var ClientEvents = fsm.Events{
 	fsm.Event(storagemarket.ClientEventWaitForDealState).
 		From(storagemarket.StorageDealCheckForAcceptance).ToNoChange().
 		Action(func(deal *storagemarket.ClientDeal, pollError bool) error {
-			deal.PollRetryCount += 1
+			deal.PollRetryCount++
 			if pollError {
-				deal.PollErrorCount += 1
+				deal.PollErrorCount++
 			}
 			return nil
 		}),
