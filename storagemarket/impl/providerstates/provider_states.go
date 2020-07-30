@@ -294,7 +294,7 @@ func HandoffDeal(ctx fsm.Context, environment ProviderDealEnvironment, deal stor
 
 	if err := recordPiece(environment, deal, packingInfo.SectorNumber, packingInfo.Offset, packingInfo.Size); err != nil {
 		log.Errorf("failed to register deal data for retrieval: %s", err)
-		ctx.Trigger(storagemarket.ProviderEventPieceStoreErrored, err)
+		_ = ctx.Trigger(storagemarket.ProviderEventPieceStoreErrored, err)
 	}
 
 	return ctx.Trigger(storagemarket.ProviderEventDealHandedOff)

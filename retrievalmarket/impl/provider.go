@@ -40,11 +40,9 @@ type Provider struct {
 	revalidator      *requestvalidation.ProviderRevalidator
 	minerAddress     address.Address
 	pieceStore       piecestore.PieceStore
-	pricePerByte     abi.TokenAmount
 	subscribers      *pubsub.PubSub
 	stateMachines    fsm.Group
 	dealDecider      DealDecider
-	unsealPrice      abi.TokenAmount
 
 	askLk sync.Mutex
 	ask   *retrievalmarket.Ask
