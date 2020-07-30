@@ -79,20 +79,21 @@ var StorageAskUndefined = StorageAsk{}
 // MinerDeal is the local state tracked for a deal by a StorageProvider
 type MinerDeal struct {
 	market.ClientDealProposal
-	ProposalCid   cid.Cid
-	AddFundsCid   *cid.Cid
-	PublishCid    *cid.Cid
-	Miner         peer.ID
-	Client        peer.ID
-	State         StorageDealStatus
-	PiecePath     filestore.Path
-	MetadataPath  filestore.Path
-	SlashEpoch    abi.ChainEpoch
-	FastRetrieval bool
-	Message       string
-	StoreID       *multistore.StoreID
-	FundsReserved abi.TokenAmount
-	Ref           *DataRef
+	ProposalCid           cid.Cid
+	AddFundsCid           *cid.Cid
+	PublishCid            *cid.Cid
+	Miner                 peer.ID
+	Client                peer.ID
+	State                 StorageDealStatus
+	PiecePath             filestore.Path
+	MetadataPath          filestore.Path
+	SlashEpoch            abi.ChainEpoch
+	FastRetrieval         bool
+	Message               string
+	StoreID               *multistore.StoreID
+	FundsReserved         abi.TokenAmount
+	Ref                   *DataRef
+	AvailableForRetrieval bool
 
 	DealID abi.DealID
 }

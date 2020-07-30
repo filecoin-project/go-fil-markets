@@ -30,7 +30,7 @@ type ProviderDealEnvironment interface {
 func firstSuccessfulUnseal(ctx context.Context, node rm.RetrievalProviderNode, pieceInfo piecestore.PieceInfo) (io.Reader, error) {
 	lastErr := xerrors.New("no sectors found to unseal from")
 	for _, deal := range pieceInfo.Deals {
-		reader, err := node.UnsealSector(ctx, deal.SectorID, deal.Offset, deal.Length)
+		reader, err := node.UnsealSector(ctx, deal.SectorID, deal.Offset.Unpadded(), deal.Length.Unpadded())
 		if err == nil {
 			return reader, nil
 		}

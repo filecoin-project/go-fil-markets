@@ -2,7 +2,7 @@ stateDiagram-v2
 	state "StorageDealUnknown" as 0
 	state "StorageDealStaged" as 4
 	state "StorageDealSealing" as 5
-	state "<invalid Value>" as 6
+	state "StorageDealFinalizing" as 6
 	state "StorageDealActive" as 7
 	state "StorageDealExpired" as 8
 	state "StorageDealSlashed" as 9
@@ -20,7 +20,7 @@ stateDiagram-v2
 	state "StorageDealError" as 26
 	4 : On entry runs HandoffDeal
 	5 : On entry runs VerifyDealActivated
-	6 : On entry runs RecordPieceInfo
+	6 : On entry runs CleanupDeal
 	7 : On entry runs WaitForDealCompletion
 	10 : On entry runs RejectDeal
 	11 : On entry runs FailDeal
@@ -67,10 +67,7 @@ stateDiagram-v2
 	4 --> 5 : ProviderEventDealHandedOff
 	5 --> 11 : ProviderEventDealActivationFailed
 	5 --> 6 : ProviderEventDealActivated
-	6 --> 11 : ProviderEventPieceStoreErrored
-	6 --> 11 : ProviderEventUnableToLocatePiece
-	6 --> 11 : ProviderEventReadMetadataErrored
-	6 --> 7 : ProviderEventPieceRecorded
+	6 --> 7 : ProviderEventCleanupFinished
 	7 --> 9 : ProviderEventDealSlashed
 	7 --> 8 : ProviderEventDealExpired
 	7 --> 26 : ProviderEventDealCompletionFailed
@@ -79,6 +76,9 @@ stateDiagram-v2
 	14 --> 26 : ProviderEventRestart
 	15 --> 26 : ProviderEventRestart
 	20 --> 11 : ProviderEventTrackFundsFailed
+
+	note left of 4 : The following events only record in this state.<br><br>ProviderEventPieceStoreErrored
+
 
 	note left of 20 : The following events only record in this state.<br><br>ProviderEventFundsReserved
 

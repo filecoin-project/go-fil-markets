@@ -22,7 +22,7 @@ import (
 	"github.com/filecoin-project/go-fil-markets/piecestore"
 )
 
-//go:generate cbor-gen-for Query QueryResponse DealProposal DealResponse Params QueryParams DealPayment ClientDealState ProviderDealState PaymentInfo RetrievalPeer
+//go:generate cbor-gen-for Query QueryResponse DealProposal DealResponse Params QueryParams DealPayment ClientDealState ProviderDealState PaymentInfo RetrievalPeer Ask
 
 // ProtocolID is the protocol for proposing / responding to retrieval deals
 const ProtocolID = "/fil/retrieval/0.0.1"
@@ -340,3 +340,10 @@ var (
 	// ErrVerification means a retrieval contained a block response that did not verify
 	ErrVerification = errors.New("Error when verify data")
 )
+
+type Ask struct {
+	PricePerByte            abi.TokenAmount
+	UnsealPrice             abi.TokenAmount
+	PaymentInterval         uint64
+	PaymentIntervalIncrease uint64
+}

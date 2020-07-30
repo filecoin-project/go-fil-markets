@@ -59,6 +59,34 @@ func (ps *pieceStore) AddPieceBlockLocations(pieceCID cid.Cid, blockLocations ma
 	return nil
 }
 
+func (ps *pieceStore) ListPieceInfoKeys() ([]cid.Cid, error) {
+	var pis []PieceInfo
+	if err := ps.pieces.List(&pis); err != nil {
+		return nil, err
+	}
+
+	out := make([]cid.Cid, 0, len(pis))
+	for _, pi := range pis {
+		out = append(out, pi.PieceCID)
+	}
+
+	return out, nil
+}
+
+func (ps *pieceStore) ListCidInfoKeys() ([]cid.Cid, error) {
+	var cis []CIDInfo
+	if err := ps.cidInfos.List(&cis); err != nil {
+		return nil, err
+	}
+
+	out := make([]cid.Cid, 0, len(cis))
+	for _, ci := range cis {
+		out = append(out, ci.CID)
+	}
+
+	return out, nil
+}
+
 // Retrieve the PieceInfo associated with `pieceCID` from the piece info store.
 func (ps *pieceStore) GetPieceInfo(pieceCID cid.Cid) (PieceInfo, error) {
 	var out PieceInfo

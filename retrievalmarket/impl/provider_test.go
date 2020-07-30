@@ -14,6 +14,7 @@ import (
 	"github.com/filecoin-project/go-address"
 	"github.com/filecoin-project/go-multistore"
 	"github.com/filecoin-project/specs-actors/actors/abi"
+	"github.com/filecoin-project/specs-actors/actors/abi/big"
 	spect "github.com/filecoin-project/specs-actors/support/testing"
 
 	"github.com/filecoin-project/go-fil-markets/piecestore"
@@ -42,7 +43,7 @@ func TestHandleQueryStream(t *testing.T) {
 	expectedPiece := piecestore.PieceInfo{
 		Deals: []piecestore.DealInfo{
 			{
-				Length: expectedSize,
+				Length: abi.PaddedPieceSize(expectedSize),
 			},
 		},
 	}
@@ -73,8 +74,13 @@ func TestHandleQueryStream(t *testing.T) {
 		net := tut.NewTestRetrievalMarketNetwork(tut.TestNetworkParams{})
 		c, err := retrievalimpl.NewProvider(expectedAddress, node, net, pieceStore, multiStore, dt, ds)
 		require.NoError(t, err)
-		c.SetPricePerByte(expectedPricePerByte)
-		c.SetPaymentInterval(expectedPaymentInterval, expectedPaymentIntervalIncrease)
+		ask := c.GetAsk()
+
+		ask.PricePerByte = expectedPricePerByte
+		ask.PaymentInterval = expectedPaymentInterval
+		ask.PaymentIntervalIncrease = expectedPaymentIntervalIncrease
+		c.SetAsk(ask)
+
 		_ = c.Start()
 		net.ReceiveQueryStream(qs)
 	}
@@ -166,6 +172,7 @@ func TestHandleQueryStream(t *testing.T) {
 			tc.expResp.MinPricePerByte = expectedPricePerByte
 			tc.expResp.MaxPaymentInterval = expectedPaymentInterval
 			tc.expResp.MaxPaymentIntervalIncrease = expectedPaymentIntervalIncrease
+			tc.expResp.UnsealPrice = big.Zero()
 			assert.Equal(t, tc.expResp, actualResp)
 		})
 	}
@@ -304,7 +311,7 @@ func loadPieceCIDS(t *testing.T, pieceStore *tut.TestPieceStore, expPayloadCID, 
 		PieceCID: expectedPieceCID,
 		Deals: []piecestore.DealInfo{
 			{
-				Length: expectedSize,
+				Length: abi.PaddedPieceSize(expectedSize),
 			},
 		},
 	}

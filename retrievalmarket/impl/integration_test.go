@@ -120,7 +120,7 @@ func requireSetupTestClientAndProvider(bgCtx context.Context, t *testing.T, payC
 		pieceStore.ExpectPiece(piece, piecestore.PieceInfo{
 			Deals: []piecestore.DealInfo{
 				{
-					Length: expectedQR.Size * uint64(i+1),
+					Length: abi.PaddedPieceSize(expectedQR.Size * uint64(i+1)),
 				},
 			},
 		})
@@ -135,8 +135,12 @@ func requireSetupTestClientAndProvider(bgCtx context.Context, t *testing.T, payC
 	provider, err := retrievalimpl.NewProvider(paymentAddress, providerNode, nw2, pieceStore, testData.MultiStore2, dt2, testData.Ds2)
 	require.NoError(t, err)
 
-	provider.SetPaymentInterval(expectedQR.MaxPaymentInterval, expectedQR.MaxPaymentIntervalIncrease)
-	provider.SetPricePerByte(expectedQR.MinPricePerByte)
+	ask := provider.GetAsk()
+	ask.PaymentInterval = expectedQR.MaxPaymentInterval
+	ask.PaymentIntervalIncrease = expectedQR.MaxPaymentIntervalIncrease
+	ask.PricePerByte = expectedQR.MinPricePerByte
+	ask.UnsealPrice = expectedQR.UnsealPrice
+	provider.SetAsk(ask)
 	require.NoError(t, provider.Start())
 
 	retrievalPeer := retrievalmarket.RetrievalPeer{
@@ -268,19 +272,19 @@ func TestClientCanMakeDealWithProvider(t *testing.T) {
 			err = cio.WriteCar(bgCtx, store.Bstore, payloadCID, shared.AllSelector(), &buf)
 			require.NoError(t, err)
 			carData := buf.Bytes()
-			sectorID := uint64(100000)
-			offset := uint64(1000)
+			sectorID := abi.SectorNumber(100000)
+			offset := abi.PaddedPieceSize(1000)
 			pieceInfo = piecestore.PieceInfo{
 				PieceCID: tut.GenerateCids(1)[0],
 				Deals: []piecestore.DealInfo{
 					{
 						SectorID: sectorID,
 						Offset:   offset,
-						Length:   uint64(len(carData)),
+						Length:   abi.UnpaddedPieceSize(len(carData)).Padded(),
 					},
 				},
 			}
-			providerNode.ExpectUnseal(sectorID, offset, uint64(len(carData)), carData)
+			providerNode.ExpectUnseal(sectorID, offset.Unpadded(), abi.UnpaddedPieceSize(len(carData)), carData)
 			// clearout provider blockstore
 			err = testData.MultiStore2.Delete(storeID)
 			require.NoError(t, err)
@@ -507,9 +511,15 @@ func setupProvider(
 		pieceStore, testData.MultiStore2, dt2, testData.Ds2,
 		retrievalimpl.DealDeciderOpt(decider))
 	require.NoError(t, err)
-	provider.SetPaymentInterval(expectedQR.MaxPaymentInterval, expectedQR.MaxPaymentIntervalIncrease)
-	provider.SetPricePerByte(expectedQR.MinPricePerByte)
-	provider.SetPricePerUnseal(expectedQR.UnsealPrice)
+
+	ask := provider.GetAsk()
+
+	ask.PaymentInterval = expectedQR.MaxPaymentInterval
+	ask.PaymentIntervalIncrease = expectedQR.MaxPaymentIntervalIncrease
+	ask.PricePerByte = expectedQR.MinPricePerByte
+	ask.UnsealPrice = expectedQR.UnsealPrice
+	provider.SetAsk(ask)
+
 	require.NoError(t, provider.Start())
 	return provider
 }

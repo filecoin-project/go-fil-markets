@@ -46,9 +46,9 @@ func TestUnsealData(t *testing.T) {
 	}
 
 	pieceCid := testnet.GenerateCids(1)[0]
-	sectorID := rand.Uint64()
-	offset := rand.Uint64()
-	length := rand.Uint64()
+	sectorID := abi.SectorNumber(rand.Uint64())
+	offset := abi.PaddedPieceSize(rand.Uint64())
+	length := abi.PaddedPieceSize(rand.Uint64())
 	data := testnet.RandomBytes(100)
 	makeDeal := func() *rm.ProviderDealState {
 		return &rm.ProviderDealState{
@@ -72,7 +72,7 @@ func TestUnsealData(t *testing.T) {
 
 	t.Run("it works", func(t *testing.T) {
 		node := testnodes.NewTestRetrievalProviderNode()
-		node.ExpectUnseal(sectorID, offset, length, data)
+		node.ExpectUnseal(sectorID, offset.Unpadded(), length.Unpadded(), data)
 		dealState := makeDeal()
 		setupEnv := func(fe *rmtesting.TestProviderDealEnvironment) {}
 		runUnsealData(t, node, setupEnv, dealState)
@@ -81,7 +81,7 @@ func TestUnsealData(t *testing.T) {
 
 	t.Run("unseal error", func(t *testing.T) {
 		node := testnodes.NewTestRetrievalProviderNode()
-		node.ExpectFailedUnseal(sectorID, offset, length)
+		node.ExpectFailedUnseal(sectorID, offset.Unpadded(), length.Unpadded())
 		dealState := makeDeal()
 		setupEnv := func(fe *rmtesting.TestProviderDealEnvironment) {}
 		runUnsealData(t, node, setupEnv, dealState)
@@ -90,7 +90,7 @@ func TestUnsealData(t *testing.T) {
 	})
 	t.Run("ReadIntoBlockstore error", func(t *testing.T) {
 		node := testnodes.NewTestRetrievalProviderNode()
-		node.ExpectUnseal(sectorID, offset, length, data)
+		node.ExpectUnseal(sectorID, offset.Unpadded(), length.Unpadded(), data)
 		dealState := makeDeal()
 		setupEnv := func(fe *rmtesting.TestProviderDealEnvironment) {
 			fe.ReadIntoBlockstoreError = errors.New("Something went wrong")

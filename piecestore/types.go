@@ -11,9 +11,9 @@ import (
 // DealInfo is information about a single deal for a given piece
 type DealInfo struct {
 	DealID   abi.DealID
-	SectorID uint64
-	Offset   uint64
-	Length   uint64
+	SectorID abi.SectorNumber
+	Offset   abi.PaddedPieceSize
+	Length   abi.PaddedPieceSize
 }
 
 // BlockLocation is information about where a given block is relative to the overall piece
@@ -55,4 +55,6 @@ type PieceStore interface {
 	AddPieceBlockLocations(pieceCID cid.Cid, blockLocations map[cid.Cid]BlockLocation) error
 	GetPieceInfo(pieceCID cid.Cid) (PieceInfo, error)
 	GetCIDInfo(payloadCID cid.Cid) (CIDInfo, error)
+	ListCidInfoKeys() ([]cid.Cid, error)
+	ListPieceInfoKeys() ([]cid.Cid, error)
 }
