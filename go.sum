@@ -110,8 +110,8 @@ github.com/filecoin-project/go-cbor-util v0.0.0-20191219014500-08c40a1e63a2 h1:a
 github.com/filecoin-project/go-cbor-util v0.0.0-20191219014500-08c40a1e63a2/go.mod h1:pqTiPHobNkOVM5thSRsHYjyQfq7O5QSCMhvuu9JoDlg=
 github.com/filecoin-project/go-crypto v0.0.0-20191218222705-effae4ea9f03 h1:2pMXdBnCiXjfCYx/hLqFxccPoqsSveQFxVLvNxy9bus=
 github.com/filecoin-project/go-crypto v0.0.0-20191218222705-effae4ea9f03/go.mod h1:+viYnvGtUTgJRdy6oaeF4MTFKAfatX071MPDPBL11EQ=
-github.com/filecoin-project/go-data-transfer v0.5.1 h1:tDPmVVSgkit3cEG+9TFr6nwhKHdUipt9f0dEZSmvjbg=
-github.com/filecoin-project/go-data-transfer v0.5.1/go.mod h1:PRs78hp9u8T4G2Jce5NOkHB1bAqecPkvSLsMPuJckGU=
+github.com/filecoin-project/go-data-transfer v0.5.2 h1:lp67680ymy9vq+3QvTjD7VbqwyeDy8g830cO8ynB19A=
+github.com/filecoin-project/go-data-transfer v0.5.2/go.mod h1:4MI+n+8ryWvMaBxcWeR7N/Qo0KYM/kw3qHzsCfKux+E=
 github.com/filecoin-project/go-fil-commcid v0.0.0-20200716160307-8f644712406f h1:GxJzR3oRIMTPtpZ0b7QF8FKPK6/iPAc7trhlL5k/g+s=
 github.com/filecoin-project/go-fil-commcid v0.0.0-20200716160307-8f644712406f/go.mod h1:Eaox7Hvus1JgPrL5+M3+h7aSPHc0cVqpSxA+TxIEpZQ=
 github.com/filecoin-project/go-multistore v0.0.2 h1:JZEddnXXt3mMzHi7bi9IH7Yi1NpGLy19J5Lk/xbxBMs=
@@ -289,6 +289,8 @@ github.com/ipfs/go-filestore v1.0.0 h1:QR7ekKH+q2AGiWDc7W2Q0qHuYSRZGUJqUn0GsegEP
 github.com/ipfs/go-filestore v1.0.0/go.mod h1:/XOCuNtIe2f1YPbiXdYvD0BKLA0JR1MgPiFOdcuu9SM=
 github.com/ipfs/go-graphsync v0.0.6-0.20200721211002-c376cbe14c0a h1:QViYKbSYNKtfivrYx69UFJiH7HfdE5APQBbIu5fCK3k=
 github.com/ipfs/go-graphsync v0.0.6-0.20200721211002-c376cbe14c0a/go.mod h1:jMXfqIEDFukLPZHqDPp8tJMbHO9Rmeb9CEGevngQbmE=
+github.com/ipfs/go-graphsync v0.0.6-0.20200731020347-9ff2ade94aa4 h1:+CTNtwsy6duetU8s2zEwrhZKfTnHQNYOiSZ2xsmIA4o=
+github.com/ipfs/go-graphsync v0.0.6-0.20200731020347-9ff2ade94aa4/go.mod h1:jMXfqIEDFukLPZHqDPp8tJMbHO9Rmeb9CEGevngQbmE=
 github.com/ipfs/go-hamt-ipld v0.0.15-0.20200131012125-dd88a59d3f2e h1:bUtmeXx6JpjxRPlMdlKfPXC5kKhLHuueXKgs1Txb9ZU=
 github.com/ipfs/go-hamt-ipld v0.0.15-0.20200131012125-dd88a59d3f2e/go.mod h1:9aQJu/i/TaRDW6jqB5U217dLIDopn50wxLdHXM2CTfE=
 github.com/ipfs/go-hamt-ipld v0.1.1 h1:0IQdvwnAAUKmDE+PMJa5y1QiwOPHpI9+eAbQEEEYthk=
