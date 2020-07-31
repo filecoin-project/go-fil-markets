@@ -26,9 +26,9 @@ type StorageProvider interface {
 	// Stop terminates processing of deals on a StorageProvider
 	Stop() error
 
-	// SetAsk configures the storage miner's ask with the provided price,
+	// SetAsk configures the storage miner's ask with the provided prices (for unverified and verified deals),
 	// duration, and options. Any previously-existing ask is replaced.
-	SetAsk(price abi.TokenAmount, duration abi.ChainEpoch, options ...StorageAskOption) error
+	SetAsk(price abi.TokenAmount, verifiedPrice abi.TokenAmount, duration abi.ChainEpoch, options ...StorageAskOption) error
 
 	// GetAsk returns the storage miner's ask, or nil if one does not exist.
 	GetAsk() *SignedStorageAsk

@@ -19,8 +19,11 @@ import (
 
 var log = logging.Logger("storedask")
 
-// DefaultPrice is the default price set for StorageAsk in Fil / GiB / Epoch
+// DefaultPrice is the default price for unverified deals (in attoFil / GiB / Epoch)
 var DefaultPrice = abi.NewTokenAmount(500000000)
+
+// DefaultVerifiedPrice is the default price for verified deals (in attoFil / GiB / Epoch)
+var DefaultVerifiedPrice = abi.NewTokenAmount(50000000)
 
 // DefaultDuration is the default number of epochs a storage ask is in effect for
 const DefaultDuration abi.ChainEpoch = 1000000
@@ -61,17 +64,17 @@ func NewStoredAsk(ds datastore.Batching, dsKey datastore.Key, spn storagemarket.
 	if s.ask == nil {
 		// TODO: we should be fine with this state, and just say it means 'not actively accepting deals'
 		// for now... lets just set a price
-		if err := s.SetAsk(DefaultPrice, DefaultDuration); err != nil {
+		if err := s.SetAsk(DefaultPrice, DefaultVerifiedPrice, DefaultDuration); err != nil {
 			return nil, xerrors.Errorf("failed setting a default price: %w", err)
 		}
 	}
 	return s, nil
 }
 
-// SetAsk writes a new ask to disk with the provided price,
+// SetAsk configures the storage miner's ask with the provided prices (for unverified and verified deals),
 // duration, and options. Any previously-existing ask is replaced.
 // It also increments the sequence number on the ask
-func (s *StoredAsk) SetAsk(price abi.TokenAmount, duration abi.ChainEpoch, options ...storagemarket.StorageAskOption) error {
+func (s *StoredAsk) SetAsk(price abi.TokenAmount, verifiedPrice abi.TokenAmount, duration abi.ChainEpoch, options ...storagemarket.StorageAskOption) error {
 	s.askLk.Lock()
 	defer s.askLk.Unlock()
 	var seqno uint64
@@ -86,13 +89,14 @@ func (s *StoredAsk) SetAsk(price abi.TokenAmount, duration abi.ChainEpoch, optio
 		return err
 	}
 	ask := &storagemarket.StorageAsk{
-		Price:        price,
-		Timestamp:    height,
-		Expiry:       height + duration,
-		Miner:        s.actor,
-		SeqNo:        seqno,
-		MinPieceSize: DefaultMinPieceSize,
-		MaxPieceSize: DefaultMaxPieceSize,
+		Price:         price,
+		VerifiedPrice: verifiedPrice,
+		Timestamp:     height,
+		Expiry:        height + duration,
+		Miner:         s.actor,
+		SeqNo:         seqno,
+		MinPieceSize:  DefaultMinPieceSize,
+		MaxPieceSize:  DefaultMaxPieceSize,
 	}
 
 	for _, option := range options {
