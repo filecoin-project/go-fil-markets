@@ -19,9 +19,10 @@ import (
 
 var log = logging.Logger("storedask")
 
-// DefaultPrice is the default price set for StorageAsk in Fil / GiB / Epoch
+// DefaultPrice is the default price for unverified deals (in attoFil / GiB / Epoch)
 var DefaultPrice = abi.NewTokenAmount(500000000)
 
+// DefaultVerifiedPrice is the default price for verified deals (in attoFil / GiB / Epoch)
 var DefaultVerifiedPrice = abi.NewTokenAmount(50000000)
 
 // DefaultDuration is the default number of epochs a storage ask is in effect for
@@ -70,7 +71,7 @@ func NewStoredAsk(ds datastore.Batching, dsKey datastore.Key, spn storagemarket.
 	return s, nil
 }
 
-// SetAsk writes a new ask to disk with the provided price,
+// SetAsk configures the storage miner's ask with the provided prices (for unverified and verified deals),
 // duration, and options. Any previously-existing ask is replaced.
 // It also increments the sequence number on the ask
 func (s *StoredAsk) SetAsk(price abi.TokenAmount, verifiedPrice abi.TokenAmount, duration abi.ChainEpoch, options ...storagemarket.StorageAskOption) error {
