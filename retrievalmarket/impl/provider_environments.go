@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"io"
+	"io/ioutil"
 
 	"github.com/ipfs/go-cid"
 	"github.com/libp2p/go-libp2p-core/peer"
@@ -118,6 +119,18 @@ func (pde *providerDealEnvironment) ReadIntoBlockstore(storeID multistore.StoreI
 		return err
 	}
 	_, err = cario.NewCarIO().LoadCar(store.Bstore, pieceData)
+
+	// drain the reader first
+	_, derr := io.Copy(ioutil.Discard, pieceData)
+
+	if err != nil {
+		return err
+	}
+
+	if derr != nil {
+		return xerrors.Errorf("draining piece reader: %w", derr)
+	}
+
 	return err
 }
 
