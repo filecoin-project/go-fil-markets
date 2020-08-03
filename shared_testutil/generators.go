@@ -229,13 +229,13 @@ func MakeTestMinerDeal(state storagemarket.StorageDealStatus, clientDealProposal
 // MakeTestStorageAsk generates a storage ask
 func MakeTestStorageAsk() *storagemarket.StorageAsk {
 	return &storagemarket.StorageAsk{
-		Price:        MakeTestTokenAmount(),
-		VerifiedPrice:        MakeTestTokenAmount(),
-		MinPieceSize: abi.PaddedPieceSize(rand.Uint64()),
-		Miner:        address.TestAddress2,
-		Timestamp:    abi.ChainEpoch(rand.Int63()),
-		Expiry:       abi.ChainEpoch(rand.Int63()),
-		SeqNo:        rand.Uint64(),
+		Price:         MakeTestTokenAmount(),
+		VerifiedPrice: MakeTestTokenAmount(),
+		MinPieceSize:  abi.PaddedPieceSize(rand.Uint64()),
+		Miner:         address.TestAddress2,
+		Timestamp:     abi.ChainEpoch(rand.Int63()),
+		Expiry:        abi.ChainEpoch(rand.Int63()),
+		SeqNo:         rand.Uint64(),
 	}
 }
 
