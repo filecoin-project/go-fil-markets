@@ -334,11 +334,17 @@ func (c *Client) ProposeStorageDeal(ctx context.Context, params storagemarket.Pr
 		return nil, xerrors.Errorf("computing deal provider collateral bound failed: %w", err)
 	}
 
+	label, err := clientutils.LabelField(params.Data.Root)
+	if err != nil {
+		return nil, xerrors.Errorf("creating label field in proposal: %w", err)
+	}
+
 	dealProposal := market.DealProposal{
 		PieceCID:             commP,
 		PieceSize:            pieceSize.Padded(),
 		Client:               params.Addr,
 		Provider:             params.Info.Address,
+		Label:                string(label),
 		StartEpoch:           params.StartEpoch,
 		EndEpoch:             params.EndEpoch,
 		StoragePricePerEpoch: params.Price,

@@ -2,9 +2,14 @@
 package clientutils
 
 import (
+	"bytes"
 	"context"
 
 	"github.com/ipfs/go-cid"
+	"github.com/ipld/go-ipld-prime/codec/dagjson"
+	"github.com/ipld/go-ipld-prime/fluent"
+	cidlink "github.com/ipld/go-ipld-prime/linking/cid"
+	basicnode "github.com/ipld/go-ipld-prime/node/basic"
 	"golang.org/x/xerrors"
 
 	"github.com/filecoin-project/go-address"
@@ -57,4 +62,25 @@ func VerifyResponse(ctx context.Context, resp network.SignedResponse, minerAddr 
 	}
 
 	return nil
+}
+
+// LabelField makes a label field for a deal proposal as a CBOR encoded struct
+// with the following structure:
+//
+// {
+//	 "pcids": [payloadCID]
+// }
+//
+func LabelField(payloadCID cid.Cid) ([]byte, error) {
+	nd := fluent.MustBuildMap(basicnode.Style.Any, 1, func(ma fluent.MapAssembler) {
+		ma.AssembleEntry("pcids").CreateList(1, func(la fluent.ListAssembler) {
+			la.AssembleValue().AssignLink(cidlink.Link{Cid: payloadCID})
+		})
+	})
+	buf := new(bytes.Buffer)
+	err := dagjson.Encoder(nd, buf)
+	if err != nil {
+		return nil, err
+	}
+	return buf.Bytes(), nil
 }
