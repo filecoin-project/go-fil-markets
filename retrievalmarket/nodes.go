@@ -9,6 +9,7 @@ import (
 	"github.com/filecoin-project/go-address"
 	"github.com/filecoin-project/specs-actors/actors/abi"
 	"github.com/filecoin-project/specs-actors/actors/builtin/paych"
+	ma "github.com/multiformats/go-multiaddr"
 
 	"github.com/filecoin-project/go-fil-markets/shared"
 )
@@ -40,6 +41,9 @@ type RetrievalClientNode interface {
 	// WaitForPaymentChannelCreation waits for a message on chain that a
 	// payment channel has been created
 	WaitForPaymentChannelCreation(messageCID cid.Cid) (address.Address, error)
+
+	// GetKnownAddresses gets any on known multiaddrs for a given address, so we can add to the peer store
+	GetKnownAddresses(ctx context.Context, p RetrievalPeer, tok shared.TipSetToken) ([]ma.Multiaddr, error)
 }
 
 // RetrievalProviderNode are the node depedencies for a RetrevalProvider

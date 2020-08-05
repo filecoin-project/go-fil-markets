@@ -95,11 +95,13 @@ func TestClient_Query(t *testing.T) {
 		net := tut.NewTestRetrievalMarketNetwork(tut.TestNetworkParams{
 			QueryStreamBuilder: tut.ExpectPeerOnQueryStreamBuilder(t, expectedPeer, qsb, "Peers should match"),
 		})
+		node := testnodes.NewTestRetrievalClientNode(testnodes.TestRetrievalClientNodeParams{})
+		node.ExpectKnownAddresses(rpeer, nil)
 		c, err := retrievalimpl.NewClient(
 			net,
 			multiStore,
 			dt,
-			testnodes.NewTestRetrievalClientNode(testnodes.TestRetrievalClientNodeParams{}),
+			node,
 			&tut.TestPeerResolver{},
 			ds,
 			storedCounter)
@@ -109,17 +111,20 @@ func TestClient_Query(t *testing.T) {
 		require.NoError(t, err)
 		assert.NotNil(t, resp)
 		assert.Equal(t, expectedQueryResponse, resp)
+		node.VerifyExpectations(t)
 	})
 
 	t.Run("when the stream returns error, returns error", func(t *testing.T) {
 		net := tut.NewTestRetrievalMarketNetwork(tut.TestNetworkParams{
 			QueryStreamBuilder: tut.FailNewQueryStream,
 		})
+		node := testnodes.NewTestRetrievalClientNode(testnodes.TestRetrievalClientNodeParams{})
+		node.ExpectKnownAddresses(rpeer, nil)
 		c, err := retrievalimpl.NewClient(
 			net,
 			multiStore,
 			dt,
-			testnodes.NewTestRetrievalClientNode(testnodes.TestRetrievalClientNodeParams{}),
+			node,
 			&tut.TestPeerResolver{},
 			ds,
 			storedCounter)
@@ -127,6 +132,7 @@ func TestClient_Query(t *testing.T) {
 
 		_, err = c.Query(ctx, rpeer, pcid, retrievalmarket.QueryParams{})
 		assert.EqualError(t, err, "new query stream failed")
+		node.VerifyExpectations(t)
 	})
 
 	t.Run("when WriteDealStatusRequest fails, returns error", func(t *testing.T) {
@@ -142,11 +148,13 @@ func TestClient_Query(t *testing.T) {
 		net := tut.NewTestRetrievalMarketNetwork(tut.TestNetworkParams{
 			QueryStreamBuilder: qsbuilder,
 		})
+		node := testnodes.NewTestRetrievalClientNode(testnodes.TestRetrievalClientNodeParams{})
+		node.ExpectKnownAddresses(rpeer, nil)
 		c, err := retrievalimpl.NewClient(
 			net,
 			multiStore,
 			dt,
-			testnodes.NewTestRetrievalClientNode(testnodes.TestRetrievalClientNodeParams{}),
+			node,
 			&tut.TestPeerResolver{},
 			ds,
 			storedCounter)
@@ -155,6 +163,7 @@ func TestClient_Query(t *testing.T) {
 		statusCode, err := c.Query(ctx, rpeer, pcid, retrievalmarket.QueryParams{})
 		assert.EqualError(t, err, "write query failed")
 		assert.Equal(t, retrievalmarket.QueryResponseUndefined, statusCode)
+		node.VerifyExpectations(t)
 	})
 
 	t.Run("when ReadDealStatusResponse fails, returns error", func(t *testing.T) {
@@ -168,11 +177,13 @@ func TestClient_Query(t *testing.T) {
 		net := tut.NewTestRetrievalMarketNetwork(tut.TestNetworkParams{
 			QueryStreamBuilder: qsbuilder,
 		})
+		node := testnodes.NewTestRetrievalClientNode(testnodes.TestRetrievalClientNodeParams{})
+		node.ExpectKnownAddresses(rpeer, nil)
 		c, err := retrievalimpl.NewClient(
 			net,
 			multiStore,
 			dt,
-			testnodes.NewTestRetrievalClientNode(testnodes.TestRetrievalClientNodeParams{}),
+			node,
 			&tut.TestPeerResolver{},
 			ds,
 			storedCounter)
@@ -181,6 +192,7 @@ func TestClient_Query(t *testing.T) {
 		statusCode, err := c.Query(ctx, rpeer, pcid, retrievalmarket.QueryParams{})
 		assert.EqualError(t, err, "query response failed")
 		assert.Equal(t, retrievalmarket.QueryResponseUndefined, statusCode)
+		node.VerifyExpectations(t)
 	})
 }
 

@@ -145,6 +145,8 @@ func TestStorageRetrieval(t *testing.T) {
 	retrievalPeer := peers[0]
 	require.NotNil(t, retrievalPeer.PieceCID)
 
+	rh.ClientNode.ExpectKnownAddresses(retrievalPeer, nil)
+
 	resp, err := rh.Client.Query(bgCtx, retrievalPeer, sh.PayloadCid, retrievalmarket.QueryParams{})
 	require.NoError(t, err)
 	require.Equal(t, retrievalmarket.QueryResponseAvailable, resp.Status)
@@ -165,7 +167,7 @@ func TestStorageRetrieval(t *testing.T) {
 	// *** Retrieve the piece
 
 	clientStoreID := sh.TestData.MultiStore1.Next()
-	did, err := rh.Client.Retrieve(bgCtx, sh.PayloadCid, rmParams, expectedTotal, retrievalPeer.ID, *rh.ExpPaych, retrievalPeer.Address, &clientStoreID)
+	did, err := rh.Client.Retrieve(bgCtx, sh.PayloadCid, rmParams, expectedTotal, retrievalPeer, *rh.ExpPaych, retrievalPeer.Address, &clientStoreID)
 	assert.Equal(t, did, retrievalmarket.DealID(0))
 	require.NoError(t, err)
 
@@ -194,6 +196,7 @@ func TestStorageRetrieval(t *testing.T) {
 	require.Equal(t, retrievalmarket.DealStatusCompleted, providerDealState.Status)
 	require.Equal(t, retrievalmarket.DealStatusCompleted, clientDealState.Status)
 
+	rh.ClientNode.VerifyExpectations(t)
 	sh.TestData.VerifyFileTransferredIntoStore(t, sh.PieceLink, clientStoreID, false, uint64(fsize))
 
 }
@@ -319,7 +322,7 @@ func newStorageHarness(ctx context.Context, t *testing.T) *storageHarness {
 		PeerID:     td.Host2.ID(),
 	}
 
-	smState.Providers = []*storagemarket.StorageProviderInfo{&providerInfo}
+	smState.Providers = map[address.Address]*storagemarket.StorageProviderInfo{providerAddr: &providerInfo}
 	return &storageHarness{
 		Ctx:          ctx,
 		Epoch:        epoch,

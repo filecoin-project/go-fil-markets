@@ -2,6 +2,7 @@ package network
 
 import (
 	"github.com/libp2p/go-libp2p-core/peer"
+	ma "github.com/multiformats/go-multiaddr"
 
 	"github.com/filecoin-project/go-fil-markets/retrievalmarket"
 )
@@ -42,4 +43,7 @@ type RetrievalMarketNetwork interface {
 
 	// ID returns the peer id of the host for this network
 	ID() peer.ID
+
+	// AddAddrs adds the given multi-addrs to the peerstore for the passed peer ID
+	AddAddrs(peer.ID, []ma.Multiaddr)
 }

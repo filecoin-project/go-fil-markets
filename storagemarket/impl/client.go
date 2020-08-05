@@ -124,7 +124,7 @@ func NewClient(
 // in progress deals
 func (c *Client) Start(ctx context.Context) error {
 	go func() {
-		err := c.restartDeals()
+		err := c.restartDeals(ctx)
 		if err != nil {
 			log.Errorf("Failed to restart deals: %s", err.Error())
 		}
@@ -320,6 +320,11 @@ its implementation of the Client FSM's ClientDealEnvironment.
 Documentation of the client state machine can be found at https://godoc.org/github.com/filecoin-project/go-fil-markets/storagemarket/impl/clientstates
 */
 func (c *Client) ProposeStorageDeal(ctx context.Context, params storagemarket.ProposeStorageDealParams) (*storagemarket.ProposeStorageDealResult, error) {
+	err := c.addMultiaddrs(ctx, params.Info.Address)
+	if err != nil {
+		return nil, xerrors.Errorf("looking up addresses: %w", err)
+	}
+
 	commP, pieceSize, err := clientutils.CommP(ctx, c.pio, params.Rt, params.Data, params.StoreID)
 	if err != nil {
 		return nil, xerrors.Errorf("computing commP failed: %w", err)
@@ -449,7 +454,7 @@ func (c *Client) Configure(options ...StorageClientOption) {
 	}
 }
 
-func (c *Client) restartDeals() error {
+func (c *Client) restartDeals(ctx context.Context) error {
 	var deals []storagemarket.ClientDeal
 	err := c.statemachines.List(&deals)
 	if err != nil {
@@ -457,6 +462,15 @@ func (c *Client) restartDeals() error {
 	}
 
 	for _, deal := range deals {
+		if c.statemachines.IsTerminated(deal) {
+			continue
+		}
+
+		err = c.addMultiaddrs(ctx, deal.Proposal.Provider)
+		if err != nil {
+			return err
+		}
+
 		err = c.statemachines.Send(deal.ProposalCid, storagemarket.ClientEventRestart)
 		if err != nil {
 			return err
@@ -498,6 +512,23 @@ func (c *Client) verifyStatusResponseSignature(ctx context.Context, miner addres
 	}
 
 	return valid, nil
+}
+
+func (c *Client) addMultiaddrs(ctx context.Context, providerAddr address.Address) error {
+	tok, _, err := c.node.GetChainHead(ctx)
+	if err != nil {
+		return err
+	}
+	minfo, err := c.node.GetMinerInfo(ctx, providerAddr, tok)
+	if err != nil {
+		return err
+	}
+
+	if len(minfo.Addrs) > 0 {
+		c.net.AddAddrs(minfo.PeerID, minfo.Addrs)
+	}
+
+	return nil
 }
 
 func newClientStateMachine(ds datastore.Datastore, env fsm.Environment, notifier fsm.Notifier) (fsm.Group, error) {

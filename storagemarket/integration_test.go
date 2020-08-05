@@ -177,6 +177,7 @@ func TestMakeDeal(t *testing.T) {
 			// ensure that the handoff has fast retrieval info
 			assert.Len(t, h.ProviderNode.OnDealCompleteCalls, 1)
 			assert.True(t, h.ProviderNode.OnDealCompleteCalls[0].FastRetrieval)
+			h.ClientNode.VerifyExpectations(t)
 		})
 	}
 }
@@ -383,8 +384,9 @@ func newHarnessWithTestData(t *testing.T, ctx context.Context, td *shared_testut
 	payloadCid := rootLink.(cidlink.Link).Cid
 
 	clientNode := testnodes.FakeClientNode{
-		FakeCommonNode: testnodes.FakeCommonNode{SMState: smState},
-		ClientAddr:     address.TestAddress,
+		FakeCommonNode:     testnodes.FakeCommonNode{SMState: smState},
+		ClientAddr:         address.TestAddress,
+		ExpectedMinerInfos: []address.Address{address.TestAddress2},
 	}
 
 	expDealID := abi.DealID(rand.Uint64())
@@ -476,7 +478,7 @@ func newHarnessWithTestData(t *testing.T, ctx context.Context, td *shared_testut
 		PeerID:     td.Host2.ID(),
 	}
 
-	smState.Providers = []*storagemarket.StorageProviderInfo{&providerInfo}
+	smState.Providers = map[address.Address]*storagemarket.StorageProviderInfo{providerAddr: &providerInfo}
 	return &harness{
 		Ctx:          ctx,
 		Epoch:        epoch,

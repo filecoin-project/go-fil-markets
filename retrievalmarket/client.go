@@ -4,7 +4,6 @@ import (
 	"context"
 
 	"github.com/ipfs/go-cid"
-	"github.com/libp2p/go-libp2p-core/peer"
 
 	"github.com/filecoin-project/go-address"
 	"github.com/filecoin-project/go-multistore"
@@ -35,7 +34,7 @@ type RetrievalClient interface {
 		payloadCID cid.Cid,
 		params Params,
 		totalFunds abi.TokenAmount,
-		miner peer.ID,
+		p RetrievalPeer,
 		clientWallet address.Address,
 		minerWallet address.Address,
 		storeID *multistore.StoreID,
