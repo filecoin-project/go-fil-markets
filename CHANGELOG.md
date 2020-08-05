@@ -593,6 +593,22 @@ Retrieval before seal and improvements to fund management
 | Aayush Rajasekaran | 3 | +144/-79 | 21 |
 | hannahhoward | 6 | +87/-18 | 10 |
 
+# go-fil-markets 0.5.4
+
+Minor release to bug fix some multi-addr issues
+
+### Changelog
+
+- github.com/filecoin-project/go-fil-markets:
+  - Properly add multiaddrs to avoid dialing issues (#356) ([filecoin-project/go-fil-markets#356](https://github.com/filecoin-project/go-fil-markets/pull/356))
+  - docs(CHANGELOG): update for 0.5.3 release ([filecoin-project/go-fil-markets#355](https://github.com/filecoin-project/go-fil-markets/pull/355))
+
+### Contributors
+
+| Contributor | Commits | Lines ± | Files Changed |
+|-------------|---------|---------|---------------|
+| Hannah Howard | 1 | +178/-39 | 16 |
+
 ### 🙌🏽 Want to contribute?
 
 Would you like to contribute to this repo and don’t know how? Here are a few places you can get started:
