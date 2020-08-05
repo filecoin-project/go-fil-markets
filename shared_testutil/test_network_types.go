@@ -6,6 +6,7 @@ import (
 
 	"github.com/ipfs/go-cid"
 	"github.com/libp2p/go-libp2p-core/peer"
+	ma "github.com/multiformats/go-multiaddr"
 	"github.com/stretchr/testify/require"
 
 	rm "github.com/filecoin-project/go-fil-markets/retrievalmarket"
@@ -192,6 +193,10 @@ func (trmn *TestRetrievalMarketNetwork) StopHandlingRequests() error {
 // ID returns the peer id of this host (empty peer ID in test)
 func (trmn *TestRetrievalMarketNetwork) ID() peer.ID {
 	return peer.ID("")
+}
+
+// AddAddrs does nothing in test
+func (trmn *TestRetrievalMarketNetwork) AddAddrs(peer.ID, []ma.Multiaddr) {
 }
 
 var _ rmnet.RetrievalMarketNetwork = &TestRetrievalMarketNetwork{}

@@ -2,9 +2,13 @@ package testnodes
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"testing"
 
 	"github.com/ipfs/go-cid"
+	ma "github.com/multiformats/go-multiaddr"
+	"github.com/stretchr/testify/require"
 
 	"github.com/filecoin-project/go-address"
 	"github.com/filecoin-project/specs-actors/actors/abi"
@@ -25,10 +29,12 @@ type TestRetrievalClientNode struct {
 	laneError                               error
 	voucher                                 *paych.SignedVoucher
 	voucherError, waitCreateErr, waitAddErr error
-
-	allocateLaneRecorder            func(address.Address)
-	createPaymentVoucherRecorder    func(voucher *paych.SignedVoucher)
-	getCreatePaymentChannelRecorder func(address.Address, address.Address, abi.TokenAmount)
+	knownAddreses                           map[retrievalmarket.RetrievalPeer][]ma.Multiaddr
+	receivedKnownAddresses                  map[retrievalmarket.RetrievalPeer]struct{}
+	expectedKnownAddresses                  map[retrievalmarket.RetrievalPeer]struct{}
+	allocateLaneRecorder                    func(address.Address)
+	createPaymentVoucherRecorder            func(voucher *paych.SignedVoucher)
+	getCreatePaymentChannelRecorder         func(address.Address, address.Address, abi.TokenAmount)
 }
 
 // TestRetrievalClientNodeParams are parameters for initializing a TestRetrievalClientNode
@@ -66,6 +72,9 @@ func NewTestRetrievalClientNode(params TestRetrievalClientNodeParams) *TestRetri
 		getCreatePaymentChannelRecorder: params.PaymentChannelRecorder,
 		createPaychMsgCID:               params.CreatePaychCID,
 		addFundsMsgCID:                  params.AddFundsCID,
+		knownAddreses:                   map[retrievalmarket.RetrievalPeer][]ma.Multiaddr{},
+		expectedKnownAddresses:          map[retrievalmarket.RetrievalPeer]struct{}{},
+		receivedKnownAddresses:          map[retrievalmarket.RetrievalPeer]struct{}{},
 	}
 }
 
@@ -118,4 +127,26 @@ func (trcn *TestRetrievalClientNode) WaitForPaymentChannelCreation(messageCID ci
 		return address.Undef, fmt.Errorf("expected messageCID: %s does not match actual: %s", trcn.createPaychMsgCID, messageCID)
 	}
 	return trcn.payCh, trcn.waitCreateErr
+}
+
+// ExpectKnownAddresses stubs a return for a look up of known addresses for the given retrieval peer
+// and the fact that it was looked up is verified with VerifyExpectations
+func (trcn *TestRetrievalClientNode) ExpectKnownAddresses(p retrievalmarket.RetrievalPeer, maddrs []ma.Multiaddr) {
+	trcn.expectedKnownAddresses[p] = struct{}{}
+	trcn.knownAddreses[p] = maddrs
+}
+
+// GetKnownAddresses gets any on known multiaddrs for a given address, so we can add to the peer store
+func (trcn *TestRetrievalClientNode) GetKnownAddresses(ctx context.Context, p retrievalmarket.RetrievalPeer, tok shared.TipSetToken) ([]ma.Multiaddr, error) {
+	trcn.receivedKnownAddresses[p] = struct{}{}
+	addrs, ok := trcn.knownAddreses[p]
+	if !ok {
+		return nil, errors.New("Provider not found")
+	}
+	return addrs, nil
+}
+
+// VerifyExpectations verifies that all expected known addresses were looked up
+func (trcn *TestRetrievalClientNode) VerifyExpectations(t *testing.T) {
+	require.Equal(t, trcn.expectedKnownAddresses, trcn.receivedKnownAddresses)
 }

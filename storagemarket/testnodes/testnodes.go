@@ -7,8 +7,10 @@ import (
 	"errors"
 	"io"
 	"io/ioutil"
+	"testing"
 
 	"github.com/ipfs/go-cid"
+	"github.com/stretchr/testify/require"
 
 	"github.com/filecoin-project/go-address"
 	"github.com/filecoin-project/specs-actors/actors/abi"
@@ -33,7 +35,7 @@ type StorageMarketState struct {
 	DealID       abi.DealID
 	Balances     map[address.Address]abi.TokenAmount
 	StorageDeals map[address.Address][]storagemarket.StorageDeal
-	Providers    []*storagemarket.StorageProviderInfo
+	Providers    map[address.Address]*storagemarket.StorageProviderInfo
 }
 
 // NewStorageMarketState returns a new empty state for the storage market
@@ -43,7 +45,7 @@ func NewStorageMarketState() *StorageMarketState {
 		DealID:       0,
 		Balances:     map[address.Address]abi.TokenAmount{},
 		StorageDeals: map[address.Address][]storagemarket.StorageDeal{},
-		Providers:    nil,
+		Providers:    map[address.Address]*storagemarket.StorageProviderInfo{},
 	}
 }
 
@@ -229,6 +231,8 @@ type FakeClientNode struct {
 	ValidationError         error
 	ValidatePublishedDealID abi.DealID
 	ValidatePublishedError  error
+	ExpectedMinerInfos      []address.Address
+	receivedMinerInfos      []address.Address
 }
 
 // ListClientDeals just returns the deals in the storage market state
@@ -238,7 +242,11 @@ func (n *FakeClientNode) ListClientDeals(ctx context.Context, addr address.Addre
 
 // ListStorageProviders lists the providers in the storage market state
 func (n *FakeClientNode) ListStorageProviders(ctx context.Context, tok shared.TipSetToken) ([]*storagemarket.StorageProviderInfo, error) {
-	return n.SMState.Providers, nil
+	providers := make([]*storagemarket.StorageProviderInfo, 0, len(n.SMState.Providers))
+	for _, provider := range n.SMState.Providers {
+		providers = append(providers, provider)
+	}
+	return providers, nil
 }
 
 // ValidatePublishedDeal always succeeds
@@ -261,16 +269,22 @@ func (n *FakeClientNode) GetDefaultWalletAddress(ctx context.Context) (address.A
 
 // GetMinerInfo returns stubbed information for the first miner in storage market state
 func (n *FakeClientNode) GetMinerInfo(ctx context.Context, maddr address.Address, tok shared.TipSetToken) (*storagemarket.StorageProviderInfo, error) {
-	if len(n.SMState.Providers) == 0 {
+	n.receivedMinerInfos = append(n.receivedMinerInfos, maddr)
+	info, ok := n.SMState.Providers[maddr]
+	if !ok {
 		return nil, errors.New("Provider not found")
 	}
-	return n.SMState.Providers[0], nil
+	return info, nil
 }
 
 // ValidateAskSignature returns the stubbed validation error and a boolean value
 // communicating the validity of the provided signature
 func (n *FakeClientNode) ValidateAskSignature(ctx context.Context, ask *storagemarket.SignedStorageAsk, tok shared.TipSetToken) (bool, error) {
 	return n.ValidationError == nil, n.ValidationError
+}
+
+func (n *FakeClientNode) VerifyExpectations(t *testing.T) {
+	require.Equal(t, n.ExpectedMinerInfos, n.receivedMinerInfos)
 }
 
 var _ storagemarket.StorageClientNode = (*FakeClientNode)(nil)

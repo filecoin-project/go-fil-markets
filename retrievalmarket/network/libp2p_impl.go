@@ -3,11 +3,13 @@ package network
 import (
 	"bufio"
 	"context"
+	"time"
 
 	logging "github.com/ipfs/go-log/v2"
 	"github.com/libp2p/go-libp2p-core/host"
 	"github.com/libp2p/go-libp2p-core/network"
 	"github.com/libp2p/go-libp2p-core/peer"
+	ma "github.com/multiformats/go-multiaddr"
 
 	"github.com/filecoin-project/go-fil-markets/retrievalmarket"
 )
@@ -70,4 +72,8 @@ func (impl *libp2pRetrievalMarketNetwork) handleNewQueryStream(s network.Stream)
 
 func (impl *libp2pRetrievalMarketNetwork) ID() peer.ID {
 	return impl.host.ID()
+}
+
+func (impl *libp2pRetrievalMarketNetwork) AddAddrs(p peer.ID, addrs []ma.Multiaddr) {
+	impl.host.Peerstore().AddAddrs(p, addrs, 8*time.Hour)
 }

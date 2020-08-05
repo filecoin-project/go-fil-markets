@@ -147,6 +147,7 @@ func requireSetupTestClientAndProvider(bgCtx context.Context, t *testing.T, payC
 		Address: paymentAddress,
 		ID:      testData.Host2.ID(),
 	}
+	rcNode1.ExpectKnownAddresses(retrievalPeer, nil)
 	return client, expectedCIDs, missingCID, expectedQR, retrievalPeer, provider
 }
 
@@ -296,7 +297,7 @@ func TestClientCanMakeDealWithProvider(t *testing.T) {
 			provider := setupProvider(bgCtx, t, testData, payloadCID, pieceInfo, expectedQR,
 				providerPaymentAddr, providerNode, decider)
 
-			retrievalPeer := &retrievalmarket.RetrievalPeer{Address: providerPaymentAddr, ID: testData.Host2.ID()}
+			retrievalPeer := retrievalmarket.RetrievalPeer{Address: providerPaymentAddr, ID: testData.Host2.ID()}
 
 			expectedVoucher := tut.MakeTestSignedVoucher()
 
@@ -312,8 +313,10 @@ func TestClientCanMakeDealWithProvider(t *testing.T) {
 
 			// ------- SET UP CLIENT
 			nw1 := rmnet.NewFromLibp2pHost(testData.Host1)
-			createdChan, newLaneAddr, createdVoucher, client, err := setupClient(bgCtx, t, clientPaymentChannel, expectedVoucher, nw1, testData, testCase.addFunds)
+			createdChan, newLaneAddr, createdVoucher, clientNode, client, err := setupClient(bgCtx, t, clientPaymentChannel, expectedVoucher, nw1, testData, testCase.addFunds)
 			require.NoError(t, err)
+
+			clientNode.ExpectKnownAddresses(retrievalPeer, nil)
 
 			clientDealStateChan := make(chan retrievalmarket.ClientDealState)
 			client.SubscribeToEvents(func(event retrievalmarket.ClientEvent, state retrievalmarket.ClientDealState) {
@@ -358,7 +361,7 @@ CurrentInterval: %d
 			})
 			// **** Send the query for the Piece
 			// set up retrieval params
-			resp, err := client.Query(bgCtx, *retrievalPeer, payloadCID, retrievalmarket.QueryParams{})
+			resp, err := client.Query(bgCtx, retrievalPeer, payloadCID, retrievalmarket.QueryParams{})
 			require.NoError(t, err)
 			require.Equal(t, retrievalmarket.QueryResponseAvailable, resp.Status)
 
@@ -376,7 +379,7 @@ CurrentInterval: %d
 				clientStoreID = &id
 			}
 			// *** Retrieve the piece
-			did, err := client.Retrieve(bgCtx, payloadCID, rmParams, expectedTotal, retrievalPeer.ID, clientPaymentChannel, retrievalPeer.Address, clientStoreID)
+			did, err := client.Retrieve(bgCtx, payloadCID, rmParams, expectedTotal, retrievalPeer, clientPaymentChannel, retrievalPeer.Address, clientStoreID)
 			assert.Equal(t, did, retrievalmarket.DealID(0))
 			require.NoError(t, err)
 
@@ -416,7 +419,8 @@ CurrentInterval: %d
 			if testCase.decider != nil {
 				assert.True(t, customDeciderRan)
 			}
-			// verify that the provider saved the same voucher values
+			// verify that the nodes we interacted with as expected
+			clientNode.VerifyExpectations(t)
 			providerNode.VerifyExpectations(t)
 			if testCase.skipStores {
 				testData.VerifyFileTransferred(t, pieceLink, false, testCase.filesize)
@@ -440,6 +444,7 @@ func setupClient(
 	*pmtChan,
 	*address.Address,
 	*paych.SignedVoucher,
+	*testnodes.TestRetrievalClientNode,
 	retrievalmarket.RetrievalClient,
 	error) {
 	var createdChan pmtChan
@@ -475,7 +480,7 @@ func setupClient(
 	require.NoError(t, err)
 
 	client, err := retrievalimpl.NewClient(nw1, testData.MultiStore1, dt1, clientNode, &tut.TestPeerResolver{}, testData.Ds1, testData.RetrievalStoredCounter1)
-	return &createdChan, &newLaneAddr, &createdVoucher, client, err
+	return &createdChan, &newLaneAddr, &createdVoucher, clientNode, client, err
 }
 
 func setupProvider(

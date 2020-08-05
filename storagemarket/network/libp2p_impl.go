@@ -112,5 +112,5 @@ func (impl *libp2pStorageMarketNetwork) ID() peer.ID {
 }
 
 func (impl *libp2pStorageMarketNetwork) AddAddrs(p peer.ID, addrs []ma.Multiaddr) {
-	impl.host.Peerstore().AddAddrs(p, addrs, time.Minute*10)
+	impl.host.Peerstore().AddAddrs(p, addrs, 8*time.Hour)
 }

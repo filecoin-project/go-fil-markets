@@ -133,7 +133,12 @@ the request are.
 The client a new `RetrievalQueryStream` for the chosen peer ID,
 and calls WriteQuery on it, which constructs a data-transfer message and writes it to the Query stream.
 */
-func (c *Client) Query(_ context.Context, p retrievalmarket.RetrievalPeer, payloadCID cid.Cid, params retrievalmarket.QueryParams) (retrievalmarket.QueryResponse, error) {
+func (c *Client) Query(ctx context.Context, p retrievalmarket.RetrievalPeer, payloadCID cid.Cid, params retrievalmarket.QueryParams) (retrievalmarket.QueryResponse, error) {
+	err := c.addMultiaddrs(ctx, p)
+	if err != nil {
+		log.Warn(err)
+		return retrievalmarket.QueryResponseUndefined, err
+	}
 	s, err := c.network.NewQueryStream(p.ID)
 	if err != nil {
 		log.Warn(err)
@@ -181,8 +186,11 @@ From then on, the statemachine controls the deal flow in the client. Other compo
 
 Documentation of the client state machine can be found at https://godoc.org/github.com/filecoin-project/go-fil-markets/retrievalmarket/impl/clientstates
 */
-func (c *Client) Retrieve(ctx context.Context, payloadCID cid.Cid, params retrievalmarket.Params, totalFunds abi.TokenAmount, miner peer.ID, clientWallet address.Address, minerWallet address.Address, storeID *multistore.StoreID) (retrievalmarket.DealID, error) {
-	var err error
+func (c *Client) Retrieve(ctx context.Context, payloadCID cid.Cid, params retrievalmarket.Params, totalFunds abi.TokenAmount, p retrievalmarket.RetrievalPeer, clientWallet address.Address, minerWallet address.Address, storeID *multistore.StoreID) (retrievalmarket.DealID, error) {
+	err := c.addMultiaddrs(ctx, p)
+	if err != nil {
+		return 0, err
+	}
 	next, err := c.storedCounter.Next()
 	if err != nil {
 		return 0, err
@@ -210,7 +218,7 @@ func (c *Client) Retrieve(ctx context.Context, payloadCID cid.Cid, params retrie
 		PaymentRequested: abi.NewTokenAmount(0),
 		FundsSpent:       abi.NewTokenAmount(0),
 		Status:           retrievalmarket.DealStatusNew,
-		Sender:           miner,
+		Sender:           p.ID,
 		UnsealFundsPaid:  big.Zero(),
 		StoreID:          storeID,
 	}
@@ -233,6 +241,21 @@ func (c *Client) notifySubscribers(eventName fsm.EventName, state fsm.StateType)
 	evt := eventName.(retrievalmarket.ClientEvent)
 	ds := state.(retrievalmarket.ClientDealState)
 	_ = c.subscribers.Publish(internalEvent{evt, ds})
+}
+
+func (c *Client) addMultiaddrs(ctx context.Context, p retrievalmarket.RetrievalPeer) error {
+	tok, _, err := c.node.GetChainHead(ctx)
+	if err != nil {
+		return err
+	}
+	maddrs, err := c.node.GetKnownAddresses(ctx, p, tok)
+	if err != nil {
+		return err
+	}
+	if len(maddrs) > 0 {
+		c.network.AddAddrs(p.ID, maddrs)
+	}
+	return nil
 }
 
 // SubscribeToEvents allows another component to listen for events on the RetrievalClient
