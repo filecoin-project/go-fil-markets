@@ -549,6 +549,50 @@ In this release, we move to managing individual, garbage collected stores for ea
 | Hannah Howard | 3 | +2378/-1076 | 90 |
 | hannahhoward | 1 | +113/-32 | 5 |
 
+# go-fil-markets 0.5.3
+
+Retrieval before seal and improvements to fund management
+
+### Changelog
+
+- github.com/filecoin-project/go-fil-markets:
+  - Update multistore (#353) ([filecoin-project/go-fil-markets#353](https://github.com/filecoin-project/go-fil-markets/pull/353))
+  - feat(storagemarket): add label field to deals (#349) ([filecoin-project/go-fil-markets#349](https://github.com/filecoin-project/go-fil-markets/pull/349))
+  - fix(imports): fix imports issue from previous
+  - retrieval: Drain piece readers (#348) ([filecoin-project/go-fil-markets#348](https://github.com/filecoin-project/go-fil-markets/pull/348))
+  - Adding different prices for verified deals (#347) ([filecoin-project/go-fil-markets#347](https://github.com/filecoin-project/go-fil-markets/pull/347))
+  - update to latest cbor-gen (#346) ([filecoin-project/go-fil-markets#346](https://github.com/filecoin-project/go-fil-markets/pull/346))
+  - fix(deps): update data-transfer
+  - Update specs-actors, enforce provider deal collateral bounds (#345) ([filecoin-project/go-fil-markets#345](https://github.com/filecoin-project/go-fil-markets/pull/345))
+  - Feat/retrieve unsealed (#340) ([filecoin-project/go-fil-markets#340](https://github.com/filecoin-project/go-fil-markets/pull/340))
+  - Track deals funding for deals that are being negotiated (#336) ([filecoin-project/go-fil-markets#336](https://github.com/filecoin-project/go-fil-markets/pull/336))
+  - docs(CHANGELOG): update for 0.5.2 release ([filecoin-project/go-fil-markets#344](https://github.com/filecoin-project/go-fil-markets/pull/344))
+- github.com/filecoin-project/go-data-transfer (v0.5.1 -> v0.5.3):
+  - docs(CHANGELOG): update for 0.5.3 release
+  - fix(deps): update graphsync
+  - Release infrastructure (#61) ([filecoin-project/go-data-transfer#61](https://github.com/filecoin-project/go-data-transfer/pull/61))
+  - Update cbor-gen (#60) ([filecoin-project/go-data-transfer#60](https://github.com/filecoin-project/go-data-transfer/pull/60))
+  - fix(deps): update graphsync
+  - fix(message): add error check to FromNet (#59) ([filecoin-project/go-data-transfer#59](https://github.com/filecoin-project/go-data-transfer/pull/59))
+- github.com/filecoin-project/go-statemachine (v0.0.0-20200714194326-a77c3ae20989 -> v0.0.0-20200730031800-c3336614d2a7):
+  - fix(fsm): fix test context (#18) ([filecoin-project/go-statemachine#18](https://github.com/filecoin-project/go-statemachine/pull/18))
+- github.com/ipfs/go-graphsync (v0.0.6-0.20200721211002-c376cbe14c0a -> v0.1.0):
+  - docs(CHANGELOG): update for v0.1.0 release
+  - Release infrastructure (#81) ([ipfs/go-graphsync#81](https://github.com/ipfs/go-graphsync/pull/81))
+  - feat(persistenceoptions): add unregister ability (#80) ([ipfs/go-graphsync#80](https://github.com/ipfs/go-graphsync/pull/80))
+  - fix(message): regen protobuf code (#79) ([ipfs/go-graphsync#79](https://github.com/ipfs/go-graphsync/pull/79))
+
+### Contributors
+
+| Contributor | Commits | Lines ± | Files Changed |
+|-------------|---------|---------|---------------|
+| Hannah Howard | 7 | +1710/-533 | 105 |
+| Whyrusleeping | 2 | +477/-433 | 35 |
+| Ingar Shu | 1 | +545/-20 | 26 |
+| Łukasz Magiera | 2 | +189/-176 | 9 |
+| Aayush Rajasekaran | 3 | +144/-79 | 21 |
+| hannahhoward | 6 | +87/-18 | 10 |
+
 ### 🙌🏽 Want to contribute?
 
 Would you like to contribute to this repo and don’t know how? Here are a few places you can get started:
