@@ -110,7 +110,6 @@ func ProposeDeal(ctx fsm.Context, environment ClientDealEnvironment, deal storag
 		return ctx.Trigger(storagemarket.ClientEventWriteProposalFailed, err)
 	}
 
-
 	resp, err := s.ReadDealResponse()
 	if err != nil {
 		return ctx.Trigger(storagemarket.ClientEventReadResponseFailed, err)
@@ -164,7 +163,6 @@ func InitiateDataTransfer(ctx fsm.Context, environment ClientDealEnvironment, de
 
 // CheckForDealAcceptance is run until the deal is sealed and published by the provider, or errors
 func CheckForDealAcceptance(ctx fsm.Context, environment ClientDealEnvironment, deal storagemarket.ClientDeal) error {
-
 
 	dealState, err := environment.GetProviderDealState(ctx.Context(), deal.ProposalCid)
 	if err != nil {
