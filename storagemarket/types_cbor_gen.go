@@ -202,16 +202,14 @@ func (t *ClientDeal) UnmarshalCBOR(r io.Reader) error {
 
 	{
 
-		pb, err := br.PeekByte()
+		b, err := br.ReadByte()
 		if err != nil {
 			return err
 		}
-		if pb == cbg.CborNull[0] {
-			var nbuf [1]byte
-			if _, err := br.Read(nbuf[:]); err != nil {
+		if b != cbg.CborNull[0] {
+			if err := br.UnreadByte(); err != nil {
 				return err
 			}
-		} else {
 
 			c, err := cbg.ReadCid(br)
 			if err != nil {
@@ -273,16 +271,14 @@ func (t *ClientDeal) UnmarshalCBOR(r io.Reader) error {
 
 	{
 
-		pb, err := br.PeekByte()
+		b, err := br.ReadByte()
 		if err != nil {
 			return err
 		}
-		if pb == cbg.CborNull[0] {
-			var nbuf [1]byte
-			if _, err := br.Read(nbuf[:]); err != nil {
+		if b != cbg.CborNull[0] {
+			if err := br.UnreadByte(); err != nil {
 				return err
 			}
-		} else {
 			t.DataRef = new(DataRef)
 			if err := t.DataRef.UnmarshalCBOR(br); err != nil {
 				return xerrors.Errorf("unmarshaling t.DataRef pointer: %w", err)
@@ -304,16 +300,14 @@ func (t *ClientDeal) UnmarshalCBOR(r io.Reader) error {
 
 	{
 
-		pb, err := br.PeekByte()
+		b, err := br.ReadByte()
 		if err != nil {
 			return err
 		}
-		if pb == cbg.CborNull[0] {
-			var nbuf [1]byte
-			if _, err := br.Read(nbuf[:]); err != nil {
+		if b != cbg.CborNull[0] {
+			if err := br.UnreadByte(); err != nil {
 				return err
 			}
-		} else {
 
 			c, err := cbg.ReadCid(br)
 			if err != nil {
@@ -398,16 +392,14 @@ func (t *ClientDeal) UnmarshalCBOR(r io.Reader) error {
 
 	{
 
-		pb, err := br.PeekByte()
+		b, err := br.ReadByte()
 		if err != nil {
 			return err
 		}
-		if pb == cbg.CborNull[0] {
-			var nbuf [1]byte
-			if _, err := br.Read(nbuf[:]); err != nil {
+		if b != cbg.CborNull[0] {
+			if err := br.UnreadByte(); err != nil {
 				return err
 			}
-		} else {
 			maj, extra, err = cbg.CborReadHeaderBuf(br, scratch)
 			if err != nil {
 				return err
@@ -641,16 +633,14 @@ func (t *MinerDeal) UnmarshalCBOR(r io.Reader) error {
 
 	{
 
-		pb, err := br.PeekByte()
+		b, err := br.ReadByte()
 		if err != nil {
 			return err
 		}
-		if pb == cbg.CborNull[0] {
-			var nbuf [1]byte
-			if _, err := br.Read(nbuf[:]); err != nil {
+		if b != cbg.CborNull[0] {
+			if err := br.UnreadByte(); err != nil {
 				return err
 			}
-		} else {
 
 			c, err := cbg.ReadCid(br)
 			if err != nil {
@@ -665,16 +655,14 @@ func (t *MinerDeal) UnmarshalCBOR(r io.Reader) error {
 
 	{
 
-		pb, err := br.PeekByte()
+		b, err := br.ReadByte()
 		if err != nil {
 			return err
 		}
-		if pb == cbg.CborNull[0] {
-			var nbuf [1]byte
-			if _, err := br.Read(nbuf[:]); err != nil {
+		if b != cbg.CborNull[0] {
+			if err := br.UnreadByte(); err != nil {
 				return err
 			}
-		} else {
 
 			c, err := cbg.ReadCid(br)
 			if err != nil {
@@ -795,16 +783,14 @@ func (t *MinerDeal) UnmarshalCBOR(r io.Reader) error {
 
 	{
 
-		pb, err := br.PeekByte()
+		b, err := br.ReadByte()
 		if err != nil {
 			return err
 		}
-		if pb == cbg.CborNull[0] {
-			var nbuf [1]byte
-			if _, err := br.Read(nbuf[:]); err != nil {
+		if b != cbg.CborNull[0] {
+			if err := br.UnreadByte(); err != nil {
 				return err
 			}
-		} else {
 			maj, extra, err = cbg.CborReadHeaderBuf(br, scratch)
 			if err != nil {
 				return err
@@ -830,16 +816,14 @@ func (t *MinerDeal) UnmarshalCBOR(r io.Reader) error {
 
 	{
 
-		pb, err := br.PeekByte()
+		b, err := br.ReadByte()
 		if err != nil {
 			return err
 		}
-		if pb == cbg.CborNull[0] {
-			var nbuf [1]byte
-			if _, err := br.Read(nbuf[:]); err != nil {
+		if b != cbg.CborNull[0] {
+			if err := br.UnreadByte(); err != nil {
 				return err
 			}
-		} else {
 			t.Ref = new(DataRef)
 			if err := t.Ref.UnmarshalCBOR(br); err != nil {
 				return xerrors.Errorf("unmarshaling t.Ref pointer: %w", err)
@@ -988,16 +972,14 @@ func (t *SignedStorageAsk) UnmarshalCBOR(r io.Reader) error {
 
 	{
 
-		pb, err := br.PeekByte()
+		b, err := br.ReadByte()
 		if err != nil {
 			return err
 		}
-		if pb == cbg.CborNull[0] {
-			var nbuf [1]byte
-			if _, err := br.Read(nbuf[:]); err != nil {
+		if b != cbg.CborNull[0] {
+			if err := br.UnreadByte(); err != nil {
 				return err
 			}
-		} else {
 			t.Ask = new(StorageAsk)
 			if err := t.Ask.UnmarshalCBOR(br); err != nil {
 				return xerrors.Errorf("unmarshaling t.Ask pointer: %w", err)
@@ -1009,16 +991,14 @@ func (t *SignedStorageAsk) UnmarshalCBOR(r io.Reader) error {
 
 	{
 
-		pb, err := br.PeekByte()
+		b, err := br.ReadByte()
 		if err != nil {
 			return err
 		}
-		if pb == cbg.CborNull[0] {
-			var nbuf [1]byte
-			if _, err := br.Read(nbuf[:]); err != nil {
+		if b != cbg.CborNull[0] {
+			if err := br.UnreadByte(); err != nil {
 				return err
 			}
-		} else {
 			t.Signature = new(crypto.Signature)
 			if err := t.Signature.UnmarshalCBOR(br); err != nil {
 				return xerrors.Errorf("unmarshaling t.Signature pointer: %w", err)
@@ -1398,16 +1378,14 @@ func (t *DataRef) UnmarshalCBOR(r io.Reader) error {
 
 	{
 
-		pb, err := br.PeekByte()
+		b, err := br.ReadByte()
 		if err != nil {
 			return err
 		}
-		if pb == cbg.CborNull[0] {
-			var nbuf [1]byte
-			if _, err := br.Read(nbuf[:]); err != nil {
+		if b != cbg.CborNull[0] {
+			if err := br.UnreadByte(); err != nil {
 				return err
 			}
-		} else {
 
 			c, err := cbg.ReadCid(br)
 			if err != nil {
@@ -1566,16 +1544,14 @@ func (t *ProviderDealState) UnmarshalCBOR(r io.Reader) error {
 
 	{
 
-		pb, err := br.PeekByte()
+		b, err := br.ReadByte()
 		if err != nil {
 			return err
 		}
-		if pb == cbg.CborNull[0] {
-			var nbuf [1]byte
-			if _, err := br.Read(nbuf[:]); err != nil {
+		if b != cbg.CborNull[0] {
+			if err := br.UnreadByte(); err != nil {
 				return err
 			}
-		} else {
 			t.Proposal = new(market.DealProposal)
 			if err := t.Proposal.UnmarshalCBOR(br); err != nil {
 				return xerrors.Errorf("unmarshaling t.Proposal pointer: %w", err)
@@ -1587,16 +1563,14 @@ func (t *ProviderDealState) UnmarshalCBOR(r io.Reader) error {
 
 	{
 
-		pb, err := br.PeekByte()
+		b, err := br.ReadByte()
 		if err != nil {
 			return err
 		}
-		if pb == cbg.CborNull[0] {
-			var nbuf [1]byte
-			if _, err := br.Read(nbuf[:]); err != nil {
+		if b != cbg.CborNull[0] {
+			if err := br.UnreadByte(); err != nil {
 				return err
 			}
-		} else {
 
 			c, err := cbg.ReadCid(br)
 			if err != nil {
@@ -1611,16 +1585,14 @@ func (t *ProviderDealState) UnmarshalCBOR(r io.Reader) error {
 
 	{
 
-		pb, err := br.PeekByte()
+		b, err := br.ReadByte()
 		if err != nil {
 			return err
 		}
-		if pb == cbg.CborNull[0] {
-			var nbuf [1]byte
-			if _, err := br.Read(nbuf[:]); err != nil {
+		if b != cbg.CborNull[0] {
+			if err := br.UnreadByte(); err != nil {
 				return err
 			}
-		} else {
 
 			c, err := cbg.ReadCid(br)
 			if err != nil {
@@ -1635,16 +1607,14 @@ func (t *ProviderDealState) UnmarshalCBOR(r io.Reader) error {
 
 	{
 
-		pb, err := br.PeekByte()
+		b, err := br.ReadByte()
 		if err != nil {
 			return err
 		}
-		if pb == cbg.CborNull[0] {
-			var nbuf [1]byte
-			if _, err := br.Read(nbuf[:]); err != nil {
+		if b != cbg.CborNull[0] {
+			if err := br.UnreadByte(); err != nil {
 				return err
 			}
-		} else {
 
 			c, err := cbg.ReadCid(br)
 			if err != nil {

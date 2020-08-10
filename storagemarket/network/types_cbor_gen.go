@@ -103,16 +103,14 @@ func (t *AskResponse) UnmarshalCBOR(r io.Reader) error {
 
 	{
 
-		pb, err := br.PeekByte()
+		b, err := br.ReadByte()
 		if err != nil {
 			return err
 		}
-		if pb == cbg.CborNull[0] {
-			var nbuf [1]byte
-			if _, err := br.Read(nbuf[:]); err != nil {
+		if b != cbg.CborNull[0] {
+			if err := br.UnreadByte(); err != nil {
 				return err
 			}
-		} else {
 			t.Ask = new(storagemarket.SignedStorageAsk)
 			if err := t.Ask.UnmarshalCBOR(br); err != nil {
 				return xerrors.Errorf("unmarshaling t.Ask pointer: %w", err)
@@ -173,16 +171,14 @@ func (t *Proposal) UnmarshalCBOR(r io.Reader) error {
 
 	{
 
-		pb, err := br.PeekByte()
+		b, err := br.ReadByte()
 		if err != nil {
 			return err
 		}
-		if pb == cbg.CborNull[0] {
-			var nbuf [1]byte
-			if _, err := br.Read(nbuf[:]); err != nil {
+		if b != cbg.CborNull[0] {
+			if err := br.UnreadByte(); err != nil {
 				return err
 			}
-		} else {
 			t.DealProposal = new(market.ClientDealProposal)
 			if err := t.DealProposal.UnmarshalCBOR(br); err != nil {
 				return xerrors.Errorf("unmarshaling t.DealProposal pointer: %w", err)
@@ -194,16 +190,14 @@ func (t *Proposal) UnmarshalCBOR(r io.Reader) error {
 
 	{
 
-		pb, err := br.PeekByte()
+		b, err := br.ReadByte()
 		if err != nil {
 			return err
 		}
-		if pb == cbg.CborNull[0] {
-			var nbuf [1]byte
-			if _, err := br.Read(nbuf[:]); err != nil {
+		if b != cbg.CborNull[0] {
+			if err := br.UnreadByte(); err != nil {
 				return err
 			}
-		} else {
 			t.Piece = new(storagemarket.DataRef)
 			if err := t.Piece.UnmarshalCBOR(br); err != nil {
 				return xerrors.Errorf("unmarshaling t.Piece pointer: %w", err)
@@ -341,16 +335,14 @@ func (t *Response) UnmarshalCBOR(r io.Reader) error {
 
 	{
 
-		pb, err := br.PeekByte()
+		b, err := br.ReadByte()
 		if err != nil {
 			return err
 		}
-		if pb == cbg.CborNull[0] {
-			var nbuf [1]byte
-			if _, err := br.Read(nbuf[:]); err != nil {
+		if b != cbg.CborNull[0] {
+			if err := br.UnreadByte(); err != nil {
 				return err
 			}
-		} else {
 
 			c, err := cbg.ReadCid(br)
 			if err != nil {
@@ -418,16 +410,14 @@ func (t *SignedResponse) UnmarshalCBOR(r io.Reader) error {
 
 	{
 
-		pb, err := br.PeekByte()
+		b, err := br.ReadByte()
 		if err != nil {
 			return err
 		}
-		if pb == cbg.CborNull[0] {
-			var nbuf [1]byte
-			if _, err := br.Read(nbuf[:]); err != nil {
+		if b != cbg.CborNull[0] {
+			if err := br.UnreadByte(); err != nil {
 				return err
 			}
-		} else {
 			t.Signature = new(crypto.Signature)
 			if err := t.Signature.UnmarshalCBOR(br); err != nil {
 				return xerrors.Errorf("unmarshaling t.Signature pointer: %w", err)

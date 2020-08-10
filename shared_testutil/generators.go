@@ -318,7 +318,7 @@ func RequireGenerateRetrievalPeers(t *testing.T, numPeers int) []retrievalmarket
 	for i := range peers {
 		pid, err := test.RandPeerID()
 		require.NoError(t, err)
-		addr, err := address.NewIDAddress(rand.Uint64())
+		addr, err := address.NewIDAddress(uint64(rand.Int63()))
 		require.NoError(t, err)
 		peers[i] = retrievalmarket.RetrievalPeer{
 			Address: addr,
