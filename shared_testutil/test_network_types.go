@@ -406,7 +406,6 @@ type TestStorageDealStream struct {
 	proposalWriter StorageDealProposalWriter
 	responseReader StorageDealResponseReader
 	responseWriter StorageDealResponseWriter
-	tags           map[string]struct{}
 
 	CloseCount int
 	CloseError error
@@ -431,7 +430,6 @@ func NewTestStorageDealStream(params TestStorageDealStreamParams) *TestStorageDe
 		proposalWriter: TrivialStorageDealProposalWriter,
 		responseReader: TrivialStorageDealResponseReader,
 		responseWriter: TrivialStorageDealResponseWriter,
-		tags:           make(map[string]struct{}),
 	}
 	if params.ProposalReader != nil {
 		stream.proposalReader = params.ProposalReader
@@ -475,23 +473,6 @@ func (tsds TestStorageDealStream) RemotePeer() peer.ID { return tsds.p }
 func (tsds *TestStorageDealStream) Close() error {
 	tsds.CloseCount += 1
 	return tsds.CloseError
-}
-
-// TagProtectedConnection preserves this connection as higher priority than others
-func (tsds TestStorageDealStream) TagProtectedConnection(identifier string) {
-	tsds.tags[identifier] = struct{}{}
-}
-
-// UntagProtectedConnection removes the given tag on this connection, increasing
-// the likelyhood it will be cleaned up
-func (tsds TestStorageDealStream) UntagProtectedConnection(identifier string) {
-	delete(tsds.tags, identifier)
-}
-
-// AssertConnectionTagged verifies a connection was tagged with the given identifier
-func (tsds TestStorageDealStream) AssertConnectionTagged(t *testing.T, identifier string) {
-	_, ok := tsds.tags[identifier]
-	require.True(t, ok)
 }
 
 // TrivialStorageDealProposalReader succeeds trivially, returning an empty proposal.
@@ -559,3 +540,22 @@ func (tpr TestPeerResolver) GetPeers(cid.Cid) ([]rm.RetrievalPeer, error) {
 }
 
 var _ rm.PeerResolver = &TestPeerResolver{}
+
+type TestPeerTagger struct {
+	TagCalls   []peer.ID
+	UntagCalls []peer.ID
+}
+
+func NewTestPeerTagger() *TestPeerTagger {
+	return &TestPeerTagger{}
+}
+
+func (pt *TestPeerTagger) TagPeer(id peer.ID, _ string) {
+	pt.TagCalls = append(pt.TagCalls, id)
+}
+
+func (pt *TestPeerTagger) UntagPeer(id peer.ID, _ string) {
+	pt.UntagCalls = append(pt.UntagCalls, id)
+}
+
+var _ smnet.PeerTagger = &TestPeerTagger{}
