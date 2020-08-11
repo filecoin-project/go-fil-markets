@@ -44,6 +44,7 @@ type ProviderDealEnvironment interface {
 	PieceStore() piecestore.PieceStore
 	RunCustomDecisionLogic(context.Context, storagemarket.MinerDeal) (bool, string, error)
 	DealFunds() funds.DealFunds
+	network.PeerTagger
 }
 
 // ProviderStateEntryFunc is the signature for a StateEntryFunc in the provider FSM
@@ -51,6 +52,8 @@ type ProviderStateEntryFunc func(ctx fsm.Context, environment ProviderDealEnviro
 
 // ValidateDealProposal validates a proposed deal against the provider criteria
 func ValidateDealProposal(ctx fsm.Context, environment ProviderDealEnvironment, deal storagemarket.MinerDeal) error {
+	environment.TagPeer(deal.Client, deal.ProposalCid.String())
+
 	tok, _, err := environment.Node().GetChainHead(ctx.Context())
 	if err != nil {
 		return ctx.Trigger(storagemarket.ProviderEventDealRejected, xerrors.Errorf("node error getting most recent state id: %w", err))
@@ -385,6 +388,9 @@ func VerifyDealActivated(ctx fsm.Context, environment ProviderDealEnvironment, d
 
 // WaitForDealCompletion waits for the deal to be slashed or to expire
 func WaitForDealCompletion(ctx fsm.Context, environment ProviderDealEnvironment, deal storagemarket.MinerDeal) error {
+	// At this point we have all the data so we can unprotect the connection
+	environment.UntagPeer(deal.Client, deal.ProposalCid.String())
+
 	node := environment.Node()
 
 	// Called when the deal expires
@@ -433,8 +439,9 @@ func RejectDeal(ctx fsm.Context, environment ProviderDealEnvironment, deal stora
 
 // FailDeal cleans up before terminating a deal
 func FailDeal(ctx fsm.Context, environment ProviderDealEnvironment, deal storagemarket.MinerDeal) error {
-
 	log.Warnf("deal %s failed: %s", deal.ProposalCid, deal.Message)
+
+	environment.UntagPeer(deal.Client, deal.ProposalCid.String())
 
 	if deal.PiecePath != filestore.Path("") {
 		err := environment.FileStore().Delete(deal.PiecePath)

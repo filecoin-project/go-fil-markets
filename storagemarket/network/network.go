@@ -28,8 +28,6 @@ type StorageDealStream interface {
 	ReadDealResponse() (SignedResponse, error)
 	WriteDealResponse(SignedResponse) error
 	RemotePeer() peer.ID
-	TagProtectedConnection(identifier string)
-	UntagProtectedConnection(identifier string)
 	Close() error
 }
 
@@ -60,4 +58,12 @@ type StorageMarketNetwork interface {
 	StopHandlingRequests() error
 	ID() peer.ID
 	AddAddrs(peer.ID, []ma.Multiaddr)
+
+	PeerTagger
+}
+
+// PeerTagger implements arbitrary tagging of peers
+type PeerTagger interface {
+	TagPeer(peer.ID, string)
+	UntagPeer(peer.ID, string)
 }

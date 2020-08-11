@@ -9,6 +9,7 @@ import (
 	"github.com/ipfs/go-cid"
 	"github.com/ipfs/go-datastore"
 	"github.com/ipld/go-ipld-prime"
+	"github.com/libp2p/go-libp2p-core/peer"
 	"golang.org/x/xerrors"
 
 	"github.com/filecoin-project/go-address"
@@ -666,6 +667,14 @@ func (p *providerDealEnvironment) RunCustomDecisionLogic(ctx context.Context, de
 
 func (p *providerDealEnvironment) DealFunds() funds.DealFunds {
 	return p.p.dealFunds
+}
+
+func (p *providerDealEnvironment) TagPeer(id peer.ID, s string) {
+	p.p.net.TagPeer(id, s)
+}
+
+func (p *providerDealEnvironment) UntagPeer(id peer.ID, s string) {
+	p.p.net.UntagPeer(id, s)
 }
 
 var _ providerstates.ProviderDealEnvironment = &providerDealEnvironment{}
