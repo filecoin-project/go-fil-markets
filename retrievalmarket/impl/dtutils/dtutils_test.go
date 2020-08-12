@@ -61,7 +61,7 @@ func TestProviderDataTransferSubscriber(t *testing.T) {
 				Status:     datatransfer.Ongoing},
 			expectedID:    rm.ProviderDealIdentifier{DealID: dealProposal.ID, Receiver: testPeers[1]},
 			expectedEvent: rm.ProviderEventDataTransferError,
-			expectedArgs:  []interface{}{errors.New("something went wrong")},
+			expectedArgs:  []interface{}{errors.New("deal data transfer failed: something went wrong")},
 		},
 		"completed": {
 			code: datatransfer.ResumeResponder,
@@ -234,7 +234,7 @@ func TestClientDataTransferSubscriber(t *testing.T) {
 				Status:   datatransfer.Ongoing},
 			expectedID:    dealProposal.ID,
 			expectedEvent: rm.ClientEventDataTransferError,
-			expectedArgs:  []interface{}{errors.New("something went wrong")},
+			expectedArgs:  []interface{}{errors.New("deal data transfer failed: something went wrong")},
 		},
 	}
 	for test, data := range tests {

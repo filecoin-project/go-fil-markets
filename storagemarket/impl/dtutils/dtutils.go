@@ -3,7 +3,7 @@
 package dtutils
 
 import (
-	"errors"
+	"fmt"
 
 	"github.com/ipfs/go-cid"
 	logging "github.com/ipfs/go-log/v2"
@@ -18,11 +18,6 @@ import (
 )
 
 var log = logging.Logger("storagemarket_impl")
-
-var (
-	// ErrDataTransferFailed means a data transfer for a deal failed
-	ErrDataTransferFailed = errors.New("deal data transfer failed")
-)
 
 // EventReceiver is any thing that can receive FSM events
 type EventReceiver interface {
@@ -57,7 +52,7 @@ func ProviderDataTransferSubscriber(deals EventReceiver) datatransfer.Subscriber
 				log.Errorf("processing dt event: %w", err)
 			}
 		case datatransfer.Error:
-			err := deals.Send(voucher.Proposal, storagemarket.ProviderEventDataTransferFailed, ErrDataTransferFailed)
+			err := deals.Send(voucher.Proposal, storagemarket.ProviderEventDataTransferFailed, fmt.Errorf("deal data transfer failed: %s", event.Message))
 			if err != nil {
 				log.Errorf("processing dt event: %w", err)
 			}
@@ -88,7 +83,7 @@ func ClientDataTransferSubscriber(deals EventReceiver) datatransfer.Subscriber {
 		// data transfer events for progress do not affect deal state
 		switch event.Code {
 		case datatransfer.Error:
-			err := deals.Send(voucher.Proposal, storagemarket.ClientEventDataTransferFailed, ErrDataTransferFailed)
+			err := deals.Send(voucher.Proposal, storagemarket.ClientEventDataTransferFailed, fmt.Errorf("deal data transfer failed: %s", event.Message))
 			if err != nil {
 				log.Errorf("processing dt event: %w", err)
 			}
