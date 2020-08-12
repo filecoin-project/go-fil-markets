@@ -3,7 +3,7 @@
 package dtutils
 
 import (
-	"errors"
+	"fmt"
 	"math"
 
 	logging "github.com/ipfs/go-log/v2"
@@ -18,11 +18,6 @@ import (
 )
 
 var log = logging.Logger("retrievalmarket_impl")
-
-var (
-	// ErrDataTransferFailed means a data transfer for a deal failed
-	ErrDataTransferFailed = errors.New("deal data transfer failed")
-)
 
 // EventReceiver is any thing that can receive FSM events
 type EventReceiver interface {
@@ -50,7 +45,7 @@ func ProviderDataTransferSubscriber(deals EventReceiver) datatransfer.Subscriber
 				log.Errorf("processing dt event: %w", err)
 			}
 		case datatransfer.Error:
-			err := deals.Send(rm.ProviderDealIdentifier{DealID: dealProposal.ID, Receiver: channelState.Recipient()}, rm.ProviderEventDataTransferError, errors.New(event.Message))
+			err := deals.Send(rm.ProviderDealIdentifier{DealID: dealProposal.ID, Receiver: channelState.Recipient()}, rm.ProviderEventDataTransferError, fmt.Errorf("deal data transfer failed: %s", event.Message))
 			if err != nil {
 				log.Errorf("processing dt event: %w", err)
 			}
@@ -105,7 +100,7 @@ func clientEvent(event datatransfer.Event, channelState datatransfer.ChannelStat
 		}
 		return clientEventForResponse(response)
 	case datatransfer.Error:
-		return rm.ClientEventDataTransferError, []interface{}{errors.New(event.Message)}
+		return rm.ClientEventDataTransferError, []interface{}{fmt.Errorf("deal data transfer failed: %s", event.Message)}
 	default:
 	}
 
