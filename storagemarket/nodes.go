@@ -51,8 +51,9 @@ type StorageCommon interface {
 	// SignsBytes signs the given data with the given address's private key
 	SignBytes(ctx context.Context, signer address.Address, b []byte) (*crypto.Signature, error)
 
-	// DealProviderCollateralBounds returns the min and max collateral a storage provider can issue.
-	DealProviderCollateralBounds(ctx context.Context, size abi.PaddedPieceSize, isVerified bool) (abi.TokenAmount, abi.TokenAmount, error)
+	// DealProviderCollateralBounds returns the min and max collateral a storage provider must issue.
+	// The min collateral is increased by a factor of correctPercentage.
+	DealProviderCollateralBounds(ctx context.Context, size abi.PaddedPieceSize, isVerified bool, correctPercentage uint) (abi.TokenAmount, abi.TokenAmount, error)
 
 	// OnDealSectorCommitted waits for a deal's sector to be sealed and proved, indicating the deal is active
 	OnDealSectorCommitted(ctx context.Context, provider address.Address, dealID abi.DealID, cb DealSectorCommittedCallback) error

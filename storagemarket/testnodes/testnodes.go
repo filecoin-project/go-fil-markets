@@ -182,7 +182,7 @@ func (n *FakeCommonNode) SignBytes(ctx context.Context, signer address.Address, 
 	return nil, n.SignBytesError
 }
 
-func (n *FakeCommonNode) DealProviderCollateralBounds(ctx context.Context, size abi.PaddedPieceSize, isVerified bool) (abi.TokenAmount, abi.TokenAmount, error) {
+func (n *FakeCommonNode) DealProviderCollateralBounds(ctx context.Context, size abi.PaddedPieceSize, isVerified bool, pct uint) (abi.TokenAmount, abi.TokenAmount, error) {
 	return abi.NewTokenAmount(5000), abi.TotalFilecoin, nil
 }
 

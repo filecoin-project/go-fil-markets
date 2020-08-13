@@ -334,9 +334,12 @@ func (c *Client) ProposeStorageDeal(ctx context.Context, params storagemarket.Pr
 		return nil, fmt.Errorf("cannot propose a deal whose piece size (%d) is greater than sector size (%d)", pieceSize.Padded(), params.Info.SectorSize)
 	}
 
-	pcMin, _, err := c.node.DealProviderCollateralBounds(ctx, pieceSize.Padded(), params.VerifiedDeal)
-	if err != nil {
-		return nil, xerrors.Errorf("computing deal provider collateral bound failed: %w", err)
+	pcMin := params.Collateral
+	if pcMin.Int == nil || pcMin.IsZero() {
+		pcMin, _, err = c.node.DealProviderCollateralBounds(ctx, pieceSize.Padded(), params.VerifiedDeal, 100)
+		if err != nil {
+			return nil, xerrors.Errorf("computing deal provider collateral bound failed: %w", err)
+		}
 	}
 
 	label, err := clientutils.LabelField(params.Data.Root)
