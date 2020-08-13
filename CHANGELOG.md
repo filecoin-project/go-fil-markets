@@ -609,6 +609,35 @@ Minor release to bug fix some multi-addr issues
 |-------------|---------|---------|---------------|
 | Hannah Howard | 1 | +178/-39 | 16 |
 
+# go-fil-markets v0.5.5
+
+Minor release updates dependencies and adds back in peer tagging
+
+### Changelog
+
+- github.com/filecoin-project/go-fil-markets:
+  - Update data transfer 0.6.1 (#366) ([filecoin-project/go-fil-markets#366](https://github.com/filecoin-project/go-fil-markets/pull/366))
+  - Update specs-actors and cbor-gen (#363) ([filecoin-project/go-fil-markets#363](https://github.com/filecoin-project/go-fil-markets/pull/363))
+  - Add back connection tagging (#362) ([filecoin-project/go-fil-markets#362](https://github.com/filecoin-project/go-fil-markets/pull/362))
+- github.com/filecoin-project/go-data-transfer (v0.5.3 -> v0.6.1):
+  - docs(CHANGELOG): update for 0.6.1
+  - Update graphsync 0.1.1 (#65) ([filecoin-project/go-data-transfer#65](https://github.com/filecoin-project/go-data-transfer/pull/65))
+  - Update changelog for 0.6.0 release (#64) ([filecoin-project/go-data-transfer#64](https://github.com/filecoin-project/go-data-transfer/pull/64))
+  - Update cbor-gen (#63) ([filecoin-project/go-data-transfer#63](https://github.com/filecoin-project/go-data-transfer/pull/63))
+  - Release/v0.5.3 ([filecoin-project/go-data-transfer#62](https://github.com/filecoin-project/go-data-transfer/pull/62))
+- github.com/ipfs/go-graphsync (v0.1.0 -> v0.1.1):
+  - docs(CHANGELOG): update for v0.1.1
+  - docs(CHANGELOG): update for v0.1.0 release ([ipfs/go-graphsync#84](https://github.com/ipfs/go-graphsync/pull/84))
+  - Dedup by key extension (#83) ([ipfs/go-graphsync#83](https://github.com/ipfs/go-graphsync/pull/83))
+
+### Contributors
+
+| Contributor | Commits | Lines ± | Files Changed |
+|-------------|---------|---------|---------------|
+| Hannah Howard | 4 | +590/-154 | 33 |
+| Steven Allen | 3 | +161/-176 | 12 |
+| hannahhoward | 2 | +38/-1 | 3 |
+
 ### 🙌🏽 Want to contribute?
 
 Would you like to contribute to this repo and don’t know how? Here are a few places you can get started:
