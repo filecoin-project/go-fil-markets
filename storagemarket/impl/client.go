@@ -10,8 +10,6 @@ import (
 	"github.com/ipfs/go-datastore"
 	blockstore "github.com/ipfs/go-ipfs-blockstore"
 	logging "github.com/ipfs/go-log/v2"
-	"github.com/ipld/go-ipld-prime"
-	"github.com/libp2p/go-libp2p-core/peer"
 	"golang.org/x/xerrors"
 
 	"github.com/filecoin-project/go-address"
@@ -111,6 +109,11 @@ func NewClient(
 
 	// register a data transfer event handler -- this will send events to the state machines based on DT events
 	dataTransfer.SubscribeToEvents(dtutils.ClientDataTransferSubscriber(statemachines))
+
+	err = dataTransfer.RegisterVoucherType(&requestvalidation.StorageDataTransferVoucher{}, requestvalidation.NewUnifiedRequestValidator(nil, &clientPullDeals{c}))
+	if err != nil {
+		return nil, err
+	}
 
 	err = dataTransfer.RegisterTransportConfigurer(&requestvalidation.StorageDataTransferVoucher{}, dtutils.TransportConfigurer(&clientStoreGetter{c}))
 	if err != nil {
@@ -562,63 +565,6 @@ func clientDispatcher(evt pubsub.Event, fn pubsub.SubscriberFn) error {
 	}
 	cb(ie.evt, ie.deal)
 	return nil
-}
-
-// -------
-// clientDealEnvironment
-// -------
-
-type clientDealEnvironment struct {
-	c *Client
-}
-
-func (c *clientDealEnvironment) NewDealStream(ctx context.Context, p peer.ID) (network.StorageDealStream, error) {
-	return c.c.net.NewDealStream(ctx, p)
-}
-
-func (c *clientDealEnvironment) Node() storagemarket.StorageClientNode {
-	return c.c.node
-}
-
-func (c *clientDealEnvironment) StartDataTransfer(ctx context.Context, to peer.ID, voucher datatransfer.Voucher, baseCid cid.Cid, selector ipld.Node) error {
-	_, err := c.c.dataTransfer.OpenPushDataChannel(ctx, to, voucher, baseCid, selector)
-	return err
-}
-
-func (c *clientDealEnvironment) GetProviderDealState(ctx context.Context, proposalCid cid.Cid) (*storagemarket.ProviderDealState, error) {
-	return c.c.GetProviderDealState(ctx, proposalCid)
-}
-
-func (c *clientDealEnvironment) PollingInterval() time.Duration {
-	return c.c.pollingInterval
-}
-
-func (c *clientDealEnvironment) DealFunds() funds.DealFunds {
-	return c.c.dealFunds
-}
-
-type clientStoreGetter struct {
-	c *Client
-}
-
-func (csg *clientStoreGetter) Get(proposalCid cid.Cid) (*multistore.Store, error) {
-	var deal storagemarket.ClientDeal
-	err := csg.c.statemachines.Get(proposalCid).Get(&deal)
-	if err != nil {
-		return nil, err
-	}
-	if deal.StoreID == nil {
-		return nil, nil
-	}
-	return csg.c.multiStore.Get(*deal.StoreID)
-}
-
-func (c *clientDealEnvironment) TagPeer(peer peer.ID, tag string) {
-	c.c.net.TagPeer(peer, tag)
-}
-
-func (c *clientDealEnvironment) UntagPeer(peer peer.ID, tag string) {
-	c.c.net.UntagPeer(peer, tag)
 }
 
 // ClientFSMParameterSpec is a valid set of parameters for a client deal FSM - used in doc generation

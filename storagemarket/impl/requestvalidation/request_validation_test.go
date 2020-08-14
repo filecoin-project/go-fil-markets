@@ -4,6 +4,7 @@ import (
 	"math/rand"
 	"testing"
 
+	"github.com/ipfs/go-cid"
 	"github.com/ipfs/go-datastore"
 	"github.com/ipfs/go-datastore/namespace"
 	dss "github.com/ipfs/go-datastore/sync"
@@ -99,6 +100,26 @@ func newMinerDeal(clientID peer.ID, state storagemarket.StorageDealStatus) (stor
 	}, nil
 }
 
+type pushDeals struct {
+	state *statestore.StateStore
+}
+
+func (pd *pushDeals) Get(proposalCid cid.Cid) (storagemarket.MinerDeal, error) {
+	var deal storagemarket.MinerDeal
+	err := pd.state.Get(proposalCid).Get(&deal)
+	return deal, err
+}
+
+type pullDeals struct {
+	state *statestore.StateStore
+}
+
+func (pd *pullDeals) Get(proposalCid cid.Cid) (storagemarket.ClientDeal, error) {
+	var deal storagemarket.ClientDeal
+	err := pd.state.Get(proposalCid).Get(&deal)
+	return deal, err
+}
+
 func TestUnifiedRequestValidator(t *testing.T) {
 	ds := dss.MutexWrap(datastore.NewMapDatastore())
 	state := statestore.New(namespace.Wrap(ds, datastore.NewKey("/deals/client")))
@@ -107,7 +128,7 @@ func TestUnifiedRequestValidator(t *testing.T) {
 	block := blockGenerator.Next()
 
 	t.Run("which only accepts pulls", func(t *testing.T) {
-		urv := rv.NewUnifiedRequestValidator(nil, state)
+		urv := rv.NewUnifiedRequestValidator(nil, &pullDeals{state})
 
 		t.Run("ValidatePush fails", func(t *testing.T) {
 			_, err := urv.ValidatePush(minerID, wrongDTType{}, block.Cid(), nil)
@@ -120,7 +141,7 @@ func TestUnifiedRequestValidator(t *testing.T) {
 	})
 
 	t.Run("which only accepts pushes", func(t *testing.T) {
-		urv := rv.NewUnifiedRequestValidator(state, nil)
+		urv := rv.NewUnifiedRequestValidator(&pushDeals{state}, nil)
 
 		t.Run("ValidatePull fails", func(t *testing.T) {
 			_, err := urv.ValidatePull(clientID, wrongDTType{}, block.Cid(), nil)
@@ -133,7 +154,7 @@ func TestUnifiedRequestValidator(t *testing.T) {
 	})
 
 	t.Run("which accepts pushes and pulls", func(t *testing.T) {
-		urv := rv.NewUnifiedRequestValidator(state, state)
+		urv := rv.NewUnifiedRequestValidator(&pushDeals{state}, &pullDeals{state})
 
 		AssertValidatesPulls(t, urv, minerID, state)
 		AssertPushValidator(t, urv, clientID, state)
