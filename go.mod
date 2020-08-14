@@ -38,7 +38,7 @@ require (
 	github.com/libp2p/go-libp2p-core v0.6.0
 	github.com/multiformats/go-multiaddr v0.2.2
 	github.com/stretchr/testify v1.6.1
-	github.com/whyrusleeping/cbor-gen v0.0.0-20200810223238-211df3b9e24c
+	github.com/whyrusleeping/cbor-gen v0.0.0-20200814224545-656e08ce49ee
 	golang.org/x/exp v0.0.0-20190121172915-509febef88a4
 	golang.org/x/net v0.0.0-20200226121028-0de0cce0169b
 	golang.org/x/xerrors v0.0.0-20200804184101-5ec99f83aff1

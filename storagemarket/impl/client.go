@@ -10,6 +10,7 @@ import (
 	"github.com/ipfs/go-datastore"
 	blockstore "github.com/ipfs/go-ipfs-blockstore"
 	logging "github.com/ipfs/go-log/v2"
+	cbg "github.com/whyrusleeping/cbor-gen"
 	"golang.org/x/xerrors"
 
 	"github.com/filecoin-project/go-address"
@@ -383,6 +384,7 @@ func (c *Client) ProposeStorageDeal(ctx context.Context, params storagemarket.Pr
 		DataRef:            params.Data,
 		FastRetrieval:      params.FastRetrieval,
 		StoreID:            params.StoreID,
+		CreationTime:       cbg.CborTime(time.Now()),
 	}
 
 	err = c.statemachines.Begin(proposalNd.Cid(), deal)

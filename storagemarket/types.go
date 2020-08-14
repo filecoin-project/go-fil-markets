@@ -4,6 +4,7 @@ import (
 	"github.com/ipfs/go-cid"
 	"github.com/libp2p/go-libp2p-core/peer"
 	ma "github.com/multiformats/go-multiaddr"
+	cbg "github.com/whyrusleeping/cbor-gen"
 
 	"github.com/filecoin-project/go-address"
 	"github.com/filecoin-project/go-multistore"
@@ -96,7 +97,8 @@ type MinerDeal struct {
 	Ref                   *DataRef
 	AvailableForRetrieval bool
 
-	DealID abi.DealID
+	DealID       abi.DealID
+	CreationTime cbg.CborTime
 }
 
 // ClientDeal is the local state tracked for a deal by a StorageClient
@@ -117,6 +119,7 @@ type ClientDeal struct {
 	FastRetrieval  bool
 	StoreID        *multistore.StoreID
 	FundsReserved  abi.TokenAmount
+	CreationTime   cbg.CborTime
 }
 
 // StorageDeal is a local combination of a proposal and a current deal state

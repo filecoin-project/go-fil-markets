@@ -3,10 +3,12 @@ package storageimpl
 import (
 	"context"
 	"io"
+	"time"
 
 	"github.com/hannahhoward/go-pubsub"
 	"github.com/ipfs/go-cid"
 	"github.com/ipfs/go-datastore"
+	cbg "github.com/whyrusleeping/cbor-gen"
 	"golang.org/x/xerrors"
 
 	"github.com/filecoin-project/go-address"
@@ -234,6 +236,7 @@ func (p *Provider) receiveDeal(s network.StorageDealStream) error {
 		Ref:                proposal.Piece,
 		FastRetrieval:      proposal.FastRetrieval,
 		StoreID:            storeIDForDeal,
+		CreationTime:       cbg.CborTime(time.Now()),
 	}
 
 	err = p.deals.Begin(proposalNd.Cid(), deal)

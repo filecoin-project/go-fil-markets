@@ -6,10 +6,10 @@ import (
 	"fmt"
 	"io"
 
-	"github.com/filecoin-project/go-fil-markets/piecestore"
-	"github.com/filecoin-project/go-multistore"
-	"github.com/filecoin-project/specs-actors/actors/builtin/paych"
-	"github.com/libp2p/go-libp2p-core/peer"
+	piecestore "github.com/filecoin-project/go-fil-markets/piecestore"
+	multistore "github.com/filecoin-project/go-multistore"
+	paych "github.com/filecoin-project/specs-actors/actors/builtin/paych"
+	peer "github.com/libp2p/go-libp2p-core/peer"
 	cbg "github.com/whyrusleeping/cbor-gen"
 	xerrors "golang.org/x/xerrors"
 )
