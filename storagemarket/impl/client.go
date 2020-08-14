@@ -408,7 +408,7 @@ func (c *Client) ProposeStorageDeal(ctx context.Context, params storagemarket.Pr
 
 func curTime() cbg.CborTime {
 	now := time.Now()
-	return cbg.CborTime(time.Unix(0, now.UnixNano()))
+	return cbg.CborTime(time.Unix(0, now.UnixNano()).UTC())
 }
 
 // GetPaymentEscrow returns the current funds available for deal payment
