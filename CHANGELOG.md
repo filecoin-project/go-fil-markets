@@ -638,6 +638,27 @@ Minor release updates dependencies and adds back in peer tagging
 | Steven Allen | 3 | +161/-176 | 12 |
 | hannahhoward | 2 | +38/-1 | 3 |
 
+# go-fil-markets 0.5.6
+
+Minor bug fix release
+
+### Changelog
+
+- github.com/filecoin-project/go-fil-markets:
+  - feat(requestvalidation): use getsync in validation (#372) ([filecoin-project/go-fil-markets#372](https://github.com/filecoin-project/go-fil-markets/pull/372))
+  - Use collateral from ProposeStorageDealParams (#371) ([filecoin-project/go-fil-markets#371](https://github.com/filecoin-project/go-fil-markets/pull/371))
+  - Fix UML for docs-check (#370) ([filecoin-project/go-fil-markets#370](https://github.com/filecoin-project/go-fil-markets/pull/370))
+  - docs(CHANGELOG): update for 0.5.5 ([filecoin-project/go-fil-markets#368](https://github.com/filecoin-project/go-fil-markets/pull/368))
+- github.com/filecoin-project/go-statemachine (v0.0.0-20200730031800-c3336614d2a7 -> v0.0.0-20200813232949-df9b130df370):
+  - fix(uml): make just record predictable (#19) ([filecoin-project/go-statemachine#19](https://github.com/filecoin-project/go-statemachine/pull/19))
+
+### Contributors
+
+| Contributor | Commits | Lines ± | Files Changed |
+|-------------|---------|---------|---------------|
+| Hannah Howard | 3 | +318/-235 | 19 |
+| Aayush Rajasekaran | 1 | +6/-3 | 1 |
+
 ### 🙌🏽 Want to contribute?
 
 Would you like to contribute to this repo and don’t know how? Here are a few places you can get started:
