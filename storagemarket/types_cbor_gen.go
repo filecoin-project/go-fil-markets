@@ -6,19 +6,19 @@ import (
 	"fmt"
 	"io"
 
-	"github.com/filecoin-project/go-fil-markets/filestore"
-	"github.com/filecoin-project/go-multistore"
-	"github.com/filecoin-project/specs-actors/actors/abi"
-	"github.com/filecoin-project/specs-actors/actors/builtin/market"
-	"github.com/filecoin-project/specs-actors/actors/crypto"
-	"github.com/libp2p/go-libp2p-core/peer"
+	filestore "github.com/filecoin-project/go-fil-markets/filestore"
+	multistore "github.com/filecoin-project/go-multistore"
+	abi "github.com/filecoin-project/specs-actors/actors/abi"
+	market "github.com/filecoin-project/specs-actors/actors/builtin/market"
+	crypto "github.com/filecoin-project/specs-actors/actors/crypto"
+	peer "github.com/libp2p/go-libp2p-core/peer"
 	cbg "github.com/whyrusleeping/cbor-gen"
 	xerrors "golang.org/x/xerrors"
 )
 
 var _ = xerrors.Errorf
 
-var lengthBufClientDeal = []byte{144}
+var lengthBufClientDeal = []byte{145}
 
 func (t *ClientDeal) MarshalCBOR(w io.Writer) error {
 	if t == nil {
@@ -156,6 +156,11 @@ func (t *ClientDeal) MarshalCBOR(w io.Writer) error {
 	if err := t.FundsReserved.MarshalCBOR(w); err != nil {
 		return err
 	}
+
+	// t.CreationTime (typegen.CborTime) (struct)
+	if err := t.CreationTime.MarshalCBOR(w); err != nil {
+		return err
+	}
 	return nil
 }
 
@@ -173,7 +178,7 @@ func (t *ClientDeal) UnmarshalCBOR(r io.Reader) error {
 		return fmt.Errorf("cbor input should be of type array")
 	}
 
-	if extra != 16 {
+	if extra != 17 {
 		return fmt.Errorf("cbor input had wrong number of fields")
 	}
 
@@ -421,10 +426,19 @@ func (t *ClientDeal) UnmarshalCBOR(r io.Reader) error {
 		}
 
 	}
+	// t.CreationTime (typegen.CborTime) (struct)
+
+	{
+
+		if err := t.CreationTime.UnmarshalCBOR(br); err != nil {
+			return xerrors.Errorf("unmarshaling t.CreationTime: %w", err)
+		}
+
+	}
 	return nil
 }
 
-var lengthBufMinerDeal = []byte{145}
+var lengthBufMinerDeal = []byte{146}
 
 func (t *MinerDeal) MarshalCBOR(w io.Writer) error {
 	if t == nil {
@@ -587,6 +601,10 @@ func (t *MinerDeal) MarshalCBOR(w io.Writer) error {
 		return err
 	}
 
+	// t.CreationTime (typegen.CborTime) (struct)
+	if err := t.CreationTime.MarshalCBOR(w); err != nil {
+		return err
+	}
 	return nil
 }
 
@@ -604,7 +622,7 @@ func (t *MinerDeal) UnmarshalCBOR(r io.Reader) error {
 		return fmt.Errorf("cbor input should be of type array")
 	}
 
-	if extra != 17 {
+	if extra != 18 {
 		return fmt.Errorf("cbor input had wrong number of fields")
 	}
 
@@ -860,6 +878,15 @@ func (t *MinerDeal) UnmarshalCBOR(r io.Reader) error {
 			return fmt.Errorf("wrong type for uint64 field")
 		}
 		t.DealID = abi.DealID(extra)
+
+	}
+	// t.CreationTime (typegen.CborTime) (struct)
+
+	{
+
+		if err := t.CreationTime.UnmarshalCBOR(br); err != nil {
+			return xerrors.Errorf("unmarshaling t.CreationTime: %w", err)
+		}
 
 	}
 	return nil

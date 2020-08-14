@@ -234,6 +234,7 @@ func (p *Provider) receiveDeal(s network.StorageDealStream) error {
 		Ref:                proposal.Piece,
 		FastRetrieval:      proposal.FastRetrieval,
 		StoreID:            storeIDForDeal,
+		CreationTime:       curTime(),
 	}
 
 	err = p.deals.Begin(proposalNd.Cid(), deal)
