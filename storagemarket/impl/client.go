@@ -384,7 +384,7 @@ func (c *Client) ProposeStorageDeal(ctx context.Context, params storagemarket.Pr
 		DataRef:            params.Data,
 		FastRetrieval:      params.FastRetrieval,
 		StoreID:            params.StoreID,
-		CreationTime:       cbg.CborTime(time.Now()),
+		CreationTime:       curTime(),
 	}
 
 	err = c.statemachines.Begin(proposalNd.Cid(), deal)
@@ -404,6 +404,11 @@ func (c *Client) ProposeStorageDeal(ctx context.Context, params storagemarket.Pr
 			ID:       deal.Miner,
 			PieceCID: &commP,
 		})
+}
+
+func curTime() cbg.CborTime {
+	now := time.Now()
+	return cbg.CborTime(time.Unix(0, now.UnixNano()))
 }
 
 // GetPaymentEscrow returns the current funds available for deal payment

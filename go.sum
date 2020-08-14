@@ -775,8 +775,6 @@ github.com/whyrusleeping/cbor-gen v0.0.0-20200710004633-5379fc63235d/go.mod h1:f
 github.com/whyrusleeping/cbor-gen v0.0.0-20200715143311-227fab5a2377/go.mod h1:fgkXqYy7bV2cFeIEOkVTZS/WjXARfBqSH6Q2qHL33hQ=
 github.com/whyrusleeping/cbor-gen v0.0.0-20200810223238-211df3b9e24c h1:BMg3YUwLEUIYBJoYZVhA4ZDTciXRj6r7ffOCshWrsoE=
 github.com/whyrusleeping/cbor-gen v0.0.0-20200810223238-211df3b9e24c/go.mod h1:fgkXqYy7bV2cFeIEOkVTZS/WjXARfBqSH6Q2qHL33hQ=
-github.com/whyrusleeping/cbor-gen v0.0.0-20200814222401-9d087a727cef h1:xShuWgUbwYJ8WxwFmlMAK5ylmuOE3QZvN30ptgyLOKo=
-github.com/whyrusleeping/cbor-gen v0.0.0-20200814222401-9d087a727cef/go.mod h1:fgkXqYy7bV2cFeIEOkVTZS/WjXARfBqSH6Q2qHL33hQ=
 github.com/whyrusleeping/cbor-gen v0.0.0-20200814224545-656e08ce49ee h1:U7zWWvvAjT76EiuWPSOiZlQDnaQYPxPoxugTtTAcJK0=
 github.com/whyrusleeping/cbor-gen v0.0.0-20200814224545-656e08ce49ee/go.mod h1:fgkXqYy7bV2cFeIEOkVTZS/WjXARfBqSH6Q2qHL33hQ=
 github.com/whyrusleeping/chunker v0.0.0-20181014151217-fe64bd25879f h1:jQa4QT2UP9WYv2nzyawpKMOCl+Z/jW7djv2/J50lj9E=
