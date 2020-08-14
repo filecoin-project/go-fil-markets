@@ -22,7 +22,6 @@ import (
 	dtimpl "github.com/filecoin-project/go-data-transfer/impl"
 	dtgstransport "github.com/filecoin-project/go-data-transfer/transport/graphsync"
 	"github.com/filecoin-project/go-multistore"
-	"github.com/filecoin-project/go-statestore"
 	"github.com/filecoin-project/specs-actors/actors/abi"
 	"github.com/filecoin-project/specs-actors/actors/abi/big"
 	"github.com/filecoin-project/specs-actors/actors/builtin/market"
@@ -41,7 +40,6 @@ import (
 	"github.com/filecoin-project/go-fil-markets/storagemarket"
 	stormkt "github.com/filecoin-project/go-fil-markets/storagemarket/impl"
 	"github.com/filecoin-project/go-fil-markets/storagemarket/impl/funds"
-	"github.com/filecoin-project/go-fil-markets/storagemarket/impl/requestvalidation"
 	"github.com/filecoin-project/go-fil-markets/storagemarket/impl/storedask"
 	stornet "github.com/filecoin-project/go-fil-markets/storagemarket/network"
 	"github.com/filecoin-project/go-fil-markets/storagemarket/testnodes"
@@ -261,8 +259,6 @@ func newStorageHarness(ctx context.Context, t *testing.T) *storageHarness {
 	require.NoError(t, err)
 	err = dt1.Start(ctx)
 	require.NoError(t, err)
-	rv1 := requestvalidation.NewUnifiedRequestValidator(nil, statestore.New(td.Ds1))
-	require.NoError(t, dt1.RegisterVoucherType(&requestvalidation.StorageDataTransferVoucher{}, rv1))
 
 	peerResolver := discovery.NewLocal(td.Ds1)
 
@@ -287,8 +283,6 @@ func newStorageHarness(ctx context.Context, t *testing.T) *storageHarness {
 	require.NoError(t, err)
 	err = dt2.Start(ctx)
 	require.NoError(t, err)
-	rv2 := requestvalidation.NewUnifiedRequestValidator(statestore.New(td.Ds2), nil)
-	require.NoError(t, dt2.RegisterVoucherType(&requestvalidation.StorageDataTransferVoucher{}, rv2))
 	storedAsk, err := storedask.NewStoredAsk(td.Ds2, datastore.NewKey("latest-ask"), providerNode, providerAddr)
 	require.NoError(t, err)
 	providerDealFunds, err := funds.NewDealFunds(td.Ds1, datastore.NewKey("storage/provider/dealfunds"))

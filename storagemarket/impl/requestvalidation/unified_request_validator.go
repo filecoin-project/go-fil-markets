@@ -6,20 +6,31 @@ import (
 	"github.com/libp2p/go-libp2p-core/peer"
 
 	datatransfer "github.com/filecoin-project/go-data-transfer"
-	"github.com/filecoin-project/go-statestore"
+
+	"github.com/filecoin-project/go-fil-markets/storagemarket"
 )
+
+// PushDeals gets deal states for Push validations
+type PushDeals interface {
+	Get(cid.Cid) (storagemarket.MinerDeal, error)
+}
+
+// PullDeals gets deal states for Pull validations
+type PullDeals interface {
+	Get(cid.Cid) (storagemarket.ClientDeal, error)
+}
 
 // UnifiedRequestValidator is a data transfer request validator that validates
 // StorageDataTransferVoucher from the given state store
 // It can be made to only accept push requests (Provider) or pull requests (Client)
 // by passing nil for the statestore value for pushes or pulls
 type UnifiedRequestValidator struct {
-	pushDeals *statestore.StateStore
-	pullDeals *statestore.StateStore
+	pushDeals PushDeals
+	pullDeals PullDeals
 }
 
 // NewUnifiedRequestValidator returns a new instance of UnifiedRequestValidator
-func NewUnifiedRequestValidator(pushDeals *statestore.StateStore, pullDeals *statestore.StateStore) *UnifiedRequestValidator {
+func NewUnifiedRequestValidator(pushDeals PushDeals, pullDeals PullDeals) *UnifiedRequestValidator {
 	return &UnifiedRequestValidator{
 		pushDeals: pushDeals,
 		pullDeals: pullDeals,
@@ -27,12 +38,12 @@ func NewUnifiedRequestValidator(pushDeals *statestore.StateStore, pullDeals *sta
 }
 
 // SetPushDeals sets the store to look up push deals with
-func (v *UnifiedRequestValidator) SetPushDeals(pushDeals *statestore.StateStore) {
+func (v *UnifiedRequestValidator) SetPushDeals(pushDeals PushDeals) {
 	v.pushDeals = pushDeals
 }
 
 // SetPullDeals sets the store to look up pull deals with
-func (v *UnifiedRequestValidator) SetPullDeals(pullDeals *statestore.StateStore) {
+func (v *UnifiedRequestValidator) SetPullDeals(pullDeals PullDeals) {
 	v.pullDeals = pullDeals
 }
 

@@ -7,7 +7,6 @@ import (
 	"golang.org/x/xerrors"
 
 	datatransfer "github.com/filecoin-project/go-data-transfer"
-	"github.com/filecoin-project/go-statestore"
 
 	"github.com/filecoin-project/go-fil-markets/storagemarket"
 )
@@ -20,7 +19,7 @@ import (
 // - referenced deal matches the given base CID
 // - referenced deal is in an acceptable state
 func ValidatePush(
-	deals *statestore.StateStore,
+	deals PushDeals,
 	sender peer.ID,
 	voucher datatransfer.Voucher,
 	baseCid cid.Cid,
@@ -31,7 +30,7 @@ func ValidatePush(
 	}
 
 	var deal storagemarket.MinerDeal
-	err := deals.Get(dealVoucher.Proposal).Get(&deal)
+	deal, err := deals.Get(dealVoucher.Proposal)
 	if err != nil {
 		return xerrors.Errorf("Proposal CID %s: %w", dealVoucher.Proposal.String(), ErrNoDeal)
 	}
@@ -58,7 +57,7 @@ func ValidatePush(
 // - referenced deal matches the given base CID
 // - referenced deal is in an acceptable state
 func ValidatePull(
-	deals *statestore.StateStore,
+	deals PullDeals,
 	receiver peer.ID,
 	voucher datatransfer.Voucher,
 	baseCid cid.Cid,
@@ -67,9 +66,7 @@ func ValidatePull(
 	if !ok {
 		return xerrors.Errorf("voucher type %s: %w", voucher.Type(), ErrWrongVoucherType)
 	}
-
-	var deal storagemarket.ClientDeal
-	err := deals.Get(dealVoucher.Proposal).Get(&deal)
+	deal, err := deals.Get(dealVoucher.Proposal)
 	if err != nil {
 		return xerrors.Errorf("Proposal CID %s: %w", dealVoucher.Proposal.String(), ErrNoDeal)
 	}
