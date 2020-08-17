@@ -13,7 +13,7 @@ require (
 	github.com/filecoin-project/go-storedcounter v0.0.0-20200421200003-1c99c62e8a5b
 	github.com/filecoin-project/sector-storage v0.0.0-20200730050024-3ee28c3b6d9a
 	github.com/filecoin-project/specs-actors v0.8.7-0.20200811203034-272d022c1923
-	github.com/hannahhoward/cbor-gen-for v0.0.0-20200723175505-5892b522820a
+	github.com/hannahhoward/cbor-gen-for v0.0.0-20200817222906-ea96cece81f1
 	github.com/hannahhoward/go-pubsub v0.0.0-20200423002714-8d62886cc36e
 	github.com/ipfs/go-block-format v0.0.2
 	github.com/ipfs/go-blockservice v0.1.4-0.20200624145336-a978cec6e834
