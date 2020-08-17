@@ -13,20 +13,29 @@ import (
 
 var _ = xerrors.Errorf
 
-var lengthBufretrievalPeers = []byte{129}
-
 func (t *retrievalPeers) MarshalCBOR(w io.Writer) error {
 	if t == nil {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	if _, err := w.Write(lengthBufretrievalPeers); err != nil {
+	if _, err := w.Write([]byte{161}); err != nil {
 		return err
 	}
 
 	scratch := make([]byte, 9)
 
 	// t.Peers ([]retrievalmarket.RetrievalPeer) (slice)
+	if len("Peers") > cbg.MaxLength {
+		return xerrors.Errorf("Value in field \"Peers\" was too long")
+	}
+
+	if err := cbg.WriteMajorTypeHeaderBuf(scratch, w, cbg.MajTextString, uint64(len("Peers"))); err != nil {
+		return err
+	}
+	if _, err := io.WriteString(w, string("Peers")); err != nil {
+		return err
+	}
+
 	if len(t.Peers) > cbg.MaxLength {
 		return xerrors.Errorf("Slice value in field t.Peers was too long")
 	}
@@ -52,41 +61,62 @@ func (t *retrievalPeers) UnmarshalCBOR(r io.Reader) error {
 	if err != nil {
 		return err
 	}
-	if maj != cbg.MajArray {
-		return fmt.Errorf("cbor input should be of type array")
-	}
-
-	if extra != 1 {
-		return fmt.Errorf("cbor input had wrong number of fields")
-	}
-
-	// t.Peers ([]retrievalmarket.RetrievalPeer) (slice)
-
-	maj, extra, err = cbg.CborReadHeaderBuf(br, scratch)
-	if err != nil {
-		return err
+	if maj != cbg.MajMap {
+		return fmt.Errorf("cbor input should be of type map")
 	}
 
 	if extra > cbg.MaxLength {
-		return fmt.Errorf("t.Peers: array too large (%d)", extra)
+		return fmt.Errorf("retrievalPeers: map struct too large (%d)", extra)
 	}
 
-	if maj != cbg.MajArray {
-		return fmt.Errorf("expected cbor array")
-	}
+	var name string
+	n := extra
 
-	if extra > 0 {
-		t.Peers = make([]retrievalmarket.RetrievalPeer, extra)
-	}
+	for i := uint64(0); i < n; i++ {
 
-	for i := 0; i < int(extra); i++ {
+		{
+			sval, err := cbg.ReadStringBuf(br, scratch)
+			if err != nil {
+				return err
+			}
 
-		var v retrievalmarket.RetrievalPeer
-		if err := v.UnmarshalCBOR(br); err != nil {
-			return err
+			name = string(sval)
 		}
 
-		t.Peers[i] = v
+		switch name {
+		// t.Peers ([]retrievalmarket.RetrievalPeer) (slice)
+		case "Peers":
+
+			maj, extra, err = cbg.CborReadHeaderBuf(br, scratch)
+			if err != nil {
+				return err
+			}
+
+			if extra > cbg.MaxLength {
+				return fmt.Errorf("t.Peers: array too large (%d)", extra)
+			}
+
+			if maj != cbg.MajArray {
+				return fmt.Errorf("expected cbor array")
+			}
+
+			if extra > 0 {
+				t.Peers = make([]retrievalmarket.RetrievalPeer, extra)
+			}
+
+			for i := 0; i < int(extra); i++ {
+
+				var v retrievalmarket.RetrievalPeer
+				if err := v.UnmarshalCBOR(br); err != nil {
+					return err
+				}
+
+				t.Peers[i] = v
+			}
+
+		default:
+			return fmt.Errorf("unknown struct field %d: '%s'", i, name)
+		}
 	}
 
 	return nil

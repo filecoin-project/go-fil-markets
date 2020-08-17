@@ -10,7 +10,7 @@ import (
 	"github.com/filecoin-project/go-fil-markets/storagemarket"
 )
 
-//go:generate cbor-gen-for AskRequest AskResponse Proposal Response SignedResponse DealStatusRequest DealStatusResponse
+//go:generate cbor-gen-for --map-encoding AskRequest AskResponse Proposal Response SignedResponse DealStatusRequest DealStatusResponse
 
 // Proposal is the data sent over the network from client to provider when proposing
 // a deal

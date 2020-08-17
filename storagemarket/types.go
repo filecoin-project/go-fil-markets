@@ -15,7 +15,7 @@ import (
 	"github.com/filecoin-project/go-fil-markets/filestore"
 )
 
-//go:generate cbor-gen-for ClientDeal MinerDeal Balance SignedStorageAsk StorageAsk StorageDeal DataRef ProviderDealState
+//go:generate cbor-gen-for --map-encoding ClientDeal MinerDeal Balance SignedStorageAsk StorageAsk StorageDeal DataRef ProviderDealState
 
 // DealProtocolID is the ID for the libp2p protocol for proposing storage deals.
 const DealProtocolID = "/fil/storage/mk/1.0.1"

@@ -1,6 +1,6 @@
 package discovery
 
-//go:generate cbor-gen-for retrievalPeers
+//go:generate cbor-gen-for --map-encoding retrievalPeers
 
 import (
 	"bytes"

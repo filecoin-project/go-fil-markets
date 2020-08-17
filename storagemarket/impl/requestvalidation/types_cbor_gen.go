@@ -12,20 +12,28 @@ import (
 
 var _ = xerrors.Errorf
 
-var lengthBufStorageDataTransferVoucher = []byte{129}
-
 func (t *StorageDataTransferVoucher) MarshalCBOR(w io.Writer) error {
 	if t == nil {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	if _, err := w.Write(lengthBufStorageDataTransferVoucher); err != nil {
+	if _, err := w.Write([]byte{161}); err != nil {
 		return err
 	}
 
 	scratch := make([]byte, 9)
 
 	// t.Proposal (cid.Cid) (struct)
+	if len("Proposal") > cbg.MaxLength {
+		return xerrors.Errorf("Value in field \"Proposal\" was too long")
+	}
+
+	if err := cbg.WriteMajorTypeHeaderBuf(scratch, w, cbg.MajTextString, uint64(len("Proposal"))); err != nil {
+		return err
+	}
+	if _, err := io.WriteString(w, string("Proposal")); err != nil {
+		return err
+	}
 
 	if err := cbg.WriteCidBuf(scratch, w, t.Proposal); err != nil {
 		return xerrors.Errorf("failed to write cid field t.Proposal: %w", err)
@@ -44,25 +52,47 @@ func (t *StorageDataTransferVoucher) UnmarshalCBOR(r io.Reader) error {
 	if err != nil {
 		return err
 	}
-	if maj != cbg.MajArray {
-		return fmt.Errorf("cbor input should be of type array")
+	if maj != cbg.MajMap {
+		return fmt.Errorf("cbor input should be of type map")
 	}
 
-	if extra != 1 {
-		return fmt.Errorf("cbor input had wrong number of fields")
+	if extra > cbg.MaxLength {
+		return fmt.Errorf("StorageDataTransferVoucher: map struct too large (%d)", extra)
 	}
 
-	// t.Proposal (cid.Cid) (struct)
+	var name string
+	n := extra
 
-	{
+	for i := uint64(0); i < n; i++ {
 
-		c, err := cbg.ReadCid(br)
-		if err != nil {
-			return xerrors.Errorf("failed to read cid field t.Proposal: %w", err)
+		{
+			sval, err := cbg.ReadStringBuf(br, scratch)
+			if err != nil {
+				return err
+			}
+
+			name = string(sval)
 		}
 
-		t.Proposal = c
+		switch name {
+		// t.Proposal (cid.Cid) (struct)
+		case "Proposal":
 
+			{
+
+				c, err := cbg.ReadCid(br)
+				if err != nil {
+					return xerrors.Errorf("failed to read cid field t.Proposal: %w", err)
+				}
+
+				t.Proposal = c
+
+			}
+
+		default:
+			return fmt.Errorf("unknown struct field %d: '%s'", i, name)
+		}
 	}
+
 	return nil
 }

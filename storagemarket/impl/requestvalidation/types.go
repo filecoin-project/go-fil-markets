@@ -10,7 +10,7 @@ import (
 	"github.com/filecoin-project/go-fil-markets/storagemarket"
 )
 
-//go:generate cbor-gen-for StorageDataTransferVoucher
+//go:generate cbor-gen-for --map-encoding StorageDataTransferVoucher
 
 var (
 	// ErrWrongVoucherType means the voucher was not the correct type can validate against

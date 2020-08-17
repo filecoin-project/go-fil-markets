@@ -6,7 +6,7 @@ import (
 	"github.com/filecoin-project/specs-actors/actors/abi"
 )
 
-//go:generate cbor-gen-for PieceInfo DealInfo BlockLocation PieceBlockLocation CIDInfo
+//go:generate cbor-gen-for --map-encoding PieceInfo DealInfo BlockLocation PieceBlockLocation CIDInfo
 
 // DealInfo is information about a single deal for a given piece
 type DealInfo struct {

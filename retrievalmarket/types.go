@@ -22,7 +22,7 @@ import (
 	"github.com/filecoin-project/go-fil-markets/piecestore"
 )
 
-//go:generate cbor-gen-for Query QueryResponse DealProposal DealResponse Params QueryParams DealPayment ClientDealState ProviderDealState PaymentInfo RetrievalPeer Ask
+//go:generate cbor-gen-for --map-encoding Query QueryResponse DealProposal DealResponse Params QueryParams DealPayment ClientDealState ProviderDealState PaymentInfo RetrievalPeer Ask
 
 // ProtocolID is the protocol for proposing / responding to retrieval deals
 const ProtocolID = "/fil/retrieval/0.0.1"

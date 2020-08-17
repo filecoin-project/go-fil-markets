@@ -13,7 +13,7 @@ import (
 	"github.com/ipld/go-car"
 )
 
-//go:generate cbor-gen-for PieceBlockMetadata
+//go:generate cbor-gen-for --map-encoding PieceBlockMetadata
 
 // PieceBlockMetadata is a record of where a given CID lives in a piece,
 // in terms of its offset and size
