@@ -4,7 +4,7 @@ stateDiagram-v2
 	state "DealStatusPaymentChannelCreating" as 4
 	state "DealStatusPaymentChannelAddingFunds" as 5
 	state "DealStatusAccepted" as 6
-	state "DealStatusFailed" as 8
+	state "DealStatusFailing" as 8
 	state "DealStatusRejected" as 9
 	state "DealStatusFundsNeeded" as 10
 	state "DealStatusSendFunds" as 11
@@ -31,9 +31,10 @@ stateDiagram-v2
 		The following events are not shown cause they can trigger from any state.
 
 		ClientEventWriteDealProposalErrored - transitions state to DealStatusErrored
-		ClientEventUnknownResponseReceived - transitions state to DealStatusFailed
+		ClientEventUnknownResponseReceived - transitions state to DealStatusFailing
 		ClientEventDataTransferError - transitions state to DealStatusErrored
 		ClientEventWriteDealPaymentErrored - transitions state to DealStatusErrored
+		<invalid reflect.Value> - transitions state to DealStatusErrored
 	end note
 	0 --> 0 : ClientEventOpen
 	0 --> 3 : ClientEventDealProposed

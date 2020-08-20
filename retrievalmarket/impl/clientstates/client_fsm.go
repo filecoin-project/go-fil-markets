@@ -230,6 +230,13 @@ var ClientEvents = fsm.Events{
 		FromMany(rm.DealStatusFinalizing).To(rm.DealStatusCompleted),
 	fsm.Event(rm.ClientEventCancelComplete).
 		From(rm.DealStatusFailing).To(rm.DealStatusErrored),
+
+	fsm.Event(rm.ClientEventProviderCancelled).FromAny().To(rm.DealStatusErrored).Action(
+		func(deal *rm.ClientDealState) error {
+			deal.Message = "Provider cancelled retrieval due to error"
+			return nil
+		},
+	),
 }
 
 // ClientFinalityStates are terminal states after which no further events are received

@@ -91,7 +91,7 @@ var DealStatuses = map[DealStatus]string{
 	DealStatusPaymentChannelAddingFunds: "DealStatusPaymentChannelAddingFunds",
 	DealStatusAccepted:                  "DealStatusAccepted",
 	DealStatusFundsNeededUnseal:         "DealStatusFundsNeededUnseal",
-	DealStatusFailing:                   "DealStatusFailed",
+	DealStatusFailing:                   "DealStatusFailing",
 	DealStatusRejected:                  "DealStatusRejected",
 	DealStatusFundsNeeded:               "DealStatusFundsNeeded",
 	DealStatusSendFunds:                 "DealStatusSendFunds",
