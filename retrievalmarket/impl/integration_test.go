@@ -174,6 +174,7 @@ func TestClientCanMakeDealWithProvider(t *testing.T) {
 		unsealPrice        abi.TokenAmount
 		paramsV1, addFunds bool
 		skipStores         bool
+		failsUnseal        bool
 	}{
 		{name: "1 block file retrieval succeeds with existing payment channel",
 			filename:    "lorem_under_1_block.txt",
@@ -225,6 +226,13 @@ func TestClientCanMakeDealWithProvider(t *testing.T) {
 			filesize:    19000,
 			voucherAmts: []abi.TokenAmount{abi.NewTokenAmount(10136000), abi.NewTokenAmount(9784000)},
 			skipStores:  true,
+		},
+		{
+			name:        "failed unseal",
+			filename:    "lorem.txt",
+			filesize:    19000,
+			voucherAmts: []abi.TokenAmount{},
+			failsUnseal: true,
 		},
 	}
 
@@ -285,7 +293,12 @@ func TestClientCanMakeDealWithProvider(t *testing.T) {
 					},
 				},
 			}
-			providerNode.ExpectUnseal(sectorID, offset.Unpadded(), abi.UnpaddedPieceSize(len(carData)), carData)
+			if testCase.failsUnseal {
+				providerNode.ExpectFailedUnseal(sectorID, offset.Unpadded(), abi.UnpaddedPieceSize(len(carData)))
+			} else {
+				providerNode.ExpectUnseal(sectorID, offset.Unpadded(), abi.UnpaddedPieceSize(len(carData)), carData)
+			}
+
 			// clearout provider blockstore
 			err = testData.MultiStore2.Delete(storeID)
 			require.NoError(t, err)
@@ -321,7 +334,7 @@ func TestClientCanMakeDealWithProvider(t *testing.T) {
 			clientDealStateChan := make(chan retrievalmarket.ClientDealState)
 			client.SubscribeToEvents(func(event retrievalmarket.ClientEvent, state retrievalmarket.ClientDealState) {
 				switch event {
-				case retrievalmarket.ClientEventComplete:
+				case retrievalmarket.ClientEventComplete, retrievalmarket.ClientEventProviderCancelled:
 					clientDealStateChan <- state
 				default:
 					msg := `
@@ -342,7 +355,7 @@ Message:         %s
 			providerDealStateChan := make(chan retrievalmarket.ProviderDealState)
 			provider.SubscribeToEvents(func(event retrievalmarket.ProviderEvent, state retrievalmarket.ProviderDealState) {
 				switch event {
-				case retrievalmarket.ProviderEventCleanupComplete:
+				case retrievalmarket.ProviderEventCleanupComplete, retrievalmarket.ProviderEventCancelComplete:
 					providerDealStateChan <- state
 				default:
 					msg := `
@@ -394,14 +407,18 @@ CurrentInterval: %d
 				t.FailNow()
 			case clientDealState = <-clientDealStateChan:
 			}
-			assert.Equal(t, clientDealState.PaymentInfo.Lane, expectedVoucher.Lane)
-			require.NotNil(t, createdChan)
-			require.Equal(t, expectedTotal, createdChan.amt)
-			require.Equal(t, clientPaymentChannel, *newLaneAddr)
-			// verify that the voucher was saved/seen by the client with correct values
-			require.NotNil(t, createdVoucher)
-			tut.TestVoucherEquality(t, createdVoucher, expectedVoucher)
-
+			if testCase.failsUnseal {
+				assert.Equal(t, retrievalmarket.DealStatusErrored, clientDealState.Status)
+			} else {
+				assert.Equal(t, clientDealState.PaymentInfo.Lane, expectedVoucher.Lane)
+				require.NotNil(t, createdChan)
+				require.Equal(t, expectedTotal, createdChan.amt)
+				require.Equal(t, clientPaymentChannel, *newLaneAddr)
+				// verify that the voucher was saved/seen by the client with correct values
+				require.NotNil(t, createdVoucher)
+				tut.TestVoucherEquality(t, createdVoucher, expectedVoucher)
+				assert.Equal(t, retrievalmarket.DealStatusCompleted, clientDealState.Status)
+			}
 			ctx, cancel = context.WithTimeout(bgCtx, 5*time.Second)
 			defer cancel()
 			var providerDealState retrievalmarket.ProviderDealState
@@ -412,7 +429,11 @@ CurrentInterval: %d
 			case providerDealState = <-providerDealStateChan:
 			}
 
-			require.Equal(t, retrievalmarket.DealStatusCompleted, providerDealState.Status)
+			if testCase.failsUnseal {
+				require.Equal(t, retrievalmarket.DealStatusErrored, providerDealState.Status)
+			} else {
+				require.Equal(t, retrievalmarket.DealStatusCompleted, providerDealState.Status)
+			}
 			// TODO this is terrible, but it's temporary until the test harness refactor
 			// in the resuming retrieval deals branch is done
 			// https://github.com/filecoin-project/go-fil-markets/issues/65
@@ -422,10 +443,12 @@ CurrentInterval: %d
 			// verify that the nodes we interacted with as expected
 			clientNode.VerifyExpectations(t)
 			providerNode.VerifyExpectations(t)
-			if testCase.skipStores {
-				testData.VerifyFileTransferred(t, pieceLink, false, testCase.filesize)
-			} else {
-				testData.VerifyFileTransferredIntoStore(t, pieceLink, *clientStoreID, false, testCase.filesize)
+			if !testCase.failsUnseal {
+				if testCase.skipStores {
+					testData.VerifyFileTransferred(t, pieceLink, false, testCase.filesize)
+				} else {
+					testData.VerifyFileTransferredIntoStore(t, pieceLink, *clientStoreID, false, testCase.filesize)
+				}
 			}
 		})
 	}
