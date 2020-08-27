@@ -57,6 +57,8 @@ type Client struct {
 	statemachines   fsm.Group
 	pollingInterval time.Duration
 	dealFunds       funds.DealFunds
+
+	unsubDataTransfer datatransfer.Unsubscribe
 }
 
 // StorageClientOption allows custom configuration of a storage client
@@ -109,7 +111,7 @@ func NewClient(
 	c.Configure(options...)
 
 	// register a data transfer event handler -- this will send events to the state machines based on DT events
-	dataTransfer.SubscribeToEvents(dtutils.ClientDataTransferSubscriber(statemachines))
+	c.unsubDataTransfer = dataTransfer.SubscribeToEvents(dtutils.ClientDataTransferSubscriber(statemachines))
 
 	err = dataTransfer.RegisterVoucherType(&requestvalidation.StorageDataTransferVoucher{}, requestvalidation.NewUnifiedRequestValidator(nil, &clientPullDeals{c}))
 	if err != nil {
@@ -138,6 +140,7 @@ func (c *Client) Start(ctx context.Context) error {
 
 // Stop ends deal processing on a StorageClient
 func (c *Client) Stop() error {
+	c.unsubDataTransfer()
 	return c.statemachines.Stop(context.TODO())
 }
 

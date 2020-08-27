@@ -63,6 +63,8 @@ type Provider struct {
 	pubSub                    *pubsub.PubSub
 
 	deals fsm.Group
+
+	unsubDataTransfer datatransfer.Unsubscribe
 }
 
 // StorageProviderOption allows custom configuration of a storage provider
@@ -139,7 +141,7 @@ func NewProvider(net network.StorageMarketNetwork,
 	h.Configure(options...)
 
 	// register a data transfer event handler -- this will send events to the state machines based on DT events
-	dataTransfer.SubscribeToEvents(dtutils.ProviderDataTransferSubscriber(deals))
+	h.unsubDataTransfer = dataTransfer.SubscribeToEvents(dtutils.ProviderDataTransferSubscriber(deals))
 
 	err = dataTransfer.RegisterVoucherType(&requestvalidation.StorageDataTransferVoucher{}, requestvalidation.NewUnifiedRequestValidator(&providerPushDeals{h}, nil))
 	if err != nil {
@@ -250,6 +252,7 @@ func (p *Provider) receiveDeal(s network.StorageDealStream) error {
 
 // Stop terminates processing of deals on a StorageProvider
 func (p *Provider) Stop() error {
+	p.unsubDataTransfer()
 	err := p.deals.Stop(context.TODO())
 	if err != nil {
 		return err
