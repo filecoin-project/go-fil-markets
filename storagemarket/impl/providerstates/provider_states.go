@@ -301,6 +301,7 @@ func HandoffDeal(ctx fsm.Context, environment ProviderDealEnvironment, deal stor
 			ProposalCid:        deal.ProposalCid,
 			State:              deal.State,
 			Ref:                deal.Ref,
+			PublishCid:         deal.PublishCid,
 			DealID:             deal.DealID,
 			FastRetrieval:      deal.FastRetrieval,
 		},
