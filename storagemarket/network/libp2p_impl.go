@@ -65,8 +65,8 @@ func (impl *libp2pStorageMarketNetwork) NewDealStatusStream(ctx context.Context,
 
 func (impl *libp2pStorageMarketNetwork) openStream(ctx context.Context, id peer.ID, protocol protocol.ID) (network.Stream, error) {
 	b := &backoff.Backoff{
-		Min:    50 * time.Millisecond,
-		Max:    6 * time.Second,
+		Min:    100 * time.Millisecond,
+		Max:    10 * time.Second,
 		Factor: 5,
 		Jitter: true,
 	}
