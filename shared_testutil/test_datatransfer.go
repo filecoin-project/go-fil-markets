@@ -49,7 +49,7 @@ func (tdt *TestDataTransfer) Start(ctx context.Context) error {
 }
 
 // Stop does nothing
-func (tdt *TestDataTransfer) Stop() error {
+func (tdt *TestDataTransfer) Stop(context.Context) error {
 	return nil
 }
 
