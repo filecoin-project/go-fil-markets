@@ -280,69 +280,81 @@ func TestMakeDealNonBlocking(t *testing.T) {
 }
 
 func TestRestartClient(t *testing.T) {
-	ctx := context.Background()
-	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
-	defer cancel()
-	h := newHarness(t, ctx, true)
+	testCases := map[string]storagemarket.ClientEvent{
+		"ClientEventFundsEnsured":          storagemarket.ClientEventFundsEnsured,
+		"ClientEventInitiateDataTransfer":  storagemarket.ClientEventInitiateDataTransfer,
+		"ClientEventDataTransferInitiated": storagemarket.ClientEventDataTransferInitiated,
+		"ClientEventDataTransferComplete":  storagemarket.ClientEventDataTransferComplete,
+		"ClientEventDealAccepted":          storagemarket.ClientEventDealAccepted,
+	}
 
-	require.NoError(t, h.Provider.Start(ctx))
-	require.NoError(t, h.Client.Start(ctx))
+	for name, stopAtEvent := range testCases {
+		t.Run(name, func(t *testing.T) {
+			ctx := context.Background()
+			ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
+			defer cancel()
+			h := newHarness(t, ctx, true)
 
-	// set ask price where we'll accept any price
-	err := h.Provider.SetAsk(big.NewInt(0), big.NewInt(0), 50_000)
-	assert.NoError(t, err)
+			require.NoError(t, h.Provider.Start(ctx))
+			require.NoError(t, h.Client.Start(ctx))
 
-	wg := sync.WaitGroup{}
-	wg.Add(1)
-	_ = h.Client.SubscribeToEvents(func(event storagemarket.ClientEvent, deal storagemarket.ClientDeal) {
-		if event == storagemarket.ClientEventFundsEnsured {
-			// Stop the client and provider at some point during deal negotiation
-			require.NoError(t, h.Client.Stop())
-			require.NoError(t, h.Provider.Stop())
-			wg.Done()
-		}
-	})
+			// set ask price where we'll accept any price
+			err := h.Provider.SetAsk(big.NewInt(0), big.NewInt(0), 50_000)
+			assert.NoError(t, err)
 
-	result := h.ProposeStorageDeal(t, &storagemarket.DataRef{TransferType: storagemarket.TTGraphsync, Root: h.PayloadCid}, false, false)
-	proposalCid := result.ProposalCid
+			wg := sync.WaitGroup{}
+			wg.Add(1)
+			_ = h.Client.SubscribeToEvents(func(event storagemarket.ClientEvent, deal storagemarket.ClientDeal) {
+				if event == stopAtEvent {
+					// Stop the client and provider at some point during deal negotiation
+					require.NoError(t, h.Client.Stop())
+					require.NoError(t, h.Provider.Stop())
+					wg.Done()
+				}
+			})
 
-	wg.Wait()
+			result := h.ProposeStorageDeal(t, &storagemarket.DataRef{TransferType: storagemarket.TTGraphsync, Root: h.PayloadCid}, false, false)
+			proposalCid := result.ProposalCid
 
-	cd, err := h.Client.GetLocalDeal(ctx, proposalCid)
-	assert.NoError(t, err)
-	assert.NotEqual(t, storagemarket.StorageDealActive, cd.State)
+			wg.Wait()
 
-	h = newHarnessWithTestData(t, ctx, h.TestData, h.SMState, true)
+			cd, err := h.Client.GetLocalDeal(ctx, proposalCid)
+			assert.NoError(t, err)
+			assert.NotEqual(t, storagemarket.StorageDealActive, cd.State)
 
-	wg.Add(1)
-	_ = h.Client.SubscribeToEvents(func(event storagemarket.ClientEvent, deal storagemarket.ClientDeal) {
-		if event == storagemarket.ClientEventDealExpired {
-			wg.Done()
-		}
-	})
+			h = newHarnessWithTestData(t, ctx, h.TestData, h.SMState, true)
 
-	wg.Add(1)
-	_ = h.Provider.SubscribeToEvents(func(event storagemarket.ProviderEvent, deal storagemarket.MinerDeal) {
-		if event == storagemarket.ProviderEventDealExpired {
-			wg.Done()
-		}
-	})
+			wg.Add(1)
+			_ = h.Client.SubscribeToEvents(func(event storagemarket.ClientEvent, deal storagemarket.ClientDeal) {
+				if event == storagemarket.ClientEventDealExpired {
+					wg.Done()
+				}
+			})
 
-	require.NoError(t, h.Provider.Start(ctx))
-	require.NoError(t, h.Client.Start(ctx))
+			wg.Add(1)
+			_ = h.Provider.SubscribeToEvents(func(event storagemarket.ProviderEvent, deal storagemarket.MinerDeal) {
+				if event == storagemarket.ProviderEventDealExpired {
+					wg.Done()
+				}
+			})
 
-	wg.Wait()
+			require.NoError(t, h.Provider.Start(ctx))
+			require.NoError(t, h.Client.Start(ctx))
 
-	cd, err = h.Client.GetLocalDeal(ctx, proposalCid)
-	assert.NoError(t, err)
-	shared_testutil.AssertDealState(t, storagemarket.StorageDealExpired, cd.State)
+			wg.Wait()
 
-	providerDeals, err := h.Provider.ListLocalDeals()
-	assert.NoError(t, err)
+			cd, err = h.Client.GetLocalDeal(ctx, proposalCid)
+			assert.NoError(t, err)
+			shared_testutil.AssertDealState(t, storagemarket.StorageDealExpired, cd.State)
 
-	pd := providerDeals[0]
-	assert.Equal(t, pd.ProposalCid, proposalCid)
-	shared_testutil.AssertDealState(t, storagemarket.StorageDealExpired, pd.State)
+			providerDeals, err := h.Provider.ListLocalDeals()
+			assert.NoError(t, err)
+
+			pd := providerDeals[0]
+			assert.Equal(t, pd.ProposalCid, proposalCid)
+			shared_testutil.AssertDealState(t, storagemarket.StorageDealExpired, pd.State)
+		})
+	}
 }
 
 type harness struct {
