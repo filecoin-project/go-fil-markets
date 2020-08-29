@@ -683,6 +683,37 @@ Minor release with bug fix for retrieval markets
 | Whyrusleeping | 1 | +61/-22 | 11 |
 | hannahhoward | 1 | +16/-0 | 1 |
 
+# go-fil-markets 0.5.8
+
+Minor bug fix release with various small improvements, and memory fixes for Graphsync
+
+### Changelog
+
+- github.com/filecoin-project/go-fil-markets:
+  - fix(deps): update data transfer
+  - fix restart issue with deal transferring (#381) ([filecoin-project/go-fil-markets#381](https://github.com/filecoin-project/go-fil-markets/pull/381))
+  - Plumb deal.PublishCid in HandoffDeal (#383) ([filecoin-project/go-fil-markets#383](https://github.com/filecoin-project/go-fil-markets/pull/383))
+  - docs(CHANGELOG): update for v0.5.7 ([filecoin-project/go-fil-markets#376](https://github.com/filecoin-project/go-fil-markets/pull/376))
+- github.com/filecoin-project/go-data-transfer (v0.6.2 -> v0.6.3):
+  - docs(CHANGELOG): update for 0.6.3
+  - fix(deps): update graphsync, small cleanup
+  - Stop data transfer correctly and some minor cleanp (#69) ([filecoin-project/go-data-transfer#69](https://github.com/filecoin-project/go-data-transfer/pull/69))
+  - docs(CHANGELOG): update for 0.6.2 release ([filecoin-project/go-data-transfer#68](https://github.com/filecoin-project/go-data-transfer/pull/68))
+- github.com/ipfs/go-graphsync (v0.1.1 -> v0.1.2):
+  - fix(asyncloader): remove send on close channel
+  - docs(CHANGELOG): update for 0.1.2 release
+  - Benchmark framework + First memory fixes (#89) ([ipfs/go-graphsync#89](https://github.com/ipfs/go-graphsync/pull/89))
+  - docs(CHANGELOG): update for v0.1.1 ([ipfs/go-graphsync#85](https://github.com/ipfs/go-graphsync/pull/85))
+
+### Contributors
+
+| Contributor | Commits | Lines ± | Files Changed |
+|-------------|---------|---------|---------------|
+| Hannah Howard | 1 | +1055/-39 | 17 |
+| Aarsh Shah | 2 | +125/-120 | 13 |
+| hannahhoward | 5 | +120/-44 | 16 |
+| Łukasz Magiera | 1 | +1/-0 | 1 |
+
 ### 🙌🏽 Want to contribute?
 
 Would you like to contribute to this repo and don’t know how? Here are a few places you can get started:
