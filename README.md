@@ -9,6 +9,10 @@ They are guided by the [v1.0 and 1.1 Filecoin specification updates](https://fil
 
 Separating implementations into a blockchain component and one or more mining and market components presents an opportunity to encourage implementation diversity while reusing non-security-critical components.
 
+## Disclaimer: Reporting issues
+
+This repo shared the issue tracker with lotus. Please report your issues at the [lotus issue tracker](https://github.com/filecoin-project/lotus/issues)
+
 ## Components
 
 * **[storagemarket](./storagemarket)**: for finding, negotiating, and consummating deals to
@@ -24,6 +28,7 @@ Related components in other repos:
 * **[go-data-transfer](https://github.com/filecoin-project/go-data-transfer)**: for exchanging piece data between clients and miners, used by storage & retrieval market modules.
 
 ### Background reading
+
 * The [Markets in Filecoin](https://filecoin-project.github.io/specs/#systems__filecoin_markets) 
 section of the Filecoin Specification contains the canonical spec.
 
