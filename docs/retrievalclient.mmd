@@ -16,6 +16,7 @@ stateDiagram-v2
 	state "DealStatusErrored" as 17
 	state "DealStatusBlocksComplete" as 18
 	state "DealStatusFinalizing" as 19
+	state "DealStatusCheckComplete" as 21
 	0 : On entry runs ProposeDeal
 	4 : On entry runs WaitForPaymentChannelCreate
 	5 : On entry runs WaitForPaymentChannelAddFunds
@@ -26,6 +27,7 @@ stateDiagram-v2
 	12 : On entry runs SendFunds
 	13 : On entry runs Ongoing
 	14 : On entry runs ProcessPaymentRequested
+	21 : On entry runs CheckComplete
 	[*] --> 0
 	note right of 0
 		The following events are not shown cause they can trigger from any state.
@@ -74,8 +76,11 @@ stateDiagram-v2
 	12 --> 8 : ClientEventCreateVoucherFailed
 	11 --> 13 : ClientEventPaymentSent
 	12 --> 19 : ClientEventPaymentSent
+	13 --> 21 : ClientEventComplete
 	19 --> 15 : ClientEventComplete
-	8 --> 17 : <invalid Value>
+	21 --> 15 : ClientEventCompleteVerified
+	21 --> 17 : ClientEventEarlyTermination
+	8 --> 17 : ClientEventCancelComplete
 
 	note left of 3 : The following events only record in this state.<br><br>ClientEventLastPaymentRequested<br>ClientEventPaymentRequested<br>ClientEventAllBlocksReceived<br>ClientEventBlocksReceived
 
@@ -87,4 +92,10 @@ stateDiagram-v2
 
 
 	note left of 6 : The following events only record in this state.<br><br>ClientEventLastPaymentRequested<br>ClientEventPaymentRequested<br>ClientEventAllBlocksReceived<br>ClientEventBlocksReceived
+
+
+	note left of 10 : The following events only record in this state.<br><br>ClientEventAllBlocksReceived
+
+
+	note left of 11 : The following events only record in this state.<br><br>ClientEventAllBlocksReceived
 

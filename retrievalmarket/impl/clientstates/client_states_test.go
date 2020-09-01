@@ -498,6 +498,35 @@ func TestCancelDeal(t *testing.T) {
 		require.Equal(t, retrievalmarket.DealStatusErrored, dealState.Status)
 	})
 }
+func TestCheckComplete(t *testing.T) {
+	ctx := context.Background()
+	eventMachine, err := fsm.NewEventProcessor(retrievalmarket.ClientDealState{}, "Status", clientstates.ClientEvents)
+	require.NoError(t, err)
+	runCheckComplete := func(t *testing.T,
+		dealState *retrievalmarket.ClientDealState) {
+		node := testnodes.NewTestRetrievalClientNode(testnodes.TestRetrievalClientNodeParams{})
+		environment := &fakeEnvironment{node, nil, nil, nil}
+		fsmCtx := fsmtest.NewTestContext(ctx, eventMachine)
+		err := clientstates.CheckComplete(fsmCtx, environment, *dealState)
+		require.NoError(t, err)
+		fsmCtx.ReplayEvents(t, dealState)
+	}
+
+	t.Run("when all blocks received", func(t *testing.T) {
+		dealState := makeDealState(retrievalmarket.DealStatusCheckComplete)
+		dealState.AllBlocksReceived = true
+		runCheckComplete(t, dealState)
+		require.Equal(t, retrievalmarket.DealStatusCompleted, dealState.Status)
+	})
+
+	t.Run("when not all blocks are received", func(t *testing.T) {
+		dealState := makeDealState(retrievalmarket.DealStatusCheckComplete)
+		dealState.AllBlocksReceived = false
+		runCheckComplete(t, dealState)
+		require.Equal(t, retrievalmarket.DealStatusErrored, dealState.Status)
+		require.Equal(t, "Provider sent complete status without sending all data", dealState.Message)
+	})
+}
 
 var defaultTotalFunds = abi.NewTokenAmount(4000000)
 var defaultCurrentInterval = uint64(1000)

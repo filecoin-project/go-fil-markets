@@ -162,6 +162,7 @@ var ClientEvents = fsm.Events{
 			rm.DealStatusBlocksComplete,
 		).To(rm.DealStatusBlocksComplete).
 		FromMany(paymentChannelCreationStates...).ToJustRecord().
+		FromMany(rm.DealStatusSendFunds, rm.DealStatusFundsNeeded).ToJustRecord().
 		From(rm.DealStatusFundsNeededLastPayment).To(rm.DealStatusSendFundsLastPayment).
 		Action(func(deal *rm.ClientDealState) error {
 			deal.AllBlocksReceived = true
@@ -227,7 +228,16 @@ var ClientEvents = fsm.Events{
 		}),
 
 	fsm.Event(rm.ClientEventComplete).
-		FromMany(rm.DealStatusFinalizing).To(rm.DealStatusCompleted),
+		From(rm.DealStatusOngoing).To(rm.DealStatusCheckComplete).
+		From(rm.DealStatusFinalizing).To(rm.DealStatusCompleted),
+	fsm.Event(rm.ClientEventCompleteVerified).
+		From(rm.DealStatusCheckComplete).To(rm.DealStatusCompleted),
+	fsm.Event(rm.ClientEventEarlyTermination).
+		From(rm.DealStatusCheckComplete).To(rm.DealStatusErrored).
+		Action(func(deal *rm.ClientDealState) error {
+			deal.Message = "Provider sent complete status without sending all data"
+			return nil
+		}),
 	fsm.Event(rm.ClientEventCancelComplete).
 		From(rm.DealStatusFailing).To(rm.DealStatusErrored),
 
@@ -259,4 +269,5 @@ var ClientStateEntryFuncs = fsm.StateEntryFuncs{
 	rm.DealStatusSendFunds:                 SendFunds,
 	rm.DealStatusSendFundsLastPayment:      SendFunds,
 	rm.DealStatusFailing:                   CancelDeal,
+	rm.DealStatusCheckComplete:             CheckComplete,
 }

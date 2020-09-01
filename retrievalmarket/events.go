@@ -94,6 +94,13 @@ const (
 
 	// ClientEventCancelComplete happens when a deal cancellation is transmitted to the provider
 	ClientEventCancelComplete
+
+	// ClientEventEarlyTermination indications a provider send a deal complete without sending all data
+	ClientEventEarlyTermination
+
+	// ClientEventCompleteVerified means that a provider completed without requesting a final payment but
+	// we verified we received all data
+	ClientEventCompleteVerified
 )
 
 // ClientEvents is a human readable map of client event name -> event description
@@ -124,6 +131,9 @@ var ClientEvents = map[ClientEvent]string{
 	ClientEventPaymentSent:                   "ClientEventPaymentSent",
 	ClientEventDataTransferError:             "ClientEventDataTransferError",
 	ClientEventComplete:                      "ClientEventComplete",
+	ClientEventCancelComplete:                "ClientEventCancelComplete",
+	ClientEventEarlyTermination:              "ClientEventEarlyTermination",
+	ClientEventCompleteVerified:              "ClientEventCompleteVerified",
 }
 
 // ProviderEvent is an event that occurs in a deal lifecycle on the provider
