@@ -6,13 +6,18 @@ import (
 	"time"
 
 	logging "github.com/ipfs/go-log/v2"
+	"github.com/jpillora/backoff"
 	"github.com/libp2p/go-libp2p-core/host"
 	"github.com/libp2p/go-libp2p-core/network"
 	"github.com/libp2p/go-libp2p-core/peer"
+	"github.com/libp2p/go-libp2p-core/protocol"
 	ma "github.com/multiformats/go-multiaddr"
+	"golang.org/x/xerrors"
 
 	"github.com/filecoin-project/go-fil-markets/retrievalmarket"
 )
+
+const maxStreamOpenAttempts = 5
 
 var log = logging.Logger("retrieval_network")
 var _ RetrievalMarketNetwork = new(libp2pRetrievalMarketNetwork)
@@ -34,13 +39,36 @@ type libp2pRetrievalMarketNetwork struct {
 
 //  NewQueryStream creates a new RetrievalQueryStream using the provided peer.ID
 func (impl *libp2pRetrievalMarketNetwork) NewQueryStream(id peer.ID) (RetrievalQueryStream, error) {
-	s, err := impl.host.NewStream(context.Background(), id, retrievalmarket.QueryProtocolID)
+	s, err := impl.openStream(context.Background(), id, retrievalmarket.QueryProtocolID)
 	if err != nil {
 		log.Warn(err)
 		return nil, err
 	}
 	buffered := bufio.NewReaderSize(s, 16)
 	return &queryStream{p: id, rw: s, buffered: buffered}, nil
+}
+
+func (impl *libp2pRetrievalMarketNetwork) openStream(ctx context.Context, id peer.ID, protocol protocol.ID) (network.Stream, error) {
+	b := &backoff.Backoff{
+		Min:    100 * time.Millisecond,
+		Max:    10 * time.Second,
+		Factor: 5,
+		Jitter: true,
+	}
+
+	for {
+		s, err := impl.host.NewStream(ctx, id, protocol)
+		if err == nil {
+			return s, err
+		}
+
+		nAttempts := b.Attempt()
+		if nAttempts == maxStreamOpenAttempts {
+			return nil, xerrors.Errorf("exhausted %d attempts but failed to open stream, err: %w", maxStreamOpenAttempts, err)
+		}
+		d := b.Duration()
+		time.Sleep(d)
+	}
 }
 
 // SetDelegate sets a RetrievalReceiver to handle stream data
