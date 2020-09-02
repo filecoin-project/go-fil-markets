@@ -74,7 +74,8 @@ func TestProvider_Stop(t *testing.T) {
 	client, expectedCIDs, _, _, retrievalPeer, provider := requireSetupTestClientAndProvider(bgCtx, t, payChAddr)
 	require.NoError(t, provider.Stop())
 	_, err := client.Query(bgCtx, retrievalPeer, expectedCIDs[0], retrievalmarket.QueryParams{})
-	assert.EqualError(t, err, "protocol not supported")
+
+	assert.EqualError(t, err, "exhausted 5 attempts but failed to open stream, err: protocol not supported")
 }
 
 func requireSetupTestClientAndProvider(bgCtx context.Context, t *testing.T, payChAddr address.Address) (retrievalmarket.RetrievalClient,

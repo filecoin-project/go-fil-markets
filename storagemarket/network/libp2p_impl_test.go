@@ -63,10 +63,13 @@ func TestOpenStreamWithRetries(t *testing.T) {
 		require.NoError(t, err)
 		achan <- readq
 	}}
+
+	var err error
+
 	go func() {
 		select {
-		case _ = <-time.After(3 * time.Second):
-			toNetwork.SetDelegate(tr2)
+		case <-time.After(3 * time.Second):
+			err = toNetwork.SetDelegate(tr2)
 		case <-ctx.Done():
 			return
 		}
@@ -74,6 +77,7 @@ func TestOpenStreamWithRetries(t *testing.T) {
 
 	// setup query stream host1 --> host 2
 	assertAskRequestReceived(ctx, t, fromNetwork, toHost, achan)
+	assert.NoError(t, err)
 }
 
 func TestAskStreamSendReceiveAskRequest(t *testing.T) {
