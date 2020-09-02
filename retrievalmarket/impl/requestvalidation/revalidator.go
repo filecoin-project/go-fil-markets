@@ -229,6 +229,12 @@ func (pr *ProviderRevalidator) OnComplete(chid datatransfer.ChannelID) (datatran
 	}
 
 	paymentOwed := big.Mul(abi.NewTokenAmount(int64(channel.totalSent-channel.totalPaidFor)), channel.pricePerByte)
+	if paymentOwed.Equals(big.Zero()) {
+		return &rm.DealResponse{
+			ID:     channel.dealID.DealID,
+			Status: rm.DealStatusCompleted,
+		}, nil
+	}
 	err = pr.env.SendEvent(channel.dealID, rm.ProviderEventPaymentRequested, channel.totalSent)
 	if err != nil {
 		return nil, err

@@ -142,6 +142,41 @@ func TestOnComplete(t *testing.T) {
 	require.Equal(t, expectedEvents, fre.sentEvents)
 }
 
+func TestOnCompleteNoPaymentNeeded(t *testing.T) {
+	deal := *makeDealState(rm.DealStatusOngoing)
+	channelID := deal.ChannelID
+	unpaidAmount := uint64(0)
+	expectedEvents := []eventSent{
+		{
+			ID:    deal.Identifier(),
+			Event: rm.ProviderEventBlockSent,
+			Args:  []interface{}{deal.TotalSent},
+		},
+		{
+			ID:    deal.Identifier(),
+			Event: rm.ProviderEventBlocksCompleted,
+		},
+	}
+	expectedResult := &rm.DealResponse{
+		ID:     deal.ID,
+		Status: rm.DealStatusCompleted,
+	}
+	tn := testnodes.NewTestRetrievalProviderNode()
+	fre := &fakeRevalidatorEnvironment{
+		node:         tn,
+		returnedDeal: deal,
+		getError:     nil,
+	}
+	revalidator := requestvalidation.NewProviderRevalidator(fre)
+	revalidator.TrackChannel(deal)
+	_, err := revalidator.OnPullDataSent(channelID, unpaidAmount)
+	require.NoError(t, err)
+	voucherResult, err := revalidator.OnComplete(channelID)
+	require.Equal(t, expectedResult, voucherResult)
+	require.NoError(t, err)
+	require.Equal(t, expectedEvents, fre.sentEvents)
+}
+
 func TestRevalidate(t *testing.T) {
 	payCh := address.TestAddress
 	voucher := shared_testutil.MakeTestSignedVoucher()

@@ -86,7 +86,7 @@ var ProviderEvents = fsm.Events{
 		}),
 
 	// completing
-	fsm.Event(rm.ProviderEventComplete).From(rm.DealStatusFinalizing).To(rm.DealStatusCompleting),
+	fsm.Event(rm.ProviderEventComplete).FromMany(rm.DealStatusBlocksComplete, rm.DealStatusFinalizing).To(rm.DealStatusCompleting),
 	fsm.Event(rm.ProviderEventCleanupComplete).From(rm.DealStatusCompleting).To(rm.DealStatusCompleted),
 
 	// Error cleanup

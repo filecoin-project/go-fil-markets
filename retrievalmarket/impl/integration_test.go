@@ -165,16 +165,18 @@ func TestClientCanMakeDealWithProvider(t *testing.T) {
 	var customDeciderRan bool
 
 	testCases := []struct {
-		name               string
-		decider            retrievalimpl.DealDecider
-		filename           string
-		filesize           uint64
-		voucherAmts        []abi.TokenAmount
-		selector           ipld.Node
-		unsealPrice        abi.TokenAmount
-		paramsV1, addFunds bool
-		skipStores         bool
-		failsUnseal        bool
+		name                    string
+		decider                 retrievalimpl.DealDecider
+		filename                string
+		filesize                uint64
+		voucherAmts             []abi.TokenAmount
+		selector                ipld.Node
+		unsealPrice             abi.TokenAmount
+		paramsV1, addFunds      bool
+		skipStores              bool
+		failsUnseal             bool
+		paymentInterval         uint64
+		paymentIntervalIncrease uint64
 	}{
 		{name: "1 block file retrieval succeeds with existing payment channel",
 			filename:    "lorem_under_1_block.txt",
@@ -234,6 +236,13 @@ func TestClientCanMakeDealWithProvider(t *testing.T) {
 			voucherAmts: []abi.TokenAmount{},
 			failsUnseal: true,
 		},
+		{name: "multi-block file retrieval succeeds, final block lands on payment interval",
+			filename:                "lorem.txt",
+			filesize:                19000,
+			voucherAmts:             []abi.TokenAmount{abi.NewTokenAmount(9112000), abi.NewTokenAmount(10808000)},
+			paymentInterval:         9000,
+			paymentIntervalIncrease: 1250,
+		},
 	}
 
 	for i, testCase := range testCases {
@@ -255,8 +264,14 @@ func TestClientCanMakeDealWithProvider(t *testing.T) {
 			payloadCID := c.Cid
 			providerPaymentAddr, err := address.NewIDAddress(uint64(i * 99))
 			require.NoError(t, err)
-			paymentInterval := uint64(10000)
-			paymentIntervalIncrease := uint64(1000)
+			paymentInterval := testCase.paymentInterval
+			if paymentInterval == 0 {
+				paymentInterval = uint64(10000)
+			}
+			paymentIntervalIncrease := testCase.paymentIntervalIncrease
+			if paymentIntervalIncrease == 0 {
+				paymentIntervalIncrease = uint64(1000)
+			}
 			pricePerByte := abi.NewTokenAmount(1000)
 			unsealPrice := testCase.unsealPrice
 			if unsealPrice.Int == nil {
@@ -333,8 +348,12 @@ func TestClientCanMakeDealWithProvider(t *testing.T) {
 
 			clientDealStateChan := make(chan retrievalmarket.ClientDealState)
 			client.SubscribeToEvents(func(event retrievalmarket.ClientEvent, state retrievalmarket.ClientDealState) {
+				if state.Status == retrievalmarket.DealStatusCompleted {
+					clientDealStateChan <- state
+					return
+				}
 				switch event {
-				case retrievalmarket.ClientEventComplete, retrievalmarket.ClientEventProviderCancelled:
+				case retrievalmarket.ClientEventProviderCancelled:
 					clientDealStateChan <- state
 				default:
 					msg := `

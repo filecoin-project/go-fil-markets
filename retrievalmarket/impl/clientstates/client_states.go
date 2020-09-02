@@ -156,3 +156,12 @@ func CancelDeal(ctx fsm.Context, environment ClientDealEnvironment, deal rm.Clie
 
 	return ctx.Trigger(rm.ClientEventCancelComplete)
 }
+
+// CheckComplete verifies that a provider that completed without a last payment requested did in fact send us all the data
+func CheckComplete(ctx fsm.Context, environment ClientDealEnvironment, deal rm.ClientDealState) error {
+	if !deal.AllBlocksReceived {
+		return ctx.Trigger(rm.ClientEventEarlyTermination)
+	}
+
+	return ctx.Trigger(rm.ClientEventCompleteVerified)
+}

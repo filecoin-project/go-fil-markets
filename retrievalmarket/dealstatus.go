@@ -79,6 +79,10 @@ const (
 	// DealStatusCompleting is just an inbetween state to perform final cleanup of
 	// complete deals
 	DealStatusCompleting
+
+	// DealStatusCheckComplete is used for when the provided completes without a last payment
+	// requested cycle, to verify we have received all blocks
+	DealStatusCheckComplete
 )
 
 // DealStatuses maps deal status to a human readable representation
@@ -104,4 +108,5 @@ var DealStatuses = map[DealStatus]string{
 	DealStatusBlocksComplete:            "DealStatusBlocksComplete",
 	DealStatusFinalizing:                "DealStatusFinalizing",
 	DealStatusCompleting:                "DealStatusCompleting",
+	DealStatusCheckComplete:             "DealStatusCheckComplete",
 }
