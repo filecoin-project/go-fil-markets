@@ -5,6 +5,7 @@ import (
 	"errors"
 
 	"github.com/ipfs/go-cid"
+	"github.com/ipfs/go-datastore"
 	"github.com/ipld/go-ipld-prime"
 	"github.com/libp2p/go-libp2p-core/peer"
 	"golang.org/x/xerrors"
@@ -35,6 +36,10 @@ func (p *providerDealEnvironment) Address() address.Address {
 
 func (p *providerDealEnvironment) Node() storagemarket.StorageProviderNode {
 	return p.p.spn
+}
+
+func (p *providerDealEnvironment) DataStore() datastore.Batching {
+	return p.p.ds
 }
 
 func (p *providerDealEnvironment) Ask() storagemarket.StorageAsk {

@@ -6,6 +6,8 @@ import (
 	"fmt"
 
 	"github.com/ipfs/go-cid"
+	"github.com/ipfs/go-datastore"
+	"github.com/ipfs/go-graphsync/cidset"
 	logging "github.com/ipfs/go-log/v2"
 	"github.com/ipld/go-ipld-prime"
 
@@ -19,6 +21,9 @@ import (
 
 var log = logging.Logger("storagemarket_impl")
 
+// CidsReceivedPrefix is the prefix for the key against which we persist recieved cids in the datastore for deals
+const CidsReceivedPrefix = "/CidsReceived"
+
 // EventReceiver is any thing that can receive FSM events
 type EventReceiver interface {
 	Send(id interface{}, name fsm.EventName, args ...interface{}) (err error)
@@ -29,7 +34,7 @@ type EventReceiver interface {
 // in a storage market deal, then, based on the data transfer event that occurred, it generates
 // and update message for the deal -- either moving to staged for a completion
 // event or moving to error if a data transfer error occurs
-func ProviderDataTransferSubscriber(deals EventReceiver) datatransfer.Subscriber {
+func ProviderDataTransferSubscriber(ds datastore.Batching, deals EventReceiver) datatransfer.Subscriber {
 	return func(event datatransfer.Event, channelState datatransfer.ChannelState) {
 		voucher, ok := channelState.Voucher().(*requestvalidation.StorageDataTransferVoucher)
 		// if this event is for a transfer not related to storage, ignore
@@ -56,9 +61,35 @@ func ProviderDataTransferSubscriber(deals EventReceiver) datatransfer.Subscriber
 			if err != nil {
 				log.Errorf("processing dt event: %w", err)
 			}
+		case datatransfer.DataReceived:
+			// TODO Should we memoize here ? This can get inefficient as this will event will keep firing for the same cid if we recieve the same cid
+			// multiple times
+			cids := channelState.ReceivedCids()
+			if len(cids) != 0 {
+				set := cid.NewSet()
+				for _, c := range cids {
+					set.Add(c)
+				}
+
+				bz, err := cidset.EncodeCidSet(set)
+				if err != nil {
+					log.Errorf("failed to encode cid set: %w", err)
+				}
+
+				if err := ds.Put(ReceivedCidsKey(voucher.Proposal), bz); err != nil {
+					log.Errorf("failed to persist received cids to store: %w", err)
+				}
+			}
+
+			// update cid set here
 		default:
 		}
+
 	}
+}
+
+func ReceivedCidsKey(cid cid.Cid) datastore.Key {
+	return datastore.NewKey(CidsReceivedPrefix + "/" + cid.String())
 }
 
 // ClientDataTransferSubscriber is the function called when an event occurs in a data

@@ -9,6 +9,7 @@ import (
 	"testing"
 
 	"github.com/ipfs/go-cid"
+	"github.com/ipfs/go-datastore"
 	"github.com/ipld/go-ipld-prime"
 	"github.com/libp2p/go-libp2p-core/peer"
 	"github.com/stretchr/testify/assert"
@@ -1119,7 +1120,9 @@ func makeExecutor(ctx context.Context,
 		if params.TagsProposal {
 			expectedTags[dealState.ProposalCid.String()] = struct{}{}
 		}
+
 		environment := &fakeEnvironment{
+			ds:                      datastore.NewMapDatastore(),
 			expectedTags:            expectedTags,
 			receivedTags:            make(map[string]struct{}),
 			address:                 params.Address,
@@ -1170,6 +1173,7 @@ func makeExecutor(ctx context.Context,
 }
 
 type fakeEnvironment struct {
+	ds                      datastore.Batching
 	address                 address.Address
 	node                    *testnodes.FakeProviderNode
 	ask                     storagemarket.StorageAsk
@@ -1191,6 +1195,10 @@ type fakeEnvironment struct {
 	receivedTags            map[string]struct{}
 	dealFunds               *tut.TestDealFunds
 	peerTagger              *tut.TestPeerTagger
+}
+
+func (fe *fakeEnvironment) DataStore() datastore.Batching {
+	return fe.ds
 }
 
 func (fe *fakeEnvironment) Address() address.Address {

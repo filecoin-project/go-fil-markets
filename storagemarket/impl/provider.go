@@ -44,6 +44,8 @@ type StoredAsk interface {
 
 // Provider is the production implementation of the StorageProvider interface
 type Provider struct {
+	ds datastore.Batching
+
 	net network.StorageMarketNetwork
 
 	proofType abi.RegisteredSealProof
@@ -112,6 +114,7 @@ func NewProvider(net network.StorageMarketNetwork,
 	pio := pieceio.NewPieceIOWithStore(carIO, fs, nil, multiStore)
 
 	h := &Provider{
+		ds:           ds,
 		net:          net,
 		proofType:    rt,
 		spn:          spn,
@@ -141,7 +144,7 @@ func NewProvider(net network.StorageMarketNetwork,
 	h.Configure(options...)
 
 	// register a data transfer event handler -- this will send events to the state machines based on DT events
-	h.unsubDataTransfer = dataTransfer.SubscribeToEvents(dtutils.ProviderDataTransferSubscriber(deals))
+	h.unsubDataTransfer = dataTransfer.SubscribeToEvents(dtutils.ProviderDataTransferSubscriber(ds, deals))
 
 	err = dataTransfer.RegisterVoucherType(&requestvalidation.StorageDataTransferVoucher{}, requestvalidation.NewUnifiedRequestValidator(&providerPushDeals{h}, nil))
 	if err != nil {

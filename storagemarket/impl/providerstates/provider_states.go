@@ -6,6 +6,7 @@ import (
 	"fmt"
 
 	"github.com/ipfs/go-cid"
+	"github.com/ipfs/go-datastore"
 	logging "github.com/ipfs/go-log/v2"
 	"github.com/ipld/go-ipld-prime"
 	"golang.org/x/xerrors"
@@ -23,6 +24,7 @@ import (
 	"github.com/filecoin-project/go-fil-markets/piecestore"
 	"github.com/filecoin-project/go-fil-markets/shared"
 	"github.com/filecoin-project/go-fil-markets/storagemarket"
+	"github.com/filecoin-project/go-fil-markets/storagemarket/impl/dtutils"
 	"github.com/filecoin-project/go-fil-markets/storagemarket/impl/funds"
 	"github.com/filecoin-project/go-fil-markets/storagemarket/impl/providerutils"
 	"github.com/filecoin-project/go-fil-markets/storagemarket/network"
@@ -41,6 +43,7 @@ type ProviderDealEnvironment interface {
 	SendSignedResponse(ctx context.Context, response *network.Response) error
 	Disconnect(proposalCid cid.Cid) error
 	FileStore() filestore.FileStore
+	DataStore() datastore.Batching
 	PieceStore() piecestore.PieceStore
 	RunCustomDecisionLogic(context.Context, storagemarket.MinerDeal) (bool, string, error)
 	DealFunds() funds.DealFunds
@@ -365,6 +368,8 @@ func CleanupDeal(ctx fsm.Context, environment ProviderDealEnvironment, deal stor
 		}
 	}
 
+	cleanupReceivedCids(environment.DataStore(), deal.ProposalCid)
+
 	return ctx.Trigger(storagemarket.ProviderEventFinalized)
 }
 
@@ -438,6 +443,16 @@ func RejectDeal(ctx fsm.Context, environment ProviderDealEnvironment, deal stora
 	return ctx.Trigger(storagemarket.ProviderEventRejectionSent)
 }
 
+// cleanupReceivedCids cleans up the recieved cids that we have persisted for the deal
+func cleanupReceivedCids(ds datastore.Batching, proposalCid cid.Cid) {
+	log.Debugf("will clean up received cids for cid %s", proposalCid)
+
+	key := dtutils.ReceivedCidsKey(proposalCid)
+	if err := ds.Delete(key); err != nil {
+		log.Errorf("failed to CleanupReceivedCids for cid %s: %w", proposalCid, err)
+	}
+}
+
 // FailDeal cleans up before terminating a deal
 func FailDeal(ctx fsm.Context, environment ProviderDealEnvironment, deal storagemarket.MinerDeal) error {
 	log.Warnf("deal %s failed: %s", deal.ProposalCid, deal.Message)
@@ -470,6 +485,8 @@ func FailDeal(ctx fsm.Context, environment ProviderDealEnvironment, deal storage
 		}
 		_ = ctx.Trigger(storagemarket.ProviderEventFundsReleased, deal.FundsReserved)
 	}
+
+	cleanupReceivedCids(environment.DataStore(), deal.ProposalCid)
 
 	return ctx.Trigger(storagemarket.ProviderEventFailed)
 }

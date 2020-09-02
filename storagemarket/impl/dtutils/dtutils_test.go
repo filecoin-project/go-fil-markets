@@ -6,6 +6,8 @@ import (
 	"testing"
 
 	"github.com/ipfs/go-cid"
+	"github.com/ipfs/go-datastore"
+	"github.com/ipfs/go-graphsync/cidset"
 	"github.com/ipld/go-ipld-prime"
 	peer "github.com/libp2p/go-libp2p-core/peer"
 	"github.com/stretchr/testify/require"
@@ -56,6 +58,15 @@ func TestProviderDataTransferSubscriber(t *testing.T) {
 			expectedID:    expectedProposalCID,
 			expectedEvent: storagemarket.ProviderEventDataTransferCompleted,
 		},
+		"data received": {
+			code:   datatransfer.DataReceived,
+			status: datatransfer.Ongoing,
+			called: false,
+			voucher: &requestvalidation.StorageDataTransferVoucher{
+				Proposal: expectedProposalCID,
+			},
+			expectedID: expectedProposalCID,
+		},
 		"error event": {
 			code:    datatransfer.Error,
 			message: "something went wrong",
@@ -69,7 +80,7 @@ func TestProviderDataTransferSubscriber(t *testing.T) {
 			expectedArgs:  []interface{}{errors.New("deal data transfer failed: something went wrong")},
 		},
 		"other event": {
-			code:   datatransfer.Progress,
+			code:   datatransfer.DataSent,
 			status: datatransfer.Ongoing,
 			called: false,
 			voucher: &requestvalidation.StorageDataTransferVoucher{
@@ -79,8 +90,9 @@ func TestProviderDataTransferSubscriber(t *testing.T) {
 	}
 	for test, data := range tests {
 		t.Run(test, func(t *testing.T) {
+			ds := datastore.NewMapDatastore()
 			fdg := &fakeDealGroup{}
-			subscriber := dtutils.ProviderDataTransferSubscriber(fdg)
+			subscriber := dtutils.ProviderDataTransferSubscriber(ds, fdg)
 			subscriber(datatransfer.Event{Code: data.code, Message: data.message}, shared_testutil.NewTestChannel(
 				shared_testutil.TestChannelParams{Vouchers: []datatransfer.Voucher{data.voucher}, Status: data.status},
 			))
@@ -94,6 +106,67 @@ func TestProviderDataTransferSubscriber(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestDataReceivedCidsPersisted(t *testing.T) {
+	ds := datastore.NewMapDatastore()
+	fdg := &fakeDealGroup{}
+	subscriber := dtutils.ProviderDataTransferSubscriber(ds, fdg)
+	expectedProposalCID1 := shared_testutil.GenerateCids(1)[0]
+	expectedProposalCID2 := shared_testutil.GenerateCids(1)[0]
+
+	// send a DataReceived event with 5 different cids for the same proposal
+	cids := shared_testutil.GenerateCids(5)
+	for i := 0; i < 5; i++ {
+		subscriber(datatransfer.Event{Code: datatransfer.DataReceived}, shared_testutil.NewTestChannel(
+			shared_testutil.TestChannelParams{Vouchers: []datatransfer.Voucher{&requestvalidation.StorageDataTransferVoucher{
+				Proposal: expectedProposalCID1,
+			}}, Status: datatransfer.Ongoing,
+				ReceivedCids: cids[0 : i+1]},
+		))
+	}
+
+	// again, with some duplicates to test de-duplication
+	subscriber(datatransfer.Event{Code: datatransfer.DataReceived}, shared_testutil.NewTestChannel(
+		shared_testutil.TestChannelParams{Vouchers: []datatransfer.Voucher{&requestvalidation.StorageDataTransferVoucher{
+			Proposal: expectedProposalCID1,
+		}}, Status: datatransfer.Ongoing,
+			ReceivedCids: []cid.Cid{cids[0], cids[1], cids[1], cids[2], cids[4], cids[3], cids[4]}},
+	))
+
+	// for another proposal
+	subscriber(datatransfer.Event{Code: datatransfer.DataReceived}, shared_testutil.NewTestChannel(
+		shared_testutil.TestChannelParams{Vouchers: []datatransfer.Voucher{&requestvalidation.StorageDataTransferVoucher{
+			Proposal: expectedProposalCID2,
+		}}, Status: datatransfer.Ongoing,
+			ReceivedCids: []cid.Cid{cids[0], cids[1], cids[1]}},
+	))
+
+	// assert they are all persisted in the data store without duplication for proposal 1
+	key := dtutils.ReceivedCidsKey(expectedProposalCID1)
+	val, err := ds.Get(key)
+	require.NoError(t, err)
+
+	set, err := cidset.DecodeCidSet(val)
+	require.NoError(t, err)
+
+	require.Equal(t, len(cids), set.Len())
+
+	for _, c := range cids {
+		require.True(t, set.Has(c))
+	}
+
+	// assert for proposal 2
+	key = dtutils.ReceivedCidsKey(expectedProposalCID2)
+	val, err = ds.Get(key)
+	require.NoError(t, err)
+
+	set, err = cidset.DecodeCidSet(val)
+	require.NoError(t, err)
+
+	require.Equal(t, 2, set.Len())
+	require.True(t, set.Has(cids[0]))
+	require.True(t, set.Has(cids[1]))
 }
 
 func TestClientDataTransferSubscriber(t *testing.T) {
@@ -135,7 +208,7 @@ func TestClientDataTransferSubscriber(t *testing.T) {
 			expectedArgs:  []interface{}{errors.New("deal data transfer failed: something went wrong")},
 		},
 		"other event": {
-			code:   datatransfer.Progress,
+			code:   datatransfer.DataReceived,
 			status: datatransfer.Ongoing,
 			called: false,
 			voucher: &requestvalidation.StorageDataTransferVoucher{

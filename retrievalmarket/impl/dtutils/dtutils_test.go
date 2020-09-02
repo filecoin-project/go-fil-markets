@@ -109,7 +109,7 @@ func TestClientDataTransferSubscriber(t *testing.T) {
 			ignored: true,
 		},
 		"progress": {
-			code: datatransfer.Progress,
+			code: datatransfer.DataReceived,
 			state: shared_testutil.TestChannelParams{
 				Vouchers: []datatransfer.Voucher{&dealProposal},
 				Status:   datatransfer.Ongoing,

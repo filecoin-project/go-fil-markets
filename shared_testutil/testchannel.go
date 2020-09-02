@@ -26,6 +26,7 @@ type TestChannelParams struct {
 	Status         datatransfer.Status
 	Vouchers       []datatransfer.Voucher
 	VoucherResults []datatransfer.VoucherResult
+	ReceivedCids   []cid.Cid
 }
 
 // TestChannel implements a datatransfer channel with set values
@@ -43,6 +44,7 @@ type TestChannel struct {
 	status         datatransfer.Status
 	vouchers       []datatransfer.Voucher
 	voucherResults []datatransfer.VoucherResult
+	receivedCids   []cid.Cid
 }
 
 // FakeDTType is a fake voucher type
@@ -68,6 +70,7 @@ func NewTestChannel(params TestChannelParams) datatransfer.ChannelState {
 		received:       rand.Uint64(),
 		vouchers:       []datatransfer.Voucher{FakeDTType{}},
 		voucherResults: []datatransfer.VoucherResult{FakeDTType{}},
+		receivedCids:   nil,
 	}
 	if params.TransferID != 0 {
 		tc.transferID = params.TransferID
@@ -102,6 +105,10 @@ func NewTestChannel(params TestChannelParams) datatransfer.ChannelState {
 	if params.Received != 0 {
 		tc.received = params.Received
 	}
+	if params.ReceivedCids != nil {
+		tc.receivedCids = params.ReceivedCids
+	}
+
 	return tc
 }
 
@@ -134,6 +141,11 @@ func (tc *TestChannel) Sender() peer.ID {
 // Recipient returns the peer id for the node that is receiving data
 func (tc *TestChannel) Recipient() peer.ID {
 	return tc.recipient
+}
+
+// ReceivedCids returns the cids received on the channel
+func (tc *TestChannel) ReceivedCids() []cid.Cid {
+	return tc.receivedCids
 }
 
 // TotalSize returns the total size for the data being transferred
