@@ -714,6 +714,26 @@ Minor bug fix release with various small improvements, and memory fixes for Grap
 | hannahhoward | 5 | +120/-44 | 16 |
 | Łukasz Magiera | 1 | +1/-0 | 1 |
 
+# go-fil-markets 0.5.9
+
+Minor stability release to handle connection drops more gracefully and fix a retrieval bug
+
+### Changelog
+
+ - github.com/filecoin-project/go-fil-markets:
+  - Retry with exponential backoff for stream opening (#382) ([filecoin-project/go-fil-markets#382](https://github.com/filecoin-project/go-fil-markets/pull/382))
+  - fix(retrievalmarket): last block on interval works (#388) ([filecoin-project/go-fil-markets#388](https://github.com/filecoin-project/go-fil-markets/pull/388))
+  - Release/v0.5.8 ([filecoin-project/go-fil-markets#386](https://github.com/filecoin-project/go-fil-markets/pull/386))
+  - docs: Add disclaimer to guide people to report issues in Lotus (#384) ([filecoin-project/go-fil-markets#384](https://github.com/filecoin-project/go-fil-markets/pull/384))
+
+### Contributors
+
+| Contributor | Commits | Lines ± | Files Changed |
+|-------------|---------|---------|---------------|
+| Hannah Howard | 1 | +161/-25 | 17 |
+| Aarsh Shah | 1 | +132/-24 | 9 |
+| David Dias | 1 | +5/-0 | 1 |
+
 ### 🙌🏽 Want to contribute?
 
 Would you like to contribute to this repo and don’t know how? Here are a few places you can get started:
