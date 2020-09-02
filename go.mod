@@ -46,4 +46,4 @@ require (
 
 replace github.com/filecoin-project/filecoin-ffi => ./extern/filecoin-ffi
 
-replace github.com/filecoin-project/go-data-transfer => /Users/aarshshah/go/src/github.com/filecoin-project/go-data-transfer
+replace github.com/filecoin-project/go-data-transfer => github.com/filecoin-project/go-data-transfer v0.6.4-0.20200902104812-5681a611ffad
