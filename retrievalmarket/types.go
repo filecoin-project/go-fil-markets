@@ -24,9 +24,6 @@ import (
 
 //go:generate cbor-gen-for Query QueryResponse DealProposal DealResponse Params QueryParams DealPayment ClientDealState ProviderDealState PaymentInfo RetrievalPeer Ask
 
-// ProtocolID is the protocol for proposing / responding to retrieval deals
-const ProtocolID = "/fil/retrieval/0.0.1"
-
 // QueryProtocolID is the protocol for querying information about retrieval
 // deal parameters
 const QueryProtocolID = "/fil/retrieval/qry/0.0.1"

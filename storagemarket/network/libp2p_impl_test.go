@@ -43,6 +43,43 @@ func (tr *testReceiver) HandleDealStatusStream(s network.DealStatusStream) {
 	}
 }
 
+func TestOpenStreamWithRetries(t *testing.T) {
+	ctx := context.Background()
+	td := shared_testutil.NewLibp2pTestData(ctx, t)
+
+	fromNetwork := network.NewFromLibp2pHost(td.Host1)
+	toNetwork := network.NewFromLibp2pHost(td.Host2)
+	toHost := td.Host2.ID()
+
+	// host1 gets no-op receiver
+	tr := &testReceiver{t: t}
+	require.NoError(t, fromNetwork.SetDelegate(tr))
+
+	// host2 gets a receiver that will start after some time -> so we can verify exponential backoff kicks in
+	require.NoError(t, td.Host2.Close())
+	achan := make(chan network.AskRequest)
+	tr2 := &testReceiver{t: t, askStreamHandler: func(s network.StorageAskStream) {
+		readq, err := s.ReadAskRequest()
+		require.NoError(t, err)
+		achan <- readq
+	}}
+
+	var err error
+
+	go func() {
+		select {
+		case <-time.After(3 * time.Second):
+			err = toNetwork.SetDelegate(tr2)
+		case <-ctx.Done():
+			return
+		}
+	}()
+
+	// setup query stream host1 --> host 2
+	assertAskRequestReceived(ctx, t, fromNetwork, toHost, achan)
+	assert.NoError(t, err)
+}
+
 func TestAskStreamSendReceiveAskRequest(t *testing.T) {
 	ctx := context.Background()
 	td := shared_testutil.NewLibp2pTestData(ctx, t)

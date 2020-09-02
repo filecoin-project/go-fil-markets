@@ -69,4 +69,8 @@ cbor-gen: FORCE
 tidy: FORCE
 	go mod tidy
 
-prepare-pr: cbor-gen tidy diagrams imports
+lint: FORCE
+	git fetch
+	golangci-lint run -v --concurrency 2 --new-from-rev origin/master
+
+prepare-pr: cbor-gen tidy diagrams imports lint

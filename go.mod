@@ -34,6 +34,7 @@ require (
 	github.com/ipld/go-car v0.1.1-0.20200526133713-1c7508d55aae
 	github.com/ipld/go-ipld-prime v0.0.4-0.20200828224805-5ff8c8b0b6ef
 	github.com/jbenet/go-random v0.0.0-20190219211222-123a90aedc0c
+	github.com/jpillora/backoff v1.0.0
 	github.com/libp2p/go-libp2p v0.10.0
 	github.com/libp2p/go-libp2p-core v0.6.0
 	github.com/multiformats/go-multiaddr v0.2.2

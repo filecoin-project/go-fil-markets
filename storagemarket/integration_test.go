@@ -322,18 +322,25 @@ func TestRestartClient(t *testing.T) {
 			assert.NoError(t, err)
 			assert.NotEqual(t, storagemarket.StorageDealActive, cd.State)
 
-			h = newHarnessWithTestData(t, ctx, h.TestData, h.SMState, true)
+			h = newHarnessWithTestData(t, ctx, h.TestData, h.SMState, true, h.TempFilePath)
+
+			// deal could have expired already on the provider side for the `ClientEventDealAccepted` event
+			// so, we should wait on the `ProviderEventDealExpired` event ONLY if the deal has not expired.
+			providerState, err := h.Provider.ListLocalDeals()
+			assert.NoError(t, err)
+
+			if len(providerState) == 0 || providerState[0].State != storagemarket.StorageDealExpired {
+				wg.Add(1)
+				_ = h.Provider.SubscribeToEvents(func(event storagemarket.ProviderEvent, deal storagemarket.MinerDeal) {
+					if event == storagemarket.ProviderEventDealExpired {
+						wg.Done()
+					}
+				})
+			}
 
 			wg.Add(1)
 			_ = h.Client.SubscribeToEvents(func(event storagemarket.ClientEvent, deal storagemarket.ClientDeal) {
 				if event == storagemarket.ClientEventDealExpired {
-					wg.Done()
-				}
-			})
-
-			wg.Add(1)
-			_ = h.Provider.SubscribeToEvents(func(event storagemarket.ProviderEvent, deal storagemarket.MinerDeal) {
-				if event == storagemarket.ProviderEventDealExpired {
 					wg.Done()
 				}
 			})
@@ -371,14 +378,15 @@ type harness struct {
 	SMState      *testnodes.StorageMarketState
 	ProviderInfo storagemarket.StorageProviderInfo
 	TestData     *shared_testutil.Libp2pTestData
+	TempFilePath string
 }
 
 func newHarness(t *testing.T, ctx context.Context, useStore bool) *harness {
 	smState := testnodes.NewStorageMarketState()
-	return newHarnessWithTestData(t, ctx, shared_testutil.NewLibp2pTestData(ctx, t), smState, useStore)
+	return newHarnessWithTestData(t, ctx, shared_testutil.NewLibp2pTestData(ctx, t), smState, useStore, "")
 }
 
-func newHarnessWithTestData(t *testing.T, ctx context.Context, td *shared_testutil.Libp2pTestData, smState *testnodes.StorageMarketState, useStore bool) *harness {
+func newHarnessWithTestData(t *testing.T, ctx context.Context, td *shared_testutil.Libp2pTestData, smState *testnodes.StorageMarketState, useStore bool, tempPath string) *harness {
 	epoch := abi.ChainEpoch(100)
 	fpath := filepath.Join("storagemarket", "fixtures", "payload.txt")
 	var rootLink ipld.Link
@@ -405,8 +413,12 @@ func newHarnessWithTestData(t *testing.T, ctx context.Context, td *shared_testut
 	assert.NoError(t, err)
 
 	providerAddr := address.TestAddress2
-	tempPath, err := ioutil.TempDir("", "storagemarket_test")
-	assert.NoError(t, err)
+
+	if len(tempPath) == 0 {
+		tempPath, err = ioutil.TempDir("", "storagemarket_test")
+		assert.NoError(t, err)
+	}
+
 	ps := piecestore.NewPieceStore(td.Ds2)
 	providerNode := &testnodes.FakeProviderNode{
 		FakeCommonNode: testnodes.FakeCommonNode{
@@ -470,9 +482,6 @@ func newHarnessWithTestData(t *testing.T, ctx context.Context, td *shared_testut
 	err = provider.SetAsk(big.NewInt(0), big.NewInt(0), 50_000)
 	assert.NoError(t, err)
 
-	err = provider.Start(ctx)
-	assert.NoError(t, err)
-
 	// Closely follows the MinerInfo struct in the spec
 	providerInfo := storagemarket.StorageProviderInfo{
 		Address:    providerAddr,
@@ -497,6 +506,7 @@ func newHarnessWithTestData(t *testing.T, ctx context.Context, td *shared_testut
 		ProviderInfo: providerInfo,
 		TestData:     td,
 		SMState:      smState,
+		TempFilePath: tempPath,
 	}
 }
 
