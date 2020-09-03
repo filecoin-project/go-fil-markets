@@ -185,6 +185,7 @@ func TestMakeDealOffline(t *testing.T) {
 	defer cancel()
 	h := newHarness(t, ctx, true)
 	require.NoError(t, h.Client.Start(ctx))
+	require.NoError(t, h.Provider.Start(ctx))
 
 	carBuf := new(bytes.Buffer)
 
