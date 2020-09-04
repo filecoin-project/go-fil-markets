@@ -20,6 +20,8 @@ stateDiagram-v2
 	state "DealStatusCheckFunds" as 22
 	state "DealStatusInsufficientFunds" as 23
 	state "DealStatusPaymentChannelAllocatingLane" as 24
+	state "DealStatusCancelling" as 25
+	state "DealStatusCancelled" as 26
 	0 : On entry runs ProposeDeal
 	4 : On entry runs WaitPaymentChannelReady
 	5 : On entry runs WaitPaymentChannelReady
@@ -33,6 +35,7 @@ stateDiagram-v2
 	21 : On entry runs CheckComplete
 	22 : On entry runs CheckFunds
 	24 : On entry runs AllocateLane
+	25 : On entry runs CancelDeal
 	[*] --> 0
 	note right of 0
 		The following events are not shown cause they can trigger from any state.
@@ -42,6 +45,7 @@ stateDiagram-v2
 		ClientEventDataTransferError - transitions state to DealStatusErrored
 		ClientEventWriteDealPaymentErrored - transitions state to DealStatusErrored
 		ClientEventProviderCancelled - transitions state to DealStatusErrored
+		ClientEventCancel - transitions state to DealStatusCancelling
 	end note
 	0 --> 0 : ClientEventOpen
 	0 --> 3 : ClientEventDealProposed
@@ -56,6 +60,7 @@ stateDiagram-v2
 	22 --> 5 : ClientEventPaymentChannelAddingFunds
 	4 --> 24 : ClientEventPaymentChannelReady
 	5 --> 13 : ClientEventPaymentChannelReady
+	22 --> 13 : ClientEventPaymentChannelReady
 	24 --> 8 : ClientEventAllocateLaneErrored
 	24 --> 13 : ClientEventLaneAllocated
 	10 --> 14 : ClientEventLastPaymentRequested
@@ -88,6 +93,8 @@ stateDiagram-v2
 	21 --> 15 : ClientEventCompleteVerified
 	21 --> 17 : ClientEventEarlyTermination
 	8 --> 17 : ClientEventCancelComplete
+	25 --> 26 : ClientEventCancelComplete
+	23 --> 22 : ClientEventRecheckFunds
 
 	note left of 3 : The following events only record in this state.<br><br>ClientEventLastPaymentRequested<br>ClientEventPaymentRequested<br>ClientEventAllBlocksReceived<br>ClientEventBlocksReceived
 
@@ -98,6 +105,9 @@ stateDiagram-v2
 	note left of 6 : The following events only record in this state.<br><br>ClientEventLastPaymentRequested<br>ClientEventPaymentRequested<br>ClientEventAllBlocksReceived<br>ClientEventBlocksReceived
 
 
+	note left of 8 : The following events only record in this state.<br><br>ClientEventProviderCancelled
+
+
 	note left of 10 : The following events only record in this state.<br><br>ClientEventAllBlocksReceived
 
 
@@ -105,4 +115,7 @@ stateDiagram-v2
 
 
 	note left of 24 : The following events only record in this state.<br><br>ClientEventLastPaymentRequested<br>ClientEventPaymentRequested<br>ClientEventAllBlocksReceived<br>ClientEventBlocksReceived
+
+
+	note left of 25 : The following events only record in this state.<br><br>ClientEventProviderCancelled
 
