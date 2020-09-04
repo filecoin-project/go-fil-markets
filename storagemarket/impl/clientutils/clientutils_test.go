@@ -152,7 +152,9 @@ func (t *testPieceIO) ReadPiece(storeID *multistore.StoreID, r io.Reader) (cid.C
 func TestLabelField(t *testing.T) {
 	payloadCID := shared_testutil.GenerateCids(1)[0]
 
+	expectedString := fmt.Sprintf("{\"pcids\": [{\"/\": \"%s\"}]}", payloadCID.String())
 	label, err := clientutils.LabelField(payloadCID)
+	require.Equal(t, expectedString, string(label))
 	require.NoError(t, err)
 	nb := basicnode.Style.Any.NewBuilder()
 	err = dagjson.Decoder(nb, bytes.NewReader(label))

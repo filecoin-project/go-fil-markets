@@ -10,6 +10,7 @@ import (
 	"github.com/ipld/go-ipld-prime/fluent"
 	cidlink "github.com/ipld/go-ipld-prime/linking/cid"
 	basicnode "github.com/ipld/go-ipld-prime/node/basic"
+	"github.com/polydawn/refmt/json"
 	"golang.org/x/xerrors"
 
 	"github.com/filecoin-project/go-address"
@@ -78,7 +79,10 @@ func LabelField(payloadCID cid.Cid) ([]byte, error) {
 		})
 	})
 	buf := new(bytes.Buffer)
-	err := dagjson.Encoder(nd, buf)
+	err := dagjson.Marshal(nd, json.NewEncoder(buf, json.EncodeOptions{
+		Line:   []byte{},
+		Indent: []byte{},
+	}))
 	if err != nil {
 		return nil, err
 	}
