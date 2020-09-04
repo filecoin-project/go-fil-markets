@@ -53,33 +53,22 @@ func SetupPaymentChannelStart(ctx fsm.Context, environment ClientDealEnvironment
 	return ctx.Trigger(rm.ClientEventPaymentChannelAddingFunds, msgCID, paych)
 }
 
-// WaitForPaymentChannelCreate waits for payment channel creation to be posted on chain,
-//  allocates a lane for vouchers, then signals that the payment channel is ready
-func WaitForPaymentChannelCreate(ctx fsm.Context, environment ClientDealEnvironment, deal rm.ClientDealState) error {
-	paych, err := environment.Node().WaitForPaymentChannelCreation(*deal.WaitMsgCID)
+// WaitPaymentChannelReady waits for a pending operation on a payment channel -- either creating or depositing funds
+func WaitPaymentChannelReady(ctx fsm.Context, environment ClientDealEnvironment, deal rm.ClientDealState) error {
+	paych, err := environment.Node().WaitForPaymentChannelReady(ctx.Context(), *deal.WaitMsgCID)
 	if err != nil {
 		return ctx.Trigger(rm.ClientEventPaymentChannelErrored, err)
 	}
-
-	lane, err := environment.Node().AllocateLane(paych)
-	if err != nil {
-		return ctx.Trigger(rm.ClientEventAllocateLaneErrored, err)
-	}
-	return ctx.Trigger(rm.ClientEventPaymentChannelReady, paych, lane)
+	return ctx.Trigger(rm.ClientEventPaymentChannelReady, paych)
 }
 
-// WaitForPaymentChannelAddFunds waits for funds to be added to an existing payment channel, then
-// signals that payment channel is ready again
-func WaitForPaymentChannelAddFunds(ctx fsm.Context, environment ClientDealEnvironment, deal rm.ClientDealState) error {
-	err := environment.Node().WaitForPaymentChannelAddFunds(*deal.WaitMsgCID)
-	if err != nil {
-		return ctx.Trigger(rm.ClientEventPaymentChannelAddFundsErrored, err)
-	}
-	lane, err := environment.Node().AllocateLane(deal.PaymentInfo.PayCh)
+// AllocateLane allocates a lane for this retrieval operation
+func AllocateLane(ctx fsm.Context, environment ClientDealEnvironment, deal rm.ClientDealState) error {
+	lane, err := environment.Node().AllocateLane(ctx.Context(), deal.PaymentInfo.PayCh)
 	if err != nil {
 		return ctx.Trigger(rm.ClientEventAllocateLaneErrored, err)
 	}
-	return ctx.Trigger(rm.ClientEventPaymentChannelReady, deal.PaymentInfo.PayCh, lane)
+	return ctx.Trigger(rm.ClientEventLaneAllocated, lane)
 }
 
 // Ongoing just double checks that we may need to move out of the ongoing state cause a payment was previously requested
@@ -106,13 +95,6 @@ func ProcessPaymentRequested(ctx fsm.Context, environment ClientDealEnvironment,
 
 // SendFunds sends the next amount requested by the provider
 func SendFunds(ctx fsm.Context, environment ClientDealEnvironment, deal rm.ClientDealState) error {
-	// check that fundsSpent + paymentRequested <= totalFunds, or fail
-	if big.Add(deal.FundsSpent, deal.PaymentRequested).GreaterThan(deal.TotalFunds) {
-		expectedTotal := deal.TotalFunds.String()
-		actualTotal := big.Add(deal.FundsSpent, deal.PaymentRequested).String()
-		return ctx.Trigger(rm.ClientEventFundsExpended, expectedTotal, actualTotal)
-	}
-
 	// check that paymentRequest <= (totalReceived - bytesPaidFor) * pricePerByte + (unsealPrice - unsealFundsPaid), or fail
 	retrievalPrice := big.Mul(abi.NewTokenAmount(int64(deal.TotalReceived-deal.BytesPaidFor)), deal.PricePerByte)
 	unsealPrice := big.Sub(deal.UnsealPrice, deal.UnsealFundsPaid)
@@ -130,6 +112,10 @@ func SendFunds(ctx fsm.Context, environment ClientDealEnvironment, deal rm.Clien
 	// (node will do subtraction back to paymentRequested... slightly odd behavior but... well anyway)
 	voucher, err := environment.Node().CreatePaymentVoucher(ctx.Context(), deal.PaymentInfo.PayCh, big.Add(deal.FundsSpent, deal.PaymentRequested), deal.PaymentInfo.Lane, tok)
 	if err != nil {
+		shortfallErr, ok := err.(rm.ShortfallError)
+		if ok {
+			return ctx.Trigger(rm.ClientEventVoucherShortfall, shortfallErr.Shortfall())
+		}
 		return ctx.Trigger(rm.ClientEventCreateVoucherFailed, err)
 	}
 
@@ -144,6 +130,31 @@ func SendFunds(ctx fsm.Context, environment ClientDealEnvironment, deal rm.Clien
 	}
 
 	return ctx.Trigger(rm.ClientEventPaymentSent)
+}
+
+// CheckFunds examines current available funds in a payment channel after a voucher shortfall to determine
+// a course of action -- whether it's a good time to try again, wait for pending operations, or
+// we've truly expended all funds and we need to wait for a manual readd
+func CheckFunds(ctx fsm.Context, environment ClientDealEnvironment, deal rm.ClientDealState) error {
+	// if we already have an outstanding operation, let's wait for that to complete
+	if deal.WaitMsgCID != nil {
+		return ctx.Trigger(rm.ClientEventPaymentChannelAddingFunds, *deal.WaitMsgCID, deal.PaymentInfo.PayCh)
+	}
+	availableFunds, err := environment.Node().CheckAvailableFunds(ctx.Context(), deal.PaymentInfo.PayCh)
+	if err != nil {
+		return ctx.Trigger(rm.ClientEventPaymentChannelErrored, err)
+	}
+	unredeemedFunds := big.Sub(availableFunds.ConfirmedAmt, availableFunds.VoucherReedeemedAmt)
+	shortfall := big.Sub(deal.PaymentRequested, unredeemedFunds)
+	if shortfall.LessThanEqual(big.Zero()) {
+		return ctx.Trigger(rm.ClientEventPaymentChannelReady, deal.PaymentInfo.PayCh)
+	}
+	totalInFlight := big.Add(availableFunds.PendingAmt, availableFunds.QueuedAmt)
+	if totalInFlight.LessThan(shortfall) || availableFunds.PendingWaitSentinel == nil {
+		finalShortfall := big.Sub(shortfall, totalInFlight)
+		return ctx.Trigger(rm.ClientEventFundsExpended, finalShortfall)
+	}
+	return ctx.Trigger(rm.ClientEventPaymentChannelAddingFunds, *availableFunds.PendingWaitSentinel, deal.PaymentInfo.PayCh)
 }
 
 // CancelDeal clears a deal that went wrong for an unknown reason
