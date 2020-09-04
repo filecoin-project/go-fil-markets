@@ -6,15 +6,16 @@ import (
 	"os"
 	"sync"
 
+	"github.com/filecoin-project/filecoin-ffi"
+	"github.com/filecoin-project/go-multistore"
+	"github.com/filecoin-project/go-padreader"
+	"github.com/filecoin-project/go-state-types/abi"
 	"github.com/ipfs/go-cid"
 	blockstore "github.com/ipfs/go-ipfs-blockstore"
 	"github.com/ipld/go-car"
 	"github.com/ipld/go-ipld-prime"
-
-	"github.com/filecoin-project/go-multistore"
-	"github.com/filecoin-project/go-padreader"
-	"github.com/filecoin-project/sector-storage/ffiwrapper"
-	"github.com/filecoin-project/specs-actors/actors/abi"
+	"github.com/prometheus/common/log"
+	"golang.org/x/xerrors"
 
 	"github.com/filecoin-project/go-fil-markets/filestore"
 )
@@ -134,7 +135,7 @@ func (pio *pieceIOWithStore) GeneratePieceCommitmentToFile(rt abi.RegisteredSeal
 
 func GeneratePieceCommitment(rt abi.RegisteredSealProof, rd io.Reader, pieceSize uint64) (cid.Cid, abi.UnpaddedPieceSize, error) {
 	paddedReader, paddedSize := padreader.New(rd, pieceSize)
-	commitment, err := ffiwrapper.GeneratePieceCIDFromFile(rt, paddedReader, paddedSize)
+	commitment, err := GeneratePieceCIDFromFile(rt, paddedReader, paddedSize)
 	if err != nil {
 		return cid.Undef, 0, err
 	}
@@ -158,4 +159,62 @@ func (pio *pieceIO) bstore(storeID *multistore.StoreID) (blockstore.Blockstore, 
 		return nil, err
 	}
 	return store.Bstore, nil
+}
+
+func ToReadableFile(r io.Reader, n int64) (*os.File, func() error, error) {
+	f, ok := r.(*os.File)
+	if ok {
+		return f, func() error { return nil }, nil
+	}
+
+	var w *os.File
+
+	f, w, err := os.Pipe()
+	if err != nil {
+		return nil, nil, err
+	}
+
+	var wait sync.Mutex
+	var werr error
+
+	wait.Lock()
+	go func() {
+		defer wait.Unlock()
+
+		var copied int64
+		copied, werr = io.CopyN(w, r, n)
+		if werr != nil {
+			log.Warnf("toReadableFile: copy error: %+v", werr)
+		}
+
+		err := w.Close()
+		if werr == nil && err != nil {
+			werr = err
+			log.Warnf("toReadableFile: close error: %+v", err)
+			return
+		}
+		if copied != n {
+			log.Warnf("copied different amount than expected: %d != %d", copied, n)
+			werr = xerrors.Errorf("copied different amount than expected: %d != %d", copied, n)
+		}
+	}()
+
+	return f, func() error {
+		wait.Lock()
+		return werr
+	}, nil
+}
+
+func GeneratePieceCIDFromFile(proofType abi.RegisteredSealProof, piece io.Reader, pieceSize abi.UnpaddedPieceSize) (cid.Cid, error) {
+	f, werr, err := ToReadableFile(piece, int64(pieceSize))
+	if err != nil {
+		return cid.Undef, err
+	}
+
+	pieceCID, err := ffi.GeneratePieceCIDFromFile(proofType, f, pieceSize)
+	if err != nil {
+		return cid.Undef, err
+	}
+
+	return pieceCID, werr()
 }

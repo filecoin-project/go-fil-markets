@@ -370,7 +370,7 @@ See this repo's [piecestore module](../piecestore).
   that was written for your node.
 * `minerAddress address.Address` is the miner owner address.
 * `rt abi.RegisteredProof` is an int64 indicating the type of proof to use when generating a piece commitment (CommP).
-    see [github.com/filecoin-project/specs-actors/actors/abi/sector.go](https://github.com/filecoin-project/specs-actors/blob/master/actors/abi/sector.go)
+    see [github.com/filecoin-project/go-state-types/abi/sector.go](https://github.com/filecoin-project/specs-actors/blob/master/actors/abi/sector.go)
     for the list and meaning of accepted values.
 * `storedAsk StoredAsk` is an interface for getting and adding storage Asks. It is implemented in storagemarket.
     To create a `StoredAsk`:
