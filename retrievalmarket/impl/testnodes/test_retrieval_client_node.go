@@ -105,7 +105,7 @@ func (trcn *TestRetrievalClientNode) GetOrCreatePaymentChannel(ctx context.Conte
 }
 
 // AllocateLane creates a mock lane on a payment channel
-func (trcn *TestRetrievalClientNode) AllocateLane(paymentChannel address.Address) (uint64, error) {
+func (trcn *TestRetrievalClientNode) AllocateLane(ctx context.Context, paymentChannel address.Address) (uint64, error) {
 	if trcn.allocateLaneRecorder != nil {
 		trcn.allocateLaneRecorder(paymentChannel)
 	}
@@ -129,7 +129,7 @@ func (trcn *TestRetrievalClientNode) GetChainHead(ctx context.Context) (shared.T
 }
 
 // WaitForPaymentChannelReady simulates waiting for a payment channel to finish adding funds
-func (trcn *TestRetrievalClientNode) WaitForPaymentChannelReady(messageCID cid.Cid) (address.Address, error) {
+func (trcn *TestRetrievalClientNode) WaitForPaymentChannelReady(ctx context.Context, messageCID cid.Cid) (address.Address, error) {
 	if messageCID.Equals(trcn.createPaychMsgCID) && !trcn.addFundsOnly {
 		if trcn.intergrationTest {
 			trcn.channelAvailableFunds.ConfirmedAmt = big.Add(trcn.channelAvailableFunds.ConfirmedAmt, trcn.fundsAdded)

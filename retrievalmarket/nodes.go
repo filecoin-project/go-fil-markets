@@ -29,7 +29,7 @@ type RetrievalClientNode interface {
 	// Allocate late creates a lane within a payment channel so that calls to
 	// CreatePaymentVoucher will automatically make vouchers only for the difference
 	// in total
-	AllocateLane(paymentChannel address.Address) (uint64, error)
+	AllocateLane(ctx context.Context, paymentChannel address.Address) (uint64, error)
 
 	// CreatePaymentVoucher creates a new payment voucher in the given lane for a
 	// given payment channel so that all the payment vouchers in the lane add up
@@ -38,7 +38,7 @@ type RetrievalClientNode interface {
 		lane uint64, tok shared.TipSetToken) (*paych.SignedVoucher, error)
 
 	// WaitForPaymentChannelReady just waits for the payment channel's pending operations to complete
-	WaitForPaymentChannelReady(waitSentinel cid.Cid) (address.Address, error)
+	WaitForPaymentChannelReady(ctx context.Context, waitSentinel cid.Cid) (address.Address, error)
 
 	// GetKnownAddresses gets any on known multiaddrs for a given address, so we can add to the peer store
 	GetKnownAddresses(ctx context.Context, p RetrievalPeer, tok shared.TipSetToken) ([]ma.Multiaddr, error)

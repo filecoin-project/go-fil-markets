@@ -55,7 +55,7 @@ func SetupPaymentChannelStart(ctx fsm.Context, environment ClientDealEnvironment
 
 // WaitPaymentChannelReady waits for a pending operation on a payment channel -- either creating or depositing funds
 func WaitPaymentChannelReady(ctx fsm.Context, environment ClientDealEnvironment, deal rm.ClientDealState) error {
-	paych, err := environment.Node().WaitForPaymentChannelReady(*deal.WaitMsgCID)
+	paych, err := environment.Node().WaitForPaymentChannelReady(ctx.Context(), *deal.WaitMsgCID)
 	if err != nil {
 		return ctx.Trigger(rm.ClientEventPaymentChannelErrored, err)
 	}
@@ -64,7 +64,7 @@ func WaitPaymentChannelReady(ctx fsm.Context, environment ClientDealEnvironment,
 
 // AllocateLane allocates a lane for this retrieval operation
 func AllocateLane(ctx fsm.Context, environment ClientDealEnvironment, deal rm.ClientDealState) error {
-	lane, err := environment.Node().AllocateLane(deal.PaymentInfo.PayCh)
+	lane, err := environment.Node().AllocateLane(ctx.Context(), deal.PaymentInfo.PayCh)
 	if err != nil {
 		return ctx.Trigger(rm.ClientEventAllocateLaneErrored, err)
 	}
