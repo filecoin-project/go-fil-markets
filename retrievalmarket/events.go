@@ -101,6 +101,19 @@ const (
 	// ClientEventCompleteVerified means that a provider completed without requesting a final payment but
 	// we verified we received all data
 	ClientEventCompleteVerified
+
+	// ClientEventLaneAllocated is called when a lane is allocated
+	ClientEventLaneAllocated
+
+	// ClientEventVoucherShortfall means we tried to create a voucher but did not have enough funds in channel
+	// to create it
+	ClientEventVoucherShortfall
+
+	// ClientEventRecheckFunds runs when an external caller indicates there may be new funds in a payment channel
+	ClientEventRecheckFunds
+
+	// ClientEventCancel runs when a user cancels a deal
+	ClientEventCancel
 )
 
 // ClientEvents is a human readable map of client event name -> event description
@@ -117,6 +130,7 @@ var ClientEvents = map[ClientEvent]string{
 	ClientEventDealRejected:                  "ClientEventDealRejected",
 	ClientEventDealNotFound:                  "ClientEventDealNotFound",
 	ClientEventDealAccepted:                  "ClientEventDealAccepted",
+	ClientEventProviderCancelled:             "ClientEventProviderCancelled",
 	ClientEventUnknownResponseReceived:       "ClientEventUnknownResponseReceived",
 	ClientEventLastPaymentRequested:          "ClientEventLastPaymentRequested",
 	ClientEventAllBlocksReceived:             "ClientEventAllBlocksReceived",
@@ -134,6 +148,10 @@ var ClientEvents = map[ClientEvent]string{
 	ClientEventCancelComplete:                "ClientEventCancelComplete",
 	ClientEventEarlyTermination:              "ClientEventEarlyTermination",
 	ClientEventCompleteVerified:              "ClientEventCompleteVerified",
+	ClientEventLaneAllocated:                 "ClientEventLaneAllocated",
+	ClientEventVoucherShortfall:              "ClientEventVoucherShortfall",
+	ClientEventRecheckFunds:                  "ClientEventRecheckFunds",
+	ClientEventCancel:                        "ClientEventCancel",
 }
 
 // ProviderEvent is an event that occurs in a deal lifecycle on the provider
@@ -198,6 +216,9 @@ const (
 
 	// ProviderEventMultiStoreError occurs when an error happens attempting to operate on the multistore
 	ProviderEventMultiStoreError
+
+	// ProviderEventClientCancelled happens when the provider gets a cancel message from the client's data transfer
+	ProviderEventClientCancelled
 )
 
 // ProviderEvents is a human readable map of provider event name -> event description
@@ -219,4 +240,5 @@ var ProviderEvents = map[ProviderEvent]string{
 	ProviderEventCancelComplete:         "ProviderEventCancelComplete",
 	ProviderEventCleanupComplete:        "ProviderEventCleanupComplete",
 	ProviderEventMultiStoreError:        "ProviderEventMultiStoreError",
+	ProviderEventClientCancelled:        "ProviderEventClientCancelled",
 }

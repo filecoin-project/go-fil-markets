@@ -24,7 +24,7 @@ var paymentChannelCreationStates = []fsm.StateKey{
 	rm.DealStatusWaitForAcceptance,
 	rm.DealStatusAccepted,
 	rm.DealStatusPaymentChannelCreating,
-	rm.DealStatusPaymentChannelAddingFunds,
+	rm.DealStatusPaymentChannelAllocatingLane,
 }
 
 // ClientEvents are the events that can happen in a retrieval client
@@ -70,9 +70,9 @@ var ClientEvents = fsm.Events{
 
 	// Payment channel setup
 	fsm.Event(rm.ClientEventPaymentChannelErrored).
-		FromMany(rm.DealStatusAccepted, rm.DealStatusPaymentChannelCreating).To(rm.DealStatusFailing).
+		FromMany(rm.DealStatusAccepted, rm.DealStatusPaymentChannelCreating, rm.DealStatusPaymentChannelAddingFunds).To(rm.DealStatusFailing).
 		Action(func(deal *rm.ClientDealState, err error) error {
-			deal.Message = xerrors.Errorf("get or create payment channel: %w", err).Error()
+			deal.Message = xerrors.Errorf("error from payment channel: %w", err).Error()
 			return nil
 		}),
 	fsm.Event(rm.ClientEventPaymentChannelCreateInitiated).
@@ -82,35 +82,44 @@ var ClientEvents = fsm.Events{
 			return nil
 		}),
 	fsm.Event(rm.ClientEventPaymentChannelAddingFunds).
-		FromMany(rm.DealStatusAccepted).To(rm.DealStatusPaymentChannelAddingFunds).
+		FromMany(rm.DealStatusAccepted).To(rm.DealStatusPaymentChannelAllocatingLane).
+		FromMany(rm.DealStatusCheckFunds).To(rm.DealStatusPaymentChannelAddingFunds).
 		Action(func(deal *rm.ClientDealState, msgCID cid.Cid, payCh address.Address) error {
 			deal.WaitMsgCID = &msgCID
-			deal.PaymentInfo = &rm.PaymentInfo{
-				PayCh: payCh,
+			if deal.PaymentInfo == nil {
+				deal.PaymentInfo = &rm.PaymentInfo{
+					PayCh: payCh,
+				}
 			}
 			return nil
 		}),
 	fsm.Event(rm.ClientEventPaymentChannelReady).
-		FromMany(rm.DealStatusPaymentChannelCreating, rm.DealStatusPaymentChannelAddingFunds).
-		To(rm.DealStatusOngoing).
-		Action(func(deal *rm.ClientDealState, payCh address.Address, lane uint64) error {
-			deal.PaymentInfo = &rm.PaymentInfo{
-				PayCh: payCh,
-				Lane:  lane,
+		From(rm.DealStatusPaymentChannelCreating).To(rm.DealStatusPaymentChannelAllocatingLane).
+		From(rm.DealStatusPaymentChannelAddingFunds).To(rm.DealStatusOngoing).
+		From(rm.DealStatusCheckFunds).To(rm.DealStatusOngoing).
+		Action(func(deal *rm.ClientDealState, payCh address.Address) error {
+			if deal.PaymentInfo == nil {
+				deal.PaymentInfo = &rm.PaymentInfo{
+					PayCh: payCh,
+				}
 			}
+			deal.WaitMsgCID = nil
+			// remove any insufficient funds message
+			deal.Message = ""
 			return nil
 		}),
 	fsm.Event(rm.ClientEventAllocateLaneErrored).
-		FromMany(rm.DealStatusPaymentChannelCreating, rm.DealStatusPaymentChannelAddingFunds).
+		FromMany(rm.DealStatusPaymentChannelAllocatingLane).
 		To(rm.DealStatusFailing).
 		Action(func(deal *rm.ClientDealState, err error) error {
 			deal.Message = xerrors.Errorf("allocating payment lane: %w", err).Error()
 			return nil
 		}),
-	fsm.Event(rm.ClientEventPaymentChannelAddFundsErrored).
-		From(rm.DealStatusPaymentChannelAddingFunds).To(rm.DealStatusFailing).
-		Action(func(deal *rm.ClientDealState, err error) error {
-			deal.Message = xerrors.Errorf("wait for add funds: %w", err).Error()
+
+	fsm.Event(rm.ClientEventLaneAllocated).
+		From(rm.DealStatusPaymentChannelAllocatingLane).To(rm.DealStatusOngoing).
+		Action(func(deal *rm.ClientDealState, lane uint64) error {
+			deal.PaymentInfo.Lane = lane
 			return nil
 		}),
 
@@ -181,9 +190,9 @@ var ClientEvents = fsm.Events{
 
 	// Sending Payments
 	fsm.Event(rm.ClientEventFundsExpended).
-		FromMany(rm.DealStatusSendFunds, rm.DealStatusSendFundsLastPayment).To(rm.DealStatusFailing).
-		Action(func(deal *rm.ClientDealState, expectedTotal string, actualTotal string) error {
-			deal.Message = fmt.Sprintf("not enough funds left: expected amt = %s, actual amt = %s", expectedTotal, actualTotal)
+		FromMany(rm.DealStatusCheckFunds).To(rm.DealStatusInsufficientFunds).
+		Action(func(deal *rm.ClientDealState, shortfall abi.TokenAmount) error {
+			deal.Message = fmt.Sprintf("not enough current or pending funds in payment channel, shortfall of %s", shortfall.String())
 			return nil
 		}),
 	fsm.Event(rm.ClientEventBadPaymentRequested).
@@ -198,6 +207,12 @@ var ClientEvents = fsm.Events{
 			deal.Message = xerrors.Errorf("creating payment voucher: %w", err).Error()
 			return nil
 		}),
+	fsm.Event(rm.ClientEventVoucherShortfall).
+		FromMany(rm.DealStatusSendFunds, rm.DealStatusSendFundsLastPayment).To(rm.DealStatusCheckFunds).
+		Action(func(deal *rm.ClientDealState, shortfall abi.TokenAmount) error {
+			return nil
+		}),
+
 	fsm.Event(rm.ClientEventWriteDealPaymentErrored).
 		FromAny().To(rm.DealStatusErrored).
 		Action(func(deal *rm.ClientDealState, err error) error {
@@ -227,6 +242,7 @@ var ClientEvents = fsm.Events{
 			return nil
 		}),
 
+	// completing deals
 	fsm.Event(rm.ClientEventComplete).
 		From(rm.DealStatusOngoing).To(rm.DealStatusCheckComplete).
 		From(rm.DealStatusFinalizing).To(rm.DealStatusCompleted),
@@ -238,36 +254,59 @@ var ClientEvents = fsm.Events{
 			deal.Message = "Provider sent complete status without sending all data"
 			return nil
 		}),
-	fsm.Event(rm.ClientEventCancelComplete).
-		From(rm.DealStatusFailing).To(rm.DealStatusErrored),
 
-	fsm.Event(rm.ClientEventProviderCancelled).FromAny().To(rm.DealStatusErrored).Action(
+	// after cancelling a deal is complete
+	fsm.Event(rm.ClientEventCancelComplete).
+		From(rm.DealStatusFailing).To(rm.DealStatusErrored).
+		From(rm.DealStatusCancelling).To(rm.DealStatusCancelled),
+
+	// receiving a cancel indicating most likely that the provider experienced something wrong on their
+	// end, unless we are already failing or cancelling
+	fsm.Event(rm.ClientEventProviderCancelled).
+		From(rm.DealStatusFailing).ToJustRecord().
+		From(rm.DealStatusCancelling).ToJustRecord().
+		FromAny().To(rm.DealStatusErrored).Action(
 		func(deal *rm.ClientDealState) error {
-			deal.Message = "Provider cancelled retrieval due to error"
+			if deal.Status != rm.DealStatusFailing && deal.Status != rm.DealStatusCancelling {
+				deal.Message = "Provider cancelled retrieval due to error"
+			}
 			return nil
 		},
 	),
+
+	// user manually cancells retrieval
+	fsm.Event(rm.ClientEventCancel).FromAny().To(rm.DealStatusCancelling).Action(func(deal *rm.ClientDealState) error {
+		deal.Message = "Retrieval Cancelled"
+		return nil
+	}),
+
+	// payment channel receives more money, we believe there may be reason to recheck the funds for this channel
+	fsm.Event(rm.ClientEventRecheckFunds).From(rm.DealStatusInsufficientFunds).To(rm.DealStatusCheckFunds),
 }
 
 // ClientFinalityStates are terminal states after which no further events are received
 var ClientFinalityStates = []fsm.StateKey{
 	rm.DealStatusErrored,
 	rm.DealStatusCompleted,
+	rm.DealStatusCancelled,
 	rm.DealStatusRejected,
 	rm.DealStatusDealNotFound,
 }
 
 // ClientStateEntryFuncs are the handlers for different states in a retrieval client
 var ClientStateEntryFuncs = fsm.StateEntryFuncs{
-	rm.DealStatusNew:                       ProposeDeal,
-	rm.DealStatusAccepted:                  SetupPaymentChannelStart,
-	rm.DealStatusPaymentChannelCreating:    WaitForPaymentChannelCreate,
-	rm.DealStatusPaymentChannelAddingFunds: WaitForPaymentChannelAddFunds,
-	rm.DealStatusOngoing:                   Ongoing,
-	rm.DealStatusFundsNeeded:               ProcessPaymentRequested,
-	rm.DealStatusFundsNeededLastPayment:    ProcessPaymentRequested,
-	rm.DealStatusSendFunds:                 SendFunds,
-	rm.DealStatusSendFundsLastPayment:      SendFunds,
-	rm.DealStatusFailing:                   CancelDeal,
-	rm.DealStatusCheckComplete:             CheckComplete,
+	rm.DealStatusNew:                          ProposeDeal,
+	rm.DealStatusAccepted:                     SetupPaymentChannelStart,
+	rm.DealStatusPaymentChannelCreating:       WaitPaymentChannelReady,
+	rm.DealStatusPaymentChannelAllocatingLane: AllocateLane,
+	rm.DealStatusOngoing:                      Ongoing,
+	rm.DealStatusFundsNeeded:                  ProcessPaymentRequested,
+	rm.DealStatusFundsNeededLastPayment:       ProcessPaymentRequested,
+	rm.DealStatusSendFunds:                    SendFunds,
+	rm.DealStatusSendFundsLastPayment:         SendFunds,
+	rm.DealStatusCheckFunds:                   CheckFunds,
+	rm.DealStatusPaymentChannelAddingFunds:    WaitPaymentChannelReady,
+	rm.DealStatusFailing:                      CancelDeal,
+	rm.DealStatusCancelling:                   CancelDeal,
+	rm.DealStatusCheckComplete:                CheckComplete,
 }

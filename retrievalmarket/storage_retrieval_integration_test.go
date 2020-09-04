@@ -402,6 +402,7 @@ func newRetrievalHarness(ctx context.Context, t *testing.T, sh *storageHarness, 
 		PaymentVoucherRecorder: paymentVoucherRecorder,
 		CreatePaychCID:         cids[0],
 		AddFundsCID:            cids[1],
+		IntegrationTest:        true,
 	})
 
 	nw1 := rmnet.NewFromLibp2pHost(sh.TestData.Host1)
