@@ -6,16 +6,17 @@ import (
 	"os"
 	"sync"
 
-	"github.com/filecoin-project/filecoin-ffi"
-	"github.com/filecoin-project/go-multistore"
-	"github.com/filecoin-project/go-padreader"
-	"github.com/filecoin-project/go-state-types/abi"
 	"github.com/ipfs/go-cid"
 	blockstore "github.com/ipfs/go-ipfs-blockstore"
 	"github.com/ipld/go-car"
 	"github.com/ipld/go-ipld-prime"
 	"github.com/prometheus/common/log"
 	"golang.org/x/xerrors"
+
+	"github.com/filecoin-project/filecoin-ffi"
+	"github.com/filecoin-project/go-multistore"
+	"github.com/filecoin-project/go-padreader"
+	"github.com/filecoin-project/go-state-types/abi"
 
 	"github.com/filecoin-project/go-fil-markets/filestore"
 )
