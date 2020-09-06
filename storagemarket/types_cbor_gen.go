@@ -8,7 +8,7 @@ import (
 
 	filestore "github.com/filecoin-project/go-fil-markets/filestore"
 	multistore "github.com/filecoin-project/go-multistore"
-	abi "github.com/filecoin-project/specs-actors/actors/abi"
+	abi "github.com/filecoin-project/go-state-types/abi"
 	market "github.com/filecoin-project/specs-actors/actors/builtin/market"
 	crypto "github.com/filecoin-project/specs-actors/actors/crypto"
 	peer "github.com/libp2p/go-libp2p-core/peer"
