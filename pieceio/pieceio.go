@@ -13,7 +13,7 @@ import (
 	"github.com/prometheus/common/log"
 	"golang.org/x/xerrors"
 
-	"github.com/filecoin-project/filecoin-ffi"
+	ffi "github.com/filecoin-project/filecoin-ffi"
 	"github.com/filecoin-project/go-multistore"
 	"github.com/filecoin-project/go-padreader"
 	"github.com/filecoin-project/go-state-types/abi"
