@@ -19,8 +19,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/filecoin-project/go-multistore"
-	"github.com/filecoin-project/sector-storage/ffiwrapper"
-	"github.com/filecoin-project/specs-actors/actors/abi"
+	"github.com/filecoin-project/go-state-types/abi"
 
 	"github.com/filecoin-project/go-fil-markets/filestore"
 	fsmocks "github.com/filecoin-project/go-fil-markets/filestore/mocks"
@@ -190,7 +189,7 @@ func Test_StoreRestoreMemoryBuffer(t *testing.T) {
 	_, err = tmpFile.Read(buf)
 	require.NoError(t, err)
 	buffer := bytes.NewBuffer(buf)
-	secondCommitment, err := ffiwrapper.GeneratePieceCIDFromFile(abi.RegisteredSealProof_StackedDrg2KiBV1, buffer, paddedSize)
+	secondCommitment, err := pieceio.GeneratePieceCIDFromFile(abi.RegisteredSealProof_StackedDrg2KiBV1, buffer, paddedSize)
 	require.NoError(t, err)
 	require.Equal(t, commitment, secondCommitment)
 }

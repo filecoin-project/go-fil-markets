@@ -13,8 +13,9 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/filecoin-project/go-address"
-	"github.com/filecoin-project/specs-actors/actors/abi"
-	"github.com/filecoin-project/specs-actors/actors/abi/big"
+	"github.com/filecoin-project/go-state-types/abi"
+	"github.com/filecoin-project/go-state-types/big"
+	"github.com/filecoin-project/specs-actors/actors/builtin"
 	"github.com/filecoin-project/specs-actors/actors/builtin/market"
 	"github.com/filecoin-project/specs-actors/actors/builtin/verifreg"
 	"github.com/filecoin-project/specs-actors/actors/crypto"
@@ -183,7 +184,7 @@ func (n *FakeCommonNode) SignBytes(ctx context.Context, signer address.Address, 
 }
 
 func (n *FakeCommonNode) DealProviderCollateralBounds(ctx context.Context, size abi.PaddedPieceSize, isVerified bool) (abi.TokenAmount, abi.TokenAmount, error) {
-	return abi.NewTokenAmount(5000), abi.TotalFilecoin, nil
+	return abi.NewTokenAmount(5000), builtin.TotalFilecoin, nil
 }
 
 // OnDealSectorCommitted returns immediately, and returns stubbed errors
