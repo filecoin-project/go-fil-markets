@@ -6,7 +6,7 @@ import (
 	"context"
 
 	"github.com/ipfs/go-cid"
-	"github.com/ipld/go-ipld-prime/codec/dagjson"
+	"github.com/ipld/go-ipld-prime/codec/dagcbor"
 	"github.com/ipld/go-ipld-prime/fluent"
 	cidlink "github.com/ipld/go-ipld-prime/linking/cid"
 	basicnode "github.com/ipld/go-ipld-prime/node/basic"
@@ -78,7 +78,7 @@ func LabelField(payloadCID cid.Cid) ([]byte, error) {
 		})
 	})
 	buf := new(bytes.Buffer)
-	err := dagjson.Encoder(nd, buf)
+	err := dagcbor.Encoder(nd, buf)
 	if err != nil {
 		return nil, err
 	}
