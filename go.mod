@@ -15,7 +15,7 @@ require (
 	github.com/filecoin-project/go-statemachine v0.0.0-20200813232949-df9b130df370
 	github.com/filecoin-project/go-statestore v0.1.0
 	github.com/filecoin-project/go-storedcounter v0.0.0-20200421200003-1c99c62e8a5b
-	github.com/filecoin-project/specs-actors v0.9.6
+	github.com/filecoin-project/specs-actors v0.9.7
 	github.com/hannahhoward/cbor-gen-for v0.0.0-20200723175505-5892b522820a
 	github.com/hannahhoward/go-pubsub v0.0.0-20200423002714-8d62886cc36e
 	github.com/ipfs/go-block-format v0.0.2
