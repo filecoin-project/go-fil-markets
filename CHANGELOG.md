@@ -734,6 +734,28 @@ Minor stability release to handle connection drops more gracefully and fix a ret
 | Aarsh Shah | 1 | +132/-24 | 9 |
 | David Dias | 1 | +5/-0 | 1 |
 
+# go-fil-markets 0.6.0
+
+Major release that updates to specs-actors v0.9.7, which also introduces the new `go-state-types` dependency. This release also introduces non-blocking retrieval.
+
+### Changelog
+
+  - Update to specs-actors v0.9.7 (#396) ([filecoin-project/go-fil-markets#396](https://github.com/filecoin-project/go-fil-markets/pull/396))
+  - Use shared types for exitcode and crypto (#395) ([filecoin-project/go-fil-markets#395](https://github.com/filecoin-project/go-fil-markets/pull/395))
+  - Consume go-state-types (#394) ([filecoin-project/go-fil-markets#394](https://github.com/filecoin-project/go-fil-markets/pull/394))
+  - Convert label JSON to CBOR (#393) ([filecoin-project/go-fil-markets#393](https://github.com/filecoin-project/go-fil-markets/pull/393))
+  - Non blocking retrieval (#392) ([filecoin-project/go-fil-markets#392](https://github.com/filecoin-project/go-fil-markets/pull/392))
+  - fix(storagemarket): fix test hang (#391) ([filecoin-project/go-fil-markets#391](https://github.com/filecoin-project/go-fil-markets/pull/391))
+  - docs(CHANGELOG): update for 0.5.9 release ([filecoin-project/go-fil-markets#390](https://github.com/filecoin-project/go-fil-markets/pull/390))
+
+Contributors
+
+| Contributor | Commits | Lines ± | Files Changed |
+|-------------|---------|---------|---------------|
+| Hannah Howard | 3 | +678/-289 | 25 |
+| ZenGround0 | 2 | +226/-187 | 78 |
+| Aayush Rajasekaran | 1 | +3/-3 | 2 |
+
 ### 🙌🏽 Want to contribute?
 
 Would you like to contribute to this repo and don’t know how? Here are a few places you can get started:
