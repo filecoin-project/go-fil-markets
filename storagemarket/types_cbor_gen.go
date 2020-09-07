@@ -10,7 +10,7 @@ import (
 	multistore "github.com/filecoin-project/go-multistore"
 	abi "github.com/filecoin-project/go-state-types/abi"
 	crypto "github.com/filecoin-project/go-state-types/crypto"
-	market "github.com/filecoin-project/specs-actors/actors/builtin/market"	
+	market "github.com/filecoin-project/specs-actors/actors/builtin/market"
 	peer "github.com/libp2p/go-libp2p-core/peer"
 	cbg "github.com/whyrusleeping/cbor-gen"
 	xerrors "golang.org/x/xerrors"
