@@ -1,7 +1,6 @@
 package clientutils_test
 
 import (
-	"bytes"
 	"context"
 	"errors"
 	"fmt"
@@ -11,9 +10,6 @@ import (
 
 	"github.com/ipfs/go-cid"
 	"github.com/ipld/go-ipld-prime"
-	"github.com/ipld/go-ipld-prime/codec/dagcbor"
-	cidlink "github.com/ipld/go-ipld-prime/linking/cid"
-	basicnode "github.com/ipld/go-ipld-prime/node/basic"
 	"github.com/stretchr/testify/require"
 
 	"github.com/filecoin-project/go-address"
@@ -153,16 +149,7 @@ func TestLabelField(t *testing.T) {
 	payloadCID := shared_testutil.GenerateCids(1)[0]
 	label, err := clientutils.LabelField(payloadCID)
 	require.NoError(t, err)
-	nb := basicnode.Style.Any.NewBuilder()
-	err = dagcbor.Decoder(nb, bytes.NewReader(label))
+	resultCid, err := cid.Decode(label)
 	require.NoError(t, err)
-	nd := nb.Build()
-	pcidsNd, err := nd.LookupString("pcids")
-	require.NoError(t, err)
-	linkNd, err := pcidsNd.LookupIndex(0)
-	require.NoError(t, err)
-	link, err := linkNd.AsLink()
-	require.NoError(t, err)
-	resultCid := link.(cidlink.Link).Cid
 	require.True(t, payloadCID.Equals(resultCid))
 }

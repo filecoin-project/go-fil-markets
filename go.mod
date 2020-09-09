@@ -41,6 +41,7 @@ require (
 	github.com/libp2p/go-libp2p v0.10.0
 	github.com/libp2p/go-libp2p-core v0.6.0
 	github.com/multiformats/go-multiaddr v0.2.2
+	github.com/multiformats/go-multibase v0.0.3
 	github.com/prometheus/common v0.0.0-20180801064454-c7de2306084e
 	github.com/stretchr/testify v1.6.1
 	github.com/whyrusleeping/cbor-gen v0.0.0-20200814224545-656e08ce49ee

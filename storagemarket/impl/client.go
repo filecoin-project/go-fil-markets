@@ -359,7 +359,7 @@ func (c *Client) ProposeStorageDeal(ctx context.Context, params storagemarket.Pr
 		PieceSize:            pieceSize.Padded(),
 		Client:               params.Addr,
 		Provider:             params.Info.Address,
-		Label:                string(label),
+		Label:                label,
 		StartEpoch:           params.StartEpoch,
 		EndEpoch:             params.EndEpoch,
 		StoragePricePerEpoch: params.Price,
