@@ -46,7 +46,7 @@ type StorageCommon interface {
 	VerifySignature(ctx context.Context, signature crypto.Signature, signer address.Address, plaintext []byte, tok shared.TipSetToken) (bool, error)
 
 	// WaitForMessage waits until a message appears on chain. If it is already on chain, the callback is called immediately
-	WaitForMessage(ctx context.Context, mcid cid.Cid, onCompletion func(exitcode.ExitCode, []byte, error) error) error
+	WaitForMessage(ctx context.Context, mcid cid.Cid, onCompletion func(exitcode.ExitCode, []byte, cid.Cid, error) error) error
 
 	// SignsBytes signs the given data with the given address's private key
 	SignBytes(ctx context.Context, signer address.Address, b []byte) (*crypto.Signature, error)
