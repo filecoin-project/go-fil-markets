@@ -60,7 +60,6 @@ type ClientDealState struct {
 	FundsSpent           abi.TokenAmount
 	UnsealFundsPaid      abi.TokenAmount
 	WaitMsgCID           *cid.Cid // the CID of any message the client deal is waiting for
-	VoucherShortfall     abi.TokenAmount
 }
 
 // ProviderDealState is the current state of a deal from the point of view
@@ -344,39 +343,4 @@ type Ask struct {
 	UnsealPrice             abi.TokenAmount
 	PaymentInterval         uint64
 	PaymentIntervalIncrease uint64
-}
-
-// ShortfallErorr is an error that indicates a short fall of funds
-type ShortfallError struct {
-	shortfall abi.TokenAmount
-}
-
-// NewShortfallError returns a new error indicating a shortfall of funds
-func NewShortfallError(shortfall abi.TokenAmount) error {
-	return ShortfallError{shortfall}
-}
-
-// Shortfall returns the numerical value of the shortfall
-func (se ShortfallError) Shortfall() abi.TokenAmount {
-	return se.shortfall
-}
-func (se ShortfallError) Error() string {
-	return fmt.Sprintf("Inssufficient Funds. Shortfall: %s", se.shortfall.String())
-}
-
-// ChannelAvailableFunds provides information about funds in a channel
-type ChannelAvailableFunds struct {
-	// ConfirmedAmt is the amount of funds that have been confirmed on-chain
-	// for the channel
-	ConfirmedAmt abi.TokenAmount
-	// PendingAmt is the amount of funds that are pending confirmation on-chain
-	PendingAmt abi.TokenAmount
-	// PendingWaitSentinel can be used with PaychGetWaitReady to wait for
-	// confirmation of pending funds
-	PendingWaitSentinel *cid.Cid
-	// QueuedAmt is the amount that is queued up behind a pending request
-	QueuedAmt abi.TokenAmount
-	// VoucherRedeemedAmt is the amount that is redeemed by vouchers on-chain
-	// and in the local datastore
-	VoucherReedeemedAmt abi.TokenAmount
 }

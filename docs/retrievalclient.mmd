@@ -17,14 +17,9 @@ stateDiagram-v2
 	state "DealStatusBlocksComplete" as 18
 	state "DealStatusFinalizing" as 19
 	state "DealStatusCheckComplete" as 21
-	state "DealStatusCheckFunds" as 22
-	state "DealStatusInsufficientFunds" as 23
-	state "DealStatusPaymentChannelAllocatingLane" as 24
-	state "DealStatusCancelling" as 25
-	state "DealStatusCancelled" as 26
 	0 : On entry runs ProposeDeal
-	4 : On entry runs WaitPaymentChannelReady
-	5 : On entry runs WaitPaymentChannelReady
+	4 : On entry runs WaitForPaymentChannelCreate
+	5 : On entry runs WaitForPaymentChannelAddFunds
 	6 : On entry runs SetupPaymentChannelStart
 	8 : On entry runs CancelDeal
 	10 : On entry runs ProcessPaymentRequested
@@ -33,9 +28,6 @@ stateDiagram-v2
 	13 : On entry runs Ongoing
 	14 : On entry runs ProcessPaymentRequested
 	21 : On entry runs CheckComplete
-	22 : On entry runs CheckFunds
-	24 : On entry runs AllocateLane
-	25 : On entry runs CancelDeal
 	[*] --> 0
 	note right of 0
 		The following events are not shown cause they can trigger from any state.
@@ -44,8 +36,7 @@ stateDiagram-v2
 		ClientEventUnknownResponseReceived - transitions state to DealStatusFailing
 		ClientEventDataTransferError - transitions state to DealStatusErrored
 		ClientEventWriteDealPaymentErrored - transitions state to DealStatusErrored
-		ClientEventProviderCancelled - transitions state to DealStatusErrored
-		ClientEventCancel - transitions state to DealStatusCancelling
+		<invalid reflect.Value> - transitions state to DealStatusErrored
 	end note
 	0 --> 0 : ClientEventOpen
 	0 --> 3 : ClientEventDealProposed
@@ -53,16 +44,14 @@ stateDiagram-v2
 	3 --> 16 : ClientEventDealNotFound
 	3 --> 6 : ClientEventDealAccepted
 	4 --> 8 : ClientEventPaymentChannelErrored
-	5 --> 8 : ClientEventPaymentChannelErrored
 	6 --> 8 : ClientEventPaymentChannelErrored
 	6 --> 4 : ClientEventPaymentChannelCreateInitiated
-	6 --> 24 : ClientEventPaymentChannelAddingFunds
-	22 --> 5 : ClientEventPaymentChannelAddingFunds
-	4 --> 24 : ClientEventPaymentChannelReady
+	6 --> 5 : ClientEventPaymentChannelAddingFunds
+	4 --> 13 : ClientEventPaymentChannelReady
 	5 --> 13 : ClientEventPaymentChannelReady
-	22 --> 13 : ClientEventPaymentChannelReady
-	24 --> 8 : ClientEventAllocateLaneErrored
-	24 --> 13 : ClientEventLaneAllocated
+	4 --> 8 : ClientEventAllocateLaneErrored
+	5 --> 8 : ClientEventAllocateLaneErrored
+	5 --> 8 : ClientEventPaymentChannelAddFundsErrored
 	10 --> 14 : ClientEventLastPaymentRequested
 	13 --> 14 : ClientEventLastPaymentRequested
 	14 --> 14 : ClientEventLastPaymentRequested
@@ -79,13 +68,12 @@ stateDiagram-v2
 	14 --> 14 : ClientEventBlocksReceived
 	10 --> 11 : ClientEventSendFunds
 	14 --> 12 : ClientEventSendFunds
-	22 --> 23 : ClientEventFundsExpended
+	11 --> 8 : ClientEventFundsExpended
+	12 --> 8 : ClientEventFundsExpended
 	11 --> 8 : ClientEventBadPaymentRequested
 	12 --> 8 : ClientEventBadPaymentRequested
 	11 --> 8 : ClientEventCreateVoucherFailed
 	12 --> 8 : ClientEventCreateVoucherFailed
-	11 --> 22 : ClientEventVoucherShortfall
-	12 --> 22 : ClientEventVoucherShortfall
 	11 --> 13 : ClientEventPaymentSent
 	12 --> 19 : ClientEventPaymentSent
 	13 --> 21 : ClientEventComplete
@@ -93,8 +81,6 @@ stateDiagram-v2
 	21 --> 15 : ClientEventCompleteVerified
 	21 --> 17 : ClientEventEarlyTermination
 	8 --> 17 : ClientEventCancelComplete
-	25 --> 26 : ClientEventCancelComplete
-	23 --> 22 : ClientEventRecheckFunds
 
 	note left of 3 : The following events only record in this state.<br><br>ClientEventLastPaymentRequested<br>ClientEventPaymentRequested<br>ClientEventAllBlocksReceived<br>ClientEventBlocksReceived
 
@@ -102,20 +88,14 @@ stateDiagram-v2
 	note left of 4 : The following events only record in this state.<br><br>ClientEventLastPaymentRequested<br>ClientEventPaymentRequested<br>ClientEventAllBlocksReceived<br>ClientEventBlocksReceived
 
 
+	note left of 5 : The following events only record in this state.<br><br>ClientEventLastPaymentRequested<br>ClientEventPaymentRequested<br>ClientEventAllBlocksReceived<br>ClientEventBlocksReceived
+
+
 	note left of 6 : The following events only record in this state.<br><br>ClientEventLastPaymentRequested<br>ClientEventPaymentRequested<br>ClientEventAllBlocksReceived<br>ClientEventBlocksReceived
-
-
-	note left of 8 : The following events only record in this state.<br><br>ClientEventProviderCancelled
 
 
 	note left of 10 : The following events only record in this state.<br><br>ClientEventAllBlocksReceived
 
 
 	note left of 11 : The following events only record in this state.<br><br>ClientEventAllBlocksReceived
-
-
-	note left of 24 : The following events only record in this state.<br><br>ClientEventLastPaymentRequested<br>ClientEventPaymentRequested<br>ClientEventAllBlocksReceived<br>ClientEventBlocksReceived
-
-
-	note left of 25 : The following events only record in this state.<br><br>ClientEventProviderCancelled
 

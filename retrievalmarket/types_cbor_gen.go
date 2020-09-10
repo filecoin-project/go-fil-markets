@@ -802,7 +802,7 @@ func (t *DealPayment) UnmarshalCBOR(r io.Reader) error {
 	return nil
 }
 
-var lengthBufClientDealState = []byte{148}
+var lengthBufClientDealState = []byte{147}
 
 func (t *ClientDealState) MarshalCBOR(w io.Writer) error {
 	if t == nil {
@@ -942,10 +942,6 @@ func (t *ClientDealState) MarshalCBOR(w io.Writer) error {
 		}
 	}
 
-	// t.VoucherShortfall (big.Int) (struct)
-	if err := t.VoucherShortfall.MarshalCBOR(w); err != nil {
-		return err
-	}
 	return nil
 }
 
@@ -963,7 +959,7 @@ func (t *ClientDealState) UnmarshalCBOR(r io.Reader) error {
 		return fmt.Errorf("cbor input should be of type array")
 	}
 
-	if extra != 20 {
+	if extra != 19 {
 		return fmt.Errorf("cbor input had wrong number of fields")
 	}
 
@@ -1211,15 +1207,6 @@ func (t *ClientDealState) UnmarshalCBOR(r io.Reader) error {
 			}
 
 			t.WaitMsgCID = &c
-		}
-
-	}
-	// t.VoucherShortfall (big.Int) (struct)
-
-	{
-
-		if err := t.VoucherShortfall.UnmarshalCBOR(br); err != nil {
-			return xerrors.Errorf("unmarshaling t.VoucherShortfall: %w", err)
 		}
 
 	}

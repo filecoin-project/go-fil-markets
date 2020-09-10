@@ -119,7 +119,6 @@ func NewProvider(minerAddress address.Address,
 		StateKeyField:   "Status",
 		Events:          providerstates.ProviderEvents,
 		StateEntryFuncs: providerstates.ProviderStateEntryFuncs,
-		FinalityStates:  providerstates.ProviderFinalityStates,
 		Notifier:        p.notifySubscribers,
 	})
 	if err != nil {
@@ -172,7 +171,6 @@ func (p *Provider) SubscribeToEvents(subscriber retrievalmarket.ProviderSubscrib
 	return retrievalmarket.Unsubscribe(p.subscribers.Subscribe(subscriber))
 }
 
-// GetAsk returns the current parameters deals this provider accepts
 func (p *Provider) GetAsk() *retrievalmarket.Ask {
 	p.askLk.Lock()
 	defer p.askLk.Unlock()
@@ -180,7 +178,6 @@ func (p *Provider) GetAsk() *retrievalmarket.Ask {
 	return &a
 }
 
-// SetAsk sets the parameters for deals this provider accepts
 func (p *Provider) SetAsk(ask *retrievalmarket.Ask) {
 	p.askLk.Lock()
 	defer p.askLk.Unlock()

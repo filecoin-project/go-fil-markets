@@ -44,17 +44,8 @@ type RetrievalClient interface {
 	SubscribeToEvents(subscriber ClientSubscriber) Unsubscribe
 
 	// V1
-
-	// TryRestartInsufficientFunds attempts to restart any deals stuck in the insufficient funds state
-	// after funds are added to a given payment channel
-	TryRestartInsufficientFunds(paymentChannel address.Address) error
-
-	// CancelDeal attempts to cancel an inprogress deal
+	AddMoreFunds(id DealID, amount abi.TokenAmount) error
 	CancelDeal(id DealID) error
-
-	// GetDeal returns a given deal by deal ID, if it exists
-	GetDeal(dealID DealID) (ClientDealState, error)
-
-	// ListDeals returns all deals
-	ListDeals() (map[DealID]ClientDealState, error)
+	RetrievalStatus(id DealID)
+	ListDeals() map[DealID]ClientDealState
 }

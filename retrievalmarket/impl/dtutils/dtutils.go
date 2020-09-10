@@ -24,21 +24,6 @@ type EventReceiver interface {
 	Send(id interface{}, name fsm.EventName, args ...interface{}) (err error)
 }
 
-const noProviderEvent = rm.ProviderEvent(math.MaxUint64)
-
-func providerEvent(event datatransfer.Event, channelState datatransfer.ChannelState) (rm.ProviderEvent, []interface{}) {
-	switch event.Code {
-	case datatransfer.Accept:
-		return rm.ProviderEventDealAccepted, []interface{}{channelState.ChannelID()}
-	case datatransfer.Error:
-		return rm.ProviderEventDataTransferError, []interface{}{fmt.Errorf("deal data transfer failed: %s", event.Message)}
-	case datatransfer.Cancel:
-		return rm.ProviderEventClientCancelled, nil
-	default:
-		return noProviderEvent, nil
-	}
-}
-
 // ProviderDataTransferSubscriber is the function called when an event occurs in a data
 // transfer received by a provider -- it reads the voucher to verify this event occurred
 // in a storage market deal, then, based on the data transfer event that occurred, it generates
@@ -52,23 +37,27 @@ func ProviderDataTransferSubscriber(deals EventReceiver) datatransfer.Subscriber
 			return
 		}
 
+		// data transfer events for progress do not affect deal state
+		switch event.Code {
+		case datatransfer.Accept:
+			err := deals.Send(rm.ProviderDealIdentifier{DealID: dealProposal.ID, Receiver: channelState.Recipient()}, rm.ProviderEventDealAccepted, channelState.ChannelID())
+			if err != nil {
+				log.Errorf("processing dt event: %w", err)
+			}
+		case datatransfer.Error:
+			err := deals.Send(rm.ProviderDealIdentifier{DealID: dealProposal.ID, Receiver: channelState.Recipient()}, rm.ProviderEventDataTransferError, fmt.Errorf("deal data transfer failed: %s", event.Message))
+			if err != nil {
+				log.Errorf("processing dt event: %w", err)
+			}
+		default:
+		}
+
 		if channelState.Status() == datatransfer.Completed {
 			err := deals.Send(rm.ProviderDealIdentifier{DealID: dealProposal.ID, Receiver: channelState.Recipient()}, rm.ProviderEventComplete)
 			if err != nil {
 				log.Errorf("processing dt event: %w", err)
 			}
 		}
-
-		retrievalEvent, params := providerEvent(event, channelState)
-		if retrievalEvent == noProviderEvent {
-			return
-		}
-
-		err := deals.Send(rm.ProviderDealIdentifier{DealID: dealProposal.ID, Receiver: channelState.Recipient()}, retrievalEvent, params...)
-		if err != nil {
-			log.Errorf("processing dt event: %w", err)
-		}
-
 	}
 }
 

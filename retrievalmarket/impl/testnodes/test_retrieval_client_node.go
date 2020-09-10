@@ -12,54 +12,45 @@ import (
 
 	"github.com/filecoin-project/go-address"
 	"github.com/filecoin-project/go-state-types/abi"
-	"github.com/filecoin-project/go-state-types/big"
 	"github.com/filecoin-project/specs-actors/actors/builtin/paych"
 
 	"github.com/filecoin-project/go-fil-markets/retrievalmarket"
 	"github.com/filecoin-project/go-fil-markets/shared"
-	"github.com/filecoin-project/go-fil-markets/shared_testutil"
 )
 
 // TestRetrievalClientNode is a node adapter for a retrieval client whose responses
 // are stubbed
 type TestRetrievalClientNode struct {
-	addFundsOnly                      bool // set this to true to test adding funds to an existing payment channel
-	payCh                             address.Address
-	payChErr                          error
-	createPaychMsgCID, addFundsMsgCID cid.Cid
-	lane                              uint64
-	laneError                         error
-	voucher                           *paych.SignedVoucher
-	voucherError, waitErr             error
-	channelAvailableFunds             retrievalmarket.ChannelAvailableFunds
-	checkAvailableFundsErr            error
-	fundsAdded                        abi.TokenAmount
-	intergrationTest                  bool
-	knownAddreses                     map[retrievalmarket.RetrievalPeer][]ma.Multiaddr
-	receivedKnownAddresses            map[retrievalmarket.RetrievalPeer]struct{}
-	expectedKnownAddresses            map[retrievalmarket.RetrievalPeer]struct{}
-	allocateLaneRecorder              func(address.Address)
-	createPaymentVoucherRecorder      func(voucher *paych.SignedVoucher)
-	getCreatePaymentChannelRecorder   func(address.Address, address.Address, abi.TokenAmount)
+	addFundsOnly                            bool // set this to true to test adding funds to an existing payment channel
+	payCh                                   address.Address
+	payChErr                                error
+	createPaychMsgCID, addFundsMsgCID       cid.Cid
+	lane                                    uint64
+	laneError                               error
+	voucher                                 *paych.SignedVoucher
+	voucherError, waitCreateErr, waitAddErr error
+	knownAddreses                           map[retrievalmarket.RetrievalPeer][]ma.Multiaddr
+	receivedKnownAddresses                  map[retrievalmarket.RetrievalPeer]struct{}
+	expectedKnownAddresses                  map[retrievalmarket.RetrievalPeer]struct{}
+	allocateLaneRecorder                    func(address.Address)
+	createPaymentVoucherRecorder            func(voucher *paych.SignedVoucher)
+	getCreatePaymentChannelRecorder         func(address.Address, address.Address, abi.TokenAmount)
 }
 
 // TestRetrievalClientNodeParams are parameters for initializing a TestRetrievalClientNode
 type TestRetrievalClientNodeParams struct {
-	PayCh                       address.Address
-	PayChErr                    error
-	CreatePaychCID, AddFundsCID cid.Cid
-	Lane                        uint64
-	LaneError                   error
-	Voucher                     *paych.SignedVoucher
-	VoucherError                error
-	AllocateLaneRecorder        func(address.Address)
-	PaymentVoucherRecorder      func(voucher *paych.SignedVoucher)
-	PaymentChannelRecorder      func(address.Address, address.Address, abi.TokenAmount)
-	AddFundsOnly                bool
-	WaitForReadyErr             error
-	ChannelAvailableFunds       retrievalmarket.ChannelAvailableFunds
-	CheckAvailableFundsErr      error
-	IntegrationTest             bool
+	PayCh                                  address.Address
+	PayChErr                               error
+	CreatePaychCID, AddFundsCID            cid.Cid
+	Lane                                   uint64
+	LaneError                              error
+	Voucher                                *paych.SignedVoucher
+	VoucherError                           error
+	AllocateLaneRecorder                   func(address.Address)
+	PaymentVoucherRecorder                 func(voucher *paych.SignedVoucher)
+	PaymentChannelRecorder                 func(address.Address, address.Address, abi.TokenAmount)
+	AddFundsOnly                           bool
+	WaitForAddFundsErr, WaitForChCreateErr error
 }
 
 var _ retrievalmarket.RetrievalClientNode = &TestRetrievalClientNode{}
@@ -70,7 +61,8 @@ func NewTestRetrievalClientNode(params TestRetrievalClientNodeParams) *TestRetri
 		addFundsOnly:                    params.AddFundsOnly,
 		payCh:                           params.PayCh,
 		payChErr:                        params.PayChErr,
-		waitErr:                         params.WaitForReadyErr,
+		waitCreateErr:                   params.WaitForChCreateErr,
+		waitAddErr:                      params.WaitForAddFundsErr,
 		lane:                            params.Lane,
 		laneError:                       params.LaneError,
 		voucher:                         params.Voucher,
@@ -80,9 +72,6 @@ func NewTestRetrievalClientNode(params TestRetrievalClientNodeParams) *TestRetri
 		getCreatePaymentChannelRecorder: params.PaymentChannelRecorder,
 		createPaychMsgCID:               params.CreatePaychCID,
 		addFundsMsgCID:                  params.AddFundsCID,
-		channelAvailableFunds:           addZeroesToAvailableFunds(params.ChannelAvailableFunds),
-		checkAvailableFundsErr:          params.CheckAvailableFundsErr,
-		intergrationTest:                params.IntegrationTest,
 		knownAddreses:                   map[retrievalmarket.RetrievalPeer][]ma.Multiaddr{},
 		expectedKnownAddresses:          map[retrievalmarket.RetrievalPeer]struct{}{},
 		receivedKnownAddresses:          map[retrievalmarket.RetrievalPeer]struct{}{},
@@ -100,12 +89,11 @@ func (trcn *TestRetrievalClientNode) GetOrCreatePaymentChannel(ctx context.Conte
 		payCh = trcn.payCh
 		msgCID = trcn.addFundsMsgCID
 	}
-	trcn.fundsAdded = clientFundsAvailable
 	return payCh, msgCID, trcn.payChErr
 }
 
 // AllocateLane creates a mock lane on a payment channel
-func (trcn *TestRetrievalClientNode) AllocateLane(ctx context.Context, paymentChannel address.Address) (uint64, error) {
+func (trcn *TestRetrievalClientNode) AllocateLane(paymentChannel address.Address) (uint64, error) {
 	if trcn.allocateLaneRecorder != nil {
 		trcn.allocateLaneRecorder(paymentChannel)
 	}
@@ -117,9 +105,6 @@ func (trcn *TestRetrievalClientNode) CreatePaymentVoucher(ctx context.Context, p
 	if trcn.createPaymentVoucherRecorder != nil {
 		trcn.createPaymentVoucherRecorder(trcn.voucher)
 	}
-	if trcn.intergrationTest && amount.GreaterThan(trcn.channelAvailableFunds.ConfirmedAmt) {
-		return nil, retrievalmarket.NewShortfallError(big.Sub(amount, trcn.channelAvailableFunds.ConfirmedAmt))
-	}
 	return trcn.voucher, trcn.voucherError
 }
 
@@ -128,29 +113,20 @@ func (trcn *TestRetrievalClientNode) GetChainHead(ctx context.Context) (shared.T
 	return shared.TipSetToken{}, 0, nil
 }
 
-// WaitForPaymentChannelReady simulates waiting for a payment channel to finish adding funds
-func (trcn *TestRetrievalClientNode) WaitForPaymentChannelReady(ctx context.Context, messageCID cid.Cid) (address.Address, error) {
-	if messageCID.Equals(trcn.createPaychMsgCID) && !trcn.addFundsOnly {
-		if trcn.intergrationTest {
-			trcn.channelAvailableFunds.ConfirmedAmt = big.Add(trcn.channelAvailableFunds.ConfirmedAmt, trcn.fundsAdded)
-		}
-		return trcn.payCh, trcn.waitErr
+// WaitForPaymentChannelAddFunds simulates waiting for a payment channel add funds message to complete
+func (trcn *TestRetrievalClientNode) WaitForPaymentChannelAddFunds(messageCID cid.Cid) error {
+	if messageCID != trcn.addFundsMsgCID {
+		return fmt.Errorf("expected messageCID: %s does not match actual: %s", trcn.addFundsMsgCID, messageCID)
 	}
-	if messageCID.Equals(trcn.addFundsMsgCID) && trcn.addFundsOnly {
-		if trcn.intergrationTest {
-			trcn.channelAvailableFunds.ConfirmedAmt = big.Add(trcn.channelAvailableFunds.ConfirmedAmt, trcn.fundsAdded)
-		}
-		return trcn.payCh, trcn.waitErr
+	return trcn.waitAddErr
+}
+
+// WaitForPaymentChannelCreation simulates waiting for a payment channel creation message to complete
+func (trcn *TestRetrievalClientNode) WaitForPaymentChannelCreation(messageCID cid.Cid) (address.Address, error) {
+	if messageCID != trcn.createPaychMsgCID {
+		return address.Undef, fmt.Errorf("expected messageCID: %s does not match actual: %s", trcn.createPaychMsgCID, messageCID)
 	}
-	if trcn.channelAvailableFunds.PendingWaitSentinel != nil && messageCID.Equals(*trcn.channelAvailableFunds.PendingWaitSentinel) {
-		if trcn.intergrationTest {
-			trcn.channelAvailableFunds.ConfirmedAmt = big.Add(trcn.channelAvailableFunds.ConfirmedAmt, trcn.channelAvailableFunds.PendingAmt)
-			trcn.channelAvailableFunds.PendingAmt = trcn.channelAvailableFunds.QueuedAmt
-			trcn.channelAvailableFunds.PendingWaitSentinel = &shared_testutil.GenerateCids(1)[0]
-		}
-		return trcn.payCh, trcn.waitErr
-	}
-	return address.Undef, fmt.Errorf("expected messageCID: %s does not match actual: %s", trcn.addFundsMsgCID, messageCID)
+	return trcn.payCh, trcn.waitCreateErr
 }
 
 // ExpectKnownAddresses stubs a return for a look up of known addresses for the given retrieval peer
@@ -170,33 +146,7 @@ func (trcn *TestRetrievalClientNode) GetKnownAddresses(ctx context.Context, p re
 	return addrs, nil
 }
 
-// ResetChannelAvailableFunds is a way to manually change the funds in the payment channel
-func (trcn *TestRetrievalClientNode) ResetChannelAvailableFunds(channelAvailableFunds retrievalmarket.ChannelAvailableFunds) {
-	trcn.channelAvailableFunds = addZeroesToAvailableFunds(channelAvailableFunds)
-}
-
 // VerifyExpectations verifies that all expected known addresses were looked up
 func (trcn *TestRetrievalClientNode) VerifyExpectations(t *testing.T) {
 	require.Equal(t, trcn.expectedKnownAddresses, trcn.receivedKnownAddresses)
-}
-
-// CheckAvailableFunds returns the amount of available funds in a payment channel
-func (trcn *TestRetrievalClientNode) CheckAvailableFunds(ctx context.Context, payCh address.Address) (retrievalmarket.ChannelAvailableFunds, error) {
-	return trcn.channelAvailableFunds, trcn.checkAvailableFundsErr
-}
-
-func addZeroesToAvailableFunds(channelAvailableFunds retrievalmarket.ChannelAvailableFunds) retrievalmarket.ChannelAvailableFunds {
-	if channelAvailableFunds.ConfirmedAmt.Nil() {
-		channelAvailableFunds.ConfirmedAmt = big.Zero()
-	}
-	if channelAvailableFunds.PendingAmt.Nil() {
-		channelAvailableFunds.PendingAmt = big.Zero()
-	}
-	if channelAvailableFunds.QueuedAmt.Nil() {
-		channelAvailableFunds.QueuedAmt = big.Zero()
-	}
-	if channelAvailableFunds.VoucherReedeemedAmt.Nil() {
-		channelAvailableFunds.VoucherReedeemedAmt = big.Zero()
-	}
-	return channelAvailableFunds
 }

@@ -12,7 +12,6 @@ stateDiagram-v2
 	state "DealStatusBlocksComplete" as 18
 	state "DealStatusFinalizing" as 19
 	state "DealStatusCompleting" as 20
-	state "DealStatusCancelled" as 26
 	1 : On entry runs UnsealData
 	2 : On entry runs UnpauseDeal
 	7 : On entry runs TrackTransfer
@@ -24,7 +23,6 @@ stateDiagram-v2
 
 		ProviderEventDataTransferError - transitions state to DealStatusErrored
 		ProviderEventMultiStoreError - transitions state to DealStatusErrored
-		ProviderEventClientCancelled - transitions state to DealStatusCancelled
 	end note
 	0 --> 0 : ProviderEventOpen
 	0 --> 1 : ProviderEventDealAccepted
@@ -49,6 +47,3 @@ stateDiagram-v2
 	19 --> 20 : ProviderEventComplete
 	20 --> 15 : ProviderEventCleanupComplete
 	8 --> 17 : ProviderEventCancelComplete
-
-	note left of 8 : The following events only record in this state.<br><br>ProviderEventClientCancelled
-

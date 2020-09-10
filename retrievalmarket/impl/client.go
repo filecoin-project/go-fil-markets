@@ -265,51 +265,27 @@ func (c *Client) SubscribeToEvents(subscriber retrievalmarket.ClientSubscriber) 
 }
 
 // V1
-
-// TryRestartInsufficientFunds attempts to restart any deals stuck in the insufficient funds state
-// after funds are added to a given payment channel
-func (c *Client) TryRestartInsufficientFunds(paymentChannel address.Address) error {
-	var deals []retrievalmarket.ClientDealState
-	err := c.stateMachines.List(&deals)
-	if err != nil {
-		return err
-	}
-	for _, deal := range deals {
-		if deal.Status == retrievalmarket.DealStatusInsufficientFunds && deal.PaymentInfo.PayCh == paymentChannel {
-			if err := c.stateMachines.Send(deal.ID, retrievalmarket.ClientEventRecheckFunds); err != nil {
-				return err
-			}
-		}
-	}
-	return nil
+func (c *Client) AddMoreFunds(retrievalmarket.DealID, abi.TokenAmount) error {
+	panic("not implemented")
 }
 
-// CancelDeal attempts to cancel an inprogress deal
-func (c *Client) CancelDeal(dealID retrievalmarket.DealID) error {
-	return c.stateMachines.Send(dealID, retrievalmarket.ClientEventCancel)
+func (c *Client) CancelDeal(retrievalmarket.DealID) error {
+	panic("not implemented")
 }
 
-// GetDeal returns a given deal by deal ID, if it exists
-func (c *Client) GetDeal(dealID retrievalmarket.DealID) (retrievalmarket.ClientDealState, error) {
-	var out retrievalmarket.ClientDealState
-	if err := c.stateMachines.Get(dealID).Get(&out); err != nil {
-		return retrievalmarket.ClientDealState{}, err
-	}
-	return out, nil
+func (c *Client) RetrievalStatus(retrievalmarket.DealID) {
+	panic("not implemented")
 }
 
 // ListDeals lists in all known retrieval deals
-func (c *Client) ListDeals() (map[retrievalmarket.DealID]retrievalmarket.ClientDealState, error) {
+func (c *Client) ListDeals() map[retrievalmarket.DealID]retrievalmarket.ClientDealState {
 	var deals []retrievalmarket.ClientDealState
-	err := c.stateMachines.List(&deals)
-	if err != nil {
-		return nil, err
-	}
+	_ = c.stateMachines.List(&deals)
 	dealMap := make(map[retrievalmarket.DealID]retrievalmarket.ClientDealState)
 	for _, deal := range deals {
 		dealMap[deal.ID] = deal
 	}
-	return dealMap, nil
+	return dealMap
 }
 
 var _ clientstates.ClientDealEnvironment = &clientDealEnvironment{}

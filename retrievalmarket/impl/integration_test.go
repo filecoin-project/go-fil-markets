@@ -69,9 +69,6 @@ func TestClientCanMakeQueryToProvider(t *testing.T) {
 }
 
 func TestProvider_Stop(t *testing.T) {
-	if testing.Short() {
-		t.Skip()
-	}
 	bgCtx := context.Background()
 	payChAddr := address.TestAddress
 	client, expectedCIDs, _, _, retrievalPeer, provider := requireSetupTestClientAndProvider(bgCtx, t, payChAddr)
@@ -181,15 +178,12 @@ func TestClientCanMakeDealWithProvider(t *testing.T) {
 		failsUnseal             bool
 		paymentInterval         uint64
 		paymentIntervalIncrease uint64
-		channelAvailableFunds   retrievalmarket.ChannelAvailableFunds
-		fundsReplenish          abi.TokenAmount
-		cancelled               bool
 	}{
-		{name: "1 block file retrieval succeeds",
+		{name: "1 block file retrieval succeeds with existing payment channel",
 			filename:    "lorem_under_1_block.txt",
 			filesize:    410,
 			voucherAmts: []abi.TokenAmount{abi.NewTokenAmount(410000)},
-			addFunds:    false,
+			addFunds:    true,
 		},
 		{name: "1 block file retrieval succeeds with unseal price",
 			filename:    "lorem_under_1_block.txt",
@@ -204,45 +198,6 @@ func TestClientCanMakeDealWithProvider(t *testing.T) {
 			filesize:    410,
 			voucherAmts: []abi.TokenAmount{abi.NewTokenAmount(410000)},
 			addFunds:    true},
-		{name: "1 block file retrieval succeeds, but waits for other payment channel funds to land",
-			filename:    "lorem_under_1_block.txt",
-			filesize:    410,
-			voucherAmts: []abi.TokenAmount{abi.NewTokenAmount(410000)},
-			channelAvailableFunds: retrievalmarket.ChannelAvailableFunds{
-				// this is bit contrived, but we're simulating other deals expending the funds by setting the initial confirmed to negative
-				// when funds get added on initial create, it will reset to zero
-				// which will trigger a later voucher shortfall and then waiting for both
-				// the pending and then the queued amounts
-				ConfirmedAmt:        abi.NewTokenAmount(-410000),
-				PendingAmt:          abi.NewTokenAmount(200000),
-				PendingWaitSentinel: &tut.GenerateCids(1)[0],
-				QueuedAmt:           abi.NewTokenAmount(210000),
-			},
-		},
-		{name: "1 block file retrieval succeeds, after insufficient funds and restart",
-			filename:    "lorem_under_1_block.txt",
-			filesize:    410,
-			voucherAmts: []abi.TokenAmount{abi.NewTokenAmount(410000)},
-			channelAvailableFunds: retrievalmarket.ChannelAvailableFunds{
-				// this is bit contrived, but we're simulating other deals expending the funds by setting the initial confirmed to negative
-				// when funds get added on initial create, it will reset to zero
-				// which will trigger a later voucher shortfall
-				ConfirmedAmt: abi.NewTokenAmount(-410000),
-			},
-			fundsReplenish: abi.NewTokenAmount(410000),
-		},
-		{name: "1 block file retrieval cancelled after insufficient funds",
-			filename:    "lorem_under_1_block.txt",
-			filesize:    410,
-			voucherAmts: []abi.TokenAmount{},
-			channelAvailableFunds: retrievalmarket.ChannelAvailableFunds{
-				// this is bit contrived, but we're simulating other deals expending the funds by setting the initial confirmed to negative
-				// when funds get added on initial create, it will reset to zero
-				// which will trigger a later voucher shortfall
-				ConfirmedAmt: abi.NewTokenAmount(-410000),
-			},
-			cancelled: true,
-		},
 		{name: "multi-block file retrieval succeeds",
 			filename:    "lorem.txt",
 			filesize:    19000,
@@ -376,7 +331,7 @@ func TestClientCanMakeDealWithProvider(t *testing.T) {
 			expectedVoucher := tut.MakeTestSignedVoucher()
 
 			// just make sure there is enough to cover the transfer
-			expectedTotal := big.Mul(pricePerByte, abi.NewTokenAmount(int64(len(carData))))
+			expectedTotal := big.Mul(pricePerByte, abi.NewTokenAmount(int64(testCase.filesize*2)))
 
 			// voucherAmts are pulled from the actual answer so the expected keys in the test node match up.
 			// later we compare the voucher values.  The last voucherAmt is a remainder
@@ -387,30 +342,22 @@ func TestClientCanMakeDealWithProvider(t *testing.T) {
 
 			// ------- SET UP CLIENT
 			nw1 := rmnet.NewFromLibp2pHost(testData.Host1)
-			createdChan, newLaneAddr, createdVoucher, clientNode, client, err := setupClient(bgCtx, t, clientPaymentChannel, expectedVoucher, nw1, testData, testCase.addFunds, testCase.channelAvailableFunds)
+			createdChan, newLaneAddr, createdVoucher, clientNode, client, err := setupClient(bgCtx, t, clientPaymentChannel, expectedVoucher, nw1, testData, testCase.addFunds)
 			require.NoError(t, err)
 
 			clientNode.ExpectKnownAddresses(retrievalPeer, nil)
 
 			clientDealStateChan := make(chan retrievalmarket.ClientDealState)
 			client.SubscribeToEvents(func(event retrievalmarket.ClientEvent, state retrievalmarket.ClientDealState) {
-				switch state.Status {
-				case retrievalmarket.DealStatusCompleted, retrievalmarket.DealStatusCancelled, retrievalmarket.DealStatusErrored:
+				if state.Status == retrievalmarket.DealStatusCompleted {
 					clientDealStateChan <- state
 					return
 				}
-				if state.Status == retrievalmarket.DealStatusInsufficientFunds {
-					if !testCase.fundsReplenish.Nil() {
-						clientNode.ResetChannelAvailableFunds(retrievalmarket.ChannelAvailableFunds{
-							ConfirmedAmt: testCase.fundsReplenish,
-						})
-						client.TryRestartInsufficientFunds(state.PaymentInfo.PayCh)
-					}
-					if testCase.cancelled {
-						client.CancelDeal(state.ID)
-					}
-				}
-				msg := `
+				switch event {
+				case retrievalmarket.ClientEventProviderCancelled:
+					clientDealStateChan <- state
+				default:
+					msg := `
 Client:
 Event:           %s
 Status:          %s
@@ -420,18 +367,18 @@ CurrentInterval: %d
 TotalFunds:      %s
 Message:         %s
 `
-				t.Logf(msg, retrievalmarket.ClientEvents[event], retrievalmarket.DealStatuses[state.Status], state.TotalReceived, state.BytesPaidFor, state.CurrentInterval,
-					state.TotalFunds.String(), state.Message)
+					t.Logf(msg, retrievalmarket.ClientEvents[event], retrievalmarket.DealStatuses[state.Status], state.TotalReceived, state.BytesPaidFor, state.CurrentInterval,
+						state.TotalFunds.String(), state.Message)
+				}
 			})
 
 			providerDealStateChan := make(chan retrievalmarket.ProviderDealState)
 			provider.SubscribeToEvents(func(event retrievalmarket.ProviderEvent, state retrievalmarket.ProviderDealState) {
-				switch state.Status {
-				case retrievalmarket.DealStatusCompleted, retrievalmarket.DealStatusCancelled, retrievalmarket.DealStatusErrored:
+				switch event {
+				case retrievalmarket.ProviderEventCleanupComplete, retrievalmarket.ProviderEventCancelComplete:
 					providerDealStateChan <- state
-					return
-				}
-				msg := `
+				default:
+					msg := `
 Provider:
 Event:           %s
 Status:          %s
@@ -440,9 +387,10 @@ FundsReceived:   %s
 Message:		 %s
 CurrentInterval: %d
 `
-				t.Logf(msg, retrievalmarket.ProviderEvents[event], retrievalmarket.DealStatuses[state.Status], state.TotalSent, state.FundsReceived.String(), state.Message,
-					state.CurrentInterval)
+					t.Logf(msg, retrievalmarket.ProviderEvents[event], retrievalmarket.DealStatuses[state.Status], state.TotalSent, state.FundsReceived.String(), state.Message,
+						state.CurrentInterval)
 
+				}
 			})
 			// **** Send the query for the Piece
 			// set up retrieval params
@@ -481,8 +429,6 @@ CurrentInterval: %d
 			}
 			if testCase.failsUnseal {
 				assert.Equal(t, retrievalmarket.DealStatusErrored, clientDealState.Status)
-			} else if testCase.cancelled {
-				assert.Equal(t, retrievalmarket.DealStatusCancelled, clientDealState.Status)
 			} else {
 				assert.Equal(t, clientDealState.PaymentInfo.Lane, expectedVoucher.Lane)
 				require.NotNil(t, createdChan)
@@ -505,8 +451,6 @@ CurrentInterval: %d
 
 			if testCase.failsUnseal {
 				require.Equal(t, retrievalmarket.DealStatusErrored, providerDealState.Status)
-			} else if testCase.cancelled {
-				require.Equal(t, retrievalmarket.DealStatusCancelled, providerDealState.Status)
 			} else {
 				require.Equal(t, retrievalmarket.DealStatusCompleted, providerDealState.Status)
 			}
@@ -519,7 +463,7 @@ CurrentInterval: %d
 			// verify that the nodes we interacted with as expected
 			clientNode.VerifyExpectations(t)
 			providerNode.VerifyExpectations(t)
-			if !testCase.failsUnseal && !testCase.cancelled {
+			if !testCase.failsUnseal {
 				if testCase.skipStores {
 					testData.VerifyFileTransferred(t, pieceLink, false, testCase.filesize)
 				} else {
@@ -539,7 +483,6 @@ func setupClient(
 	nw1 rmnet.RetrievalMarketNetwork,
 	testData *tut.Libp2pTestData,
 	addFunds bool,
-	channelAvailableFunds retrievalmarket.ChannelAvailableFunds,
 ) (
 	*pmtChan,
 	*address.Address,
@@ -572,8 +515,6 @@ func setupClient(
 		PaymentVoucherRecorder: paymentVoucherRecorder,
 		CreatePaychCID:         cids[0],
 		AddFundsCID:            cids[1],
-		IntegrationTest:        true,
-		ChannelAvailableFunds:  channelAvailableFunds,
 	})
 	dtTransport1 := dtgstransport.NewTransport(testData.Host1.ID(), testData.GraphSync1)
 	dt1, err := dtimpl.NewDataTransfer(testData.DTStore1, testData.DTNet1, dtTransport1, testData.DTStoredCounter1)

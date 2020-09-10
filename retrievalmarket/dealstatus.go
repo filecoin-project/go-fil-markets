@@ -83,52 +83,30 @@ const (
 	// DealStatusCheckComplete is used for when the provided completes without a last payment
 	// requested cycle, to verify we have received all blocks
 	DealStatusCheckComplete
-
-	// DealStatusCheckFunds means we are looking at the state of funding for the channel to determine
-	// if more money is incoming
-	DealStatusCheckFunds
-
-	// DealStatusInsufficientFunds indicates we have depleted funds for the retrieval payment channel
-	// - we can resume after funds are added
-	DealStatusInsufficientFunds
-
-	// DealStatusPaymentChannelAllocatingLane is the status when we are making a lane for this channel
-	DealStatusPaymentChannelAllocatingLane
-
-	// DealStatusCancelling means we are cancelling an inprogress deal
-	DealStatusCancelling
-
-	// DealStatusCancelled means a deal has been cancelled
-	DealStatusCancelled
 )
 
 // DealStatuses maps deal status to a human readable representation
 var DealStatuses = map[DealStatus]string{
-	DealStatusNew:                          "DealStatusNew",
-	DealStatusUnsealing:                    "DealStatusUnsealing",
-	DealStatusUnsealed:                     "DealStatusUnsealed",
-	DealStatusWaitForAcceptance:            "DealStatusWaitForAcceptance",
-	DealStatusPaymentChannelCreating:       "DealStatusPaymentChannelCreating",
-	DealStatusPaymentChannelAddingFunds:    "DealStatusPaymentChannelAddingFunds",
-	DealStatusAccepted:                     "DealStatusAccepted",
-	DealStatusFundsNeededUnseal:            "DealStatusFundsNeededUnseal",
-	DealStatusFailing:                      "DealStatusFailing",
-	DealStatusRejected:                     "DealStatusRejected",
-	DealStatusFundsNeeded:                  "DealStatusFundsNeeded",
-	DealStatusSendFunds:                    "DealStatusSendFunds",
-	DealStatusSendFundsLastPayment:         "DealStatusSendFundsLastPayment",
-	DealStatusOngoing:                      "DealStatusOngoing",
-	DealStatusFundsNeededLastPayment:       "DealStatusFundsNeededLastPayment",
-	DealStatusCompleted:                    "DealStatusCompleted",
-	DealStatusDealNotFound:                 "DealStatusDealNotFound",
-	DealStatusErrored:                      "DealStatusErrored",
-	DealStatusBlocksComplete:               "DealStatusBlocksComplete",
-	DealStatusFinalizing:                   "DealStatusFinalizing",
-	DealStatusCompleting:                   "DealStatusCompleting",
-	DealStatusCheckComplete:                "DealStatusCheckComplete",
-	DealStatusCheckFunds:                   "DealStatusCheckFunds",
-	DealStatusInsufficientFunds:            "DealStatusInsufficientFunds",
-	DealStatusPaymentChannelAllocatingLane: "DealStatusPaymentChannelAllocatingLane",
-	DealStatusCancelling:                   "DealStatusCancelling",
-	DealStatusCancelled:                    "DealStatusCancelled",
+	DealStatusNew:                       "DealStatusNew",
+	DealStatusUnsealing:                 "DealStatusUnsealing",
+	DealStatusUnsealed:                  "DealStatusUnsealed",
+	DealStatusWaitForAcceptance:         "DealStatusWaitForAcceptance",
+	DealStatusPaymentChannelCreating:    "DealStatusPaymentChannelCreating",
+	DealStatusPaymentChannelAddingFunds: "DealStatusPaymentChannelAddingFunds",
+	DealStatusAccepted:                  "DealStatusAccepted",
+	DealStatusFundsNeededUnseal:         "DealStatusFundsNeededUnseal",
+	DealStatusFailing:                   "DealStatusFailing",
+	DealStatusRejected:                  "DealStatusRejected",
+	DealStatusFundsNeeded:               "DealStatusFundsNeeded",
+	DealStatusSendFunds:                 "DealStatusSendFunds",
+	DealStatusSendFundsLastPayment:      "DealStatusSendFundsLastPayment",
+	DealStatusOngoing:                   "DealStatusOngoing",
+	DealStatusFundsNeededLastPayment:    "DealStatusFundsNeededLastPayment",
+	DealStatusCompleted:                 "DealStatusCompleted",
+	DealStatusDealNotFound:              "DealStatusDealNotFound",
+	DealStatusErrored:                   "DealStatusErrored",
+	DealStatusBlocksComplete:            "DealStatusBlocksComplete",
+	DealStatusFinalizing:                "DealStatusFinalizing",
+	DealStatusCompleting:                "DealStatusCompleting",
+	DealStatusCheckComplete:             "DealStatusCheckComplete",
 }

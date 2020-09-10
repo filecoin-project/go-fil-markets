@@ -23,13 +23,10 @@ type RetrievalClientNode interface {
 	GetOrCreatePaymentChannel(ctx context.Context, clientAddress, minerAddress address.Address,
 		clientFundsAvailable abi.TokenAmount, tok shared.TipSetToken) (address.Address, cid.Cid, error)
 
-	// CheckAvailableFunds returns the amount of current and incoming funds in a channel
-	CheckAvailableFunds(ctx context.Context, paymentChannel address.Address) (ChannelAvailableFunds, error)
-
 	// Allocate late creates a lane within a payment channel so that calls to
 	// CreatePaymentVoucher will automatically make vouchers only for the difference
 	// in total
-	AllocateLane(ctx context.Context, paymentChannel address.Address) (uint64, error)
+	AllocateLane(paymentChannel address.Address) (uint64, error)
 
 	// CreatePaymentVoucher creates a new payment voucher in the given lane for a
 	// given payment channel so that all the payment vouchers in the lane add up
@@ -37,8 +34,13 @@ type RetrievalClientNode interface {
 	CreatePaymentVoucher(ctx context.Context, paymentChannel address.Address, amount abi.TokenAmount,
 		lane uint64, tok shared.TipSetToken) (*paych.SignedVoucher, error)
 
-	// WaitForPaymentChannelReady just waits for the payment channel's pending operations to complete
-	WaitForPaymentChannelReady(ctx context.Context, waitSentinel cid.Cid) (address.Address, error)
+	// WaitForPaymentChannelAddFunds waits for a message on chain that funds have
+	// been sent to a payment channel
+	WaitForPaymentChannelAddFunds(messageCID cid.Cid) error
+
+	// WaitForPaymentChannelCreation waits for a message on chain that a
+	// payment channel has been created
+	WaitForPaymentChannelCreation(messageCID cid.Cid) (address.Address, error)
 
 	// GetKnownAddresses gets any on known multiaddrs for a given address, so we can add to the peer store
 	GetKnownAddresses(ctx context.Context, p RetrievalPeer, tok shared.TipSetToken) ([]ma.Multiaddr, error)

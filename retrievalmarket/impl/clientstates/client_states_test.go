@@ -108,21 +108,19 @@ func TestSetupPaymentChannel(t *testing.T) {
 		dealState := makeDealState(retrievalmarket.DealStatusAccepted)
 		runSetupPaymentChannel(t, envParams, dealState)
 		assert.Empty(t, dealState.Message)
-		require.Equal(t, envParams.CreatePaychCID, *dealState.WaitMsgCID)
 		assert.Equal(t, dealState.Status, retrievalmarket.DealStatusPaymentChannelCreating)
 	})
 
 	t.Run("payment channel needs funds added", func(t *testing.T) {
 		envParams := testnodes.TestRetrievalClientNodeParams{
-			AddFundsOnly: true,
-			PayCh:        expectedPayCh,
-			AddFundsCID:  testnet.GenerateCids(1)[0],
+			AddFundsOnly:   true,
+			PayCh:          expectedPayCh,
+			CreatePaychCID: testnet.GenerateCids(1)[0],
 		}
 		dealState := makeDealState(retrievalmarket.DealStatusAccepted)
 		runSetupPaymentChannel(t, envParams, dealState)
 		require.Empty(t, dealState.Message)
-		require.Equal(t, envParams.AddFundsCID, *dealState.WaitMsgCID)
-		require.Equal(t, retrievalmarket.DealStatusPaymentChannelAllocatingLane, dealState.Status)
+		require.Equal(t, retrievalmarket.DealStatusPaymentChannelAddingFunds, dealState.Status)
 		require.Equal(t, expectedPayCh, dealState.PaymentInfo.PayCh)
 	})
 
@@ -139,95 +137,129 @@ func TestSetupPaymentChannel(t *testing.T) {
 
 }
 
-func TestWaitForPaymentReady(t *testing.T) {
+func TestWaitForPaymentChannelCreate(t *testing.T) {
 	ctx := context.Background()
 	expectedPayCh := address.TestAddress2
+	expectedLane := uint64(10)
 	eventMachine, err := fsm.NewEventProcessor(retrievalmarket.ClientDealState{}, "Status", clientstates.ClientEvents)
 	require.NoError(t, err)
-	runWaitForPaychReady := func(t *testing.T,
+	runWaitForPaychCreate := func(t *testing.T,
 		params testnodes.TestRetrievalClientNodeParams,
 		dealState *retrievalmarket.ClientDealState) {
 		node := testnodes.NewTestRetrievalClientNode(params)
 		environment := &fakeEnvironment{node, nil, nil, nil}
 		fsmCtx := fsmtest.NewTestContext(ctx, eventMachine)
-		err := clientstates.WaitPaymentChannelReady(fsmCtx, environment, *dealState)
+		err := clientstates.WaitForPaymentChannelCreate(fsmCtx, environment, *dealState)
 		require.NoError(t, err)
 		fsmCtx.ReplayEvents(t, dealState)
 	}
 	msgCID := testnet.GenerateCids(1)[0]
 
-	t.Run("it works, creating state", func(t *testing.T) {
+	t.Run("it works", func(t *testing.T) {
 		dealState := makeDealState(retrievalmarket.DealStatusPaymentChannelCreating)
 		dealState.WaitMsgCID = &msgCID
 		params := testnodes.TestRetrievalClientNodeParams{
 			PayCh:          expectedPayCh,
 			CreatePaychCID: msgCID,
+			Lane:           expectedLane,
 		}
-		runWaitForPaychReady(t, params, dealState)
+		runWaitForPaychCreate(t, params, dealState)
 		require.Empty(t, dealState.Message)
-		require.Equal(t, dealState.Status, retrievalmarket.DealStatusPaymentChannelAllocatingLane)
+		require.Equal(t, dealState.Status, retrievalmarket.DealStatusOngoing)
+		require.Equal(t, expectedLane, dealState.PaymentInfo.Lane)
 		require.Equal(t, expectedPayCh, dealState.PaymentInfo.PayCh)
 	})
 	t.Run("if Wait fails", func(t *testing.T) {
 		dealState := makeDealState(retrievalmarket.DealStatusPaymentChannelCreating)
 		dealState.WaitMsgCID = &msgCID
 		params := testnodes.TestRetrievalClientNodeParams{
-			PayCh:           expectedPayCh,
-			CreatePaychCID:  msgCID,
-			WaitForReadyErr: errors.New("boom"),
+			PayCh:              expectedPayCh,
+			CreatePaychCID:     msgCID,
+			WaitForChCreateErr: errors.New("boom"),
 		}
-		runWaitForPaychReady(t, params, dealState)
+		runWaitForPaychCreate(t, params, dealState)
 		require.Contains(t, dealState.Message, "boom")
 		require.Equal(t, dealState.Status, retrievalmarket.DealStatusFailing)
 	})
-	t.Run("it works, waiting for added funds", func(t *testing.T) {
-		dealState := makeDealState(retrievalmarket.DealStatusPaymentChannelAddingFunds)
+
+	t.Run("if AllocateLane fails", func(t *testing.T) {
+		dealState := makeDealState(retrievalmarket.DealStatusPaymentChannelCreating)
 		dealState.WaitMsgCID = &msgCID
 		params := testnodes.TestRetrievalClientNodeParams{
-			PayCh:        expectedPayCh,
-			AddFundsCID:  msgCID,
-			AddFundsOnly: true,
+			PayCh:          expectedPayCh,
+			CreatePaychCID: msgCID,
+			LaneError:      errors.New("boom"),
 		}
-		runWaitForPaychReady(t, params, dealState)
-		require.Empty(t, dealState.Message)
-		require.Equal(t, dealState.Status, retrievalmarket.DealStatusOngoing)
+		runWaitForPaychCreate(t, params, dealState)
+		require.Contains(t, dealState.Message, "boom")
+		require.Equal(t, dealState.Status, retrievalmarket.DealStatusFailing)
 	})
 }
 
-func TestAllocateLane(t *testing.T) {
+func TestWaitForPaymentChannelAddFunds(t *testing.T) {
 	ctx := context.Background()
-	expectedLane := uint64(10)
+	expectedPayCh := address.TestAddress2
+	expectedLane := uint64(99)
 	eventMachine, err := fsm.NewEventProcessor(retrievalmarket.ClientDealState{}, "Status", clientstates.ClientEvents)
 	require.NoError(t, err)
-	runAllocateLane := func(t *testing.T,
+	runWaitForPaychAddFunds := func(t *testing.T,
 		params testnodes.TestRetrievalClientNodeParams,
 		dealState *retrievalmarket.ClientDealState) {
 		node := testnodes.NewTestRetrievalClientNode(params)
 		environment := &fakeEnvironment{node, nil, nil, nil}
 		fsmCtx := fsmtest.NewTestContext(ctx, eventMachine)
-		err := clientstates.AllocateLane(fsmCtx, environment, *dealState)
+		err := clientstates.WaitForPaymentChannelAddFunds(fsmCtx, environment, *dealState)
 		require.NoError(t, err)
 		fsmCtx.ReplayEvents(t, dealState)
 	}
+	msgCID := testnet.GenerateCids(1)[0]
 
-	t.Run("it succeeds", func(t *testing.T) {
-		dealState := makeDealState(retrievalmarket.DealStatusPaymentChannelAllocatingLane)
+	t.Run("it works", func(t *testing.T) {
+		dealState := makeDealState(retrievalmarket.DealStatusPaymentChannelAddingFunds)
+		dealState.PaymentInfo.PayCh = expectedPayCh
+		dealState.WaitMsgCID = &msgCID
+
 		params := testnodes.TestRetrievalClientNodeParams{
-			Lane: expectedLane,
+			AddFundsOnly: true,
+			PayCh:        expectedPayCh,
+			AddFundsCID:  msgCID,
+			Lane:         expectedLane,
 		}
-		runAllocateLane(t, params, dealState)
-		require.Equal(t, retrievalmarket.DealStatusOngoing, dealState.Status)
-		require.Equal(t, expectedLane, dealState.PaymentInfo.Lane)
+		runWaitForPaychAddFunds(t, params, dealState)
+		require.Empty(t, dealState.Message)
+		assert.Equal(t, retrievalmarket.DealStatusOngoing, dealState.Status)
+		assert.Equal(t, expectedLane, dealState.PaymentInfo.Lane)
+		assert.Equal(t, expectedPayCh, dealState.PaymentInfo.PayCh)
 	})
-
-	t.Run("if AllocateLane fails", func(t *testing.T) {
-		dealState := makeDealState(retrievalmarket.DealStatusPaymentChannelAllocatingLane)
+	t.Run("if Wait fails", func(t *testing.T) {
+		dealState := makeDealState(retrievalmarket.DealStatusPaymentChannelAddingFunds)
+		dealState.WaitMsgCID = &msgCID
 		params := testnodes.TestRetrievalClientNodeParams{
-			LaneError: errors.New("boom"),
+			AddFundsOnly:       true,
+			PayCh:              expectedPayCh,
+			AddFundsCID:        msgCID,
+			WaitForAddFundsErr: errors.New("boom"),
+			Lane:               expectedLane,
 		}
-		runAllocateLane(t, params, dealState)
-		require.Contains(t, dealState.Message, "boom")
-		require.Equal(t, dealState.Status, retrievalmarket.DealStatusFailing)
+		runWaitForPaychAddFunds(t, params, dealState)
+		assert.Contains(t, dealState.Message, "boom")
+		assert.Equal(t, dealState.Status, retrievalmarket.DealStatusFailing)
+		assert.Equal(t, uint64(0), dealState.PaymentInfo.Lane)
+	})
+	t.Run("if AllocateLane fails", func(t *testing.T) {
+		dealState := makeDealState(retrievalmarket.DealStatusPaymentChannelAddingFunds)
+		dealState.WaitMsgCID = &msgCID
+		params := testnodes.TestRetrievalClientNodeParams{
+			AddFundsOnly: true,
+			PayCh:        expectedPayCh,
+			AddFundsCID:  msgCID,
+			LaneError:    errors.New("boom"),
+			Lane:         expectedLane,
+		}
+		runWaitForPaychAddFunds(t, params, dealState)
+		assert.Contains(t, dealState.Message, "boom")
+		assert.Equal(t, dealState.Status, retrievalmarket.DealStatusFailing)
+		assert.Equal(t, uint64(0), dealState.PaymentInfo.Lane)
 	})
 }
 
@@ -350,6 +382,18 @@ func TestSendFunds(t *testing.T) {
 		require.Equal(t, dealState.Status, retrievalmarket.DealStatusFinalizing)
 	})
 
+	t.Run("not enough funds left", func(t *testing.T) {
+		dealState := makeDealState(retrievalmarket.DealStatusSendFunds)
+		dealState.FundsSpent = defaultTotalFunds
+		var sendVoucherError error = nil
+		nodeParams := testnodes.TestRetrievalClientNodeParams{
+			Voucher: testVoucher,
+		}
+		runSendFunds(t, sendVoucherError, nodeParams, dealState)
+		require.NotEmpty(t, dealState.Message)
+		require.Equal(t, dealState.Status, retrievalmarket.DealStatusFailing)
+	})
+
 	t.Run("more bytes since last payment than interval works, can charge more", func(t *testing.T) {
 		dealState := makeDealState(retrievalmarket.DealStatusSendFunds)
 		dealState.BytesPaidFor = defaultBytesPaidFor - 500
@@ -410,18 +454,6 @@ func TestSendFunds(t *testing.T) {
 		require.Equal(t, dealState.Status, retrievalmarket.DealStatusFailing)
 	})
 
-	t.Run("voucher create with shortfall", func(t *testing.T) {
-		dealState := makeDealState(retrievalmarket.DealStatusSendFunds)
-		var sendVoucherError error = nil
-		shortFall := abi.NewTokenAmount(10000)
-		nodeParams := testnodes.TestRetrievalClientNodeParams{
-			VoucherError: retrievalmarket.NewShortfallError(shortFall),
-		}
-		runSendFunds(t, sendVoucherError, nodeParams, dealState)
-		require.Empty(t, dealState.Message)
-		require.Equal(t, dealState.Status, retrievalmarket.DealStatusCheckFunds)
-	})
-
 	t.Run("unable to send payment", func(t *testing.T) {
 		dealState := makeDealState(retrievalmarket.DealStatusSendFunds)
 		sendVoucherError := errors.New("something went wrong")
@@ -431,71 +463,6 @@ func TestSendFunds(t *testing.T) {
 		runSendFunds(t, sendVoucherError, nodeParams, dealState)
 		require.NotEmpty(t, dealState.Message)
 		require.Equal(t, dealState.Status, retrievalmarket.DealStatusErrored)
-	})
-}
-
-func TestCheckFunds(t *testing.T) {
-	ctx := context.Background()
-	eventMachine, err := fsm.NewEventProcessor(retrievalmarket.ClientDealState{}, "Status", clientstates.ClientEvents)
-	require.NoError(t, err)
-	runCheckFunds := func(t *testing.T,
-		params testnodes.TestRetrievalClientNodeParams,
-		dealState *retrievalmarket.ClientDealState) {
-		node := testnodes.NewTestRetrievalClientNode(params)
-		environment := &fakeEnvironment{node, nil, nil, nil}
-		fsmCtx := fsmtest.NewTestContext(ctx, eventMachine)
-		err := clientstates.CheckFunds(fsmCtx, environment, *dealState)
-		require.NoError(t, err)
-		fsmCtx.ReplayEvents(t, dealState)
-	}
-	msgCid := testnet.GenerateCids(1)[0]
-
-	t.Run("already waiting on add funds", func(t *testing.T) {
-		dealState := makeDealState(retrievalmarket.DealStatusCheckFunds)
-		dealState.WaitMsgCID = &msgCid
-		nodeParams := testnodes.TestRetrievalClientNodeParams{}
-		runCheckFunds(t, nodeParams, dealState)
-		require.Equal(t, dealState.Status, retrievalmarket.DealStatusPaymentChannelAddingFunds)
-	})
-
-	t.Run("confirmed funds already covers payment", func(t *testing.T) {
-		dealState := makeDealState(retrievalmarket.DealStatusCheckFunds)
-		dealState.PaymentRequested = abi.NewTokenAmount(10000)
-		nodeParams := testnodes.TestRetrievalClientNodeParams{
-			ChannelAvailableFunds: rm.ChannelAvailableFunds{
-				ConfirmedAmt: abi.NewTokenAmount(10000),
-			},
-		}
-		runCheckFunds(t, nodeParams, dealState)
-		require.Equal(t, dealState.Status, retrievalmarket.DealStatusOngoing)
-	})
-
-	t.Run("pending funds covers shortfal", func(t *testing.T) {
-		dealState := makeDealState(retrievalmarket.DealStatusCheckFunds)
-		dealState.PaymentRequested = abi.NewTokenAmount(10000)
-		nodeParams := testnodes.TestRetrievalClientNodeParams{
-			ChannelAvailableFunds: rm.ChannelAvailableFunds{
-				PendingAmt:          abi.NewTokenAmount(8000),
-				PendingWaitSentinel: &msgCid,
-				QueuedAmt:           abi.NewTokenAmount(4000),
-			},
-		}
-		runCheckFunds(t, nodeParams, dealState)
-		require.Equal(t, dealState.Status, retrievalmarket.DealStatusPaymentChannelAddingFunds)
-		require.True(t, dealState.WaitMsgCID.Equals(msgCid))
-	})
-
-	t.Run("pending funds don't cover shortfal", func(t *testing.T) {
-		dealState := makeDealState(retrievalmarket.DealStatusCheckFunds)
-		dealState.PaymentRequested = abi.NewTokenAmount(10000)
-		nodeParams := testnodes.TestRetrievalClientNodeParams{
-			ChannelAvailableFunds: rm.ChannelAvailableFunds{
-				PendingAmt:          abi.NewTokenAmount(8000),
-				PendingWaitSentinel: &msgCid,
-			},
-		}
-		runCheckFunds(t, nodeParams, dealState)
-		require.Equal(t, dealState.Status, retrievalmarket.DealStatusInsufficientFunds)
 	})
 }
 
@@ -529,14 +496,6 @@ func TestCancelDeal(t *testing.T) {
 		require.NotEqual(t, "Previous error", dealState.Message)
 		require.NotEmpty(t, dealState.Message)
 		require.Equal(t, retrievalmarket.DealStatusErrored, dealState.Status)
-	})
-
-	t.Run("it works, cancelling", func(t *testing.T) {
-		dealState := makeDealState(retrievalmarket.DealStatusCancelling)
-		dealState.Message = "Previous error"
-		runCancelDeal(t, nil, dealState)
-		require.Equal(t, "Previous error", dealState.Message)
-		require.Equal(t, retrievalmarket.DealStatusCancelled, dealState.Status)
 	})
 }
 func TestCheckComplete(t *testing.T) {
@@ -580,18 +539,11 @@ var defaultPaymentRequested = abi.NewTokenAmount(500000)
 var defaultUnsealFundsPaid = abi.NewTokenAmount(0)
 
 func makeDealState(status retrievalmarket.DealStatus) *retrievalmarket.ClientDealState {
-	paymentInfo := &retrievalmarket.PaymentInfo{}
-
-	switch status {
-	case retrievalmarket.DealStatusNew, retrievalmarket.DealStatusAccepted, retrievalmarket.DealStatusPaymentChannelCreating:
-		paymentInfo = nil
-	}
-
 	return &retrievalmarket.ClientDealState{
 		TotalFunds:       defaultTotalFunds,
 		MinerWallet:      address.TestAddress,
 		ClientWallet:     address.TestAddress2,
-		PaymentInfo:      paymentInfo,
+		PaymentInfo:      &retrievalmarket.PaymentInfo{},
 		Status:           status,
 		BytesPaidFor:     defaultBytesPaidFor,
 		TotalReceived:    defaultTotalReceived,

@@ -101,17 +101,6 @@ var ProviderEvents = fsm.Events{
 	fsm.Event(rm.ProviderEventMultiStoreError).
 		FromAny().To(rm.DealStatusErrored).
 		Action(recordError),
-
-	fsm.Event(rm.ProviderEventClientCancelled).
-		From(rm.DealStatusFailing).ToJustRecord().
-		FromAny().To(rm.DealStatusCancelled).Action(
-		func(deal *rm.ProviderDealState) error {
-			if deal.Status != rm.DealStatusFailing {
-				deal.Message = "Client cancelled retrieval"
-			}
-			return nil
-		},
-	),
 }
 
 // ProviderStateEntryFuncs are the handlers for different states in a retrieval provider
@@ -121,11 +110,4 @@ var ProviderStateEntryFuncs = fsm.StateEntryFuncs{
 	rm.DealStatusUnsealed:          UnpauseDeal,
 	rm.DealStatusFailing:           CancelDeal,
 	rm.DealStatusCompleting:        CleanupDeal,
-}
-
-// ProviderFinalityStates are the terminal states for a retrieval provider
-var ProviderFinalityStates = []fsm.StateKey{
-	rm.DealStatusErrored,
-	rm.DealStatusCompleted,
-	rm.DealStatusCancelled,
 }
