@@ -489,7 +489,7 @@ func (p *Provider) HandleDealStatusStream(s network.DealStatusStream) {
 	}
 
 	if err := s.WriteDealStatusResponse(response); err != nil {
-		log.Errorf("failed to write deal status response: %s", err)
+		log.Warnf("failed to write deal status response: %s", err)
 		return
 	}
 }
