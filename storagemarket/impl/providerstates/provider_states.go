@@ -222,7 +222,7 @@ func EnsureProviderFunds(ctx fsm.Context, environment ProviderDealEnvironment, d
 func WaitForFunding(ctx fsm.Context, environment ProviderDealEnvironment, deal storagemarket.MinerDeal) error {
 	node := environment.Node()
 
-	return node.WaitForMessage(ctx.Context(), *deal.AddFundsCid, func(code exitcode.ExitCode, bytes []byte, err error) error {
+	return node.WaitForMessage(ctx.Context(), *deal.AddFundsCid, func(code exitcode.ExitCode, bytes []byte, finalCid cid.Cid, err error) error {
 		if err != nil {
 			return ctx.Trigger(storagemarket.ProviderEventNodeErrored, xerrors.Errorf("AddFunds errored: %w", err))
 		}
@@ -253,7 +253,7 @@ func PublishDeal(ctx fsm.Context, environment ProviderDealEnvironment, deal stor
 
 // WaitForPublish waits for the publish message on chain and sends the deal id back to the client
 func WaitForPublish(ctx fsm.Context, environment ProviderDealEnvironment, deal storagemarket.MinerDeal) error {
-	return environment.Node().WaitForMessage(ctx.Context(), *deal.PublishCid, func(code exitcode.ExitCode, retBytes []byte, err error) error {
+	return environment.Node().WaitForMessage(ctx.Context(), *deal.PublishCid, func(code exitcode.ExitCode, retBytes []byte, finalCid cid.Cid, err error) error {
 		if err != nil {
 			return ctx.Trigger(storagemarket.ProviderEventDealPublishError, xerrors.Errorf("PublishStorageDeals errored: %w", err))
 		}
@@ -275,7 +275,7 @@ func WaitForPublish(ctx fsm.Context, environment ProviderDealEnvironment, deal s
 			_ = ctx.Trigger(storagemarket.ProviderEventFundsReleased, deal.FundsReserved)
 		}
 
-		return ctx.Trigger(storagemarket.ProviderEventDealPublished, retval.IDs[0])
+		return ctx.Trigger(storagemarket.ProviderEventDealPublished, retval.IDs[0], finalCid)
 	})
 }
 
