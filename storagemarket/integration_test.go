@@ -281,17 +281,42 @@ func TestMakeDealNonBlocking(t *testing.T) {
 }
 
 func TestRestartClient(t *testing.T) {
-	testCases := map[string]storagemarket.ClientEvent{
-		"ClientEventFundsEnsured":          storagemarket.ClientEventFundsEnsured,
-		"ClientEventInitiateDataTransfer":  storagemarket.ClientEventInitiateDataTransfer,
-		"ClientEventDataTransferInitiated": storagemarket.ClientEventDataTransferInitiated,
-		"ClientEventDataTransferComplete":  storagemarket.ClientEventDataTransferComplete,
-		"ClientEventDealAccepted":          storagemarket.ClientEventDealAccepted,
-		"ClientEventDealActivated":         storagemarket.ClientEventDealActivated,
-		"ClientEventDealPublished":         storagemarket.ClientEventDealPublished,
+	testCases := map[string]struct {
+		stopAtEvent storagemarket.ClientEvent
+		fh          func(h *harness)
+	}{
+		"ClientEventFundsEnsured": {
+			stopAtEvent: storagemarket.ClientEventFundsEnsured,
+		},
+		"ClientEventInitiateDataTransfer": {
+			stopAtEvent: storagemarket.ClientEventInitiateDataTransfer,
+		},
+		"ClientEventDataTransferInitiated": {
+			stopAtEvent: storagemarket.ClientEventDataTransferInitiated,
+		},
+		"ClientEventDataTransferComplete": {
+			stopAtEvent: storagemarket.ClientEventDataTransferComplete,
+		},
+		"ClientEventDealAccepted": {
+			stopAtEvent: storagemarket.ClientEventDealAccepted,
+		},
+		"ClientEventDealActivated": {
+			stopAtEvent: storagemarket.ClientEventDealActivated,
+			fh: func(h *harness) {
+				h.DelayFakeCommonNode.OnDealSectorCommittedChan <- struct{}{}
+				h.DelayFakeCommonNode.OnDealSectorCommittedChan <- struct{}{}
+			},
+		},
+		"ClientEventDealPublished": {
+			stopAtEvent: storagemarket.ClientEventDealPublished,
+			fh: func(h *harness) {
+				h.DelayFakeCommonNode.OnDealSectorCommittedChan <- struct{}{}
+				h.DelayFakeCommonNode.OnDealSectorCommittedChan <- struct{}{}
+			},
+		},
 	}
 
-	for name, stopAtEvent := range testCases {
+	for name, tc := range testCases {
 		t.Run(name, func(t *testing.T) {
 			ctx := context.Background()
 			ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
@@ -309,7 +334,7 @@ func TestRestartClient(t *testing.T) {
 			wg := sync.WaitGroup{}
 			wg.Add(1)
 			_ = h.Client.SubscribeToEvents(func(event storagemarket.ClientEvent, deal storagemarket.ClientDeal) {
-				if event == stopAtEvent {
+				if event == tc.stopAtEvent {
 					// Stop the client and provider at some point during deal negotiation
 					require.NoError(t, h.Client.Stop())
 					require.NoError(t, h.Provider.Stop())
@@ -320,11 +345,15 @@ func TestRestartClient(t *testing.T) {
 			result := h.ProposeStorageDeal(t, &storagemarket.DataRef{TransferType: storagemarket.TTGraphsync, Root: h.PayloadCid}, false, false)
 			proposalCid := result.ProposalCid
 
+			if tc.fh != nil {
+				tc.fh(h)
+			}
+
 			wg.Wait()
 
 			cd, err := h.Client.GetLocalDeal(ctx, proposalCid)
 			assert.NoError(t, err)
-			if stopAtEvent != storagemarket.ClientEventDealActivated {
+			if tc.stopAtEvent != storagemarket.ClientEventDealActivated && tc.stopAtEvent != storagemarket.ClientEventDealPublished {
 				assert.NotEqual(t, storagemarket.StorageDealActive, cd.State)
 			}
 			h = newHarnessWithTestData(t, ctx, h.TestData, h.SMState, true, h.TempFilePath, testnodes.DelayFakeCommonNode{})
@@ -384,6 +413,8 @@ type harness struct {
 	ProviderInfo storagemarket.StorageProviderInfo
 	TestData     *shared_testutil.Libp2pTestData
 	TempFilePath string
+
+	DelayFakeCommonNode testnodes.DelayFakeCommonNode
 }
 
 func newHarness(t *testing.T, ctx context.Context, useStore bool, d testnodes.DelayFakeCommonNode) *harness {
@@ -393,6 +424,10 @@ func newHarness(t *testing.T, ctx context.Context, useStore bool, d testnodes.De
 
 func newHarnessWithTestData(t *testing.T, ctx context.Context, td *shared_testutil.Libp2pTestData, smState *testnodes.StorageMarketState, useStore bool, tempPath string,
 	delayFakeEnvNode testnodes.DelayFakeCommonNode) *harness {
+
+	delayFakeEnvNode.OnDealSectorCommittedChan = make(chan struct{})
+	delayFakeEnvNode.OnDealExpiredOrSlashedChan = make(chan struct{})
+
 	epoch := abi.ChainEpoch(100)
 	fpath := filepath.Join("storagemarket", "fixtures", "payload.txt")
 	var rootLink ipld.Link
@@ -501,20 +536,21 @@ func newHarnessWithTestData(t *testing.T, ctx context.Context, td *shared_testut
 
 	smState.Providers = map[address.Address]*storagemarket.StorageProviderInfo{providerAddr: &providerInfo}
 	return &harness{
-		Ctx:          ctx,
-		Epoch:        epoch,
-		PayloadCid:   payloadCid,
-		StoreID:      storeID,
-		ClientAddr:   clientNode.ClientAddr,
-		ProviderAddr: providerAddr,
-		Client:       client,
-		ClientNode:   &clientNode,
-		Provider:     provider,
-		ProviderNode: providerNode,
-		ProviderInfo: providerInfo,
-		TestData:     td,
-		SMState:      smState,
-		TempFilePath: tempPath,
+		Ctx:                 ctx,
+		Epoch:               epoch,
+		PayloadCid:          payloadCid,
+		StoreID:             storeID,
+		ClientAddr:          clientNode.ClientAddr,
+		ProviderAddr:        providerAddr,
+		Client:              client,
+		ClientNode:          &clientNode,
+		Provider:            provider,
+		ProviderNode:        providerNode,
+		ProviderInfo:        providerInfo,
+		TestData:            td,
+		SMState:             smState,
+		TempFilePath:        tempPath,
+		DelayFakeCommonNode: delayFakeEnvNode,
 	}
 }
 
