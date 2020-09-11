@@ -4,6 +4,7 @@ import (
 	"context"
 	"io"
 
+	logging "github.com/ipfs/go-log/v2"
 	"golang.org/x/xerrors"
 
 	datatransfer "github.com/filecoin-project/go-data-transfer"
@@ -13,6 +14,8 @@ import (
 	"github.com/filecoin-project/go-fil-markets/piecestore"
 	rm "github.com/filecoin-project/go-fil-markets/retrievalmarket"
 )
+
+var log = logging.Logger("provider_states")
 
 // ProviderDealEnvironment is a bridge to the environment a provider deal is executing in
 // It provides access to relevant functionality on the retrieval provider
@@ -30,6 +33,7 @@ type ProviderDealEnvironment interface {
 func firstSuccessfulUnseal(ctx context.Context, node rm.RetrievalProviderNode, pieceInfo piecestore.PieceInfo) (io.Reader, error) {
 	lastErr := xerrors.New("no sectors found to unseal from")
 	for _, deal := range pieceInfo.Deals {
+		log.Infof("unseal sector for piece %s, deal id: %d, sector: %d", pieceInfo.PieceCID.String(), deal.DealID, deal.SectorID)
 		reader, err := node.UnsealSector(ctx, deal.SectorID, deal.Offset.Unpadded(), deal.Length.Unpadded())
 		if err == nil {
 			return reader, nil
