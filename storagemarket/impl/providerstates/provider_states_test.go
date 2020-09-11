@@ -442,6 +442,7 @@ func TestWaitForPublish(t *testing.T) {
 	require.NoError(t, err)
 	runWaitForPublish := makeExecutor(ctx, eventProcessor, providerstates.WaitForPublish, storagemarket.StorageDealPublishing)
 	expDealID, psdReturnBytes := generatePublishDealsReturn(t)
+	finalCid := tut.GenerateCids(10)[9]
 
 	tests := map[string]struct {
 		nodeParams        nodeParams
@@ -456,13 +457,15 @@ func TestWaitForPublish(t *testing.T) {
 				ReserveFunds: true,
 			},
 			nodeParams: nodeParams{
-				WaitForMessageRetBytes: psdReturnBytes,
+				WaitForMessageRetBytes:   psdReturnBytes,
+				WaitForMessagePublishCid: finalCid,
 			},
 			dealInspector: func(t *testing.T, deal storagemarket.MinerDeal, env *fakeEnvironment) {
 				tut.AssertDealState(t, storagemarket.StorageDealStaged, deal.State)
 				require.Equal(t, expDealID, deal.DealID)
 				assert.Equal(t, env.dealFunds.ReleaseCalls[0], deal.Proposal.ProviderBalanceRequirement())
 				assert.True(t, deal.FundsReserved.Nil() || deal.FundsReserved.IsZero())
+				assert.Equal(t, deal.PublishCid, &finalCid)
 			},
 		},
 		"succeeds, funds already released": {
@@ -946,6 +949,7 @@ type nodeParams struct {
 	DealCommittedSyncError              error
 	DealCommittedAsyncError             error
 	WaitForMessageBlocks                bool
+	WaitForMessagePublishCid            cid.Cid
 	WaitForMessageError                 error
 	WaitForMessageExitCode              exitcode.ExitCode
 	WaitForMessageRetBytes              []byte
@@ -1034,6 +1038,7 @@ func makeExecutor(ctx context.Context,
 			AddFundsCid:                nodeParams.AddFundsCid,
 			WaitForMessageBlocks:       nodeParams.WaitForMessageBlocks,
 			WaitForMessageError:        nodeParams.WaitForMessageError,
+			WaitForMessageFinalCid:     nodeParams.WaitForMessagePublishCid,
 			WaitForMessageExitCode:     nodeParams.WaitForMessageExitCode,
 			WaitForMessageRetBytes:     nodeParams.WaitForMessageRetBytes,
 			WaitForDealCompletionError: nodeParams.WaitForDealCompletionError,
