@@ -3,6 +3,7 @@ package clientstates
 import (
 	"context"
 
+	logging "github.com/ipfs/go-log/v2"
 	peer "github.com/libp2p/go-libp2p-core/peer"
 
 	"github.com/filecoin-project/go-address"
@@ -13,6 +14,8 @@ import (
 
 	rm "github.com/filecoin-project/go-fil-markets/retrievalmarket"
 )
+
+var log = logging.Logger("retrieval")
 
 // ClientDealEnvironment is a bridge to the environment a client deal is executing in.
 // It provides access to relevant functionality on the retrieval client
@@ -114,6 +117,7 @@ func SendFunds(ctx fsm.Context, environment ClientDealEnvironment, deal rm.Clien
 	if err != nil {
 		shortfallErr, ok := err.(rm.ShortfallError)
 		if ok {
+			log.Warnf("deal ID: %d, shortfall: %s FIL", deal.ID, shortfallErr.Shortfall().String())
 			return ctx.Trigger(rm.ClientEventVoucherShortfall, shortfallErr.Shortfall())
 		}
 		return ctx.Trigger(rm.ClientEventCreateVoucherFailed, err)
@@ -146,14 +150,33 @@ func CheckFunds(ctx fsm.Context, environment ClientDealEnvironment, deal rm.Clie
 	}
 	unredeemedFunds := big.Sub(availableFunds.ConfirmedAmt, availableFunds.VoucherReedeemedAmt)
 	shortfall := big.Sub(deal.PaymentRequested, unredeemedFunds)
+	fundsStatus := `
+Funds Status:
+Confirmed:          %s
+Redeemed:           %s
+Payment Requested:  %s
+Unredeeemed:        %s
+Pending:            %s
+Queued:             %s
+`
+	log.Infof(fundsStatus,
+		availableFunds.ConfirmedAmt.String(),
+		availableFunds.VoucherReedeemedAmt.String(),
+		deal.PaymentRequested.String(),
+		unredeemedFunds.String(),
+		availableFunds.PendingAmt.String(),
+		availableFunds.QueuedAmt.String())
 	if shortfall.LessThanEqual(big.Zero()) {
+		log.Infof("Funds cleared -- unredeemed > payment requested")
 		return ctx.Trigger(rm.ClientEventPaymentChannelReady, deal.PaymentInfo.PayCh)
 	}
 	totalInFlight := big.Add(availableFunds.PendingAmt, availableFunds.QueuedAmt)
 	if totalInFlight.LessThan(shortfall) || availableFunds.PendingWaitSentinel == nil {
 		finalShortfall := big.Sub(shortfall, totalInFlight)
+		log.Infof("Not enough funds and none are pending, final shortfall %s", finalShortfall.String())
 		return ctx.Trigger(rm.ClientEventFundsExpended, finalShortfall)
 	}
+	log.Infof("waiting for pending funds added action")
 	return ctx.Trigger(rm.ClientEventPaymentChannelAddingFunds, *availableFunds.PendingWaitSentinel, deal.PaymentInfo.PayCh)
 }
 
