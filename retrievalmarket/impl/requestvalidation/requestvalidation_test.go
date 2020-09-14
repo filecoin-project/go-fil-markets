@@ -73,7 +73,8 @@ func TestValidatePull(t *testing.T) {
 		},
 		"get piece other err": {
 			fve: fakeValidationEnvironment{
-				GetPieceErr: errors.New("something went wrong"),
+				RunDealDecisioningLogicAccepted: true,
+				GetPieceErr:                     errors.New("something went wrong"),
 			},
 			baseCid:       proposal.PayloadCID,
 			selector:      shared.AllSelector(),
@@ -87,7 +88,8 @@ func TestValidatePull(t *testing.T) {
 		},
 		"get piece not found err": {
 			fve: fakeValidationEnvironment{
-				GetPieceErr: retrievalmarket.ErrNotFound,
+				RunDealDecisioningLogicAccepted: true,
+				GetPieceErr:                     retrievalmarket.ErrNotFound,
 			},
 			baseCid:       proposal.PayloadCID,
 			selector:      shared.AllSelector(),
