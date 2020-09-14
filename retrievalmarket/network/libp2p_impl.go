@@ -50,8 +50,8 @@ func (impl *libp2pRetrievalMarketNetwork) NewQueryStream(id peer.ID) (RetrievalQ
 
 func (impl *libp2pRetrievalMarketNetwork) openStream(ctx context.Context, id peer.ID, protocol protocol.ID) (network.Stream, error) {
 	b := &backoff.Backoff{
-		Min:    100 * time.Millisecond,
-		Max:    10 * time.Second,
+		Min:    1 * time.Second,
+		Max:    5 * time.Minute,
 		Factor: 5,
 		Jitter: true,
 	}

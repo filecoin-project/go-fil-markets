@@ -17,7 +17,7 @@ import (
 	"github.com/filecoin-project/go-fil-markets/storagemarket"
 )
 
-const maxStreamOpenAttempts = 4
+const maxStreamOpenAttempts = 5
 
 var log = logging.Logger("storagemarket_network")
 
@@ -65,8 +65,8 @@ func (impl *libp2pStorageMarketNetwork) NewDealStatusStream(ctx context.Context,
 
 func (impl *libp2pStorageMarketNetwork) openStream(ctx context.Context, id peer.ID, protocol protocol.ID) (network.Stream, error) {
 	b := &backoff.Backoff{
-		Min:    100 * time.Millisecond,
-		Max:    10 * time.Second,
+		Min:    1 * time.Second,
+		Max:    5 * time.Minute,
 		Factor: 5,
 		Jitter: true,
 	}
