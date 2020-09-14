@@ -5,19 +5,17 @@ import (
 	"context"
 	"errors"
 
+	datatransfer "github.com/filecoin-project/go-data-transfer"
+	"github.com/filecoin-project/go-fil-markets/piecestore"
+	"github.com/filecoin-project/go-fil-markets/retrievalmarket"
+	"github.com/filecoin-project/go-fil-markets/shared"
+	"github.com/filecoin-project/go-multistore"
+	"github.com/filecoin-project/specs-actors/actors/abi"
+	"github.com/filecoin-project/specs-actors/actors/abi/big"
 	"github.com/ipfs/go-cid"
 	"github.com/ipld/go-ipld-prime"
 	"github.com/ipld/go-ipld-prime/codec/dagcbor"
 	peer "github.com/libp2p/go-libp2p-core/peer"
-
-	datatransfer "github.com/filecoin-project/go-data-transfer"
-	"github.com/filecoin-project/go-multistore"
-	"github.com/filecoin-project/specs-actors/actors/abi"
-	"github.com/filecoin-project/specs-actors/actors/abi/big"
-
-	"github.com/filecoin-project/go-fil-markets/piecestore"
-	"github.com/filecoin-project/go-fil-markets/retrievalmarket"
-	"github.com/filecoin-project/go-fil-markets/shared"
 )
 
 var allSelectorBytes []byte
@@ -110,20 +108,9 @@ func (rv *ProviderRequestValidator) ValidatePull(receiver peer.ID, voucher datat
 }
 
 func (rv *ProviderRequestValidator) acceptDeal(deal *retrievalmarket.ProviderDealState) (retrievalmarket.DealStatus, error) {
-	// verify we have the piece
-	pieceInfo, err := rv.env.GetPiece(deal.PayloadCID, deal.PieceCID)
-	if err != nil {
-		if err == retrievalmarket.ErrNotFound {
-			return retrievalmarket.DealStatusDealNotFound, err
-		}
-		return retrievalmarket.DealStatusErrored, err
-	}
-
-	deal.PieceInfo = &pieceInfo
-
 	// check that the deal parameters match our required parameters or
 	// reject outright
-	err = rv.env.CheckDealParams(deal.PricePerByte, deal.PaymentInterval, deal.PaymentIntervalIncrease, deal.UnsealPrice)
+	err := rv.env.CheckDealParams(deal.PricePerByte, deal.PaymentInterval, deal.PaymentIntervalIncrease, deal.UnsealPrice)
 	if err != nil {
 		return retrievalmarket.DealStatusRejected, err
 	}
@@ -135,6 +122,17 @@ func (rv *ProviderRequestValidator) acceptDeal(deal *retrievalmarket.ProviderDea
 	if !accepted {
 		return retrievalmarket.DealStatusRejected, errors.New(reason)
 	}
+
+	// verify we have the piece
+	pieceInfo, err := rv.env.GetPiece(deal.PayloadCID, deal.PieceCID)
+	if err != nil {
+		if err == retrievalmarket.ErrNotFound {
+			return retrievalmarket.DealStatusDealNotFound, err
+		}
+		return retrievalmarket.DealStatusErrored, err
+	}
+
+	deal.PieceInfo = &pieceInfo
 
 	deal.StoreID, err = rv.env.NextStoreID()
 	if err != nil {
