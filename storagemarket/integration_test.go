@@ -51,7 +51,7 @@ func TestMakeDeal(t *testing.T) {
 		t.Run(testCase, func(t *testing.T) {
 			ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
 			defer cancel()
-			h := newHarness(t, ctx, useStore)
+			h := newHarness(t, ctx, useStore, testnodes.DelayFakeCommonNode{})
 			require.NoError(t, h.Provider.Start(ctx))
 			require.NoError(t, h.Client.Start(ctx))
 
@@ -183,7 +183,7 @@ func TestMakeDealOffline(t *testing.T) {
 	ctx := context.Background()
 	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
 	defer cancel()
-	h := newHarness(t, ctx, true)
+	h := newHarness(t, ctx, true, testnodes.DelayFakeCommonNode{})
 	require.NoError(t, h.Client.Start(ctx))
 	require.NoError(t, h.Provider.Start(ctx))
 
@@ -250,7 +250,7 @@ func TestMakeDealNonBlocking(t *testing.T) {
 	ctx := context.Background()
 	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
 	defer cancel()
-	h := newHarness(t, ctx, true)
+	h := newHarness(t, ctx, true, testnodes.DelayFakeCommonNode{})
 	testCids := shared_testutil.GenerateCids(2)
 
 	h.ProviderNode.WaitForMessageBlocks = true
@@ -281,20 +281,48 @@ func TestMakeDealNonBlocking(t *testing.T) {
 }
 
 func TestRestartClient(t *testing.T) {
-	testCases := map[string]storagemarket.ClientEvent{
-		"ClientEventFundsEnsured":          storagemarket.ClientEventFundsEnsured,
-		"ClientEventInitiateDataTransfer":  storagemarket.ClientEventInitiateDataTransfer,
-		"ClientEventDataTransferInitiated": storagemarket.ClientEventDataTransferInitiated,
-		"ClientEventDataTransferComplete":  storagemarket.ClientEventDataTransferComplete,
-		"ClientEventDealAccepted":          storagemarket.ClientEventDealAccepted,
+	testCases := map[string]struct {
+		stopAtEvent storagemarket.ClientEvent
+		fh          func(h *harness)
+	}{
+		"ClientEventFundsEnsured": {
+			stopAtEvent: storagemarket.ClientEventFundsEnsured,
+		},
+		"ClientEventInitiateDataTransfer": {
+			stopAtEvent: storagemarket.ClientEventInitiateDataTransfer,
+		},
+		"ClientEventDataTransferInitiated": {
+			stopAtEvent: storagemarket.ClientEventDataTransferInitiated,
+		},
+		"ClientEventDataTransferComplete": {
+			stopAtEvent: storagemarket.ClientEventDataTransferComplete,
+		},
+		"ClientEventDealAccepted": {
+			stopAtEvent: storagemarket.ClientEventDealAccepted,
+		},
+		"ClientEventDealActivated": {
+			stopAtEvent: storagemarket.ClientEventDealActivated,
+			fh: func(h *harness) {
+				h.DelayFakeCommonNode.OnDealSectorCommittedChan <- struct{}{}
+				h.DelayFakeCommonNode.OnDealSectorCommittedChan <- struct{}{}
+			},
+		},
+		"ClientEventDealPublished": {
+			stopAtEvent: storagemarket.ClientEventDealPublished,
+			fh: func(h *harness) {
+				h.DelayFakeCommonNode.OnDealSectorCommittedChan <- struct{}{}
+				h.DelayFakeCommonNode.OnDealSectorCommittedChan <- struct{}{}
+			},
+		},
 	}
 
-	for name, stopAtEvent := range testCases {
+	for name, tc := range testCases {
 		t.Run(name, func(t *testing.T) {
 			ctx := context.Background()
 			ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
 			defer cancel()
-			h := newHarness(t, ctx, true)
+			h := newHarness(t, ctx, true, testnodes.DelayFakeCommonNode{OnDealExpiredOrSlashed: true,
+				OnDealSectorCommitted: true})
 
 			require.NoError(t, h.Provider.Start(ctx))
 			require.NoError(t, h.Client.Start(ctx))
@@ -306,7 +334,7 @@ func TestRestartClient(t *testing.T) {
 			wg := sync.WaitGroup{}
 			wg.Add(1)
 			_ = h.Client.SubscribeToEvents(func(event storagemarket.ClientEvent, deal storagemarket.ClientDeal) {
-				if event == stopAtEvent {
+				if event == tc.stopAtEvent {
 					// Stop the client and provider at some point during deal negotiation
 					require.NoError(t, h.Client.Stop())
 					require.NoError(t, h.Provider.Stop())
@@ -317,13 +345,18 @@ func TestRestartClient(t *testing.T) {
 			result := h.ProposeStorageDeal(t, &storagemarket.DataRef{TransferType: storagemarket.TTGraphsync, Root: h.PayloadCid}, false, false)
 			proposalCid := result.ProposalCid
 
+			if tc.fh != nil {
+				tc.fh(h)
+			}
+
 			wg.Wait()
 
 			cd, err := h.Client.GetLocalDeal(ctx, proposalCid)
 			assert.NoError(t, err)
-			assert.NotEqual(t, storagemarket.StorageDealActive, cd.State)
-
-			h = newHarnessWithTestData(t, ctx, h.TestData, h.SMState, true, h.TempFilePath)
+			if tc.stopAtEvent != storagemarket.ClientEventDealActivated && tc.stopAtEvent != storagemarket.ClientEventDealPublished {
+				assert.NotEqual(t, storagemarket.StorageDealActive, cd.State)
+			}
+			h = newHarnessWithTestData(t, ctx, h.TestData, h.SMState, true, h.TempFilePath, testnodes.DelayFakeCommonNode{})
 
 			// deal could have expired already on the provider side for the `ClientEventDealAccepted` event
 			// so, we should wait on the `ProviderEventDealExpired` event ONLY if the deal has not expired.
@@ -380,14 +413,21 @@ type harness struct {
 	ProviderInfo storagemarket.StorageProviderInfo
 	TestData     *shared_testutil.Libp2pTestData
 	TempFilePath string
+
+	DelayFakeCommonNode testnodes.DelayFakeCommonNode
 }
 
-func newHarness(t *testing.T, ctx context.Context, useStore bool) *harness {
+func newHarness(t *testing.T, ctx context.Context, useStore bool, d testnodes.DelayFakeCommonNode) *harness {
 	smState := testnodes.NewStorageMarketState()
-	return newHarnessWithTestData(t, ctx, shared_testutil.NewLibp2pTestData(ctx, t), smState, useStore, "")
+	return newHarnessWithTestData(t, ctx, shared_testutil.NewLibp2pTestData(ctx, t), smState, useStore, "", d)
 }
 
-func newHarnessWithTestData(t *testing.T, ctx context.Context, td *shared_testutil.Libp2pTestData, smState *testnodes.StorageMarketState, useStore bool, tempPath string) *harness {
+func newHarnessWithTestData(t *testing.T, ctx context.Context, td *shared_testutil.Libp2pTestData, smState *testnodes.StorageMarketState, useStore bool, tempPath string,
+	delayFakeEnvNode testnodes.DelayFakeCommonNode) *harness {
+
+	delayFakeEnvNode.OnDealSectorCommittedChan = make(chan struct{})
+	delayFakeEnvNode.OnDealExpiredOrSlashedChan = make(chan struct{})
+
 	epoch := abi.ChainEpoch(100)
 	fpath := filepath.Join("storagemarket", "fixtures", "payload.txt")
 	var rootLink ipld.Link
@@ -402,7 +442,8 @@ func newHarnessWithTestData(t *testing.T, ctx context.Context, td *shared_testut
 	payloadCid := rootLink.(cidlink.Link).Cid
 
 	clientNode := testnodes.FakeClientNode{
-		FakeCommonNode:     testnodes.FakeCommonNode{SMState: smState},
+		FakeCommonNode: testnodes.FakeCommonNode{SMState: smState,
+			DelayFakeCommonNode: delayFakeEnvNode},
 		ClientAddr:         address.TestAddress,
 		ExpectedMinerInfos: []address.Address{address.TestAddress2},
 	}
@@ -423,6 +464,7 @@ func newHarnessWithTestData(t *testing.T, ctx context.Context, td *shared_testut
 	ps := piecestore.NewPieceStore(td.Ds2)
 	providerNode := &testnodes.FakeProviderNode{
 		FakeCommonNode: testnodes.FakeCommonNode{
+			DelayFakeCommonNode:    delayFakeEnvNode,
 			SMState:                smState,
 			WaitForMessageRetBytes: psdReturnBytes.Bytes(),
 		},
@@ -494,20 +536,21 @@ func newHarnessWithTestData(t *testing.T, ctx context.Context, td *shared_testut
 
 	smState.Providers = map[address.Address]*storagemarket.StorageProviderInfo{providerAddr: &providerInfo}
 	return &harness{
-		Ctx:          ctx,
-		Epoch:        epoch,
-		PayloadCid:   payloadCid,
-		StoreID:      storeID,
-		ClientAddr:   clientNode.ClientAddr,
-		ProviderAddr: providerAddr,
-		Client:       client,
-		ClientNode:   &clientNode,
-		Provider:     provider,
-		ProviderNode: providerNode,
-		ProviderInfo: providerInfo,
-		TestData:     td,
-		SMState:      smState,
-		TempFilePath: tempPath,
+		Ctx:                 ctx,
+		Epoch:               epoch,
+		PayloadCid:          payloadCid,
+		StoreID:             storeID,
+		ClientAddr:          clientNode.ClientAddr,
+		ProviderAddr:        providerAddr,
+		Client:              client,
+		ClientNode:          &clientNode,
+		Provider:            provider,
+		ProviderNode:        providerNode,
+		ProviderInfo:        providerInfo,
+		TestData:            td,
+		SMState:             smState,
+		TempFilePath:        tempPath,
+		DelayFakeCommonNode: delayFakeEnvNode,
 	}
 }
 

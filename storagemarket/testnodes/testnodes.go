@@ -117,6 +117,17 @@ type FakeCommonNode struct {
 	WaitForMessageFinalCid  cid.Cid
 	WaitForMessageNodeError error
 	WaitForMessageCalls     []cid.Cid
+
+	DelayFakeCommonNode DelayFakeCommonNode
+}
+
+// DelayFakeCommonNode allows configuring delay in the FakeCommonNode functions
+type DelayFakeCommonNode struct {
+	OnDealSectorCommitted     bool
+	OnDealSectorCommittedChan chan struct{}
+
+	OnDealExpiredOrSlashed     bool
+	OnDealExpiredOrSlashedChan chan struct{}
 }
 
 // GetChainHead returns the state id in the storage market state
@@ -195,6 +206,13 @@ func (n *FakeCommonNode) DealProviderCollateralBounds(ctx context.Context, size 
 
 // OnDealSectorCommitted returns immediately, and returns stubbed errors
 func (n *FakeCommonNode) OnDealSectorCommitted(ctx context.Context, provider address.Address, dealID abi.DealID, cb storagemarket.DealSectorCommittedCallback) error {
+	if n.DelayFakeCommonNode.OnDealSectorCommitted {
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case <-n.DelayFakeCommonNode.OnDealSectorCommittedChan:
+		}
+	}
 	if n.DealCommittedSyncError == nil {
 		cb(n.DealCommittedAsyncError)
 	}
@@ -203,6 +221,14 @@ func (n *FakeCommonNode) OnDealSectorCommitted(ctx context.Context, provider add
 
 // OnDealExpiredOrSlashed simulates waiting for a deal to be expired or slashed, but provides stubbed behavior
 func (n *FakeCommonNode) OnDealExpiredOrSlashed(ctx context.Context, dealID abi.DealID, onDealExpired storagemarket.DealExpiredCallback, onDealSlashed storagemarket.DealSlashedCallback) error {
+	if n.DelayFakeCommonNode.OnDealExpiredOrSlashed {
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case <-n.DelayFakeCommonNode.OnDealExpiredOrSlashedChan:
+		}
+	}
+
 	if n.WaitForDealCompletionError != nil {
 		return n.WaitForDealCompletionError
 	}
