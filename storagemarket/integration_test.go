@@ -483,7 +483,7 @@ func newHarnessWithTestData(t *testing.T, ctx context.Context, td *shared_testut
 	require.NoError(t, err)
 
 	client, err := storageimpl.NewClient(
-		network.NewFromLibp2pHost(td.Host1),
+		network.NewFromLibp2pHost(td.Host1, network.RetryParameters(0, 0, 0)),
 		td.Bs1,
 		td.MultiStore1,
 		dt1,
@@ -507,7 +507,7 @@ func newHarnessWithTestData(t *testing.T, ctx context.Context, td *shared_testut
 	assert.NoError(t, err)
 
 	provider, err := storageimpl.NewProvider(
-		network.NewFromLibp2pHost(td.Host2),
+		network.NewFromLibp2pHost(td.Host2, network.RetryParameters(0, 0, 0)),
 		td.Ds2,
 		fs,
 		td.MultiStore2,

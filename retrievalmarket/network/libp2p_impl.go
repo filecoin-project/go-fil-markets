@@ -17,15 +17,38 @@ import (
 	"github.com/filecoin-project/go-fil-markets/retrievalmarket"
 )
 
-const maxStreamOpenAttempts = 5
+const defaultMaxStreamOpenAttempts = 5
+const defaultMinAttemptDuration = 1 * time.Second
+const defaultMaxAttemptDuration = 5 * time.Minute
 
 var log = logging.Logger("retrieval_network")
 var _ RetrievalMarketNetwork = new(libp2pRetrievalMarketNetwork)
 
+// Option is an option for configuring the libp2p storage market network
+type Option func(*libp2pRetrievalMarketNetwork)
+
+// RetryParameters changes the default parameters around connection reopening
+func RetryParameters(minDuration time.Duration, maxDuration time.Duration, attempts float64) Option {
+	return func(impl *libp2pRetrievalMarketNetwork) {
+		impl.maxStreamOpenAttempts = attempts
+		impl.minAttemptDuration = minDuration
+		impl.maxAttemptDuration = maxDuration
+	}
+}
+
 // NewFromLibp2pHost constructs a new instance of the RetrievalMarketNetwork from a
 // libp2p host
-func NewFromLibp2pHost(h host.Host) RetrievalMarketNetwork {
-	return &libp2pRetrievalMarketNetwork{host: h}
+func NewFromLibp2pHost(h host.Host, options ...Option) RetrievalMarketNetwork {
+	impl := &libp2pRetrievalMarketNetwork{
+		host:                  h,
+		maxStreamOpenAttempts: defaultMaxStreamOpenAttempts,
+		minAttemptDuration:    defaultMinAttemptDuration,
+		maxAttemptDuration:    defaultMaxAttemptDuration,
+	}
+	for _, option := range options {
+		option(impl)
+	}
+	return impl
 }
 
 // libp2pRetrievalMarketNetwork transforms the libp2p host interface, which sends and receives
@@ -34,7 +57,10 @@ func NewFromLibp2pHost(h host.Host) RetrievalMarketNetwork {
 type libp2pRetrievalMarketNetwork struct {
 	host host.Host
 	// inbound messages from the network are forwarded to the receiver
-	receiver RetrievalReceiver
+	receiver              RetrievalReceiver
+	maxStreamOpenAttempts float64
+	minAttemptDuration    time.Duration
+	maxAttemptDuration    time.Duration
 }
 
 //  NewQueryStream creates a new RetrievalQueryStream using the provided peer.ID
@@ -50,9 +76,9 @@ func (impl *libp2pRetrievalMarketNetwork) NewQueryStream(id peer.ID) (RetrievalQ
 
 func (impl *libp2pRetrievalMarketNetwork) openStream(ctx context.Context, id peer.ID, protocol protocol.ID) (network.Stream, error) {
 	b := &backoff.Backoff{
-		Min:    1 * time.Second,
-		Max:    5 * time.Minute,
-		Factor: 5,
+		Min:    impl.minAttemptDuration,
+		Max:    impl.maxAttemptDuration,
+		Factor: impl.maxStreamOpenAttempts,
 		Jitter: true,
 	}
 
@@ -63,8 +89,8 @@ func (impl *libp2pRetrievalMarketNetwork) openStream(ctx context.Context, id pee
 		}
 
 		nAttempts := b.Attempt()
-		if nAttempts == maxStreamOpenAttempts {
-			return nil, xerrors.Errorf("exhausted %d attempts but failed to open stream, err: %w", maxStreamOpenAttempts, err)
+		if nAttempts == impl.maxStreamOpenAttempts {
+			return nil, xerrors.Errorf("exhausted %d attempts but failed to open stream, err: %w", int(impl.maxStreamOpenAttempts), err)
 		}
 		d := b.Duration()
 		time.Sleep(d)
