@@ -47,7 +47,7 @@ func TestOpenStreamWithRetries(t *testing.T) {
 	ctx := context.Background()
 	td := shared_testutil.NewLibp2pTestData(ctx, t)
 
-	fromNetwork := network.NewFromLibp2pHost(td.Host1)
+	fromNetwork := network.NewFromLibp2pHost(td.Host1, network.RetryParameters(1*time.Second, 10*time.Second, 5))
 	toNetwork := network.NewFromLibp2pHost(td.Host2)
 	toHost := td.Host2.ID()
 
@@ -356,7 +356,7 @@ func TestLibp2pStorageMarketNetwork_StopHandlingRequests(t *testing.T) {
 	bgCtx := context.Background()
 	td := shared_testutil.NewLibp2pTestData(bgCtx, t)
 
-	fromNetwork := network.NewFromLibp2pHost(td.Host1)
+	fromNetwork := network.NewFromLibp2pHost(td.Host1, network.RetryParameters(0, 0, 0))
 	toNetwork := network.NewFromLibp2pHost(td.Host2)
 	toHost := td.Host2.ID()
 

@@ -17,13 +17,36 @@ import (
 	"github.com/filecoin-project/go-fil-markets/storagemarket"
 )
 
-const maxStreamOpenAttempts = 5
+const defaultMaxStreamOpenAttempts = 5
+const defaultMinAttemptDuration = 1 * time.Second
+const defaultMaxAttemptDuration = 5 * time.Minute
 
 var log = logging.Logger("storagemarket_network")
 
+// Option is an option for configuring the libp2p storage market network
+type Option func(*libp2pStorageMarketNetwork)
+
+// RetryParameters changes the default parameters around connection reopening
+func RetryParameters(minDuration time.Duration, maxDuration time.Duration, attempts float64) Option {
+	return func(impl *libp2pStorageMarketNetwork) {
+		impl.maxStreamOpenAttempts = attempts
+		impl.minAttemptDuration = minDuration
+		impl.maxAttemptDuration = maxDuration
+	}
+}
+
 // NewFromLibp2pHost builds a storage market network on top of libp2p
-func NewFromLibp2pHost(h host.Host) StorageMarketNetwork {
-	return &libp2pStorageMarketNetwork{host: h}
+func NewFromLibp2pHost(h host.Host, options ...Option) StorageMarketNetwork {
+	impl := &libp2pStorageMarketNetwork{
+		host:                  h,
+		maxStreamOpenAttempts: defaultMaxStreamOpenAttempts,
+		minAttemptDuration:    defaultMinAttemptDuration,
+		maxAttemptDuration:    defaultMaxAttemptDuration,
+	}
+	for _, option := range options {
+		option(impl)
+	}
+	return impl
 }
 
 // libp2pStorageMarketNetwork transforms the libp2p host interface, which sends and receives
@@ -31,7 +54,10 @@ func NewFromLibp2pHost(h host.Host) StorageMarketNetwork {
 type libp2pStorageMarketNetwork struct {
 	host host.Host
 	// inbound messages from the network are forwarded to the receiver
-	receiver StorageReceiver
+	receiver              StorageReceiver
+	maxStreamOpenAttempts float64
+	minAttemptDuration    time.Duration
+	maxAttemptDuration    time.Duration
 }
 
 func (impl *libp2pStorageMarketNetwork) NewAskStream(ctx context.Context, id peer.ID) (StorageAskStream, error) {
@@ -65,9 +91,9 @@ func (impl *libp2pStorageMarketNetwork) NewDealStatusStream(ctx context.Context,
 
 func (impl *libp2pStorageMarketNetwork) openStream(ctx context.Context, id peer.ID, protocol protocol.ID) (network.Stream, error) {
 	b := &backoff.Backoff{
-		Min:    1 * time.Second,
-		Max:    5 * time.Minute,
-		Factor: 5,
+		Min:    impl.minAttemptDuration,
+		Max:    impl.maxAttemptDuration,
+		Factor: impl.maxStreamOpenAttempts,
 		Jitter: true,
 	}
 
@@ -78,8 +104,8 @@ func (impl *libp2pStorageMarketNetwork) openStream(ctx context.Context, id peer.
 		}
 
 		nAttempts := b.Attempt()
-		if nAttempts == maxStreamOpenAttempts {
-			return nil, xerrors.Errorf("exhausted %d attempts but failed to open stream, err: %w", maxStreamOpenAttempts, err)
+		if nAttempts == impl.maxStreamOpenAttempts {
+			return nil, xerrors.Errorf("exhausted %d attempts but failed to open stream, err: %w", int(impl.maxStreamOpenAttempts), err)
 		}
 		d := b.Duration()
 		time.Sleep(d)

@@ -88,7 +88,7 @@ func requireSetupTestClientAndProvider(bgCtx context.Context, t *testing.T, payC
 	retrievalmarket.RetrievalPeer,
 	retrievalmarket.RetrievalProvider) {
 	testData := tut.NewLibp2pTestData(bgCtx, t)
-	nw1 := rmnet.NewFromLibp2pHost(testData.Host1)
+	nw1 := rmnet.NewFromLibp2pHost(testData.Host1, rmnet.RetryParameters(100*time.Millisecond, 1*time.Second, 5))
 	cids := tut.GenerateCids(2)
 	rcNode1 := testnodes.NewTestRetrievalClientNode(testnodes.TestRetrievalClientNodeParams{
 		PayCh:          payChAddr,
@@ -102,7 +102,7 @@ func requireSetupTestClientAndProvider(bgCtx context.Context, t *testing.T, payC
 	require.NoError(t, err)
 	client, err := retrievalimpl.NewClient(nw1, testData.MultiStore1, dt1, rcNode1, &tut.TestPeerResolver{}, testData.Ds1, testData.RetrievalStoredCounter1)
 	require.NoError(t, err)
-	nw2 := rmnet.NewFromLibp2pHost(testData.Host2)
+	nw2 := rmnet.NewFromLibp2pHost(testData.Host2, rmnet.RetryParameters(0, 0, 0))
 	providerNode := testnodes.NewTestRetrievalProviderNode()
 	pieceStore := tut.NewTestPieceStore()
 	expectedCIDs := tut.GenerateCids(3)
@@ -386,7 +386,7 @@ func TestClientCanMakeDealWithProvider(t *testing.T) {
 			}
 
 			// ------- SET UP CLIENT
-			nw1 := rmnet.NewFromLibp2pHost(testData.Host1)
+			nw1 := rmnet.NewFromLibp2pHost(testData.Host1, rmnet.RetryParameters(0, 0, 0))
 			createdChan, newLaneAddr, createdVoucher, clientNode, client, err := setupClient(bgCtx, t, clientPaymentChannel, expectedVoucher, nw1, testData, testCase.addFunds, testCase.channelAvailableFunds)
 			require.NoError(t, err)
 
@@ -596,7 +596,7 @@ func setupProvider(
 	providerNode retrievalmarket.RetrievalProviderNode,
 	decider retrievalimpl.DealDecider,
 ) retrievalmarket.RetrievalProvider {
-	nw2 := rmnet.NewFromLibp2pHost(testData.Host2)
+	nw2 := rmnet.NewFromLibp2pHost(testData.Host2, rmnet.RetryParameters(0, 0, 0))
 	pieceStore := tut.NewTestPieceStore()
 	expectedPiece := tut.GenerateCids(1)[0]
 	cidInfo := piecestore.CIDInfo{

@@ -41,6 +41,7 @@ import (
 	stormkt "github.com/filecoin-project/go-fil-markets/storagemarket/impl"
 	"github.com/filecoin-project/go-fil-markets/storagemarket/impl/funds"
 	"github.com/filecoin-project/go-fil-markets/storagemarket/impl/storedask"
+	"github.com/filecoin-project/go-fil-markets/storagemarket/network"
 	stornet "github.com/filecoin-project/go-fil-markets/storagemarket/network"
 	"github.com/filecoin-project/go-fil-markets/storagemarket/testnodes"
 )
@@ -266,7 +267,7 @@ func newStorageHarness(ctx context.Context, t *testing.T) *storageHarness {
 	require.NoError(t, err)
 
 	client, err := stormkt.NewClient(
-		stornet.NewFromLibp2pHost(td.Host1),
+		stornet.NewFromLibp2pHost(td.Host1, stornet.RetryParameters(0, 0, 0)),
 		td.Bs1,
 		td.MultiStore1,
 		dt1,
@@ -289,7 +290,7 @@ func newStorageHarness(ctx context.Context, t *testing.T) *storageHarness {
 	require.NoError(t, err)
 
 	provider, err := stormkt.NewProvider(
-		stornet.NewFromLibp2pHost(td.Host2),
+		stornet.NewFromLibp2pHost(td.Host2, network.RetryParameters(0, 0, 0)),
 		td.Ds2,
 		fs,
 		td.MultiStore2,
@@ -405,7 +406,7 @@ func newRetrievalHarness(ctx context.Context, t *testing.T, sh *storageHarness, 
 		IntegrationTest:        true,
 	})
 
-	nw1 := rmnet.NewFromLibp2pHost(sh.TestData.Host1)
+	nw1 := rmnet.NewFromLibp2pHost(sh.TestData.Host1, rmnet.RetryParameters(0, 0, 0))
 	client, err := retrievalimpl.NewClient(nw1, sh.TestData.MultiStore1, sh.DTClient, clientNode, sh.PeerResolver, sh.TestData.Ds1, sh.TestData.RetrievalStoredCounter1)
 	require.NoError(t, err)
 
@@ -435,7 +436,7 @@ func newRetrievalHarness(ctx context.Context, t *testing.T, sh *storageHarness, 
 		require.NoError(t, err)
 	}
 
-	nw2 := rmnet.NewFromLibp2pHost(sh.TestData.Host2)
+	nw2 := rmnet.NewFromLibp2pHost(sh.TestData.Host2, rmnet.RetryParameters(0, 0, 0))
 	pieceStore := tut.NewTestPieceStore()
 	expectedPiece := tut.GenerateCids(1)[0]
 	cidInfo := piecestore.CIDInfo{
