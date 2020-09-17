@@ -316,16 +316,6 @@ func (p *Provider) GetAsk() *storagemarket.SignedStorageAsk {
 	return p.storedAsk.GetAsk()
 }
 
-// ListDeals lists on-chain deals associated with this storage provider
-func (p *Provider) ListDeals(ctx context.Context) ([]storagemarket.StorageDeal, error) {
-	tok, _, err := p.spn.GetChainHead(ctx)
-	if err != nil {
-		return nil, err
-	}
-
-	return p.spn.ListProviderDeals(ctx, p.actor, tok)
-}
-
 // AddStorageCollateral adds storage collateral
 func (p *Provider) AddStorageCollateral(ctx context.Context, amount abi.TokenAmount) error {
 	done := make(chan error, 1)

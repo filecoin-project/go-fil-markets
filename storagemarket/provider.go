@@ -33,9 +33,6 @@ type StorageProvider interface {
 	// GetAsk returns the storage miner's ask, or nil if one does not exist.
 	GetAsk() *SignedStorageAsk
 
-	// ListDeals lists on-chain deals associated with this storage provider
-	ListDeals(ctx context.Context) ([]StorageDeal, error)
-
 	// ListLocalDeals lists deals processed by this storage provider
 	ListLocalDeals() ([]MinerDeal, error)
 

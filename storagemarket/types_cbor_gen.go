@@ -1247,68 +1247,6 @@ func (t *StorageAsk) UnmarshalCBOR(r io.Reader) error {
 	return nil
 }
 
-var lengthBufStorageDeal = []byte{130}
-
-func (t *StorageDeal) MarshalCBOR(w io.Writer) error {
-	if t == nil {
-		_, err := w.Write(cbg.CborNull)
-		return err
-	}
-	if _, err := w.Write(lengthBufStorageDeal); err != nil {
-		return err
-	}
-
-	// t.DealProposal (market.DealProposal) (struct)
-	if err := t.DealProposal.MarshalCBOR(w); err != nil {
-		return err
-	}
-
-	// t.DealState (market.DealState) (struct)
-	if err := t.DealState.MarshalCBOR(w); err != nil {
-		return err
-	}
-	return nil
-}
-
-func (t *StorageDeal) UnmarshalCBOR(r io.Reader) error {
-	*t = StorageDeal{}
-
-	br := cbg.GetPeeker(r)
-	scratch := make([]byte, 8)
-
-	maj, extra, err := cbg.CborReadHeaderBuf(br, scratch)
-	if err != nil {
-		return err
-	}
-	if maj != cbg.MajArray {
-		return fmt.Errorf("cbor input should be of type array")
-	}
-
-	if extra != 2 {
-		return fmt.Errorf("cbor input had wrong number of fields")
-	}
-
-	// t.DealProposal (market.DealProposal) (struct)
-
-	{
-
-		if err := t.DealProposal.UnmarshalCBOR(br); err != nil {
-			return xerrors.Errorf("unmarshaling t.DealProposal: %w", err)
-		}
-
-	}
-	// t.DealState (market.DealState) (struct)
-
-	{
-
-		if err := t.DealState.UnmarshalCBOR(br); err != nil {
-			return xerrors.Errorf("unmarshaling t.DealState: %w", err)
-		}
-
-	}
-	return nil
-}
-
 var lengthBufDataRef = []byte{132}
 
 func (t *DataRef) MarshalCBOR(w io.Writer) error {

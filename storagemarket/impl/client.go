@@ -172,16 +172,6 @@ func (c *Client) ListProviders(ctx context.Context) (<-chan storagemarket.Storag
 	return out, nil
 }
 
-// ListDeals lists on-chain deals associated with this storage client
-func (c *Client) ListDeals(ctx context.Context, addr address.Address) ([]storagemarket.StorageDeal, error) {
-	tok, _, err := c.node.GetChainHead(ctx)
-	if err != nil {
-		return nil, err
-	}
-
-	return c.node.ListClientDeals(ctx, addr, tok)
-}
-
 // ListLocalDeals lists deals initiated by this storage client
 func (c *Client) ListLocalDeals(ctx context.Context) ([]storagemarket.ClientDeal, error) {
 	var out []storagemarket.ClientDeal

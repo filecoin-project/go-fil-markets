@@ -31,22 +31,20 @@ import (
 // StorageMarketState represents a state for the storage market that can be inspected
 // - methods on the provider nodes will affect this state
 type StorageMarketState struct {
-	TipSetToken  shared.TipSetToken
-	Epoch        abi.ChainEpoch
-	DealID       abi.DealID
-	Balances     map[address.Address]abi.TokenAmount
-	StorageDeals map[address.Address][]storagemarket.StorageDeal
-	Providers    map[address.Address]*storagemarket.StorageProviderInfo
+	TipSetToken shared.TipSetToken
+	Epoch       abi.ChainEpoch
+	DealID      abi.DealID
+	Balances    map[address.Address]abi.TokenAmount
+	Providers   map[address.Address]*storagemarket.StorageProviderInfo
 }
 
 // NewStorageMarketState returns a new empty state for the storage market
 func NewStorageMarketState() *StorageMarketState {
 	return &StorageMarketState{
-		Epoch:        0,
-		DealID:       0,
-		Balances:     map[address.Address]abi.TokenAmount{},
-		StorageDeals: map[address.Address][]storagemarket.StorageDeal{},
-		Providers:    map[address.Address]*storagemarket.StorageProviderInfo{},
+		Epoch:     0,
+		DealID:    0,
+		Balances:  map[address.Address]abi.TokenAmount{},
+		Providers: map[address.Address]*storagemarket.StorageProviderInfo{},
 	}
 }
 
@@ -67,30 +65,9 @@ func (sma *StorageMarketState) Balance(addr address.Address) storagemarket.Balan
 	return storagemarket.Balance{Locked: big.NewInt(0), Available: big.NewInt(0)}
 }
 
-// Deals returns all deals in the current state
-func (sma *StorageMarketState) Deals(addr address.Address) []storagemarket.StorageDeal {
-	if existing, ok := sma.StorageDeals[addr]; ok {
-		return existing
-	}
-	return nil
-}
-
 // StateKey returns a state key with the storage market states set Epoch
 func (sma *StorageMarketState) StateKey() (shared.TipSetToken, abi.ChainEpoch) {
 	return sma.TipSetToken, sma.Epoch
-}
-
-// AddDeal adds a deal to the current state of the storage market
-func (sma *StorageMarketState) AddDeal(deal storagemarket.StorageDeal) (shared.TipSetToken, abi.ChainEpoch) {
-	for _, addr := range []address.Address{deal.Client, deal.Provider} {
-		if existing, ok := sma.StorageDeals[addr]; ok {
-			sma.StorageDeals[addr] = append(existing, deal)
-		} else {
-			sma.StorageDeals[addr] = []storagemarket.StorageDeal{deal}
-		}
-	}
-
-	return sma.StateKey()
 }
 
 // FakeCommonNode implements common methods for the storage & client node adapters
@@ -268,11 +245,6 @@ type FakeClientNode struct {
 	receivedMinerInfos      []address.Address
 }
 
-// ListClientDeals just returns the deals in the storage market state
-func (n *FakeClientNode) ListClientDeals(ctx context.Context, addr address.Address, tok shared.TipSetToken) ([]storagemarket.StorageDeal, error) {
-	return n.SMState.Deals(addr), nil
-}
-
 // ListStorageProviders lists the providers in the storage market state
 func (n *FakeClientNode) ListStorageProviders(ctx context.Context, tok shared.TipSetToken) ([]*storagemarket.StorageProviderInfo, error) {
 	providers := make([]*storagemarket.StorageProviderInfo, 0, len(n.SMState.Providers))
@@ -342,21 +314,9 @@ type FakeProviderNode struct {
 // PublishDeals simulates publishing a deal by adding it to the storage market state
 func (n *FakeProviderNode) PublishDeals(ctx context.Context, deal storagemarket.MinerDeal) (cid.Cid, error) {
 	if n.PublishDealsError == nil {
-		sd := storagemarket.StorageDeal{
-			DealProposal: deal.Proposal,
-			DealState:    market.DealState{},
-		}
-
-		n.SMState.AddDeal(sd)
-
 		return shared_testutil.GenerateCids(1)[0], nil
 	}
 	return cid.Undef, n.PublishDealsError
-}
-
-// ListProviderDeals returns the deals in the storage market state
-func (n *FakeProviderNode) ListProviderDeals(ctx context.Context, addr address.Address, tok shared.TipSetToken) ([]storagemarket.StorageDeal, error) {
-	return n.SMState.Deals(addr), nil
 }
 
 // OnDealComplete simulates passing of the deal to the storage miner, and does nothing

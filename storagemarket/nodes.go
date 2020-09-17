@@ -75,9 +75,6 @@ type StorageProviderNode interface {
 	// PublishDeals publishes a deal on chain, returns the message cid, but does not wait for message to appear
 	PublishDeals(ctx context.Context, deal MinerDeal) (cid.Cid, error)
 
-	// ListProviderDeals lists all deals on chain associated with a storage provider
-	ListProviderDeals(ctx context.Context, addr address.Address, tok shared.TipSetToken) ([]StorageDeal, error)
-
 	// OnDealComplete is called when a deal is complete and on chain, and data has been transferred and is ready to be added to a sector
 	OnDealComplete(ctx context.Context, deal MinerDeal, pieceSize abi.UnpaddedPieceSize, pieceReader io.Reader) (*PackingResult, error)
 
@@ -94,9 +91,6 @@ type StorageProviderNode interface {
 // StorageClientNode are node dependencies for a StorageClient
 type StorageClientNode interface {
 	StorageCommon
-
-	// ListClientDeals lists all on-chain deals associated with a storage client
-	ListClientDeals(ctx context.Context, addr address.Address, tok shared.TipSetToken) ([]StorageDeal, error)
 
 	// GetStorageProviders returns information about known miners
 	ListStorageProviders(ctx context.Context, tok shared.TipSetToken) ([]*StorageProviderInfo, error)
