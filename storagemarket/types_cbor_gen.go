@@ -18,7 +18,7 @@ import (
 
 var _ = xerrors.Errorf
 
-var lengthBufClientDeal = []byte{145}
+var lengthBufClientDeal = []byte{146}
 
 func (t *ClientDeal) MarshalCBOR(w io.Writer) error {
 	if t == nil {
@@ -161,6 +161,11 @@ func (t *ClientDeal) MarshalCBOR(w io.Writer) error {
 	if err := t.CreationTime.MarshalCBOR(w); err != nil {
 		return err
 	}
+
+	// t.TransferChannelID (datatransfer.ChannelID) (struct)
+	if err := t.TransferChannelID.MarshalCBOR(w); err != nil {
+		return err
+	}
 	return nil
 }
 
@@ -178,7 +183,7 @@ func (t *ClientDeal) UnmarshalCBOR(r io.Reader) error {
 		return fmt.Errorf("cbor input should be of type array")
 	}
 
-	if extra != 17 {
+	if extra != 18 {
 		return fmt.Errorf("cbor input had wrong number of fields")
 	}
 
@@ -432,6 +437,15 @@ func (t *ClientDeal) UnmarshalCBOR(r io.Reader) error {
 
 		if err := t.CreationTime.UnmarshalCBOR(br); err != nil {
 			return xerrors.Errorf("unmarshaling t.CreationTime: %w", err)
+		}
+
+	}
+	// t.TransferChannelID (datatransfer.ChannelID) (struct)
+
+	{
+
+		if err := t.TransferChannelID.UnmarshalCBOR(br); err != nil {
+			return xerrors.Errorf("unmarshaling t.TransferChannelID: %w", err)
 		}
 
 	}

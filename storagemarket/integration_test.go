@@ -280,6 +280,7 @@ func TestMakeDealNonBlocking(t *testing.T) {
 	shared_testutil.AssertDealState(t, storagemarket.StorageDealProviderFunding, pd.State)
 }
 
+// FIXME Gets hung sometimes
 func TestRestartClient(t *testing.T) {
 	testCases := map[string]struct {
 		stopAtEvent storagemarket.ClientEvent

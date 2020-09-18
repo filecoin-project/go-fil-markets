@@ -56,6 +56,15 @@ func TestProviderDataTransferSubscriber(t *testing.T) {
 			expectedID:    expectedProposalCID,
 			expectedEvent: storagemarket.ProviderEventDataTransferCompleted,
 		},
+		"data received": {
+			code:   datatransfer.DataReceived,
+			status: datatransfer.Ongoing,
+			called: false,
+			voucher: &requestvalidation.StorageDataTransferVoucher{
+				Proposal: expectedProposalCID,
+			},
+			expectedID: expectedProposalCID,
+		},
 		"error event": {
 			code:    datatransfer.Error,
 			message: "something went wrong",
@@ -69,7 +78,7 @@ func TestProviderDataTransferSubscriber(t *testing.T) {
 			expectedArgs:  []interface{}{errors.New("deal data transfer failed: something went wrong")},
 		},
 		"other event": {
-			code:   datatransfer.Progress,
+			code:   datatransfer.DataSent,
 			status: datatransfer.Ongoing,
 			called: false,
 			voucher: &requestvalidation.StorageDataTransferVoucher{
@@ -135,7 +144,7 @@ func TestClientDataTransferSubscriber(t *testing.T) {
 			expectedArgs:  []interface{}{errors.New("deal data transfer failed: something went wrong")},
 		},
 		"other event": {
-			code:   datatransfer.Progress,
+			code:   datatransfer.DataReceived,
 			status: datatransfer.Ongoing,
 			called: false,
 			voucher: &requestvalidation.StorageDataTransferVoucher{
@@ -260,7 +269,7 @@ func (fsg *fakeStoreGetter) Get(proposalCid cid.Cid) (*multistore.Store, error) 
 
 type fakeTransport struct{}
 
-func (ft *fakeTransport) OpenChannel(ctx context.Context, dataSender peer.ID, channelID datatransfer.ChannelID, root ipld.Link, stor ipld.Node, msg datatransfer.Message) error {
+func (ft *fakeTransport) OpenChannel(ctx context.Context, dataSender peer.ID, channelID datatransfer.ChannelID, root ipld.Link, stor ipld.Node, doNotSend []cid.Cid, msg datatransfer.Message) error {
 	return nil
 }
 

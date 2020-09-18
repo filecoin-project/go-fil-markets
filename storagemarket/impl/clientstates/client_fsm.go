@@ -4,6 +4,7 @@ import (
 	"github.com/ipfs/go-cid"
 	"golang.org/x/xerrors"
 
+	datatransfer "github.com/filecoin-project/go-data-transfer"
 	"github.com/filecoin-project/go-state-types/abi"
 	"github.com/filecoin-project/go-state-types/big"
 	"github.com/filecoin-project/go-statemachine/fsm"
@@ -65,6 +66,7 @@ var ClientEvents = fsm.Events{
 		}),
 	fsm.Event(storagemarket.ClientEventInitiateDataTransfer).
 		From(storagemarket.StorageDealFundsEnsured).To(storagemarket.StorageDealStartDataTransfer),
+
 	fsm.Event(storagemarket.ClientEventUnexpectedDealState).
 		From(storagemarket.StorageDealFundsEnsured).To(storagemarket.StorageDealFailing).
 		Action(func(deal *storagemarket.ClientDeal, status storagemarket.StorageDealStatus, providerMessage string) error {
@@ -78,7 +80,12 @@ var ClientEvents = fsm.Events{
 			return nil
 		}),
 	fsm.Event(storagemarket.ClientEventDataTransferInitiated).
-		From(storagemarket.StorageDealStartDataTransfer).To(storagemarket.StorageDealTransferring),
+		From(storagemarket.StorageDealStartDataTransfer).To(storagemarket.StorageDealTransferring).
+		Action(func(deal *storagemarket.ClientDeal, channelId datatransfer.ChannelID) error {
+			deal.TransferChannelID = channelId
+			return nil
+		}),
+
 	fsm.Event(storagemarket.ClientEventDataTransferComplete).
 		FromMany(storagemarket.StorageDealTransferring, storagemarket.StorageDealStartDataTransfer).To(storagemarket.StorageDealCheckForAcceptance),
 	fsm.Event(storagemarket.ClientEventWaitForDealState).

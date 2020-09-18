@@ -234,10 +234,15 @@ func TestProposeDeal(t *testing.T) {
 func TestInitiateDataTransfer(t *testing.T) {
 	t.Run("succeeds and starts the data transfer", func(t *testing.T) {
 		runAndInspect(t, storagemarket.StorageDealStartDataTransfer, clientstates.InitiateDataTransfer, testCase{
+			envParams: envParams{
+				dataTransferChannelId: datatransfer.ChannelID{peer.ID("1"), peer.ID("2"), datatransfer.TransferID(1)},
+			},
 			inspector: func(deal storagemarket.ClientDeal, env *fakeEnvironment) {
 				assert.Len(t, env.startDataTransferCalls, 1)
 				assert.Equal(t, env.startDataTransferCalls[0].to, deal.Miner)
 				assert.Equal(t, env.startDataTransferCalls[0].baseCid, deal.DataRef.Root)
+				assert.Equal(t, datatransfer.ChannelID{peer.ID("1"), peer.ID("2"), datatransfer.TransferID(1)},
+					deal.TransferChannelID)
 				tut.AssertDealState(t, storagemarket.StorageDealTransferring, deal.State)
 			},
 		})
@@ -504,6 +509,7 @@ func TestFailDeal(t *testing.T) {
 type envParams struct {
 	dealStream             *tut.TestStorageDealStream
 	startDataTransferError error
+	dataTransferChannelId  datatransfer.ChannelID
 	manualTransfer         bool
 	providerDealState      *storagemarket.ProviderDealState
 	getDealStatusErr       error
@@ -544,14 +550,15 @@ func makeExecutor(ctx context.Context,
 			dealState.FundsReserved = clientDealProposal.Proposal.ClientBalanceRequirement()
 		}
 		environment := &fakeEnvironment{
-			node:                   node,
-			dealStream:             envParams.dealStream,
-			startDataTransferError: envParams.startDataTransferError,
-			providerDealState:      envParams.providerDealState,
-			getDealStatusErr:       envParams.getDealStatusErr,
-			pollingInterval:        envParams.pollingInterval,
-			dealFunds:              tut.NewTestDealFunds(),
-			peerTagger:             tut.NewTestPeerTagger(),
+			node:                       node,
+			dealStream:                 envParams.dealStream,
+			startDataTransferError:     envParams.startDataTransferError,
+			startDataTransferChannelId: envParams.dataTransferChannelId,
+			providerDealState:          envParams.providerDealState,
+			getDealStatusErr:           envParams.getDealStatusErr,
+			pollingInterval:            envParams.pollingInterval,
+			dealFunds:                  tut.NewTestDealFunds(),
+			peerTagger:                 tut.NewTestPeerTagger(),
 		}
 
 		if environment.pollingInterval == 0 {
@@ -615,9 +622,12 @@ func makeNode(params nodeParams) storagemarket.StorageClientNode {
 }
 
 type fakeEnvironment struct {
-	node                   storagemarket.StorageClientNode
-	dealStream             *tut.TestStorageDealStream
-	startDataTransferError error
+	node       storagemarket.StorageClientNode
+	dealStream *tut.TestStorageDealStream
+
+	startDataTransferChannelId datatransfer.ChannelID
+	startDataTransferError     error
+
 	startDataTransferCalls []dataTransferParams
 	providerDealState      *storagemarket.ProviderDealState
 	getDealStatusErr       error
@@ -633,14 +643,14 @@ type dataTransferParams struct {
 	selector ipld.Node
 }
 
-func (fe *fakeEnvironment) StartDataTransfer(_ context.Context, to peer.ID, voucher datatransfer.Voucher, baseCid cid.Cid, selector ipld.Node) error {
+func (fe *fakeEnvironment) StartDataTransfer(_ context.Context, to peer.ID, voucher datatransfer.Voucher, baseCid cid.Cid, selector ipld.Node) (datatransfer.ChannelID, error) {
 	fe.startDataTransferCalls = append(fe.startDataTransferCalls, dataTransferParams{
 		to:       to,
 		voucher:  voucher,
 		baseCid:  baseCid,
 		selector: selector,
 	})
-	return fe.startDataTransferError
+	return fe.startDataTransferChannelId, fe.startDataTransferError
 }
 
 func (fe *fakeEnvironment) Node() storagemarket.StorageClientNode {
