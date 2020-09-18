@@ -172,7 +172,7 @@ func (p *Provider) SubscribeToEvents(subscriber retrievalmarket.ProviderSubscrib
 	return retrievalmarket.Unsubscribe(p.subscribers.Subscribe(subscriber))
 }
 
-// GetAsk returns the current parameters deals this provider accepts
+// GetAsk returns the current deal parameters this provider accepts
 func (p *Provider) GetAsk() *retrievalmarket.Ask {
 	p.askLk.Lock()
 	defer p.askLk.Unlock()
@@ -180,14 +180,14 @@ func (p *Provider) GetAsk() *retrievalmarket.Ask {
 	return &a
 }
 
-// SetAsk sets the parameters for deals this provider accepts
+// SetAsk sets the deal parameters this provider accepts
 func (p *Provider) SetAsk(ask *retrievalmarket.Ask) {
 	p.askLk.Lock()
 	defer p.askLk.Unlock()
 	p.ask = ask
 }
 
-// ListDeals lists in all known retrieval deals
+// ListDeals lists all known retrieval deals
 func (p *Provider) ListDeals() map[retrievalmarket.ProviderDealIdentifier]retrievalmarket.ProviderDealState {
 	var deals []retrievalmarket.ProviderDealState
 	_ = p.stateMachines.List(&deals)
@@ -205,11 +205,11 @@ A Provider handling a retrieval `Query` does the following:
 
 1. Get the node's chain head in order to get its miner worker address.
 
-2. Look in its piece store for determine if it can serve the given payload CID.
+2. Look in its piece store to determine if it can serve the given payload CID.
 
 3. Combine these results with its existing parameters for retrieval deals to construct a `retrievalmarket.QueryResponse` struct.
 
-4.0 Writes this response to the `Query` stream.
+4. Writes this response to the `Query` stream.
 
 The connection is kept open only as long as the query-response exchange.
 */

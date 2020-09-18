@@ -130,8 +130,8 @@ Query sends a retrieval query to a specific retrieval provider, to determine
 if the provider can serve a retrieval request and what its specific parameters for
 the request are.
 
-The client a new `RetrievalQueryStream` for the chosen peer ID,
-and calls WriteQuery on it, which constructs a data-transfer message and writes it to the Query stream.
+The client creates a new `RetrievalQueryStream` for the chosen peer ID,
+and calls `WriteQuery` on it, which constructs a data-transfer message and writes it to the Query stream.
 */
 func (c *Client) Query(ctx context.Context, p retrievalmarket.RetrievalPeer, payloadCID cid.Cid, params retrievalmarket.QueryParams) (retrievalmarket.QueryResponse, error) {
 	err := c.addMultiaddrs(ctx, p)
@@ -171,7 +171,7 @@ greatest likelihood the provider will accept the deal
 
 When called, the client takes the following actions:
 
-1. Creates a deal ID using the next value from its storedcounter.
+1. Creates a deal ID using the next value from its `storedCounter`.
 
 2. Constructs a `DealProposal` with deal terms
 
@@ -284,7 +284,7 @@ func (c *Client) TryRestartInsufficientFunds(paymentChannel address.Address) err
 	return nil
 }
 
-// CancelDeal attempts to cancel an inprogress deal
+// CancelDeal attempts to cancel an in progress deal
 func (c *Client) CancelDeal(dealID retrievalmarket.DealID) error {
 	return c.stateMachines.Send(dealID, retrievalmarket.ClientEventCancel)
 }
@@ -298,7 +298,7 @@ func (c *Client) GetDeal(dealID retrievalmarket.DealID) (retrievalmarket.ClientD
 	return out, nil
 }
 
-// ListDeals lists in all known retrieval deals
+// ListDeals lists all known retrieval deals
 func (c *Client) ListDeals() (map[retrievalmarket.DealID]retrievalmarket.ClientDealState, error) {
 	var deals []retrievalmarket.ClientDealState
 	err := c.stateMachines.List(&deals)
