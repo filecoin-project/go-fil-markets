@@ -38,6 +38,10 @@ func (c *clientDealEnvironment) StartDataTransfer(ctx context.Context, to peer.I
 	return chid, err
 }
 
+func (c *clientDealEnvironment) RestartDataTransfer(ctx context.Context, channelId datatransfer.ChannelID) error {
+	return c.c.dataTransfer.RestartDataTransferChannel(ctx, channelId)
+}
+
 func (c *clientDealEnvironment) GetProviderDealState(ctx context.Context, proposalCid cid.Cid) (*storagemarket.ProviderDealState, error) {
 	return c.c.GetProviderDealState(ctx, proposalCid)
 }

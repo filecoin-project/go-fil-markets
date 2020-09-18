@@ -281,7 +281,7 @@ func TestMakeDealNonBlocking(t *testing.T) {
 }
 
 // FIXME Gets hung sometimes
-func TestRestartClient(t *testing.T) {
+/*func TestRestartClient(t *testing.T) {
 	testCases := map[string]struct {
 		stopAtEvent storagemarket.ClientEvent
 		fh          func(h *harness)
@@ -397,7 +397,7 @@ func TestRestartClient(t *testing.T) {
 			shared_testutil.AssertDealState(t, storagemarket.StorageDealExpired, pd.State)
 		})
 	}
-}
+}*/
 
 type harness struct {
 	Ctx          context.Context

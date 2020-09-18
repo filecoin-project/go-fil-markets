@@ -65,6 +65,9 @@ const (
 	// StorageDealTransferring means data is being sent from the client to the provider via the data transfer module
 	StorageDealTransferring
 
+	// StorageDealClientTransferRestarted means an earlier storage deal transfer from client to provider has restarted
+	StorageDealClientTransferRestarted
+
 	// StorageDealWaitingForData indicates either a manual transfer
 	// or that the provider has not received a data transfer request from the client
 	StorageDealWaitingForData

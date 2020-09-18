@@ -31,6 +31,9 @@ const (
 	// ClientEventDataTransferInitiated happens when piece data transfer has started
 	ClientEventDataTransferInitiated
 
+	// ClientEventDataTransferRestarted happens when a data transfer from client to provider is restarted
+	ClientEventDataTransferRestarted
+
 	// ClientEventDataTransferComplete happens when piece data transfer has been completed
 	ClientEventDataTransferComplete
 
@@ -39,6 +42,9 @@ const (
 
 	// ClientEventDataTransferFailed happens the client can't initiate a push data transfer to the provider
 	ClientEventDataTransferFailed
+
+	// ClientEventDataTransferRestartFailed happens when the client can't restart an existing data transfer
+	ClientEventDataTransferRestartFailed
 
 	// ClientEventReadResponseFailed means a network error occurred reading a deal response
 	ClientEventReadResponseFailed
