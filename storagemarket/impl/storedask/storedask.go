@@ -55,6 +55,7 @@ func NewStoredAsk(ds datastore.Batching, dsKey datastore.Key, spn storagemarket.
 		ds:    ds,
 		spn:   spn,
 		actor: actor,
+		dsKey: dsKey,
 	}
 
 	if err := s.tryLoadAsk(); err != nil {
