@@ -24,6 +24,7 @@ import (
 	fsmtest "github.com/filecoin-project/go-statemachine/fsm/testutil"
 	"github.com/filecoin-project/specs-actors/actors/builtin/market"
 	"github.com/filecoin-project/specs-actors/actors/builtin/verifreg"
+	satesting "github.com/filecoin-project/specs-actors/support/testing"
 
 	"github.com/filecoin-project/go-fil-markets/filestore"
 	"github.com/filecoin-project/go-fil-markets/piecestore"
@@ -894,8 +895,8 @@ var defaultTipSetToken = []byte{1, 2, 3}
 var defaultStoragePricePerEpoch = abi.NewTokenAmount(10000)
 var defaultPieceSize = abi.PaddedPieceSize(1048576)
 var defaultStartEpoch = abi.ChainEpoch(200)
-var defaultEndEpoch = abi.ChainEpoch(400)
-var defaultPieceCid = tut.GenerateCids(1)[0]
+var defaultEndEpoch = defaultStartEpoch + ((24*3600)/30)*200 // 200 days
+var defaultPieceCid = satesting.MakeCID("piece cid", &market.PieceCIDPrefix)
 var defaultPath = filestore.Path("file.txt")
 var defaultMetadataPath = filestore.Path("metadataPath.txt")
 var defaultClientAddress = address.TestAddress
@@ -907,7 +908,7 @@ var defaultDataRef = storagemarket.DataRef{
 	Root:         tut.GenerateCids(1)[0],
 	TransferType: storagemarket.TTGraphsync,
 }
-var defaultClientMarketBalance = abi.NewTokenAmount(200 * 10000)
+var defaultClientMarketBalance = big.Mul(big.NewInt(int64(defaultEndEpoch-defaultStartEpoch)), defaultStoragePricePerEpoch)
 
 var defaultAsk = storagemarket.StorageAsk{
 	Price:         abi.NewTokenAmount(10000000),
