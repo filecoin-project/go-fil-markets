@@ -297,6 +297,7 @@ func TestRestartClient(t *testing.T) {
 	}{
 
 		"ClientEventDataTransferInitiated": {
+			// This test can fail if client crashes without seeing a Provider DT complete
 			stopAtEvent:         storagemarket.ClientEventDataTransferInitiated,
 			expectedClientState: storagemarket.StorageDealTransferring,
 			clientDelay:         noOpDelay,
