@@ -8,10 +8,8 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/filecoin-project/go-state-types/abi"
-	"github.com/filecoin-project/go-state-types/big"
 
 	"github.com/filecoin-project/go-fil-markets/retrievalmarket"
-	retrievalimpl "github.com/filecoin-project/go-fil-markets/retrievalmarket/impl"
 	"github.com/filecoin-project/go-fil-markets/retrievalmarket/impl/askstore"
 )
 
@@ -24,10 +22,10 @@ func TestAskStoreImpl(t *testing.T) {
 	ask := store.GetAsk()
 	require.NotNil(t, ask)
 
-	require.Equal(t, big.Zero(), ask.UnsealPrice)
-	require.Equal(t, retrievalimpl.DefaultPricePerByte, ask.PricePerByte)
-	require.Equal(t, retrievalimpl.DefaultPaymentInterval, ask.PaymentInterval)
-	require.Equal(t, retrievalimpl.DefaultPaymentIntervalIncrease, ask.PaymentIntervalIncrease)
+	require.Equal(t, retrievalmarket.DefaultUnsealPrice, ask.UnsealPrice)
+	require.Equal(t, retrievalmarket.DefaultPricePerByte, ask.PricePerByte)
+	require.Equal(t, retrievalmarket.DefaultPaymentInterval, ask.PaymentInterval)
+	require.Equal(t, retrievalmarket.DefaultPaymentIntervalIncrease, ask.PaymentIntervalIncrease)
 
 	// Store a new ask
 	newAsk := &retrievalmarket.Ask{

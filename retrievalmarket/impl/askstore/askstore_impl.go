@@ -5,14 +5,11 @@ import (
 	"sync"
 
 	"github.com/ipfs/go-datastore"
-	"github.com/prometheus/common/log"
 	"golang.org/x/xerrors"
 
 	cborutil "github.com/filecoin-project/go-cbor-util"
-	"github.com/filecoin-project/go-state-types/big"
 
 	"github.com/filecoin-project/go-fil-markets/retrievalmarket"
-	retrievalimpl "github.com/filecoin-project/go-fil-markets/retrievalmarket/impl"
 )
 
 // AskStoreImpl implements AskStore, persisting a retrieval Ask
@@ -40,10 +37,10 @@ func NewAskStore(ds datastore.Batching, key datastore.Key) (*AskStoreImpl, error
 	if s.ask == nil {
 		// for now set a default retrieval ask
 		defaultAsk := &retrievalmarket.Ask{
-			PricePerByte:            retrievalimpl.DefaultPricePerByte,
-			UnsealPrice:             big.Zero(),
-			PaymentInterval:         retrievalimpl.DefaultPaymentInterval,
-			PaymentIntervalIncrease: retrievalimpl.DefaultPaymentIntervalIncrease,
+			PricePerByte:            retrievalmarket.DefaultPricePerByte,
+			UnsealPrice:             retrievalmarket.DefaultUnsealPrice,
+			PaymentInterval:         retrievalmarket.DefaultPaymentInterval,
+			PaymentIntervalIncrease: retrievalmarket.DefaultPaymentIntervalIncrease,
 		}
 
 		if err := s.SetAsk(defaultAsk); err != nil {
@@ -80,7 +77,7 @@ func (s *AskStoreImpl) tryLoadAsk() error {
 
 	if err != nil {
 		if xerrors.Is(err, datastore.ErrNotFound) {
-			log.Warn("no previous ask found, miner will not accept retrieval deals until an ask is set")
+			// this is expected
 			return nil
 		}
 		return err

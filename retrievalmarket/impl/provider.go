@@ -3,7 +3,6 @@ package retrievalimpl
 import (
 	"context"
 	"errors"
-	"sync"
 
 	"github.com/hannahhoward/go-pubsub"
 	"github.com/ipfs/go-cid"
@@ -13,11 +12,11 @@ import (
 	"github.com/filecoin-project/go-address"
 	datatransfer "github.com/filecoin-project/go-data-transfer"
 	"github.com/filecoin-project/go-multistore"
-	"github.com/filecoin-project/go-state-types/abi"
 	"github.com/filecoin-project/go-statemachine/fsm"
 
 	"github.com/filecoin-project/go-fil-markets/piecestore"
 	"github.com/filecoin-project/go-fil-markets/retrievalmarket"
+	"github.com/filecoin-project/go-fil-markets/retrievalmarket/impl/askstore"
 	"github.com/filecoin-project/go-fil-markets/retrievalmarket/impl/dtutils"
 	"github.com/filecoin-project/go-fil-markets/retrievalmarket/impl/providerstates"
 	"github.com/filecoin-project/go-fil-markets/retrievalmarket/impl/requestvalidation"
@@ -43,9 +42,7 @@ type Provider struct {
 	subscribers      *pubsub.PubSub
 	stateMachines    fsm.Group
 	dealDecider      DealDecider
-
-	askLk sync.Mutex
-	ask   *retrievalmarket.Ask
+	askStore         retrievalmarket.AskStore
 }
 
 type internalProviderEvent struct {
@@ -67,18 +64,6 @@ func providerDispatcher(evt pubsub.Event, subscriberFn pubsub.SubscriberFn) erro
 }
 
 var _ retrievalmarket.RetrievalProvider = new(Provider)
-
-// DefaultPricePerByte is the charge per byte retrieved if the miner does
-// not specifically set it
-var DefaultPricePerByte = abi.NewTokenAmount(2)
-
-// DefaultPaymentInterval is the baseline interval, set to 1Mb
-// if the miner does not explicitly set it otherwise
-var DefaultPaymentInterval = uint64(1 << 20)
-
-// DefaultPaymentIntervalIncrease is the amount interval increases on each payment,
-// set to to 1Mb if the miner does not explicitly set it otherwise
-var DefaultPaymentIntervalIncrease = uint64(1 << 20)
 
 // DealDeciderOpt sets a custom protocol
 func DealDeciderOpt(dd DealDecider) RetrievalProviderOption {
@@ -106,13 +91,14 @@ func NewProvider(minerAddress address.Address,
 		minerAddress: minerAddress,
 		pieceStore:   pieceStore,
 		subscribers:  pubsub.New(providerDispatcher),
-		ask: &retrievalmarket.Ask{
-			PricePerByte:            DefaultPricePerByte,
-			PaymentInterval:         DefaultPaymentInterval,
-			PaymentIntervalIncrease: DefaultPaymentIntervalIncrease,
-			UnsealPrice:             abi.NewTokenAmount(0),
-		},
 	}
+
+	askStore, err := askstore.NewAskStore(ds, datastore.NewKey("retrieval-ask"))
+	if err != nil {
+		return nil, err
+	}
+	p.askStore = askStore
+
 	statemachines, err := fsm.New(ds, fsm.Parameters{
 		Environment:     &providerDealEnvironment{p},
 		StateType:       retrievalmarket.ProviderDealState{},
@@ -174,17 +160,16 @@ func (p *Provider) SubscribeToEvents(subscriber retrievalmarket.ProviderSubscrib
 
 // GetAsk returns the current deal parameters this provider accepts
 func (p *Provider) GetAsk() *retrievalmarket.Ask {
-	p.askLk.Lock()
-	defer p.askLk.Unlock()
-	a := *p.ask
-	return &a
+	return p.askStore.GetAsk()
 }
 
 // SetAsk sets the deal parameters this provider accepts
 func (p *Provider) SetAsk(ask *retrievalmarket.Ask) {
-	p.askLk.Lock()
-	defer p.askLk.Unlock()
-	p.ask = ask
+	err := p.askStore.SetAsk(ask)
+
+	if err != nil {
+		log.Warnf("Error setting retrieval ask: %w", err)
+	}
 }
 
 // ListDeals lists all known retrieval deals
