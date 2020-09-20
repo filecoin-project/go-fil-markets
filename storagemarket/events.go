@@ -31,7 +31,7 @@ const (
 	// ClientEventDataTransferInitiated happens when piece data transfer has started
 	ClientEventDataTransferInitiated
 
-	// ClientEventDataTransferRestarted happens when a data transfer from client to provider is restarted
+	// ClientEventDataTransferRestarted happens when a data transfer from client to provider is restarted by the client
 	ClientEventDataTransferRestarted
 
 	// ClientEventDataTransferComplete happens when piece data transfer has been completed
@@ -126,6 +126,7 @@ var ClientEvents = map[ClientEvent]string{
 	ClientEventFailed:                     "ClientEventFailed",
 	ClientEventRestart:                    "ClientEventRestart",
 	ClientEventDataTransferRestarted:      "ClientEventDataTransferRestarted",
+	ClientEventDataTransferRestartFailed:  "ClientEventDataTransferRestartFailed",
 }
 
 // ProviderEvent is an event that happens in the provider's deal state machine

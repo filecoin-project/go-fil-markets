@@ -150,7 +150,7 @@ func RestartDataTransfer(ctx fsm.Context, environment ClientDealEnvironment, dea
 		return ctx.Trigger(storagemarket.ClientEventDataTransferRestartFailed, err)
 	}
 
-	return ctx.Trigger(storagemarket.ClientEventDataTransferRestarted)
+	return nil
 }
 
 // InitiateDataTransfer initiates data transfer to the provider
@@ -164,7 +164,7 @@ func InitiateDataTransfer(ctx fsm.Context, environment ClientDealEnvironment, de
 
 	// initiate a push data transfer. This will complete asynchronously and the
 	// completion of the data transfer will trigger a change in deal state
-	channelID, err := environment.StartDataTransfer(ctx.Context(),
+	_, err := environment.StartDataTransfer(ctx.Context(),
 		deal.Miner,
 		&requestvalidation.StorageDataTransferVoucher{Proposal: deal.ProposalCid},
 		deal.DataRef.Root,
@@ -175,7 +175,7 @@ func InitiateDataTransfer(ctx fsm.Context, environment ClientDealEnvironment, de
 		return ctx.Trigger(storagemarket.ClientEventDataTransferFailed, xerrors.Errorf("failed to open push data channel: %w", err))
 	}
 
-	return ctx.Trigger(storagemarket.ClientEventDataTransferInitiated, channelID)
+	return nil
 }
 
 // CheckForDealAcceptance is run until the deal is sealed and published by the provider, or errors

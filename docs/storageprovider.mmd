@@ -47,7 +47,7 @@ stateDiagram-v2
 	15 --> 19 : ProviderEventDataRequested
 	17 --> 11 : ProviderEventDataTransferFailed
 	19 --> 17 : ProviderEventDataTransferInitiated
-	19 --> 17 : <invalid Value>
+	19 --> 17 : ProviderEventDataTransferRestarted
 	17 --> 20 : ProviderEventDataTransferCompleted
 	20 --> 11 : ProviderEventDataVerificationFailed
 	19 --> 21 : ProviderEventVerifiedData
@@ -84,7 +84,7 @@ stateDiagram-v2
 	note left of 11 : The following events only record in this state.<br><br>ProviderEventFundsReleased
 
 
-	note left of 17 : The following events only record in this state.<br><br><invalid reflect.Value>
+	note left of 17 : The following events only record in this state.<br><br>ProviderEventDataTransferRestarted
 
 
 	note left of 21 : The following events only record in this state.<br><br>ProviderEventFundsReserved

@@ -241,12 +241,11 @@ func TestInitiateDataTransfer(t *testing.T) {
 				assert.Len(t, env.startDataTransferCalls, 1)
 				assert.Equal(t, env.startDataTransferCalls[0].to, deal.Miner)
 				assert.Equal(t, env.startDataTransferCalls[0].baseCid, deal.DataRef.Root)
-				assert.Equal(t, datatransfer.ChannelID{peer.ID("1"), peer.ID("2"), datatransfer.TransferID(1)},
-					deal.TransferChannelID)
-				tut.AssertDealState(t, storagemarket.StorageDealTransferring, deal.State)
+				assert.Equal(t, storagemarket.StorageDealStartDataTransfer, deal.State)
 			},
 		})
 	})
+
 	t.Run("starts polling for acceptance with manual transfers", func(t *testing.T) {
 		runAndInspect(t, storagemarket.StorageDealStartDataTransfer, clientstates.InitiateDataTransfer, testCase{
 			envParams: envParams{
@@ -258,6 +257,7 @@ func TestInitiateDataTransfer(t *testing.T) {
 			},
 		})
 	})
+
 	t.Run("fails if it can't initiate data transfer", func(t *testing.T) {
 		runAndInspect(t, storagemarket.StorageDealStartDataTransfer, clientstates.InitiateDataTransfer, testCase{
 			envParams: envParams{
@@ -271,21 +271,10 @@ func TestInitiateDataTransfer(t *testing.T) {
 }
 
 func TestRestartDataTransfer(t *testing.T) {
-	t.Run("restart data transfer works", func(t *testing.T) {
-		runAndInspect(t, storagemarket.StorageDealClientTransferRestarted, clientstates.RestartDataTransfer, testCase{
-			inspector: func(deal storagemarket.ClientDeal, env *fakeEnvironment) {
-				assert.Len(t, env.restartDataTransferCalls, 1)
-				assert.Empty(t, deal.Message)
-				assert.Equal(t, datatransfer.ChannelID{}, env.restartDataTransferCalls[0].channelId)
-				tut.AssertDealState(t, storagemarket.StorageDealTransferring, deal.State)
-			},
-		})
-	})
-
 	t.Run("fails if can't restart data transfer", func(t *testing.T) {
 		err := xerrors.New("error")
 
-		runAndInspect(t, storagemarket.StorageDealClientTransferRestarted, clientstates.RestartDataTransfer, testCase{
+		runAndInspect(t, storagemarket.StorageDealClientTransferRestart, clientstates.RestartDataTransfer, testCase{
 			envParams: envParams{
 				restartDataTransferError: err,
 			},

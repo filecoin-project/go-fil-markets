@@ -81,7 +81,7 @@ var ClientEvents = fsm.Events{
 			return nil
 		}),
 
-	fsm.Event(storagemarket.ClientEventDataTransferRestartFailed).From(storagemarket.StorageDealClientTransferRestarted).
+	fsm.Event(storagemarket.ClientEventDataTransferRestartFailed).From(storagemarket.StorageDealClientTransferRestart).
 		To(storagemarket.StorageDealFailing).
 		Action(func(deal *storagemarket.ClientDeal, err error) error {
 			deal.Message = xerrors.Errorf("failed to restart data transfer: %w", err).Error()
@@ -89,14 +89,14 @@ var ClientEvents = fsm.Events{
 		}),
 
 	fsm.Event(storagemarket.ClientEventDataTransferInitiated).
-		FromMany(storagemarket.StorageDealStartDataTransfer, storagemarket.StorageDealClientTransferRestarted).To(storagemarket.StorageDealTransferring).
+		FromMany(storagemarket.StorageDealStartDataTransfer).To(storagemarket.StorageDealTransferring).
 		Action(func(deal *storagemarket.ClientDeal, channelId datatransfer.ChannelID) error {
 			deal.TransferChannelID = channelId
 			return nil
 		}),
 
 	fsm.Event(storagemarket.ClientEventDataTransferRestarted).
-		From(storagemarket.StorageDealClientTransferRestarted).To(storagemarket.StorageDealTransferring),
+		From(storagemarket.StorageDealClientTransferRestart).To(storagemarket.StorageDealTransferring),
 
 	fsm.Event(storagemarket.ClientEventDataTransferComplete).
 		FromMany(storagemarket.StorageDealTransferring, storagemarket.StorageDealStartDataTransfer).To(storagemarket.StorageDealCheckForAcceptance),
@@ -169,22 +169,22 @@ var ClientEvents = fsm.Events{
 		}),
 	fsm.Event(storagemarket.ClientEventFailed).
 		From(storagemarket.StorageDealFailing).To(storagemarket.StorageDealError),
-	fsm.Event(storagemarket.ClientEventRestart).From(storagemarket.StorageDealTransferring).To(storagemarket.StorageDealClientTransferRestarted).
+	fsm.Event(storagemarket.ClientEventRestart).From(storagemarket.StorageDealTransferring).To(storagemarket.StorageDealClientTransferRestart).
 		FromAny().ToNoChange(),
 }
 
 // ClientStateEntryFuncs are the handlers for different states in a storage client
 var ClientStateEntryFuncs = fsm.StateEntryFuncs{
-	storagemarket.StorageDealEnsureClientFunds:       EnsureClientFunds,
-	storagemarket.StorageDealClientFunding:           WaitForFunding,
-	storagemarket.StorageDealFundsEnsured:            ProposeDeal,
-	storagemarket.StorageDealStartDataTransfer:       InitiateDataTransfer,
-	storagemarket.StorageDealClientTransferRestarted: RestartDataTransfer,
-	storagemarket.StorageDealCheckForAcceptance:      CheckForDealAcceptance,
-	storagemarket.StorageDealProposalAccepted:        ValidateDealPublished,
-	storagemarket.StorageDealSealing:                 VerifyDealActivated,
-	storagemarket.StorageDealActive:                  WaitForDealCompletion,
-	storagemarket.StorageDealFailing:                 FailDeal,
+	storagemarket.StorageDealEnsureClientFunds:     EnsureClientFunds,
+	storagemarket.StorageDealClientFunding:         WaitForFunding,
+	storagemarket.StorageDealFundsEnsured:          ProposeDeal,
+	storagemarket.StorageDealStartDataTransfer:     InitiateDataTransfer,
+	storagemarket.StorageDealClientTransferRestart: RestartDataTransfer,
+	storagemarket.StorageDealCheckForAcceptance:    CheckForDealAcceptance,
+	storagemarket.StorageDealProposalAccepted:      ValidateDealPublished,
+	storagemarket.StorageDealSealing:               VerifyDealActivated,
+	storagemarket.StorageDealActive:                WaitForDealCompletion,
+	storagemarket.StorageDealFailing:               FailDeal,
 }
 
 // ClientFinalityStates are the states that terminate deal processing for a deal.

@@ -281,7 +281,9 @@ func TestMakeDealNonBlocking(t *testing.T) {
 	// Provider should be blocking on waiting for funds to appear on chain
 	pd := providerDeals[0]
 	assert.Equal(t, result.ProposalCid, pd.ProposalCid)
-	shared_testutil.AssertDealState(t, storagemarket.StorageDealProviderFunding, pd.State)
+	require.Eventually(t, func() bool {
+		return pd.State == storagemarket.StorageDealProviderFunding
+	}, 1*time.Second, 100*time.Millisecond, "actual deal status is %s", storagemarket.DealStates[pd.State])
 }
 
 // FIXME Gets hung sometimes
@@ -311,23 +313,20 @@ func TestRestartClient(t *testing.T) {
 			expectedClientState: storagemarket.StorageDealCheckForAcceptance,
 		},
 
-		"ClientEventInitiateDataTransfer": {
-			// A hairy edge case (happens on >400 runs) fails the test sometimes
-			// If the client crashes after sending a Data Transfer request to the other side (which is accepted)
-			// the client's data transfer request on restart will fail voucher validation(ValidatePush) as provider deal is now in
-			// storegdealtransferring state which is not a state we accept new data transfer requests in
-			stopAtEvent:         storagemarket.ClientEventInitiateDataTransfer,
-			expectedClientState: storagemarket.StorageDealStartDataTransfer,
-			clientDelay:         noOpDelay,
-			providerDelay:       noOpDelay,
-		},
-
 		"ClientEventFundsEnsured": {
 			//
 			//Edge case : Provider begins the state machine on recieving a deal stream request
 			//client crashes -> restarts -> sends deal stream again -> state machine fails
 			stopAtEvent:         storagemarket.ClientEventFundsEnsured,
 			expectedClientState: storagemarket.StorageDealFundsEnsured,
+			clientDelay:         noOpDelay,
+			providerDelay:       noOpDelay,
+		},
+
+		// FIXME
+		"ClientEventInitiateDataTransfer": { // works well but sometimes state progresses beyond StorageDealStartDataTransfer
+			stopAtEvent:         storagemarket.ClientEventInitiateDataTransfer,
+			expectedClientState: storagemarket.StorageDealStartDataTransfer,
 			clientDelay:         noOpDelay,
 			providerDelay:       noOpDelay,
 		},
@@ -398,8 +397,8 @@ func TestRestartClient(t *testing.T) {
 
 			cd, err := h.Client.GetLocalDeal(ctx, proposalCid)
 			require.NoError(t, err)
-			require.Equal(t, tc.expectedClientState, cd.State)
 			t.Logf("client state after stopping is %s", storagemarket.DealStates[cd.State])
+			require.Equal(t, tc.expectedClientState, cd.State)
 
 			h = newHarnessWithTestData(t, ctx, h.TestData, h.SMState, true, h.TempFilePath, noOpDelay, noOpDelay)
 

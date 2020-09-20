@@ -10,7 +10,7 @@ stateDiagram-v2
 	state "StorageDealCheckForAcceptance" as 13
 	state "StorageDealStartDataTransfer" as 16
 	state "StorageDealTransferring" as 17
-	state "StorageDealClientTransferRestarted" as 18
+	state "StorageDealClientTransferRestart" as 18
 	state "StorageDealEnsureClientFunds" as 22
 	state "StorageDealClientFunding" as 24
 	state "StorageDealError" as 27
@@ -44,9 +44,8 @@ stateDiagram-v2
 	12 --> 11 : ClientEventUnexpectedDealState
 	16 --> 11 : ClientEventDataTransferFailed
 	17 --> 11 : ClientEventDataTransferFailed
-	18 --> 11 : <invalid Value>
+	18 --> 11 : ClientEventDataTransferRestartFailed
 	16 --> 17 : ClientEventDataTransferInitiated
-	18 --> 17 : ClientEventDataTransferInitiated
 	18 --> 17 : ClientEventDataTransferRestarted
 	16 --> 13 : ClientEventDataTransferComplete
 	17 --> 13 : ClientEventDataTransferComplete
