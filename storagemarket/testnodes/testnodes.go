@@ -128,6 +128,9 @@ type DelayFakeCommonNode struct {
 
 	OnDealExpiredOrSlashed     bool
 	OnDealExpiredOrSlashedChan chan struct{}
+
+	ValidatePublishedDeal     bool
+	ValidatePublishedDealChan chan struct{}
 }
 
 // GetChainHead returns the state id in the storage market state
@@ -284,6 +287,14 @@ func (n *FakeClientNode) ListStorageProviders(ctx context.Context, tok shared.Ti
 
 // ValidatePublishedDeal always succeeds
 func (n *FakeClientNode) ValidatePublishedDeal(ctx context.Context, deal storagemarket.ClientDeal) (abi.DealID, error) {
+	if n.DelayFakeCommonNode.ValidatePublishedDeal {
+		select {
+		case <-ctx.Done():
+			return 0, ctx.Err()
+		case <-n.DelayFakeCommonNode.ValidatePublishedDealChan:
+		}
+	}
+
 	return n.ValidatePublishedDealID, n.ValidatePublishedError
 }
 

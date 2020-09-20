@@ -125,6 +125,7 @@ var ClientEvents = map[ClientEvent]string{
 	ClientEventDealSlashed:                "ClientEventDealSlashed",
 	ClientEventFailed:                     "ClientEventFailed",
 	ClientEventRestart:                    "ClientEventRestart",
+	ClientEventDataTransferRestarted:      "ClientEventDataTransferRestarted",
 }
 
 // ProviderEvent is an event that happens in the provider's deal state machine
@@ -172,6 +173,9 @@ const (
 
 	// ProviderEventDataTransferInitiated happens when a data transfer starts
 	ProviderEventDataTransferInitiated
+
+	// ProviderEventDataTransferRestarted happens when a data transfer restarts
+	ProviderEventDataTransferRestarted
 
 	// ProviderEventDataTransferCompleted happens when a data transfer is successful
 	ProviderEventDataTransferCompleted
@@ -285,4 +289,5 @@ var ProviderEvents = map[ProviderEvent]string{
 	ProviderEventFailed:                 "ProviderEventFailed",
 	ProviderEventTrackFundsFailed:       "ProviderEventTrackFundsFailed",
 	ProviderEventRestart:                "ProviderEventRestart",
+	ProviderEventDataTransferRestarted:  "ProviderEventDataTransferRestarted",
 }

@@ -8,6 +8,8 @@ import (
 	"time"
 
 	"github.com/ipfs/go-cid"
+	graphsyncimpl "github.com/ipfs/go-graphsync/impl"
+	gsnetwork "github.com/ipfs/go-graphsync/network"
 	"github.com/ipld/go-ipld-prime"
 	cidlink "github.com/ipld/go-ipld-prime/linking/cid"
 	basicnode "github.com/ipld/go-ipld-prime/node/basic"
@@ -95,7 +97,9 @@ func requireSetupTestClientAndProvider(bgCtx context.Context, t *testing.T, payC
 		CreatePaychCID: cids[0],
 		AddFundsCID:    cids[1],
 	})
-	dtTransport1 := dtgstransport.NewTransport(testData.Host1.ID(), testData.GraphSync1)
+
+	gs1 := graphsyncimpl.New(bgCtx, gsnetwork.NewFromLibp2pHost(testData.Host1), testData.Loader1, testData.Storer1)
+	dtTransport1 := dtgstransport.NewTransport(testData.Host1.ID(), gs1)
 	dt1, err := dtimpl.NewDataTransfer(testData.DTStore1, testData.DTNet1, dtTransport1, testData.DTStoredCounter1)
 	require.NoError(t, err)
 	err = dt1.Start(bgCtx)
@@ -131,7 +135,9 @@ func requireSetupTestClientAndProvider(bgCtx context.Context, t *testing.T, payC
 	}
 
 	paymentAddress := address.TestAddress2
-	dtTransport2 := dtgstransport.NewTransport(testData.Host2.ID(), testData.GraphSync2)
+
+	gs2 := graphsyncimpl.New(bgCtx, gsnetwork.NewFromLibp2pHost(testData.Host2), testData.Loader2, testData.Storer2)
+	dtTransport2 := dtgstransport.NewTransport(testData.Host2.ID(), gs2)
 	dt2, err := dtimpl.NewDataTransfer(testData.DTStore2, testData.DTNet2, dtTransport2, testData.DTStoredCounter2)
 	require.NoError(t, err)
 	err = dt2.Start(bgCtx)
@@ -575,7 +581,9 @@ func setupClient(
 		IntegrationTest:        true,
 		ChannelAvailableFunds:  channelAvailableFunds,
 	})
-	dtTransport1 := dtgstransport.NewTransport(testData.Host1.ID(), testData.GraphSync1)
+
+	gs1 := graphsyncimpl.New(ctx, gsnetwork.NewFromLibp2pHost(testData.Host1), testData.Loader1, testData.Storer1)
+	dtTransport1 := dtgstransport.NewTransport(testData.Host1.ID(), gs1)
 	dt1, err := dtimpl.NewDataTransfer(testData.DTStore1, testData.DTNet1, dtTransport1, testData.DTStoredCounter1)
 	require.NoError(t, err)
 	err = dt1.Start(ctx)
@@ -608,7 +616,9 @@ func setupProvider(
 	}
 	pieceStore.ExpectCID(payloadCID, cidInfo)
 	pieceStore.ExpectPiece(expectedPiece, pieceInfo)
-	dtTransport2 := dtgstransport.NewTransport(testData.Host2.ID(), testData.GraphSync2)
+
+	gs2 := graphsyncimpl.New(ctx, gsnetwork.NewFromLibp2pHost(testData.Host2), testData.Loader2, testData.Storer2)
+	dtTransport2 := dtgstransport.NewTransport(testData.Host2.ID(), gs2)
 	dt2, err := dtimpl.NewDataTransfer(testData.DTStore2, testData.DTNet2, dtTransport2, testData.DTStoredCounter2)
 	require.NoError(t, err)
 	err = dt2.Start(ctx)

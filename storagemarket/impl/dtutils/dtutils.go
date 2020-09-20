@@ -46,6 +46,11 @@ func ProviderDataTransferSubscriber(deals EventReceiver) datatransfer.Subscriber
 
 		// data transfer events for progress do not affect deal state
 		switch event.Code {
+		case datatransfer.Restart:
+			err := deals.Send(voucher.Proposal, storagemarket.ProviderEventDataTransferRestarted)
+			if err != nil {
+				log.Errorf("processing dt event: %w", err)
+			}
 		case datatransfer.Open:
 			err := deals.Send(voucher.Proposal, storagemarket.ProviderEventDataTransferInitiated)
 			if err != nil {
