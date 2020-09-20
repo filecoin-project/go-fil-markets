@@ -23,3 +23,9 @@ type RetrievalProvider interface {
 
 	ListDeals() map[ProviderDealIdentifier]ProviderDealState
 }
+
+// AskStore is an interface which provides access to a persisted retrieval Ask
+type AskStore interface {
+	GetAsk() *Ask
+	SetAsk(ask *Ask) error
+}
