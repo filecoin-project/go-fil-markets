@@ -135,7 +135,7 @@ The client a new `RetrievalQueryStream` for the chosen peer ID,
 and calls WriteQuery on it, which constructs a data-transfer message and writes it to the Query stream.
 */
 func (c *Client) Query(ctx context.Context, p retrievalmarket.RetrievalPeer, payloadCID cid.Cid, params retrievalmarket.QueryParams) (retrievalmarket.QueryResponse, error) {
-	log.Warn("RETRIEVAL - QUERY -- hello world.")
+	//log.Warn("RETRIEVAL - QUERY -- hello world.")
 	err := c.addMultiaddrs(ctx, p)
 	if err != nil {
 		log.Warn(err)
@@ -189,7 +189,7 @@ From then on, the statemachine controls the deal flow in the client. Other compo
 Documentation of the client state machine can be found at https://godoc.org/github.com/filecoin-project/go-fil-markets/retrievalmarket/impl/clientstates
 */
 func (c *Client) Retrieve(ctx context.Context, payloadCID cid.Cid, params retrievalmarket.Params, totalFunds abi.TokenAmount, p retrievalmarket.RetrievalPeer, clientWallet address.Address, minerWallet address.Address, storeID *multistore.StoreID) (retrievalmarket.DealID, error) {
-	log.Warn("RETRIEVAL - RETRIEVE -- hello world 2.")
+	//log.Warn("RETRIEVAL - RETRIEVE -- hello world 2.")
 	//if(true) {
 	//	return 0, xerrors.Errorf("This is a made up error!")
 	//}
