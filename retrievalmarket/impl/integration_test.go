@@ -158,7 +158,7 @@ func requireSetupTestClientAndProvider(bgCtx context.Context, t *testing.T, payC
 func TestClientCanMakeDealWithProvider(t *testing.T) {
 	// -------- SET UP PROVIDER
 
-	ssb := builder.NewSelectorSpecBuilder(basicnode.Style.Any)
+	ssb := builder.NewSelectorSpecBuilder(basicnode.Prototype.Any)
 
 	partialSelector := ssb.ExploreFields(func(specBuilder builder.ExploreFieldsSpecBuilder) {
 		specBuilder.Insert("Links", ssb.ExploreIndex(0, ssb.ExploreFields(func(specBuilder builder.ExploreFieldsSpecBuilder) {

@@ -67,11 +67,11 @@ func NewTestIPLDTree() TestIPLDTree {
 	}
 
 	var (
-		leafAlpha, leafAlphaLnk         = encode(fluent.MustBuild(basicnode.Style.String, func(na fluent.NodeAssembler) { na.AssignString("alpha") }))
+		leafAlpha, leafAlphaLnk         = encode(fluent.MustBuild(basicnode.Prototype.String, func(na fluent.NodeAssembler) { na.AssignString("alpha") }))
 		leafAlphaBlock, _               = blocks.NewBlockWithCid(storage[leafAlphaLnk], leafAlphaLnk.(cidlink.Link).Cid)
-		leafBeta, leafBetaLnk           = encode(fluent.MustBuild(basicnode.Style.String, func(na fluent.NodeAssembler) { na.AssignString("beta") }))
+		leafBeta, leafBetaLnk           = encode(fluent.MustBuild(basicnode.Prototype.String, func(na fluent.NodeAssembler) { na.AssignString("beta") }))
 		leafBetaBlock, _                = blocks.NewBlockWithCid(storage[leafBetaLnk], leafBetaLnk.(cidlink.Link).Cid)
-		middleMapNode, middleMapNodeLnk = encode(fluent.MustBuildMap(basicnode.Style.Map, 3, func(ma fluent.MapAssembler) {
+		middleMapNode, middleMapNodeLnk = encode(fluent.MustBuildMap(basicnode.Prototype.Map, 3, func(ma fluent.MapAssembler) {
 			ma.AssembleEntry("foo").AssignBool(true)
 			ma.AssembleEntry("bar").AssignBool(false)
 			ma.AssembleEntry("nested").CreateMap(2, func(ma fluent.MapAssembler) {
@@ -80,14 +80,14 @@ func NewTestIPLDTree() TestIPLDTree {
 			})
 		}))
 		middleMapBlock, _                 = blocks.NewBlockWithCid(storage[middleMapNodeLnk], middleMapNodeLnk.(cidlink.Link).Cid)
-		middleListNode, middleListNodeLnk = encode(fluent.MustBuildList(basicnode.Style.List, 4, func(la fluent.ListAssembler) {
+		middleListNode, middleListNodeLnk = encode(fluent.MustBuildList(basicnode.Prototype.List, 4, func(la fluent.ListAssembler) {
 			la.AssembleValue().AssignLink(leafAlphaLnk)
 			la.AssembleValue().AssignLink(leafAlphaLnk)
 			la.AssembleValue().AssignLink(leafBetaLnk)
 			la.AssembleValue().AssignLink(leafAlphaLnk)
 		}))
 		middleListBlock, _    = blocks.NewBlockWithCid(storage[middleListNodeLnk], middleListNodeLnk.(cidlink.Link).Cid)
-		rootNode, rootNodeLnk = encode(fluent.MustBuildMap(basicnode.Style.Map, 4, func(ma fluent.MapAssembler) {
+		rootNode, rootNodeLnk = encode(fluent.MustBuildMap(basicnode.Prototype.Map, 4, func(ma fluent.MapAssembler) {
 			ma.AssembleEntry("plain").AssignString("olde string")
 			ma.AssembleEntry("linkedString").AssignLink(leafAlphaLnk)
 			ma.AssembleEntry("linkedMap").AssignLink(middleMapNodeLnk)

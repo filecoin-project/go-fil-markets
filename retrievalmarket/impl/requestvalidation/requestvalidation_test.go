@@ -54,7 +54,7 @@ func TestValidatePull(t *testing.T) {
 		},
 		"proposal and selector do not match": {
 			baseCid:       proposal.PayloadCID,
-			selector:      builder.NewSelectorSpecBuilder(basicnode.Style.Any).Matcher().Node(),
+			selector:      builder.NewSelectorSpecBuilder(basicnode.Prototype.Any).Matcher().Node(),
 			voucher:       &proposal,
 			expectedError: errors.New("incorrect selector for this proposal"),
 		},

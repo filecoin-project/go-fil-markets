@@ -122,7 +122,7 @@ func TestCommPGenerationWithMetadata(t *testing.T) {
 	tempFilePath := filestore.Path("applesauce.jpg")
 	tempFile := shared_testutil.NewTestFile(shared_testutil.TestFileParams{Path: tempFilePath})
 	payloadCid := shared_testutil.GenerateCids(1)[0]
-	ssb := builder.NewSelectorSpecBuilder(basicnode.Style.Any)
+	ssb := builder.NewSelectorSpecBuilder(basicnode.Prototype.Any)
 	selector := ssb.ExploreAll(ssb.Matcher()).Node()
 	storeID := multistore.StoreID(4)
 	proofType := abi.RegisteredSealProof_StackedDrg2KiBV1
