@@ -1,5 +1,701 @@
 # go-fil-markets changelog
 
+# go-fil-markets v0.6.2
+
+security fixes and dependency updates
+
+### Changelog
+
+- github.com/filecoin-project/go-fil-markets:
+  - feat(deps): update data transfer and graphsync (#413) ([filecoin-project/go-fil-markets#413](https://github.com/filecoin-project/go-fil-markets/pull/413))
+  - Additional validations for deal proposals (#409) ([filecoin-project/go-fil-markets#409](https://github.com/filecoin-project/go-fil-markets/pull/409))
+  - Release/v0.6.1 ([filecoin-project/go-fil-markets#412](https://github.com/filecoin-project/go-fil-markets/pull/412))
+  - feat(storagemarket): remove passthrough methods (#404) ([filecoin-project/go-fil-markets#404](https://github.com/filecoin-project/go-fil-markets/pull/404))
+  - - Consider ClientCollateral when validating deal proposal (#408) ([filecoin-project/go-fil-markets#408](https://github.com/filecoin-project/go-fil-markets/pull/408))
+  - Persist retrieval ask on disk (#410) ([filecoin-project/go-fil-markets#410](https://github.com/filecoin-project/go-fil-markets/pull/410))
+  - Tidy up comments (#405) ([filecoin-project/go-fil-markets#405](https://github.com/filecoin-project/go-fil-markets/pull/405))
+- github.com/filecoin-project/go-data-transfer (v0.6.4 -> v0.6.5):
+  - docs(CHANGELOG): updates for 0.6.5
+  - feat(deps): update graphsync 0.2.0 (#83) ([filecoin-project/go-data-transfer#83](https://github.com/filecoin-project/go-data-transfer/pull/83))
+  - docs(CHANGELOG): update for 0.6.4 ([filecoin-project/go-data-transfer#82](https://github.com/filecoin-project/go-data-transfer/pull/82))
+- github.com/hannahhoward/cbor-gen-for (v0.0.0-20200723175505-5892b522820a -> v0.0.0-20200817222906-ea96cece81f1):
+  - add flag to select map encoding ([hannahhoward/cbor-gen-for#1](https://github.com/hannahhoward/cbor-gen-for/pull/1))
+- github.com/ipfs/go-graphsync (v0.1.2 -> v0.2.0):
+  - docs(CHANGELOG): update for 0.2.0
+  - style(imports): fix imports
+  - fix(selectorvalidator): memory optimization (#97) ([ipfs/go-graphsync#97](https://github.com/ipfs/go-graphsync/pull/97))
+  - Update go-ipld-prime@v0.5.0 (#92) ([ipfs/go-graphsync#92](https://github.com/ipfs/go-graphsync/pull/92))
+  - refactor(metadata): use cbor-gen encoding (#96) ([ipfs/go-graphsync#96](https://github.com/ipfs/go-graphsync/pull/96))
+  - Release/v0.1.2 ([ipfs/go-graphsync#95](https://github.com/ipfs/go-graphsync/pull/95))
+  - Return Request context cancelled error (#93) ([ipfs/go-graphsync#93](https://github.com/ipfs/go-graphsync/pull/93))
+  - feat(benchmarks): add p2p stress test (#91) ([ipfs/go-graphsync#91](https://github.com/ipfs/go-graphsync/pull/91))
+
+### Contributors
+
+| Contributor | Commits | Lines ± | Files Changed |
+|-------------|---------|---------|---------------|
+| Eric Myhre | 1 | +2919/-121 | 39 |
+| Hannah Howard | 6 | +498/-346 | 49 |
+| hannahhoward | 3 | +248/-189 | 9 |
+| Ingar Shu | 3 | +357/-38 | 12 |
+| whyrusleeping | 1 | +31/-18 | 2 |
+| Aarsh Shah | 1 | +27/-1 | 3 |
+| Kirk Baird | 1 | +11/-11 | 3 |
+
+# go-fil-markets 0.6.1
+
+Minor fixes around network timeouts, restarts, chain issues
+
+### Changelog
+
+- github.com/filecoin-project/go-fil-markets:
+  - feat(deps): update data transfer 0.6.4
+  - feat(network): add config options (#403) ([filecoin-project/go-fil-markets#403](https://github.com/filecoin-project/go-fil-markets/pull/403))
+  - Test Restart for ClientEventDealPublished AND ClientEventDealActivated (#399) ([filecoin-project/go-fil-markets#399](https://github.com/filecoin-project/go-fil-markets/pull/399))
+  - increase timeout (#402) ([filecoin-project/go-fil-markets#402](https://github.com/filecoin-project/go-fil-markets/pull/402))
+  - - Change signature of callback for WaitForMessage() to take a "final Cid" parameter (#400) ([filecoin-project/go-fil-markets#400](https://github.com/filecoin-project/go-fil-markets/pull/400))
+  - feat(clientutils): encode cid directly (#398) ([filecoin-project/go-fil-markets#398](https://github.com/filecoin-project/go-fil-markets/pull/398))
+  - docs(CHANGELOG): update for 0.6.0 release ([filecoin-project/go-fil-markets#397](https://github.com/filecoin-project/go-fil-markets/pull/397))
+- github.com/filecoin-project/go-data-transfer (v0.6.3 -> v0.6.4):
+  - docs(CHANGELOG): update for 0.6.4
+  - Ensure valid messages are returned from FromNet() (#74) ([filecoin-project/go-data-transfer#74](https://github.com/filecoin-project/go-data-transfer/pull/74))
+  - Release/v0.6.3 ([filecoin-project/go-data-transfer#70](https://github.com/filecoin-project/go-data-transfer/pull/70))
+
+### Contributors
+
+| Contributor | Commits | Lines ± | Files Changed |
+|-------------|---------|---------|---------------|
+| Hannah Howard | 2 | +94/-68 | 11 |
+| Aarsh Shah | 2 | +108/-39 | 5 |
+| Ingar Shu | 2 | +45/-14 | 10 |
+| hannahhoward | 2 | +19/-3 | 3 |
+
+# go-fil-markets 0.6.0
+
+Major release that updates to specs-actors v0.9.7, which also introduces the new `go-state-types` dependency. This release also introduces non-blocking retrieval.
+
+### Changelog
+
+  - Update to specs-actors v0.9.7 (#396) ([filecoin-project/go-fil-markets#396](https://github.com/filecoin-project/go-fil-markets/pull/396))
+  - Use shared types for exitcode and crypto (#395) ([filecoin-project/go-fil-markets#395](https://github.com/filecoin-project/go-fil-markets/pull/395))
+  - Consume go-state-types (#394) ([filecoin-project/go-fil-markets#394](https://github.com/filecoin-project/go-fil-markets/pull/394))
+  - Convert label JSON to CBOR (#393) ([filecoin-project/go-fil-markets#393](https://github.com/filecoin-project/go-fil-markets/pull/393))
+  - Non blocking retrieval (#392) ([filecoin-project/go-fil-markets#392](https://github.com/filecoin-project/go-fil-markets/pull/392))
+  - fix(storagemarket): fix test hang (#391) ([filecoin-project/go-fil-markets#391](https://github.com/filecoin-project/go-fil-markets/pull/391))
+  - docs(CHANGELOG): update for 0.5.9 release ([filecoin-project/go-fil-markets#390](https://github.com/filecoin-project/go-fil-markets/pull/390))
+
+Contributors
+
+| Contributor | Commits | Lines ± | Files Changed |
+|-------------|---------|---------|---------------|
+| Hannah Howard | 3 | +678/-289 | 25 |
+| ZenGround0 | 2 | +226/-187 | 78 |
+| Aayush Rajasekaran | 1 | +3/-3 | 2 |
+
+# go-fil-markets 0.5.9
+
+Minor stability release to handle connection drops more gracefully and fix a retrieval bug
+
+### Changelog
+
+ - github.com/filecoin-project/go-fil-markets:
+  - Retry with exponential backoff for stream opening (#382) ([filecoin-project/go-fil-markets#382](https://github.com/filecoin-project/go-fil-markets/pull/382))
+  - fix(retrievalmarket): last block on interval works (#388) ([filecoin-project/go-fil-markets#388](https://github.com/filecoin-project/go-fil-markets/pull/388))
+  - Release/v0.5.8 ([filecoin-project/go-fil-markets#386](https://github.com/filecoin-project/go-fil-markets/pull/386))
+  - docs: Add disclaimer to guide people to report issues in Lotus (#384) ([filecoin-project/go-fil-markets#384](https://github.com/filecoin-project/go-fil-markets/pull/384))
+
+### Contributors
+
+| Contributor | Commits | Lines ± | Files Changed |
+|-------------|---------|---------|---------------|
+| Hannah Howard | 1 | +161/-25 | 17 |
+| Aarsh Shah | 1 | +132/-24 | 9 |
+| David Dias | 1 | +5/-0 | 1 |
+
+# go-fil-markets 0.5.8
+
+Minor bug fix release with various small improvements, and memory fixes for Graphsync
+
+### Changelog
+
+- github.com/filecoin-project/go-fil-markets:
+  - fix(deps): update data transfer
+  - fix restart issue with deal transferring (#381) ([filecoin-project/go-fil-markets#381](https://github.com/filecoin-project/go-fil-markets/pull/381))
+  - Plumb deal.PublishCid in HandoffDeal (#383) ([filecoin-project/go-fil-markets#383](https://github.com/filecoin-project/go-fil-markets/pull/383))
+  - docs(CHANGELOG): update for v0.5.7 ([filecoin-project/go-fil-markets#376](https://github.com/filecoin-project/go-fil-markets/pull/376))
+- github.com/filecoin-project/go-data-transfer (v0.6.2 -> v0.6.3):
+  - docs(CHANGELOG): update for 0.6.3
+  - fix(deps): update graphsync, small cleanup
+  - Stop data transfer correctly and some minor cleanp (#69) ([filecoin-project/go-data-transfer#69](https://github.com/filecoin-project/go-data-transfer/pull/69))
+  - docs(CHANGELOG): update for 0.6.2 release ([filecoin-project/go-data-transfer#68](https://github.com/filecoin-project/go-data-transfer/pull/68))
+- github.com/ipfs/go-graphsync (v0.1.1 -> v0.1.2):
+  - fix(asyncloader): remove send on close channel
+  - docs(CHANGELOG): update for 0.1.2 release
+  - Benchmark framework + First memory fixes (#89) ([ipfs/go-graphsync#89](https://github.com/ipfs/go-graphsync/pull/89))
+  - docs(CHANGELOG): update for v0.1.1 ([ipfs/go-graphsync#85](https://github.com/ipfs/go-graphsync/pull/85))
+
+### Contributors
+
+| Contributor | Commits | Lines ± | Files Changed |
+|-------------|---------|---------|---------------|
+| Hannah Howard | 1 | +1055/-39 | 17 |
+| Aarsh Shah | 2 | +125/-120 | 13 |
+| hannahhoward | 5 | +120/-44 | 16 |
+| Łukasz Magiera | 1 | +1/-0 | 1 |
+
+# go-fil-markets 0.5.7
+
+Minor release with bug fix for retrieval markets
+
+### Changelog
+
+- github.com/filecoin-project/go-fil-markets:
+  - fix(retrievalmarket): fix unseal error hang (#375) ([filecoin-project/go-fil-markets#375](https://github.com/filecoin-project/go-fil-markets/pull/375))
+  - add deal creation time to deals (#373) ([filecoin-project/go-fil-markets#373](https://github.com/filecoin-project/go-fil-markets/pull/373))
+- github.com/filecoin-project/go-data-transfer (v0.6.1 -> v0.6.2):
+  - docs(CHANGELOG): update for 0.6.2 release
+  - Fix Pull Request Cancelling (#67) ([filecoin-project/go-data-transfer#67](https://github.com/filecoin-project/go-data-transfer/pull/67))
+  - docs(CHANGELOG): update for 0.6.1 ([filecoin-project/go-data-transfer#66](https://github.com/filecoin-project/go-data-transfer/pull/66))
+
+### Contributors
+
+| Contributor | Commits | Lines ± | Files Changed |
+|-------------|---------|---------|---------------|
+| Hannah Howard | 2 | +325/-38 | 15 |
+| Whyrusleeping | 1 | +61/-22 | 11 |
+| hannahhoward | 1 | +16/-0 | 1 |
+
+# go-fil-markets 0.5.6
+
+Miner release w/ various bug fixes
+
+### Changelog
+
+- github.com/filecoin-project/go-fil-markets:
+  - docs(CHANGELOG): update for v0.5.6 release
+  - feat(requestvalidation): use getsync in validation (#372) ([filecoin-project/go-fil-markets#372](https://github.com/filecoin-project/go-fil-markets/pull/372))
+  - Use collateral from ProposeStorageDealParams (#371) ([filecoin-project/go-fil-markets#371](https://github.com/filecoin-project/go-fil-markets/pull/371))
+  - Fix UML for docs-check (#370) ([filecoin-project/go-fil-markets#370](https://github.com/filecoin-project/go-fil-markets/pull/370))
+  - docs(CHANGELOG): update for 0.5.5 ([filecoin-project/go-fil-markets#368](https://github.com/filecoin-project/go-fil-markets/pull/368))
+- github.com/filecoin-project/go-statemachine (v0.0.0-20200730031800-c3336614d2a7 -> v0.0.0-20200813232949-df9b130df370):
+  - fix(uml): make just record predictable (#19) ([filecoin-project/go-statemachine#19](https://github.com/filecoin-project/go-statemachine/pull/19))
+
+### Contributors
+
+| Contributor | Commits | Lines ± | Files Changed |
+|-------------|---------|---------|---------------|
+| Hannah Howard | 3 | +318/-235 | 19 |
+| hannahhoward | 1 | +21/-0 | 1 |
+| Aayush Rajasekaran | 1 | +6/-3 | 1 |
+
+# go-fil-markets v0.5.5
+
+Minor release updates dependencies and adds back in peer tagging
+
+### Changelog
+
+- github.com/filecoin-project/go-fil-markets:
+  - Update data transfer 0.6.1 (#366) ([filecoin-project/go-fil-markets#366](https://github.com/filecoin-project/go-fil-markets/pull/366))
+  - Update specs-actors and cbor-gen (#363) ([filecoin-project/go-fil-markets#363](https://github.com/filecoin-project/go-fil-markets/pull/363))
+  - Add back connection tagging (#362) ([filecoin-project/go-fil-markets#362](https://github.com/filecoin-project/go-fil-markets/pull/362))
+- github.com/filecoin-project/go-data-transfer (v0.5.3 -> v0.6.1):
+  - docs(CHANGELOG): update for 0.6.1
+  - Update graphsync 0.1.1 (#65) ([filecoin-project/go-data-transfer#65](https://github.com/filecoin-project/go-data-transfer/pull/65))
+  - Update changelog for 0.6.0 release (#64) ([filecoin-project/go-data-transfer#64](https://github.com/filecoin-project/go-data-transfer/pull/64))
+  - Update cbor-gen (#63) ([filecoin-project/go-data-transfer#63](https://github.com/filecoin-project/go-data-transfer/pull/63))
+  - Release/v0.5.3 ([filecoin-project/go-data-transfer#62](https://github.com/filecoin-project/go-data-transfer/pull/62))
+- github.com/ipfs/go-graphsync (v0.1.0 -> v0.1.1):
+  - docs(CHANGELOG): update for v0.1.1
+  - docs(CHANGELOG): update for v0.1.0 release ([ipfs/go-graphsync#84](https://github.com/ipfs/go-graphsync/pull/84))
+  - Dedup by key extension (#83) ([ipfs/go-graphsync#83](https://github.com/ipfs/go-graphsync/pull/83))
+
+### Contributors
+
+| Contributor | Commits | Lines ± | Files Changed |
+|-------------|---------|---------|---------------|
+| Hannah Howard | 4 | +590/-154 | 33 |
+| Steven Allen | 3 | +161/-176 | 12 |
+| hannahhoward | 2 | +38/-1 | 3 |
+
+# go-fil-markets 0.5.4
+
+Minor release to bug fix some multi-addr issues
+
+### Changelog
+
+- github.com/filecoin-project/go-fil-markets:
+  - Properly add multiaddrs to avoid dialing issues (#356) ([filecoin-project/go-fil-markets#356](https://github.com/filecoin-project/go-fil-markets/pull/356))
+  - docs(CHANGELOG): update for 0.5.3 release ([filecoin-project/go-fil-markets#355](https://github.com/filecoin-project/go-fil-markets/pull/355))
+
+### Contributors
+
+| Contributor | Commits | Lines ± | Files Changed |
+|-------------|---------|---------|---------------|
+| Hannah Howard | 1 | +178/-39 | 16 |
+
+# go-fil-markets 0.5.3
+
+Retrieval before seal and improvements to fund management
+
+### Changelog
+
+- github.com/filecoin-project/go-fil-markets:
+  - Update multistore (#353) ([filecoin-project/go-fil-markets#353](https://github.com/filecoin-project/go-fil-markets/pull/353))
+  - feat(storagemarket): add label field to deals (#349) ([filecoin-project/go-fil-markets#349](https://github.com/filecoin-project/go-fil-markets/pull/349))
+  - fix(imports): fix imports issue from previous
+  - retrieval: Drain piece readers (#348) ([filecoin-project/go-fil-markets#348](https://github.com/filecoin-project/go-fil-markets/pull/348))
+  - Adding different prices for verified deals (#347) ([filecoin-project/go-fil-markets#347](https://github.com/filecoin-project/go-fil-markets/pull/347))
+  - update to latest cbor-gen (#346) ([filecoin-project/go-fil-markets#346](https://github.com/filecoin-project/go-fil-markets/pull/346))
+  - fix(deps): update data-transfer
+  - Update specs-actors, enforce provider deal collateral bounds (#345) ([filecoin-project/go-fil-markets#345](https://github.com/filecoin-project/go-fil-markets/pull/345))
+  - Feat/retrieve unsealed (#340) ([filecoin-project/go-fil-markets#340](https://github.com/filecoin-project/go-fil-markets/pull/340))
+  - Track deals funding for deals that are being negotiated (#336) ([filecoin-project/go-fil-markets#336](https://github.com/filecoin-project/go-fil-markets/pull/336))
+  - docs(CHANGELOG): update for 0.5.2 release ([filecoin-project/go-fil-markets#344](https://github.com/filecoin-project/go-fil-markets/pull/344))
+- github.com/filecoin-project/go-data-transfer (v0.5.1 -> v0.5.3):
+  - docs(CHANGELOG): update for 0.5.3 release
+  - fix(deps): update graphsync
+  - Release infrastructure (#61) ([filecoin-project/go-data-transfer#61](https://github.com/filecoin-project/go-data-transfer/pull/61))
+  - Update cbor-gen (#60) ([filecoin-project/go-data-transfer#60](https://github.com/filecoin-project/go-data-transfer/pull/60))
+  - fix(deps): update graphsync
+  - fix(message): add error check to FromNet (#59) ([filecoin-project/go-data-transfer#59](https://github.com/filecoin-project/go-data-transfer/pull/59))
+- github.com/filecoin-project/go-statemachine (v0.0.0-20200714194326-a77c3ae20989 -> v0.0.0-20200730031800-c3336614d2a7):
+  - fix(fsm): fix test context (#18) ([filecoin-project/go-statemachine#18](https://github.com/filecoin-project/go-statemachine/pull/18))
+- github.com/ipfs/go-graphsync (v0.0.6-0.20200721211002-c376cbe14c0a -> v0.1.0):
+  - docs(CHANGELOG): update for v0.1.0 release
+  - Release infrastructure (#81) ([ipfs/go-graphsync#81](https://github.com/ipfs/go-graphsync/pull/81))
+  - feat(persistenceoptions): add unregister ability (#80) ([ipfs/go-graphsync#80](https://github.com/ipfs/go-graphsync/pull/80))
+  - fix(message): regen protobuf code (#79) ([ipfs/go-graphsync#79](https://github.com/ipfs/go-graphsync/pull/79))
+
+### Contributors
+
+| Contributor | Commits | Lines ± | Files Changed |
+|-------------|---------|---------|---------------|
+| Hannah Howard | 7 | +1710/-533 | 105 |
+| Whyrusleeping | 2 | +477/-433 | 35 |
+| Ingar Shu | 1 | +545/-20 | 26 |
+| Łukasz Magiera | 2 | +189/-176 | 9 |
+| Aayush Rajasekaran | 3 | +144/-79 | 21 |
+| hannahhoward | 6 | +87/-18 | 10 |
+
+# go-fil-markets 0.5.2
+
+In this release, we move to managing individual, garbage collected stores for each deal.
+
+### Changelog
+
+- github.com/filecoin-project/go-fil-markets:
+  - Unique Blockstores: RetrievalMarket (#342) ([filecoin-project/go-fil-markets#342](https://github.com/filecoin-project/go-fil-markets/pull/342))
+  - Unique blockstores: Storage Market (#341) ([filecoin-project/go-fil-markets#341](https://github.com/filecoin-project/go-fil-markets/pull/341))
+  - docs(CHANGLEOG): update for 0.5.1 ([filecoin-project/go-fil-markets#335](https://github.com/filecoin-project/go-fil-markets/pull/335))
+- github.com/filecoin-project/go-data-transfer (v0.5.0 -> v0.5.1):
+  - Allow custom configuration of transports (#57) ([filecoin-project/go-data-transfer#57](https://github.com/filecoin-project/go-data-transfer/pull/57))
+- github.com/ipfs/go-graphsync (v0.0.6-0.20200715204712-ef06b3d32e83 -> v0.0.6-0.20200721211002-c376cbe14c0a):
+  - feat(persistenceoptions): add unregister ability
+
+### Contributors
+
+| Contributor | Commits | Lines ± | Files Changed |
+|-------------|---------|---------|---------------|
+| Hannah Howard | 3 | +2378/-1076 | 90 |
+| hannahhoward | 1 | +113/-32 | 5 |
+
+# go-fil-markets 0.5.1
+
+Minor improvements and bug fixes, retrieval market now supports unseal price
+
+### Changelog
+
+- github.com/filecoin-project/go-fil-markets:
+  - fix(queryresponse): set piece retrieval price correctly (#334) ([filecoin-project/go-fil-markets#334](https://github.com/filecoin-project/go-fil-markets/pull/334))
+  - feat(deps): upgrade specs actors to lotus/next sha (#333) ([filecoin-project/go-fil-markets#333](https://github.com/filecoin-project/go-fil-markets/pull/333))
+  - Support retrieval UnsealPrice (#325) (#330) ([filecoin-project/go-fil-markets#330](https://github.com/filecoin-project/go-fil-markets/pull/330))
+  - Cleanup project imports (#327) ([filecoin-project/go-fil-markets#327](https://github.com/filecoin-project/go-fil-markets/pull/327))
+  - Use client address, not default address, to sign proposals (#326) ([filecoin-project/go-fil-markets#326](https://github.com/filecoin-project/go-fil-markets/pull/326))
+  - Remove DealAcceptanceBuffer (#322) ([filecoin-project/go-fil-markets#322](https://github.com/filecoin-project/go-fil-markets/pull/322))
+  - docs(CHANGELOG): update for 0.5.0 release ([filecoin-project/go-fil-markets#324](https://github.com/filecoin-project/go-fil-markets/pull/324))
+- github.com/hannahhoward/cbor-gen-for (v0.0.0-20191218204337-9ab7b1bcc099 -> v0.0.0-20200723175505-5892b522820a):
+  - fix(deps): update cbor-gen-to-latest
+
+### Contributors
+
+| Contributor | Commits | Lines ± | Files Changed |
+|-------------|---------|---------|---------------|
+| Hannah Howard | 3 | +1363/-723 | 94 |
+| Ingar Shu | 1 | +262/-122 | 26 |
+| Aayush Rajasekaran | 2 | +13/-75 | 5 |
+| hannahhoward | 1 | +25/-32 | 2 |
+
+# go-fil-markets 0.5.0
+
+Major release with rewrite of retrieval to operate on top of data transfer protocol.
+
+### Changelog
+
+- github.com/filecoin-project/go-fil-markets:
+  - Retrieval on data transfer (#321) ([filecoin-project/go-fil-markets#321](https://github.com/filecoin-project/go-fil-markets/pull/321))
+  - docs(CHANGELOG): update for 0.4.0 ([filecoin-project/go-fil-markets#318](https://github.com/filecoin-project/go-fil-markets/pull/318))
+- github.com/filecoin-project/go-data-transfer (v0.4.0 -> v0.5.0):
+  - Minor fixes for retrieval on data transfer (#56) ([filecoin-project/go-data-transfer#56](https://github.com/filecoin-project/go-data-transfer/pull/56))
+- github.com/filecoin-project/go-statemachine (v0.0.0-20200703171610-a74a697973b9 -> v0.0.0-20200714194326-a77c3ae20989):
+  - Just Record Events (#17) ([filecoin-project/go-statemachine#17](https://github.com/filecoin-project/go-statemachine/pull/17))
+  - GetSync method (#16) ([filecoin-project/go-statemachine#16](https://github.com/filecoin-project/go-statemachine/pull/16))
+  - feat(statemachine): add Has method (#15) ([filecoin-project/go-statemachine#15](https://github.com/filecoin-project/go-statemachine/pull/15))
+- github.com/ipfs/go-graphsync (v0.0.6-0.20200708073926-caa872f68b2c -> v0.0.6-0.20200715204712-ef06b3d32e83):
+  - feat(requestmanager): run response hooks on completed requests (#77) ([ipfs/go-graphsync#77](https://github.com/ipfs/go-graphsync/pull/77))
+  - Revert "add extensions on complete (#76)"
+  - add extensions on complete (#76) ([ipfs/go-graphsync#76](https://github.com/ipfs/go-graphsync/pull/76))
+
+### Contributors
+
+| Contributor | Commits | Lines ± | Files Changed |
+|-------------|---------|---------|---------------|
+| Hannah Howard | 7 | +3865/-3792 | 96 |
+| hannahhoward | 1 | +155/-270 | 9 |
+
+# go-fil-markets 0.4.0
+
+Major release with touchups to deal protocol (does not hold open connections), major rewrite of underlying data transfer library, and features like fast retrieval and verified client support
+
+### Changelog
+
+- github.com/filecoin-project/go-fil-markets:
+  - Update to new data transfer (#317) ([filecoin-project/go-fil-markets#317](https://github.com/filecoin-project/go-fil-markets/pull/317))
+  - Add NewQueryV1, which has an optional PieceID param (#313) ([filecoin-project/go-fil-markets#313](https://github.com/filecoin-project/go-fil-markets/pull/313))
+  - Add PieceCid to RetrievalPeer (#312) ([filecoin-project/go-fil-markets#312](https://github.com/filecoin-project/go-fil-markets/pull/312))
+  - add locks around client deals (#315) ([filecoin-project/go-fil-markets#315](https://github.com/filecoin-project/go-fil-markets/pull/315))
+  - Merge branch 'release/v0.3.1.1'
+  - add locks protecting retrieval market maps (#311) ([filecoin-project/go-fil-markets#311](https://github.com/filecoin-project/go-fil-markets/pull/311))
+  - Fix/make streams context aware (#308) ([filecoin-project/go-fil-markets#308](https://github.com/filecoin-project/go-fil-markets/pull/308))
+  - Reject deals based on verifreg.DataCap for client (#307) ([filecoin-project/go-fil-markets#307](https://github.com/filecoin-project/go-fil-markets/pull/307))
+  - fix(storagemarket): run deal restarts in go routine (#309) ([filecoin-project/go-fil-markets#309](https://github.com/filecoin-project/go-fil-markets/pull/309))
+  - StorageProvider records Slashed Or Expired Deals (#306) ([filecoin-project/go-fil-markets#306](https://github.com/filecoin-project/go-fil-markets/pull/306))
+  - Fast retrieval support (#305) ([filecoin-project/go-fil-markets#305](https://github.com/filecoin-project/go-fil-markets/pull/305))
+  - Clients can create verified deals (#304) ([filecoin-project/go-fil-markets#304](https://github.com/filecoin-project/go-fil-markets/pull/304))
+  - Use Query Protocol in storage deal negotiation (#297) ([filecoin-project/go-fil-markets#297](https://github.com/filecoin-project/go-fil-markets/pull/297))
+- github.com/filecoin-project/go-data-transfer (v0.3.0 -> v0.4.0):
+  - The new data transfer (#55) ([filecoin-project/go-data-transfer#55](https://github.com/filecoin-project/go-data-transfer/pull/55))
+  - Actually track progress for send/receive (#53) ([filecoin-project/go-data-transfer#53](https://github.com/filecoin-project/go-data-transfer/pull/53))
+- github.com/filecoin-project/go-statemachine (v0.0.0-20200619205156-c7bf525c06ef -> v0.0.0-20200703171610-a74a697973b9):
+  - feat(statemachine): add Has method
+- github.com/ipfs/go-graphsync (v0.0.6-0.20200504202014-9d5f2c26a103 -> v0.0.6-0.20200708073926-caa872f68b2c):
+  - All changes to date including pause requests & start paused, along with new adds for cleanups and checking of execution (#75) ([ipfs/go-graphsync#75](https://github.com/ipfs/go-graphsync/pull/75))
+  - More fine grained response controls (#71) ([ipfs/go-graphsync#71](https://github.com/ipfs/go-graphsync/pull/71))
+  - Refactor request execution and use IPLD SkipMe functionality for proper partial results on a request (#70) ([ipfs/go-graphsync#70](https://github.com/ipfs/go-graphsync/pull/70))
+  - feat(graphsync): implement do-no-send-cids extension (#69) ([ipfs/go-graphsync#69](https://github.com/ipfs/go-graphsync/pull/69))
+  - Incoming Block Hooks (#68) ([ipfs/go-graphsync#68](https://github.com/ipfs/go-graphsync/pull/68))
+
+### Contributors
+
+| Contributor | Commits | Lines ± | Files Changed |
+|-------------|---------|---------|---------------|
+| Hannah Howard | 10 | +12777/-4664 | 152 |
+| Ingar Shu | 7 | +1318/-834 | 61 |
+| dirkmc | 1 | +401/-212 | 20 |
+| vyzo | 3 | +36/-6 | 3 |
+| hannahhoward | 2 | +25/-0 | 3 |
+
+# go-fil-markets 0.3.1.1
+
+Hotfix bug release to address critical issues affecting node startup
+
+### Changelog
+
+- github.com/filecoin-project/go-fil-markets:
+  - add locks protecting retrieval market maps (#311) ([filecoin-project/go-fil-markets#311](https://github.com/filecoin-project/go-fil-markets/pull/311))
+  - fix(storagemarket): run deal restarts in go routine (#309) ([filecoin-project/go-fil-markets#309](https://github.com/filecoin-project/go-fil-markets/pull/309))
+
+### Contributors
+
+| Contributor | Commits | Lines ± | Files Changed |
+|-------------|---------|---------|---------------|
+| Hannah Howard | 1 | +13/-7 | 2 |
+| vyzo | 1 | +10/-0 | 1 |
+
+# go-fil-markets 0.3.1
+
+Hotfix release to get `use addresses from miner info for connecting to miners` task merged for downstream dependencies to used
+
+### Changelog
+
+- github.com/filecoin-project/go-fil-markets:
+  - use addresses from miner info for connecting to miners (#290) ([filecoin-project/go-fil-markets#290](https://github.com/filecoin-project/go-fil-markets/pull/290))
+
+### Contributors
+
+| Contributor | Commits | Lines ± | Files Changed |
+|-------------|---------|---------|---------------|
+| Whyrusleeping | 1 | +53/-5 | 9 |
+
+# go-fil-markets 0.3.0
+
+Deal Resumability release. We now attempt to resume storage deals when the application is shut down and restart, and we support a more flexible deal acceptance protocol.
+
+### Changelog
+- github.com/filecoin-project/go-fil-markets:
+  - fix(storagemarket): fix validator, add to test
+  - docs(CHANGELOG): update changelog and add detail script
+  - both StoredAsk and storage Provider are scoped to a single miner (#276) ([filecoin-project/go-fil-markets#276](https://github.com/filecoin-project/go-fil-markets/pull/276))
+  - specs actors v0.6 (#274) ([filecoin-project/go-fil-markets#274](https://github.com/filecoin-project/go-fil-markets/pull/274))
+  - Restartable storage deals (#270) ([filecoin-project/go-fil-markets#270](https://github.com/filecoin-project/go-fil-markets/pull/270))
+  - replace AddAsk with SetAsk, to convey intent (#275) ([filecoin-project/go-fil-markets#275](https://github.com/filecoin-project/go-fil-markets/pull/275))
+  - Allow custom decisioning for a provider to decide retrieval deals. (#269) ([filecoin-project/go-fil-markets#269](https://github.com/filecoin-project/go-fil-markets/pull/269))
+  - Feat/module docs #83 (#267) ([filecoin-project/go-fil-markets#267](https://github.com/filecoin-project/go-fil-markets/pull/267))
+  - Tentative acceptance protocol (#244) ([filecoin-project/go-fil-markets#244](https://github.com/filecoin-project/go-fil-markets/pull/244))
+  - docs(CHANGELOG): update changelog for 0.2.7 ([filecoin-project/go-fil-markets#264](https://github.com/filecoin-project/go-fil-markets/pull/264))
+- github.com/filecoin-project/go-statemachine (v0.0.0-20200226041606-2074af6d51d9 -> v0.0.0-20200612181802-4eb3d0c68eba):
+  - Serialize notifications (#11) ([filecoin-project/go-statemachine#11](https://github.com/filecoin-project/go-statemachine/pull/11))
+  - Run callback in goroutine (#10) ([filecoin-project/go-statemachine#10](https://github.com/filecoin-project/go-statemachine/pull/10))
+  - Finality States ([filecoin-project/go-statemachine#9](https://github.com/filecoin-project/go-statemachine/pull/9))
+  - Documentation, particularly for FSM Module (#8) ([filecoin-project/go-statemachine#8](https://github.com/filecoin-project/go-statemachine/pull/8))
+  - Call stageDone on nil nextStep ([filecoin-project/go-statemachine#7](https://github.com/filecoin-project/go-statemachine/pull/7))
+
+### Contributors
+
+| Contributor | Commits | Lines ± | Files Changed |
+|-------------|---------|---------|---------------|
+| Ingar Shu | 4 | +1407/-695 | 35 |
+| Shannon Wells | 2 | +1515/-467 | 20 |
+| hannahhoward | 8 | +862/-191 | 21 |
+| Hannah Howard | 1 | +263/-0 | 2 |
+| Łukasz Magiera | 1 | +48/-43 | 15 |
+| Erin Swenson-Healey | 2 | +39/-42 | 10 |
+
+# go-fil-markets 0.2.7
+
+Custom Deal Decision Logic and cleanups of 0.2.6
+
+### Changelog
+
+- github.com/filecoin-project/go-fil-markets:
+  - docs(CHANGELOG): update changelog for 0.2.7
+  - refactor(storagemarket): remove storedask from provider (#263) ([filecoin-project/go-fil-markets#263](https://github.com/filecoin-project/go-fil-markets/pull/263))
+  - Deal Decision Custom Function (#262) ([filecoin-project/go-fil-markets#262](https://github.com/filecoin-project/go-fil-markets/pull/262))
+
+### Contributors
+
+| Contributor | Commits | Lines ± | Files Changed |
+|-------------|---------|---------|---------------|
+| Hannah Howard | 2 | +142/-27 | 11 |
+| shannonwells | 1 | +19/-6 | 1 |
+
+# go-fil-markets 0.2.6
+
+Remove data store wrapping
+
+### Changelog
+
+- github.com/filecoin-project/go-fil-markets:
+  - Feat/change prefixes 256 (#257) ([filecoin-project/go-fil-markets#257](https://github.com/filecoin-project/go-fil-markets/pull/257))
+  - docs(CHANGELOG): update for 0.2.5 release ([filecoin-project/go-fil-markets#254](https://github.com/filecoin-project/go-fil-markets/pull/254))
+
+### Contributors
+
+| Contributor | Commits | Lines ± | Files Changed |
+|-------------|---------|---------|---------------|
+| Shannon Wells | 1 | +6/-15 | 5 |
+
+# go-fil-markets 0.2.5
+
+go-filecoin compatibility release
+
+### Changelog
+
+- github.com/filecoin-project/go-fil-markets:
+  - docs(CHANGELOG): update for 0.2.5 release
+  - Fixes from filecoin integration work (#253) ([filecoin-project/go-fil-markets#253](https://github.com/filecoin-project/go-fil-markets/pull/253))
+  - docs(CHANGELOG): update change log ([filecoin-project/go-fil-markets#250](https://github.com/filecoin-project/go-fil-markets/pull/250))
+
+### Contributors
+
+| Contributor | Commits | Lines ± | Files Changed |
+|-------------|---------|---------|---------------|
+| Hannah Howard | 1 | +138/-68 | 7 |
+| hannahhoward | 1 | +8/-3 | 3 |
+
+# go-fil-markets 0.2.4
+
+go-filecoin compatibility release
+
+### Changelog
+
+- github.com/filecoin-project/go-fil-markets:
+  - docs(CHANGELOG): update change log
+  - Buffer the done channel when adding storage collateral (#249) ([filecoin-project/go-fil-markets#249](https://github.com/filecoin-project/go-fil-markets/pull/249))
+  - feat(CHANGELOG): update changelog for v0.2.3 ([filecoin-project/go-fil-markets#248](https://github.com/filecoin-project/go-fil-markets/pull/248))
+  - Unified request validator (#247) ([filecoin-project/go-fil-markets#247](https://github.com/filecoin-project/go-fil-markets/pull/247))
+
+### Contributors
+
+| Contributor | Commits | Lines ± | Files Changed |
+|-------------|---------|---------|---------------|
+| Ingar Shu | 2 | +221/-230 | 7 |
+| hannahhoward | 1 | +8/-0 | 1 |
+
+# go-fil-markets 0.2.3
+
+Hotfix release -- final fix for issues with deal streams held open
+
+### Changelog
+
+- github.com/filecoin-project/go-fil-markets:
+  - feat(CHANGELOG): update changelog for v0.2.3
+  - feat(network): tag connections to preserve them (#246) ([filecoin-project/go-fil-markets#246](https://github.com/filecoin-project/go-fil-markets/pull/246))
+  - docs(CHANGELOG): docs for 0.2.2 release ([filecoin-project/go-fil-markets#243](https://github.com/filecoin-project/go-fil-markets/pull/243))
+
+### Contributors
+
+| Contributor | Commits | Lines ± | Files Changed |
+|-------------|---------|---------|---------------|
+| Hannah Howard | 1 | +112/-7 | 10 |
+| hannahhoward | 1 | +7/-1 | 1 |
+
+# go-fil-markets 0.2.2
+
+Hotfix release -- updates to try to solve deal stream problems attempt #2 & v26 params update
+
+### Changelog
+
+- github.com/filecoin-project/go-fil-markets:
+  - docs(CHANGELOG): docs for 0.2.2 release
+  - feat(storagemarket): revert protocol changes (#236) ([filecoin-project/go-fil-markets#236](https://github.com/filecoin-project/go-fil-markets/pull/236))
+  - Feat/cbor gen check ci #231 (#234) ([filecoin-project/go-fil-markets#234](https://github.com/filecoin-project/go-fil-markets/pull/234))
+  - update sector-storage and break transitive dependency on lotus (#235) ([filecoin-project/go-fil-markets#235](https://github.com/filecoin-project/go-fil-markets/pull/235))
+  - docs(CHANGELOG): update for 0.2.1 release ([filecoin-project/go-fil-markets#233](https://github.com/filecoin-project/go-fil-markets/pull/233))
+
+### Contributors
+
+| Contributor | Commits | Lines ± | Files Changed |
+|-------------|---------|---------|---------------|
+| Hannah Howard | 1 | +701/-614 | 22 |
+| Erin Swenson-Healey | 1 | +5/-265 | 2 |
+| Shannon Wells | 1 | +11/-0 | 1 |
+| hannahhoward | 1 | +8/-1 | 1 |
+
+# go-fil-markets 0.2.1
+
+Hotfix release -- updates to try to solve deal stream problems attempt #1
+
+### Changelog
+- github.com/filecoin-project/go-fil-markets:
+  - docs(CHANGELOG): update for 0.2.1 release
+  - update to v26 proofs (#232) ([filecoin-project/go-fil-markets#232](https://github.com/filecoin-project/go-fil-markets/pull/232))
+  - Don't Keep Streams Open (#230) ([filecoin-project/go-fil-markets#230](https://github.com/filecoin-project/go-fil-markets/pull/230))
+  - Round-trip storage/retrieval test (#229) ([filecoin-project/go-fil-markets#229](https://github.com/filecoin-project/go-fil-markets/pull/229))
+  - feat(storagemarket): improve human readable constant maps (#228) ([filecoin-project/go-fil-markets#228](https://github.com/filecoin-project/go-fil-markets/pull/228))
+  - fix(deps): update data-transfer 0.3.0 (#227) ([filecoin-project/go-fil-markets#227](https://github.com/filecoin-project/go-fil-markets/pull/227))
+  - docs(CHANGELOG): update changelog for 0.2.0 release ([filecoin-project/go-fil-markets#226](https://github.com/filecoin-project/go-fil-markets/pull/226))
+- github.com/filecoin-project/go-data-transfer (v0.2.1 -> v0.3.0):
+  - feat(graphsyncimpl): fix open/close events (#52) ([filecoin-project/go-data-transfer#52](https://github.com/filecoin-project/go-data-transfer/pull/52))
+  - chore(deps): update graphsync ([filecoin-project/go-data-transfer#51](https://github.com/filecoin-project/go-data-transfer/pull/51))
+  - Refactor registry and encoding (#50) ([filecoin-project/go-data-transfer#50](https://github.com/filecoin-project/go-data-transfer/pull/50))
+
+### Contributors
+
+| Contributor | Commits | Lines ± | Files Changed |
+|-------------|---------|---------|---------------|
+| Hannah Howard | 5 | +1841/-1303 | 59 |
+| Shannon Wells | 1 | +511/-141 | 19 |
+| hannahhoward | 1 | +11/-1 | 1 |
+| Erin Swenson-Healey | 1 | +1/-1 | 1 |
+
+# go-fil-markets 0.2.0
+
+Asynchronous operations release -- we no longer synchronously wait for chain messages to push
+
+### Changelog
+
+- github.com/filecoin-project/go-fil-markets:
+  - docs(CHANGELOG): update changelog for 0.2.0 release
+  - Storage Market Changes Based On Lotus Integration (#223) ([filecoin-project/go-fil-markets#223](https://github.com/filecoin-project/go-fil-markets/pull/223))
+  - Merge in hotfix 0.1.3 ([filecoin-project/go-fil-markets#225](https://github.com/filecoin-project/go-fil-markets/pull/225))
+  - ppl can sub to storage client evts (#217) ([filecoin-project/go-fil-markets#217](https://github.com/filecoin-project/go-fil-markets/pull/217))
+  - fix(storagemarket): set miner peer id on deals (#216) ([filecoin-project/go-fil-markets#216](https://github.com/filecoin-project/go-fil-markets/pull/216))
+  - chore(release): merge hotfix 0.1.2 branch back
+  - docs(release): update release process (#212) ([filecoin-project/go-fil-markets#212](https://github.com/filecoin-project/go-fil-markets/pull/212))
+  - Nonblocking storage deals [#80] (#194) ([filecoin-project/go-fil-markets#194](https://github.com/filecoin-project/go-fil-markets/pull/194))
+
+### Contributors
+
+| Contributor | Commits | Lines ± | Files Changed |
+|-------------|---------|---------|---------------|
+| Ingar Shu | 1 | +993/-608 | 13 |
+| Hannah Howard | 3 | +101/-59 | 14 |
+| Shannon Wells | 1 | +106/-31 | 5 |
+| hannahhoward | 1 | +8/-0 | 1 |
+
+# go-fil-markets 0.1.3
+
+Hotfix release for critical graphsync bug fix
+
+### Changelog
+
+- github.com/filecoin-project/go-fil-markets:
+  - docs(CHANGELOG): add release documentation
+  - fix(deps): update to tagged data transfer
+  - chore(deps): update data transfer + graphsync
+- github.com/filecoin-project/go-data-transfer (v0.2.0 -> v0.2.1):
+  - chore(deps): update graphsync
+- github.com/ipfs/go-graphsync (v0.0.6-0.20200428204348-97a8cf76a482 -> v0.0.6-0.20200504202014-9d5f2c26a103):
+  - fix(responsemanager): add nil check (#67) ([ipfs/go-graphsync#67](https://github.com/ipfs/go-graphsync/pull/67))
+  - Add autocomment configuration
+
+### Contributors
+
+| Contributor | Commits | Lines ± | Files Changed |
+|-------------|---------|---------|---------------|
+| Hector Sanjuan | 1 | +68/-0 | 1 |
+| hannahhoward | 4 | +20/-12 | 7 |
+| Hannah Howard | 1 | +4/-0 | 1 |
+
+# go-fil-markets 0.1.2
+
+Hotfix release for transitive dependencies to use new go-ipld-prime
+
+### Changelog
+
+- github.com/filecoin-project/go-fil-markets:
+  - docs(CHANGELOG): update changelog
+  - Upgrade IPLD-prime to latest (#215) ([filecoin-project/go-fil-markets#215](https://github.com/filecoin-project/go-fil-markets/pull/215))
+- github.com/filecoin-project/go-data-transfer (v0.0.0-20200408061858-82c58b423ca6 -> v0.2.0):
+  - Upgrade graphsync + ipld-prime (#49) ([filecoin-project/go-data-transfer#49](https://github.com/filecoin-project/go-data-transfer/pull/49))
+  - Use extracted generic pubsub (#48) ([filecoin-project/go-data-transfer#48](https://github.com/filecoin-project/go-data-transfer/pull/48))
+  - Refactor & Cleanup In Preparation For Added Complexity (#47) ([filecoin-project/go-data-transfer#47](https://github.com/filecoin-project/go-data-transfer/pull/47))
+  - feat(graphsync): complete notifications for responder (#46) ([filecoin-project/go-data-transfer#46](https://github.com/filecoin-project/go-data-transfer/pull/46))
+- github.com/ipfs/go-graphsync (v0.0.6-0.20200408061628-e1a98fc64c42 -> v0.0.6-0.20200428204348-97a8cf76a482):
+  - refactor(hooks): use external pubsub (#65) ([ipfs/go-graphsync#65](https://github.com/ipfs/go-graphsync/pull/65))
+  - Update of IPLD Prime (#66) ([ipfs/go-graphsync#66](https://github.com/ipfs/go-graphsync/pull/66))
+  - Add standard issue template
+  - feat(responsemanager): add listener for completed responses (#64) ([ipfs/go-graphsync#64](https://github.com/ipfs/go-graphsync/pull/64))
+  - Update Requests (#63) ([ipfs/go-graphsync#63](https://github.com/ipfs/go-graphsync/pull/63))
+  - Add pausing and unpausing of requests (#62) ([ipfs/go-graphsync#62](https://github.com/ipfs/go-graphsync/pull/62))
+  - ci(circle): remove benchmark task for now
+  - ci(circle): update orb
+
+### Contributors
+
+| Contributor | Commits | Lines ± | Files Changed |
+|-------------|---------|---------|---------------|
+| Hannah Howard | 10 | +5409/-4023 | 151 |
+| Hector Sanjuan | 1 | +27/-0 | 2 |
+| hannahhoward | 3 | +16/-8 | 5 |
+
+# go-fil-markets 0.1.1
+
+Hotfix release for spec actors update
+
+### Changelog
+
+- github.com/filecoin-project/go-fil-markets:
+  - chore(changelog): update changelog for tagged release
+  - Upgrade to specs-actors v0.3.0 (#207) ([filecoin-project/go-fil-markets#207](https://github.com/filecoin-project/go-fil-markets/pull/207))
+
+### Contributors
+
+| Contributor | Commits | Lines ± | Files Changed |
+|-------------|---------|---------|---------------|
+| hannahhoward | 1 | +9/-1 | 1 |
+| Alex North | 1 | +3/-3 | 2 |
+
 # go-fil-markets 0.1.0
 
 Initial tagged release for Filecoin Testnet Phase 2
@@ -129,660 +825,6 @@ Initial tagged release for Filecoin Testnet Phase 2
 | Ignacio Hagopian | 2 | +9/-11 | 2 |
 | Alex North | 2 | +11/-7 | 4 |
 | Alex Cruikshank | 1 | +1/-9 | 1 |
-
-# go-fil-markets 0.1.1
-
-Hotfix release for spec actors update
-
-### Changelog
-
-- github.com/filecoin-project/go-fil-markets:
-  - chore(changelog): update changelog for tagged release
-  - Upgrade to specs-actors v0.3.0 (#207) ([filecoin-project/go-fil-markets#207](https://github.com/filecoin-project/go-fil-markets/pull/207))
-
-### Contributors
-
-| Contributor | Commits | Lines ± | Files Changed |
-|-------------|---------|---------|---------------|
-| hannahhoward | 1 | +9/-1 | 1 |
-| Alex North | 1 | +3/-3 | 2 |
-
-# go-fil-markets 0.1.2
-
-Hotfix release for transitive dependencies to use new go-ipld-prime
-
-### Changelog
-
-- github.com/filecoin-project/go-fil-markets:
-  - docs(CHANGELOG): update changelog
-  - Upgrade IPLD-prime to latest (#215) ([filecoin-project/go-fil-markets#215](https://github.com/filecoin-project/go-fil-markets/pull/215))
-- github.com/filecoin-project/go-data-transfer (v0.0.0-20200408061858-82c58b423ca6 -> v0.2.0):
-  - Upgrade graphsync + ipld-prime (#49) ([filecoin-project/go-data-transfer#49](https://github.com/filecoin-project/go-data-transfer/pull/49))
-  - Use extracted generic pubsub (#48) ([filecoin-project/go-data-transfer#48](https://github.com/filecoin-project/go-data-transfer/pull/48))
-  - Refactor & Cleanup In Preparation For Added Complexity (#47) ([filecoin-project/go-data-transfer#47](https://github.com/filecoin-project/go-data-transfer/pull/47))
-  - feat(graphsync): complete notifications for responder (#46) ([filecoin-project/go-data-transfer#46](https://github.com/filecoin-project/go-data-transfer/pull/46))
-- github.com/ipfs/go-graphsync (v0.0.6-0.20200408061628-e1a98fc64c42 -> v0.0.6-0.20200428204348-97a8cf76a482):
-  - refactor(hooks): use external pubsub (#65) ([ipfs/go-graphsync#65](https://github.com/ipfs/go-graphsync/pull/65))
-  - Update of IPLD Prime (#66) ([ipfs/go-graphsync#66](https://github.com/ipfs/go-graphsync/pull/66))
-  - Add standard issue template
-  - feat(responsemanager): add listener for completed responses (#64) ([ipfs/go-graphsync#64](https://github.com/ipfs/go-graphsync/pull/64))
-  - Update Requests (#63) ([ipfs/go-graphsync#63](https://github.com/ipfs/go-graphsync/pull/63))
-  - Add pausing and unpausing of requests (#62) ([ipfs/go-graphsync#62](https://github.com/ipfs/go-graphsync/pull/62))
-  - ci(circle): remove benchmark task for now
-  - ci(circle): update orb
-
-### Contributors
-
-| Contributor | Commits | Lines ± | Files Changed |
-|-------------|---------|---------|---------------|
-| Hannah Howard | 10 | +5409/-4023 | 151 |
-| Hector Sanjuan | 1 | +27/-0 | 2 |
-| hannahhoward | 3 | +16/-8 | 5 |
-
-
-# go-fil-markets 0.1.3
-
-Hotfix release for critical graphsync bug fix
-
-### Changelog
-
-- github.com/filecoin-project/go-fil-markets:
-  - docs(CHANGELOG): add release documentation
-  - fix(deps): update to tagged data transfer
-  - chore(deps): update data transfer + graphsync
-- github.com/filecoin-project/go-data-transfer (v0.2.0 -> v0.2.1):
-  - chore(deps): update graphsync
-- github.com/ipfs/go-graphsync (v0.0.6-0.20200428204348-97a8cf76a482 -> v0.0.6-0.20200504202014-9d5f2c26a103):
-  - fix(responsemanager): add nil check (#67) ([ipfs/go-graphsync#67](https://github.com/ipfs/go-graphsync/pull/67))
-  - Add autocomment configuration
-
-### Contributors
-
-| Contributor | Commits | Lines ± | Files Changed |
-|-------------|---------|---------|---------------|
-| Hector Sanjuan | 1 | +68/-0 | 1 |
-| hannahhoward | 4 | +20/-12 | 7 |
-| Hannah Howard | 1 | +4/-0 | 1 |
-
-# go-fil-markets 0.2.0
-
-Asynchronous operations release -- we no longer synchronously wait for chain messages to push
-
-### Changelog
-
-- github.com/filecoin-project/go-fil-markets:
-  - docs(CHANGELOG): update changelog for 0.2.0 release
-  - Storage Market Changes Based On Lotus Integration (#223) ([filecoin-project/go-fil-markets#223](https://github.com/filecoin-project/go-fil-markets/pull/223))
-  - Merge in hotfix 0.1.3 ([filecoin-project/go-fil-markets#225](https://github.com/filecoin-project/go-fil-markets/pull/225))
-  - ppl can sub to storage client evts (#217) ([filecoin-project/go-fil-markets#217](https://github.com/filecoin-project/go-fil-markets/pull/217))
-  - fix(storagemarket): set miner peer id on deals (#216) ([filecoin-project/go-fil-markets#216](https://github.com/filecoin-project/go-fil-markets/pull/216))
-  - chore(release): merge hotfix 0.1.2 branch back
-  - docs(release): update release process (#212) ([filecoin-project/go-fil-markets#212](https://github.com/filecoin-project/go-fil-markets/pull/212))
-  - Nonblocking storage deals [#80] (#194) ([filecoin-project/go-fil-markets#194](https://github.com/filecoin-project/go-fil-markets/pull/194))
-
-### Contributors
-
-| Contributor | Commits | Lines ± | Files Changed |
-|-------------|---------|---------|---------------|
-| Ingar Shu | 1 | +993/-608 | 13 |
-| Hannah Howard | 3 | +101/-59 | 14 |
-| Shannon Wells | 1 | +106/-31 | 5 |
-| hannahhoward | 1 | +8/-0 | 1 |
-
-# go-fil-markets 0.2.1
-
-Hotfix release -- updates to try to solve deal stream problems attempt #1
-
-### Changelog
-- github.com/filecoin-project/go-fil-markets:
-  - docs(CHANGELOG): update for 0.2.1 release
-  - update to v26 proofs (#232) ([filecoin-project/go-fil-markets#232](https://github.com/filecoin-project/go-fil-markets/pull/232))
-  - Don't Keep Streams Open (#230) ([filecoin-project/go-fil-markets#230](https://github.com/filecoin-project/go-fil-markets/pull/230))
-  - Round-trip storage/retrieval test (#229) ([filecoin-project/go-fil-markets#229](https://github.com/filecoin-project/go-fil-markets/pull/229))
-  - feat(storagemarket): improve human readable constant maps (#228) ([filecoin-project/go-fil-markets#228](https://github.com/filecoin-project/go-fil-markets/pull/228))
-  - fix(deps): update data-transfer 0.3.0 (#227) ([filecoin-project/go-fil-markets#227](https://github.com/filecoin-project/go-fil-markets/pull/227))
-  - docs(CHANGELOG): update changelog for 0.2.0 release ([filecoin-project/go-fil-markets#226](https://github.com/filecoin-project/go-fil-markets/pull/226))
-- github.com/filecoin-project/go-data-transfer (v0.2.1 -> v0.3.0):
-  - feat(graphsyncimpl): fix open/close events (#52) ([filecoin-project/go-data-transfer#52](https://github.com/filecoin-project/go-data-transfer/pull/52))
-  - chore(deps): update graphsync ([filecoin-project/go-data-transfer#51](https://github.com/filecoin-project/go-data-transfer/pull/51))
-  - Refactor registry and encoding (#50) ([filecoin-project/go-data-transfer#50](https://github.com/filecoin-project/go-data-transfer/pull/50))
-
-### Contributors
-
-| Contributor | Commits | Lines ± | Files Changed |
-|-------------|---------|---------|---------------|
-| Hannah Howard | 5 | +1841/-1303 | 59 |
-| Shannon Wells | 1 | +511/-141 | 19 |
-| hannahhoward | 1 | +11/-1 | 1 |
-| Erin Swenson-Healey | 1 | +1/-1 | 1 |
-
-# go-fil-markets 0.2.2
-
-Hotfix release -- updates to try to solve deal stream problems attempt #2 & v26 params update
-
-### Changelog
-
-- github.com/filecoin-project/go-fil-markets:
-  - docs(CHANGELOG): docs for 0.2.2 release
-  - feat(storagemarket): revert protocol changes (#236) ([filecoin-project/go-fil-markets#236](https://github.com/filecoin-project/go-fil-markets/pull/236))
-  - Feat/cbor gen check ci #231 (#234) ([filecoin-project/go-fil-markets#234](https://github.com/filecoin-project/go-fil-markets/pull/234))
-  - update sector-storage and break transitive dependency on lotus (#235) ([filecoin-project/go-fil-markets#235](https://github.com/filecoin-project/go-fil-markets/pull/235))
-  - docs(CHANGELOG): update for 0.2.1 release ([filecoin-project/go-fil-markets#233](https://github.com/filecoin-project/go-fil-markets/pull/233))
-
-### Contributors
-
-| Contributor | Commits | Lines ± | Files Changed |
-|-------------|---------|---------|---------------|
-| Hannah Howard | 1 | +701/-614 | 22 |
-| Erin Swenson-Healey | 1 | +5/-265 | 2 |
-| Shannon Wells | 1 | +11/-0 | 1 |
-| hannahhoward | 1 | +8/-1 | 1 |
-
-# go-fil-markets 0.2.3
-
-Hotfix release -- final fix for issues with deal streams held open
-
-### Changelog
-
-- github.com/filecoin-project/go-fil-markets:
-  - feat(CHANGELOG): update changelog for v0.2.3
-  - feat(network): tag connections to preserve them (#246) ([filecoin-project/go-fil-markets#246](https://github.com/filecoin-project/go-fil-markets/pull/246))
-  - docs(CHANGELOG): docs for 0.2.2 release ([filecoin-project/go-fil-markets#243](https://github.com/filecoin-project/go-fil-markets/pull/243))
-
-### Contributors
-
-| Contributor | Commits | Lines ± | Files Changed |
-|-------------|---------|---------|---------------|
-| Hannah Howard | 1 | +112/-7 | 10 |
-| hannahhoward | 1 | +7/-1 | 1 |
-
-# go-fil-markets 0.2.4
-
-go-filecoin compatibility release
-
-### Changelog
-
-- github.com/filecoin-project/go-fil-markets:
-  - docs(CHANGELOG): update change log
-  - Buffer the done channel when adding storage collateral (#249) ([filecoin-project/go-fil-markets#249](https://github.com/filecoin-project/go-fil-markets/pull/249))
-  - feat(CHANGELOG): update changelog for v0.2.3 ([filecoin-project/go-fil-markets#248](https://github.com/filecoin-project/go-fil-markets/pull/248))
-  - Unified request validator (#247) ([filecoin-project/go-fil-markets#247](https://github.com/filecoin-project/go-fil-markets/pull/247))
-
-### Contributors
-
-| Contributor | Commits | Lines ± | Files Changed |
-|-------------|---------|---------|---------------|
-| Ingar Shu | 2 | +221/-230 | 7 |
-| hannahhoward | 1 | +8/-0 | 1 |
-
-# go-fil-markets 0.2.5
-
-go-filecoin compatibility release
-
-### Changelog
-
-- github.com/filecoin-project/go-fil-markets:
-  - docs(CHANGELOG): update for 0.2.5 release
-  - Fixes from filecoin integration work (#253) ([filecoin-project/go-fil-markets#253](https://github.com/filecoin-project/go-fil-markets/pull/253))
-  - docs(CHANGELOG): update change log ([filecoin-project/go-fil-markets#250](https://github.com/filecoin-project/go-fil-markets/pull/250))
-
-### Contributors
-
-| Contributor | Commits | Lines ± | Files Changed |
-|-------------|---------|---------|---------------|
-| Hannah Howard | 1 | +138/-68 | 7 |
-| hannahhoward | 1 | +8/-3 | 3 |
-
-# go-fil-markets 0.2.6
-
-Remove data store wrapping
-
-### Changelog
-
-- github.com/filecoin-project/go-fil-markets:
-  - Feat/change prefixes 256 (#257) ([filecoin-project/go-fil-markets#257](https://github.com/filecoin-project/go-fil-markets/pull/257))
-  - docs(CHANGELOG): update for 0.2.5 release ([filecoin-project/go-fil-markets#254](https://github.com/filecoin-project/go-fil-markets/pull/254))
-
-### Contributors
-
-| Contributor | Commits | Lines ± | Files Changed |
-|-------------|---------|---------|---------------|
-| Shannon Wells | 1 | +6/-15 | 5 |
-
-# go-fil-markets 0.2.7
-
-Custom Deal Decision Logic and cleanups of 0.2.6
-
-### Changelog
-
-- github.com/filecoin-project/go-fil-markets:
-  - docs(CHANGELOG): update changelog for 0.2.7
-  - refactor(storagemarket): remove storedask from provider (#263) ([filecoin-project/go-fil-markets#263](https://github.com/filecoin-project/go-fil-markets/pull/263))
-  - Deal Decision Custom Function (#262) ([filecoin-project/go-fil-markets#262](https://github.com/filecoin-project/go-fil-markets/pull/262))
-
-### Contributors
-
-| Contributor | Commits | Lines ± | Files Changed |
-|-------------|---------|---------|---------------|
-| Hannah Howard | 2 | +142/-27 | 11 |
-| shannonwells | 1 | +19/-6 | 1 |
-
-# go-fil-markets 0.3.0
-
-Deal Resumability release. We now attempt to resume storage deals when the application is shut down and restart, and we support a more flexible deal acceptance protocol.
-
-### Changelog
-- github.com/filecoin-project/go-fil-markets:
-  - fix(storagemarket): fix validator, add to test
-  - docs(CHANGELOG): update changelog and add detail script
-  - both StoredAsk and storage Provider are scoped to a single miner (#276) ([filecoin-project/go-fil-markets#276](https://github.com/filecoin-project/go-fil-markets/pull/276))
-  - specs actors v0.6 (#274) ([filecoin-project/go-fil-markets#274](https://github.com/filecoin-project/go-fil-markets/pull/274))
-  - Restartable storage deals (#270) ([filecoin-project/go-fil-markets#270](https://github.com/filecoin-project/go-fil-markets/pull/270))
-  - replace AddAsk with SetAsk, to convey intent (#275) ([filecoin-project/go-fil-markets#275](https://github.com/filecoin-project/go-fil-markets/pull/275))
-  - Allow custom decisioning for a provider to decide retrieval deals. (#269) ([filecoin-project/go-fil-markets#269](https://github.com/filecoin-project/go-fil-markets/pull/269))
-  - Feat/module docs #83 (#267) ([filecoin-project/go-fil-markets#267](https://github.com/filecoin-project/go-fil-markets/pull/267))
-  - Tentative acceptance protocol (#244) ([filecoin-project/go-fil-markets#244](https://github.com/filecoin-project/go-fil-markets/pull/244))
-  - docs(CHANGELOG): update changelog for 0.2.7 ([filecoin-project/go-fil-markets#264](https://github.com/filecoin-project/go-fil-markets/pull/264))
-- github.com/filecoin-project/go-statemachine (v0.0.0-20200226041606-2074af6d51d9 -> v0.0.0-20200612181802-4eb3d0c68eba):
-  - Serialize notifications (#11) ([filecoin-project/go-statemachine#11](https://github.com/filecoin-project/go-statemachine/pull/11))
-  - Run callback in goroutine (#10) ([filecoin-project/go-statemachine#10](https://github.com/filecoin-project/go-statemachine/pull/10))
-  - Finality States ([filecoin-project/go-statemachine#9](https://github.com/filecoin-project/go-statemachine/pull/9))
-  - Documentation, particularly for FSM Module (#8) ([filecoin-project/go-statemachine#8](https://github.com/filecoin-project/go-statemachine/pull/8))
-  - Call stageDone on nil nextStep ([filecoin-project/go-statemachine#7](https://github.com/filecoin-project/go-statemachine/pull/7))
-
-### Contributors
-
-| Contributor | Commits | Lines ± | Files Changed |
-|-------------|---------|---------|---------------|
-| Ingar Shu | 4 | +1407/-695 | 35 |
-| Shannon Wells | 2 | +1515/-467 | 20 |
-| hannahhoward | 8 | +862/-191 | 21 |
-| Hannah Howard | 1 | +263/-0 | 2 |
-| Łukasz Magiera | 1 | +48/-43 | 15 |
-| Erin Swenson-Healey | 2 | +39/-42 | 10 |
-
-# go-fil-markets 0.3.1
-
-Hotfix release to get `use addresses from miner info for connecting to miners` task merged for downstream dependencies to used
-
-### Changelog
-- github.com/filecoin-project/go-fil-markets:
-  - use addresses from miner info for connecting to miners (#290) ([filecoin-project/go-fil-markets#290](https://github.com/filecoin-project/go-fil-markets/pull/290))
-
-### Contributors
-
-| Contributor | Commits | Lines ± | Files Changed |
-|-------------|---------|---------|---------------|
-| Whyrusleeping | 1 | +53/-5 | 9 |
-
-# go-fil-markets 0.3.1.1
-
-Hotfix bug release to address critical issues affecting node startup
-
-### Changelog
-
-- github.com/filecoin-project/go-fil-markets:
-  - add locks protecting retrieval market maps (#311) ([filecoin-project/go-fil-markets#311](https://github.com/filecoin-project/go-fil-markets/pull/311))
-  - fix(storagemarket): run deal restarts in go routine (#309) ([filecoin-project/go-fil-markets#309](https://github.com/filecoin-project/go-fil-markets/pull/309))
-
-### Contributors
-
-| Contributor | Commits | Lines ± | Files Changed |
-|-------------|---------|---------|---------------|
-| Hannah Howard | 1 | +13/-7 | 2 |
-| vyzo | 1 | +10/-0 | 1 |
-
-# go-fil-markets 0.4.0
-
-Major release with touchups to deal protocol (does not hold open connections), major rewrite of underlying data transfer library, and features like fast retrieval and verified client support
-
-### Changelog
-
-- github.com/filecoin-project/go-fil-markets:
-  - Update to new data transfer (#317) ([filecoin-project/go-fil-markets#317](https://github.com/filecoin-project/go-fil-markets/pull/317))
-  - Add NewQueryV1, which has an optional PieceID param (#313) ([filecoin-project/go-fil-markets#313](https://github.com/filecoin-project/go-fil-markets/pull/313))
-  - Add PieceCid to RetrievalPeer (#312) ([filecoin-project/go-fil-markets#312](https://github.com/filecoin-project/go-fil-markets/pull/312))
-  - add locks around client deals (#315) ([filecoin-project/go-fil-markets#315](https://github.com/filecoin-project/go-fil-markets/pull/315))
-  - Merge branch 'release/v0.3.1.1'
-  - add locks protecting retrieval market maps (#311) ([filecoin-project/go-fil-markets#311](https://github.com/filecoin-project/go-fil-markets/pull/311))
-  - Fix/make streams context aware (#308) ([filecoin-project/go-fil-markets#308](https://github.com/filecoin-project/go-fil-markets/pull/308))
-  - Reject deals based on verifreg.DataCap for client (#307) ([filecoin-project/go-fil-markets#307](https://github.com/filecoin-project/go-fil-markets/pull/307))
-  - fix(storagemarket): run deal restarts in go routine (#309) ([filecoin-project/go-fil-markets#309](https://github.com/filecoin-project/go-fil-markets/pull/309))
-  - StorageProvider records Slashed Or Expired Deals (#306) ([filecoin-project/go-fil-markets#306](https://github.com/filecoin-project/go-fil-markets/pull/306))
-  - Fast retrieval support (#305) ([filecoin-project/go-fil-markets#305](https://github.com/filecoin-project/go-fil-markets/pull/305))
-  - Clients can create verified deals (#304) ([filecoin-project/go-fil-markets#304](https://github.com/filecoin-project/go-fil-markets/pull/304))
-  - Use Query Protocol in storage deal negotiation (#297) ([filecoin-project/go-fil-markets#297](https://github.com/filecoin-project/go-fil-markets/pull/297))
-- github.com/filecoin-project/go-data-transfer (v0.3.0 -> v0.4.0):
-  - The new data transfer (#55) ([filecoin-project/go-data-transfer#55](https://github.com/filecoin-project/go-data-transfer/pull/55))
-  - Actually track progress for send/receive (#53) ([filecoin-project/go-data-transfer#53](https://github.com/filecoin-project/go-data-transfer/pull/53))
-- github.com/filecoin-project/go-statemachine (v0.0.0-20200619205156-c7bf525c06ef -> v0.0.0-20200703171610-a74a697973b9):
-  - feat(statemachine): add Has method
-- github.com/ipfs/go-graphsync (v0.0.6-0.20200504202014-9d5f2c26a103 -> v0.0.6-0.20200708073926-caa872f68b2c):
-  - All changes to date including pause requests & start paused, along with new adds for cleanups and checking of execution (#75) ([ipfs/go-graphsync#75](https://github.com/ipfs/go-graphsync/pull/75))
-  - More fine grained response controls (#71) ([ipfs/go-graphsync#71](https://github.com/ipfs/go-graphsync/pull/71))
-  - Refactor request execution and use IPLD SkipMe functionality for proper partial results on a request (#70) ([ipfs/go-graphsync#70](https://github.com/ipfs/go-graphsync/pull/70))
-  - feat(graphsync): implement do-no-send-cids extension (#69) ([ipfs/go-graphsync#69](https://github.com/ipfs/go-graphsync/pull/69))
-  - Incoming Block Hooks (#68) ([ipfs/go-graphsync#68](https://github.com/ipfs/go-graphsync/pull/68))
-
-### Contributors
-
-| Contributor | Commits | Lines ± | Files Changed |
-|-------------|---------|---------|---------------|
-| Hannah Howard | 10 | +12777/-4664 | 152 |
-| Ingar Shu | 7 | +1318/-834 | 61 |
-| dirkmc | 1 | +401/-212 | 20 |
-| vyzo | 3 | +36/-6 | 3 |
-| hannahhoward | 2 | +25/-0 | 3 |
-
-# go-fil-markets 0.5.0
-
-Major release with rewrite of retrieval to operate on top of data transfer protocol.
-
-### Changelog
-
-- github.com/filecoin-project/go-fil-markets:
-  - Retrieval on data transfer (#321) ([filecoin-project/go-fil-markets#321](https://github.com/filecoin-project/go-fil-markets/pull/321))
-  - docs(CHANGELOG): update for 0.4.0 ([filecoin-project/go-fil-markets#318](https://github.com/filecoin-project/go-fil-markets/pull/318))
-- github.com/filecoin-project/go-data-transfer (v0.4.0 -> v0.5.0):
-  - Minor fixes for retrieval on data transfer (#56) ([filecoin-project/go-data-transfer#56](https://github.com/filecoin-project/go-data-transfer/pull/56))
-- github.com/filecoin-project/go-statemachine (v0.0.0-20200703171610-a74a697973b9 -> v0.0.0-20200714194326-a77c3ae20989):
-  - Just Record Events (#17) ([filecoin-project/go-statemachine#17](https://github.com/filecoin-project/go-statemachine/pull/17))
-  - GetSync method (#16) ([filecoin-project/go-statemachine#16](https://github.com/filecoin-project/go-statemachine/pull/16))
-  - feat(statemachine): add Has method (#15) ([filecoin-project/go-statemachine#15](https://github.com/filecoin-project/go-statemachine/pull/15))
-- github.com/ipfs/go-graphsync (v0.0.6-0.20200708073926-caa872f68b2c -> v0.0.6-0.20200715204712-ef06b3d32e83):
-  - feat(requestmanager): run response hooks on completed requests (#77) ([ipfs/go-graphsync#77](https://github.com/ipfs/go-graphsync/pull/77))
-  - Revert "add extensions on complete (#76)"
-  - add extensions on complete (#76) ([ipfs/go-graphsync#76](https://github.com/ipfs/go-graphsync/pull/76))
-
-### Contributors
-
-| Contributor | Commits | Lines ± | Files Changed |
-|-------------|---------|---------|---------------|
-| Hannah Howard | 7 | +3865/-3792 | 96 |
-| hannahhoward | 1 | +155/-270 | 9 |
-
-# go-fil-markets 0.5.1
-
-Minor improvements and bug fixes, retrieval market now supports unseal price
-
-### Changelog
-
-- github.com/filecoin-project/go-fil-markets:
-  - fix(queryresponse): set piece retrieval price correctly (#334) ([filecoin-project/go-fil-markets#334](https://github.com/filecoin-project/go-fil-markets/pull/334))
-  - feat(deps): upgrade specs actors to lotus/next sha (#333) ([filecoin-project/go-fil-markets#333](https://github.com/filecoin-project/go-fil-markets/pull/333))
-  - Support retrieval UnsealPrice (#325) (#330) ([filecoin-project/go-fil-markets#330](https://github.com/filecoin-project/go-fil-markets/pull/330))
-  - Cleanup project imports (#327) ([filecoin-project/go-fil-markets#327](https://github.com/filecoin-project/go-fil-markets/pull/327))
-  - Use client address, not default address, to sign proposals (#326) ([filecoin-project/go-fil-markets#326](https://github.com/filecoin-project/go-fil-markets/pull/326))
-  - Remove DealAcceptanceBuffer (#322) ([filecoin-project/go-fil-markets#322](https://github.com/filecoin-project/go-fil-markets/pull/322))
-  - docs(CHANGELOG): update for 0.5.0 release ([filecoin-project/go-fil-markets#324](https://github.com/filecoin-project/go-fil-markets/pull/324))
-- github.com/hannahhoward/cbor-gen-for (v0.0.0-20191218204337-9ab7b1bcc099 -> v0.0.0-20200723175505-5892b522820a):
-  - fix(deps): update cbor-gen-to-latest
-
-### Contributors
-
-| Contributor | Commits | Lines ± | Files Changed |
-|-------------|---------|---------|---------------|
-| Hannah Howard | 3 | +1363/-723 | 94 |
-| Ingar Shu | 1 | +262/-122 | 26 |
-| Aayush Rajasekaran | 2 | +13/-75 | 5 |
-| hannahhoward | 1 | +25/-32 | 2 |
-
-# go-fil-markets 0.5.2
-
-In this release, we move to managing individual, garbage collected stores for each deal.
-
-### Changelog
-
-- github.com/filecoin-project/go-fil-markets:
-  - Unique Blockstores: RetrievalMarket (#342) ([filecoin-project/go-fil-markets#342](https://github.com/filecoin-project/go-fil-markets/pull/342))
-  - Unique blockstores: Storage Market (#341) ([filecoin-project/go-fil-markets#341](https://github.com/filecoin-project/go-fil-markets/pull/341))
-  - docs(CHANGLEOG): update for 0.5.1 ([filecoin-project/go-fil-markets#335](https://github.com/filecoin-project/go-fil-markets/pull/335))
-- github.com/filecoin-project/go-data-transfer (v0.5.0 -> v0.5.1):
-  - Allow custom configuration of transports (#57) ([filecoin-project/go-data-transfer#57](https://github.com/filecoin-project/go-data-transfer/pull/57))
-- github.com/ipfs/go-graphsync (v0.0.6-0.20200715204712-ef06b3d32e83 -> v0.0.6-0.20200721211002-c376cbe14c0a):
-  - feat(persistenceoptions): add unregister ability
-
-### Contributors
-
-| Contributor | Commits | Lines ± | Files Changed |
-|-------------|---------|---------|---------------|
-| Hannah Howard | 3 | +2378/-1076 | 90 |
-| hannahhoward | 1 | +113/-32 | 5 |
-
-# go-fil-markets 0.5.3
-
-Retrieval before seal and improvements to fund management
-
-### Changelog
-
-- github.com/filecoin-project/go-fil-markets:
-  - Update multistore (#353) ([filecoin-project/go-fil-markets#353](https://github.com/filecoin-project/go-fil-markets/pull/353))
-  - feat(storagemarket): add label field to deals (#349) ([filecoin-project/go-fil-markets#349](https://github.com/filecoin-project/go-fil-markets/pull/349))
-  - fix(imports): fix imports issue from previous
-  - retrieval: Drain piece readers (#348) ([filecoin-project/go-fil-markets#348](https://github.com/filecoin-project/go-fil-markets/pull/348))
-  - Adding different prices for verified deals (#347) ([filecoin-project/go-fil-markets#347](https://github.com/filecoin-project/go-fil-markets/pull/347))
-  - update to latest cbor-gen (#346) ([filecoin-project/go-fil-markets#346](https://github.com/filecoin-project/go-fil-markets/pull/346))
-  - fix(deps): update data-transfer
-  - Update specs-actors, enforce provider deal collateral bounds (#345) ([filecoin-project/go-fil-markets#345](https://github.com/filecoin-project/go-fil-markets/pull/345))
-  - Feat/retrieve unsealed (#340) ([filecoin-project/go-fil-markets#340](https://github.com/filecoin-project/go-fil-markets/pull/340))
-  - Track deals funding for deals that are being negotiated (#336) ([filecoin-project/go-fil-markets#336](https://github.com/filecoin-project/go-fil-markets/pull/336))
-  - docs(CHANGELOG): update for 0.5.2 release ([filecoin-project/go-fil-markets#344](https://github.com/filecoin-project/go-fil-markets/pull/344))
-- github.com/filecoin-project/go-data-transfer (v0.5.1 -> v0.5.3):
-  - docs(CHANGELOG): update for 0.5.3 release
-  - fix(deps): update graphsync
-  - Release infrastructure (#61) ([filecoin-project/go-data-transfer#61](https://github.com/filecoin-project/go-data-transfer/pull/61))
-  - Update cbor-gen (#60) ([filecoin-project/go-data-transfer#60](https://github.com/filecoin-project/go-data-transfer/pull/60))
-  - fix(deps): update graphsync
-  - fix(message): add error check to FromNet (#59) ([filecoin-project/go-data-transfer#59](https://github.com/filecoin-project/go-data-transfer/pull/59))
-- github.com/filecoin-project/go-statemachine (v0.0.0-20200714194326-a77c3ae20989 -> v0.0.0-20200730031800-c3336614d2a7):
-  - fix(fsm): fix test context (#18) ([filecoin-project/go-statemachine#18](https://github.com/filecoin-project/go-statemachine/pull/18))
-- github.com/ipfs/go-graphsync (v0.0.6-0.20200721211002-c376cbe14c0a -> v0.1.0):
-  - docs(CHANGELOG): update for v0.1.0 release
-  - Release infrastructure (#81) ([ipfs/go-graphsync#81](https://github.com/ipfs/go-graphsync/pull/81))
-  - feat(persistenceoptions): add unregister ability (#80) ([ipfs/go-graphsync#80](https://github.com/ipfs/go-graphsync/pull/80))
-  - fix(message): regen protobuf code (#79) ([ipfs/go-graphsync#79](https://github.com/ipfs/go-graphsync/pull/79))
-
-### Contributors
-
-| Contributor | Commits | Lines ± | Files Changed |
-|-------------|---------|---------|---------------|
-| Hannah Howard | 7 | +1710/-533 | 105 |
-| Whyrusleeping | 2 | +477/-433 | 35 |
-| Ingar Shu | 1 | +545/-20 | 26 |
-| Łukasz Magiera | 2 | +189/-176 | 9 |
-| Aayush Rajasekaran | 3 | +144/-79 | 21 |
-| hannahhoward | 6 | +87/-18 | 10 |
-
-# go-fil-markets 0.5.4
-
-Minor release to bug fix some multi-addr issues
-
-### Changelog
-
-- github.com/filecoin-project/go-fil-markets:
-  - Properly add multiaddrs to avoid dialing issues (#356) ([filecoin-project/go-fil-markets#356](https://github.com/filecoin-project/go-fil-markets/pull/356))
-  - docs(CHANGELOG): update for 0.5.3 release ([filecoin-project/go-fil-markets#355](https://github.com/filecoin-project/go-fil-markets/pull/355))
-
-### Contributors
-
-| Contributor | Commits | Lines ± | Files Changed |
-|-------------|---------|---------|---------------|
-| Hannah Howard | 1 | +178/-39 | 16 |
-
-# go-fil-markets v0.5.5
-
-Minor release updates dependencies and adds back in peer tagging
-
-### Changelog
-
-- github.com/filecoin-project/go-fil-markets:
-  - Update data transfer 0.6.1 (#366) ([filecoin-project/go-fil-markets#366](https://github.com/filecoin-project/go-fil-markets/pull/366))
-  - Update specs-actors and cbor-gen (#363) ([filecoin-project/go-fil-markets#363](https://github.com/filecoin-project/go-fil-markets/pull/363))
-  - Add back connection tagging (#362) ([filecoin-project/go-fil-markets#362](https://github.com/filecoin-project/go-fil-markets/pull/362))
-- github.com/filecoin-project/go-data-transfer (v0.5.3 -> v0.6.1):
-  - docs(CHANGELOG): update for 0.6.1
-  - Update graphsync 0.1.1 (#65) ([filecoin-project/go-data-transfer#65](https://github.com/filecoin-project/go-data-transfer/pull/65))
-  - Update changelog for 0.6.0 release (#64) ([filecoin-project/go-data-transfer#64](https://github.com/filecoin-project/go-data-transfer/pull/64))
-  - Update cbor-gen (#63) ([filecoin-project/go-data-transfer#63](https://github.com/filecoin-project/go-data-transfer/pull/63))
-  - Release/v0.5.3 ([filecoin-project/go-data-transfer#62](https://github.com/filecoin-project/go-data-transfer/pull/62))
-- github.com/ipfs/go-graphsync (v0.1.0 -> v0.1.1):
-  - docs(CHANGELOG): update for v0.1.1
-  - docs(CHANGELOG): update for v0.1.0 release ([ipfs/go-graphsync#84](https://github.com/ipfs/go-graphsync/pull/84))
-  - Dedup by key extension (#83) ([ipfs/go-graphsync#83](https://github.com/ipfs/go-graphsync/pull/83))
-
-### Contributors
-
-| Contributor | Commits | Lines ± | Files Changed |
-|-------------|---------|---------|---------------|
-| Hannah Howard | 4 | +590/-154 | 33 |
-| Steven Allen | 3 | +161/-176 | 12 |
-| hannahhoward | 2 | +38/-1 | 3 |
-
-# go-fil-markets 0.5.6
-
-Miner release w/ various bug fixes
-
-### Changelog
-
-- github.com/filecoin-project/go-fil-markets:
-  - docs(CHANGELOG): update for v0.5.6 release
-  - feat(requestvalidation): use getsync in validation (#372) ([filecoin-project/go-fil-markets#372](https://github.com/filecoin-project/go-fil-markets/pull/372))
-  - Use collateral from ProposeStorageDealParams (#371) ([filecoin-project/go-fil-markets#371](https://github.com/filecoin-project/go-fil-markets/pull/371))
-  - Fix UML for docs-check (#370) ([filecoin-project/go-fil-markets#370](https://github.com/filecoin-project/go-fil-markets/pull/370))
-  - docs(CHANGELOG): update for 0.5.5 ([filecoin-project/go-fil-markets#368](https://github.com/filecoin-project/go-fil-markets/pull/368))
-- github.com/filecoin-project/go-statemachine (v0.0.0-20200730031800-c3336614d2a7 -> v0.0.0-20200813232949-df9b130df370):
-  - fix(uml): make just record predictable (#19) ([filecoin-project/go-statemachine#19](https://github.com/filecoin-project/go-statemachine/pull/19))
-
-### Contributors
-
-| Contributor | Commits | Lines ± | Files Changed |
-|-------------|---------|---------|---------------|
-| Hannah Howard | 3 | +318/-235 | 19 |
-| hannahhoward | 1 | +21/-0 | 1 |
-| Aayush Rajasekaran | 1 | +6/-3 | 1 |
-
-# go-fil-markets 0.5.7
-
-Minor release with bug fix for retrieval markets
-
-### Changelog
-
-- github.com/filecoin-project/go-fil-markets:
-  - fix(retrievalmarket): fix unseal error hang (#375) ([filecoin-project/go-fil-markets#375](https://github.com/filecoin-project/go-fil-markets/pull/375))
-  - add deal creation time to deals (#373) ([filecoin-project/go-fil-markets#373](https://github.com/filecoin-project/go-fil-markets/pull/373))
-- github.com/filecoin-project/go-data-transfer (v0.6.1 -> v0.6.2):
-  - docs(CHANGELOG): update for 0.6.2 release
-  - Fix Pull Request Cancelling (#67) ([filecoin-project/go-data-transfer#67](https://github.com/filecoin-project/go-data-transfer/pull/67))
-  - docs(CHANGELOG): update for 0.6.1 ([filecoin-project/go-data-transfer#66](https://github.com/filecoin-project/go-data-transfer/pull/66))
-
-### Contributors
-
-| Contributor | Commits | Lines ± | Files Changed |
-|-------------|---------|---------|---------------|
-| Hannah Howard | 2 | +325/-38 | 15 |
-| Whyrusleeping | 1 | +61/-22 | 11 |
-| hannahhoward | 1 | +16/-0 | 1 |
-
-# go-fil-markets 0.5.8
-
-Minor bug fix release with various small improvements, and memory fixes for Graphsync
-
-### Changelog
-
-- github.com/filecoin-project/go-fil-markets:
-  - fix(deps): update data transfer
-  - fix restart issue with deal transferring (#381) ([filecoin-project/go-fil-markets#381](https://github.com/filecoin-project/go-fil-markets/pull/381))
-  - Plumb deal.PublishCid in HandoffDeal (#383) ([filecoin-project/go-fil-markets#383](https://github.com/filecoin-project/go-fil-markets/pull/383))
-  - docs(CHANGELOG): update for v0.5.7 ([filecoin-project/go-fil-markets#376](https://github.com/filecoin-project/go-fil-markets/pull/376))
-- github.com/filecoin-project/go-data-transfer (v0.6.2 -> v0.6.3):
-  - docs(CHANGELOG): update for 0.6.3
-  - fix(deps): update graphsync, small cleanup
-  - Stop data transfer correctly and some minor cleanp (#69) ([filecoin-project/go-data-transfer#69](https://github.com/filecoin-project/go-data-transfer/pull/69))
-  - docs(CHANGELOG): update for 0.6.2 release ([filecoin-project/go-data-transfer#68](https://github.com/filecoin-project/go-data-transfer/pull/68))
-- github.com/ipfs/go-graphsync (v0.1.1 -> v0.1.2):
-  - fix(asyncloader): remove send on close channel
-  - docs(CHANGELOG): update for 0.1.2 release
-  - Benchmark framework + First memory fixes (#89) ([ipfs/go-graphsync#89](https://github.com/ipfs/go-graphsync/pull/89))
-  - docs(CHANGELOG): update for v0.1.1 ([ipfs/go-graphsync#85](https://github.com/ipfs/go-graphsync/pull/85))
-
-### Contributors
-
-| Contributor | Commits | Lines ± | Files Changed |
-|-------------|---------|---------|---------------|
-| Hannah Howard | 1 | +1055/-39 | 17 |
-| Aarsh Shah | 2 | +125/-120 | 13 |
-| hannahhoward | 5 | +120/-44 | 16 |
-| Łukasz Magiera | 1 | +1/-0 | 1 |
-
-# go-fil-markets 0.5.9
-
-Minor stability release to handle connection drops more gracefully and fix a retrieval bug
-
-### Changelog
-
- - github.com/filecoin-project/go-fil-markets:
-  - Retry with exponential backoff for stream opening (#382) ([filecoin-project/go-fil-markets#382](https://github.com/filecoin-project/go-fil-markets/pull/382))
-  - fix(retrievalmarket): last block on interval works (#388) ([filecoin-project/go-fil-markets#388](https://github.com/filecoin-project/go-fil-markets/pull/388))
-  - Release/v0.5.8 ([filecoin-project/go-fil-markets#386](https://github.com/filecoin-project/go-fil-markets/pull/386))
-  - docs: Add disclaimer to guide people to report issues in Lotus (#384) ([filecoin-project/go-fil-markets#384](https://github.com/filecoin-project/go-fil-markets/pull/384))
-
-### Contributors
-
-| Contributor | Commits | Lines ± | Files Changed |
-|-------------|---------|---------|---------------|
-| Hannah Howard | 1 | +161/-25 | 17 |
-| Aarsh Shah | 1 | +132/-24 | 9 |
-| David Dias | 1 | +5/-0 | 1 |
-
-# go-fil-markets 0.6.0
-
-Major release that updates to specs-actors v0.9.7, which also introduces the new `go-state-types` dependency. This release also introduces non-blocking retrieval.
-
-### Changelog
-
-  - Update to specs-actors v0.9.7 (#396) ([filecoin-project/go-fil-markets#396](https://github.com/filecoin-project/go-fil-markets/pull/396))
-  - Use shared types for exitcode and crypto (#395) ([filecoin-project/go-fil-markets#395](https://github.com/filecoin-project/go-fil-markets/pull/395))
-  - Consume go-state-types (#394) ([filecoin-project/go-fil-markets#394](https://github.com/filecoin-project/go-fil-markets/pull/394))
-  - Convert label JSON to CBOR (#393) ([filecoin-project/go-fil-markets#393](https://github.com/filecoin-project/go-fil-markets/pull/393))
-  - Non blocking retrieval (#392) ([filecoin-project/go-fil-markets#392](https://github.com/filecoin-project/go-fil-markets/pull/392))
-  - fix(storagemarket): fix test hang (#391) ([filecoin-project/go-fil-markets#391](https://github.com/filecoin-project/go-fil-markets/pull/391))
-  - docs(CHANGELOG): update for 0.5.9 release ([filecoin-project/go-fil-markets#390](https://github.com/filecoin-project/go-fil-markets/pull/390))
-
-Contributors
-
-| Contributor | Commits | Lines ± | Files Changed |
-|-------------|---------|---------|---------------|
-| Hannah Howard | 3 | +678/-289 | 25 |
-| ZenGround0 | 2 | +226/-187 | 78 |
-| Aayush Rajasekaran | 1 | +3/-3 | 2 |
-
-# go-fil-markets 0.6.1
-
-Minor fixes around network timeouts, restarts, chain issues
-
-### Changelog
-
-- github.com/filecoin-project/go-fil-markets:
-  - feat(deps): update data transfer 0.6.4
-  - feat(network): add config options (#403) ([filecoin-project/go-fil-markets#403](https://github.com/filecoin-project/go-fil-markets/pull/403))
-  - Test Restart for ClientEventDealPublished AND ClientEventDealActivated (#399) ([filecoin-project/go-fil-markets#399](https://github.com/filecoin-project/go-fil-markets/pull/399))
-  - increase timeout (#402) ([filecoin-project/go-fil-markets#402](https://github.com/filecoin-project/go-fil-markets/pull/402))
-  - - Change signature of callback for WaitForMessage() to take a "final Cid" parameter (#400) ([filecoin-project/go-fil-markets#400](https://github.com/filecoin-project/go-fil-markets/pull/400))
-  - feat(clientutils): encode cid directly (#398) ([filecoin-project/go-fil-markets#398](https://github.com/filecoin-project/go-fil-markets/pull/398))
-  - docs(CHANGELOG): update for 0.6.0 release ([filecoin-project/go-fil-markets#397](https://github.com/filecoin-project/go-fil-markets/pull/397))
-- github.com/filecoin-project/go-data-transfer (v0.6.3 -> v0.6.4):
-  - docs(CHANGELOG): update for 0.6.4
-  - Ensure valid messages are returned from FromNet() (#74) ([filecoin-project/go-data-transfer#74](https://github.com/filecoin-project/go-data-transfer/pull/74))
-  - Release/v0.6.3 ([filecoin-project/go-data-transfer#70](https://github.com/filecoin-project/go-data-transfer/pull/70))
-
-### Contributors
-
-| Contributor | Commits | Lines ± | Files Changed |
-|-------------|---------|---------|---------------|
-| Hannah Howard | 2 | +94/-68 | 11 |
-| Aarsh Shah | 2 | +108/-39 | 5 |
-| Ingar Shu | 2 | +45/-14 | 10 |
-| hannahhoward | 2 | +19/-3 | 3 |
 
 ### 🙌🏽 Want to contribute?
 
