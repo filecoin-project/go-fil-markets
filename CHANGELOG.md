@@ -756,6 +756,34 @@ Contributors
 | ZenGround0 | 2 | +226/-187 | 78 |
 | Aayush Rajasekaran | 1 | +3/-3 | 2 |
 
+# go-fil-markets 0.6.1
+
+Minor fixes around network timeouts, restarts, chain issues
+
+### Changelog
+
+- github.com/filecoin-project/go-fil-markets:
+  - feat(deps): update data transfer 0.6.4
+  - feat(network): add config options (#403) ([filecoin-project/go-fil-markets#403](https://github.com/filecoin-project/go-fil-markets/pull/403))
+  - Test Restart for ClientEventDealPublished AND ClientEventDealActivated (#399) ([filecoin-project/go-fil-markets#399](https://github.com/filecoin-project/go-fil-markets/pull/399))
+  - increase timeout (#402) ([filecoin-project/go-fil-markets#402](https://github.com/filecoin-project/go-fil-markets/pull/402))
+  - - Change signature of callback for WaitForMessage() to take a "final Cid" parameter (#400) ([filecoin-project/go-fil-markets#400](https://github.com/filecoin-project/go-fil-markets/pull/400))
+  - feat(clientutils): encode cid directly (#398) ([filecoin-project/go-fil-markets#398](https://github.com/filecoin-project/go-fil-markets/pull/398))
+  - docs(CHANGELOG): update for 0.6.0 release ([filecoin-project/go-fil-markets#397](https://github.com/filecoin-project/go-fil-markets/pull/397))
+- github.com/filecoin-project/go-data-transfer (v0.6.3 -> v0.6.4):
+  - docs(CHANGELOG): update for 0.6.4
+  - Ensure valid messages are returned from FromNet() (#74) ([filecoin-project/go-data-transfer#74](https://github.com/filecoin-project/go-data-transfer/pull/74))
+  - Release/v0.6.3 ([filecoin-project/go-data-transfer#70](https://github.com/filecoin-project/go-data-transfer/pull/70))
+
+### Contributors
+
+| Contributor | Commits | Lines ± | Files Changed |
+|-------------|---------|---------|---------------|
+| Hannah Howard | 2 | +94/-68 | 11 |
+| Aarsh Shah | 2 | +108/-39 | 5 |
+| Ingar Shu | 2 | +45/-14 | 10 |
+| hannahhoward | 2 | +19/-3 | 3 |
+
 ### 🙌🏽 Want to contribute?
 
 Would you like to contribute to this repo and don’t know how? Here are a few places you can get started:
