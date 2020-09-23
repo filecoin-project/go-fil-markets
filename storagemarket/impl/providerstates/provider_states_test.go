@@ -117,7 +117,19 @@ func TestValidateDealProposal(t *testing.T) {
 		},
 		"Not enough funds": {
 			nodeParams: nodeParams{
-				ClientMarketBalance: abi.NewTokenAmount(150 * 10000),
+				ClientMarketBalance: big.NewInt(200*10000 - 1),
+			},
+			dealInspector: func(t *testing.T, deal storagemarket.MinerDeal, env *fakeEnvironment) {
+				tut.AssertDealState(t, storagemarket.StorageDealRejecting, deal.State)
+				require.Equal(t, "deal rejected: clientMarketBalance.Available too small", deal.Message)
+			},
+		},
+		"Not enough funds due to client collateral": {
+			nodeParams: nodeParams{
+				ClientMarketBalance: big.NewInt(200*10000 + 99),
+			},
+			dealParams: dealParams{
+				ClientCollateral: big.NewInt(100),
 			},
 			dealInspector: func(t *testing.T, deal storagemarket.MinerDeal, env *fakeEnvironment) {
 				tut.AssertDealState(t, storagemarket.StorageDealRejecting, deal.State)
@@ -968,6 +980,7 @@ type dealParams struct {
 	DataRef              *storagemarket.DataRef
 	StoragePricePerEpoch abi.TokenAmount
 	ProviderCollateral   abi.TokenAmount
+	ClientCollateral     abi.TokenAmount
 	PieceSize            abi.PaddedPieceSize
 	StartEpoch           abi.ChainEpoch
 	EndEpoch             abi.ChainEpoch
@@ -1080,6 +1093,9 @@ func makeExecutor(ctx context.Context,
 		}
 		if !dealParams.ProviderCollateral.Nil() {
 			proposal.ProviderCollateral = dealParams.ProviderCollateral
+		}
+		if !dealParams.ClientCollateral.Nil() {
+			proposal.ClientCollateral = dealParams.ClientCollateral
 		}
 		if dealParams.StartEpoch != abi.ChainEpoch(0) {
 			proposal.StartEpoch = dealParams.StartEpoch
