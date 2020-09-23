@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 
+	datatransfer "github.com/filecoin-project/go-data-transfer"
 	filestore "github.com/filecoin-project/go-fil-markets/filestore"
 	multistore "github.com/filecoin-project/go-multistore"
 	abi "github.com/filecoin-project/go-state-types/abi"
@@ -452,7 +453,7 @@ func (t *ClientDeal) UnmarshalCBOR(r io.Reader) error {
 	return nil
 }
 
-var lengthBufMinerDeal = []byte{146}
+var lengthBufMinerDeal = []byte{147}
 
 func (t *MinerDeal) MarshalCBOR(w io.Writer) error {
 	if t == nil {
@@ -619,6 +620,11 @@ func (t *MinerDeal) MarshalCBOR(w io.Writer) error {
 	if err := t.CreationTime.MarshalCBOR(w); err != nil {
 		return err
 	}
+
+	// t.TransferChannelId (datatransfer.ChannelID) (struct)
+	if err := t.TransferChannelId.MarshalCBOR(w); err != nil {
+		return err
+	}
 	return nil
 }
 
@@ -636,7 +642,7 @@ func (t *MinerDeal) UnmarshalCBOR(r io.Reader) error {
 		return fmt.Errorf("cbor input should be of type array")
 	}
 
-	if extra != 18 {
+	if extra != 19 {
 		return fmt.Errorf("cbor input had wrong number of fields")
 	}
 
@@ -900,6 +906,25 @@ func (t *MinerDeal) UnmarshalCBOR(r io.Reader) error {
 
 		if err := t.CreationTime.UnmarshalCBOR(br); err != nil {
 			return xerrors.Errorf("unmarshaling t.CreationTime: %w", err)
+		}
+
+	}
+	// t.TransferChannelId (datatransfer.ChannelID) (struct)
+
+	{
+
+		b, err := br.ReadByte()
+		if err != nil {
+			return err
+		}
+		if b != cbg.CborNull[0] {
+			if err := br.UnreadByte(); err != nil {
+				return err
+			}
+			t.TransferChannelId = new(datatransfer.ChannelID)
+			if err := t.TransferChannelId.UnmarshalCBOR(br); err != nil {
+				return xerrors.Errorf("unmarshaling t.TransferChannelId pointer: %w", err)
+			}
 		}
 
 	}

@@ -52,7 +52,8 @@ func ProviderDataTransferSubscriber(deals EventReceiver) datatransfer.Subscriber
 				log.Errorf("processing dt event: %w", err)
 			}
 		case datatransfer.Open:
-			err := deals.Send(voucher.Proposal, storagemarket.ProviderEventDataTransferInitiated)
+			chId := channelState.ChannelID()
+			err := deals.Send(voucher.Proposal, storagemarket.ProviderEventDataTransferInitiated, chId)
 			if err != nil {
 				log.Errorf("processing dt event: %w", err)
 			}

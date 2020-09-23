@@ -21,6 +21,10 @@ import (
 )
 
 func TestProviderDataTransferSubscriber(t *testing.T) {
+	ps := shared_testutil.GeneratePeers(2)
+	init := ps[0]
+	resp := ps[1]
+	tid := datatransfer.TransferID(1)
 	expectedProposalCID := shared_testutil.GenerateCids(1)[0]
 	tests := map[string]struct {
 		code          datatransfer.EventCode
@@ -45,6 +49,7 @@ func TestProviderDataTransferSubscriber(t *testing.T) {
 			},
 			expectedID:    expectedProposalCID,
 			expectedEvent: storagemarket.ProviderEventDataTransferInitiated,
+			expectedArgs:  []interface{}{datatransfer.ChannelID{Initiator: init, Responder: resp, ID: tid}},
 		},
 		"restart event": {
 			code:   datatransfer.Restart,
@@ -101,7 +106,8 @@ func TestProviderDataTransferSubscriber(t *testing.T) {
 			fdg := &fakeDealGroup{}
 			subscriber := dtutils.ProviderDataTransferSubscriber(fdg)
 			subscriber(datatransfer.Event{Code: data.code, Message: data.message}, shared_testutil.NewTestChannel(
-				shared_testutil.TestChannelParams{Vouchers: []datatransfer.Voucher{data.voucher}, Status: data.status},
+				shared_testutil.TestChannelParams{Vouchers: []datatransfer.Voucher{data.voucher}, Status: data.status,
+					Sender: init, Recipient: resp, TransferID: tid, IsPull: false},
 			))
 			if data.called {
 				require.True(t, fdg.called)
