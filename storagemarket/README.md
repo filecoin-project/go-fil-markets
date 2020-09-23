@@ -144,16 +144,6 @@ func PublishDeals(ctx context.Context, deal MinerDeal) (cid.Cid, error)
 ```
 Post the deal to chain, returning the posted message CID.
 
-#### ListProviderDeals
-```go
-func ListProviderDeals(ctx context.Context, addr address.Address, tok shared.TipSetToken,
-                  ) ([]StorageDeal, error)
-```
-
-List all storage deals for storage provider `addr`, as of `tok`. Return a slice of `StorageDeal`.
-`StorageDeal` is a local combination of a storage deal proposal and a current deal 
-state. See [storagemarket/types.go](./types.go)
-
 #### OnDealComplete
 ```go
 func OnDealComplete(ctx context.Context, deal MinerDeal, pieceSize abi.UnpaddedPieceSize, 
@@ -213,13 +203,6 @@ Register callbacks to be called when a deal expires or is slashed.
 func GetChainHead(ctx context.Context) (shared.TipSetToken, abi.ChainEpoch, error)
 ```
 Get the current chain head. Return its TipSetToken and its abi.ChainEpoch.
-
-#### ListClientDeals
-```go
-func ListClientDeals(ctx context.Context, addr address.Address, tok shared.TipSetToken,
-                 ) ([]StorageDeal, error)
-```
-List all deals associated with storage client `addr`, as of `tok`. Return a slice of `StorageDeal`.
 
 #### ListStorageProviders
 ```go

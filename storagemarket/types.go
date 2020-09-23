@@ -15,7 +15,7 @@ import (
 	"github.com/filecoin-project/go-fil-markets/filestore"
 )
 
-//go:generate cbor-gen-for ClientDeal MinerDeal Balance SignedStorageAsk StorageAsk StorageDeal DataRef ProviderDealState
+//go:generate cbor-gen-for ClientDeal MinerDeal Balance SignedStorageAsk StorageAsk DataRef ProviderDealState
 
 // DealProtocolID is the ID for the libp2p protocol for proposing storage deals.
 const DealProtocolID = "/fil/storage/mk/1.0.1"
@@ -120,12 +120,6 @@ type ClientDeal struct {
 	StoreID        *multistore.StoreID
 	FundsReserved  abi.TokenAmount
 	CreationTime   cbg.CborTime
-}
-
-// StorageDeal is a local combination of a proposal and a current deal state
-type StorageDeal struct {
-	market.DealProposal
-	market.DealState
 }
 
 // StorageProviderInfo describes on chain information about a StorageProvider

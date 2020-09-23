@@ -27,9 +27,6 @@ type StorageClient interface {
 	// ListProviders queries chain state and returns active storage providers
 	ListProviders(ctx context.Context) (<-chan StorageProviderInfo, error)
 
-	// ListDeals lists on-chain deals associated with this storage client
-	ListDeals(ctx context.Context, addr address.Address) ([]StorageDeal, error)
-
 	// ListLocalDeals lists deals initiated by this storage client
 	ListLocalDeals(ctx context.Context) ([]ClientDeal, error)
 
