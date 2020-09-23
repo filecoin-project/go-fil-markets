@@ -11,6 +11,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/filecoin-project/specs-actors/actors/builtin"
 	"github.com/ipfs/go-cid"
 	"github.com/ipfs/go-datastore"
 	ipld "github.com/ipld/go-ipld-prime"
@@ -555,12 +556,14 @@ func newHarnessWithTestData(t *testing.T, ctx context.Context, td *shared_testut
 }
 
 func (h *harness) ProposeStorageDeal(t *testing.T, dataRef *storagemarket.DataRef, fastRetrieval, verifiedDeal bool) *storagemarket.ProposeStorageDealResult {
+	var dealDuration = abi.ChainEpoch(180 * builtin.EpochsInDay)
+
 	result, err := h.Client.ProposeStorageDeal(h.Ctx, storagemarket.ProposeStorageDealParams{
 		Addr:          h.ClientAddr,
 		Info:          &h.ProviderInfo,
 		Data:          dataRef,
 		StartEpoch:    h.Epoch + 100,
-		EndEpoch:      h.Epoch + 20100,
+		EndEpoch:      h.Epoch + 100 + dealDuration,
 		Price:         big.NewInt(1),
 		Collateral:    big.NewInt(0),
 		Rt:            abi.RegisteredSealProof_StackedDrg2KiBV1,

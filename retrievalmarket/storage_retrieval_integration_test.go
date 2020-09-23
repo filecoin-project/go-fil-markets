@@ -24,6 +24,7 @@ import (
 	"github.com/filecoin-project/go-multistore"
 	"github.com/filecoin-project/go-state-types/abi"
 	"github.com/filecoin-project/go-state-types/big"
+	"github.com/filecoin-project/specs-actors/actors/builtin"
 	"github.com/filecoin-project/specs-actors/actors/builtin/market"
 	"github.com/filecoin-project/specs-actors/actors/builtin/paych"
 
@@ -339,12 +340,14 @@ func newStorageHarness(ctx context.Context, t *testing.T) *storageHarness {
 }
 
 func (sh *storageHarness) ProposeStorageDeal(t *testing.T, dataRef *storagemarket.DataRef) *storagemarket.ProposeStorageDealResult {
+	var dealDuration = abi.ChainEpoch(180 * builtin.EpochsInDay)
+
 	result, err := sh.Client.ProposeStorageDeal(sh.Ctx, storagemarket.ProposeStorageDealParams{
 		Addr:          sh.ProviderAddr,
 		Info:          &sh.ProviderInfo,
 		Data:          dataRef,
 		StartEpoch:    sh.Epoch + 100,
-		EndEpoch:      sh.Epoch + 20100,
+		EndEpoch:      sh.Epoch + 100 + dealDuration,
 		Price:         big.NewInt(1),
 		Collateral:    big.NewInt(0),
 		Rt:            abi.RegisteredSealProof_StackedDrg2KiBV1,
