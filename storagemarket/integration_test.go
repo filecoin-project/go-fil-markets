@@ -298,6 +298,7 @@ func TestRestartClient(t *testing.T) {
 
 		"ClientEventDataTransferInitiated": {
 			// This test can fail if client crashes without seeing a Provider DT complete
+			// See https://github.com/filecoin-project/lotus/issues/3966
 			stopAtEvent:         storagemarket.ClientEventDataTransferInitiated,
 			expectedClientState: storagemarket.StorageDealTransferring,
 			clientDelay:         noOpDelay,
@@ -305,19 +306,14 @@ func TestRestartClient(t *testing.T) {
 		},
 
 		"ClientEventDataTransferComplete": {
-			// fails if client is in StorageDealCheckForAcceptance but
-			// provider is in StorageDealTransferring after restarts
-			// This happens if they stop before the provider gets a channel completed notification (mostly because cleanup
-			// complete is NOT finished on the provider)
-			// We should have a time out in the client check for acceptance code
 			stopAtEvent:         storagemarket.ClientEventDataTransferComplete,
 			expectedClientState: storagemarket.StorageDealCheckForAcceptance,
 		},
 
 		"ClientEventFundsEnsured": {
-			//
 			//Edge case : Provider begins the state machine on recieving a deal stream request
 			//client crashes -> restarts -> sends deal stream again -> state machine fails
+			// See https://github.com/filecoin-project/lotus/issues/3966
 			stopAtEvent:         storagemarket.ClientEventFundsEnsured,
 			expectedClientState: storagemarket.StorageDealFundsEnsured,
 			clientDelay:         noOpDelay,
