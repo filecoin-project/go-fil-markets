@@ -100,12 +100,12 @@ func ValidateDealProposal(ctx fsm.Context, environment ProviderDealEnvironment, 
 	}
 
 	if curEpoch > proposal.StartEpoch {
-		return ctx.Trigger(storagemarket.ProviderEventDealRejected, xerrors.Errorf("Deal start epoch has already elapsed."))
+		return ctx.Trigger(storagemarket.ProviderEventDealRejected, xerrors.Errorf("deal start epoch has already elapsed"))
 	}
 
 	minDuration, maxDuration := DealDurationBounds(proposal.PieceSize)
 	if proposal.Duration() < minDuration || proposal.Duration() > maxDuration {
-		return ctx.Trigger(storagemarket.ProviderEventDealRejected, xerrors.Errorf("Deal duration out of bounds."))
+		return ctx.Trigger(storagemarket.ProviderEventDealRejected, xerrors.Errorf("deal duration out of bounds"))
 	}
 
 	pcMin, pcMax, err := environment.Node().DealProviderCollateralBounds(ctx.Context(), proposal.PieceSize, proposal.VerifiedDeal)
