@@ -100,6 +100,8 @@ type MinerDeal struct {
 
 	DealID       abi.DealID
 	CreationTime cbg.CborTime
+
+	TransferChannelId *datatransfer.ChannelID
 }
 
 // ClientDeal is the local state tracked for a deal by a StorageClient

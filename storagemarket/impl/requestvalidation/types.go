@@ -40,7 +40,7 @@ var (
 	// DataTransferStates are the states in which it would make sense to actually start a data transfer
 	// We accept deals even in the StorageDealTransferring state too as we could also also receive a data transfer restart request
 	DataTransferStates = []storagemarket.StorageDealStatus{storagemarket.StorageDealValidating, storagemarket.StorageDealWaitingForData, storagemarket.StorageDealUnknown,
-		storagemarket.StorageDealTransferring}
+		storagemarket.StorageDealTransferring, storagemarket.StorageDealProviderTransferRestart}
 )
 
 // StorageDataTransferVoucher is the voucher type for data transfers

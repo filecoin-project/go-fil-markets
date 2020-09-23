@@ -96,7 +96,8 @@ var ClientEvents = fsm.Events{
 		}),
 
 	fsm.Event(storagemarket.ClientEventDataTransferRestarted).
-		From(storagemarket.StorageDealClientTransferRestart).To(storagemarket.StorageDealTransferring),
+		FromMany(storagemarket.StorageDealClientTransferRestart, storagemarket.StorageDealStartDataTransfer).To(storagemarket.StorageDealTransferring).
+		From(storagemarket.StorageDealTransferring).ToJustRecord(),
 
 	fsm.Event(storagemarket.ClientEventDataTransferComplete).
 		FromMany(storagemarket.StorageDealTransferring, storagemarket.StorageDealStartDataTransfer).To(storagemarket.StorageDealCheckForAcceptance),
