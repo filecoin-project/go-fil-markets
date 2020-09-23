@@ -17,6 +17,7 @@ import (
 	"github.com/filecoin-project/go-state-types/big"
 	"github.com/filecoin-project/go-state-types/exitcode"
 	"github.com/filecoin-project/go-statemachine/fsm"
+	"github.com/filecoin-project/specs-actors/actors/builtin"
 	"github.com/filecoin-project/specs-actors/actors/builtin/market"
 
 	"github.com/filecoin-project/go-fil-markets/filestore"
@@ -29,6 +30,15 @@ import (
 )
 
 var log = logging.Logger("providerstates")
+
+// TODO: These are copied from spec-actors master, use spec-actors exports when we update
+const DealMaxLabelSize = 256
+
+var DealMinDuration = abi.ChainEpoch(180 * builtin.EpochsInDay) // PARAM_SPEC
+var DealMaxDuration = abi.ChainEpoch(540 * builtin.EpochsInDay) // PARAM_SPEC
+func DealDurationBounds(_ abi.PaddedPieceSize) (min abi.ChainEpoch, max abi.ChainEpoch) {
+	return DealMinDuration, DealMaxDuration // PARAM_FINISH
+}
 
 // ProviderDealEnvironment are the dependencies needed for processing deals
 // with a ProviderStateEntryFunc
@@ -54,7 +64,7 @@ type ProviderStateEntryFunc func(ctx fsm.Context, environment ProviderDealEnviro
 func ValidateDealProposal(ctx fsm.Context, environment ProviderDealEnvironment, deal storagemarket.MinerDeal) error {
 	environment.TagPeer(deal.Client, deal.ProposalCid.String())
 
-	tok, _, err := environment.Node().GetChainHead(ctx.Context())
+	tok, curEpoch, err := environment.Node().GetChainHead(ctx.Context())
 	if err != nil {
 		return ctx.Trigger(storagemarket.ProviderEventDealRejected, xerrors.Errorf("node error getting most recent state id: %w", err))
 	}
@@ -67,6 +77,35 @@ func ValidateDealProposal(ctx fsm.Context, environment ProviderDealEnvironment, 
 
 	if proposal.Provider != environment.Address() {
 		return ctx.Trigger(storagemarket.ProviderEventDealRejected, xerrors.Errorf("incorrect provider for deal"))
+	}
+
+	if len(proposal.Label) > DealMaxLabelSize {
+		return ctx.Trigger(storagemarket.ProviderEventDealRejected, xerrors.Errorf("deal label can be at most %d bytes, is %d", DealMaxLabelSize, len(proposal.Label)))
+	}
+
+	if err := proposal.PieceSize.Validate(); err != nil {
+		return ctx.Trigger(storagemarket.ProviderEventDealRejected, xerrors.Errorf("proposal piece size is invalid: %w", err))
+	}
+
+	if !proposal.PieceCID.Defined() {
+		return ctx.Trigger(storagemarket.ProviderEventDealRejected, xerrors.Errorf("proposal PieceCID undefined"))
+	}
+
+	if proposal.PieceCID.Prefix() != market.PieceCIDPrefix {
+		return ctx.Trigger(storagemarket.ProviderEventDealRejected, xerrors.Errorf("proposal PieceCID had wrong prefix"))
+	}
+
+	if proposal.EndEpoch <= proposal.StartEpoch {
+		return ctx.Trigger(storagemarket.ProviderEventDealRejected, xerrors.Errorf("proposal end before proposal start"))
+	}
+
+	if curEpoch > proposal.StartEpoch {
+		return ctx.Trigger(storagemarket.ProviderEventDealRejected, xerrors.Errorf("deal start epoch has already elapsed"))
+	}
+
+	minDuration, maxDuration := DealDurationBounds(proposal.PieceSize)
+	if proposal.Duration() < minDuration || proposal.Duration() > maxDuration {
+		return ctx.Trigger(storagemarket.ProviderEventDealRejected, xerrors.Errorf("deal duration out of bounds"))
 	}
 
 	pcMin, pcMax, err := environment.Node().DealProviderCollateralBounds(ctx.Context(), proposal.PieceSize, proposal.VerifiedDeal)
