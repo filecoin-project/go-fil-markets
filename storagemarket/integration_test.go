@@ -3,7 +3,6 @@ package storagemarket_test
 import (
 	"bytes"
 	"context"
-	"encoding/json"
 	"io/ioutil"
 	"math/rand"
 	"path/filepath"
@@ -13,7 +12,7 @@ import (
 
 	"github.com/ipfs/go-cid"
 	"github.com/ipfs/go-datastore"
-	ipld "github.com/ipld/go-ipld-prime"
+	"github.com/ipld/go-ipld-prime"
 	cidlink "github.com/ipld/go-ipld-prime/linking/cid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -28,11 +27,8 @@ import (
 	"github.com/filecoin-project/specs-actors/actors/builtin/market"
 
 	"github.com/filecoin-project/go-fil-markets/filestore"
-	"github.com/filecoin-project/go-fil-markets/pieceio"
-	"github.com/filecoin-project/go-fil-markets/pieceio/cario"
 	"github.com/filecoin-project/go-fil-markets/piecestore"
 	"github.com/filecoin-project/go-fil-markets/retrievalmarket/discovery"
-	"github.com/filecoin-project/go-fil-markets/shared"
 	"github.com/filecoin-project/go-fil-markets/shared_testutil"
 	"github.com/filecoin-project/go-fil-markets/storagemarket"
 	storageimpl "github.com/filecoin-project/go-fil-markets/storagemarket/impl"
@@ -41,245 +37,6 @@ import (
 	"github.com/filecoin-project/go-fil-markets/storagemarket/network"
 	"github.com/filecoin-project/go-fil-markets/storagemarket/testnodes"
 )
-
-func TestMakeDeal(t *testing.T) {
-	ctx := context.Background()
-	testCases := map[string]bool{
-		"with stores":          true,
-		"with just blockstore": false,
-	}
-	for testCase, useStore := range testCases {
-		t.Run(testCase, func(t *testing.T) {
-			ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
-			defer cancel()
-			h := newHarness(t, ctx, useStore, testnodes.DelayFakeCommonNode{})
-			require.NoError(t, h.Provider.Start(ctx))
-			require.NoError(t, h.Client.Start(ctx))
-
-			// set up a subscriber
-			providerDealChan := make(chan storagemarket.MinerDeal)
-			var checkedUnmarshalling bool
-			subscriber := func(event storagemarket.ProviderEvent, deal storagemarket.MinerDeal) {
-				if !checkedUnmarshalling {
-					// test that deal created can marshall and unmarshalled
-					jsonBytes, err := json.Marshal(deal)
-					require.NoError(t, err)
-					var unmDeal storagemarket.MinerDeal
-					err = json.Unmarshal(jsonBytes, &unmDeal)
-					require.NoError(t, err)
-					checkedUnmarshalling = true
-				}
-				providerDealChan <- deal
-			}
-			_ = h.Provider.SubscribeToEvents(subscriber)
-
-			clientDealChan := make(chan storagemarket.ClientDeal)
-			clientSubscriber := func(event storagemarket.ClientEvent, deal storagemarket.ClientDeal) {
-				clientDealChan <- deal
-			}
-			_ = h.Client.SubscribeToEvents(clientSubscriber)
-
-			// set ask price where we'll accept any price
-			err := h.Provider.SetAsk(big.NewInt(0), big.NewInt(0), 50_000)
-			assert.NoError(t, err)
-
-			result := h.ProposeStorageDeal(t, &storagemarket.DataRef{TransferType: storagemarket.TTGraphsync, Root: h.PayloadCid}, true, false)
-			proposalCid := result.ProposalCid
-
-			dealStatesToStrings := func(states []storagemarket.StorageDealStatus) []string {
-				var out []string
-				for _, state := range states {
-					out = append(out, storagemarket.DealStates[state])
-				}
-				return out
-			}
-
-			var providerSeenDeal storagemarket.MinerDeal
-			var clientSeenDeal storagemarket.ClientDeal
-			var providerstates, clientstates []storagemarket.StorageDealStatus
-			for providerSeenDeal.State != storagemarket.StorageDealExpired ||
-				clientSeenDeal.State != storagemarket.StorageDealExpired {
-				select {
-				case <-ctx.Done():
-					t.Fatalf(`did not see all states before context closed
-			saw client: %v,
-			saw provider: %v`, dealStatesToStrings(clientstates), dealStatesToStrings(providerstates))
-				case clientSeenDeal = <-clientDealChan:
-					if len(clientstates) == 0 || clientSeenDeal.State != clientstates[len(clientstates)-1] {
-						clientstates = append(clientstates, clientSeenDeal.State)
-					}
-				case providerSeenDeal = <-providerDealChan:
-					if len(providerstates) == 0 || providerSeenDeal.State != providerstates[len(providerstates)-1] {
-						providerstates = append(providerstates, providerSeenDeal.State)
-					}
-				}
-			}
-
-			expProviderStates := []storagemarket.StorageDealStatus{
-				storagemarket.StorageDealValidating,
-				storagemarket.StorageDealAcceptWait,
-				storagemarket.StorageDealWaitingForData,
-				storagemarket.StorageDealTransferring,
-				storagemarket.StorageDealVerifyData,
-				storagemarket.StorageDealEnsureProviderFunds,
-				storagemarket.StorageDealPublish,
-				storagemarket.StorageDealPublishing,
-				storagemarket.StorageDealStaged,
-				storagemarket.StorageDealSealing,
-				storagemarket.StorageDealFinalizing,
-				storagemarket.StorageDealActive,
-				storagemarket.StorageDealExpired,
-			}
-
-			expClientStates := []storagemarket.StorageDealStatus{
-				storagemarket.StorageDealEnsureClientFunds,
-				//storagemarket.StorageDealClientFunding,  // skipped because funds available
-				storagemarket.StorageDealFundsEnsured,
-				storagemarket.StorageDealStartDataTransfer,
-				storagemarket.StorageDealTransferring,
-				storagemarket.StorageDealCheckForAcceptance,
-				storagemarket.StorageDealProposalAccepted,
-				storagemarket.StorageDealSealing,
-				storagemarket.StorageDealActive,
-				storagemarket.StorageDealExpired,
-			}
-
-			assert.Equal(t, dealStatesToStrings(expProviderStates), dealStatesToStrings(providerstates))
-			assert.Equal(t, dealStatesToStrings(expClientStates), dealStatesToStrings(clientstates))
-
-			// check a couple of things to make sure we're getting the whole deal
-			assert.Equal(t, h.TestData.Host1.ID(), providerSeenDeal.Client)
-			assert.Empty(t, providerSeenDeal.Message)
-			assert.Equal(t, proposalCid, providerSeenDeal.ProposalCid)
-			assert.Equal(t, h.ProviderAddr, providerSeenDeal.ClientDealProposal.Proposal.Provider)
-
-			cd, err := h.Client.GetLocalDeal(ctx, proposalCid)
-			assert.NoError(t, err)
-			shared_testutil.AssertDealState(t, storagemarket.StorageDealExpired, cd.State)
-			assert.True(t, cd.FastRetrieval)
-
-			providerDeals, err := h.Provider.ListLocalDeals()
-			assert.NoError(t, err)
-
-			pd := providerDeals[0]
-			assert.Equal(t, proposalCid, pd.ProposalCid)
-			assert.True(t, pd.FastRetrieval)
-			shared_testutil.AssertDealState(t, storagemarket.StorageDealExpired, pd.State)
-
-			// test out query protocol
-			status, err := h.Client.GetProviderDealState(ctx, proposalCid)
-			assert.NoError(t, err)
-			shared_testutil.AssertDealState(t, storagemarket.StorageDealExpired, status.State)
-			assert.True(t, status.FastRetrieval)
-
-			// ensure that the handoff has fast retrieval info
-			assert.Len(t, h.ProviderNode.OnDealCompleteCalls, 1)
-			assert.True(t, h.ProviderNode.OnDealCompleteCalls[0].FastRetrieval)
-			h.ClientNode.VerifyExpectations(t)
-		})
-	}
-}
-
-func TestMakeDealOffline(t *testing.T) {
-	ctx := context.Background()
-	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
-	defer cancel()
-	h := newHarness(t, ctx, true, testnodes.DelayFakeCommonNode{})
-	require.NoError(t, h.Client.Start(ctx))
-	require.NoError(t, h.Provider.Start(ctx))
-
-	carBuf := new(bytes.Buffer)
-
-	store, err := h.TestData.MultiStore1.Get(*h.StoreID)
-	require.NoError(t, err)
-
-	err = cario.NewCarIO().WriteCar(ctx, store.Bstore, h.PayloadCid, shared.AllSelector(), carBuf)
-	require.NoError(t, err)
-
-	commP, size, err := pieceio.GeneratePieceCommitment(abi.RegisteredSealProof_StackedDrg2KiBV1, carBuf, uint64(carBuf.Len()))
-	assert.NoError(t, err)
-
-	dataRef := &storagemarket.DataRef{
-		TransferType: storagemarket.TTManual,
-		Root:         h.PayloadCid,
-		PieceCid:     &commP,
-		PieceSize:    size,
-	}
-
-	result := h.ProposeStorageDeal(t, dataRef, false, false)
-	proposalCid := result.ProposalCid
-
-	wg := sync.WaitGroup{}
-
-	h.WaitForClientEvent(&wg, storagemarket.ClientEventDataTransferComplete)
-	h.WaitForProviderEvent(&wg, storagemarket.ProviderEventDataRequested)
-	wg.Wait()
-
-	cd, err := h.Client.GetLocalDeal(ctx, proposalCid)
-	assert.NoError(t, err)
-	shared_testutil.AssertDealState(t, storagemarket.StorageDealCheckForAcceptance, cd.State)
-
-	providerDeals, err := h.Provider.ListLocalDeals()
-	assert.NoError(t, err)
-
-	pd := providerDeals[0]
-	assert.True(t, pd.ProposalCid.Equals(proposalCid))
-	shared_testutil.AssertDealState(t, storagemarket.StorageDealWaitingForData, pd.State)
-
-	err = cario.NewCarIO().WriteCar(ctx, store.Bstore, h.PayloadCid, shared.AllSelector(), carBuf)
-	require.NoError(t, err)
-	err = h.Provider.ImportDataForDeal(ctx, pd.ProposalCid, carBuf)
-	require.NoError(t, err)
-
-	h.WaitForClientEvent(&wg, storagemarket.ClientEventDealExpired)
-	h.WaitForProviderEvent(&wg, storagemarket.ProviderEventDealExpired)
-	wg.Wait()
-
-	cd, err = h.Client.GetLocalDeal(ctx, proposalCid)
-	assert.NoError(t, err)
-	shared_testutil.AssertDealState(t, storagemarket.StorageDealExpired, cd.State)
-
-	providerDeals, err = h.Provider.ListLocalDeals()
-	assert.NoError(t, err)
-
-	pd = providerDeals[0]
-	assert.True(t, pd.ProposalCid.Equals(proposalCid))
-	shared_testutil.AssertDealState(t, storagemarket.StorageDealExpired, pd.State)
-}
-
-func TestMakeDealNonBlocking(t *testing.T) {
-	ctx := context.Background()
-	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
-	defer cancel()
-	h := newHarness(t, ctx, true, testnodes.DelayFakeCommonNode{})
-	testCids := shared_testutil.GenerateCids(2)
-
-	h.ProviderNode.WaitForMessageBlocks = true
-	h.ProviderNode.AddFundsCid = testCids[1]
-	require.NoError(t, h.Provider.Start(ctx))
-
-	h.ClientNode.AddFundsCid = testCids[0]
-	require.NoError(t, h.Client.Start(ctx))
-
-	result := h.ProposeStorageDeal(t, &storagemarket.DataRef{TransferType: storagemarket.TTGraphsync, Root: h.PayloadCid}, false, false)
-
-	wg := sync.WaitGroup{}
-	h.WaitForClientEvent(&wg, storagemarket.ClientEventDataTransferComplete)
-	h.WaitForProviderEvent(&wg, storagemarket.ProviderEventFundingInitiated)
-	wg.Wait()
-
-	cd, err := h.Client.GetLocalDeal(ctx, result.ProposalCid)
-	assert.NoError(t, err)
-	shared_testutil.AssertDealState(t, storagemarket.StorageDealCheckForAcceptance, cd.State)
-
-	providerDeals, err := h.Provider.ListLocalDeals()
-	assert.NoError(t, err)
-
-	// Provider should be blocking on waiting for funds to appear on chain
-	pd := providerDeals[0]
-	assert.Equal(t, result.ProposalCid, pd.ProposalCid)
-	shared_testutil.AssertDealState(t, storagemarket.StorageDealProviderFunding, pd.State)
-}
 
 func TestRestartClient(t *testing.T) {
 	testCases := map[string]struct {
