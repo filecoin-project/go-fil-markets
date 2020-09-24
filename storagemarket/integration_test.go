@@ -40,33 +40,35 @@ import (
 
 func TestRestartClient(t *testing.T) {
 	testCases := map[string]struct {
-		stopAtEvent storagemarket.ClientEvent
-		fh          func(h *harness)
+		clientStopEvent   storagemarket.ClientEvent
+		providerStopEvent storagemarket.ProviderEvent
+		fh                func(h *harness)
 	}{
 		"ClientEventFundsEnsured": {
-			stopAtEvent: storagemarket.ClientEventFundsEnsured,
+			clientStopEvent: storagemarket.ClientEventFundsEnsured,
 		},
 		"ClientEventInitiateDataTransfer": {
-			stopAtEvent: storagemarket.ClientEventInitiateDataTransfer,
+			clientStopEvent: storagemarket.ClientEventInitiateDataTransfer,
 		},
 		"ClientEventDataTransferInitiated": {
-			stopAtEvent: storagemarket.ClientEventDataTransferInitiated,
+			clientStopEvent: storagemarket.ClientEventDataTransferInitiated,
 		},
 		"ClientEventDataTransferComplete": {
-			stopAtEvent: storagemarket.ClientEventDataTransferComplete,
+			clientStopEvent:   storagemarket.ClientEventDataTransferComplete,
+			providerStopEvent: storagemarket.ProviderEventDataTransferCompleted,
 		},
 		"ClientEventDealAccepted": {
-			stopAtEvent: storagemarket.ClientEventDealAccepted,
+			clientStopEvent: storagemarket.ClientEventDealAccepted,
 		},
 		"ClientEventDealActivated": {
-			stopAtEvent: storagemarket.ClientEventDealActivated,
+			clientStopEvent: storagemarket.ClientEventDealActivated,
 			fh: func(h *harness) {
 				h.DelayFakeCommonNode.OnDealSectorCommittedChan <- struct{}{}
 				h.DelayFakeCommonNode.OnDealSectorCommittedChan <- struct{}{}
 			},
 		},
 		"ClientEventDealPublished": {
-			stopAtEvent: storagemarket.ClientEventDealPublished,
+			clientStopEvent: storagemarket.ClientEventDealPublished,
 			fh: func(h *harness) {
 				h.DelayFakeCommonNode.OnDealSectorCommittedChan <- struct{}{}
 				h.DelayFakeCommonNode.OnDealSectorCommittedChan <- struct{}{}
@@ -92,13 +94,26 @@ func TestRestartClient(t *testing.T) {
 			wg := sync.WaitGroup{}
 			wg.Add(1)
 			_ = h.Client.SubscribeToEvents(func(event storagemarket.ClientEvent, deal storagemarket.ClientDeal) {
-				if event == tc.stopAtEvent {
-					// Stop the client and provider at some point during deal negotiation
+				if event == tc.clientStopEvent {
 					require.NoError(t, h.Client.Stop())
-					require.NoError(t, h.Provider.Stop())
+
+					if tc.providerStopEvent == 0 {
+						require.NoError(t, h.Provider.Stop())
+					}
+
 					wg.Done()
 				}
 			})
+
+			if tc.providerStopEvent != 0 {
+				wg.Add(1)
+				_ = h.Provider.SubscribeToEvents(func(event storagemarket.ProviderEvent, deal storagemarket.MinerDeal) {
+					if event == tc.providerStopEvent {
+						require.NoError(t, h.Provider.Stop())
+						wg.Done()
+					}
+				})
+			}
 
 			result := h.ProposeStorageDeal(t, &storagemarket.DataRef{TransferType: storagemarket.TTGraphsync, Root: h.PayloadCid}, false, false)
 			proposalCid := result.ProposalCid
@@ -111,7 +126,7 @@ func TestRestartClient(t *testing.T) {
 
 			cd, err := h.Client.GetLocalDeal(ctx, proposalCid)
 			assert.NoError(t, err)
-			if tc.stopAtEvent != storagemarket.ClientEventDealActivated && tc.stopAtEvent != storagemarket.ClientEventDealPublished {
+			if tc.clientStopEvent != storagemarket.ClientEventDealActivated && tc.clientStopEvent != storagemarket.ClientEventDealPublished {
 				assert.NotEqual(t, storagemarket.StorageDealActive, cd.State)
 			}
 			h = newHarnessWithTestData(t, ctx, h.TestData, h.SMState, true, h.TempFilePath, testnodes.DelayFakeCommonNode{})
@@ -249,7 +264,7 @@ func newHarnessWithTestData(t *testing.T, ctx context.Context, td *shared_testut
 		td.Ds1,
 		&clientNode,
 		clientDealFunds,
-		storageimpl.DealPollingInterval(0),
+		storageimpl.DealPollingInterval(5*time.Millisecond),
 	)
 	require.NoError(t, err)
 
