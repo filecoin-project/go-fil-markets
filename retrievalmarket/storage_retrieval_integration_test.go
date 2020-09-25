@@ -11,6 +11,8 @@ import (
 
 	"github.com/ipfs/go-cid"
 	"github.com/ipfs/go-datastore"
+	graphsyncimpl "github.com/ipfs/go-graphsync/impl"
+	gsnetwork "github.com/ipfs/go-graphsync/network"
 	"github.com/ipld/go-ipld-prime"
 	cidlink "github.com/ipld/go-ipld-prime/linking/cid"
 	"github.com/libp2p/go-libp2p-core/peer"
@@ -255,7 +257,8 @@ func newStorageHarness(ctx context.Context, t *testing.T) *storageHarness {
 	require.NoError(t, err)
 
 	// create provider and client
-	dtTransport1 := dtgstransport.NewTransport(td.Host1.ID(), td.GraphSync1)
+	gs1 := graphsyncimpl.New(ctx, gsnetwork.NewFromLibp2pHost(td.Host1), td.Loader1, td.Storer1)
+	dtTransport1 := dtgstransport.NewTransport(td.Host1.ID(), gs1)
 	dt1, err := dtimpl.NewDataTransfer(td.DTStore1, td.DTNet1, dtTransport1, td.DTStoredCounter1)
 	require.NoError(t, err)
 	err = dt1.Start(ctx)
@@ -279,7 +282,8 @@ func newStorageHarness(ctx context.Context, t *testing.T) *storageHarness {
 	)
 	require.NoError(t, err)
 
-	dtTransport2 := dtgstransport.NewTransport(td.Host2.ID(), td.GraphSync2)
+	gs2 := graphsyncimpl.New(ctx, gsnetwork.NewFromLibp2pHost(td.Host2), td.Loader2, td.Storer2)
+	dtTransport2 := dtgstransport.NewTransport(td.Host2.ID(), gs2)
 	dt2, err := dtimpl.NewDataTransfer(td.DTStore2, td.DTNet2, dtTransport2, td.DTStoredCounter2)
 	require.NoError(t, err)
 	err = dt2.Start(ctx)

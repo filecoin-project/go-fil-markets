@@ -40,6 +40,11 @@ var ProviderEvents = fsm.Events{
 		}),
 	fsm.Event(storagemarket.ProviderEventDataTransferInitiated).
 		From(storagemarket.StorageDealWaitingForData).To(storagemarket.StorageDealTransferring),
+
+	fsm.Event(storagemarket.ProviderEventDataTransferRestarted).
+		From(storagemarket.StorageDealWaitingForData).To(storagemarket.StorageDealTransferring).
+		From(storagemarket.StorageDealTransferring).ToJustRecord(),
+
 	fsm.Event(storagemarket.ProviderEventDataTransferCompleted).
 		From(storagemarket.StorageDealTransferring).To(storagemarket.StorageDealVerifyData),
 	fsm.Event(storagemarket.ProviderEventDataVerificationFailed).

@@ -16,6 +16,7 @@ type TestChannelParams struct {
 	TransferID     datatransfer.TransferID
 	BaseCID        cid.Cid
 	Selector       ipld.Node
+	SelfPeer       peer.ID
 	Sender         peer.ID
 	Recipient      peer.ID
 	TotalSize      uint64
@@ -26,10 +27,12 @@ type TestChannelParams struct {
 	Status         datatransfer.Status
 	Vouchers       []datatransfer.Voucher
 	VoucherResults []datatransfer.VoucherResult
+	ReceivedCids   []cid.Cid
 }
 
 // TestChannel implements a datatransfer channel with set values
 type TestChannel struct {
+	selfPeer       peer.ID
 	transferID     datatransfer.TransferID
 	baseCID        cid.Cid
 	selector       ipld.Node
@@ -43,6 +46,7 @@ type TestChannel struct {
 	status         datatransfer.Status
 	vouchers       []datatransfer.Voucher
 	voucherResults []datatransfer.VoucherResult
+	receivedCids   []cid.Cid
 }
 
 // FakeDTType is a fake voucher type
@@ -56,6 +60,7 @@ func (f FakeDTType) Type() datatransfer.TypeIdentifier { return "Fake" }
 func NewTestChannel(params TestChannelParams) datatransfer.ChannelState {
 	peers := GeneratePeers(2)
 	tc := &TestChannel{
+		selfPeer:       peers[0],
 		transferID:     datatransfer.TransferID(rand.Uint64()),
 		baseCID:        GenerateCids(1)[0],
 		selector:       shared.AllSelector(),
@@ -69,6 +74,9 @@ func NewTestChannel(params TestChannelParams) datatransfer.ChannelState {
 		vouchers:       []datatransfer.Voucher{FakeDTType{}},
 		voucherResults: []datatransfer.VoucherResult{FakeDTType{}},
 	}
+
+	tc.receivedCids = params.ReceivedCids
+
 	if params.TransferID != 0 {
 		tc.transferID = params.TransferID
 	}
@@ -78,6 +86,10 @@ func NewTestChannel(params TestChannelParams) datatransfer.ChannelState {
 	if params.Selector != nil {
 		tc.selector = params.Selector
 	}
+	if params.SelfPeer != peer.ID("") {
+		tc.selfPeer = params.SelfPeer
+	}
+
 	if params.Sender != peer.ID("") {
 		tc.sender = params.Sender
 	}
@@ -121,6 +133,11 @@ func (tc *TestChannel) Selector() ipld.Node {
 	return tc.selector
 }
 
+// ReceivedCids returns the cids received so far
+func (tc *TestChannel) ReceivedCids() []cid.Cid {
+	return tc.receivedCids
+}
+
 // Voucher returns the voucher for this data transfer
 func (tc *TestChannel) Voucher() datatransfer.Voucher {
 	return tc.vouchers[0]
@@ -153,6 +170,19 @@ func (tc *TestChannel) ChannelID() datatransfer.ChannelID {
 	} else {
 		return datatransfer.ChannelID{ID: tc.transferID, Initiator: tc.sender, Responder: tc.recipient}
 	}
+}
+
+// SelfPeer returns the peer this channel belongs to
+func (tc *TestChannel) SelfPeer() peer.ID {
+	return tc.selfPeer
+}
+
+// OtherPeer returns the channel counter party peer
+func (tc *TestChannel) OtherPeer() peer.ID {
+	if tc.selfPeer == tc.sender {
+		return tc.recipient
+	}
+	return tc.sender
 }
 
 // OtherParty returns the opposite party in the channel to the passed in party

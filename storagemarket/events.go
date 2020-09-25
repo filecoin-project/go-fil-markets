@@ -31,6 +31,9 @@ const (
 	// ClientEventDataTransferInitiated happens when piece data transfer has started
 	ClientEventDataTransferInitiated
 
+	// ClientEventDataTransferRestarted happens when a data transfer from client to provider is restarted by the client
+	ClientEventDataTransferRestarted
+
 	// ClientEventDataTransferComplete happens when piece data transfer has been completed
 	ClientEventDataTransferComplete
 
@@ -39,6 +42,9 @@ const (
 
 	// ClientEventDataTransferFailed happens the client can't initiate a push data transfer to the provider
 	ClientEventDataTransferFailed
+
+	// ClientEventDataTransferRestartFailed happens when the client can't restart an existing data transfer
+	ClientEventDataTransferRestartFailed
 
 	// ClientEventReadResponseFailed means a network error occurred reading a deal response
 	ClientEventReadResponseFailed
@@ -119,6 +125,8 @@ var ClientEvents = map[ClientEvent]string{
 	ClientEventDealSlashed:                "ClientEventDealSlashed",
 	ClientEventFailed:                     "ClientEventFailed",
 	ClientEventRestart:                    "ClientEventRestart",
+	ClientEventDataTransferRestarted:      "ClientEventDataTransferRestarted",
+	ClientEventDataTransferRestartFailed:  "ClientEventDataTransferRestartFailed",
 }
 
 // ProviderEvent is an event that happens in the provider's deal state machine
@@ -166,6 +174,9 @@ const (
 
 	// ProviderEventDataTransferInitiated happens when a data transfer starts
 	ProviderEventDataTransferInitiated
+
+	// ProviderEventDataTransferRestarted happens when a data transfer restarts
+	ProviderEventDataTransferRestarted
 
 	// ProviderEventDataTransferCompleted happens when a data transfer is successful
 	ProviderEventDataTransferCompleted
@@ -279,4 +290,5 @@ var ProviderEvents = map[ProviderEvent]string{
 	ProviderEventFailed:                 "ProviderEventFailed",
 	ProviderEventTrackFundsFailed:       "ProviderEventTrackFundsFailed",
 	ProviderEventRestart:                "ProviderEventRestart",
+	ProviderEventDataTransferRestarted:  "ProviderEventDataTransferRestarted",
 }
