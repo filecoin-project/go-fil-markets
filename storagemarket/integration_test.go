@@ -30,7 +30,7 @@ import (
 	"github.com/filecoin-project/go-fil-markets/filestore"
 	"github.com/filecoin-project/go-fil-markets/pieceio"
 	"github.com/filecoin-project/go-fil-markets/pieceio/cario"
-	"github.com/filecoin-project/go-fil-markets/piecestore"
+	piecestoreimpl "github.com/filecoin-project/go-fil-markets/piecestore/impl"
 	"github.com/filecoin-project/go-fil-markets/retrievalmarket/discovery"
 	"github.com/filecoin-project/go-fil-markets/shared"
 	"github.com/filecoin-project/go-fil-markets/shared_testutil"
@@ -462,7 +462,19 @@ func newHarnessWithTestData(t *testing.T, ctx context.Context, td *shared_testut
 		assert.NoError(t, err)
 	}
 
-	ps := piecestore.NewPieceStore(td.Ds2)
+	ps, err := piecestoreimpl.NewPieceStore(td.Ds2)
+	require.NoError(t, err)
+	ready := make(chan struct{})
+	ps.OnReady(func() {
+		close(ready)
+	})
+	err = ps.Start(ctx)
+	assert.NoError(t, err)
+	select {
+	case <-ready:
+	case <-ctx.Done():
+		t.Error("did not complete migrations for piecestore")
+	}
 	providerNode := &testnodes.FakeProviderNode{
 		FakeCommonNode: testnodes.FakeCommonNode{
 			DelayFakeCommonNode:    delayFakeEnvNode,
