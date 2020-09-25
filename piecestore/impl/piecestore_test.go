@@ -138,17 +138,17 @@ func TestStoreCIDInfo(t *testing.T) {
 		ci, err := ps.GetCIDInfo(testCIDs[0])
 		assert.NoError(t, err)
 		assert.Len(t, ci.PieceBlockLocations, 1)
-		assert.Equal(t, ci.PieceBlockLocations[0], piecestore.PieceBlockLocation{blockLocations[0], pieceCid1})
+		assert.Equal(t, ci.PieceBlockLocations[0], piecestore.PieceBlockLocation{BlockLocation: blockLocations[0], PieceCID: pieceCid1})
 
 		ci, err = ps.GetCIDInfo(testCIDs[1])
 		assert.NoError(t, err)
 		assert.Len(t, ci.PieceBlockLocations, 1)
-		assert.Equal(t, ci.PieceBlockLocations[0], piecestore.PieceBlockLocation{blockLocations[1], pieceCid1})
+		assert.Equal(t, ci.PieceBlockLocations[0], piecestore.PieceBlockLocation{BlockLocation: blockLocations[1], PieceCID: pieceCid1})
 
 		ci, err = ps.GetCIDInfo(testCIDs[2])
 		assert.NoError(t, err)
 		assert.Len(t, ci.PieceBlockLocations, 1)
-		assert.Equal(t, ci.PieceBlockLocations[0], piecestore.PieceBlockLocation{blockLocations[2], pieceCid1})
+		assert.Equal(t, ci.PieceBlockLocations[0], piecestore.PieceBlockLocation{BlockLocation: blockLocations[2], PieceCID: pieceCid1})
 	})
 
 	t.Run("overlapping adds", func(t *testing.T) {
@@ -169,18 +169,18 @@ func TestStoreCIDInfo(t *testing.T) {
 		ci, err := ps.GetCIDInfo(testCIDs[0])
 		assert.NoError(t, err)
 		assert.Len(t, ci.PieceBlockLocations, 1)
-		assert.Equal(t, ci.PieceBlockLocations[0], piecestore.PieceBlockLocation{blockLocations[0], pieceCid1})
+		assert.Equal(t, ci.PieceBlockLocations[0], piecestore.PieceBlockLocation{BlockLocation: blockLocations[0], PieceCID: pieceCid1})
 
 		ci, err = ps.GetCIDInfo(testCIDs[1])
 		assert.NoError(t, err)
 		assert.Len(t, ci.PieceBlockLocations, 2)
-		assert.Equal(t, ci.PieceBlockLocations[0], piecestore.PieceBlockLocation{blockLocations[2], pieceCid1})
-		assert.Equal(t, ci.PieceBlockLocations[1], piecestore.PieceBlockLocation{blockLocations[1], pieceCid2})
+		assert.Equal(t, ci.PieceBlockLocations[0], piecestore.PieceBlockLocation{BlockLocation: blockLocations[2], PieceCID: pieceCid1})
+		assert.Equal(t, ci.PieceBlockLocations[1], piecestore.PieceBlockLocation{BlockLocation: blockLocations[1], PieceCID: pieceCid2})
 
 		ci, err = ps.GetCIDInfo(testCIDs[2])
 		assert.NoError(t, err)
 		assert.Len(t, ci.PieceBlockLocations, 1)
-		assert.Equal(t, ci.PieceBlockLocations[0], piecestore.PieceBlockLocation{blockLocations[2], pieceCid2})
+		assert.Equal(t, ci.PieceBlockLocations[0], piecestore.PieceBlockLocation{BlockLocation: blockLocations[2], PieceCID: pieceCid2})
 	})
 
 	t.Run("duplicate adds", func(t *testing.T) {
@@ -201,17 +201,17 @@ func TestStoreCIDInfo(t *testing.T) {
 		ci, err := ps.GetCIDInfo(testCIDs[0])
 		assert.NoError(t, err)
 		assert.Len(t, ci.PieceBlockLocations, 1)
-		assert.Equal(t, ci.PieceBlockLocations[0], piecestore.PieceBlockLocation{blockLocations[0], pieceCid1})
+		assert.Equal(t, ci.PieceBlockLocations[0], piecestore.PieceBlockLocation{BlockLocation: blockLocations[0], PieceCID: pieceCid1})
 
 		ci, err = ps.GetCIDInfo(testCIDs[1])
 		assert.NoError(t, err)
 		assert.Len(t, ci.PieceBlockLocations, 1)
-		assert.Equal(t, ci.PieceBlockLocations[0], piecestore.PieceBlockLocation{blockLocations[1], pieceCid1})
+		assert.Equal(t, ci.PieceBlockLocations[0], piecestore.PieceBlockLocation{BlockLocation: blockLocations[1], PieceCID: pieceCid1})
 
 		ci, err = ps.GetCIDInfo(testCIDs[2])
 		assert.NoError(t, err)
 		assert.Len(t, ci.PieceBlockLocations, 1)
-		assert.Equal(t, ci.PieceBlockLocations[0], piecestore.PieceBlockLocation{blockLocations[2], pieceCid1})
+		assert.Equal(t, ci.PieceBlockLocations[0], piecestore.PieceBlockLocation{BlockLocation: blockLocations[2], PieceCID: pieceCid1})
 	})
 }
 
@@ -317,16 +317,16 @@ func TestMigrations(t *testing.T) {
 		ci, err := ps.GetCIDInfo(testCIDs[0])
 		assert.NoError(t, err)
 		assert.Len(t, ci.PieceBlockLocations, 1)
-		assert.Equal(t, ci.PieceBlockLocations[0], piecestore.PieceBlockLocation{blockLocations[0], pieceCid1})
+		assert.Equal(t, ci.PieceBlockLocations[0], piecestore.PieceBlockLocation{BlockLocation: blockLocations[0], PieceCID: pieceCid1})
 
 		ci, err = ps.GetCIDInfo(testCIDs[1])
 		assert.NoError(t, err)
 		assert.Len(t, ci.PieceBlockLocations, 1)
-		assert.Equal(t, ci.PieceBlockLocations[0], piecestore.PieceBlockLocation{blockLocations[1], pieceCid1})
+		assert.Equal(t, ci.PieceBlockLocations[0], piecestore.PieceBlockLocation{BlockLocation: blockLocations[1], PieceCID: pieceCid1})
 
 		ci, err = ps.GetCIDInfo(testCIDs[2])
 		assert.NoError(t, err)
 		assert.Len(t, ci.PieceBlockLocations, 1)
-		assert.Equal(t, ci.PieceBlockLocations[0], piecestore.PieceBlockLocation{blockLocations[2], pieceCid1})
+		assert.Equal(t, ci.PieceBlockLocations[0], piecestore.PieceBlockLocation{BlockLocation: blockLocations[2], PieceCID: pieceCid1})
 	})
 }

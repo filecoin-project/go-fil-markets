@@ -73,7 +73,10 @@ func (ps *pieceStore) Start(ctx context.Context) error {
 		if err != nil {
 			log.Errorf("Migrating cidInfos: %s", err.Error())
 		}
-		ps.readySub.Publish(struct{}{})
+		err = ps.readySub.Publish(struct{}{})
+		if err != nil {
+			log.Warnf("Publish piecestore migration ready event: %s", err.Error())
+		}
 	}()
 	return nil
 }
