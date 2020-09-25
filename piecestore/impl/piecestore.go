@@ -12,6 +12,7 @@ import (
 
 	versioning "github.com/filecoin-project/go-ds-versioning/pkg"
 	versioned "github.com/filecoin-project/go-ds-versioning/pkg/statestore"
+
 	"github.com/filecoin-project/go-fil-markets/piecestore"
 	"github.com/filecoin-project/go-fil-markets/piecestore/migrations"
 )
