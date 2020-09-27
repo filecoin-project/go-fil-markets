@@ -10,6 +10,7 @@ import (
 
 	"github.com/filecoin-project/go-fil-markets/piecestore"
 	"github.com/filecoin-project/go-fil-markets/retrievalmarket"
+	"github.com/filecoin-project/go-fil-markets/shared"
 )
 
 // TestPieceStore is piecestore who's query results are mocked
@@ -150,5 +151,5 @@ func (tps *TestPieceStore) Start(ctx context.Context) error {
 	return nil
 }
 
-func (tps *TestPieceStore) OnReady(ready piecestore.ReadyFunc) {
+func (tps *TestPieceStore) OnReady(ready shared.ReadyFunc) {
 }

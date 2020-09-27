@@ -1,0 +1,240 @@
+package migrations
+
+import (
+	"github.com/filecoin-project/go-address"
+	datatransfer "github.com/filecoin-project/go-data-transfer"
+	versioning "github.com/filecoin-project/go-ds-versioning/pkg"
+	"github.com/filecoin-project/go-ds-versioning/pkg/versioned"
+	"github.com/filecoin-project/go-fil-markets/piecestore"
+	piecemigrations "github.com/filecoin-project/go-fil-markets/piecestore/migrations"
+	"github.com/filecoin-project/go-fil-markets/retrievalmarket"
+	"github.com/filecoin-project/go-multistore"
+	"github.com/filecoin-project/go-state-types/abi"
+	"github.com/filecoin-project/specs-actors/actors/builtin/paych"
+	"github.com/ipfs/go-cid"
+	peer "github.com/libp2p/go-libp2p-core/peer"
+	cbg "github.com/whyrusleeping/cbor-gen"
+)
+
+//go:generate cbor-gen-for Query0 QueryResponse0 DealProposal0 DealResponse0 Params0 QueryParams0 DealPayment0 ClientDealState0 ProviderDealState0 PaymentInfo0 RetrievalPeer0 Ask0
+
+// PaymentInfo0 is version 0 of PaymentInfo
+type PaymentInfo0 struct {
+	PayCh address.Address
+	Lane  uint64
+}
+
+// ClientDealState0 is version 0 of ClientDealState
+type ClientDealState0 struct {
+	DealProposal0
+	StoreID              *multistore.StoreID
+	ChannelID            datatransfer.ChannelID
+	LastPaymentRequested bool
+	AllBlocksReceived    bool
+	TotalFunds           abi.TokenAmount
+	ClientWallet         address.Address
+	MinerWallet          address.Address
+	PaymentInfo          *PaymentInfo0
+	Status               retrievalmarket.DealStatus
+	Sender               peer.ID
+	TotalReceived        uint64
+	Message              string
+	BytesPaidFor         uint64
+	CurrentInterval      uint64
+	PaymentRequested     abi.TokenAmount
+	FundsSpent           abi.TokenAmount
+	UnsealFundsPaid      abi.TokenAmount
+	WaitMsgCID           *cid.Cid // the CID of any message the client deal is waiting for
+	VoucherShortfall     abi.TokenAmount
+}
+
+// ProviderDealState0 is version 0 of ProviderDealState
+type ProviderDealState0 struct {
+	DealProposal0
+	StoreID         multistore.StoreID
+	ChannelID       datatransfer.ChannelID
+	PieceInfo       *piecemigrations.PieceInfo0
+	Status          retrievalmarket.DealStatus
+	Receiver        peer.ID
+	TotalSent       uint64
+	FundsReceived   abi.TokenAmount
+	Message         string
+	CurrentInterval uint64
+}
+
+// RetrievalPeer0 is version 0 of RetrievalPeer
+type RetrievalPeer0 struct {
+	Address  address.Address
+	ID       peer.ID // optional
+	PieceCID *cid.Cid
+}
+
+// QueryParams0 is version 0 of QueryParams
+type QueryParams0 struct {
+	PieceCID *cid.Cid // optional, query if miner has this cid in this piece. some miners may not be able to respond.
+	//Selector                   ipld.Node // optional, query if miner has this cid in this piece. some miners may not be able to respond.
+	//MaxPricePerByte            abi.TokenAmount    // optional, tell miner uninterested if more expensive than this
+	//MinPaymentInterval         uint64    // optional, tell miner uninterested unless payment interval is greater than this
+	//MinPaymentIntervalIncrease uint64    // optional, tell miner uninterested unless payment interval increase is greater than this
+}
+
+// Query0 is version 0 of Query
+type Query0 struct {
+	PayloadCID   cid.Cid // V0
+	QueryParams0         // V1
+}
+
+// QueryResponse0 is version 0 of QueryResponse
+type QueryResponse0 struct {
+	Status        retrievalmarket.QueryResponseStatus
+	PieceCIDFound retrievalmarket.QueryItemStatus // V1 - if a PieceCID was requested, the result
+	//SelectorFound   QueryItemStatus // V1 - if a Selector was requested, the result
+
+	Size uint64 // Total size of piece in bytes
+	//ExpectedPayloadSize uint64 // V1 - optional, if PayloadCID + selector are specified and miner knows, can offer an expected size
+
+	PaymentAddress             address.Address // address to send funds to -- may be different than miner addr
+	MinPricePerByte            abi.TokenAmount
+	MaxPaymentInterval         uint64
+	MaxPaymentIntervalIncrease uint64
+	Message                    string
+	UnsealPrice                abi.TokenAmount
+}
+
+// Params0 is version 0 of Params
+type Params0 struct {
+	Selector                *cbg.Deferred // V1
+	PieceCID                *cid.Cid
+	PricePerByte            abi.TokenAmount
+	PaymentInterval         uint64 // when to request payment
+	PaymentIntervalIncrease uint64
+	UnsealPrice             abi.TokenAmount
+}
+
+// DealProposal0 is version 0 of DealProposal
+type DealProposal0 struct {
+	PayloadCID cid.Cid
+	ID         retrievalmarket.DealID
+	Params0
+}
+
+// DealResponse0 is version 0 of DealResponse
+type DealResponse0 struct {
+	Status retrievalmarket.DealStatus
+	ID     retrievalmarket.DealID
+
+	// payment required to proceed
+	PaymentOwed abi.TokenAmount
+
+	Message string
+}
+
+// DealPayment0 is version 0 of DealPayment
+type DealPayment0 struct {
+	ID             retrievalmarket.DealID
+	PaymentChannel address.Address
+	PaymentVoucher *paych.SignedVoucher
+}
+
+// Ask0 is version 0 of Ask
+type Ask0 struct {
+	PricePerByte            abi.TokenAmount
+	UnsealPrice             abi.TokenAmount
+	PaymentInterval         uint64
+	PaymentIntervalIncrease uint64
+}
+
+// MigrateParams0To1 migrates tuple encoded deal params to map encoded deal params
+func MigrateParams0To1(oldParams Params0) retrievalmarket.Params {
+	return retrievalmarket.Params{
+		Selector:                oldParams.Selector,
+		PieceCID:                oldParams.PieceCID,
+		PricePerByte:            oldParams.PricePerByte,
+		PaymentInterval:         oldParams.PaymentInterval,
+		PaymentIntervalIncrease: oldParams.PaymentIntervalIncrease,
+		UnsealPrice:             oldParams.UnsealPrice,
+	}
+}
+
+// MigrateDealProposal0To1 migrates a tuple encoded DealProposal to a map
+// encoded deal proposal
+func MigrateDealProposal0To1(oldDp DealProposal0) retrievalmarket.DealProposal {
+	return retrievalmarket.DealProposal{
+		PayloadCID: oldDp.PayloadCID,
+		ID:         oldDp.ID,
+		Params:     MigrateParams0To1(oldDp.Params0),
+	}
+}
+
+// MigratePaymentInfo0To1 migrates an optional payment info tuple encoded struct
+// to a map encoded struct
+func MigratePaymentInfo0To1(oldPi *PaymentInfo0) *retrievalmarket.PaymentInfo {
+	if oldPi == nil {
+		return nil
+	}
+	return &retrievalmarket.PaymentInfo{
+		PayCh: oldPi.PayCh,
+		Lane:  oldPi.Lane,
+	}
+}
+
+// MigrateClientDealState0To1 migrates a tuple encoded deal state to a map encoded deal state
+func MigrateClientDealState0To1(oldDs *ClientDealState0) (*retrievalmarket.ClientDealState, error) {
+	return &retrievalmarket.ClientDealState{
+		DealProposal:         MigrateDealProposal0To1(oldDs.DealProposal0),
+		StoreID:              oldDs.StoreID,
+		ChannelID:            oldDs.ChannelID,
+		LastPaymentRequested: oldDs.LastPaymentRequested,
+		AllBlocksReceived:    oldDs.AllBlocksReceived,
+		TotalFunds:           oldDs.TotalFunds,
+		ClientWallet:         oldDs.ClientWallet,
+		MinerWallet:          oldDs.MinerWallet,
+		PaymentInfo:          MigratePaymentInfo0To1(oldDs.PaymentInfo),
+		Status:               oldDs.Status,
+		Sender:               oldDs.Sender,
+		TotalReceived:        oldDs.TotalReceived,
+		Message:              oldDs.Message,
+		BytesPaidFor:         oldDs.BytesPaidFor,
+		CurrentInterval:      oldDs.CurrentInterval,
+		PaymentRequested:     oldDs.PaymentRequested,
+		FundsSpent:           oldDs.FundsSpent,
+		UnsealFundsPaid:      oldDs.UnsealFundsPaid,
+		WaitMsgCID:           oldDs.WaitMsgCID,
+		VoucherShortfall:     oldDs.VoucherShortfall,
+	}, nil
+}
+
+// MigrateProviderDealState0To1 migrates a tuple encoded deal state to a map encoded deal state
+func MigrateProviderDealState0To1(oldDs *ProviderDealState0) (*retrievalmarket.ProviderDealState, error) {
+	var pieceInfo *piecestore.PieceInfo
+	var err error
+	if oldDs.PieceInfo != nil {
+		pieceInfo, err = piecemigrations.MigratePieceInfo0To1(oldDs.PieceInfo)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return &retrievalmarket.ProviderDealState{
+		DealProposal:    MigrateDealProposal0To1(oldDs.DealProposal0),
+		StoreID:         oldDs.StoreID,
+		ChannelID:       oldDs.ChannelID,
+		PieceInfo:       pieceInfo,
+		Status:          oldDs.Status,
+		Receiver:        oldDs.Receiver,
+		TotalSent:       oldDs.TotalSent,
+		FundsReceived:   oldDs.FundsReceived,
+		Message:         oldDs.Message,
+		CurrentInterval: oldDs.CurrentInterval,
+	}, nil
+}
+
+// ClientMigrations are migrations for the client's store of retrieval deals
+var ClientMigrations = versioned.BuilderList{
+	versioned.NewVersionedBuilder(MigrateClientDealState0To1, versioning.VersionKey("1")),
+}
+
+// ProviderMigrations are migrations for the providers's store of retrieval deals
+var ProviderMigrations = versioned.BuilderList{
+	versioned.NewVersionedBuilder(MigrateProviderDealState0To1, versioning.VersionKey("1")).
+		FilterKeys([]string{"/retrieval-ask"}),
+}

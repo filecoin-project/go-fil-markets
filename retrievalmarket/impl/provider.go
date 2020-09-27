@@ -11,6 +11,8 @@ import (
 
 	"github.com/filecoin-project/go-address"
 	datatransfer "github.com/filecoin-project/go-data-transfer"
+	versioning "github.com/filecoin-project/go-ds-versioning/pkg"
+	versionedfsm "github.com/filecoin-project/go-ds-versioning/pkg/fsm"
 	"github.com/filecoin-project/go-multistore"
 	"github.com/filecoin-project/go-statemachine/fsm"
 
@@ -20,7 +22,9 @@ import (
 	"github.com/filecoin-project/go-fil-markets/retrievalmarket/impl/dtutils"
 	"github.com/filecoin-project/go-fil-markets/retrievalmarket/impl/providerstates"
 	"github.com/filecoin-project/go-fil-markets/retrievalmarket/impl/requestvalidation"
+	"github.com/filecoin-project/go-fil-markets/retrievalmarket/migrations"
 	rmnet "github.com/filecoin-project/go-fil-markets/retrievalmarket/network"
+	"github.com/filecoin-project/go-fil-markets/shared"
 )
 
 // RetrievalProviderOption is a function that configures a retrieval provider
@@ -31,18 +35,20 @@ type DealDecider func(ctx context.Context, state retrievalmarket.ProviderDealSta
 
 // Provider is the production implementation of the RetrievalProvider interface
 type Provider struct {
-	multiStore       *multistore.MultiStore
-	dataTransfer     datatransfer.Manager
-	node             retrievalmarket.RetrievalProviderNode
-	network          rmnet.RetrievalMarketNetwork
-	requestValidator *requestvalidation.ProviderRequestValidator
-	revalidator      *requestvalidation.ProviderRevalidator
-	minerAddress     address.Address
-	pieceStore       piecestore.PieceStore
-	subscribers      *pubsub.PubSub
-	stateMachines    fsm.Group
-	dealDecider      DealDecider
-	askStore         retrievalmarket.AskStore
+	multiStore           *multistore.MultiStore
+	dataTransfer         datatransfer.Manager
+	node                 retrievalmarket.RetrievalProviderNode
+	network              rmnet.RetrievalMarketNetwork
+	requestValidator     *requestvalidation.ProviderRequestValidator
+	revalidator          *requestvalidation.ProviderRevalidator
+	minerAddress         address.Address
+	pieceStore           piecestore.PieceStore
+	readySub             *pubsub.PubSub
+	subscribers          *pubsub.PubSub
+	stateMachines        fsm.Group
+	migrateStateMachines func(context.Context) error
+	dealDecider          DealDecider
+	askStore             retrievalmarket.AskStore
 }
 
 type internalProviderEvent struct {
@@ -91,6 +97,7 @@ func NewProvider(minerAddress address.Address,
 		minerAddress: minerAddress,
 		pieceStore:   pieceStore,
 		subscribers:  pubsub.New(providerDispatcher),
+		readySub:     pubsub.New(shared.ReadyDispatcher),
 	}
 
 	askStore, err := askstore.NewAskStore(ds, datastore.NewKey("retrieval-ask"))
@@ -99,7 +106,11 @@ func NewProvider(minerAddress address.Address,
 	}
 	p.askStore = askStore
 
-	statemachines, err := fsm.New(ds, fsm.Parameters{
+	migrations, err := migrations.ProviderMigrations.Build()
+	if err != nil {
+		return nil, err
+	}
+	p.stateMachines, p.migrateStateMachines, err = versionedfsm.NewVersionedFSM(ds, fsm.Parameters{
 		Environment:     &providerDealEnvironment{p},
 		StateType:       retrievalmarket.ProviderDealState{},
 		StateKeyField:   "Status",
@@ -107,12 +118,11 @@ func NewProvider(minerAddress address.Address,
 		StateEntryFuncs: providerstates.ProviderStateEntryFuncs,
 		FinalityStates:  providerstates.ProviderFinalityStates,
 		Notifier:        p.notifySubscribers,
-	})
+	}, migrations, versioning.VersionKey("1"))
 	if err != nil {
 		return nil, err
 	}
 	p.Configure(opts...)
-	p.stateMachines = statemachines
 	p.requestValidator = requestvalidation.NewProviderRequestValidator(&providerValidationEnvironment{p})
 	err = p.dataTransfer.RegisterVoucherType(&retrievalmarket.DealProposal{}, p.requestValidator)
 	if err != nil {
@@ -143,8 +153,23 @@ func (p *Provider) Stop() error {
 
 // Start begins listening for deals on the given host.
 // Start must be called in order to accept incoming deals.
-func (p *Provider) Start() error {
+func (p *Provider) Start(ctx context.Context) error {
+	go func() {
+		err := p.migrateStateMachines(ctx)
+		if err != nil {
+			log.Errorf("Migrating retrieval provider state machines: %s", err.Error())
+		}
+		err = p.readySub.Publish(err)
+		if err != nil {
+			log.Warnf("Publish retrieval provider ready event: %s", err.Error())
+		}
+	}()
 	return p.network.SetDelegate(p)
+}
+
+// OnReady registers a listener for when the provider has finished starting up
+func (p *Provider) OnReady(ready shared.ReadyFunc) {
+	p.readySub.Subscribe(ready)
 }
 
 func (p *Provider) notifySubscribers(eventName fsm.EventName, state fsm.StateType) {

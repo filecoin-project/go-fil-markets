@@ -13,6 +13,8 @@ import (
 
 	"github.com/filecoin-project/go-address"
 	datatransfer "github.com/filecoin-project/go-data-transfer"
+	versioning "github.com/filecoin-project/go-ds-versioning/pkg"
+	versionedfsm "github.com/filecoin-project/go-ds-versioning/pkg/fsm"
 	"github.com/filecoin-project/go-multistore"
 	"github.com/filecoin-project/go-state-types/abi"
 	"github.com/filecoin-project/go-state-types/big"
@@ -22,6 +24,7 @@ import (
 	"github.com/filecoin-project/go-fil-markets/retrievalmarket"
 	"github.com/filecoin-project/go-fil-markets/retrievalmarket/impl/clientstates"
 	"github.com/filecoin-project/go-fil-markets/retrievalmarket/impl/dtutils"
+	"github.com/filecoin-project/go-fil-markets/retrievalmarket/migrations"
 	rmnet "github.com/filecoin-project/go-fil-markets/retrievalmarket/network"
 	"github.com/filecoin-project/go-fil-markets/shared"
 )
@@ -36,9 +39,11 @@ type Client struct {
 	node          retrievalmarket.RetrievalClientNode
 	storedCounter *storedcounter.StoredCounter
 
-	subscribers   *pubsub.PubSub
-	resolver      retrievalmarket.PeerResolver
-	stateMachines fsm.Group
+	subscribers          *pubsub.PubSub
+	readySub             *pubsub.PubSub
+	resolver             retrievalmarket.PeerResolver
+	stateMachines        fsm.Group
+	migrateStateMachines func(context.Context) error
 }
 
 type internalEvent struct {
@@ -79,8 +84,13 @@ func NewClient(
 		resolver:      resolver,
 		storedCounter: storedCounter,
 		subscribers:   pubsub.New(dispatcher),
+		readySub:      pubsub.New(shared.ReadyDispatcher),
 	}
-	stateMachines, err := fsm.New(ds, fsm.Parameters{
+	migrations, err := migrations.ClientMigrations.Build()
+	if err != nil {
+		return nil, err
+	}
+	c.stateMachines, c.migrateStateMachines, err = versionedfsm.NewVersionedFSM(ds, fsm.Parameters{
 		Environment:     &clientDealEnvironment{c},
 		StateType:       retrievalmarket.ClientDealState{},
 		StateKeyField:   "Status",
@@ -88,11 +98,10 @@ func NewClient(
 		StateEntryFuncs: clientstates.ClientStateEntryFuncs,
 		FinalityStates:  clientstates.ClientFinalityStates,
 		Notifier:        c.notifySubscribers,
-	})
+	}, migrations, versioning.VersionKey("1"))
 	if err != nil {
 		return nil, err
 	}
-	c.stateMachines = stateMachines
 	err = dataTransfer.RegisterVoucherResultType(&retrievalmarket.DealResponse{})
 	if err != nil {
 		return nil, err
@@ -113,7 +122,25 @@ func NewClient(
 	return c, nil
 }
 
-// V0
+// Start initialized the Client, performing relevant database migrations
+func (c *Client) Start(ctx context.Context) error {
+	go func() {
+		err := c.migrateStateMachines(ctx)
+		if err != nil {
+			log.Errorf("Migrating retrieval client state machines: %s", err.Error())
+		}
+		err = c.readySub.Publish(err)
+		if err != nil {
+			log.Warnf("Publish retrieval client ready event: %s", err.Error())
+		}
+	}()
+	return nil
+}
+
+// OnReady registers a listener for when the client has finished starting up
+func (c *Client) OnReady(ready shared.ReadyFunc) {
+	c.readySub.Subscribe(ready)
+}
 
 // FindProviders uses PeerResolver interface to locate a list of providers who may have a given payload CID.
 func (c *Client) FindProviders(payloadCID cid.Cid) []retrievalmarket.RetrievalPeer {

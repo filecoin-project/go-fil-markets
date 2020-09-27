@@ -27,17 +27,7 @@ func TestStorePieceInfo(t *testing.T) {
 	initializePieceStore := func(t *testing.T, ctx context.Context) piecestore.PieceStore {
 		ps, err := piecestoreimpl.NewPieceStore(datastore.NewMapDatastore())
 		require.NoError(t, err)
-		ready := make(chan struct{})
-		ps.OnReady(func() {
-			close(ready)
-		})
-		err = ps.Start(ctx)
-		assert.NoError(t, err)
-		select {
-		case <-ctx.Done():
-			t.Error("did not finish migrating")
-		case <-ready:
-		}
+		shared_testutil.StartAndWaitForReady(ctx, t, ps)
 		_, err = ps.GetPieceInfo(pieceCid)
 		assert.Error(t, err)
 		return ps
@@ -108,17 +98,7 @@ func TestStoreCIDInfo(t *testing.T) {
 	initializePieceStore := func(t *testing.T, ctx context.Context) piecestore.PieceStore {
 		ps, err := piecestoreimpl.NewPieceStore(datastore.NewMapDatastore())
 		assert.NoError(t, err)
-		ready := make(chan struct{})
-		ps.OnReady(func() {
-			close(ready)
-		})
-		err = ps.Start(ctx)
-		assert.NoError(t, err)
-		select {
-		case <-ctx.Done():
-			t.Error("did not finish migrating")
-		case <-ready:
-		}
+		shared_testutil.StartAndWaitForReady(ctx, t, ps)
 		_, err = ps.GetCIDInfo(testCIDs[0])
 		assert.Error(t, err)
 		return ps
@@ -294,17 +274,7 @@ func TestMigrations(t *testing.T) {
 
 	ps, err := piecestoreimpl.NewPieceStore(ds)
 	require.NoError(t, err)
-	ready := make(chan struct{})
-	ps.OnReady(func() {
-		close(ready)
-	})
-	err = ps.Start(ctx)
-	assert.NoError(t, err)
-	select {
-	case <-ctx.Done():
-		t.Error("did not finish migrating")
-	case <-ready:
-	}
+	shared_testutil.StartAndWaitForReady(ctx, t, ps)
 
 	t.Run("migrates deals", func(t *testing.T) {
 		pi, err := ps.GetPieceInfo(pieceCid1)

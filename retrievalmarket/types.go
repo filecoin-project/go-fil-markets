@@ -22,11 +22,14 @@ import (
 	"github.com/filecoin-project/go-fil-markets/piecestore"
 )
 
-//go:generate cbor-gen-for Query QueryResponse DealProposal DealResponse Params QueryParams DealPayment ClientDealState ProviderDealState PaymentInfo RetrievalPeer Ask
+//go:generate cbor-gen-for --map-encoding Query QueryResponse DealProposal DealResponse Params QueryParams DealPayment ClientDealState ProviderDealState PaymentInfo RetrievalPeer Ask
 
 // QueryProtocolID is the protocol for querying information about retrieval
 // deal parameters
-const QueryProtocolID = "/fil/retrieval/qry/0.0.1"
+const QueryProtocolID = "/fil/retrieval/qry/1.0.0"
+
+// OldQueryProtocolID is the old query protocol for tuple structs
+const OldQueryProtocolID = "/fil/retrieval/qry/0.0.1"
 
 // Unsubscribe is a function that unsubscribes a subscriber for either the
 // client or the provider
@@ -291,7 +294,7 @@ type DealProposal struct {
 
 // Type method makes DealProposal usable as a voucher
 func (dp *DealProposal) Type() datatransfer.TypeIdentifier {
-	return "RetrievalDealProposal"
+	return "RetrievalDealProposal/1"
 }
 
 // DealProposalUndefined is an undefined deal proposal
@@ -310,7 +313,7 @@ type DealResponse struct {
 
 // Type method makes DealResponse usable as a voucher result
 func (dr *DealResponse) Type() datatransfer.TypeIdentifier {
-	return "RetrievalDealResponse"
+	return "RetrievalDealResponse/1"
 }
 
 // DealResponseUndefined is an undefined deal response
@@ -325,7 +328,7 @@ type DealPayment struct {
 
 // Type method makes DealPayment usable as a voucher
 func (dr *DealPayment) Type() datatransfer.TypeIdentifier {
-	return "RetrievalDealPayment"
+	return "RetrievalDealPayment/1"
 }
 
 // DealPaymentUndefined is an undefined deal payment

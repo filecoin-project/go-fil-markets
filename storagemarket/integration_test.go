@@ -463,18 +463,8 @@ func newHarnessWithTestData(t *testing.T, ctx context.Context, td *shared_testut
 	}
 
 	ps, err := piecestoreimpl.NewPieceStore(td.Ds2)
-	require.NoError(t, err)
-	ready := make(chan struct{})
-	ps.OnReady(func() {
-		close(ready)
-	})
-	err = ps.Start(ctx)
-	assert.NoError(t, err)
-	select {
-	case <-ready:
-	case <-ctx.Done():
-		t.Error("did not complete migrations for piecestore")
-	}
+	shared_testutil.StartAndWaitForReady(ctx, t, ps)
+
 	providerNode := &testnodes.FakeProviderNode{
 		FakeCommonNode: testnodes.FakeCommonNode{
 			DelayFakeCommonNode:    delayFakeEnvNode,

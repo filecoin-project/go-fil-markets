@@ -9,7 +9,7 @@ require (
 	github.com/filecoin-project/go-address v0.0.3
 	github.com/filecoin-project/go-cbor-util v0.0.0-20191219014500-08c40a1e63a2
 	github.com/filecoin-project/go-data-transfer v0.6.6
-	github.com/filecoin-project/go-ds-versioning v0.0.0-20200925081648-2b6f19ff8a67
+	github.com/filecoin-project/go-ds-versioning v0.0.0-20200925223945-e01c8a23b1bc
 	github.com/filecoin-project/go-multistore v0.0.3
 	github.com/filecoin-project/go-padreader v0.0.0-20200903213702-ed5fae088b20
 	github.com/filecoin-project/go-state-types v0.0.0-20200905071437-95828685f9df
