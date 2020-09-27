@@ -13,6 +13,7 @@ import (
 
 	"github.com/ipfs/go-cid"
 	"github.com/ipfs/go-datastore"
+	"github.com/ipfs/go-datastore/namespace"
 	ipld "github.com/ipld/go-ipld-prime"
 	cidlink "github.com/ipld/go-ipld-prime/linking/cid"
 	"github.com/stretchr/testify/assert"
@@ -27,11 +28,11 @@ import (
 	"github.com/filecoin-project/specs-actors/actors/builtin"
 	"github.com/filecoin-project/specs-actors/actors/builtin/market"
 
+	discoveryimpl "github.com/filecoin-project/go-fil-markets/discovery/impl"
 	"github.com/filecoin-project/go-fil-markets/filestore"
 	"github.com/filecoin-project/go-fil-markets/pieceio"
 	"github.com/filecoin-project/go-fil-markets/pieceio/cario"
 	piecestoreimpl "github.com/filecoin-project/go-fil-markets/piecestore/impl"
-	"github.com/filecoin-project/go-fil-markets/retrievalmarket/discovery"
 	"github.com/filecoin-project/go-fil-markets/shared"
 	"github.com/filecoin-project/go-fil-markets/shared_testutil"
 	"github.com/filecoin-project/go-fil-markets/storagemarket"
@@ -485,12 +486,16 @@ func newHarnessWithTestData(t *testing.T, ctx context.Context, td *shared_testut
 	clientDealFunds, err := funds.NewDealFunds(td.Ds1, datastore.NewKey("storage/client/dealfunds"))
 	require.NoError(t, err)
 
+	discovery, err := discoveryimpl.NewLocal(namespace.Wrap(td.Ds1, datastore.NewKey("/deals/local")))
+	require.NoError(t, err)
+	shared_testutil.StartAndWaitForReady(ctx, t, discovery)
+
 	client, err := storageimpl.NewClient(
 		network.NewFromLibp2pHost(td.Host1, network.RetryParameters(0, 0, 0)),
 		td.Bs1,
 		td.MultiStore1,
 		dt1,
-		discovery.NewLocal(td.Ds1),
+		discovery,
 		td.Ds1,
 		&clientNode,
 		clientDealFunds,

@@ -9,6 +9,7 @@ import (
 	ma "github.com/multiformats/go-multiaddr"
 	"github.com/stretchr/testify/require"
 
+	"github.com/filecoin-project/go-fil-markets/discovery"
 	rm "github.com/filecoin-project/go-fil-markets/retrievalmarket"
 	rmnet "github.com/filecoin-project/go-fil-markets/retrievalmarket/network"
 	smnet "github.com/filecoin-project/go-fil-markets/storagemarket/network"
@@ -539,7 +540,7 @@ func (tpr TestPeerResolver) GetPeers(cid.Cid) ([]rm.RetrievalPeer, error) {
 	return tpr.Peers, tpr.ResolverError
 }
 
-var _ rm.PeerResolver = &TestPeerResolver{}
+var _ discovery.PeerResolver = &TestPeerResolver{}
 
 type TestPeerTagger struct {
 	TagCalls   []peer.ID

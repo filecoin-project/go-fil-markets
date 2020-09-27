@@ -21,6 +21,7 @@ import (
 	"github.com/filecoin-project/go-statemachine/fsm"
 	"github.com/filecoin-project/go-storedcounter"
 
+	"github.com/filecoin-project/go-fil-markets/discovery"
 	"github.com/filecoin-project/go-fil-markets/retrievalmarket"
 	"github.com/filecoin-project/go-fil-markets/retrievalmarket/impl/clientstates"
 	"github.com/filecoin-project/go-fil-markets/retrievalmarket/impl/dtutils"
@@ -41,7 +42,7 @@ type Client struct {
 
 	subscribers          *pubsub.PubSub
 	readySub             *pubsub.PubSub
-	resolver             retrievalmarket.PeerResolver
+	resolver             discovery.PeerResolver
 	stateMachines        fsm.Group
 	migrateStateMachines func(context.Context) error
 }
@@ -72,7 +73,7 @@ func NewClient(
 	multiStore *multistore.MultiStore,
 	dataTransfer datatransfer.Manager,
 	node retrievalmarket.RetrievalClientNode,
-	resolver retrievalmarket.PeerResolver,
+	resolver discovery.PeerResolver,
 	ds datastore.Batching,
 	storedCounter *storedcounter.StoredCounter,
 ) (retrievalmarket.RetrievalClient, error) {

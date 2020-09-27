@@ -96,11 +96,6 @@ func (p ProviderDealIdentifier) String() string {
 	return fmt.Sprintf("%v/%v", p.Receiver, p.DealID)
 }
 
-// PeerResolver is an interface for looking up providers that may have a piece
-type PeerResolver interface {
-	GetPeers(payloadCID cid.Cid) ([]RetrievalPeer, error) // TODO: channel
-}
-
 // RetrievalPeer is a provider address/peer.ID pair (everything needed to make
 // deals for with a miner)
 type RetrievalPeer struct {

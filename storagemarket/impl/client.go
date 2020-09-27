@@ -23,10 +23,10 @@ import (
 	"github.com/filecoin-project/go-statemachine/fsm"
 	"github.com/filecoin-project/specs-actors/actors/builtin/market"
 
+	discoveryimpl "github.com/filecoin-project/go-fil-markets/discovery/impl"
 	"github.com/filecoin-project/go-fil-markets/pieceio"
 	"github.com/filecoin-project/go-fil-markets/pieceio/cario"
 	"github.com/filecoin-project/go-fil-markets/retrievalmarket"
-	"github.com/filecoin-project/go-fil-markets/retrievalmarket/discovery"
 	"github.com/filecoin-project/go-fil-markets/shared"
 	"github.com/filecoin-project/go-fil-markets/storagemarket"
 	"github.com/filecoin-project/go-fil-markets/storagemarket/impl/clientstates"
@@ -50,7 +50,7 @@ type Client struct {
 
 	dataTransfer    datatransfer.Manager
 	multiStore      *multistore.MultiStore
-	discovery       *discovery.Local
+	discovery       *discoveryimpl.Local
 	pio             pieceio.PieceIO
 	node            storagemarket.StorageClientNode
 	pubSub          *pubsub.PubSub
@@ -78,7 +78,7 @@ func NewClient(
 	bs blockstore.Blockstore,
 	multiStore *multistore.MultiStore,
 	dataTransfer datatransfer.Manager,
-	discovery *discovery.Local,
+	discovery *discoveryimpl.Local,
 	ds datastore.Batching,
 	scn storagemarket.StorageClientNode,
 	dealFunds funds.DealFunds,

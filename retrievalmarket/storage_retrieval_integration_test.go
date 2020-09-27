@@ -29,11 +29,12 @@ import (
 	"github.com/filecoin-project/specs-actors/actors/builtin/market"
 	"github.com/filecoin-project/specs-actors/actors/builtin/paych"
 
+	"github.com/filecoin-project/go-fil-markets/discovery"
+	discoveryimpl "github.com/filecoin-project/go-fil-markets/discovery/impl"
 	"github.com/filecoin-project/go-fil-markets/filestore"
 	"github.com/filecoin-project/go-fil-markets/piecestore"
 	piecestoreimpl "github.com/filecoin-project/go-fil-markets/piecestore/impl"
 	"github.com/filecoin-project/go-fil-markets/retrievalmarket"
-	"github.com/filecoin-project/go-fil-markets/retrievalmarket/discovery"
 	retrievalimpl "github.com/filecoin-project/go-fil-markets/retrievalmarket/impl"
 	testnodes2 "github.com/filecoin-project/go-fil-markets/retrievalmarket/impl/testnodes"
 	rmnet "github.com/filecoin-project/go-fil-markets/retrievalmarket/network"
@@ -219,7 +220,7 @@ type storageHarness struct {
 	ProviderInfo storagemarket.StorageProviderInfo
 	TestData     *shared_testutil.Libp2pTestData
 	PieceStore   piecestore.PieceStore
-	PeerResolver retrievalmarket.PeerResolver
+	PeerResolver discovery.PeerResolver
 }
 
 func newStorageHarness(ctx context.Context, t *testing.T) *storageHarness {
@@ -265,7 +266,9 @@ func newStorageHarness(ctx context.Context, t *testing.T) *storageHarness {
 	err = dt1.Start(ctx)
 	require.NoError(t, err)
 
-	peerResolver := discovery.NewLocal(td.Ds1)
+	peerResolver, err := discoveryimpl.NewLocal(namespace.Wrap(td.Ds1, datastore.NewKey("/deals/local")))
+	require.NoError(t, err)
+	tut.StartAndWaitForReady(ctx, t, peerResolver)
 
 	clientDealFunds, err := funds.NewDealFunds(td.Ds1, datastore.NewKey("storage/client/dealfunds"))
 	require.NoError(t, err)
