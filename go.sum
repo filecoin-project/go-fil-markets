@@ -104,10 +104,6 @@ github.com/filecoin-project/go-cbor-util v0.0.0-20191219014500-08c40a1e63a2 h1:a
 github.com/filecoin-project/go-cbor-util v0.0.0-20191219014500-08c40a1e63a2/go.mod h1:pqTiPHobNkOVM5thSRsHYjyQfq7O5QSCMhvuu9JoDlg=
 github.com/filecoin-project/go-crypto v0.0.0-20191218222705-effae4ea9f03 h1:2pMXdBnCiXjfCYx/hLqFxccPoqsSveQFxVLvNxy9bus=
 github.com/filecoin-project/go-crypto v0.0.0-20191218222705-effae4ea9f03/go.mod h1:+viYnvGtUTgJRdy6oaeF4MTFKAfatX071MPDPBL11EQ=
-github.com/filecoin-project/go-data-transfer v0.6.5 h1:oP20la8Z0CLrw0uqvt6xVgw6rOevZeGJ9GNQeC0OCSU=
-github.com/filecoin-project/go-data-transfer v0.6.5/go.mod h1:I9Ylb/UiZyqnI41wUoCXq/le0nDLhlwpFQCtNPxEPOA=
-github.com/filecoin-project/go-data-transfer v0.6.6-0.20200928065140-6ef403e21025 h1:/9bxNPNmOE/3FBOljkQccW0p/Kx/+5DSKL0Qly7I1YA=
-github.com/filecoin-project/go-data-transfer v0.6.6-0.20200928065140-6ef403e21025/go.mod h1:C++k1U6+jMQODOaen5OPDo9XQbth9Yq3ie94vNjBJbk=
 github.com/filecoin-project/go-data-transfer v0.6.6-0.20200928082312-49fa579eed57 h1:uKI1Kq6IT7Sr0WBR1Hor2bfpUREKvlrIAN1z3b3cuK0=
 github.com/filecoin-project/go-data-transfer v0.6.6-0.20200928082312-49fa579eed57/go.mod h1:C++k1U6+jMQODOaen5OPDo9XQbth9Yq3ie94vNjBJbk=
 github.com/filecoin-project/go-ds-versioning v0.0.0-20200925223945-e01c8a23b1bc h1:vmMVVCf1D+GkrLENcL2EicP1S832mngXysSBj3Yysh8=

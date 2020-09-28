@@ -1,8 +1,9 @@
 package discovery
 
 import (
-	"github.com/filecoin-project/go-fil-markets/retrievalmarket"
 	"github.com/ipfs/go-cid"
+
+	"github.com/filecoin-project/go-fil-markets/retrievalmarket"
 )
 
 //go:generate cbor-gen-for --map-encoding RetrievalPeers

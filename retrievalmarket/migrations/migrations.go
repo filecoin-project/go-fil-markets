@@ -1,19 +1,21 @@
 package migrations
 
 import (
+	"github.com/ipfs/go-cid"
+	peer "github.com/libp2p/go-libp2p-core/peer"
+	cbg "github.com/whyrusleeping/cbor-gen"
+
 	"github.com/filecoin-project/go-address"
 	datatransfer "github.com/filecoin-project/go-data-transfer"
 	versioning "github.com/filecoin-project/go-ds-versioning/pkg"
 	"github.com/filecoin-project/go-ds-versioning/pkg/versioned"
-	"github.com/filecoin-project/go-fil-markets/piecestore"
-	piecemigrations "github.com/filecoin-project/go-fil-markets/piecestore/migrations"
-	"github.com/filecoin-project/go-fil-markets/retrievalmarket"
 	"github.com/filecoin-project/go-multistore"
 	"github.com/filecoin-project/go-state-types/abi"
 	"github.com/filecoin-project/specs-actors/actors/builtin/paych"
-	"github.com/ipfs/go-cid"
-	peer "github.com/libp2p/go-libp2p-core/peer"
-	cbg "github.com/whyrusleeping/cbor-gen"
+
+	"github.com/filecoin-project/go-fil-markets/piecestore"
+	piecemigrations "github.com/filecoin-project/go-fil-markets/piecestore/migrations"
+	"github.com/filecoin-project/go-fil-markets/retrievalmarket"
 )
 
 //go:generate cbor-gen-for Query0 QueryResponse0 DealProposal0 DealResponse0 Params0 QueryParams0 DealPayment0 ClientDealState0 ProviderDealState0 PaymentInfo0 RetrievalPeer0 Ask0

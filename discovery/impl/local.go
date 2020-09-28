@@ -11,9 +11,9 @@ import (
 	logging "github.com/ipfs/go-log/v2"
 
 	cborutil "github.com/filecoin-project/go-cbor-util"
-
 	versioning "github.com/filecoin-project/go-ds-versioning/pkg"
 	versionedds "github.com/filecoin-project/go-ds-versioning/pkg/datastore"
+
 	"github.com/filecoin-project/go-fil-markets/discovery"
 	"github.com/filecoin-project/go-fil-markets/discovery/migrations"
 	"github.com/filecoin-project/go-fil-markets/retrievalmarket"

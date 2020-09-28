@@ -17,6 +17,7 @@ import (
 	"github.com/libp2p/go-libp2p-core/peer"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	cbg "github.com/whyrusleeping/cbor-gen"
 
 	"github.com/filecoin-project/go-address"
 	datatransfer "github.com/filecoin-project/go-data-transfer"
@@ -34,7 +35,6 @@ import (
 	"github.com/filecoin-project/go-fil-markets/shared"
 	"github.com/filecoin-project/go-fil-markets/shared_testutil"
 	tut "github.com/filecoin-project/go-fil-markets/shared_testutil"
-	cbg "github.com/whyrusleeping/cbor-gen"
 )
 
 func TestClient_Construction(t *testing.T) {

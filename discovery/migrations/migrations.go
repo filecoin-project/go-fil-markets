@@ -3,6 +3,7 @@ package migrations
 import (
 	versioning "github.com/filecoin-project/go-ds-versioning/pkg"
 	"github.com/filecoin-project/go-ds-versioning/pkg/versioned"
+
 	"github.com/filecoin-project/go-fil-markets/discovery"
 	"github.com/filecoin-project/go-fil-markets/retrievalmarket"
 	"github.com/filecoin-project/go-fil-markets/retrievalmarket/migrations"

@@ -2,6 +2,7 @@ package shared
 
 import (
 	"errors"
+
 	"github.com/hannahhoward/go-pubsub"
 )
 
