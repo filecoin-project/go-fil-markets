@@ -49,6 +49,7 @@ type Provider struct {
 	migrateStateMachines func(context.Context) error
 	dealDecider          DealDecider
 	askStore             retrievalmarket.AskStore
+	disableNewDeals      bool
 }
 
 type internalProviderEvent struct {
@@ -75,6 +76,13 @@ var _ retrievalmarket.RetrievalProvider = new(Provider)
 func DealDeciderOpt(dd DealDecider) RetrievalProviderOption {
 	return func(provider *Provider) {
 		provider.dealDecider = dd
+	}
+}
+
+// DisableNewDeals disables setup for v1 deal protocols
+func DisableNewDeals() RetrievalProviderOption {
+	return func(provider *Provider) {
+		provider.disableNewDeals = true
 	}
 }
 
@@ -106,7 +114,7 @@ func NewProvider(minerAddress address.Address,
 	}
 	p.askStore = askStore
 
-	migrations, err := migrations.ProviderMigrations.Build()
+	retrievalMigrations, err := migrations.ProviderMigrations.Build()
 	if err != nil {
 		return nil, err
 	}
@@ -118,31 +126,62 @@ func NewProvider(minerAddress address.Address,
 		StateEntryFuncs: providerstates.ProviderStateEntryFuncs,
 		FinalityStates:  providerstates.ProviderFinalityStates,
 		Notifier:        p.notifySubscribers,
-	}, migrations, versioning.VersionKey("1"))
+	}, retrievalMigrations, versioning.VersionKey("1"))
 	if err != nil {
 		return nil, err
 	}
 	p.Configure(opts...)
 	p.requestValidator = requestvalidation.NewProviderRequestValidator(&providerValidationEnvironment{p})
-	err = p.dataTransfer.RegisterVoucherType(&retrievalmarket.DealProposal{}, p.requestValidator)
-	if err != nil {
-		return nil, err
-	}
+	transportConfigurer := dtutils.TransportConfigurer(network.ID(), &providerStoreGetter{p})
 	p.revalidator = requestvalidation.NewProviderRevalidator(&providerRevalidatorEnvironment{p})
-	err = p.dataTransfer.RegisterRevalidator(&retrievalmarket.DealPayment{}, p.revalidator)
+
+	if p.disableNewDeals {
+		err = p.dataTransfer.RegisterVoucherType(&migrations.DealProposal0{}, p.requestValidator)
+		if err != nil {
+			return nil, err
+		}
+		err = p.dataTransfer.RegisterRevalidator(&migrations.DealPayment0{}, p.revalidator)
+		if err != nil {
+			return nil, err
+		}
+	} else {
+		err = p.dataTransfer.RegisterVoucherType(&retrievalmarket.DealProposal{}, p.requestValidator)
+		if err != nil {
+			return nil, err
+		}
+		err = p.dataTransfer.RegisterVoucherType(&migrations.DealProposal0{}, p.requestValidator)
+		if err != nil {
+			return nil, err
+		}
+
+		err = p.dataTransfer.RegisterRevalidator(&retrievalmarket.DealPayment{}, p.revalidator)
+		if err != nil {
+			return nil, err
+		}
+		err = p.dataTransfer.RegisterRevalidator(&migrations.DealPayment0{}, requestvalidation.NewLegacyRevalidator(p.revalidator))
+		if err != nil {
+			return nil, err
+		}
+
+		err = p.dataTransfer.RegisterVoucherResultType(&retrievalmarket.DealResponse{})
+		if err != nil {
+			return nil, err
+		}
+
+		err = p.dataTransfer.RegisterTransportConfigurer(&retrievalmarket.DealProposal{}, transportConfigurer)
+		if err != nil {
+			return nil, err
+		}
+	}
+	err = p.dataTransfer.RegisterVoucherResultType(&migrations.DealResponse0{})
 	if err != nil {
 		return nil, err
 	}
-	err = p.dataTransfer.RegisterVoucherResultType(&retrievalmarket.DealResponse{})
+	err = p.dataTransfer.RegisterTransportConfigurer(&migrations.DealProposal0{}, transportConfigurer)
 	if err != nil {
 		return nil, err
 	}
 	dataTransfer.SubscribeToEvents(dtutils.ProviderDataTransferSubscriber(p.stateMachines))
-	err = p.dataTransfer.RegisterTransportConfigurer(&retrievalmarket.DealProposal{},
-		dtutils.TransportConfigurer(network.ID(), &providerStoreGetter{p}))
-	if err != nil {
-		return nil, err
-	}
 	return p, nil
 }
 

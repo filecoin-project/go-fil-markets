@@ -188,6 +188,7 @@ func TestClientCanMakeDealWithProvider(t *testing.T) {
 		channelAvailableFunds   retrievalmarket.ChannelAvailableFunds
 		fundsReplenish          abi.TokenAmount
 		cancelled               bool
+		disableNewDeals         bool
 	}{
 		{name: "1 block file retrieval succeeds",
 			filename:    "lorem_under_1_block.txt",
@@ -293,6 +294,12 @@ func TestClientCanMakeDealWithProvider(t *testing.T) {
 			paymentInterval:         9000,
 			paymentIntervalIncrease: 1250,
 		},
+		{name: "multi-block file retrieval succeeds, with provider only accepting legacy deals",
+			filename:        "lorem.txt",
+			filesize:        19000,
+			disableNewDeals: true,
+			voucherAmts:     []abi.TokenAmount{abi.NewTokenAmount(10136000), abi.NewTokenAmount(9784000)},
+		},
 	}
 
 	for i, testCase := range testCases {
@@ -378,7 +385,7 @@ func TestClientCanMakeDealWithProvider(t *testing.T) {
 			defer cancel()
 
 			provider := setupProvider(bgCtx, t, testData, payloadCID, pieceInfo, expectedQR,
-				providerPaymentAddr, providerNode, decider)
+				providerPaymentAddr, providerNode, decider, testCase.disableNewDeals)
 			tut.StartAndWaitForReady(ctx, t, provider)
 
 			retrievalPeer := retrievalmarket.RetrievalPeer{Address: providerPaymentAddr, ID: testData.Host2.ID()}
@@ -603,6 +610,7 @@ func setupProvider(
 	providerPaymentAddr address.Address,
 	providerNode retrievalmarket.RetrievalProviderNode,
 	decider retrievalimpl.DealDecider,
+	disableNewDeals bool,
 ) retrievalmarket.RetrievalProvider {
 	nw2 := rmnet.NewFromLibp2pHost(testData.Host2, rmnet.RetryParameters(0, 0, 0))
 	pieceStore := tut.NewTestPieceStore()
@@ -623,9 +631,13 @@ func setupProvider(
 	require.NoError(t, err)
 	providerDs := namespace.Wrap(testData.Ds2, datastore.NewKey("/retrievals/provider"))
 
+	opts := []retrievalimpl.RetrievalProviderOption{retrievalimpl.DealDeciderOpt(decider)}
+	if disableNewDeals {
+		opts = append(opts, retrievalimpl.DisableNewDeals())
+	}
 	provider, err := retrievalimpl.NewProvider(providerPaymentAddr, providerNode, nw2,
 		pieceStore, testData.MultiStore2, dt2, providerDs,
-		retrievalimpl.DealDeciderOpt(decider))
+		opts...)
 	require.NoError(t, err)
 
 	ask := provider.GetAsk()

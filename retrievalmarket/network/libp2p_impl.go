@@ -36,6 +36,13 @@ func RetryParameters(minDuration time.Duration, maxDuration time.Duration, attem
 	}
 }
 
+// SupportedProtocols sets what protocols this network instances listens on
+func SupportedProtocols(supportedProtocols []protocol.ID) Option {
+	return func(impl *libp2pRetrievalMarketNetwork) {
+		impl.supportedProtocols = supportedProtocols
+	}
+}
+
 // NewFromLibp2pHost constructs a new instance of the RetrievalMarketNetwork from a
 // libp2p host
 func NewFromLibp2pHost(h host.Host, options ...Option) RetrievalMarketNetwork {
@@ -44,6 +51,10 @@ func NewFromLibp2pHost(h host.Host, options ...Option) RetrievalMarketNetwork {
 		maxStreamOpenAttempts: defaultMaxStreamOpenAttempts,
 		minAttemptDuration:    defaultMinAttemptDuration,
 		maxAttemptDuration:    defaultMaxAttemptDuration,
+		supportedProtocols: []protocol.ID{
+			retrievalmarket.QueryProtocolID,
+			retrievalmarket.OldQueryProtocolID,
+		},
 	}
 	for _, option := range options {
 		option(impl)
@@ -61,20 +72,24 @@ type libp2pRetrievalMarketNetwork struct {
 	maxStreamOpenAttempts float64
 	minAttemptDuration    time.Duration
 	maxAttemptDuration    time.Duration
+	supportedProtocols    []protocol.ID
 }
 
 //  NewQueryStream creates a new RetrievalQueryStream using the provided peer.ID
 func (impl *libp2pRetrievalMarketNetwork) NewQueryStream(id peer.ID) (RetrievalQueryStream, error) {
-	s, err := impl.openStream(context.Background(), id, retrievalmarket.QueryProtocolID)
+	s, err := impl.openStream(context.Background(), id, impl.supportedProtocols)
 	if err != nil {
 		log.Warn(err)
 		return nil, err
 	}
 	buffered := bufio.NewReaderSize(s, 16)
+	if s.Protocol() == retrievalmarket.OldQueryProtocolID {
+		return &oldQueryStream{p: id, rw: s, buffered: buffered}, nil
+	}
 	return &queryStream{p: id, rw: s, buffered: buffered}, nil
 }
 
-func (impl *libp2pRetrievalMarketNetwork) openStream(ctx context.Context, id peer.ID, protocol protocol.ID) (network.Stream, error) {
+func (impl *libp2pRetrievalMarketNetwork) openStream(ctx context.Context, id peer.ID, protocols []protocol.ID) (network.Stream, error) {
 	b := &backoff.Backoff{
 		Min:    impl.minAttemptDuration,
 		Max:    impl.maxAttemptDuration,
@@ -83,7 +98,7 @@ func (impl *libp2pRetrievalMarketNetwork) openStream(ctx context.Context, id pee
 	}
 
 	for {
-		s, err := impl.host.NewStream(ctx, id, protocol)
+		s, err := impl.host.NewStream(ctx, id, protocols...)
 		if err == nil {
 			return s, err
 		}
@@ -100,7 +115,9 @@ func (impl *libp2pRetrievalMarketNetwork) openStream(ctx context.Context, id pee
 // SetDelegate sets a RetrievalReceiver to handle stream data
 func (impl *libp2pRetrievalMarketNetwork) SetDelegate(r RetrievalReceiver) error {
 	impl.receiver = r
-	impl.host.SetStreamHandler(retrievalmarket.QueryProtocolID, impl.handleNewQueryStream)
+	for _, proto := range impl.supportedProtocols {
+		impl.host.SetStreamHandler(proto, impl.handleNewQueryStream)
+	}
 	return nil
 }
 
@@ -108,7 +125,9 @@ func (impl *libp2pRetrievalMarketNetwork) SetDelegate(r RetrievalReceiver) error
 // shutdown logic.
 func (impl *libp2pRetrievalMarketNetwork) StopHandlingRequests() error {
 	impl.receiver = nil
-	impl.host.RemoveStreamHandler(retrievalmarket.QueryProtocolID)
+	for _, proto := range impl.supportedProtocols {
+		impl.host.RemoveStreamHandler(proto)
+	}
 	return nil
 }
 
@@ -120,7 +139,12 @@ func (impl *libp2pRetrievalMarketNetwork) handleNewQueryStream(s network.Stream)
 	}
 	remotePID := s.Conn().RemotePeer()
 	buffered := bufio.NewReaderSize(s, 16)
-	qs := &queryStream{remotePID, s, buffered}
+	var qs RetrievalQueryStream
+	if s.Protocol() == retrievalmarket.OldQueryProtocolID {
+		qs = &oldQueryStream{remotePID, s, buffered}
+	} else {
+		qs = &queryStream{remotePID, s, buffered}
+	}
 	impl.receiver.HandleQueryStream(qs)
 }
 

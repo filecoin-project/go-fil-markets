@@ -15,6 +15,7 @@ import (
 	"github.com/filecoin-project/go-statemachine/fsm"
 
 	rm "github.com/filecoin-project/go-fil-markets/retrievalmarket"
+	"github.com/filecoin-project/go-fil-markets/retrievalmarket/migrations"
 )
 
 var log = logging.Logger("retrievalmarket_impl")
@@ -49,7 +50,12 @@ func ProviderDataTransferSubscriber(deals EventReceiver) datatransfer.Subscriber
 		dealProposal, ok := channelState.Voucher().(*rm.DealProposal)
 		// if this event is for a transfer not related to storage, ignore
 		if !ok {
-			return
+			legacyProposal, ok := channelState.Voucher().(*migrations.DealProposal0)
+			if !ok {
+				return
+			}
+			newProposal := migrations.MigrateDealProposal0To1(*legacyProposal)
+			dealProposal = &newProposal
 		}
 
 		if channelState.Status() == datatransfer.Completed {
@@ -106,11 +112,19 @@ func clientEvent(event datatransfer.Event, channelState datatransfer.ChannelStat
 	case datatransfer.NewVoucherResult:
 		response, ok := channelState.LastVoucherResult().(*rm.DealResponse)
 		if !ok {
-			log.Errorf("unexpected voucher result received: %s", channelState.LastVoucher().Type())
-			return noEvent, nil
+			legacyResponse, ok := channelState.LastVoucherResult().(*migrations.DealResponse0)
+			if !ok {
+				log.Errorf("unexpected voucher result received: %s", channelState.LastVoucher().Type())
+				return noEvent, nil
+			}
+			newResponse := migrations.MigrateDealResponse0To1(*legacyResponse)
+			response = &newResponse
 		}
 		return clientEventForResponse(response)
 	case datatransfer.Error:
+		if channelState.Message() == datatransfer.ErrRejected.Error() {
+			return rm.ClientEventDealRejected, []interface{}{"rejected for unknown reasons"}
+		}
 		return rm.ClientEventDataTransferError, []interface{}{fmt.Errorf("deal data transfer failed: %s", event.Message)}
 	default:
 	}
@@ -128,7 +142,12 @@ func ClientDataTransferSubscriber(deals EventReceiver) datatransfer.Subscriber {
 
 		// if this event is for a transfer not related to retrieval, ignore
 		if !ok {
-			return
+			legacyProposal, ok := channelState.Voucher().(*migrations.DealProposal0)
+			if !ok {
+				return
+			}
+			newProposal := migrations.MigrateDealProposal0To1(*legacyProposal)
+			dealProposal = &newProposal
 		}
 
 		retrievalEvent, params := clientEvent(event, channelState)
@@ -160,7 +179,12 @@ func TransportConfigurer(thisPeer peer.ID, storeGetter StoreGetter) datatransfer
 	return func(channelID datatransfer.ChannelID, voucher datatransfer.Voucher, transport datatransfer.Transport) {
 		dealProposal, ok := voucher.(*rm.DealProposal)
 		if !ok {
-			return
+			legacyProposal, ok := voucher.(*migrations.DealProposal0)
+			if !ok {
+				return
+			}
+			newProposal := migrations.MigrateDealProposal0To1(*legacyProposal)
+			dealProposal = &newProposal
 		}
 		gsTransport, ok := transport.(StoreConfigurableTransport)
 		if !ok {

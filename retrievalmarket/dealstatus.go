@@ -100,6 +100,12 @@ const (
 
 	// DealStatusCancelled means a deal has been cancelled
 	DealStatusCancelled
+
+	// DealStatusRetryLegacy means we're attempting the deal proposal for a second time using the legacy datatype
+	DealStatusRetryLegacy
+
+	// DealStatusWaitForAcceptanceLegacy means we're waiting to hear the results on the legacy protocol
+	DealStatusWaitForAcceptanceLegacy
 )
 
 // DealStatuses maps deal status to a human readable representation
@@ -131,4 +137,6 @@ var DealStatuses = map[DealStatus]string{
 	DealStatusPaymentChannelAllocatingLane: "DealStatusPaymentChannelAllocatingLane",
 	DealStatusCancelling:                   "DealStatusCancelling",
 	DealStatusCancelled:                    "DealStatusCancelled",
+	DealStatusRetryLegacy:                  "DealStatusRetryLegacy",
+	DealStatusWaitForAcceptanceLegacy:      "DealStatusWaitForAcceptanceLegacy",
 }

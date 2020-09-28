@@ -9,6 +9,7 @@ import (
 	"github.com/ipld/go-ipld-prime"
 	"github.com/ipld/go-ipld-prime/codec/dagcbor"
 	"github.com/libp2p/go-libp2p-core/peer"
+	"github.com/libp2p/go-libp2p-core/protocol"
 	cbg "github.com/whyrusleeping/cbor-gen"
 	"golang.org/x/xerrors"
 
@@ -26,10 +27,10 @@ import (
 
 // QueryProtocolID is the protocol for querying information about retrieval
 // deal parameters
-const QueryProtocolID = "/fil/retrieval/qry/1.0.0"
+const QueryProtocolID = protocol.ID("/fil/retrieval/qry/1.0.0")
 
 // OldQueryProtocolID is the old query protocol for tuple structs
-const OldQueryProtocolID = "/fil/retrieval/qry/0.0.1"
+const OldQueryProtocolID = protocol.ID("/fil/retrieval/qry/0.0.1")
 
 // Unsubscribe is a function that unsubscribes a subscriber for either the
 // client or the provider
@@ -64,6 +65,7 @@ type ClientDealState struct {
 	UnsealFundsPaid      abi.TokenAmount
 	WaitMsgCID           *cid.Cid // the CID of any message the client deal is waiting for
 	VoucherShortfall     abi.TokenAmount
+	LegacyProtocol       bool
 }
 
 // ProviderDealState is the current state of a deal from the point of view
@@ -79,6 +81,7 @@ type ProviderDealState struct {
 	FundsReceived   abi.TokenAmount
 	Message         string
 	CurrentInterval uint64
+	LegacyProtocol  bool
 }
 
 // Identifier provides a unique id for this provider deal

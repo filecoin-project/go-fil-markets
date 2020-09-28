@@ -1254,7 +1254,7 @@ func (t *ClientDealState) MarshalCBOR(w io.Writer) error {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	if _, err := w.Write([]byte{180}); err != nil {
+	if _, err := w.Write([]byte{181}); err != nil {
 		return err
 	}
 
@@ -1605,6 +1605,22 @@ func (t *ClientDealState) MarshalCBOR(w io.Writer) error {
 	if err := t.VoucherShortfall.MarshalCBOR(w); err != nil {
 		return err
 	}
+
+	// t.LegacyProtocol (bool) (bool)
+	if len("LegacyProtocol") > cbg.MaxLength {
+		return xerrors.Errorf("Value in field \"LegacyProtocol\" was too long")
+	}
+
+	if err := cbg.WriteMajorTypeHeaderBuf(scratch, w, cbg.MajTextString, uint64(len("LegacyProtocol"))); err != nil {
+		return err
+	}
+	if _, err := io.WriteString(w, string("LegacyProtocol")); err != nil {
+		return err
+	}
+
+	if err := cbg.WriteBool(w, t.LegacyProtocol); err != nil {
+		return err
+	}
 	return nil
 }
 
@@ -1917,6 +1933,24 @@ func (t *ClientDealState) UnmarshalCBOR(r io.Reader) error {
 				}
 
 			}
+			// t.LegacyProtocol (bool) (bool)
+		case "LegacyProtocol":
+
+			maj, extra, err = cbg.CborReadHeaderBuf(br, scratch)
+			if err != nil {
+				return err
+			}
+			if maj != cbg.MajOther {
+				return fmt.Errorf("booleans must be major type 7")
+			}
+			switch extra {
+			case 20:
+				t.LegacyProtocol = false
+			case 21:
+				t.LegacyProtocol = true
+			default:
+				return fmt.Errorf("booleans are either major type 7, value 20 or 21 (got %d)", extra)
+			}
 
 		default:
 			return fmt.Errorf("unknown struct field %d: '%s'", i, name)
@@ -1930,7 +1964,7 @@ func (t *ProviderDealState) MarshalCBOR(w io.Writer) error {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	if _, err := w.Write([]byte{170}); err != nil {
+	if _, err := w.Write([]byte{171}); err != nil {
 		return err
 	}
 
@@ -2110,6 +2144,21 @@ func (t *ProviderDealState) MarshalCBOR(w io.Writer) error {
 		return err
 	}
 
+	// t.LegacyProtocol (bool) (bool)
+	if len("LegacyProtocol") > cbg.MaxLength {
+		return xerrors.Errorf("Value in field \"LegacyProtocol\" was too long")
+	}
+
+	if err := cbg.WriteMajorTypeHeaderBuf(scratch, w, cbg.MajTextString, uint64(len("LegacyProtocol"))); err != nil {
+		return err
+	}
+	if _, err := io.WriteString(w, string("LegacyProtocol")); err != nil {
+		return err
+	}
+
+	if err := cbg.WriteBool(w, t.LegacyProtocol); err != nil {
+		return err
+	}
 	return nil
 }
 
@@ -2277,6 +2326,24 @@ func (t *ProviderDealState) UnmarshalCBOR(r io.Reader) error {
 				}
 				t.CurrentInterval = uint64(extra)
 
+			}
+			// t.LegacyProtocol (bool) (bool)
+		case "LegacyProtocol":
+
+			maj, extra, err = cbg.CborReadHeaderBuf(br, scratch)
+			if err != nil {
+				return err
+			}
+			if maj != cbg.MajOther {
+				return fmt.Errorf("booleans must be major type 7")
+			}
+			switch extra {
+			case 20:
+				t.LegacyProtocol = false
+			case 21:
+				t.LegacyProtocol = true
+			default:
+				return fmt.Errorf("booleans are either major type 7, value 20 or 21 (got %d)", extra)
 			}
 
 		default:

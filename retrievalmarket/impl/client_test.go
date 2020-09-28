@@ -56,16 +56,23 @@ func TestClient_Construction(t *testing.T) {
 	require.NoError(t, err)
 
 	require.Len(t, dt.Subscribers, 1)
-	require.Len(t, dt.RegisteredVoucherResultTypes, 1)
+	require.Len(t, dt.RegisteredVoucherResultTypes, 2)
 	_, ok := dt.RegisteredVoucherResultTypes[0].(*retrievalmarket.DealResponse)
 	require.True(t, ok)
-	require.Len(t, dt.RegisteredVoucherTypes, 2)
+	_, ok = dt.RegisteredVoucherResultTypes[1].(*migrations.DealResponse0)
+	require.True(t, ok)
+	require.Len(t, dt.RegisteredVoucherTypes, 4)
 	_, ok = dt.RegisteredVoucherTypes[0].VoucherType.(*retrievalmarket.DealProposal)
 	require.True(t, ok)
-	_, ok = dt.RegisteredVoucherTypes[1].VoucherType.(*retrievalmarket.DealPayment)
+	_, ok = dt.RegisteredVoucherTypes[1].VoucherType.(*migrations.DealProposal0)
 	require.True(t, ok)
-	require.Len(t, dt.RegisteredTransportConfigurers, 1)
+	_, ok = dt.RegisteredVoucherTypes[2].VoucherType.(*retrievalmarket.DealPayment)
+	require.True(t, ok)
+	_, ok = dt.RegisteredVoucherTypes[3].VoucherType.(*migrations.DealPayment0)
+	require.True(t, ok)
+	require.Len(t, dt.RegisteredTransportConfigurers, 2)
 	_, ok = dt.RegisteredTransportConfigurers[0].VoucherType.(*retrievalmarket.DealProposal)
+	_, ok = dt.RegisteredTransportConfigurers[1].VoucherType.(*migrations.DealProposal0)
 	require.True(t, ok)
 }
 
@@ -424,6 +431,7 @@ func TestMigrations(t *testing.T) {
 			UnsealFundsPaid:  unsealFundsPaids[i],
 			WaitMsgCID:       nil,
 			VoucherShortfall: voucherShortfalls[i],
+			LegacyProtocol:   true,
 		}
 		require.Equal(t, expectedDeal, deal)
 	}

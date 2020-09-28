@@ -22,6 +22,7 @@ func recordReceived(deal *rm.ClientDealState, totalReceived uint64) error {
 
 var paymentChannelCreationStates = []fsm.StateKey{
 	rm.DealStatusWaitForAcceptance,
+	rm.DealStatusWaitForAcceptanceLegacy,
 	rm.DealStatusAccepted,
 	rm.DealStatusPaymentChannelCreating,
 	rm.DealStatusPaymentChannelAllocatingLane,
@@ -41,26 +42,30 @@ var ClientEvents = fsm.Events{
 		}),
 	fsm.Event(rm.ClientEventDealProposed).
 		From(rm.DealStatusNew).To(rm.DealStatusWaitForAcceptance).
+		From(rm.DealStatusRetryLegacy).To(rm.DealStatusWaitForAcceptanceLegacy).
 		Action(func(deal *rm.ClientDealState, channelID datatransfer.ChannelID) error {
 			deal.ChannelID = channelID
+			deal.Message = ""
 			return nil
 		}),
 
 	// Initial deal acceptance events
 	fsm.Event(rm.ClientEventDealRejected).
-		From(rm.DealStatusWaitForAcceptance).To(rm.DealStatusRejected).
+		From(rm.DealStatusWaitForAcceptance).To(rm.DealStatusRetryLegacy).
+		From(rm.DealStatusWaitForAcceptanceLegacy).To(rm.DealStatusRejected).
 		Action(func(deal *rm.ClientDealState, message string) error {
 			deal.Message = fmt.Sprintf("deal rejected: %s", message)
+			deal.LegacyProtocol = true
 			return nil
 		}),
 	fsm.Event(rm.ClientEventDealNotFound).
-		From(rm.DealStatusWaitForAcceptance).To(rm.DealStatusDealNotFound).
+		FromMany(rm.DealStatusWaitForAcceptance, rm.DealStatusWaitForAcceptanceLegacy).To(rm.DealStatusDealNotFound).
 		Action(func(deal *rm.ClientDealState, message string) error {
 			deal.Message = fmt.Sprintf("deal not found: %s", message)
 			return nil
 		}),
 	fsm.Event(rm.ClientEventDealAccepted).
-		From(rm.DealStatusWaitForAcceptance).To(rm.DealStatusAccepted),
+		FromMany(rm.DealStatusWaitForAcceptance, rm.DealStatusWaitForAcceptanceLegacy).To(rm.DealStatusAccepted),
 	fsm.Event(rm.ClientEventUnknownResponseReceived).
 		FromAny().To(rm.DealStatusFailing).
 		Action(func(deal *rm.ClientDealState, status rm.DealStatus) error {
@@ -158,7 +163,7 @@ var ClientEvents = fsm.Events{
 		}),
 
 	fsm.Event(rm.ClientEventUnsealPaymentRequested).
-		From(rm.DealStatusWaitForAcceptance).To(rm.DealStatusAccepted).
+		FromMany(rm.DealStatusWaitForAcceptance, rm.DealStatusWaitForAcceptanceLegacy).To(rm.DealStatusAccepted).
 		Action(func(deal *rm.ClientDealState, paymentOwed abi.TokenAmount) error {
 			deal.PaymentRequested = big.Add(deal.PaymentRequested, paymentOwed)
 			return nil
@@ -296,6 +301,7 @@ var ClientFinalityStates = []fsm.StateKey{
 // ClientStateEntryFuncs are the handlers for different states in a retrieval client
 var ClientStateEntryFuncs = fsm.StateEntryFuncs{
 	rm.DealStatusNew:                          ProposeDeal,
+	rm.DealStatusRetryLegacy:                  ProposeDeal,
 	rm.DealStatusAccepted:                     SetupPaymentChannelStart,
 	rm.DealStatusPaymentChannelCreating:       WaitPaymentChannelReady,
 	rm.DealStatusPaymentChannelAllocatingLane: AllocateLane,

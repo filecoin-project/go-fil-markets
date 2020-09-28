@@ -19,6 +19,7 @@ import (
 	"github.com/filecoin-project/go-fil-markets/piecestore"
 	"github.com/filecoin-project/go-fil-markets/retrievalmarket"
 	"github.com/filecoin-project/go-fil-markets/retrievalmarket/impl/requestvalidation"
+	"github.com/filecoin-project/go-fil-markets/retrievalmarket/migrations"
 	"github.com/filecoin-project/go-fil-markets/shared"
 	"github.com/filecoin-project/go-fil-markets/shared_testutil"
 )
@@ -35,6 +36,18 @@ func TestValidatePush(t *testing.T) {
 
 func TestValidatePull(t *testing.T) {
 	proposal := shared_testutil.MakeTestDealProposal()
+	legacyProposal := migrations.DealProposal0{
+		PayloadCID: proposal.PayloadCID,
+		ID:         proposal.ID,
+		Params0: migrations.Params0{
+			Selector:                proposal.Selector,
+			PieceCID:                proposal.PieceCID,
+			PricePerByte:            proposal.PricePerByte,
+			PaymentInterval:         proposal.PaymentInterval,
+			PaymentIntervalIncrease: proposal.PaymentIntervalIncrease,
+			UnsealPrice:             proposal.UnsealPrice,
+		},
+	}
 	testCases := map[string]struct {
 		fve                   fakeValidationEnvironment
 		sender                peer.ID
@@ -162,6 +175,19 @@ func TestValidatePull(t *testing.T) {
 			voucher:       &proposal,
 			expectedError: datatransfer.ErrPause,
 			expectedVoucherResult: &retrievalmarket.DealResponse{
+				Status: retrievalmarket.DealStatusAccepted,
+				ID:     proposal.ID,
+			},
+		},
+		"success, legacyProposal": {
+			fve: fakeValidationEnvironment{
+				RunDealDecisioningLogicAccepted: true,
+			},
+			baseCid:       proposal.PayloadCID,
+			selector:      shared.AllSelector(),
+			voucher:       &legacyProposal,
+			expectedError: datatransfer.ErrPause,
+			expectedVoucherResult: &migrations.DealResponse0{
 				Status: retrievalmarket.DealStatusAccepted,
 				ID:     proposal.ID,
 			},

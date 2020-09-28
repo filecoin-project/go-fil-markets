@@ -118,6 +118,11 @@ type DealProposal0 struct {
 	Params0
 }
 
+// Type method makes DealProposal0 usable as a voucher
+func (dp *DealProposal0) Type() datatransfer.TypeIdentifier {
+	return "RetrievalDealProposal"
+}
+
 // DealResponse0 is version 0 of DealResponse
 type DealResponse0 struct {
 	Status retrievalmarket.DealStatus
@@ -129,11 +134,21 @@ type DealResponse0 struct {
 	Message string
 }
 
+// Type method makes DealResponse0 usable as a voucher result
+func (dr *DealResponse0) Type() datatransfer.TypeIdentifier {
+	return "RetrievalDealResponse"
+}
+
 // DealPayment0 is version 0 of DealPayment
 type DealPayment0 struct {
 	ID             retrievalmarket.DealID
 	PaymentChannel address.Address
 	PaymentVoucher *paych.SignedVoucher
+}
+
+// Type method makes DealPayment0 usable as a voucher
+func (dr *DealPayment0) Type() datatransfer.TypeIdentifier {
+	return "RetrievalDealPayment"
 }
 
 // Ask0 is version 0 of Ask
@@ -142,6 +157,36 @@ type Ask0 struct {
 	UnsealPrice             abi.TokenAmount
 	PaymentInterval         uint64
 	PaymentIntervalIncrease uint64
+}
+
+// MigrateQueryParams0To1 migrates tuple encoded query params to map encoded query params
+func MigrateQueryParams0To1(oldParams QueryParams0) retrievalmarket.QueryParams {
+	return retrievalmarket.QueryParams{
+		PieceCID: oldParams.PieceCID,
+	}
+}
+
+// MigrateQuery0To1 migrates tuple encoded query to map encoded query
+func MigrateQuery0To1(oldQuery Query0) retrievalmarket.Query {
+	return retrievalmarket.Query{
+		PayloadCID:  oldQuery.PayloadCID,
+		QueryParams: MigrateQueryParams0To1(oldQuery.QueryParams0),
+	}
+}
+
+// MigrateQueryResponse0To1 migrates tuple encoded query response to map encoded query response
+func MigrateQueryResponse0To1(oldQr QueryResponse0) retrievalmarket.QueryResponse {
+	return retrievalmarket.QueryResponse{
+		Status:                     oldQr.Status,
+		PieceCIDFound:              oldQr.PieceCIDFound,
+		Size:                       oldQr.Size,
+		PaymentAddress:             oldQr.PaymentAddress,
+		MinPricePerByte:            oldQr.MinPricePerByte,
+		MaxPaymentInterval:         oldQr.MaxPaymentInterval,
+		MaxPaymentIntervalIncrease: oldQr.MaxPaymentIntervalIncrease,
+		Message:                    oldQr.Message,
+		UnsealPrice:                oldQr.UnsealPrice,
+	}
 }
 
 // MigrateParams0To1 migrates tuple encoded deal params to map encoded deal params
@@ -156,6 +201,16 @@ func MigrateParams0To1(oldParams Params0) retrievalmarket.Params {
 	}
 }
 
+// MigrateDealPayment0To1 migrates a tuple encoded DealPayment to a map
+// encoded deal payment
+func MigrateDealPayment0To1(oldDp DealPayment0) retrievalmarket.DealPayment {
+	return retrievalmarket.DealPayment{
+		ID:             oldDp.ID,
+		PaymentChannel: oldDp.PaymentChannel,
+		PaymentVoucher: oldDp.PaymentVoucher,
+	}
+}
+
 // MigrateDealProposal0To1 migrates a tuple encoded DealProposal to a map
 // encoded deal proposal
 func MigrateDealProposal0To1(oldDp DealProposal0) retrievalmarket.DealProposal {
@@ -163,6 +218,17 @@ func MigrateDealProposal0To1(oldDp DealProposal0) retrievalmarket.DealProposal {
 		PayloadCID: oldDp.PayloadCID,
 		ID:         oldDp.ID,
 		Params:     MigrateParams0To1(oldDp.Params0),
+	}
+}
+
+// MigrateDealResponse0To1 migrates a tuple encoded DealResponse to a map
+// encoded deal response
+func MigrateDealResponse0To1(oldDr DealResponse0) retrievalmarket.DealResponse {
+	return retrievalmarket.DealResponse{
+		Status:      oldDr.Status,
+		ID:          oldDr.ID,
+		PaymentOwed: oldDr.PaymentOwed,
+		Message:     oldDr.Message,
 	}
 }
 
@@ -201,6 +267,7 @@ func MigrateClientDealState0To1(oldDs *ClientDealState0) (*retrievalmarket.Clien
 		UnsealFundsPaid:      oldDs.UnsealFundsPaid,
 		WaitMsgCID:           oldDs.WaitMsgCID,
 		VoucherShortfall:     oldDs.VoucherShortfall,
+		LegacyProtocol:       true,
 	}, nil
 }
 
@@ -225,6 +292,7 @@ func MigrateProviderDealState0To1(oldDs *ProviderDealState0) (*retrievalmarket.P
 		FundsReceived:   oldDs.FundsReceived,
 		Message:         oldDs.Message,
 		CurrentInterval: oldDs.CurrentInterval,
+		LegacyProtocol:  true,
 	}, nil
 }
 
