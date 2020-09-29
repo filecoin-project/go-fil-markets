@@ -10,6 +10,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	cborutil "github.com/filecoin-project/go-cbor-util"
+
 	"github.com/filecoin-project/go-fil-markets/discovery"
 	rm "github.com/filecoin-project/go-fil-markets/retrievalmarket"
 	rmnet "github.com/filecoin-project/go-fil-markets/retrievalmarket/network"

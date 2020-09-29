@@ -13,7 +13,6 @@ import (
 	cborutil "github.com/filecoin-project/go-cbor-util"
 	versioning "github.com/filecoin-project/go-ds-versioning/pkg"
 	versionedds "github.com/filecoin-project/go-ds-versioning/pkg/datastore"
-
 	"github.com/filecoin-project/go-ds-versioning/pkg/versioned"
 	"github.com/filecoin-project/go-state-types/abi"
 	"github.com/filecoin-project/go-state-types/crypto"
