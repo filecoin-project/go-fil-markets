@@ -8,13 +8,13 @@ import (
 	"github.com/ipfs/go-datastore"
 	"github.com/ipfs/go-datastore/namespace"
 	logging "github.com/ipfs/go-log/v2"
-	"golang.org/x/xerrors"
 
 	versioning "github.com/filecoin-project/go-ds-versioning/pkg"
 	versioned "github.com/filecoin-project/go-ds-versioning/pkg/statestore"
 
 	"github.com/filecoin-project/go-fil-markets/piecestore"
 	"github.com/filecoin-project/go-fil-markets/piecestore/migrations"
+	"github.com/filecoin-project/go-fil-markets/shared"
 )
 
 var log = logging.Logger("piecestore")
@@ -38,7 +38,7 @@ func NewPieceStore(ds datastore.Batching) (piecestore.PieceStore, error) {
 	}
 	cidInfos, migrateCidInfos := versioned.NewVersionedStateStore(namespace.Wrap(ds, datastore.NewKey(DSCIDPrefix)), cidInfoMigrations, versioning.VersionKey("1"))
 	return &pieceStore{
-		readySub:        pubsub.New(readyDispatcher),
+		readySub:        pubsub.New(shared.ReadyDispatcher),
 		pieces:          pieces,
 		migratePieces:   migratePieces,
 		cidInfos:        cidInfos,
@@ -54,34 +54,29 @@ type pieceStore struct {
 	cidInfos        versioned.StateStore
 }
 
-func readyDispatcher(_ pubsub.Event, fn pubsub.SubscriberFn) error {
-	cb, ok := fn.(piecestore.ReadyFunc)
-	if !ok {
-		return xerrors.New("wrong type of event")
-	}
-	cb()
-	return nil
-}
-
 func (ps *pieceStore) Start(ctx context.Context) error {
 	go func() {
-		err := ps.migratePieces(ctx)
+		var err error
+		defer func() {
+			err = ps.readySub.Publish(err)
+			if err != nil {
+				log.Warnf("Publish piecestore migration ready event: %s", err.Error())
+			}
+		}()
+		err = ps.migratePieces(ctx)
 		if err != nil {
 			log.Errorf("Migrating pieceInfos: %s", err.Error())
+			return
 		}
 		err = ps.migrateCidInfos(ctx)
 		if err != nil {
 			log.Errorf("Migrating cidInfos: %s", err.Error())
 		}
-		err = ps.readySub.Publish(struct{}{})
-		if err != nil {
-			log.Warnf("Publish piecestore migration ready event: %s", err.Error())
-		}
 	}()
 	return nil
 }
 
-func (ps *pieceStore) OnReady(ready piecestore.ReadyFunc) {
+func (ps *pieceStore) OnReady(ready shared.ReadyFunc) {
 	ps.readySub.Subscribe(ready)
 }
 

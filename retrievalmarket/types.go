@@ -9,6 +9,7 @@ import (
 	"github.com/ipld/go-ipld-prime"
 	"github.com/ipld/go-ipld-prime/codec/dagcbor"
 	"github.com/libp2p/go-libp2p-core/peer"
+	"github.com/libp2p/go-libp2p-core/protocol"
 	cbg "github.com/whyrusleeping/cbor-gen"
 	"golang.org/x/xerrors"
 
@@ -22,11 +23,14 @@ import (
 	"github.com/filecoin-project/go-fil-markets/piecestore"
 )
 
-//go:generate cbor-gen-for Query QueryResponse DealProposal DealResponse Params QueryParams DealPayment ClientDealState ProviderDealState PaymentInfo RetrievalPeer Ask
+//go:generate cbor-gen-for --map-encoding Query QueryResponse DealProposal DealResponse Params QueryParams DealPayment ClientDealState ProviderDealState PaymentInfo RetrievalPeer Ask
 
 // QueryProtocolID is the protocol for querying information about retrieval
 // deal parameters
-const QueryProtocolID = "/fil/retrieval/qry/0.0.1"
+const QueryProtocolID = protocol.ID("/fil/retrieval/qry/1.0.0")
+
+// OldQueryProtocolID is the old query protocol for tuple structs
+const OldQueryProtocolID = protocol.ID("/fil/retrieval/qry/0.0.1")
 
 // Unsubscribe is a function that unsubscribes a subscriber for either the
 // client or the provider
@@ -61,6 +65,7 @@ type ClientDealState struct {
 	UnsealFundsPaid      abi.TokenAmount
 	WaitMsgCID           *cid.Cid // the CID of any message the client deal is waiting for
 	VoucherShortfall     abi.TokenAmount
+	LegacyProtocol       bool
 }
 
 // ProviderDealState is the current state of a deal from the point of view
@@ -76,6 +81,7 @@ type ProviderDealState struct {
 	FundsReceived   abi.TokenAmount
 	Message         string
 	CurrentInterval uint64
+	LegacyProtocol  bool
 }
 
 // Identifier provides a unique id for this provider deal
@@ -91,11 +97,6 @@ type ProviderDealIdentifier struct {
 
 func (p ProviderDealIdentifier) String() string {
 	return fmt.Sprintf("%v/%v", p.Receiver, p.DealID)
-}
-
-// PeerResolver is an interface for looking up providers that may have a piece
-type PeerResolver interface {
-	GetPeers(payloadCID cid.Cid) ([]RetrievalPeer, error) // TODO: channel
 }
 
 // RetrievalPeer is a provider address/peer.ID pair (everything needed to make
@@ -291,7 +292,7 @@ type DealProposal struct {
 
 // Type method makes DealProposal usable as a voucher
 func (dp *DealProposal) Type() datatransfer.TypeIdentifier {
-	return "RetrievalDealProposal"
+	return "RetrievalDealProposal/1"
 }
 
 // DealProposalUndefined is an undefined deal proposal
@@ -310,7 +311,7 @@ type DealResponse struct {
 
 // Type method makes DealResponse usable as a voucher result
 func (dr *DealResponse) Type() datatransfer.TypeIdentifier {
-	return "RetrievalDealResponse"
+	return "RetrievalDealResponse/1"
 }
 
 // DealResponseUndefined is an undefined deal response
@@ -325,7 +326,7 @@ type DealPayment struct {
 
 // Type method makes DealPayment usable as a voucher
 func (dr *DealPayment) Type() datatransfer.TypeIdentifier {
-	return "RetrievalDealPayment"
+	return "RetrievalDealPayment/1"
 }
 
 // DealPaymentUndefined is an undefined deal payment

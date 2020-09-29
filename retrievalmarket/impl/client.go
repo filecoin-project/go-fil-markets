@@ -13,15 +13,19 @@ import (
 
 	"github.com/filecoin-project/go-address"
 	datatransfer "github.com/filecoin-project/go-data-transfer"
+	versioning "github.com/filecoin-project/go-ds-versioning/pkg"
+	versionedfsm "github.com/filecoin-project/go-ds-versioning/pkg/fsm"
 	"github.com/filecoin-project/go-multistore"
 	"github.com/filecoin-project/go-state-types/abi"
 	"github.com/filecoin-project/go-state-types/big"
 	"github.com/filecoin-project/go-statemachine/fsm"
 	"github.com/filecoin-project/go-storedcounter"
 
+	"github.com/filecoin-project/go-fil-markets/discovery"
 	"github.com/filecoin-project/go-fil-markets/retrievalmarket"
 	"github.com/filecoin-project/go-fil-markets/retrievalmarket/impl/clientstates"
 	"github.com/filecoin-project/go-fil-markets/retrievalmarket/impl/dtutils"
+	"github.com/filecoin-project/go-fil-markets/retrievalmarket/migrations"
 	rmnet "github.com/filecoin-project/go-fil-markets/retrievalmarket/network"
 	"github.com/filecoin-project/go-fil-markets/shared"
 )
@@ -36,9 +40,11 @@ type Client struct {
 	node          retrievalmarket.RetrievalClientNode
 	storedCounter *storedcounter.StoredCounter
 
-	subscribers   *pubsub.PubSub
-	resolver      retrievalmarket.PeerResolver
-	stateMachines fsm.Group
+	subscribers          *pubsub.PubSub
+	readySub             *pubsub.PubSub
+	resolver             discovery.PeerResolver
+	stateMachines        fsm.Group
+	migrateStateMachines func(context.Context) error
 }
 
 type internalEvent struct {
@@ -67,7 +73,7 @@ func NewClient(
 	multiStore *multistore.MultiStore,
 	dataTransfer datatransfer.Manager,
 	node retrievalmarket.RetrievalClientNode,
-	resolver retrievalmarket.PeerResolver,
+	resolver discovery.PeerResolver,
 	ds datastore.Batching,
 	storedCounter *storedcounter.StoredCounter,
 ) (retrievalmarket.RetrievalClient, error) {
@@ -79,8 +85,13 @@ func NewClient(
 		resolver:      resolver,
 		storedCounter: storedCounter,
 		subscribers:   pubsub.New(dispatcher),
+		readySub:      pubsub.New(shared.ReadyDispatcher),
 	}
-	stateMachines, err := fsm.New(ds, fsm.Parameters{
+	retrievalMigrations, err := migrations.ClientMigrations.Build()
+	if err != nil {
+		return nil, err
+	}
+	c.stateMachines, c.migrateStateMachines, err = versionedfsm.NewVersionedFSM(ds, fsm.Parameters{
 		Environment:     &clientDealEnvironment{c},
 		StateType:       retrievalmarket.ClientDealState{},
 		StateKeyField:   "Status",
@@ -88,12 +99,15 @@ func NewClient(
 		StateEntryFuncs: clientstates.ClientStateEntryFuncs,
 		FinalityStates:  clientstates.ClientFinalityStates,
 		Notifier:        c.notifySubscribers,
-	})
+	}, retrievalMigrations, versioning.VersionKey("1"))
 	if err != nil {
 		return nil, err
 	}
-	c.stateMachines = stateMachines
 	err = dataTransfer.RegisterVoucherResultType(&retrievalmarket.DealResponse{})
+	if err != nil {
+		return nil, err
+	}
+	err = dataTransfer.RegisterVoucherResultType(&migrations.DealResponse0{})
 	if err != nil {
 		return nil, err
 	}
@@ -101,19 +115,50 @@ func NewClient(
 	if err != nil {
 		return nil, err
 	}
+	err = dataTransfer.RegisterVoucherType(&migrations.DealProposal0{}, nil)
+	if err != nil {
+		return nil, err
+	}
 	err = dataTransfer.RegisterVoucherType(&retrievalmarket.DealPayment{}, nil)
 	if err != nil {
 		return nil, err
 	}
+	err = dataTransfer.RegisterVoucherType(&migrations.DealPayment0{}, nil)
+	if err != nil {
+		return nil, err
+	}
 	dataTransfer.SubscribeToEvents(dtutils.ClientDataTransferSubscriber(c.stateMachines))
-	err = dataTransfer.RegisterTransportConfigurer(&retrievalmarket.DealProposal{}, dtutils.TransportConfigurer(network.ID(), &clientStoreGetter{c}))
+	transportConfigurer := dtutils.TransportConfigurer(network.ID(), &clientStoreGetter{c})
+	err = dataTransfer.RegisterTransportConfigurer(&retrievalmarket.DealProposal{}, transportConfigurer)
+	if err != nil {
+		return nil, err
+	}
+	err = dataTransfer.RegisterTransportConfigurer(&migrations.DealProposal0{}, transportConfigurer)
 	if err != nil {
 		return nil, err
 	}
 	return c, nil
 }
 
-// V0
+// Start initialized the Client, performing relevant database migrations
+func (c *Client) Start(ctx context.Context) error {
+	go func() {
+		err := c.migrateStateMachines(ctx)
+		if err != nil {
+			log.Errorf("Migrating retrieval client state machines: %s", err.Error())
+		}
+		err = c.readySub.Publish(err)
+		if err != nil {
+			log.Warnf("Publish retrieval client ready event: %s", err.Error())
+		}
+	}()
+	return nil
+}
+
+// OnReady registers a listener for when the client has finished starting up
+func (c *Client) OnReady(ready shared.ReadyFunc) {
+	c.readySub.Subscribe(ready)
+}
 
 // FindProviders uses PeerResolver interface to locate a list of providers who may have a given payload CID.
 func (c *Client) FindProviders(payloadCID cid.Cid) []retrievalmarket.RetrievalPeer {
@@ -323,7 +368,7 @@ func (c *clientDealEnvironment) Node() retrievalmarket.RetrievalClientNode {
 	return c.c.node
 }
 
-func (c *clientDealEnvironment) OpenDataTransfer(ctx context.Context, to peer.ID, proposal *retrievalmarket.DealProposal) (datatransfer.ChannelID, error) {
+func (c *clientDealEnvironment) OpenDataTransfer(ctx context.Context, to peer.ID, proposal *retrievalmarket.DealProposal, legacy bool) (datatransfer.ChannelID, error) {
 	sel := shared.AllSelector()
 	if proposal.SelectorSpecified() {
 		var err error
@@ -333,11 +378,34 @@ func (c *clientDealEnvironment) OpenDataTransfer(ctx context.Context, to peer.ID
 		}
 	}
 
-	return c.c.dataTransfer.OpenPullDataChannel(ctx, to, proposal, proposal.PayloadCID, sel)
+	var vouch datatransfer.Voucher = proposal
+	if legacy {
+		vouch = &migrations.DealProposal0{
+			PayloadCID: proposal.PayloadCID,
+			ID:         proposal.ID,
+			Params0: migrations.Params0{
+				Selector:                proposal.Selector,
+				PieceCID:                proposal.PieceCID,
+				PricePerByte:            proposal.PricePerByte,
+				PaymentInterval:         proposal.PaymentInterval,
+				PaymentIntervalIncrease: proposal.PaymentIntervalIncrease,
+				UnsealPrice:             proposal.UnsealPrice,
+			},
+		}
+	}
+	return c.c.dataTransfer.OpenPullDataChannel(ctx, to, vouch, proposal.PayloadCID, sel)
 }
 
-func (c *clientDealEnvironment) SendDataTransferVoucher(ctx context.Context, channelID datatransfer.ChannelID, payment *retrievalmarket.DealPayment) error {
-	return c.c.dataTransfer.SendVoucher(ctx, channelID, payment)
+func (c *clientDealEnvironment) SendDataTransferVoucher(ctx context.Context, channelID datatransfer.ChannelID, payment *retrievalmarket.DealPayment, legacy bool) error {
+	var vouch datatransfer.Voucher = payment
+	if legacy {
+		vouch = &migrations.DealPayment0{
+			ID:             payment.ID,
+			PaymentChannel: payment.PaymentChannel,
+			PaymentVoucher: payment.PaymentVoucher,
+		}
+	}
+	return c.c.dataTransfer.SendVoucher(ctx, channelID, vouch)
 }
 
 func (c *clientDealEnvironment) CloseDataTransfer(ctx context.Context, channelID datatransfer.ChannelID) error {

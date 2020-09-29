@@ -1,26 +1,39 @@
 package retrievalimpl_test
 
 import (
+	"bytes"
 	"context"
 	"errors"
+	"fmt"
+	"math/rand"
 	"testing"
+	"time"
 
+	"github.com/ipfs/go-cid"
 	"github.com/ipfs/go-datastore"
+	"github.com/ipfs/go-datastore/namespace"
 	dss "github.com/ipfs/go-datastore/sync"
+	"github.com/ipld/go-ipld-prime/codec/dagcbor"
 	"github.com/libp2p/go-libp2p-core/peer"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	cbg "github.com/whyrusleeping/cbor-gen"
 
 	"github.com/filecoin-project/go-address"
+	datatransfer "github.com/filecoin-project/go-data-transfer"
 	"github.com/filecoin-project/go-multistore"
 	"github.com/filecoin-project/go-state-types/abi"
+	"github.com/filecoin-project/go-state-types/big"
 	"github.com/filecoin-project/go-storedcounter"
 
 	"github.com/filecoin-project/go-fil-markets/retrievalmarket"
 	retrievalimpl "github.com/filecoin-project/go-fil-markets/retrievalmarket/impl"
 	"github.com/filecoin-project/go-fil-markets/retrievalmarket/impl/testnodes"
+	"github.com/filecoin-project/go-fil-markets/retrievalmarket/migrations"
 	"github.com/filecoin-project/go-fil-markets/retrievalmarket/network"
 	rmnet "github.com/filecoin-project/go-fil-markets/retrievalmarket/network"
+	"github.com/filecoin-project/go-fil-markets/shared"
+	"github.com/filecoin-project/go-fil-markets/shared_testutil"
 	tut "github.com/filecoin-project/go-fil-markets/shared_testutil"
 )
 
@@ -43,16 +56,23 @@ func TestClient_Construction(t *testing.T) {
 	require.NoError(t, err)
 
 	require.Len(t, dt.Subscribers, 1)
-	require.Len(t, dt.RegisteredVoucherResultTypes, 1)
+	require.Len(t, dt.RegisteredVoucherResultTypes, 2)
 	_, ok := dt.RegisteredVoucherResultTypes[0].(*retrievalmarket.DealResponse)
 	require.True(t, ok)
-	require.Len(t, dt.RegisteredVoucherTypes, 2)
+	_, ok = dt.RegisteredVoucherResultTypes[1].(*migrations.DealResponse0)
+	require.True(t, ok)
+	require.Len(t, dt.RegisteredVoucherTypes, 4)
 	_, ok = dt.RegisteredVoucherTypes[0].VoucherType.(*retrievalmarket.DealProposal)
 	require.True(t, ok)
-	_, ok = dt.RegisteredVoucherTypes[1].VoucherType.(*retrievalmarket.DealPayment)
+	_, ok = dt.RegisteredVoucherTypes[1].VoucherType.(*migrations.DealProposal0)
 	require.True(t, ok)
-	require.Len(t, dt.RegisteredTransportConfigurers, 1)
+	_, ok = dt.RegisteredVoucherTypes[2].VoucherType.(*retrievalmarket.DealPayment)
+	require.True(t, ok)
+	_, ok = dt.RegisteredVoucherTypes[3].VoucherType.(*migrations.DealPayment0)
+	require.True(t, ok)
+	require.Len(t, dt.RegisteredTransportConfigurers, 2)
 	_, ok = dt.RegisteredTransportConfigurers[0].VoucherType.(*retrievalmarket.DealProposal)
+	_, ok = dt.RegisteredTransportConfigurers[1].VoucherType.(*migrations.DealProposal0)
 	require.True(t, ok)
 }
 
@@ -242,4 +262,177 @@ func TestClient_FindProviders(t *testing.T) {
 		testCid := tut.GenerateCids(1)[0]
 		assert.Len(t, c.FindProviders(testCid), 0)
 	})
+}
+
+func TestMigrations(t *testing.T) {
+	ctx := context.Background()
+	ctx, cancel := context.WithTimeout(ctx, 10*time.Second)
+	defer cancel()
+	ds := dss.MutexWrap(datastore.NewMapDatastore())
+	storedCounter := storedcounter.New(ds, datastore.NewKey("nextDealID"))
+	multiStore, err := multistore.NewMultiDstore(ds)
+	require.NoError(t, err)
+	dt := tut.NewTestDataTransfer()
+	net := tut.NewTestRetrievalMarketNetwork(tut.TestNetworkParams{})
+	retrievalDs := namespace.Wrap(ds, datastore.NewKey("/retrievals/client"))
+
+	numDeals := 5
+	payloadCIDs := make([]cid.Cid, numDeals)
+	iDs := make([]retrievalmarket.DealID, numDeals)
+	pieceCIDs := make([]*cid.Cid, numDeals)
+	pricePerBytes := make([]abi.TokenAmount, numDeals)
+	paymentIntervals := make([]uint64, numDeals)
+	paymentIntervalIncreases := make([]uint64, numDeals)
+	unsealPrices := make([]abi.TokenAmount, numDeals)
+	storeIDs := make([]*multistore.StoreID, numDeals)
+	channelIDs := make([]datatransfer.ChannelID, numDeals)
+	lastPaymentRequesteds := make([]bool, numDeals)
+	allBlocksReceiveds := make([]bool, numDeals)
+	totalFundss := make([]abi.TokenAmount, numDeals)
+	lanes := make([]uint64, numDeals)
+	senders := make([]peer.ID, numDeals)
+	totalReceiveds := make([]uint64, numDeals)
+	messages := make([]string, numDeals)
+	bytesPaidFors := make([]uint64, numDeals)
+	currentIntervals := make([]uint64, numDeals)
+	paymentRequesteds := make([]abi.TokenAmount, numDeals)
+	fundsSpents := make([]abi.TokenAmount, numDeals)
+	unsealFundsPaids := make([]abi.TokenAmount, numDeals)
+	voucherShortfalls := make([]abi.TokenAmount, numDeals)
+	selfPeer := tut.GeneratePeers(1)[0]
+
+	allSelectorBuf := new(bytes.Buffer)
+	err = dagcbor.Encoder(shared.AllSelector(), allSelectorBuf)
+	require.NoError(t, err)
+	allSelectorBytes := allSelectorBuf.Bytes()
+
+	for i := 0; i < numDeals; i++ {
+		payloadCIDs[i] = tut.GenerateCids(1)[0]
+		iDs[i] = retrievalmarket.DealID(rand.Uint64())
+		pieceCID := tut.GenerateCids(1)[0]
+		pieceCIDs[i] = &pieceCID
+		pricePerBytes[i] = big.NewInt(rand.Int63())
+		paymentIntervals[i] = rand.Uint64()
+		paymentIntervalIncreases[i] = rand.Uint64()
+		unsealPrices[i] = big.NewInt(rand.Int63())
+		storeID := multistore.StoreID(rand.Uint64())
+		storeIDs[i] = &storeID
+		senders[i] = tut.GeneratePeers(1)[0]
+		channelIDs[i] = datatransfer.ChannelID{
+			Initiator: selfPeer,
+			Responder: senders[i],
+			ID:        datatransfer.TransferID(rand.Uint64()),
+		}
+		lastPaymentRequesteds[i] = rand.Intn(2) == 1
+		allBlocksReceiveds[i] = rand.Intn(2) == 1
+		totalFundss[i] = big.NewInt(rand.Int63())
+		lanes[i] = rand.Uint64()
+		totalReceiveds[i] = rand.Uint64()
+		messages[i] = string(tut.RandomBytes(20))
+		bytesPaidFors[i] = rand.Uint64()
+		currentIntervals[i] = rand.Uint64()
+		paymentRequesteds[i] = big.NewInt(rand.Int63())
+		fundsSpents[i] = big.NewInt(rand.Int63())
+		unsealFundsPaids[i] = big.NewInt(rand.Int63())
+		voucherShortfalls[i] = big.NewInt(rand.Int63())
+		deal := migrations.ClientDealState0{
+			DealProposal0: migrations.DealProposal0{
+				PayloadCID: payloadCIDs[i],
+				ID:         iDs[i],
+				Params0: migrations.Params0{
+					Selector: &cbg.Deferred{
+						Raw: allSelectorBytes,
+					},
+					PieceCID:                pieceCIDs[i],
+					PricePerByte:            pricePerBytes[i],
+					PaymentInterval:         paymentIntervals[i],
+					PaymentIntervalIncrease: paymentIntervalIncreases[i],
+					UnsealPrice:             unsealPrices[i],
+				},
+			},
+			StoreID:              storeIDs[i],
+			ChannelID:            channelIDs[i],
+			LastPaymentRequested: lastPaymentRequesteds[i],
+			AllBlocksReceived:    allBlocksReceiveds[i],
+			TotalFunds:           totalFundss[i],
+			ClientWallet:         address.TestAddress,
+			MinerWallet:          address.TestAddress2,
+			PaymentInfo: &migrations.PaymentInfo0{
+				PayCh: address.TestAddress,
+				Lane:  lanes[i],
+			},
+			Status:           retrievalmarket.DealStatusCompleted,
+			Sender:           senders[i],
+			TotalReceived:    totalReceiveds[i],
+			Message:          messages[i],
+			BytesPaidFor:     bytesPaidFors[i],
+			CurrentInterval:  currentIntervals[i],
+			PaymentRequested: paymentRequesteds[i],
+			FundsSpent:       fundsSpents[i],
+			UnsealFundsPaid:  unsealFundsPaids[i],
+			WaitMsgCID:       nil,
+			VoucherShortfall: voucherShortfalls[i],
+		}
+		buf := new(bytes.Buffer)
+		err := deal.MarshalCBOR(buf)
+		require.NoError(t, err)
+		err = retrievalDs.Put(datastore.NewKey(fmt.Sprint(deal.ID)), buf.Bytes())
+		require.NoError(t, err)
+	}
+	retrievalClient, err := retrievalimpl.NewClient(
+		net,
+		multiStore,
+		dt,
+		testnodes.NewTestRetrievalClientNode(testnodes.TestRetrievalClientNodeParams{}),
+		&tut.TestPeerResolver{},
+		retrievalDs,
+		storedCounter)
+	require.NoError(t, err)
+	shared_testutil.StartAndWaitForReady(ctx, t, retrievalClient)
+	deals, err := retrievalClient.ListDeals()
+	require.NoError(t, err)
+	for i := 0; i < numDeals; i++ {
+		deal, ok := deals[iDs[i]]
+		require.True(t, ok)
+		expectedDeal := retrievalmarket.ClientDealState{
+			DealProposal: retrievalmarket.DealProposal{
+				PayloadCID: payloadCIDs[i],
+				ID:         iDs[i],
+				Params: retrievalmarket.Params{
+					Selector: &cbg.Deferred{
+						Raw: allSelectorBytes,
+					},
+					PieceCID:                pieceCIDs[i],
+					PricePerByte:            pricePerBytes[i],
+					PaymentInterval:         paymentIntervals[i],
+					PaymentIntervalIncrease: paymentIntervalIncreases[i],
+					UnsealPrice:             unsealPrices[i],
+				},
+			},
+			StoreID:              storeIDs[i],
+			ChannelID:            channelIDs[i],
+			LastPaymentRequested: lastPaymentRequesteds[i],
+			AllBlocksReceived:    allBlocksReceiveds[i],
+			TotalFunds:           totalFundss[i],
+			ClientWallet:         address.TestAddress,
+			MinerWallet:          address.TestAddress2,
+			PaymentInfo: &retrievalmarket.PaymentInfo{
+				PayCh: address.TestAddress,
+				Lane:  lanes[i],
+			},
+			Status:           retrievalmarket.DealStatusCompleted,
+			Sender:           senders[i],
+			TotalReceived:    totalReceiveds[i],
+			Message:          messages[i],
+			BytesPaidFor:     bytesPaidFors[i],
+			CurrentInterval:  currentIntervals[i],
+			PaymentRequested: paymentRequesteds[i],
+			FundsSpent:       fundsSpents[i],
+			UnsealFundsPaid:  unsealFundsPaids[i],
+			WaitMsgCID:       nil,
+			VoucherShortfall: voucherShortfalls[i],
+			LegacyProtocol:   true,
+		}
+		require.Equal(t, expectedDeal, deal)
+	}
 }

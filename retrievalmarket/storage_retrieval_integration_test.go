@@ -11,6 +11,7 @@ import (
 
 	"github.com/ipfs/go-cid"
 	"github.com/ipfs/go-datastore"
+	"github.com/ipfs/go-datastore/namespace"
 	"github.com/ipld/go-ipld-prime"
 	cidlink "github.com/ipld/go-ipld-prime/linking/cid"
 	"github.com/libp2p/go-libp2p-core/peer"
@@ -28,11 +29,12 @@ import (
 	"github.com/filecoin-project/specs-actors/actors/builtin/market"
 	"github.com/filecoin-project/specs-actors/actors/builtin/paych"
 
+	"github.com/filecoin-project/go-fil-markets/discovery"
+	discoveryimpl "github.com/filecoin-project/go-fil-markets/discovery/impl"
 	"github.com/filecoin-project/go-fil-markets/filestore"
 	"github.com/filecoin-project/go-fil-markets/piecestore"
 	piecestoreimpl "github.com/filecoin-project/go-fil-markets/piecestore/impl"
 	"github.com/filecoin-project/go-fil-markets/retrievalmarket"
-	"github.com/filecoin-project/go-fil-markets/retrievalmarket/discovery"
 	retrievalimpl "github.com/filecoin-project/go-fil-markets/retrievalmarket/impl"
 	testnodes2 "github.com/filecoin-project/go-fil-markets/retrievalmarket/impl/testnodes"
 	rmnet "github.com/filecoin-project/go-fil-markets/retrievalmarket/network"
@@ -218,7 +220,7 @@ type storageHarness struct {
 	ProviderInfo storagemarket.StorageProviderInfo
 	TestData     *shared_testutil.Libp2pTestData
 	PieceStore   piecestore.PieceStore
-	PeerResolver retrievalmarket.PeerResolver
+	PeerResolver discovery.PeerResolver
 }
 
 func newStorageHarness(ctx context.Context, t *testing.T) *storageHarness {
@@ -246,18 +248,7 @@ func newStorageHarness(ctx context.Context, t *testing.T) *storageHarness {
 	tempPath, err := ioutil.TempDir("", "storagemarket_test")
 	require.NoError(t, err)
 	ps, err := piecestoreimpl.NewPieceStore(td.Ds2)
-	require.NoError(t, err)
-	ready := make(chan struct{})
-	ps.OnReady(func() {
-		close(ready)
-	})
-	err = ps.Start(ctx)
-	assert.NoError(t, err)
-	select {
-	case <-ready:
-	case <-ctx.Done():
-		t.Error("did not complete migrations for piecestore")
-	}
+	tut.StartAndWaitForReady(ctx, t, ps)
 	providerNode := &testnodes.FakeProviderNode{
 		FakeCommonNode: testnodes.FakeCommonNode{
 			SMState:                smState,
@@ -275,7 +266,9 @@ func newStorageHarness(ctx context.Context, t *testing.T) *storageHarness {
 	err = dt1.Start(ctx)
 	require.NoError(t, err)
 
-	peerResolver := discovery.NewLocal(td.Ds1)
+	peerResolver, err := discoveryimpl.NewLocal(namespace.Wrap(td.Ds1, datastore.NewKey("/deals/local")))
+	require.NoError(t, err)
+	tut.StartAndWaitForReady(ctx, t, peerResolver)
 
 	clientDealFunds, err := funds.NewDealFunds(td.Ds1, datastore.NewKey("storage/client/dealfunds"))
 	require.NoError(t, err)
@@ -423,9 +416,10 @@ func newRetrievalHarness(ctx context.Context, t *testing.T, sh *storageHarness, 
 	})
 
 	nw1 := rmnet.NewFromLibp2pHost(sh.TestData.Host1, rmnet.RetryParameters(0, 0, 0))
-	client, err := retrievalimpl.NewClient(nw1, sh.TestData.MultiStore1, sh.DTClient, clientNode, sh.PeerResolver, sh.TestData.Ds1, sh.TestData.RetrievalStoredCounter1)
+	clientDs := namespace.Wrap(sh.TestData.Ds1, datastore.NewKey("/retrievals/client"))
+	client, err := retrievalimpl.NewClient(nw1, sh.TestData.MultiStore1, sh.DTClient, clientNode, sh.PeerResolver, clientDs, sh.TestData.RetrievalStoredCounter1)
 	require.NoError(t, err)
-
+	tut.StartAndWaitForReady(ctx, t, client)
 	payloadCID := deal.DataRef.Root
 	providerPaymentAddr := deal.MinerWorker
 	providerNode := testnodes2.NewTestRetrievalProviderNode()
@@ -464,8 +458,10 @@ func newRetrievalHarness(ctx context.Context, t *testing.T, sh *storageHarness, 
 	}
 	pieceStore.ExpectCID(payloadCID, cidInfo)
 	pieceStore.ExpectPiece(expectedPiece, pieceInfo)
-	provider, err := retrievalimpl.NewProvider(providerPaymentAddr, providerNode, nw2, pieceStore, sh.TestData.MultiStore2, sh.DTProvider, sh.TestData.Ds2)
+	providerDs := namespace.Wrap(sh.TestData.Ds2, datastore.NewKey("/retrievals/provider"))
+	provider, err := retrievalimpl.NewProvider(providerPaymentAddr, providerNode, nw2, pieceStore, sh.TestData.MultiStore2, sh.DTProvider, providerDs)
 	require.NoError(t, err)
+	tut.StartAndWaitForReady(ctx, t, provider)
 
 	params := retrievalmarket.Params{
 		PricePerByte:            abi.NewTokenAmount(1000),
@@ -479,8 +475,6 @@ func newRetrievalHarness(ctx context.Context, t *testing.T, sh *storageHarness, 
 	ask.PaymentIntervalIncrease = params.PaymentIntervalIncrease
 	ask.PricePerByte = params.PricePerByte
 	provider.SetAsk(ask)
-
-	require.NoError(t, provider.Start())
 
 	return &retrievalHarness{
 		Ctx:             ctx,

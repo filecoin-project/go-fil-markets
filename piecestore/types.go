@@ -6,6 +6,8 @@ import (
 	"github.com/ipfs/go-cid"
 
 	"github.com/filecoin-project/go-state-types/abi"
+
+	"github.com/filecoin-project/go-fil-markets/shared"
 )
 
 //go:generate cbor-gen-for --map-encoding PieceInfo DealInfo BlockLocation PieceBlockLocation CIDInfo
@@ -51,13 +53,10 @@ type PieceInfo struct {
 // PieceInfoUndefined is piece info with no information
 var PieceInfoUndefined = PieceInfo{}
 
-// ReadyFunc is a callback when the piecestore is ready
-type ReadyFunc func()
-
 // PieceStore is a saved database of piece info that can be modified and queried
 type PieceStore interface {
 	Start(ctx context.Context) error
-	OnReady(ready ReadyFunc)
+	OnReady(ready shared.ReadyFunc)
 	AddDealForPiece(pieceCID cid.Cid, dealInfo DealInfo) error
 	AddPieceBlockLocations(pieceCID cid.Cid, blockLocations map[cid.Cid]BlockLocation) error
 	GetPieceInfo(pieceCID cid.Cid) (PieceInfo, error)

@@ -45,8 +45,8 @@ type PieceInfo0 struct {
 	Deals    []DealInfo0
 }
 
-// MigratePieceInfo0to1 migrates a tuple encoded piece info to a map encoded piece info
-func MigratePieceInfo0to1(oldPi *PieceInfo0) (*piecestore.PieceInfo, error) {
+// MigratePieceInfo0To1 migrates a tuple encoded piece info to a map encoded piece info
+func MigratePieceInfo0To1(oldPi *PieceInfo0) (*piecestore.PieceInfo, error) {
 	deals := make([]piecestore.DealInfo, len(oldPi.Deals))
 	for i, oldDi := range oldPi.Deals {
 		deals[i] = piecestore.DealInfo{
@@ -62,8 +62,8 @@ func MigratePieceInfo0to1(oldPi *PieceInfo0) (*piecestore.PieceInfo, error) {
 	}, nil
 }
 
-// MigrateCidInfo0to1 migrates a tuple encoded cid info to a map encoded cid info
-func MigrateCidInfo0to1(oldCi *CIDInfo0) (*piecestore.CIDInfo, error) {
+// MigrateCidInfo0To1 migrates a tuple encoded cid info to a map encoded cid info
+func MigrateCidInfo0To1(oldCi *CIDInfo0) (*piecestore.CIDInfo, error) {
 	pieceBlockLocations := make([]piecestore.PieceBlockLocation, len(oldCi.PieceBlockLocations))
 	for i, oldPbl := range oldCi.PieceBlockLocations {
 		pieceBlockLocations[i] = piecestore.PieceBlockLocation{
@@ -82,10 +82,10 @@ func MigrateCidInfo0to1(oldCi *CIDInfo0) (*piecestore.CIDInfo, error) {
 
 // PieceInfoMigrations is the list of migrations for migrating PieceInfos
 var PieceInfoMigrations = versioned.BuilderList{
-	versioned.NewVersionedBuilder(MigratePieceInfo0to1, versioning.VersionKey("1")),
+	versioned.NewVersionedBuilder(MigratePieceInfo0To1, versioning.VersionKey("1")),
 }
 
 // CIDInfoMigrations is the list of migrations for migrating CIDInfos
 var CIDInfoMigrations = versioned.BuilderList{
-	versioned.NewVersionedBuilder(MigrateCidInfo0to1, versioning.VersionKey("1")),
+	versioned.NewVersionedBuilder(MigrateCidInfo0To1, versioning.VersionKey("1")),
 }

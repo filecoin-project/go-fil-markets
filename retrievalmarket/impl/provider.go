@@ -7,10 +7,13 @@ import (
 	"github.com/hannahhoward/go-pubsub"
 	"github.com/ipfs/go-cid"
 	"github.com/ipfs/go-datastore"
+	"github.com/ipfs/go-datastore/namespace"
 	"golang.org/x/xerrors"
 
 	"github.com/filecoin-project/go-address"
 	datatransfer "github.com/filecoin-project/go-data-transfer"
+	versioning "github.com/filecoin-project/go-ds-versioning/pkg"
+	versionedfsm "github.com/filecoin-project/go-ds-versioning/pkg/fsm"
 	"github.com/filecoin-project/go-multistore"
 	"github.com/filecoin-project/go-statemachine/fsm"
 
@@ -20,7 +23,9 @@ import (
 	"github.com/filecoin-project/go-fil-markets/retrievalmarket/impl/dtutils"
 	"github.com/filecoin-project/go-fil-markets/retrievalmarket/impl/providerstates"
 	"github.com/filecoin-project/go-fil-markets/retrievalmarket/impl/requestvalidation"
+	"github.com/filecoin-project/go-fil-markets/retrievalmarket/migrations"
 	rmnet "github.com/filecoin-project/go-fil-markets/retrievalmarket/network"
+	"github.com/filecoin-project/go-fil-markets/shared"
 )
 
 // RetrievalProviderOption is a function that configures a retrieval provider
@@ -31,18 +36,21 @@ type DealDecider func(ctx context.Context, state retrievalmarket.ProviderDealSta
 
 // Provider is the production implementation of the RetrievalProvider interface
 type Provider struct {
-	multiStore       *multistore.MultiStore
-	dataTransfer     datatransfer.Manager
-	node             retrievalmarket.RetrievalProviderNode
-	network          rmnet.RetrievalMarketNetwork
-	requestValidator *requestvalidation.ProviderRequestValidator
-	revalidator      *requestvalidation.ProviderRevalidator
-	minerAddress     address.Address
-	pieceStore       piecestore.PieceStore
-	subscribers      *pubsub.PubSub
-	stateMachines    fsm.Group
-	dealDecider      DealDecider
-	askStore         retrievalmarket.AskStore
+	multiStore           *multistore.MultiStore
+	dataTransfer         datatransfer.Manager
+	node                 retrievalmarket.RetrievalProviderNode
+	network              rmnet.RetrievalMarketNetwork
+	requestValidator     *requestvalidation.ProviderRequestValidator
+	revalidator          *requestvalidation.ProviderRevalidator
+	minerAddress         address.Address
+	pieceStore           piecestore.PieceStore
+	readySub             *pubsub.PubSub
+	subscribers          *pubsub.PubSub
+	stateMachines        fsm.Group
+	migrateStateMachines func(context.Context) error
+	dealDecider          DealDecider
+	askStore             retrievalmarket.AskStore
+	disableNewDeals      bool
 }
 
 type internalProviderEvent struct {
@@ -72,6 +80,13 @@ func DealDeciderOpt(dd DealDecider) RetrievalProviderOption {
 	}
 }
 
+// DisableNewDeals disables setup for v1 deal protocols
+func DisableNewDeals() RetrievalProviderOption {
+	return func(provider *Provider) {
+		provider.disableNewDeals = true
+	}
+}
+
 // NewProvider returns a new retrieval Provider
 func NewProvider(minerAddress address.Address,
 	node retrievalmarket.RetrievalProviderNode,
@@ -91,15 +106,24 @@ func NewProvider(minerAddress address.Address,
 		minerAddress: minerAddress,
 		pieceStore:   pieceStore,
 		subscribers:  pubsub.New(providerDispatcher),
+		readySub:     pubsub.New(shared.ReadyDispatcher),
 	}
 
-	askStore, err := askstore.NewAskStore(ds, datastore.NewKey("retrieval-ask"))
+	err := shared.MoveKey(ds, "retrieval-ask", "retrieval-ask/latest")
+	if err != nil {
+		return nil, err
+	}
+	askStore, err := askstore.NewAskStore(namespace.Wrap(ds, datastore.NewKey("retrieval-ask")), datastore.NewKey("latest"))
 	if err != nil {
 		return nil, err
 	}
 	p.askStore = askStore
 
-	statemachines, err := fsm.New(ds, fsm.Parameters{
+	retrievalMigrations, err := migrations.ProviderMigrations.Build()
+	if err != nil {
+		return nil, err
+	}
+	p.stateMachines, p.migrateStateMachines, err = versionedfsm.NewVersionedFSM(ds, fsm.Parameters{
 		Environment:     &providerDealEnvironment{p},
 		StateType:       retrievalmarket.ProviderDealState{},
 		StateKeyField:   "Status",
@@ -107,32 +131,62 @@ func NewProvider(minerAddress address.Address,
 		StateEntryFuncs: providerstates.ProviderStateEntryFuncs,
 		FinalityStates:  providerstates.ProviderFinalityStates,
 		Notifier:        p.notifySubscribers,
-	})
+	}, retrievalMigrations, versioning.VersionKey("1"))
 	if err != nil {
 		return nil, err
 	}
 	p.Configure(opts...)
-	p.stateMachines = statemachines
 	p.requestValidator = requestvalidation.NewProviderRequestValidator(&providerValidationEnvironment{p})
-	err = p.dataTransfer.RegisterVoucherType(&retrievalmarket.DealProposal{}, p.requestValidator)
-	if err != nil {
-		return nil, err
-	}
+	transportConfigurer := dtutils.TransportConfigurer(network.ID(), &providerStoreGetter{p})
 	p.revalidator = requestvalidation.NewProviderRevalidator(&providerRevalidatorEnvironment{p})
-	err = p.dataTransfer.RegisterRevalidator(&retrievalmarket.DealPayment{}, p.revalidator)
+
+	if p.disableNewDeals {
+		err = p.dataTransfer.RegisterVoucherType(&migrations.DealProposal0{}, p.requestValidator)
+		if err != nil {
+			return nil, err
+		}
+		err = p.dataTransfer.RegisterRevalidator(&migrations.DealPayment0{}, p.revalidator)
+		if err != nil {
+			return nil, err
+		}
+	} else {
+		err = p.dataTransfer.RegisterVoucherType(&retrievalmarket.DealProposal{}, p.requestValidator)
+		if err != nil {
+			return nil, err
+		}
+		err = p.dataTransfer.RegisterVoucherType(&migrations.DealProposal0{}, p.requestValidator)
+		if err != nil {
+			return nil, err
+		}
+
+		err = p.dataTransfer.RegisterRevalidator(&retrievalmarket.DealPayment{}, p.revalidator)
+		if err != nil {
+			return nil, err
+		}
+		err = p.dataTransfer.RegisterRevalidator(&migrations.DealPayment0{}, requestvalidation.NewLegacyRevalidator(p.revalidator))
+		if err != nil {
+			return nil, err
+		}
+
+		err = p.dataTransfer.RegisterVoucherResultType(&retrievalmarket.DealResponse{})
+		if err != nil {
+			return nil, err
+		}
+
+		err = p.dataTransfer.RegisterTransportConfigurer(&retrievalmarket.DealProposal{}, transportConfigurer)
+		if err != nil {
+			return nil, err
+		}
+	}
+	err = p.dataTransfer.RegisterVoucherResultType(&migrations.DealResponse0{})
 	if err != nil {
 		return nil, err
 	}
-	err = p.dataTransfer.RegisterVoucherResultType(&retrievalmarket.DealResponse{})
+	err = p.dataTransfer.RegisterTransportConfigurer(&migrations.DealProposal0{}, transportConfigurer)
 	if err != nil {
 		return nil, err
 	}
 	dataTransfer.SubscribeToEvents(dtutils.ProviderDataTransferSubscriber(p.stateMachines))
-	err = p.dataTransfer.RegisterTransportConfigurer(&retrievalmarket.DealProposal{},
-		dtutils.TransportConfigurer(network.ID(), &providerStoreGetter{p}))
-	if err != nil {
-		return nil, err
-	}
 	return p, nil
 }
 
@@ -143,8 +197,23 @@ func (p *Provider) Stop() error {
 
 // Start begins listening for deals on the given host.
 // Start must be called in order to accept incoming deals.
-func (p *Provider) Start() error {
+func (p *Provider) Start(ctx context.Context) error {
+	go func() {
+		err := p.migrateStateMachines(ctx)
+		if err != nil {
+			log.Errorf("Migrating retrieval provider state machines: %s", err.Error())
+		}
+		err = p.readySub.Publish(err)
+		if err != nil {
+			log.Warnf("Publish retrieval provider ready event: %s", err.Error())
+		}
+	}()
 	return p.network.SetDelegate(p)
+}
+
+// OnReady registers a listener for when the provider has finished starting up
+func (p *Provider) OnReady(ready shared.ReadyFunc) {
+	p.readySub.Subscribe(ready)
 }
 
 func (p *Provider) notifySubscribers(eventName fsm.EventName, state fsm.StateType) {

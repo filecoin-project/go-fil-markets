@@ -9,7 +9,9 @@ import (
 	"github.com/filecoin-project/go-state-types/abi"
 	"github.com/filecoin-project/go-state-types/big"
 
+	"github.com/filecoin-project/go-fil-markets/retrievalmarket"
 	rm "github.com/filecoin-project/go-fil-markets/retrievalmarket"
+	"github.com/filecoin-project/go-fil-markets/retrievalmarket/migrations"
 )
 
 // RevalidatorEnvironment are the dependencies needed to
@@ -21,12 +23,13 @@ type RevalidatorEnvironment interface {
 }
 
 type channelData struct {
-	dealID       rm.ProviderDealIdentifier
-	totalSent    uint64
-	totalPaidFor uint64
-	interval     uint64
-	pricePerByte abi.TokenAmount
-	reload       bool
+	dealID         rm.ProviderDealIdentifier
+	totalSent      uint64
+	totalPaidFor   uint64
+	interval       uint64
+	pricePerByte   abi.TokenAmount
+	reload         bool
+	legacyProtocol bool
 }
 
 // ProviderRevalidator defines data transfer revalidation logic in the context of
@@ -84,6 +87,7 @@ func (pr *ProviderRevalidator) writeDealState(deal rm.ProviderDealState) {
 	channel.totalPaidFor = big.Div(big.Max(big.Sub(deal.FundsReceived, deal.UnsealPrice), big.Zero()), deal.PricePerByte).Uint64()
 	channel.interval = deal.CurrentInterval
 	channel.pricePerByte = deal.PricePerByte
+	channel.legacyProtocol = deal.LegacyProtocol
 }
 
 // Revalidate revalidates a request with a new voucher
@@ -97,17 +101,25 @@ func (pr *ProviderRevalidator) Revalidate(channelID datatransfer.ChannelID, vouc
 
 	// read payment, or fail
 	payment, ok := voucher.(*rm.DealPayment)
+	var legacyProtocol bool
 	if !ok {
-		return nil, errors.New("wrong voucher type")
+		legacyPayment, ok := voucher.(*migrations.DealPayment0)
+		if !ok {
+			return nil, errors.New("wrong voucher type")
+		}
+		newPayment := migrations.MigrateDealPayment0To1(*legacyPayment)
+		payment = &newPayment
+		legacyProtocol = true
 	}
+
 	response, err := pr.processPayment(channel.dealID, payment)
 	if err == nil {
 		channel.reload = true
 	}
-	return response, err
+	return finalResponse(response, legacyProtocol), err
 }
 
-func (pr *ProviderRevalidator) processPayment(dealID rm.ProviderDealIdentifier, payment *rm.DealPayment) (datatransfer.VoucherResult, error) {
+func (pr *ProviderRevalidator) processPayment(dealID rm.ProviderDealIdentifier, payment *rm.DealPayment) (*retrievalmarket.DealResponse, error) {
 
 	tok, _, err := pr.env.Node().GetChainHead(context.TODO())
 	if err != nil {
@@ -169,17 +181,17 @@ func errorDealResponse(dealID rm.ProviderDealIdentifier, err error) *rm.DealResp
 // for a given pull request. It should return a VoucherResult + ErrPause to
 // request revalidation or nil to continue uninterrupted,
 // other errors will terminate the request
-func (pr *ProviderRevalidator) OnPullDataSent(chid datatransfer.ChannelID, additionalBytesSent uint64) (datatransfer.VoucherResult, error) {
+func (pr *ProviderRevalidator) OnPullDataSent(chid datatransfer.ChannelID, additionalBytesSent uint64) (bool, datatransfer.VoucherResult, error) {
 	pr.trackedChannelsLk.RLock()
 	defer pr.trackedChannelsLk.RUnlock()
 	channel, ok := pr.trackedChannels[chid]
 	if !ok {
-		return nil, nil
+		return false, nil, nil
 	}
 
 	err := pr.loadDealState(channel)
 	if err != nil {
-		return nil, err
+		return true, nil, err
 	}
 
 	channel.totalSent += additionalBytesSent
@@ -187,61 +199,105 @@ func (pr *ProviderRevalidator) OnPullDataSent(chid datatransfer.ChannelID, addit
 		paymentOwed := big.Mul(abi.NewTokenAmount(int64(channel.totalSent-channel.totalPaidFor)), channel.pricePerByte)
 		err := pr.env.SendEvent(channel.dealID, rm.ProviderEventPaymentRequested, channel.totalSent)
 		if err != nil {
-			return nil, err
+			return true, nil, err
 		}
-		return &rm.DealResponse{
+		return true, finalResponse(&rm.DealResponse{
 			ID:          channel.dealID.DealID,
 			Status:      rm.DealStatusFundsNeeded,
 			PaymentOwed: paymentOwed,
-		}, datatransfer.ErrPause
+		}, channel.legacyProtocol), datatransfer.ErrPause
 	}
-	return nil, pr.env.SendEvent(channel.dealID, rm.ProviderEventBlockSent, channel.totalSent)
+	return true, nil, pr.env.SendEvent(channel.dealID, rm.ProviderEventBlockSent, channel.totalSent)
 }
 
 // OnPushDataReceived is called on the responder side when more bytes are received
 // for a given push request.  It should return a VoucherResult + ErrPause to
 // request revalidation or nil to continue uninterrupted,
 // other errors will terminate the request
-func (pr *ProviderRevalidator) OnPushDataReceived(chid datatransfer.ChannelID, additionalBytesReceived uint64) (datatransfer.VoucherResult, error) {
-	return nil, nil
+func (pr *ProviderRevalidator) OnPushDataReceived(chid datatransfer.ChannelID, additionalBytesReceived uint64) (bool, datatransfer.VoucherResult, error) {
+	return false, nil, nil
 }
 
 // OnComplete is called to make a final request for revalidation -- often for the
 // purpose of settlement.
 // if VoucherResult is non nil, the request will enter a settlement phase awaiting
 // a final update
-func (pr *ProviderRevalidator) OnComplete(chid datatransfer.ChannelID) (datatransfer.VoucherResult, error) {
+func (pr *ProviderRevalidator) OnComplete(chid datatransfer.ChannelID) (bool, datatransfer.VoucherResult, error) {
 	pr.trackedChannelsLk.RLock()
 	defer pr.trackedChannelsLk.RUnlock()
 	channel, ok := pr.trackedChannels[chid]
 	if !ok {
-		return nil, nil
+		return false, nil, nil
 	}
 
 	err := pr.loadDealState(channel)
 	if err != nil {
-		return nil, err
+		return true, nil, err
 	}
 
 	err = pr.env.SendEvent(channel.dealID, rm.ProviderEventBlocksCompleted)
 	if err != nil {
-		return nil, err
+		return true, nil, err
 	}
 
 	paymentOwed := big.Mul(abi.NewTokenAmount(int64(channel.totalSent-channel.totalPaidFor)), channel.pricePerByte)
 	if paymentOwed.Equals(big.Zero()) {
-		return &rm.DealResponse{
+		return true, finalResponse(&rm.DealResponse{
 			ID:     channel.dealID.DealID,
 			Status: rm.DealStatusCompleted,
-		}, nil
+		}, channel.legacyProtocol), nil
 	}
 	err = pr.env.SendEvent(channel.dealID, rm.ProviderEventPaymentRequested, channel.totalSent)
 	if err != nil {
-		return nil, err
+		return true, nil, err
 	}
-	return &rm.DealResponse{
+	return true, finalResponse(&rm.DealResponse{
 		ID:          channel.dealID.DealID,
 		Status:      rm.DealStatusFundsNeededLastPayment,
 		PaymentOwed: paymentOwed,
-	}, datatransfer.ErrPause
+	}, channel.legacyProtocol), datatransfer.ErrPause
+}
+
+func finalResponse(response *rm.DealResponse, legacyProtocol bool) datatransfer.Voucher {
+	if response == nil {
+		return nil
+	}
+	if legacyProtocol {
+		downgradedResponse := migrations.DealResponse0{
+			Status:      response.Status,
+			ID:          response.ID,
+			Message:     response.Message,
+			PaymentOwed: response.PaymentOwed,
+		}
+		return &downgradedResponse
+	}
+	return response
+}
+
+type legacyRevalidator struct {
+	providerRevalidator *ProviderRevalidator
+}
+
+func (lrv *legacyRevalidator) Revalidate(channelID datatransfer.ChannelID, voucher datatransfer.Voucher) (datatransfer.VoucherResult, error) {
+	return lrv.providerRevalidator.Revalidate(channelID, voucher)
+}
+
+func (lrv *legacyRevalidator) OnPullDataSent(chid datatransfer.ChannelID, additionalBytesSent uint64) (bool, datatransfer.VoucherResult, error) {
+	return false, nil, nil
+}
+
+func (lrv *legacyRevalidator) OnPushDataReceived(chid datatransfer.ChannelID, additionalBytesReceived uint64) (bool, datatransfer.VoucherResult, error) {
+	return false, nil, nil
+}
+
+func (lrv *legacyRevalidator) OnComplete(chid datatransfer.ChannelID) (bool, datatransfer.VoucherResult, error) {
+	return false, nil, nil
+}
+
+// NewLegacyRevalidator adds a revalidator that will capture revalidation requests for the legacy protocol but
+// won't double count data being sent
+// TODO: the data transfer revalidator registration needs to be able to take multiple types to avoid double counting
+// for data being sent.
+func NewLegacyRevalidator(providerRevalidator *ProviderRevalidator) datatransfer.Revalidator {
+	return &legacyRevalidator{providerRevalidator: providerRevalidator}
 }

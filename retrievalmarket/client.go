@@ -8,6 +8,8 @@ import (
 	"github.com/filecoin-project/go-address"
 	"github.com/filecoin-project/go-multistore"
 	"github.com/filecoin-project/go-state-types/abi"
+
+	"github.com/filecoin-project/go-fil-markets/shared"
 )
 
 // ClientSubscriber is a callback that is registered to listen for retrieval events
@@ -15,7 +17,12 @@ type ClientSubscriber func(event ClientEvent, state ClientDealState)
 
 // RetrievalClient is a client interface for making retrieval deals
 type RetrievalClient interface {
-	// V0
+
+	// Start initializes the client by running migrations
+	Start(ctx context.Context) error
+
+	// OnReady registers a listener for when the client comes on line
+	OnReady(shared.ReadyFunc)
 
 	// Find Providers finds retrieval providers who may be storing a given piece
 	FindProviders(payloadCID cid.Cid) []RetrievalPeer

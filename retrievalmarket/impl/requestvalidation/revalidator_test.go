@@ -16,6 +16,7 @@ import (
 	rm "github.com/filecoin-project/go-fil-markets/retrievalmarket"
 	"github.com/filecoin-project/go-fil-markets/retrievalmarket/impl/requestvalidation"
 	"github.com/filecoin-project/go-fil-markets/retrievalmarket/impl/testnodes"
+	"github.com/filecoin-project/go-fil-markets/retrievalmarket/migrations"
 	"github.com/filecoin-project/go-fil-markets/shared_testutil"
 )
 
@@ -23,23 +24,27 @@ func TestOnPushDataReceived(t *testing.T) {
 	fre := &fakeRevalidatorEnvironment{}
 	revalidator := requestvalidation.NewProviderRevalidator(fre)
 	channelID := shared_testutil.MakeTestChannelID()
-	voucherResult, err := revalidator.OnPushDataReceived(channelID, rand.Uint64())
+	handled, voucherResult, err := revalidator.OnPushDataReceived(channelID, rand.Uint64())
+	require.False(t, handled)
 	require.NoError(t, err)
 	require.Nil(t, voucherResult)
 }
 func TestOnPullDataSent(t *testing.T) {
 
 	deal := *makeDealState(rm.DealStatusOngoing)
+	legacyDeal := deal
+	legacyDeal.LegacyProtocol = true
 	testCases := map[string]struct {
-		noSend         bool
-		expectedID     rm.ProviderDealIdentifier
-		expectedEvent  rm.ProviderEvent
-		expectedArgs   []interface{}
-		deal           rm.ProviderDealState
-		channelID      datatransfer.ChannelID
-		dataAmount     uint64
-		expectedResult datatransfer.VoucherResult
-		expectedError  error
+		noSend          bool
+		expectedID      rm.ProviderDealIdentifier
+		expectedEvent   rm.ProviderEvent
+		expectedArgs    []interface{}
+		deal            rm.ProviderDealState
+		channelID       datatransfer.ChannelID
+		dataAmount      uint64
+		expectedHandled bool
+		expectedResult  datatransfer.VoucherResult
+		expectedError   error
 	}{
 		"not tracked": {
 			deal:      deal,
@@ -47,12 +52,13 @@ func TestOnPullDataSent(t *testing.T) {
 			noSend:    true,
 		},
 		"record block": {
-			deal:          deal,
-			channelID:     deal.ChannelID,
-			expectedID:    deal.Identifier(),
-			expectedEvent: rm.ProviderEventBlockSent,
-			expectedArgs:  []interface{}{deal.TotalSent + uint64(500)},
-			dataAmount:    uint64(500),
+			deal:            deal,
+			channelID:       deal.ChannelID,
+			expectedID:      deal.Identifier(),
+			expectedEvent:   rm.ProviderEventBlockSent,
+			expectedArgs:    []interface{}{deal.TotalSent + uint64(500)},
+			expectedHandled: true,
+			dataAmount:      uint64(500),
 		},
 		"request payment": {
 			deal:          deal,
@@ -67,6 +73,22 @@ func TestOnPullDataSent(t *testing.T) {
 				Status:      rm.DealStatusFundsNeeded,
 				PaymentOwed: defaultPaymentPerInterval,
 			},
+			expectedHandled: true,
+		},
+		"request payment, legacy": {
+			deal:          legacyDeal,
+			channelID:     legacyDeal.ChannelID,
+			expectedID:    legacyDeal.Identifier(),
+			expectedEvent: rm.ProviderEventPaymentRequested,
+			expectedArgs:  []interface{}{legacyDeal.TotalSent + defaultCurrentInterval},
+			dataAmount:    defaultCurrentInterval,
+			expectedError: datatransfer.ErrPause,
+			expectedResult: &migrations.DealResponse0{
+				ID:          legacyDeal.ID,
+				Status:      rm.DealStatusFundsNeeded,
+				PaymentOwed: defaultPaymentPerInterval,
+			},
+			expectedHandled: true,
 		},
 	}
 	for testCase, data := range testCases {
@@ -79,7 +101,8 @@ func TestOnPullDataSent(t *testing.T) {
 			}
 			revalidator := requestvalidation.NewProviderRevalidator(fre)
 			revalidator.TrackChannel(data.deal)
-			voucherResult, err := revalidator.OnPullDataSent(data.channelID, data.dataAmount)
+			handled, voucherResult, err := revalidator.OnPullDataSent(data.channelID, data.dataAmount)
+			require.Equal(t, data.expectedHandled, handled)
 			require.Equal(t, data.expectedResult, voucherResult)
 			if data.expectedError == nil {
 				require.NoError(t, err)
@@ -102,79 +125,135 @@ func TestOnPullDataSent(t *testing.T) {
 
 func TestOnComplete(t *testing.T) {
 	deal := *makeDealState(rm.DealStatusOngoing)
+	legacyDeal := deal
+	legacyDeal.LegacyProtocol = true
 	channelID := deal.ChannelID
-	unpaidAmount := uint64(500)
-	expectedEvents := []eventSent{
-		{
-			ID:    deal.Identifier(),
-			Event: rm.ProviderEventBlockSent,
-			Args:  []interface{}{deal.TotalSent + 500},
+	testCases := map[string]struct {
+		expectedEvents []eventSent
+		deal           rm.ProviderDealState
+		channelID      datatransfer.ChannelID
+		expectedResult datatransfer.VoucherResult
+		expectedError  error
+		unpaidAmount   uint64
+	}{
+		"unpaid money": {
+			unpaidAmount: uint64(500),
+			expectedEvents: []eventSent{
+				{
+					ID:    deal.Identifier(),
+					Event: rm.ProviderEventBlockSent,
+					Args:  []interface{}{deal.TotalSent + 500},
+				},
+				{
+					ID:    deal.Identifier(),
+					Event: rm.ProviderEventBlocksCompleted,
+				},
+				{
+					ID:    deal.Identifier(),
+					Event: rm.ProviderEventPaymentRequested,
+					Args:  []interface{}{deal.TotalSent + 500},
+				},
+			},
+			expectedError: datatransfer.ErrPause,
+			expectedResult: &rm.DealResponse{
+				ID:          deal.ID,
+				Status:      rm.DealStatusFundsNeededLastPayment,
+				PaymentOwed: big.Mul(big.NewIntUnsigned(500), defaultPricePerByte),
+			},
+			deal:      deal,
+			channelID: channelID,
 		},
-		{
-			ID:    deal.Identifier(),
-			Event: rm.ProviderEventBlocksCompleted,
+		"unpaid money, legacyDeal": {
+			unpaidAmount: uint64(500),
+			expectedEvents: []eventSent{
+				{
+					ID:    deal.Identifier(),
+					Event: rm.ProviderEventBlockSent,
+					Args:  []interface{}{deal.TotalSent + 500},
+				},
+				{
+					ID:    deal.Identifier(),
+					Event: rm.ProviderEventBlocksCompleted,
+				},
+				{
+					ID:    deal.Identifier(),
+					Event: rm.ProviderEventPaymentRequested,
+					Args:  []interface{}{deal.TotalSent + 500},
+				},
+			},
+			expectedError: datatransfer.ErrPause,
+			expectedResult: &migrations.DealResponse0{
+				ID:          deal.ID,
+				Status:      rm.DealStatusFundsNeededLastPayment,
+				PaymentOwed: big.Mul(big.NewIntUnsigned(500), defaultPricePerByte),
+			},
+			deal:      legacyDeal,
+			channelID: channelID,
 		},
-		{
-			ID:    deal.Identifier(),
-			Event: rm.ProviderEventPaymentRequested,
-			Args:  []interface{}{deal.TotalSent + 500},
+		"all funds paid": {
+			unpaidAmount: uint64(0),
+			expectedEvents: []eventSent{
+				{
+					ID:    deal.Identifier(),
+					Event: rm.ProviderEventBlockSent,
+					Args:  []interface{}{deal.TotalSent},
+				},
+				{
+					ID:    deal.Identifier(),
+					Event: rm.ProviderEventBlocksCompleted,
+				},
+			},
+			expectedResult: &rm.DealResponse{
+				ID:     deal.ID,
+				Status: rm.DealStatusCompleted,
+			},
+			deal:      deal,
+			channelID: channelID,
+		},
+		"all funds paid, legacyDeal": {
+			unpaidAmount: uint64(0),
+			expectedEvents: []eventSent{
+				{
+					ID:    deal.Identifier(),
+					Event: rm.ProviderEventBlockSent,
+					Args:  []interface{}{deal.TotalSent},
+				},
+				{
+					ID:    deal.Identifier(),
+					Event: rm.ProviderEventBlocksCompleted,
+				},
+			},
+			expectedResult: &migrations.DealResponse0{
+				ID:     deal.ID,
+				Status: rm.DealStatusCompleted,
+			},
+			deal:      legacyDeal,
+			channelID: channelID,
 		},
 	}
-	expectedError := datatransfer.ErrPause
-	expectedResult := &rm.DealResponse{
-		ID:          deal.ID,
-		Status:      rm.DealStatusFundsNeededLastPayment,
-		PaymentOwed: big.Mul(big.NewIntUnsigned(500), defaultPricePerByte),
+	for testCase, data := range testCases {
+		t.Run(testCase, func(t *testing.T) {
+			tn := testnodes.NewTestRetrievalProviderNode()
+			fre := &fakeRevalidatorEnvironment{
+				node:         tn,
+				returnedDeal: data.deal,
+				getError:     nil,
+			}
+			revalidator := requestvalidation.NewProviderRevalidator(fre)
+			revalidator.TrackChannel(data.deal)
+			_, _, err := revalidator.OnPullDataSent(data.channelID, data.unpaidAmount)
+			require.NoError(t, err)
+			handled, voucherResult, err := revalidator.OnComplete(data.channelID)
+			require.True(t, handled)
+			require.Equal(t, data.expectedResult, voucherResult)
+			if data.expectedError != nil {
+				require.EqualError(t, err, data.expectedError.Error())
+			} else {
+				require.NoError(t, err)
+			}
+			require.Equal(t, data.expectedEvents, fre.sentEvents)
+		})
 	}
-	tn := testnodes.NewTestRetrievalProviderNode()
-	fre := &fakeRevalidatorEnvironment{
-		node:         tn,
-		returnedDeal: deal,
-		getError:     nil,
-	}
-	revalidator := requestvalidation.NewProviderRevalidator(fre)
-	revalidator.TrackChannel(deal)
-	_, err := revalidator.OnPullDataSent(channelID, unpaidAmount)
-	require.NoError(t, err)
-	voucherResult, err := revalidator.OnComplete(channelID)
-	require.Equal(t, expectedResult, voucherResult)
-	require.EqualError(t, err, expectedError.Error())
-	require.Equal(t, expectedEvents, fre.sentEvents)
-}
-
-func TestOnCompleteNoPaymentNeeded(t *testing.T) {
-	deal := *makeDealState(rm.DealStatusOngoing)
-	channelID := deal.ChannelID
-	unpaidAmount := uint64(0)
-	expectedEvents := []eventSent{
-		{
-			ID:    deal.Identifier(),
-			Event: rm.ProviderEventBlockSent,
-			Args:  []interface{}{deal.TotalSent},
-		},
-		{
-			ID:    deal.Identifier(),
-			Event: rm.ProviderEventBlocksCompleted,
-		},
-	}
-	expectedResult := &rm.DealResponse{
-		ID:     deal.ID,
-		Status: rm.DealStatusCompleted,
-	}
-	tn := testnodes.NewTestRetrievalProviderNode()
-	fre := &fakeRevalidatorEnvironment{
-		node:         tn,
-		returnedDeal: deal,
-		getError:     nil,
-	}
-	revalidator := requestvalidation.NewProviderRevalidator(fre)
-	revalidator.TrackChannel(deal)
-	_, err := revalidator.OnPullDataSent(channelID, unpaidAmount)
-	require.NoError(t, err)
-	voucherResult, err := revalidator.OnComplete(channelID)
-	require.Equal(t, expectedResult, voucherResult)
-	require.NoError(t, err)
-	require.Equal(t, expectedEvents, fre.sentEvents)
 }
 
 func TestRevalidate(t *testing.T) {
@@ -186,6 +265,11 @@ func TestRevalidate(t *testing.T) {
 	deal.TotalSent = defaultTotalSent + defaultCurrentInterval
 	smallerPayment := abi.NewTokenAmount(400000)
 	payment := &retrievalmarket.DealPayment{
+		ID:             deal.ID,
+		PaymentChannel: payCh,
+		PaymentVoucher: voucher,
+	}
+	legacyPayment := &migrations.DealPayment0{
 		ID:             deal.ID,
 		PaymentChannel: payCh,
 		PaymentVoucher: voucher,
@@ -233,6 +317,23 @@ func TestRevalidate(t *testing.T) {
 				Message: "something went wrong",
 			},
 		},
+		"error getting chain head, legacyPayment": {
+			configureTestNode: func(tn *testnodes.TestRetrievalProviderNode) {
+				tn.ChainHeadError = errors.New("something went wrong")
+			},
+			deal:          deal,
+			channelID:     deal.ChannelID,
+			voucher:       legacyPayment,
+			expectedError: errors.New("something went wrong"),
+			expectedID:    deal.Identifier(),
+			expectedEvent: rm.ProviderEventSaveVoucherFailed,
+			expectedArgs:  []interface{}{errors.New("something went wrong")},
+			expectedResult: &migrations.DealResponse0{
+				ID:      deal.ID,
+				Status:  rm.DealStatusErrored,
+				Message: "something went wrong",
+			},
+		},
 		"payment voucher error": {
 			configureTestNode: func(tn *testnodes.TestRetrievalProviderNode) {
 				_ = tn.ExpectVoucher(payCh, voucher, nil, defaultPaymentPerInterval, abi.NewTokenAmount(0), errors.New("your money's no good here"))
@@ -245,6 +346,23 @@ func TestRevalidate(t *testing.T) {
 			expectedEvent: rm.ProviderEventSaveVoucherFailed,
 			expectedArgs:  []interface{}{errors.New("your money's no good here")},
 			expectedResult: &rm.DealResponse{
+				ID:      deal.ID,
+				Status:  rm.DealStatusErrored,
+				Message: "your money's no good here",
+			},
+		},
+		"payment voucher error, legacy payment": {
+			configureTestNode: func(tn *testnodes.TestRetrievalProviderNode) {
+				_ = tn.ExpectVoucher(payCh, voucher, nil, defaultPaymentPerInterval, abi.NewTokenAmount(0), errors.New("your money's no good here"))
+			},
+			deal:          deal,
+			channelID:     deal.ChannelID,
+			voucher:       legacyPayment,
+			expectedError: errors.New("your money's no good here"),
+			expectedID:    deal.Identifier(),
+			expectedEvent: rm.ProviderEventSaveVoucherFailed,
+			expectedArgs:  []interface{}{errors.New("your money's no good here")},
+			expectedResult: &migrations.DealResponse0{
 				ID:      deal.ID,
 				Status:  rm.DealStatusErrored,
 				Message: "your money's no good here",
@@ -267,6 +385,23 @@ func TestRevalidate(t *testing.T) {
 				PaymentOwed: big.Sub(defaultPaymentPerInterval, smallerPayment),
 			},
 		},
+		"not enough funds send, legacyPayment": {
+			configureTestNode: func(tn *testnodes.TestRetrievalProviderNode) {
+				_ = tn.ExpectVoucher(payCh, voucher, nil, defaultPaymentPerInterval, smallerPayment, nil)
+			},
+			deal:          deal,
+			channelID:     deal.ChannelID,
+			voucher:       legacyPayment,
+			expectedError: datatransfer.ErrPause,
+			expectedID:    deal.Identifier(),
+			expectedEvent: rm.ProviderEventPartialPaymentReceived,
+			expectedArgs:  []interface{}{smallerPayment},
+			expectedResult: &migrations.DealResponse0{
+				ID:          deal.ID,
+				Status:      deal.Status,
+				PaymentOwed: big.Sub(defaultPaymentPerInterval, smallerPayment),
+			},
+		},
 		"it works": {
 			configureTestNode: func(tn *testnodes.TestRetrievalProviderNode) {
 				_ = tn.ExpectVoucher(payCh, voucher, nil, defaultPaymentPerInterval, defaultPaymentPerInterval, nil)
@@ -278,6 +413,7 @@ func TestRevalidate(t *testing.T) {
 			expectedEvent: rm.ProviderEventPaymentReceived,
 			expectedArgs:  []interface{}{defaultPaymentPerInterval},
 		},
+
 		"it completes": {
 			configureTestNode: func(tn *testnodes.TestRetrievalProviderNode) {
 				_ = tn.ExpectVoucher(payCh, voucher, nil, defaultPaymentPerInterval, defaultPaymentPerInterval, nil)
@@ -289,6 +425,21 @@ func TestRevalidate(t *testing.T) {
 			expectedEvent: rm.ProviderEventPaymentReceived,
 			expectedArgs:  []interface{}{defaultPaymentPerInterval},
 			expectedResult: &rm.DealResponse{
+				ID:     deal.ID,
+				Status: rm.DealStatusCompleted,
+			},
+		},
+		"it completes, legacy payment": {
+			configureTestNode: func(tn *testnodes.TestRetrievalProviderNode) {
+				_ = tn.ExpectVoucher(payCh, voucher, nil, defaultPaymentPerInterval, defaultPaymentPerInterval, nil)
+			},
+			deal:          lastPaymentDeal,
+			channelID:     deal.ChannelID,
+			voucher:       legacyPayment,
+			expectedID:    deal.Identifier(),
+			expectedEvent: rm.ProviderEventPaymentReceived,
+			expectedArgs:  []interface{}{defaultPaymentPerInterval},
+			expectedResult: &migrations.DealResponse0{
 				ID:     deal.ID,
 				Status: rm.DealStatusCompleted,
 			},
