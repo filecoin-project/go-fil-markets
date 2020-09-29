@@ -112,7 +112,8 @@ func NewDependenciesWithTestData(t *testing.T, ctx context.Context, td *shared_t
 	err = dt2.Start(ctx)
 	require.NoError(t, err)
 
-	storedAsk, err := storedask.NewStoredAsk(td.Ds2, datastore.NewKey("latest-ask"), providerNode, providerAddr)
+	storedAskDs := namespace.Wrap(td.Ds2, datastore.NewKey("/storage/ask"))
+	storedAsk, err := storedask.NewStoredAsk(storedAskDs, datastore.NewKey("latest-ask"), providerNode, providerAddr)
 	assert.NoError(t, err)
 	providerDealFunds, err := funds.NewDealFunds(td.Ds2, datastore.NewKey("storage/provider/dealfunds"))
 	assert.NoError(t, err)

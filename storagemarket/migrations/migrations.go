@@ -1,6 +1,8 @@
 package migrations
 
 import (
+	"context"
+
 	cbg "github.com/whyrusleeping/cbor-gen"
 
 	"github.com/filecoin-project/go-address"
@@ -165,6 +167,37 @@ func MigrateMinerDeal0To1(oldCd *MinerDeal0) (*storagemarket.MinerDeal, error) {
 		DealID:                oldCd.DealID,
 		CreationTime:          oldCd.CreationTime,
 	}, nil
+}
+
+// MigrateStorageAsk0To1 migrates a tuple encoded storage ask to a map encoded storage ask
+func MigrateStorageAsk0To1(oldSa *StorageAsk0) *storagemarket.StorageAsk {
+	return &storagemarket.StorageAsk{
+		Price:         oldSa.Price,
+		VerifiedPrice: oldSa.VerifiedPrice,
+
+		MinPieceSize: oldSa.MinPieceSize,
+		MaxPieceSize: oldSa.MaxPieceSize,
+		Miner:        oldSa.Miner,
+		Timestamp:    oldSa.Timestamp,
+		Expiry:       oldSa.Expiry,
+		SeqNo:        oldSa.SeqNo,
+	}
+}
+
+// GetMigrateSignedStorageAsk0To1 returns a function that migrates a tuple encoded signed storage ask to a map encoded signed storage ask
+// It needs a signing function to resign the ask -- there's no way around that
+func GetMigrateSignedStorageAsk0To1(sign func(ctx context.Context, ask *storagemarket.StorageAsk) (*crypto.Signature, error)) func(*SignedStorageAsk0) (*storagemarket.SignedStorageAsk, error) {
+	return func(oldSsa *SignedStorageAsk0) (*storagemarket.SignedStorageAsk, error) {
+		newSa := MigrateStorageAsk0To1(oldSsa.Ask)
+		sig, err := sign(context.TODO(), newSa)
+		if err != nil {
+			return nil, err
+		}
+		return &storagemarket.SignedStorageAsk{
+			Ask:       newSa,
+			Signature: sig,
+		}, nil
+	}
 }
 
 // ClientMigrations are migrations for the client's store of storage deals
