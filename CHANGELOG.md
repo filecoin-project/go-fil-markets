@@ -1,5 +1,30 @@
 # go-fil-markets changelog
 
+# go-fil-markets v0.6.3
+
+dependency update with fix for graphsync
+
+### Changelog
+
+- github.com/filecoin-project/go-fil-markets:
+  - feat(deps): update data transfer 0.6.6 (#417) ([filecoin-project/go-fil-markets#417](https://github.com/filecoin-project/go-fil-markets/pull/417))
+  - docs(CHANGELOG): update for 0.6.2 ([filecoin-project/go-fil-markets#416](https://github.com/filecoin-project/go-fil-markets/pull/416))
+- github.com/filecoin-project/go-data-transfer (v0.6.5 -> v0.6.6):
+  - docs(CHANGELOG): update for 0.6.6
+  - feat(deps): update graphsync (#86) ([filecoin-project/go-data-transfer#86](https://github.com/filecoin-project/go-data-transfer/pull/86))
+  - docs(CHANGELOG): updates for 0.6.5 ([filecoin-project/go-data-transfer#85](https://github.com/filecoin-project/go-data-transfer/pull/85))
+- github.com/ipfs/go-graphsync (v0.2.0 -> v0.2.1):
+  - docs(CHANGELOG): update for 0.2.1
+  - Release/0.2.0 ([ipfs/go-graphsync#99](https://github.com/ipfs/go-graphsync/pull/99))
+  - fix(metadata): fix cbor-gen (#98) ([ipfs/go-graphsync#98](https://github.com/ipfs/go-graphsync/pull/98))
+
+### Contributors
+
+| Contributor | Commits | Lines ± | Files Changed |
+|-------------|---------|---------|---------------|
+| hannahhoward | 2 | +104/-68 | 2 |
+| Hannah Howard | 3 | +21/-25 | 7 |
+
 # go-fil-markets v0.6.2
 
 security fixes and dependency updates
