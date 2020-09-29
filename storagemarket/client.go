@@ -21,6 +21,9 @@ type StorageClient interface {
 	// in progress deals
 	Start(ctx context.Context) error
 
+	// OnReady registers a listener for when the client comes on line
+	OnReady(shared.ReadyFunc)
+
 	// Stop ends deal processing on a StorageClient
 	Stop() error
 

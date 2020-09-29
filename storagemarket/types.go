@@ -15,16 +15,19 @@ import (
 	"github.com/filecoin-project/go-fil-markets/filestore"
 )
 
-//go:generate cbor-gen-for ClientDeal MinerDeal Balance SignedStorageAsk StorageAsk DataRef ProviderDealState
+//go:generate cbor-gen-for --map-encoding ClientDeal MinerDeal Balance SignedStorageAsk StorageAsk DataRef ProviderDealState
 
 // DealProtocolID is the ID for the libp2p protocol for proposing storage deals.
-const DealProtocolID = "/fil/storage/mk/1.0.1"
+const OldDealProtocolID = "/fil/storage/mk/1.0.1"
+const DealProtocolID = "/fil/storage/mk/1.1.0"
 
 // AskProtocolID is the ID for the libp2p protocol for querying miners for their current StorageAsk.
-const AskProtocolID = "/fil/storage/ask/1.0.1"
+const OldAskProtocolID = "/fil/storage/ask/1.0.1"
+const AskProtocolID = "/fil/storage/ask/1.1.0"
 
 // DealStatusProtocolID is the ID for the libp2p protocol for querying miners for the current status of a deal.
-const DealStatusProtocolID = "/fil/storage/status/1.0.1"
+const OldDealStatusProtocolID = "/fil/storage/status/1.0.1"
+const DealStatusProtocolID = "/fil/storage/status/1.1.0"
 
 // Balance represents a current balance of funds in the StorageMarketActor.
 type Balance struct {
