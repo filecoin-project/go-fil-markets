@@ -82,6 +82,7 @@ func NewDependenciesWithTestData(t *testing.T, ctx context.Context, td *shared_t
 	}
 
 	ps, err := piecestoreimpl.NewPieceStore(td.Ds2)
+	require.NoError(t, err)
 	shared_testutil.StartAndWaitForReady(ctx, t, ps)
 
 	providerNode := &testnodes.FakeProviderNode{
