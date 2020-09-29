@@ -282,12 +282,6 @@ func (n *FakeClientNode) GetMinerInfo(ctx context.Context, maddr address.Address
 	return info, nil
 }
 
-// ValidateAskSignature returns the stubbed validation error and a boolean value
-// communicating the validity of the provided signature
-func (n *FakeClientNode) ValidateAskSignature(ctx context.Context, ask *storagemarket.SignedStorageAsk, tok shared.TipSetToken) (bool, error) {
-	return n.ValidationError == nil, n.ValidationError
-}
-
 func (n *FakeClientNode) VerifyExpectations(t *testing.T) {
 	require.Equal(t, n.ExpectedMinerInfos, n.receivedMinerInfos)
 }

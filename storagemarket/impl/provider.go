@@ -412,7 +412,7 @@ func (p *Provider) HandleAskStream(s network.StorageAskStream) {
 		Ask: ask,
 	}
 
-	if err := s.WriteAskResponse(resp); err != nil {
+	if err := s.WriteAskResponse(resp, p.sign); err != nil {
 		log.Errorf("failed to write ask response: %s", err)
 		return
 	}
@@ -492,7 +492,7 @@ func (p *Provider) HandleDealStatusStream(s network.DealStatusStream) {
 		Signature: *signature,
 	}
 
-	if err := s.WriteDealStatusResponse(response); err != nil {
+	if err := s.WriteDealStatusResponse(response, p.sign); err != nil {
 		log.Warnf("failed to write deal status response: %s", err)
 		return
 	}

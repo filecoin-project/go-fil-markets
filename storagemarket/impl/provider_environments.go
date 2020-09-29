@@ -81,7 +81,7 @@ func (p *providerDealEnvironment) SendSignedResponse(ctx context.Context, resp *
 		Signature: sig,
 	}
 
-	err = s.WriteDealResponse(signedResponse)
+	err = s.WriteDealResponse(signedResponse, p.p.sign)
 	if err != nil {
 		// Assume client disconnected
 		_ = p.p.conns.Disconnect(resp.Proposal)

@@ -37,7 +37,7 @@ type StorageClient interface {
 	GetLocalDeal(ctx context.Context, cid cid.Cid) (ClientDeal, error)
 
 	// GetAsk returns the current ask for a storage provider
-	GetAsk(ctx context.Context, info StorageProviderInfo) (*SignedStorageAsk, error)
+	GetAsk(ctx context.Context, info StorageProviderInfo) (*StorageAsk, error)
 
 	// GetProviderDealState queries a provider for the current state of a client's deal
 	GetProviderDealState(ctx context.Context, proposalCid cid.Cid) (*ProviderDealState, error)

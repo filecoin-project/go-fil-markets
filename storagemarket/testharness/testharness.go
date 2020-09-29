@@ -20,6 +20,7 @@ import (
 	"github.com/ipfs/go-datastore/namespace"
 	"github.com/ipld/go-ipld-prime"
 	cidlink "github.com/ipld/go-ipld-prime/linking/cid"
+	"github.com/libp2p/go-libp2p-core/protocol"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"golang.org/x/net/context"
@@ -34,13 +35,13 @@ type StorageHarness struct {
 	TempFilePath string
 }
 
-func NewHarness(t *testing.T, ctx context.Context, useStore bool, d testnodes.DelayFakeCommonNode) *StorageHarness {
+func NewHarness(t *testing.T, ctx context.Context, useStore bool, d testnodes.DelayFakeCommonNode, disableNewDeals bool) *StorageHarness {
 	smState := testnodes.NewStorageMarketState()
-	return NewHarnessWithTestData(t, ctx, shared_testutil.NewLibp2pTestData(ctx, t), smState, useStore, "", d)
+	return NewHarnessWithTestData(t, ctx, shared_testutil.NewLibp2pTestData(ctx, t), smState, useStore, "", d, disableNewDeals)
 }
 
 func NewHarnessWithTestData(t *testing.T, ctx context.Context, td *shared_testutil.Libp2pTestData, smState *testnodes.StorageMarketState, useStore bool, tempPath string,
-	delayFakeEnvNode testnodes.DelayFakeCommonNode) *StorageHarness {
+	delayFakeEnvNode testnodes.DelayFakeCommonNode, disableNewDeals bool) *StorageHarness {
 	deps := dependencies.NewDependenciesWithTestData(t, ctx, td, smState, tempPath, delayFakeEnvNode)
 	fpath := filepath.Join("storagemarket", "fixtures", "payload.txt")
 	var rootLink ipld.Link
@@ -71,8 +72,16 @@ func NewHarnessWithTestData(t *testing.T, ctx context.Context, td *shared_testut
 	require.NoError(t, err)
 
 	providerDs := namespace.Wrap(td.Ds1, datastore.NewKey("/deals/provider"))
+	networkOptions := []network.Option{network.RetryParameters(0, 0, 0)}
+	if disableNewDeals {
+		networkOptions = append(networkOptions,
+			network.SupportedAskProtocols([]protocol.ID{storagemarket.OldAskProtocolID}),
+			network.SupportedDealProtocols([]protocol.ID{storagemarket.OldDealProtocolID}),
+			network.SupportedDealStatusProtocols([]protocol.ID{storagemarket.OldDealStatusProtocolID}),
+		)
+	}
 	provider, err := storageimpl.NewProvider(
-		network.NewFromLibp2pHost(td.Host2, network.RetryParameters(0, 0, 0)),
+		network.NewFromLibp2pHost(td.Host2, networkOptions...),
 		providerDs,
 		deps.Fs,
 		td.MultiStore2,

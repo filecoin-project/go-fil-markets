@@ -25,15 +25,26 @@ import (
 
 func TestMakeDeal(t *testing.T) {
 	ctx := context.Background()
-	testCases := map[string]bool{
-		"with stores":          true,
-		"with just blockstore": false,
+	testCases := map[string]struct {
+		useStore        bool
+		disableNewDeals bool
+	}{
+		"with stores": {
+			useStore: true,
+		},
+		"with just blockstore": {
+			useStore: false,
+		},
+		"disable new protocols": {
+			useStore:        true,
+			disableNewDeals: true,
+		},
 	}
-	for testCase, useStore := range testCases {
+	for testCase, data := range testCases {
 		t.Run(testCase, func(t *testing.T) {
 			ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
 			defer cancel()
-			h := testharness.NewHarness(t, ctx, useStore, testnodes.DelayFakeCommonNode{})
+			h := testharness.NewHarness(t, ctx, data.useStore, testnodes.DelayFakeCommonNode{}, data.disableNewDeals)
 			shared_testutil.StartAndWaitForReady(ctx, t, h.Provider)
 			shared_testutil.StartAndWaitForReady(ctx, t, h.Client)
 
@@ -165,7 +176,7 @@ func TestMakeDealOffline(t *testing.T) {
 	ctx := context.Background()
 	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
 	defer cancel()
-	h := testharness.NewHarness(t, ctx, true, testnodes.DelayFakeCommonNode{})
+	h := testharness.NewHarness(t, ctx, true, testnodes.DelayFakeCommonNode{}, false)
 	shared_testutil.StartAndWaitForReady(ctx, t, h.Provider)
 	shared_testutil.StartAndWaitForReady(ctx, t, h.Client)
 
@@ -232,7 +243,7 @@ func TestMakeDealNonBlocking(t *testing.T) {
 	ctx := context.Background()
 	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
 	defer cancel()
-	h := testharness.NewHarness(t, ctx, true, testnodes.DelayFakeCommonNode{})
+	h := testharness.NewHarness(t, ctx, true, testnodes.DelayFakeCommonNode{}, false)
 	testCids := shared_testutil.GenerateCids(2)
 
 	h.ProviderNode.WaitForMessageBlocks = true
@@ -304,7 +315,7 @@ func TestRestartClient(t *testing.T) {
 			ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
 			defer cancel()
 			h := testharness.NewHarness(t, ctx, true, testnodes.DelayFakeCommonNode{OnDealExpiredOrSlashed: true,
-				OnDealSectorCommitted: true})
+				OnDealSectorCommitted: true}, false)
 
 			shared_testutil.StartAndWaitForReady(ctx, t, h.Provider)
 			shared_testutil.StartAndWaitForReady(ctx, t, h.Client)
@@ -343,7 +354,7 @@ func TestRestartClient(t *testing.T) {
 			if tc.stopAtEvent != storagemarket.ClientEventDealActivated && tc.stopAtEvent != storagemarket.ClientEventDealPublished {
 				assert.NotEqual(t, storagemarket.StorageDealActive, cd.State)
 			}
-			h = testharness.NewHarnessWithTestData(t, ctx, h.TestData, h.SMState, true, h.TempFilePath, testnodes.DelayFakeCommonNode{})
+			h = testharness.NewHarnessWithTestData(t, ctx, h.TestData, h.SMState, true, h.TempFilePath, testnodes.DelayFakeCommonNode{}, false)
 
 			if len(providerState) == 0 || providerState[0].State != storagemarket.StorageDealExpired {
 				wg.Add(1)

@@ -3,9 +3,13 @@ package network
 import (
 	"context"
 
+	"github.com/filecoin-project/go-state-types/crypto"
 	"github.com/libp2p/go-libp2p-core/peer"
 	ma "github.com/multiformats/go-multiaddr"
 )
+
+// ResigningFunc allows you to resign data as needed when downgrading a response
+type ResigningFunc func(ctx context.Context, data interface{}) (*crypto.Signature, error)
 
 // These are the required interfaces that must be implemented to send and receive data
 // for storage deals.
@@ -15,8 +19,8 @@ import (
 type StorageAskStream interface {
 	ReadAskRequest() (AskRequest, error)
 	WriteAskRequest(AskRequest) error
-	ReadAskResponse() (AskResponse, error)
-	WriteAskResponse(AskResponse) error
+	ReadAskResponse() (AskResponse, []byte, error)
+	WriteAskResponse(AskResponse, ResigningFunc) error
 	Close() error
 }
 
@@ -25,8 +29,8 @@ type StorageAskStream interface {
 type StorageDealStream interface {
 	ReadDealProposal() (Proposal, error)
 	WriteDealProposal(Proposal) error
-	ReadDealResponse() (SignedResponse, error)
-	WriteDealResponse(SignedResponse) error
+	ReadDealResponse() (SignedResponse, []byte, error)
+	WriteDealResponse(SignedResponse, ResigningFunc) error
 	RemotePeer() peer.ID
 	Close() error
 }
@@ -36,8 +40,8 @@ type StorageDealStream interface {
 type DealStatusStream interface {
 	ReadDealStatusRequest() (DealStatusRequest, error)
 	WriteDealStatusRequest(DealStatusRequest) error
-	ReadDealStatusResponse() (DealStatusResponse, error)
-	WriteDealStatusResponse(DealStatusResponse) error
+	ReadDealStatusResponse() (DealStatusResponse, []byte, error)
+	WriteDealStatusResponse(DealStatusResponse, ResigningFunc) error
 	Close() error
 }
 

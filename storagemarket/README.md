@@ -193,7 +193,6 @@ Register callbacks to be called when a deal expires or is slashed.
 * [`GetDefaultWalletAddress`](#GetDefaultWalletAddress)
 * [`OnDealSectorCommitted`](#OnDealSectorCommitted)
 * [`OnDealExpiredOrSlashed`](#OnDealExpiredOrSlashed)
-* [`ValidateAskSignature`](#ValidateAskSignature)
 
 #### StorageCommon
 `StorageClientNode` implements `StorageCommon`, described above.
@@ -252,14 +251,6 @@ func OnDealExpiredOrSlashed(
 ```
 
 Register callbacks to be called when a deal expires or is slashed.
-
-#### ValidateAskSignature
-```go
-func ValidateAskSignature(ctx context.Context, ask *SignedStorageAsk, tok shared.TipSetToken,
-                     ) (bool, error)
-```
-Verify the signature in `ask`, returning true (valid) or false (invalid).
-
 
 #### GetMinerInfo
 ```go

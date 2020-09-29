@@ -18,7 +18,7 @@ import (
 	"github.com/libp2p/go-libp2p-core/peer"
 )
 
-//go:generate cbor-gen-for ClientDeal0 MinerDeal0 Balance0 SignedStorageAsk0 StorageAsk0 DataRef0 ProviderDealState0
+//go:generate cbor-gen-for ClientDeal0 MinerDeal0 Balance0 SignedStorageAsk0 StorageAsk0 DataRef0 ProviderDealState0 AskRequest0 AskResponse0 Proposal0 Response0 SignedResponse0 DealStatusRequest0 DealStatusResponse0
 
 // Balance0 is version 0 of Balance
 type Balance0 struct {
@@ -107,6 +107,53 @@ type ProviderDealState0 struct {
 	PublishCid    *cid.Cid
 	DealID        abi.DealID
 	FastRetrieval bool
+}
+
+// Proposal0 is version 0 of Proposal
+type Proposal0 struct {
+	DealProposal  *market.ClientDealProposal
+	Piece         *DataRef0
+	FastRetrieval bool
+}
+
+// Response0 is version 0 of Response
+type Response0 struct {
+	State storagemarket.StorageDealStatus
+
+	// DealProposalRejected
+	Message  string
+	Proposal cid.Cid
+
+	// StorageDealProposalAccepted
+	PublishMessage *cid.Cid
+}
+
+// SignedResponse0 is version 0 of SignedResponse
+type SignedResponse0 struct {
+	Response  Response0
+	Signature *crypto.Signature
+}
+
+// AskRequest0 is version 0 of AskRequest
+type AskRequest0 struct {
+	Miner address.Address
+}
+
+// AskResponse0 is version 0 of AskResponse
+type AskResponse0 struct {
+	Ask *SignedStorageAsk0
+}
+
+// DealStatusRequest0 is version 0 of DealStatusRequest
+type DealStatusRequest0 struct {
+	Proposal  cid.Cid
+	Signature crypto.Signature
+}
+
+// DealStatusResponse0 is version 0 of DealStatusResponse
+type DealStatusResponse0 struct {
+	DealState ProviderDealState0
+	Signature crypto.Signature
 }
 
 // MigrateDataRef0To1 migrates a tuple encoded data tref to a map encoded data ref

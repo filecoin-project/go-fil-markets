@@ -36,16 +36,20 @@ func (d *dealStream) WriteDealProposal(dp Proposal) error {
 	return cborutil.WriteCborRPC(d.rw, &dp)
 }
 
-func (d *dealStream) ReadDealResponse() (SignedResponse, error) {
+func (d *dealStream) ReadDealResponse() (SignedResponse, []byte, error) {
 	var dr SignedResponse
 
 	if err := dr.UnmarshalCBOR(d.buffered); err != nil {
-		return SignedResponseUndefined, err
+		return SignedResponseUndefined, nil, err
 	}
-	return dr, nil
+	origBytes, err := cborutil.Dump(&dr.Response)
+	if err != nil {
+		return SignedResponseUndefined, nil, err
+	}
+	return dr, origBytes, nil
 }
 
-func (d *dealStream) WriteDealResponse(dr SignedResponse) error {
+func (d *dealStream) WriteDealResponse(dr SignedResponse, _ ResigningFunc) error {
 	return cborutil.WriteCborRPC(d.rw, &dr)
 }
 

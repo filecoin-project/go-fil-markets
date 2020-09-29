@@ -211,7 +211,7 @@ func (c *Client) GetLocalDeal(ctx context.Context, cid cid.Cid) (storagemarket.C
 // and calls WriteAskRequest on it, which constructs a message and writes it to the Ask stream.
 // When it receives a response, it verifies the signature and returns the validated
 // StorageAsk if successful
-func (c *Client) GetAsk(ctx context.Context, info storagemarket.StorageProviderInfo) (*storagemarket.SignedStorageAsk, error) {
+func (c *Client) GetAsk(ctx context.Context, info storagemarket.StorageProviderInfo) (*storagemarket.StorageAsk, error) {
 	if len(info.Addrs) > 0 {
 		c.net.AddAddrs(info.PeerID, info.Addrs)
 	}
@@ -225,7 +225,7 @@ func (c *Client) GetAsk(ctx context.Context, info storagemarket.StorageProviderI
 		return nil, xerrors.Errorf("failed to send ask request: %w", err)
 	}
 
-	out, err := s.ReadAskResponse()
+	out, origBytes, err := s.ReadAskResponse()
 	if err != nil {
 		return nil, xerrors.Errorf("failed to read ask response: %w", err)
 	}
@@ -243,7 +243,7 @@ func (c *Client) GetAsk(ctx context.Context, info storagemarket.StorageProviderI
 		return nil, err
 	}
 
-	isValid, err := c.node.ValidateAskSignature(ctx, out.Ask, tok)
+	isValid, err := c.node.VerifySignature(ctx, *out.Ask.Signature, info.Worker, origBytes, tok)
 	if err != nil {
 		return nil, err
 	}
@@ -252,7 +252,7 @@ func (c *Client) GetAsk(ctx context.Context, info storagemarket.StorageProviderI
 		return nil, xerrors.Errorf("ask was not properly signed")
 	}
 
-	return out.Ask, nil
+	return out.Ask.Ask, nil
 }
 
 // GetProviderDealState queries a provider for the current state of a client's deal
@@ -282,12 +282,12 @@ func (c *Client) GetProviderDealState(ctx context.Context, proposalCid cid.Cid) 
 		return nil, xerrors.Errorf("failed to send deal status request: %w", err)
 	}
 
-	resp, err := s.ReadDealStatusResponse()
+	resp, origBytes, err := s.ReadDealStatusResponse()
 	if err != nil {
 		return nil, xerrors.Errorf("failed to read deal status response: %w", err)
 	}
 
-	valid, err := c.verifyStatusResponseSignature(ctx, deal.MinerWorker, resp)
+	valid, err := c.verifyStatusResponseSignature(ctx, deal.MinerWorker, resp, origBytes)
 	if err != nil {
 		return nil, err
 	}
@@ -531,18 +531,13 @@ func (c *Client) dispatch(eventName fsm.EventName, deal fsm.StateType) {
 	}
 }
 
-func (c *Client) verifyStatusResponseSignature(ctx context.Context, miner address.Address, response network.DealStatusResponse) (bool, error) {
+func (c *Client) verifyStatusResponseSignature(ctx context.Context, miner address.Address, response network.DealStatusResponse, origBytes []byte) (bool, error) {
 	tok, _, err := c.node.GetChainHead(ctx)
 	if err != nil {
 		return false, xerrors.Errorf("getting chain head: %w", err)
 	}
 
-	buf, err := cborutil.Dump(&response.DealState)
-	if err != nil {
-		return false, xerrors.Errorf("serializing: %w", err)
-	}
-
-	valid, err := c.node.VerifySignature(ctx, response.Signature, miner, buf, tok)
+	valid, err := c.node.VerifySignature(ctx, response.Signature, miner, origBytes, tok)
 	if err != nil {
 		return false, xerrors.Errorf("validating signature: %w", err)
 	}

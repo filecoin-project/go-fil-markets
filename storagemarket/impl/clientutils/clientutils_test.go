@@ -12,16 +12,13 @@ import (
 	"github.com/ipld/go-ipld-prime"
 	"github.com/stretchr/testify/require"
 
-	"github.com/filecoin-project/go-address"
 	"github.com/filecoin-project/go-multistore"
 	"github.com/filecoin-project/go-state-types/abi"
-	"github.com/filecoin-project/go-state-types/crypto"
 
 	"github.com/filecoin-project/go-fil-markets/shared"
 	"github.com/filecoin-project/go-fil-markets/shared_testutil"
 	"github.com/filecoin-project/go-fil-markets/storagemarket"
 	"github.com/filecoin-project/go-fil-markets/storagemarket/impl/clientutils"
-	"github.com/filecoin-project/go-fil-markets/storagemarket/network"
 )
 
 func TestCommP(t *testing.T) {
@@ -81,45 +78,6 @@ func TestCommP(t *testing.T) {
 			require.Equal(t, ressize, abi.UnpaddedPieceSize(0))
 		})
 	})
-}
-
-func TestVerifyResponse(t *testing.T) {
-	tests := map[string]struct {
-		sresponse network.SignedResponse
-		verifier  clientutils.VerifyFunc
-		shouldErr bool
-	}{
-		"successful verification": {
-			sresponse: shared_testutil.MakeTestStorageNetworkSignedResponse(),
-			verifier: func(context.Context, crypto.Signature, address.Address, []byte, shared.TipSetToken) (bool, error) {
-				return true, nil
-			},
-			shouldErr: false,
-		},
-		"bad response": {
-			sresponse: network.SignedResponse{
-				Response:  network.Response{},
-				Signature: shared_testutil.MakeTestSignature(),
-			},
-			verifier: func(context.Context, crypto.Signature, address.Address, []byte, shared.TipSetToken) (bool, error) {
-				return true, nil
-			},
-			shouldErr: true,
-		},
-		"verification fails": {
-			sresponse: shared_testutil.MakeTestStorageNetworkSignedResponse(),
-			verifier: func(context.Context, crypto.Signature, address.Address, []byte, shared.TipSetToken) (bool, error) {
-				return false, nil
-			},
-			shouldErr: true,
-		},
-	}
-	for name, data := range tests {
-		t.Run(name, func(t *testing.T) {
-			err := clientutils.VerifyResponse(context.Background(), data.sresponse, address.TestAddress, shared.TipSetToken{}, data.verifier)
-			require.Equal(t, err != nil, data.shouldErr)
-		})
-	}
 }
 
 type testPieceIO struct {

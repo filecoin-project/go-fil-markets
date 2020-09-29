@@ -6,11 +6,14 @@ import (
 	"time"
 
 	"github.com/libp2p/go-libp2p-core/peer"
+	"github.com/libp2p/go-libp2p-core/protocol"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	"github.com/filecoin-project/go-fil-markets/shared_testutil"
+	"github.com/filecoin-project/go-fil-markets/storagemarket"
 	"github.com/filecoin-project/go-fil-markets/storagemarket/network"
+	"github.com/filecoin-project/go-state-types/crypto"
 )
 
 type testReceiver struct {
@@ -82,51 +85,101 @@ func TestOpenStreamWithRetries(t *testing.T) {
 
 func TestAskStreamSendReceiveAskRequest(t *testing.T) {
 	ctx := context.Background()
-	td := shared_testutil.NewLibp2pTestData(ctx, t)
 
-	fromNetwork := network.NewFromLibp2pHost(td.Host1)
-	toNetwork := network.NewFromLibp2pHost(td.Host2)
-	toHost := td.Host2.ID()
+	testCases := map[string]struct {
+		senderDisabledNew   bool
+		receiverDisabledNew bool
+	}{
+		"both clients current version": {},
+		"sender old supports old queries": {
+			senderDisabledNew: true,
+		},
+		"receiver only supports old queries": {
+			receiverDisabledNew: true,
+		},
+	}
+	for testCase, data := range testCases {
+		t.Run(testCase, func(t *testing.T) {
+			td := shared_testutil.NewLibp2pTestData(ctx, t)
+			var fromNetwork, toNetwork network.StorageMarketNetwork
+			if data.senderDisabledNew {
+				fromNetwork = network.NewFromLibp2pHost(td.Host1, network.SupportedAskProtocols([]protocol.ID{storagemarket.OldAskProtocolID}))
+			} else {
+				fromNetwork = network.NewFromLibp2pHost(td.Host1)
+			}
+			if data.receiverDisabledNew {
+				toNetwork = network.NewFromLibp2pHost(td.Host2, network.SupportedAskProtocols([]protocol.ID{storagemarket.OldAskProtocolID}))
+			} else {
+				toNetwork = network.NewFromLibp2pHost(td.Host2)
+			}
+			toHost := td.Host2.ID()
 
-	// host1 gets no-op receiver
-	tr := &testReceiver{t: t}
-	require.NoError(t, fromNetwork.SetDelegate(tr))
+			// host1 gets no-op receiver
+			tr := &testReceiver{t: t}
+			require.NoError(t, fromNetwork.SetDelegate(tr))
 
-	// host2 gets receiver
-	achan := make(chan network.AskRequest)
-	tr2 := &testReceiver{t: t, askStreamHandler: func(s network.StorageAskStream) {
-		readq, err := s.ReadAskRequest()
-		require.NoError(t, err)
-		achan <- readq
-	}}
-	require.NoError(t, toNetwork.SetDelegate(tr2))
+			// host2 gets receiver
+			achan := make(chan network.AskRequest)
+			tr2 := &testReceiver{t: t, askStreamHandler: func(s network.StorageAskStream) {
+				readq, err := s.ReadAskRequest()
+				require.NoError(t, err)
+				achan <- readq
+			}}
+			require.NoError(t, toNetwork.SetDelegate(tr2))
 
-	// setup query stream host1 --> host 2
-	assertAskRequestReceived(ctx, t, fromNetwork, toHost, achan)
+			// setup query stream host1 --> host 2
+			assertAskRequestReceived(ctx, t, fromNetwork, toHost, achan)
+		})
+	}
 }
 
 func TestAskStreamSendReceiveAskResponse(t *testing.T) {
 	ctx := context.Background()
-	td := shared_testutil.NewLibp2pTestData(ctx, t)
-	fromNetwork := network.NewFromLibp2pHost(td.Host1)
-	toNetwork := network.NewFromLibp2pHost(td.Host2)
-	toHost := td.Host2.ID()
 
-	// host1 gets no-op receiver
-	tr := &testReceiver{t: t}
-	require.NoError(t, fromNetwork.SetDelegate(tr))
+	testCases := map[string]struct {
+		senderDisabledNew   bool
+		receiverDisabledNew bool
+	}{
+		"both clients current version": {},
+		"sender old supports old queries": {
+			senderDisabledNew: true,
+		},
+		"receiver only supports old queries": {
+			receiverDisabledNew: true,
+		},
+	}
+	for testCase, data := range testCases {
+		t.Run(testCase, func(t *testing.T) {
+			td := shared_testutil.NewLibp2pTestData(ctx, t)
+			var fromNetwork, toNetwork network.StorageMarketNetwork
+			if data.senderDisabledNew {
+				fromNetwork = network.NewFromLibp2pHost(td.Host1, network.SupportedAskProtocols([]protocol.ID{storagemarket.OldAskProtocolID}))
+			} else {
+				fromNetwork = network.NewFromLibp2pHost(td.Host1)
+			}
+			if data.receiverDisabledNew {
+				toNetwork = network.NewFromLibp2pHost(td.Host2, network.SupportedAskProtocols([]protocol.ID{storagemarket.OldAskProtocolID}))
+			} else {
+				toNetwork = network.NewFromLibp2pHost(td.Host2)
+			}
+			toHost := td.Host2.ID()
 
-	// host2 gets receiver
-	achan := make(chan network.AskResponse)
-	tr2 := &testReceiver{t: t, askStreamHandler: func(s network.StorageAskStream) {
-		a, err := s.ReadAskResponse()
-		require.NoError(t, err)
-		achan <- a
-	}}
-	require.NoError(t, toNetwork.SetDelegate(tr2))
+			// host1 gets no-op receiver
+			tr := &testReceiver{t: t}
+			require.NoError(t, fromNetwork.SetDelegate(tr))
 
-	assertAskResponseReceived(ctx, t, fromNetwork, toHost, achan)
+			// host2 gets receiver
+			achan := make(chan network.AskResponse)
+			tr2 := &testReceiver{t: t, askStreamHandler: func(s network.StorageAskStream) {
+				a, _, err := s.ReadAskResponse()
+				require.NoError(t, err)
+				achan <- a
+			}}
+			require.NoError(t, toNetwork.SetDelegate(tr2))
 
+			assertAskResponseReceived(ctx, t, fromNetwork, toHost, achan)
+		})
+	}
 }
 
 func TestAskStreamSendReceiveMultipleSuccessful(t *testing.T) {
@@ -140,11 +193,14 @@ func TestAskStreamSendReceiveMultipleSuccessful(t *testing.T) {
 	// host2 gets a query and sends a response
 	ar := shared_testutil.MakeTestStorageAskResponse()
 	done := make(chan bool)
+	var resigningFunc network.ResigningFunc = func(ctx context.Context, data interface{}) (*crypto.Signature, error) {
+		return nil, nil
+	}
 	tr2 := &testReceiver{t: t, askStreamHandler: func(s network.StorageAskStream) {
 		_, err := s.ReadAskRequest()
 		require.NoError(t, err)
 
-		require.NoError(t, s.WriteAskResponse(ar))
+		require.NoError(t, s.WriteAskResponse(ar, resigningFunc))
 		done <- true
 	}}
 	require.NoError(t, nw2.SetDelegate(tr2))
@@ -157,7 +213,7 @@ func TestAskStreamSendReceiveMultipleSuccessful(t *testing.T) {
 
 	var resp network.AskResponse
 	go require.NoError(t, qs.WriteAskRequest(shared_testutil.MakeTestStorageAskRequest()))
-	resp, err = qs.ReadAskResponse()
+	resp, _, err = qs.ReadAskResponse()
 	require.NoError(t, err)
 
 	select {
@@ -172,49 +228,101 @@ func TestAskStreamSendReceiveMultipleSuccessful(t *testing.T) {
 func TestDealStreamSendReceiveDealProposal(t *testing.T) {
 	// send proposal, read in handler
 	ctx := context.Background()
-	td := shared_testutil.NewLibp2pTestData(ctx, t)
-	fromNetwork := network.NewFromLibp2pHost(td.Host1)
-	toNetwork := network.NewFromLibp2pHost(td.Host2)
-	toHost := td.Host2.ID()
 
-	tr := &testReceiver{t: t}
-	require.NoError(t, fromNetwork.SetDelegate(tr))
-
-	dchan := make(chan network.Proposal)
-	tr2 := &testReceiver{
-		t: t,
-		dealStreamHandler: func(s network.StorageDealStream) {
-			readD, err := s.ReadDealProposal()
-			require.NoError(t, err)
-			dchan <- readD
+	testCases := map[string]struct {
+		senderDisabledNew   bool
+		receiverDisabledNew bool
+	}{
+		"both clients current version": {},
+		"sender old supports old queries": {
+			senderDisabledNew: true,
+		},
+		"receiver only supports old queries": {
+			receiverDisabledNew: true,
 		},
 	}
-	require.NoError(t, toNetwork.SetDelegate(tr2))
+	for testCase, data := range testCases {
+		t.Run(testCase, func(t *testing.T) {
+			td := shared_testutil.NewLibp2pTestData(ctx, t)
+			var fromNetwork, toNetwork network.StorageMarketNetwork
+			if data.senderDisabledNew {
+				fromNetwork = network.NewFromLibp2pHost(td.Host1, network.SupportedDealProtocols([]protocol.ID{storagemarket.OldDealProtocolID}))
+			} else {
+				fromNetwork = network.NewFromLibp2pHost(td.Host1)
+			}
+			if data.receiverDisabledNew {
+				toNetwork = network.NewFromLibp2pHost(td.Host2, network.SupportedDealProtocols([]protocol.ID{storagemarket.OldDealProtocolID}))
+			} else {
+				toNetwork = network.NewFromLibp2pHost(td.Host2)
+			}
+			toHost := td.Host2.ID()
 
-	assertDealProposalReceived(ctx, t, fromNetwork, toHost, dchan)
+			tr := &testReceiver{t: t}
+			require.NoError(t, fromNetwork.SetDelegate(tr))
+
+			dchan := make(chan network.Proposal)
+			tr2 := &testReceiver{
+				t: t,
+				dealStreamHandler: func(s network.StorageDealStream) {
+					readD, err := s.ReadDealProposal()
+					require.NoError(t, err)
+					dchan <- readD
+				},
+			}
+			require.NoError(t, toNetwork.SetDelegate(tr2))
+
+			assertDealProposalReceived(ctx, t, fromNetwork, toHost, dchan)
+		})
+	}
 }
 
 func TestDealStreamSendReceiveDealResponse(t *testing.T) {
 	ctx := context.Background()
-	td := shared_testutil.NewLibp2pTestData(ctx, t)
-	fromNetwork := network.NewFromLibp2pHost(td.Host1)
-	toNetwork := network.NewFromLibp2pHost(td.Host2)
-	toPeer := td.Host2.ID()
 
-	tr := &testReceiver{t: t}
-	require.NoError(t, fromNetwork.SetDelegate(tr))
-
-	drChan := make(chan network.SignedResponse)
-	tr2 := &testReceiver{
-		t: t,
-		dealStreamHandler: func(s network.StorageDealStream) {
-			readDP, err := s.ReadDealResponse()
-			require.NoError(t, err)
-			drChan <- readDP
+	testCases := map[string]struct {
+		senderDisabledNew   bool
+		receiverDisabledNew bool
+	}{
+		"both clients current version": {},
+		"sender old supports old queries": {
+			senderDisabledNew: true,
+		},
+		"receiver only supports old queries": {
+			receiverDisabledNew: true,
 		},
 	}
-	require.NoError(t, toNetwork.SetDelegate(tr2))
-	assertDealResponseReceived(ctx, t, fromNetwork, toPeer, drChan)
+	for testCase, data := range testCases {
+		t.Run(testCase, func(t *testing.T) {
+			td := shared_testutil.NewLibp2pTestData(ctx, t)
+			var fromNetwork, toNetwork network.StorageMarketNetwork
+			if data.senderDisabledNew {
+				fromNetwork = network.NewFromLibp2pHost(td.Host1, network.SupportedDealProtocols([]protocol.ID{storagemarket.OldDealProtocolID}))
+			} else {
+				fromNetwork = network.NewFromLibp2pHost(td.Host1)
+			}
+			if data.receiverDisabledNew {
+				toNetwork = network.NewFromLibp2pHost(td.Host2, network.SupportedDealProtocols([]protocol.ID{storagemarket.OldDealProtocolID}))
+			} else {
+				toNetwork = network.NewFromLibp2pHost(td.Host2)
+			}
+			toPeer := td.Host2.ID()
+
+			tr := &testReceiver{t: t}
+			require.NoError(t, fromNetwork.SetDelegate(tr))
+
+			drChan := make(chan network.SignedResponse)
+			tr2 := &testReceiver{
+				t: t,
+				dealStreamHandler: func(s network.StorageDealStream) {
+					readDP, _, err := s.ReadDealResponse()
+					require.NoError(t, err)
+					drChan <- readDP
+				},
+			}
+			require.NoError(t, toNetwork.SetDelegate(tr2))
+			assertDealResponseReceived(ctx, t, fromNetwork, toPeer, drChan)
+		})
+	}
 }
 
 func TestDealStreamSendReceiveMultipleSuccessful(t *testing.T) {
@@ -230,12 +338,14 @@ func TestDealStreamSendReceiveMultipleSuccessful(t *testing.T) {
 	// set up stream handler, channels, and response
 	dr := shared_testutil.MakeTestStorageNetworkSignedResponse()
 	done := make(chan bool)
-
+	var resigningFunc network.ResigningFunc = func(ctx context.Context, data interface{}) (*crypto.Signature, error) {
+		return nil, nil
+	}
 	tr2 := &testReceiver{t: t, dealStreamHandler: func(s network.StorageDealStream) {
 		_, err := s.ReadDealProposal()
 		require.NoError(t, err)
 
-		require.NoError(t, s.WriteDealResponse(dr))
+		require.NoError(t, s.WriteDealResponse(dr, resigningFunc))
 		done <- true
 	}}
 	require.NoError(t, toNetwork.SetDelegate(tr2))
@@ -253,7 +363,7 @@ func TestDealStreamSendReceiveMultipleSuccessful(t *testing.T) {
 	require.NoError(t, ds1.WriteDealProposal(dp))
 
 	// read response and verify it's the one we told toNetwork to send
-	responseReceived, err := ds1.ReadDealResponse()
+	responseReceived, _, err := ds1.ReadDealResponse()
 	require.NoError(t, err)
 	assert.Equal(t, dr, responseReceived)
 
@@ -266,50 +376,101 @@ func TestDealStreamSendReceiveMultipleSuccessful(t *testing.T) {
 
 func TestDealStatusStreamSendReceiveRequest(t *testing.T) {
 	ctx := context.Background()
-	td := shared_testutil.NewLibp2pTestData(ctx, t)
 
-	fromNetwork := network.NewFromLibp2pHost(td.Host1)
-	toNetwork := network.NewFromLibp2pHost(td.Host2)
-	toHost := td.Host2.ID()
+	testCases := map[string]struct {
+		senderDisabledNew   bool
+		receiverDisabledNew bool
+	}{
+		"both clients current version": {},
+		"sender old supports old queries": {
+			senderDisabledNew: true,
+		},
+		"receiver only supports old queries": {
+			receiverDisabledNew: true,
+		},
+	}
+	for testCase, data := range testCases {
+		t.Run(testCase, func(t *testing.T) {
+			td := shared_testutil.NewLibp2pTestData(ctx, t)
+			var fromNetwork, toNetwork network.StorageMarketNetwork
+			if data.senderDisabledNew {
+				fromNetwork = network.NewFromLibp2pHost(td.Host1, network.SupportedDealStatusProtocols([]protocol.ID{storagemarket.OldDealStatusProtocolID}))
+			} else {
+				fromNetwork = network.NewFromLibp2pHost(td.Host1)
+			}
+			if data.receiverDisabledNew {
+				toNetwork = network.NewFromLibp2pHost(td.Host2, network.SupportedDealStatusProtocols([]protocol.ID{storagemarket.OldDealStatusProtocolID}))
+			} else {
+				toNetwork = network.NewFromLibp2pHost(td.Host2)
+			}
+			toHost := td.Host2.ID()
 
-	// host1 gets no-op receiver
-	tr := &testReceiver{t: t}
-	require.NoError(t, fromNetwork.SetDelegate(tr))
+			// host1 gets no-op receiver
+			tr := &testReceiver{t: t}
+			require.NoError(t, fromNetwork.SetDelegate(tr))
 
-	// host2 gets receiver
-	achan := make(chan network.DealStatusRequest)
-	tr2 := &testReceiver{t: t, dealStatusStreamHandler: func(s network.DealStatusStream) {
-		readq, err := s.ReadDealStatusRequest()
-		require.NoError(t, err)
-		achan <- readq
-	}}
-	require.NoError(t, toNetwork.SetDelegate(tr2))
+			// host2 gets receiver
+			achan := make(chan network.DealStatusRequest)
+			tr2 := &testReceiver{t: t, dealStatusStreamHandler: func(s network.DealStatusStream) {
+				readq, err := s.ReadDealStatusRequest()
+				require.NoError(t, err)
+				achan <- readq
+			}}
+			require.NoError(t, toNetwork.SetDelegate(tr2))
 
-	// setup query stream host1 --> host 2
-	assertDealStatusRequestReceived(ctx, t, fromNetwork, toHost, achan)
+			// setup query stream host1 --> host 2
+			assertDealStatusRequestReceived(ctx, t, fromNetwork, toHost, achan)
+		})
+	}
 }
 
 func TestDealStatusStreamSendReceiveResponse(t *testing.T) {
 	ctx := context.Background()
-	td := shared_testutil.NewLibp2pTestData(ctx, t)
-	fromNetwork := network.NewFromLibp2pHost(td.Host1)
-	toNetwork := network.NewFromLibp2pHost(td.Host2)
-	toHost := td.Host2.ID()
 
-	// host1 gets no-op receiver
-	tr := &testReceiver{t: t}
-	require.NoError(t, fromNetwork.SetDelegate(tr))
+	testCases := map[string]struct {
+		senderDisabledNew   bool
+		receiverDisabledNew bool
+	}{
+		"both clients current version": {},
+		"sender old supports old queries": {
+			senderDisabledNew: true,
+		},
+		"receiver only supports old queries": {
+			receiverDisabledNew: true,
+		},
+	}
+	for testCase, data := range testCases {
+		t.Run(testCase, func(t *testing.T) {
+			td := shared_testutil.NewLibp2pTestData(ctx, t)
+			var fromNetwork, toNetwork network.StorageMarketNetwork
+			if data.senderDisabledNew {
+				fromNetwork = network.NewFromLibp2pHost(td.Host1, network.SupportedDealStatusProtocols([]protocol.ID{storagemarket.OldDealStatusProtocolID}))
+			} else {
+				fromNetwork = network.NewFromLibp2pHost(td.Host1)
+			}
+			if data.receiverDisabledNew {
+				toNetwork = network.NewFromLibp2pHost(td.Host2, network.SupportedDealStatusProtocols([]protocol.ID{storagemarket.OldDealStatusProtocolID}))
+			} else {
+				toNetwork = network.NewFromLibp2pHost(td.Host2)
+			}
+			toHost := td.Host2.ID()
 
-	// host2 gets receiver
-	achan := make(chan network.DealStatusResponse)
-	tr2 := &testReceiver{t: t, dealStatusStreamHandler: func(s network.DealStatusStream) {
-		a, err := s.ReadDealStatusResponse()
-		require.NoError(t, err)
-		achan <- a
-	}}
-	require.NoError(t, toNetwork.SetDelegate(tr2))
+			// host1 gets no-op receiver
+			tr := &testReceiver{t: t}
+			require.NoError(t, fromNetwork.SetDelegate(tr))
 
-	assertDealStatusResponseReceived(ctx, t, fromNetwork, toHost, achan)
+			// host2 gets receiver
+			achan := make(chan network.DealStatusResponse)
+			tr2 := &testReceiver{t: t, dealStatusStreamHandler: func(s network.DealStatusStream) {
+				a, _, err := s.ReadDealStatusResponse()
+				require.NoError(t, err)
+				achan <- a
+			}}
+			require.NoError(t, toNetwork.SetDelegate(tr2))
+
+			assertDealStatusResponseReceived(ctx, t, fromNetwork, toHost, achan)
+		})
+	}
 }
 
 func TestDealStatusStreamSendReceiveMultipleSuccessful(t *testing.T) {
@@ -323,11 +484,14 @@ func TestDealStatusStreamSendReceiveMultipleSuccessful(t *testing.T) {
 	// host2 gets a query and sends a response
 	ar := shared_testutil.MakeTestDealStatusResponse()
 	done := make(chan bool)
+	var resigningFunc network.ResigningFunc = func(ctx context.Context, data interface{}) (*crypto.Signature, error) {
+		return nil, nil
+	}
 	tr2 := &testReceiver{t: t, dealStatusStreamHandler: func(s network.DealStatusStream) {
 		_, err := s.ReadDealStatusRequest()
 		require.NoError(t, err)
 
-		require.NoError(t, s.WriteDealStatusResponse(ar))
+		require.NoError(t, s.WriteDealStatusResponse(ar, resigningFunc))
 		done <- true
 	}}
 	require.NoError(t, nw2.SetDelegate(tr2))
@@ -340,7 +504,7 @@ func TestDealStatusStreamSendReceiveMultipleSuccessful(t *testing.T) {
 
 	var resp network.DealStatusResponse
 	go require.NoError(t, qs.WriteDealStatusRequest(shared_testutil.MakeTestDealStatusRequest()))
-	resp, err = qs.ReadDealStatusResponse()
+	resp, _, err = qs.ReadDealStatusResponse()
 	require.NoError(t, err)
 
 	select {
@@ -409,7 +573,10 @@ func assertDealResponseReceived(parentCtx context.Context, t *testing.T, fromNet
 	require.NoError(t, err)
 
 	dr := shared_testutil.MakeTestStorageNetworkSignedResponse()
-	require.NoError(t, ds1.WriteDealResponse(dr))
+	var resigningFunc network.ResigningFunc = func(ctx context.Context, data interface{}) (*crypto.Signature, error) {
+		return shared_testutil.MakeTestSignature(), nil
+	}
+	require.NoError(t, ds1.WriteDealResponse(dr, resigningFunc))
 
 	var responseReceived network.SignedResponse
 	select {
@@ -418,7 +585,7 @@ func assertDealResponseReceived(parentCtx context.Context, t *testing.T, fromNet
 	case responseReceived = <-inChan:
 	}
 	require.NotNil(t, responseReceived)
-	assert.Equal(t, dr, responseReceived)
+	assert.Equal(t, dr.Response, responseReceived.Response)
 }
 
 // assertAskRequestReceived performs the verification that a AskRequest is received
@@ -457,7 +624,10 @@ func assertAskResponseReceived(inCtx context.Context, t *testing.T,
 
 	// send queryresponse to host2
 	ar := shared_testutil.MakeTestStorageAskResponse()
-	require.NoError(t, as1.WriteAskResponse(ar))
+	var resigningFunc network.ResigningFunc = func(ctx context.Context, data interface{}) (*crypto.Signature, error) {
+		return shared_testutil.MakeTestSignature(), nil
+	}
+	require.NoError(t, as1.WriteAskResponse(ar, resigningFunc))
 
 	// read queryresponse
 	var inar network.AskResponse
@@ -468,7 +638,7 @@ func assertAskResponseReceived(inCtx context.Context, t *testing.T,
 	}
 
 	require.NotNil(t, inar)
-	assert.Equal(t, ar, inar)
+	assert.Equal(t, ar.Ask.Ask, inar.Ask.Ask)
 }
 
 // assertDealStatusRequestReceived performs the verification that a DealStatusRequest is received
@@ -507,7 +677,10 @@ func assertDealStatusResponseReceived(inCtx context.Context, t *testing.T,
 
 	// send queryresponse to host2
 	ar := shared_testutil.MakeTestDealStatusResponse()
-	require.NoError(t, as1.WriteDealStatusResponse(ar))
+	var resigningFunc network.ResigningFunc = func(ctx context.Context, data interface{}) (*crypto.Signature, error) {
+		return shared_testutil.MakeTestSignature(), nil
+	}
+	require.NoError(t, as1.WriteDealStatusResponse(ar, resigningFunc))
 
 	// read queryresponse
 	var inar network.DealStatusResponse
@@ -518,5 +691,5 @@ func assertDealStatusResponseReceived(inCtx context.Context, t *testing.T,
 	}
 
 	require.NotNil(t, inar)
-	assert.Equal(t, ar, inar)
+	assert.Equal(t, ar.DealState, inar.DealState)
 }
