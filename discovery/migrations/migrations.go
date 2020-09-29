@@ -9,7 +9,7 @@ import (
 	"github.com/filecoin-project/go-fil-markets/retrievalmarket/migrations"
 )
 
-//go:generate cbor-gen-for --map-encoding RetrievalPeers0
+//go:generate cbor-gen-for RetrievalPeers0
 
 // RetrievalPeers0 is version 0 of RetrievalPeers
 type RetrievalPeers0 struct {
