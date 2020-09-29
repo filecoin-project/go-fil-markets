@@ -1,6 +1,7 @@
 package shared_testutil
 
 import (
+	"context"
 	"errors"
 	"testing"
 
@@ -143,4 +144,11 @@ func (tps *TestPieceStore) ListCidInfoKeys() ([]cid.Cid, error) {
 
 func (tps *TestPieceStore) ListPieceInfoKeys() ([]cid.Cid, error) {
 	panic("do not call me")
+}
+
+func (tps *TestPieceStore) Start(ctx context.Context) error {
+	return nil
+}
+
+func (tps *TestPieceStore) OnReady(ready piecestore.ReadyFunc) {
 }
