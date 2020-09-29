@@ -255,5 +255,6 @@ var ClientMigrations = versioned.BuilderList{
 
 // ProviderMigrations are migrations for the providers's store of storage deals
 var ProviderMigrations = versioned.BuilderList{
-	versioned.NewVersionedBuilder(MigrateMinerDeal0To1, versioning.VersionKey("1")),
+	versioned.NewVersionedBuilder(MigrateMinerDeal0To1, versioning.VersionKey("1")).FilterKeys([]string{
+		"/latest-ask", "/storage-ask/latest", "/storage-ask/1/latest", "/storage-ask/versions/current"}),
 }
