@@ -2,14 +2,18 @@ package askstore
 
 import (
 	"bytes"
+	"context"
 	"sync"
 
 	"github.com/ipfs/go-datastore"
 	"golang.org/x/xerrors"
 
 	cborutil "github.com/filecoin-project/go-cbor-util"
+	versioning "github.com/filecoin-project/go-ds-versioning/pkg"
+	versionedds "github.com/filecoin-project/go-ds-versioning/pkg/datastore"
 
 	"github.com/filecoin-project/go-fil-markets/retrievalmarket"
+	"github.com/filecoin-project/go-fil-markets/retrievalmarket/migrations"
 )
 
 // AskStoreImpl implements AskStore, persisting a retrieval Ask
@@ -25,8 +29,17 @@ type AskStoreImpl struct {
 // It will initialize a new default ask and store it if one is not set.
 // Otherwise it loads the current Ask from disk
 func NewAskStore(ds datastore.Batching, key datastore.Key) (*AskStoreImpl, error) {
+	askMigrations, err := migrations.AskMigrations.Build()
+	if err != nil {
+		return nil, err
+	}
+	versionedDs, migrateDs := versionedds.NewVersionedDatastore(ds, askMigrations, versioning.VersionKey("1"))
+	err = migrateDs(context.TODO())
+	if err != nil {
+		return nil, err
+	}
 	s := &AskStoreImpl{
-		ds:  ds,
+		ds:  versionedDs,
 		key: key,
 	}
 

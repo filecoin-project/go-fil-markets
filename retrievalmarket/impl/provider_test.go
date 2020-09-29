@@ -453,6 +453,17 @@ func TestProviderMigrations(t *testing.T) {
 		err = providerDs.Put(datastore.NewKey(fmt.Sprint(deal.ID)), buf.Bytes())
 		require.NoError(t, err)
 	}
+	oldAsk := &migrations.Ask0{
+		PricePerByte:            abi.NewTokenAmount(rand.Int63()),
+		UnsealPrice:             abi.NewTokenAmount(rand.Int63()),
+		PaymentInterval:         rand.Uint64(),
+		PaymentIntervalIncrease: rand.Uint64(),
+	}
+	askBuf := new(bytes.Buffer)
+	err = oldAsk.MarshalCBOR(askBuf)
+	require.NoError(t, err)
+	err = providerDs.Put(datastore.NewKey("retrieval-ask"), askBuf.Bytes())
+	require.NoError(t, err)
 	retrievalProvider, err := retrievalimpl.NewProvider(
 		spect.NewIDAddr(t, 2344),
 		testnodes.NewTestRetrievalProviderNode(),
@@ -507,4 +518,12 @@ func TestProviderMigrations(t *testing.T) {
 		}
 		require.Equal(t, expectedDeal, deal)
 	}
+	ask := retrievalProvider.GetAsk()
+	expectedAsk := &retrievalmarket.Ask{
+		PricePerByte:            oldAsk.PricePerByte,
+		UnsealPrice:             oldAsk.UnsealPrice,
+		PaymentInterval:         oldAsk.PaymentInterval,
+		PaymentIntervalIncrease: oldAsk.PaymentIntervalIncrease,
+	}
+	require.Equal(t, expectedAsk, ask)
 }

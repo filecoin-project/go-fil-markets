@@ -7,6 +7,7 @@ import (
 	"github.com/hannahhoward/go-pubsub"
 	"github.com/ipfs/go-cid"
 	"github.com/ipfs/go-datastore"
+	"github.com/ipfs/go-datastore/namespace"
 	"golang.org/x/xerrors"
 
 	"github.com/filecoin-project/go-address"
@@ -108,7 +109,11 @@ func NewProvider(minerAddress address.Address,
 		readySub:     pubsub.New(shared.ReadyDispatcher),
 	}
 
-	askStore, err := askstore.NewAskStore(ds, datastore.NewKey("retrieval-ask"))
+	err := shared.MoveKey(ds, "retrieval-ask", "retrieval-ask/latest")
+	if err != nil {
+		return nil, err
+	}
+	askStore, err := askstore.NewAskStore(namespace.Wrap(ds, datastore.NewKey("retrieval-ask")), datastore.NewKey("latest"))
 	if err != nil {
 		return nil, err
 	}

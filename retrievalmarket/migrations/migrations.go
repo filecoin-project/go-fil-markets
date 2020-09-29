@@ -298,6 +298,16 @@ func MigrateProviderDealState0To1(oldDs *ProviderDealState0) (*retrievalmarket.P
 	}, nil
 }
 
+// MigrateAsk0To1 migrates a tuple encoded deal state to a map encoded deal state
+func MigrateAsk0To1(oldAsk *Ask0) (*retrievalmarket.Ask, error) {
+	return &retrievalmarket.Ask{
+		PricePerByte:            oldAsk.PricePerByte,
+		UnsealPrice:             oldAsk.UnsealPrice,
+		PaymentInterval:         oldAsk.PaymentInterval,
+		PaymentIntervalIncrease: oldAsk.PaymentIntervalIncrease,
+	}, nil
+}
+
 // ClientMigrations are migrations for the client's store of retrieval deals
 var ClientMigrations = versioned.BuilderList{
 	versioned.NewVersionedBuilder(MigrateClientDealState0To1, versioning.VersionKey("1")),
@@ -306,5 +316,10 @@ var ClientMigrations = versioned.BuilderList{
 // ProviderMigrations are migrations for the providers's store of retrieval deals
 var ProviderMigrations = versioned.BuilderList{
 	versioned.NewVersionedBuilder(MigrateProviderDealState0To1, versioning.VersionKey("1")).
-		FilterKeys([]string{"/retrieval-ask"}),
+		FilterKeys([]string{"/retrieval-ask", "/retrieval-ask/latest", "/retrieval-ask/1/latest", "/retrieval-ask/versions/current"}),
+}
+
+// AskMigrations are migrations for the providers's retrieval ask
+var AskMigrations = versioned.BuilderList{
+	versioned.NewVersionedBuilder(MigrateAsk0To1, versioning.VersionKey("1")),
 }
