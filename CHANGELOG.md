@@ -1,5 +1,30 @@
 # go-fil-markets changelog
 
+# go-fil-markets v0.7.0
+
+Switch to cbor-map encodings across the module, with migrations
+
+### Changelog
+
+- github.com/filecoin-project/go-fil-markets:
+  - Switch to cbor map encoding for storage market (#420) ([filecoin-project/go-fil-markets#420](https://github.com/filecoin-project/go-fil-markets/pull/420))
+  - Retrieval Migration to CBOR Map (#418) ([filecoin-project/go-fil-markets#418](https://github.com/filecoin-project/go-fil-markets/pull/418))
+  - Move PieceStore To Map Encodings (#415) ([filecoin-project/go-fil-markets#415](https://github.com/filecoin-project/go-fil-markets/pull/415))
+  - docs(CHANGELOG): update for 0.6.3 ([filecoin-project/go-fil-markets#421](https://github.com/filecoin-project/go-fil-markets/pull/421))
+- github.com/filecoin-project/go-data-transfer (v0.6.6 -> v0.6.7-0.20200929095758-d6c2eaff0694):
+  - Feat/cleanup errors (#90) ([filecoin-project/go-data-transfer#90](https://github.com/filecoin-project/go-data-transfer/pull/90))
+  - Disambiguate whether a revalidator recognized a request when checking for a need to revalidate (#87) ([filecoin-project/go-data-transfer#87](https://github.com/filecoin-project/go-data-transfer/pull/87))
+  - docs(CHANGELOG): update for 0.6.6 ([filecoin-project/go-data-transfer#89](https://github.com/filecoin-project/go-data-transfer/pull/89))
+- github.com/filecoin-project/go-statemachine (v0.0.0-20200813232949-df9b130df370 -> v0.0.0-20200925024713-05bd7c71fbfe):
+  - feat(fsm): switch to interface storedstate
+
+### Contributors
+
+| Contributor | Commits | Lines ± | Files Changed |
+|-------------|---------|---------|---------------|
+| Hannah Howard | 5 | +13849/-3533 | 110 |
+| hannahhoward | 1 | +13/-2 | 2 |
+
 # go-fil-markets v0.6.3
 
 dependency update with fix for graphsync
