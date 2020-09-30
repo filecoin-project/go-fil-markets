@@ -33,18 +33,23 @@ func (as *askStream) WriteAskRequest(q AskRequest) error {
 	return cborutil.WriteCborRPC(as.rw, &q)
 }
 
-func (as *askStream) ReadAskResponse() (AskResponse, error) {
+func (as *askStream) ReadAskResponse() (AskResponse, []byte, error) {
 	var resp AskResponse
 
 	if err := resp.UnmarshalCBOR(as.buffered); err != nil {
 		log.Warn(err)
-		return AskResponseUndefined, err
+		return AskResponseUndefined, nil, err
 	}
 
-	return resp, nil
+	origBytes, err := cborutil.Dump(resp.Ask.Ask)
+	if err != nil {
+		log.Warn(err)
+		return AskResponseUndefined, nil, err
+	}
+	return resp, origBytes, nil
 }
 
-func (as *askStream) WriteAskResponse(qr AskResponse) error {
+func (as *askStream) WriteAskResponse(qr AskResponse, _ ResigningFunc) error {
 	return cborutil.WriteCborRPC(as.rw, &qr)
 }
 

@@ -2,6 +2,7 @@ package storageimpl
 
 import (
 	"context"
+	"fmt"
 	"io"
 
 	"github.com/hannahhoward/go-pubsub"
@@ -12,6 +13,8 @@ import (
 	"github.com/filecoin-project/go-address"
 	cborutil "github.com/filecoin-project/go-cbor-util"
 	datatransfer "github.com/filecoin-project/go-data-transfer"
+	versioning "github.com/filecoin-project/go-ds-versioning/pkg"
+	versionedfsm "github.com/filecoin-project/go-ds-versioning/pkg/fsm"
 	"github.com/filecoin-project/go-multistore"
 	"github.com/filecoin-project/go-state-types/abi"
 	"github.com/filecoin-project/go-state-types/crypto"
@@ -30,6 +33,7 @@ import (
 	"github.com/filecoin-project/go-fil-markets/storagemarket/impl/providerstates"
 	"github.com/filecoin-project/go-fil-markets/storagemarket/impl/providerutils"
 	"github.com/filecoin-project/go-fil-markets/storagemarket/impl/requestvalidation"
+	"github.com/filecoin-project/go-fil-markets/storagemarket/migrations"
 	"github.com/filecoin-project/go-fil-markets/storagemarket/network"
 )
 
@@ -61,8 +65,10 @@ type Provider struct {
 	universalRetrievalEnabled bool
 	customDealDeciderFunc     DealDeciderFunc
 	pubSub                    *pubsub.PubSub
+	readySub                  *pubsub.PubSub
 
-	deals fsm.Group
+	deals        fsm.Group
+	migrateDeals func(context.Context) error
 
 	unsubDataTransfer datatransfer.Unsubscribe
 }
@@ -125,23 +131,26 @@ func NewProvider(net network.StorageMarketNetwork,
 		actor:        minerAddress,
 		dataTransfer: dataTransfer,
 		pubSub:       pubsub.New(providerDispatcher),
+		readySub:     pubsub.New(shared.ReadyDispatcher),
 	}
-
-	deals, err := newProviderStateMachine(
+	storageMigrations, err := migrations.ProviderMigrations.Build()
+	if err != nil {
+		return nil, err
+	}
+	h.deals, h.migrateDeals, err = newProviderStateMachine(
 		ds,
 		&providerDealEnvironment{h},
 		h.dispatch,
+		storageMigrations,
+		versioning.VersionKey("1"),
 	)
 	if err != nil {
 		return nil, err
 	}
-
-	h.deals = deals
-
 	h.Configure(options...)
 
 	// register a data transfer event handler -- this will send events to the state machines based on DT events
-	h.unsubDataTransfer = dataTransfer.SubscribeToEvents(dtutils.ProviderDataTransferSubscriber(deals))
+	h.unsubDataTransfer = dataTransfer.SubscribeToEvents(dtutils.ProviderDataTransferSubscriber(h.deals))
 
 	err = dataTransfer.RegisterVoucherType(&requestvalidation.StorageDataTransferVoucher{}, requestvalidation.NewUnifiedRequestValidator(&providerPushDeals{h}, nil))
 	if err != nil {
@@ -165,12 +174,17 @@ func (p *Provider) Start(ctx context.Context) error {
 		return err
 	}
 	go func() {
-		err := p.restartDeals()
+		err := p.start(ctx)
 		if err != nil {
-			log.Errorf("Failed to restart deals: %s", err.Error())
+			log.Error(err.Error())
 		}
 	}()
 	return nil
+}
+
+// OnReady registers a listener for when the provider has finished starting up
+func (p *Provider) OnReady(ready shared.ReadyFunc) {
+	p.readySub.Subscribe(ready)
 }
 
 /*
@@ -398,7 +412,7 @@ func (p *Provider) HandleAskStream(s network.StorageAskStream) {
 		Ask: ask,
 	}
 
-	if err := s.WriteAskResponse(resp); err != nil {
+	if err := s.WriteAskResponse(resp, p.sign); err != nil {
 		log.Errorf("failed to write ask response: %s", err)
 		return
 	}
@@ -478,7 +492,7 @@ func (p *Provider) HandleDealStatusStream(s network.DealStatusStream) {
 		Signature: *signature,
 	}
 
-	if err := s.WriteDealStatusResponse(response); err != nil {
+	if err := s.WriteDealStatusResponse(response, p.sign); err != nil {
 		log.Warnf("failed to write deal status response: %s", err)
 		return
 	}
@@ -523,6 +537,21 @@ func (p *Provider) dispatch(eventName fsm.EventName, deal fsm.StateType) {
 	}
 }
 
+func (p *Provider) start(ctx context.Context) error {
+	err := p.migrateDeals(ctx)
+	publishErr := p.readySub.Publish(err)
+	if publishErr != nil {
+		log.Warnf("Publish storage provider ready event: %s", err.Error())
+	}
+	if err != nil {
+		return fmt.Errorf("Migrating storage provider state machines: %w", err)
+	}
+	if err := p.restartDeals(); err != nil {
+		return fmt.Errorf("Failed to restart deals: %w", err)
+	}
+	return nil
+}
+
 func (p *Provider) restartDeals() error {
 	var deals []storagemarket.MinerDeal
 	err := p.deals.List(&deals)
@@ -552,8 +581,8 @@ func (p *Provider) sign(ctx context.Context, data interface{}) (*crypto.Signatur
 	return providerutils.SignMinerData(ctx, data, p.actor, tok, p.spn.GetMinerWorkerAddress, p.spn.SignBytes)
 }
 
-func newProviderStateMachine(ds datastore.Datastore, env fsm.Environment, notifier fsm.Notifier) (fsm.Group, error) {
-	return fsm.New(ds, fsm.Parameters{
+func newProviderStateMachine(ds datastore.Batching, env fsm.Environment, notifier fsm.Notifier, storageMigrations versioning.VersionedMigrationList, target versioning.VersionKey) (fsm.Group, func(context.Context) error, error) {
+	return versionedfsm.NewVersionedFSM(ds, fsm.Parameters{
 		Environment:     env,
 		StateType:       storagemarket.MinerDeal{},
 		StateKeyField:   "State",
@@ -561,7 +590,7 @@ func newProviderStateMachine(ds datastore.Datastore, env fsm.Environment, notifi
 		StateEntryFuncs: providerstates.ProviderStateEntryFuncs,
 		FinalityStates:  providerstates.ProviderFinalityStates,
 		Notifier:        notifier,
-	})
+	}, storageMigrations, target)
 }
 
 type internalProviderEvent struct {

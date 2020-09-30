@@ -23,6 +23,9 @@ type StorageProvider interface {
 	// messages on the storage market's libp2p protocols
 	Start(ctx context.Context) error
 
+	// OnReady registers a listener for when the provider comes on line
+	OnReady(shared.ReadyFunc)
+
 	// Stop terminates processing of deals on a StorageProvider
 	Stop() error
 

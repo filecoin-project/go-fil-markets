@@ -21,6 +21,9 @@ type StorageClient interface {
 	// in progress deals
 	Start(ctx context.Context) error
 
+	// OnReady registers a listener for when the client comes on line
+	OnReady(shared.ReadyFunc)
+
 	// Stop ends deal processing on a StorageClient
 	Stop() error
 
@@ -34,7 +37,7 @@ type StorageClient interface {
 	GetLocalDeal(ctx context.Context, cid cid.Cid) (ClientDeal, error)
 
 	// GetAsk returns the current ask for a storage provider
-	GetAsk(ctx context.Context, info StorageProviderInfo) (*SignedStorageAsk, error)
+	GetAsk(ctx context.Context, info StorageProviderInfo) (*StorageAsk, error)
 
 	// GetProviderDealState queries a provider for the current state of a client's deal
 	GetProviderDealState(ctx context.Context, proposalCid cid.Cid) (*ProviderDealState, error)

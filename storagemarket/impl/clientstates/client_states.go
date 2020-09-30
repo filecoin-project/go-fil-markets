@@ -17,7 +17,6 @@ import (
 
 	"github.com/filecoin-project/go-fil-markets/shared"
 	"github.com/filecoin-project/go-fil-markets/storagemarket"
-	"github.com/filecoin-project/go-fil-markets/storagemarket/impl/clientutils"
 	"github.com/filecoin-project/go-fil-markets/storagemarket/impl/funds"
 	"github.com/filecoin-project/go-fil-markets/storagemarket/impl/requestvalidation"
 	"github.com/filecoin-project/go-fil-markets/storagemarket/network"
@@ -110,7 +109,7 @@ func ProposeDeal(ctx fsm.Context, environment ClientDealEnvironment, deal storag
 		return ctx.Trigger(storagemarket.ClientEventWriteProposalFailed, err)
 	}
 
-	resp, err := s.ReadDealResponse()
+	resp, origBytes, err := s.ReadDealResponse()
 	if err != nil {
 		return ctx.Trigger(storagemarket.ClientEventReadResponseFailed, err)
 	}
@@ -125,7 +124,12 @@ func ProposeDeal(ctx fsm.Context, environment ClientDealEnvironment, deal storag
 		return ctx.Trigger(storagemarket.ClientEventResponseVerificationFailed)
 	}
 
-	if err := clientutils.VerifyResponse(ctx.Context(), resp, deal.MinerWorker, tok, environment.Node().VerifySignature); err != nil {
+	verified, err := environment.Node().VerifySignature(ctx.Context(), *resp.Signature, deal.MinerWorker, origBytes, tok)
+	if err != nil {
+		return ctx.Trigger(storagemarket.ClientEventResponseVerificationFailed)
+	}
+
+	if !verified {
 		return ctx.Trigger(storagemarket.ClientEventResponseVerificationFailed)
 	}
 
