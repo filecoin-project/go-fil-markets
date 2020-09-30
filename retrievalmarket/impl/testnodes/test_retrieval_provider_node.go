@@ -22,7 +22,6 @@ import (
 type expectedVoucherKey struct {
 	paymentChannel string
 	voucher        string
-	proof          string
 	expectedAmount string
 }
 
@@ -102,10 +101,9 @@ func (trpn *TestRetrievalProviderNode) SavePaymentVoucher(
 	ctx context.Context,
 	paymentChannel address.Address,
 	voucher *paych.SignedVoucher,
-	proof []byte,
 	expectedAmount abi.TokenAmount,
 	tok shared.TipSetToken) (abi.TokenAmount, error) {
-	key, err := trpn.toExpectedVoucherKey(paymentChannel, voucher, proof, expectedAmount)
+	key, err := trpn.toExpectedVoucherKey(paymentChannel, voucher, expectedAmount)
 	if err != nil {
 		return abi.TokenAmount{}, err
 	}
@@ -130,33 +128,30 @@ func (trpn *TestRetrievalProviderNode) GetChainHead(ctx context.Context) (shared
 // --- Non-interface Functions
 
 // to ExpectedVoucherKey creates a lookup key for expected vouchers.
-func (trpn *TestRetrievalProviderNode) toExpectedVoucherKey(paymentChannel address.Address, voucher *paych.SignedVoucher, proof []byte, expectedAmount abi.TokenAmount) (expectedVoucherKey, error) {
+func (trpn *TestRetrievalProviderNode) toExpectedVoucherKey(paymentChannel address.Address, voucher *paych.SignedVoucher, expectedAmount abi.TokenAmount) (expectedVoucherKey, error) {
 	pcString := paymentChannel.String()
 	buf := new(bytes.Buffer)
 	if err := voucher.MarshalCBOR(buf); err != nil {
 		return expectedVoucherKey{}, err
 	}
 	voucherString := base64.RawURLEncoding.EncodeToString(buf.Bytes())
-	proofString := string(proof)
 	expectedAmountString := expectedAmount.String()
-	return expectedVoucherKey{pcString, voucherString, proofString, expectedAmountString}, nil
+	return expectedVoucherKey{pcString, voucherString, expectedAmountString}, nil
 }
 
 // ExpectVoucher sets a voucher to be expected by SavePaymentVoucher
 //     paymentChannel: the address of the payment channel the client creates
 //     voucher: the voucher to match
-//     proof: the proof to use (can be blank)
-// 	   expectedAmount: the expected tokenamount for this voucher
+//     expectedAmount: the expected tokenamount for this voucher
 //     actualAmount: the actual amount to use.  use same as expectedAmount unless you want to trigger an error
 //     expectedErr:  an error message to expect
 func (trpn *TestRetrievalProviderNode) ExpectVoucher(
 	paymentChannel address.Address,
 	voucher *paych.SignedVoucher,
-	proof []byte,
 	expectedAmount abi.TokenAmount,
 	actualAmount abi.TokenAmount, // the actual amount it should have (same unless you want to trigger an error)
 	expectedErr error) error {
-	key, err := trpn.toExpectedVoucherKey(paymentChannel, voucher, proof, expectedAmount)
+	key, err := trpn.toExpectedVoucherKey(paymentChannel, voucher, expectedAmount)
 	if err != nil {
 		return err
 	}

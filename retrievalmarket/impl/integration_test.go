@@ -397,9 +397,8 @@ func TestClientCanMakeDealWithProvider(t *testing.T) {
 
 			// voucherAmts are pulled from the actual answer so the expected keys in the test node match up.
 			// later we compare the voucher values.  The last voucherAmt is a remainder
-			proof := []byte("")
 			for _, voucherAmt := range testCase.voucherAmts {
-				require.NoError(t, providerNode.ExpectVoucher(clientPaymentChannel, expectedVoucher, proof, voucherAmt, voucherAmt, nil))
+				require.NoError(t, providerNode.ExpectVoucher(clientPaymentChannel, expectedVoucher, voucherAmt, voucherAmt, nil))
 			}
 
 			nw1 := rmnet.NewFromLibp2pHost(testData.Host1, rmnet.RetryParameters(0, 0, 0))

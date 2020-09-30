@@ -159,9 +159,8 @@ func TestStorageRetrieval(t *testing.T) {
 	require.NoError(t, err)
 
 	voucherAmts := []abi.TokenAmount{abi.NewTokenAmount(10136000), abi.NewTokenAmount(9784000)}
-	proof := []byte("")
 	for _, voucherAmt := range voucherAmts {
-		require.NoError(t, rh.ProviderNode.ExpectVoucher(*rh.ExpPaych, rh.ExpVoucher, proof, voucherAmt, voucherAmt, nil))
+		require.NoError(t, rh.ProviderNode.ExpectVoucher(*rh.ExpPaych, rh.ExpVoucher, voucherAmt, voucherAmt, nil))
 	}
 	// just make sure there is enough to cover the transfer
 	fsize := 19000 // this is the known file size of the test file lorem.txt

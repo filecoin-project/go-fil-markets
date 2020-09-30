@@ -210,15 +210,15 @@ Unseal `length` data contained in `sectorID`, starting at `offset`.  Return an `
 #### SavePaymentVoucher
 ```go
 func SavePaymentVoucher(ctx context.Context, paymentChannel address.Address, 
-                   voucher *paych.SignedVoucher, proof []byte, expectedAmount abi.TokenAmount, 
+                   voucher *paych.SignedVoucher, expectedAmount abi.TokenAmount, 
                    tok shared.TipSetToken) (abi.TokenAmount, error)
 ```
 
-Save the provided `paych.SignedVoucher` for `paymentChannel`. The RetrievalProviderNode
-implementation should validate the SignedVoucher using the provided `proof`, `
-expectedAmount`, based on  the chain state referenced by `tok`.  The value of the
-voucher should be equal or greater than the largest previous voucher by 
- `expectedAmount`. It returns the actual difference.
+Save the provided `paych.SignedVoucher` for `paymentChannel`. The
+RetrievalProviderNode implementation should validate the SignedVoucher and
+`expectedAmount` based on the chain state referenced by `tok`. The value of the
+voucher should be equal or greater than the largest previous voucher by
+`expectedAmount`. It returns the actual difference.
 
 
 ## Construction

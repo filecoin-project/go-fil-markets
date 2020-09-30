@@ -135,7 +135,7 @@ func (pr *ProviderRevalidator) processPayment(dealID rm.ProviderDealIdentifier, 
 	// attempt to redeem voucher
 	// (totalSent * pricePerByte + unsealPrice) - fundsReceived
 	paymentOwed := big.Sub(big.Add(big.Mul(abi.NewTokenAmount(int64(deal.TotalSent)), deal.PricePerByte), deal.UnsealPrice), deal.FundsReceived)
-	received, err := pr.env.Node().SavePaymentVoucher(context.TODO(), payment.PaymentChannel, payment.PaymentVoucher, nil, paymentOwed, tok)
+	received, err := pr.env.Node().SavePaymentVoucher(context.TODO(), payment.PaymentChannel, payment.PaymentVoucher, paymentOwed, tok)
 	if err != nil {
 		_ = pr.env.SendEvent(dealID, rm.ProviderEventSaveVoucherFailed, err)
 		return errorDealResponse(dealID, err), err

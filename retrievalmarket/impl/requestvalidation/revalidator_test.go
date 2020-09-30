@@ -336,7 +336,7 @@ func TestRevalidate(t *testing.T) {
 		},
 		"payment voucher error": {
 			configureTestNode: func(tn *testnodes.TestRetrievalProviderNode) {
-				_ = tn.ExpectVoucher(payCh, voucher, nil, defaultPaymentPerInterval, abi.NewTokenAmount(0), errors.New("your money's no good here"))
+				_ = tn.ExpectVoucher(payCh, voucher, defaultPaymentPerInterval, abi.NewTokenAmount(0), errors.New("your money's no good here"))
 			},
 			deal:          deal,
 			channelID:     deal.ChannelID,
@@ -353,7 +353,7 @@ func TestRevalidate(t *testing.T) {
 		},
 		"payment voucher error, legacy payment": {
 			configureTestNode: func(tn *testnodes.TestRetrievalProviderNode) {
-				_ = tn.ExpectVoucher(payCh, voucher, nil, defaultPaymentPerInterval, abi.NewTokenAmount(0), errors.New("your money's no good here"))
+				_ = tn.ExpectVoucher(payCh, voucher, defaultPaymentPerInterval, abi.NewTokenAmount(0), errors.New("your money's no good here"))
 			},
 			deal:          deal,
 			channelID:     deal.ChannelID,
@@ -370,7 +370,7 @@ func TestRevalidate(t *testing.T) {
 		},
 		"not enough funds send": {
 			configureTestNode: func(tn *testnodes.TestRetrievalProviderNode) {
-				_ = tn.ExpectVoucher(payCh, voucher, nil, defaultPaymentPerInterval, smallerPayment, nil)
+				_ = tn.ExpectVoucher(payCh, voucher, defaultPaymentPerInterval, smallerPayment, nil)
 			},
 			deal:          deal,
 			channelID:     deal.ChannelID,
@@ -387,7 +387,7 @@ func TestRevalidate(t *testing.T) {
 		},
 		"not enough funds send, legacyPayment": {
 			configureTestNode: func(tn *testnodes.TestRetrievalProviderNode) {
-				_ = tn.ExpectVoucher(payCh, voucher, nil, defaultPaymentPerInterval, smallerPayment, nil)
+				_ = tn.ExpectVoucher(payCh, voucher, defaultPaymentPerInterval, smallerPayment, nil)
 			},
 			deal:          deal,
 			channelID:     deal.ChannelID,
@@ -404,7 +404,7 @@ func TestRevalidate(t *testing.T) {
 		},
 		"it works": {
 			configureTestNode: func(tn *testnodes.TestRetrievalProviderNode) {
-				_ = tn.ExpectVoucher(payCh, voucher, nil, defaultPaymentPerInterval, defaultPaymentPerInterval, nil)
+				_ = tn.ExpectVoucher(payCh, voucher, defaultPaymentPerInterval, defaultPaymentPerInterval, nil)
 			},
 			deal:          deal,
 			channelID:     deal.ChannelID,
@@ -416,7 +416,7 @@ func TestRevalidate(t *testing.T) {
 
 		"it completes": {
 			configureTestNode: func(tn *testnodes.TestRetrievalProviderNode) {
-				_ = tn.ExpectVoucher(payCh, voucher, nil, defaultPaymentPerInterval, defaultPaymentPerInterval, nil)
+				_ = tn.ExpectVoucher(payCh, voucher, defaultPaymentPerInterval, defaultPaymentPerInterval, nil)
 			},
 			deal:          lastPaymentDeal,
 			channelID:     deal.ChannelID,
@@ -431,7 +431,7 @@ func TestRevalidate(t *testing.T) {
 		},
 		"it completes, legacy payment": {
 			configureTestNode: func(tn *testnodes.TestRetrievalProviderNode) {
-				_ = tn.ExpectVoucher(payCh, voucher, nil, defaultPaymentPerInterval, defaultPaymentPerInterval, nil)
+				_ = tn.ExpectVoucher(payCh, voucher, defaultPaymentPerInterval, defaultPaymentPerInterval, nil)
 			},
 			deal:          lastPaymentDeal,
 			channelID:     deal.ChannelID,
@@ -446,7 +446,7 @@ func TestRevalidate(t *testing.T) {
 		},
 		"voucher already saved": {
 			configureTestNode: func(tn *testnodes.TestRetrievalProviderNode) {
-				_ = tn.ExpectVoucher(payCh, voucher, nil, defaultPaymentPerInterval, big.Zero(), nil)
+				_ = tn.ExpectVoucher(payCh, voucher, defaultPaymentPerInterval, big.Zero(), nil)
 			},
 			deal:          deal,
 			channelID:     deal.ChannelID,
