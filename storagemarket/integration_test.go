@@ -287,6 +287,9 @@ func TestMakeDealNonBlocking(t *testing.T) {
 }
 
 func TestRestartOnlyProviderDataTransfer(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skiiping test in short mode")
+	}
 	ctx := context.Background()
 	ctx, cancel := context.WithTimeout(ctx, 30*time.Second)
 	defer cancel()
