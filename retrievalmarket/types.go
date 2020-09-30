@@ -197,7 +197,7 @@ type QueryResponse struct {
 // QueryResponseUndefined is an empty QueryResponse
 var QueryResponseUndefined = QueryResponse{}
 
-// PieceRetrievalPrice is the total price to retrieve the piece (size * MinPricePerByte)
+// PieceRetrievalPrice is the total price to retrieve the piece (size * MinPricePerByte + UnsealedPrice)
 func (qr QueryResponse) PieceRetrievalPrice() abi.TokenAmount {
 	return big.Add(big.Mul(qr.MinPricePerByte, abi.NewTokenAmount(int64(qr.Size))), qr.UnsealPrice)
 }
