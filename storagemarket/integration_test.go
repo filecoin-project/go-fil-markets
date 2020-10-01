@@ -275,33 +275,35 @@ func TestMakeDealNonBlocking(t *testing.T) {
 
 func TestRestartClient(t *testing.T) {
 	testCases := map[string]struct {
-		stopAtEvent storagemarket.ClientEvent
-		fh          func(h *testharness.StorageHarness)
+		stopAtClientEvent   storagemarket.ClientEvent
+		stopAtProviderEvent storagemarket.ProviderEvent
+		fh                  func(h *testharness.StorageHarness)
 	}{
 		"ClientEventFundsEnsured": {
-			stopAtEvent: storagemarket.ClientEventFundsEnsured,
+			stopAtClientEvent: storagemarket.ClientEventFundsEnsured,
 		},
 		"ClientEventInitiateDataTransfer": {
-			stopAtEvent: storagemarket.ClientEventInitiateDataTransfer,
+			stopAtClientEvent: storagemarket.ClientEventInitiateDataTransfer,
 		},
 		"ClientEventDataTransferInitiated": {
-			stopAtEvent: storagemarket.ClientEventDataTransferInitiated,
+			stopAtClientEvent: storagemarket.ClientEventDataTransferInitiated,
 		},
 		"ClientEventDataTransferComplete": {
-			stopAtEvent: storagemarket.ClientEventDataTransferComplete,
+			stopAtClientEvent:   storagemarket.ClientEventDataTransferComplete,
+			stopAtProviderEvent: storagemarket.ProviderEventDataTransferCompleted,
 		},
 		"ClientEventDealAccepted": {
-			stopAtEvent: storagemarket.ClientEventDealAccepted,
+			stopAtClientEvent: storagemarket.ClientEventDealAccepted,
 		},
 		"ClientEventDealActivated": {
-			stopAtEvent: storagemarket.ClientEventDealActivated,
+			stopAtClientEvent: storagemarket.ClientEventDealActivated,
 			fh: func(h *testharness.StorageHarness) {
 				h.DelayFakeCommonNode.OnDealSectorCommittedChan <- struct{}{}
 				h.DelayFakeCommonNode.OnDealSectorCommittedChan <- struct{}{}
 			},
 		},
 		"ClientEventDealPublished": {
-			stopAtEvent: storagemarket.ClientEventDealPublished,
+			stopAtClientEvent: storagemarket.ClientEventDealPublished,
 			fh: func(h *testharness.StorageHarness) {
 				h.DelayFakeCommonNode.OnDealSectorCommittedChan <- struct{}{}
 				h.DelayFakeCommonNode.OnDealSectorCommittedChan <- struct{}{}
@@ -325,13 +327,19 @@ func TestRestartClient(t *testing.T) {
 			assert.NoError(t, err)
 
 			wg := sync.WaitGroup{}
+
 			wg.Add(1)
 			var providerState []storagemarket.MinerDeal
 			_ = h.Client.SubscribeToEvents(func(event storagemarket.ClientEvent, deal storagemarket.ClientDeal) {
-				if event == tc.stopAtEvent {
-					// Stop the client and provider at some point during deal negotiation
+				if event == tc.stopAtClientEvent {
+					// Stop the client
 					require.NoError(t, h.Client.Stop())
-					require.NoError(t, h.Provider.Stop())
+
+					// if a provider stop event isn't specified, just stop the provider here
+					if tc.stopAtProviderEvent == 0 {
+						require.NoError(t, h.Provider.Stop())
+					}
+
 					// deal could have expired already on the provider side for the `ClientEventDealAccepted` event
 					// so, we should wait on the `ProviderEventDealExpired` event ONLY if the deal has not expired.
 					providerState, err = h.Provider.ListLocalDeals()
@@ -339,6 +347,18 @@ func TestRestartClient(t *testing.T) {
 					wg.Done()
 				}
 			})
+
+			// if this test case specifies a provider stop event...
+			if tc.stopAtProviderEvent != 0 {
+				wg.Add(1)
+
+				_ = h.Provider.SubscribeToEvents(func(event storagemarket.ProviderEvent, deal storagemarket.MinerDeal) {
+					if event == tc.stopAtProviderEvent {
+						require.NoError(t, h.Provider.Stop())
+						wg.Done()
+					}
+				})
+			}
 
 			result := h.ProposeStorageDeal(t, &storagemarket.DataRef{TransferType: storagemarket.TTGraphsync, Root: h.PayloadCid}, false, false)
 			proposalCid := result.ProposalCid
@@ -351,7 +371,7 @@ func TestRestartClient(t *testing.T) {
 
 			cd, err := h.Client.GetLocalDeal(ctx, proposalCid)
 			assert.NoError(t, err)
-			if tc.stopAtEvent != storagemarket.ClientEventDealActivated && tc.stopAtEvent != storagemarket.ClientEventDealPublished {
+			if tc.stopAtClientEvent != storagemarket.ClientEventDealActivated && tc.stopAtClientEvent != storagemarket.ClientEventDealPublished {
 				assert.NotEqual(t, storagemarket.StorageDealActive, cd.State)
 			}
 			h = testharness.NewHarnessWithTestData(t, ctx, h.TestData, h.SMState, true, h.TempFilePath, testnodes.DelayFakeCommonNode{}, false)
