@@ -49,7 +49,7 @@ require (
 	golang.org/x/net v0.0.0-20200625001655-4c5254603344
 	golang.org/x/xerrors v0.0.0-20200804184101-5ec99f83aff1
 	gopkg.in/alecthomas/kingpin.v2 v2.2.6 // indirect
-	github.com/murmuration-labs/bitscreen v0.1.0
+	github.com/Murmuration-Labs/bitscreen v0.1.1
 )
 
 replace github.com/filecoin-project/filecoin-ffi => ./extern/filecoin-ffi

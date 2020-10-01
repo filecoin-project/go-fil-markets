@@ -4,6 +4,18 @@ import (
 	"context"
 	"errors"
 
+	"github.com/filecoin-project/go-address"
+	datatransfer "github.com/filecoin-project/go-data-transfer"
+	"github.com/filecoin-project/go-fil-markets/retrievalmarket"
+	"github.com/filecoin-project/go-fil-markets/retrievalmarket/impl/clientstates"
+	"github.com/filecoin-project/go-fil-markets/retrievalmarket/impl/dtutils"
+	rmnet "github.com/filecoin-project/go-fil-markets/retrievalmarket/network"
+	"github.com/filecoin-project/go-fil-markets/shared"
+	"github.com/filecoin-project/go-multistore"
+	"github.com/filecoin-project/go-state-types/abi"
+	"github.com/filecoin-project/go-state-types/big"
+	"github.com/filecoin-project/go-statemachine/fsm"
+	"github.com/filecoin-project/go-storedcounter"
 	"github.com/hannahhoward/go-pubsub"
 	"github.com/ipfs/go-cid"
 	"github.com/ipfs/go-datastore"
@@ -11,20 +23,7 @@ import (
 	"github.com/libp2p/go-libp2p-core/peer"
 	"golang.org/x/xerrors"
 
-	"github.com/filecoin-project/go-address"
-	datatransfer "github.com/filecoin-project/go-data-transfer"
-	"github.com/filecoin-project/go-multistore"
-	"github.com/filecoin-project/go-state-types/abi"
-	"github.com/filecoin-project/go-state-types/big"
-	"github.com/filecoin-project/go-statemachine/fsm"
-	"github.com/filecoin-project/go-storedcounter"
-
-	"github.com/filecoin-project/go-fil-markets/retrievalmarket"
-	"github.com/filecoin-project/go-fil-markets/retrievalmarket/impl/clientstates"
-	"github.com/filecoin-project/go-fil-markets/retrievalmarket/impl/dtutils"
-	rmnet "github.com/filecoin-project/go-fil-markets/retrievalmarket/network"
-	"github.com/filecoin-project/go-fil-markets/shared"
-	bitscreen "github.com/murmuration-labs/bitscreen"
+	bitscreen "github.com/Murmuration-Labs/bitscreen"
 )
 
 var log = logging.Logger("retrieval")
@@ -189,7 +188,7 @@ Documentation of the client state machine can be found at https://godoc.org/gith
 */
 func (c *Client) Retrieve(ctx context.Context, payloadCID cid.Cid, params retrievalmarket.Params, totalFunds abi.TokenAmount, p retrievalmarket.RetrievalPeer, clientWallet address.Address, minerWallet address.Address, storeID *multistore.StoreID) (retrievalmarket.DealID, error) {
 
-	_,err := bitscreen.FindCid(payloadCID,"/path/to/bitscreenlist")
+	_, err := bitscreen.Screen(payloadCID)
 	if err != nil {
 		return 0, err
 	}
