@@ -231,6 +231,14 @@ func (p *Provider) receiveDeal(s network.StorageDealStream) error {
 		return err
 	}
 
+	// Check if we are already tracking this deal
+	var md storagemarket.MinerDeal
+	if err := p.deals.Get(proposalNd.Cid()).Get(&md); err == nil {
+		// We are already tracking this deal, for some reason it was re-proposed, perhaps because of a client restart
+		// this is ok, just send a response back.
+		return p.resendProposalResponse(s, &md)
+	}
+
 	var storeIDForDeal *multistore.StoreID
 	if proposal.Piece.TransferType != storagemarket.TTManual {
 		nextStoreID := p.multiStore.Next()
@@ -579,6 +587,22 @@ func (p *Provider) sign(ctx context.Context, data interface{}) (*crypto.Signatur
 	}
 
 	return providerutils.SignMinerData(ctx, data, p.actor, tok, p.spn.GetMinerWorkerAddress, p.spn.SignBytes)
+}
+
+func (p *Provider) resendProposalResponse(s network.StorageDealStream, md *storagemarket.MinerDeal) error {
+	resp := &network.Response{State: md.State, Message: md.Message, Proposal: md.ProposalCid}
+	sig, err := p.sign(context.TODO(), resp)
+	if err != nil {
+		return xerrors.Errorf("failed to sign response message: %w", err)
+	}
+
+	err = s.WriteDealResponse(network.SignedResponse{Response: *resp, Signature: sig}, p.sign)
+
+	if closeErr := s.Close(); closeErr != nil {
+		log.Warnf("closing connection: %v", err)
+	}
+
+	return err
 }
 
 func newProviderStateMachine(ds datastore.Batching, env fsm.Environment, notifier fsm.Notifier, storageMigrations versioning.VersionedMigrationList, target versioning.VersionKey) (fsm.Group, func(context.Context) error, error) {

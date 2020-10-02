@@ -178,3 +178,82 @@ func TestProvider_Migrations(t *testing.T) {
 		require.Equal(t, expectedDeal, deal)
 	}
 }
+
+func TestHandleDealStream(t *testing.T) {
+	t.Run("handles cases where the proposal is already being tracked", func(t *testing.T) {
+
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		deps := dependencies.NewDependenciesWithTestData(t, ctx, shared_testutil.NewLibp2pTestData(ctx, t), testnodes.NewStorageMarketState(), "", testnodes.DelayFakeCommonNode{})
+		var providerDs datastore.Batching = namespace.Wrap(deps.TestData.Ds1, datastore.NewKey("/deals/provider"))
+		namespaced := shared_testutil.DatastoreAtVersion(t, providerDs, "1")
+
+		proposal := shared_testutil.MakeTestClientDealProposal()
+		proposalNd, err := cborutil.AsIpld(proposal)
+		require.NoError(t, err)
+		payloadCid := shared_testutil.GenerateCids(1)[0]
+		dataRef := &storagemarket.DataRef{
+			TransferType: storagemarket.TTGraphsync,
+			Root:         payloadCid,
+		}
+
+		now := time.Now()
+		creationTime := cbg.CborTime(time.Unix(0, now.UnixNano()).UTC())
+		timeBuf := new(bytes.Buffer)
+		err = creationTime.MarshalCBOR(timeBuf)
+		require.NoError(t, err)
+		err = cborutil.ReadCborRPC(timeBuf, &creationTime)
+		require.NoError(t, err)
+		deal := storagemarket.MinerDeal{
+			ClientDealProposal: *proposal,
+			ProposalCid:        proposalNd.Cid(),
+			State:              storagemarket.StorageDealTransferring,
+			Ref:                dataRef,
+		}
+
+		// jam a miner state in
+		buf := new(bytes.Buffer)
+		err = deal.MarshalCBOR(buf)
+		require.NoError(t, err)
+		err = namespaced.Put(datastore.NewKey(deal.ProposalCid.String()), buf.Bytes())
+		require.NoError(t, err)
+
+		provider, err := storageimpl.NewProvider(
+			network.NewFromLibp2pHost(deps.TestData.Host2, network.RetryParameters(0, 0, 0)),
+			providerDs,
+			deps.Fs,
+			deps.TestData.MultiStore2,
+			deps.PieceStore,
+			deps.DTProvider,
+			deps.ProviderNode,
+			deps.ProviderAddr,
+			abi.RegisteredSealProof_StackedDrg2KiBV1,
+			deps.StoredAsk,
+			deps.ProviderDealFunds,
+		)
+		require.NoError(t, err)
+
+		impl := provider.(*storageimpl.Provider)
+		shared_testutil.StartAndWaitForReady(ctx, t, impl)
+
+		var responseWriteCount int
+		s := shared_testutil.NewTestStorageDealStream(shared_testutil.TestStorageDealStreamParams{
+			ProposalReader: func() (network.Proposal, error) {
+				return network.Proposal{
+					DealProposal:  proposal,
+					Piece:         dataRef,
+					FastRetrieval: false,
+				}, nil
+			},
+			ResponseWriter: func(response network.SignedResponse, resigningFunc network.ResigningFunc) error {
+				responseWriteCount += 1
+				return nil
+			},
+		})
+
+		// Send a deal proposal for a cid we are already tracking
+		impl.HandleDealStream(s)
+
+		require.Equal(t, 1, responseWriteCount)
+	})
+}

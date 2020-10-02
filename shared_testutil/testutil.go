@@ -7,6 +7,8 @@ import (
 
 	blocks "github.com/ipfs/go-block-format"
 	"github.com/ipfs/go-cid"
+	"github.com/ipfs/go-datastore"
+	"github.com/ipfs/go-datastore/namespace"
 	blocksutil "github.com/ipfs/go-ipfs-blocksutil"
 	"github.com/jbenet/go-random"
 	"github.com/libp2p/go-libp2p-core/peer"
@@ -14,6 +16,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	cborutil "github.com/filecoin-project/go-cbor-util"
+	versioning "github.com/filecoin-project/go-ds-versioning/pkg"
 	"github.com/filecoin-project/specs-actors/actors/builtin/paych"
 
 	"github.com/filecoin-project/go-fil-markets/storagemarket"
@@ -113,4 +116,10 @@ func GenerateCid(t *testing.T, o interface{}) cid.Cid {
 	node, err := cborutil.AsIpld(o)
 	assert.NoError(t, err)
 	return node.Cid()
+}
+
+func DatastoreAtVersion(t *testing.T, ds datastore.Batching, version versioning.VersionKey) datastore.Batching {
+	err := ds.Put(datastore.NewKey("/versions/current"), []byte(version))
+	require.NoError(t, err)
+	return namespace.Wrap(ds, datastore.NewKey(fmt.Sprintf("/%s", version)))
 }
