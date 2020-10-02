@@ -231,6 +231,8 @@ func TestHandleDealStream(t *testing.T) {
 			deps.StoredAsk,
 			deps.ProviderDealFunds,
 		)
+		require.NoError(t, err)
+
 		impl := provider.(*storageimpl.Provider)
 		shared_testutil.StartAndWaitForReady(ctx, t, impl)
 
