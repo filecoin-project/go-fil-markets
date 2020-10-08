@@ -136,20 +136,9 @@ func (rv *ProviderRequestValidator) validatePull(receiver peer.ID, proposal *ret
 }
 
 func (rv *ProviderRequestValidator) acceptDeal(deal *retrievalmarket.ProviderDealState) (retrievalmarket.DealStatus, error) {
-	// verify we have the piece
-	pieceInfo, err := rv.env.GetPiece(deal.PayloadCID, deal.PieceCID)
-	if err != nil {
-		if err == retrievalmarket.ErrNotFound {
-			return retrievalmarket.DealStatusDealNotFound, err
-		}
-		return retrievalmarket.DealStatusErrored, err
-	}
-
-	deal.PieceInfo = &pieceInfo
-
 	// check that the deal parameters match our required parameters or
 	// reject outright
-	err = rv.env.CheckDealParams(deal.PricePerByte, deal.PaymentInterval, deal.PaymentIntervalIncrease, deal.UnsealPrice)
+	err := rv.env.CheckDealParams(deal.PricePerByte, deal.PaymentInterval, deal.PaymentIntervalIncrease, deal.UnsealPrice)
 	if err != nil {
 		return retrievalmarket.DealStatusRejected, err
 	}
@@ -161,6 +150,17 @@ func (rv *ProviderRequestValidator) acceptDeal(deal *retrievalmarket.ProviderDea
 	if !accepted {
 		return retrievalmarket.DealStatusRejected, errors.New(reason)
 	}
+
+	// verify we have the piece
+	pieceInfo, err := rv.env.GetPiece(deal.PayloadCID, deal.PieceCID)
+	if err != nil {
+		if err == retrievalmarket.ErrNotFound {
+			return retrievalmarket.DealStatusDealNotFound, err
+		}
+		return retrievalmarket.DealStatusErrored, err
+	}
+
+	deal.PieceInfo = &pieceInfo
 
 	deal.StoreID, err = rv.env.NextStoreID()
 	if err != nil {
