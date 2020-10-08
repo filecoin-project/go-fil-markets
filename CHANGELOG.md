@@ -1,5 +1,25 @@
 # go-fil-markets changelog
 
+# go-fil-markets v0.7.1
+
+minor bug fixes and optimizations
+
+### Changelog
+
+- github.com/filecoin-project/go-fil-markets:
+  - docs(CHANGELOG): update for 0.7.0 ([filecoin-project/go-fil-markets#426](https://github.com/filecoin-project/go-fil-markets/pull/426))
+  - early return in retrieval validation to prevent unnecessary disk access (#425) ([filecoin-project/go-fil-markets#425](https://github.com/filecoin-project/go-fil-markets/pull/425))
+  - Add option for specific stopping event for providers in TestRestartClient (#424) ([filecoin-project/go-fil-markets#424](https://github.com/filecoin-project/go-fil-markets/pull/424))
+  - Handle re-sent deal proposals (#423) ([filecoin-project/go-fil-markets#423](https://github.com/filecoin-project/go-fil-markets/pull/423))
+
+### Contributors
+
+| Contributor | Commits | Lines ± | Files Changed |
+|-------------|---------|---------|---------------|
+| Ingar Shu | 2 | +145/-13 | 4 |
+| Hannah Howard | 1 | +16/-14 | 2 |
+
+
 # go-fil-markets v0.7.0
 
 Switch to cbor-map encodings across the module, with migrations
