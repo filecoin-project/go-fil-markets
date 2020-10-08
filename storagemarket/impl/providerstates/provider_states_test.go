@@ -7,27 +7,9 @@ import (
 	"errors"
 	"fmt"
 	"math/rand"
+	"strings"
 	"testing"
-
-	"github.com/ipfs/go-cid"
-	"github.com/ipld/go-ipld-prime"
-	"github.com/libp2p/go-libp2p-core/peer"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
-	"golang.org/x/xerrors"
-
 	"github.com/filecoin-project/go-address"
-	"github.com/filecoin-project/go-multistore"
-	"github.com/filecoin-project/go-state-types/abi"
-	"github.com/filecoin-project/go-state-types/big"
-	"github.com/filecoin-project/go-state-types/exitcode"
-	"github.com/filecoin-project/go-statemachine/fsm"
-	fsmtest "github.com/filecoin-project/go-statemachine/fsm/testutil"
-	"github.com/filecoin-project/specs-actors/actors/builtin"
-	"github.com/filecoin-project/specs-actors/actors/builtin/market"
-	"github.com/filecoin-project/specs-actors/actors/builtin/verifreg"
-	satesting "github.com/filecoin-project/specs-actors/support/testing"
-
 	"github.com/filecoin-project/go-fil-markets/filestore"
 	"github.com/filecoin-project/go-fil-markets/piecestore"
 	"github.com/filecoin-project/go-fil-markets/shared"
@@ -38,6 +20,22 @@ import (
 	"github.com/filecoin-project/go-fil-markets/storagemarket/impl/providerstates"
 	"github.com/filecoin-project/go-fil-markets/storagemarket/network"
 	"github.com/filecoin-project/go-fil-markets/storagemarket/testnodes"
+	"github.com/filecoin-project/go-multistore"
+	"github.com/filecoin-project/go-state-types/abi"
+	"github.com/filecoin-project/go-state-types/big"
+	"github.com/filecoin-project/go-state-types/exitcode"
+	"github.com/filecoin-project/go-statemachine/fsm"
+	fsmtest "github.com/filecoin-project/go-statemachine/fsm/testutil"
+	"github.com/filecoin-project/specs-actors/actors/builtin"
+	"github.com/filecoin-project/specs-actors/actors/builtin/market"
+	"github.com/filecoin-project/specs-actors/actors/builtin/verifreg"
+	satesting "github.com/filecoin-project/specs-actors/support/testing"
+	"github.com/ipfs/go-cid"
+	"github.com/ipld/go-ipld-prime"
+	"github.com/libp2p/go-libp2p-core/peer"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+	"golang.org/x/xerrors"
 )
 
 func TestValidateDealProposal(t *testing.T) {
@@ -129,7 +127,7 @@ func TestValidateDealProposal(t *testing.T) {
 			},
 			dealInspector: func(t *testing.T, deal storagemarket.MinerDeal, env *fakeEnvironment) {
 				tut.AssertDealState(t, storagemarket.StorageDealRejecting, deal.State)
-				require.Equal(t, "deal rejected: clientMarketBalance.Available too small", deal.Message)
+				require.True(t, strings.Contains(deal.Message, "deal rejected: clientMarketBalance.Available too small"))
 			},
 		},
 		"Not enough funds due to client collateral": {
@@ -141,7 +139,7 @@ func TestValidateDealProposal(t *testing.T) {
 			},
 			dealInspector: func(t *testing.T, deal storagemarket.MinerDeal, env *fakeEnvironment) {
 				tut.AssertDealState(t, storagemarket.StorageDealRejecting, deal.State)
-				require.Equal(t, "deal rejected: clientMarketBalance.Available too small", deal.Message)
+				require.True(t, strings.Contains(deal.Message, "deal rejected: clientMarketBalance.Available too small"))
 			},
 		},
 		"verified deal succeeds": {
@@ -245,7 +243,7 @@ func TestValidateDealProposal(t *testing.T) {
 			},
 			dealInspector: func(t *testing.T, deal storagemarket.MinerDeal, env *fakeEnvironment) {
 				tut.AssertDealState(t, storagemarket.StorageDealRejecting, deal.State)
-				require.Equal(t, "deal rejected: deal duration out of bounds", deal.Message)
+				require.True(t, strings.Contains(deal.Message, "deal rejected: deal duration out of bounds"))
 			},
 		},
 		"deal duration too long (more than 540 days)": {
@@ -258,7 +256,7 @@ func TestValidateDealProposal(t *testing.T) {
 			},
 			dealInspector: func(t *testing.T, deal storagemarket.MinerDeal, env *fakeEnvironment) {
 				tut.AssertDealState(t, storagemarket.StorageDealRejecting, deal.State)
-				require.Equal(t, "deal rejected: deal duration out of bounds", deal.Message)
+				require.True(t, strings.Contains(deal.Message, "deal rejected: deal duration out of bounds"))
 			},
 		},
 	}

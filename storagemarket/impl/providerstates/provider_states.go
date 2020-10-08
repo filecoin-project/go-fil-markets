@@ -4,22 +4,7 @@ import (
 	"bytes"
 	"context"
 	"fmt"
-
-	"github.com/ipfs/go-cid"
-	logging "github.com/ipfs/go-log/v2"
-	"github.com/ipld/go-ipld-prime"
-	"golang.org/x/xerrors"
-
 	"github.com/filecoin-project/go-address"
-	"github.com/filecoin-project/go-multistore"
-	"github.com/filecoin-project/go-padreader"
-	"github.com/filecoin-project/go-state-types/abi"
-	"github.com/filecoin-project/go-state-types/big"
-	"github.com/filecoin-project/go-state-types/exitcode"
-	"github.com/filecoin-project/go-statemachine/fsm"
-	"github.com/filecoin-project/specs-actors/actors/builtin"
-	"github.com/filecoin-project/specs-actors/actors/builtin/market"
-
 	"github.com/filecoin-project/go-fil-markets/filestore"
 	"github.com/filecoin-project/go-fil-markets/piecestore"
 	"github.com/filecoin-project/go-fil-markets/shared"
@@ -27,18 +12,24 @@ import (
 	"github.com/filecoin-project/go-fil-markets/storagemarket/impl/funds"
 	"github.com/filecoin-project/go-fil-markets/storagemarket/impl/providerutils"
 	"github.com/filecoin-project/go-fil-markets/storagemarket/network"
+	"github.com/filecoin-project/go-multistore"
+	"github.com/filecoin-project/go-padreader"
+	"github.com/filecoin-project/go-state-types/abi"
+	"github.com/filecoin-project/go-state-types/big"
+	"github.com/filecoin-project/go-state-types/exitcode"
+	"github.com/filecoin-project/go-statemachine/fsm"
+	"github.com/filecoin-project/specs-actors/actors/builtin/market"
+	market2 "github.com/filecoin-project/specs-actors/v2/actors/builtin/market"
+	"github.com/ipfs/go-cid"
+	logging "github.com/ipfs/go-log/v2"
+	"github.com/ipld/go-ipld-prime"
+	"golang.org/x/xerrors"
 )
 
 var log = logging.Logger("providerstates")
 
 // TODO: These are copied from spec-actors master, use spec-actors exports when we update
 const DealMaxLabelSize = 256
-
-var DealMinDuration = abi.ChainEpoch(180 * builtin.EpochsInDay) // PARAM_SPEC
-var DealMaxDuration = abi.ChainEpoch(540 * builtin.EpochsInDay) // PARAM_SPEC
-func DealDurationBounds(_ abi.PaddedPieceSize) (min abi.ChainEpoch, max abi.ChainEpoch) {
-	return DealMinDuration, DealMaxDuration // PARAM_FINISH
-}
 
 // ProviderDealEnvironment are the dependencies needed for processing deals
 // with a ProviderStateEntryFunc
@@ -103,9 +94,9 @@ func ValidateDealProposal(ctx fsm.Context, environment ProviderDealEnvironment, 
 		return ctx.Trigger(storagemarket.ProviderEventDealRejected, xerrors.Errorf("deal start epoch has already elapsed"))
 	}
 
-	minDuration, maxDuration := DealDurationBounds(proposal.PieceSize)
+	minDuration, maxDuration := market2.DealDurationBounds(proposal.PieceSize)
 	if proposal.Duration() < minDuration || proposal.Duration() > maxDuration {
-		return ctx.Trigger(storagemarket.ProviderEventDealRejected, xerrors.Errorf("deal duration out of bounds"))
+		return ctx.Trigger(storagemarket.ProviderEventDealRejected, xerrors.Errorf("deal duration out of bounds (min, max, provided): %d, %d, %d", minDuration, maxDuration, proposal.Duration()))
 	}
 
 	pcMin, pcMax, err := environment.Node().DealProviderCollateralBounds(ctx.Context(), proposal.PieceSize, proposal.VerifiedDeal)
@@ -151,7 +142,7 @@ func ValidateDealProposal(ctx fsm.Context, environment ProviderDealEnvironment, 
 	// This doesn't guarantee that the client won't withdraw / lock those funds
 	// but it's a decent first filter
 	if clientMarketBalance.Available.LessThan(proposal.ClientBalanceRequirement()) {
-		return ctx.Trigger(storagemarket.ProviderEventDealRejected, xerrors.New("clientMarketBalance.Available too small"))
+		return ctx.Trigger(storagemarket.ProviderEventDealRejected, xerrors.Errorf("clientMarketBalance.Available too small: %d < %d", clientMarketBalance.Available, proposal.ClientBalanceRequirement()))
 	}
 
 	// Verified deal checks
