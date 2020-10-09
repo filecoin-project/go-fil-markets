@@ -152,8 +152,11 @@ func (impl *libp2pStorageMarketNetwork) openStream(ctx context.Context, id peer.
 		if nAttempts == impl.maxStreamOpenAttempts {
 			return nil, xerrors.Errorf("exhausted %d attempts but failed to open stream, err: %w", int(impl.maxStreamOpenAttempts), err)
 		}
-		d := b.Duration()
-		time.Sleep(d)
+		select {
+		case <-ctx.Done():
+			return nil, xerrors.Errorf("backoff canceled by context")
+		case <-time.After(b.Duration()):
+		}
 	}
 }
 
