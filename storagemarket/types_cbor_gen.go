@@ -18,13 +18,13 @@ import (
 )
 
 var _ = xerrors.Errorf
-var lengthBufClientDeal = []byte{146}
+
 func (t *ClientDeal) MarshalCBOR(w io.Writer) error {
 	if t == nil {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	if _, err := w.Write([]byte{177}); err != nil {
+	if _, err := w.Write([]byte{178}); err != nil {
 		return err
 	}
 
@@ -341,6 +341,17 @@ func (t *ClientDeal) MarshalCBOR(w io.Writer) error {
 	}
 
 	// t.TransferChannelID (datatransfer.ChannelID) (struct)
+	if len("TransferChannelID") > cbg.MaxLength {
+		return xerrors.Errorf("Value in field \"TransferChannelID\" was too long")
+	}
+
+	if err := cbg.WriteMajorTypeHeaderBuf(scratch, w, cbg.MajTextString, uint64(len("TransferChannelID"))); err != nil {
+		return err
+	}
+	if _, err := io.WriteString(w, string("TransferChannelID")); err != nil {
+		return err
+	}
+
 	if err := t.TransferChannelID.MarshalCBOR(w); err != nil {
 		return err
 	}
@@ -360,7 +371,6 @@ func (t *ClientDeal) UnmarshalCBOR(r io.Reader) error {
 	if maj != cbg.MajMap {
 		return fmt.Errorf("cbor input should be of type map")
 	}
-
 
 	if extra > cbg.MaxLength {
 		return fmt.Errorf("ClientDeal: map struct too large (%d)", extra)
@@ -651,37 +661,30 @@ func (t *ClientDeal) UnmarshalCBOR(r io.Reader) error {
 				}
 
 			}
+			// t.TransferChannelID (datatransfer.ChannelID) (struct)
+		case "TransferChannelID":
+
+			{
+
+				if err := t.TransferChannelID.UnmarshalCBOR(br); err != nil {
+					return xerrors.Errorf("unmarshaling t.TransferChannelID: %w", err)
+				}
+
+			}
 
 		default:
 			return fmt.Errorf("unknown struct field %d: '%s'", i, name)
 		}
 	}
 
-	// t.TransferChannelID (datatransfer.ChannelID) (struct)
-
-	{
-
-		if err := t.TransferChannelID.UnmarshalCBOR(br); err != nil {
-			return xerrors.Errorf("unmarshaling t.TransferChannelID: %w", err)
-		}
-
-	}
 	return nil
 }
-
-var lengthBufMinerDeal = []byte{147}
-
-
-
-	return nil
-}
-
 func (t *MinerDeal) MarshalCBOR(w io.Writer) error {
 	if t == nil {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	if _, err := w.Write([]byte{178}); err != nil {
+	if _, err := w.Write([]byte{179}); err != nil {
 		return err
 	}
 
@@ -1035,6 +1038,17 @@ func (t *MinerDeal) MarshalCBOR(w io.Writer) error {
 	}
 
 	// t.TransferChannelId (datatransfer.ChannelID) (struct)
+	if len("TransferChannelId") > cbg.MaxLength {
+		return xerrors.Errorf("Value in field \"TransferChannelId\" was too long")
+	}
+
+	if err := cbg.WriteMajorTypeHeaderBuf(scratch, w, cbg.MajTextString, uint64(len("TransferChannelId"))); err != nil {
+		return err
+	}
+	if _, err := io.WriteString(w, string("TransferChannelId")); err != nil {
+		return err
+	}
+
 	if err := t.TransferChannelId.MarshalCBOR(w); err != nil {
 		return err
 	}
@@ -1055,9 +1069,8 @@ func (t *MinerDeal) UnmarshalCBOR(r io.Reader) error {
 		return fmt.Errorf("cbor input should be of type map")
 	}
 
-	if extra != 19 {
-		return fmt.Errorf("cbor input had wrong number of fields")
-
+	if extra > cbg.MaxLength {
+		return fmt.Errorf("MinerDeal: map struct too large (%d)", extra)
 	}
 
 	var name string
@@ -1356,29 +1369,30 @@ func (t *MinerDeal) UnmarshalCBOR(r io.Reader) error {
 				}
 
 			}
+			// t.TransferChannelId (datatransfer.ChannelID) (struct)
+		case "TransferChannelId":
+
+			{
+
+				b, err := br.ReadByte()
+				if err != nil {
+					return err
+				}
+				if b != cbg.CborNull[0] {
+					if err := br.UnreadByte(); err != nil {
+						return err
+					}
+					t.TransferChannelId = new(datatransfer.ChannelID)
+					if err := t.TransferChannelId.UnmarshalCBOR(br); err != nil {
+						return xerrors.Errorf("unmarshaling t.TransferChannelId pointer: %w", err)
+					}
+				}
+
+			}
 
 		default:
 			return fmt.Errorf("unknown struct field %d: '%s'", i, name)
 		}
-	}
-	// t.TransferChannelId (datatransfer.ChannelID) (struct)
-
-	{
-
-		b, err := br.ReadByte()
-		if err != nil {
-			return err
-		}
-		if b != cbg.CborNull[0] {
-			if err := br.UnreadByte(); err != nil {
-				return err
-			}
-			t.TransferChannelId = new(datatransfer.ChannelID)
-			if err := t.TransferChannelId.UnmarshalCBOR(br); err != nil {
-				return xerrors.Errorf("unmarshaling t.TransferChannelId pointer: %w", err)
-			}
-		}
-
 	}
 
 	return nil

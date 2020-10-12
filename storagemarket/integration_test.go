@@ -8,12 +8,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/ipfs/go-cid"
-	"github.com/ipfs/go-datastore"
-	graphsyncimpl "github.com/ipfs/go-graphsync/impl"
-	gsnetwork "github.com/ipfs/go-graphsync/network"
-	ipld "github.com/ipld/go-ipld-prime"
-	cidlink "github.com/ipld/go-ipld-prime/linking/cid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -52,7 +46,7 @@ func TestMakeDeal(t *testing.T) {
 		t.Run(testCase, func(t *testing.T) {
 			ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
 			defer cancel()
-			h := testharness.NewHarness(t, ctx, data.useStore, testnodes.DelayFakeCommonNode{}, data.disableNewDeals)
+			h := testharness.NewHarness(t, ctx, data.useStore, noOpDelay, noOpDelay, data.disableNewDeals)
 			shared_testutil.StartAndWaitForReady(ctx, t, h.Provider)
 			shared_testutil.StartAndWaitForReady(ctx, t, h.Client)
 
@@ -184,10 +178,9 @@ func TestMakeDealOffline(t *testing.T) {
 	ctx := context.Background()
 	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
 	defer cancel()
-	h := testharness.NewHarness(t, ctx, true, testnodes.DelayFakeCommonNode{}, false)
+	h := testharness.NewHarness(t, ctx, true, noOpDelay, noOpDelay, false)
 	shared_testutil.StartAndWaitForReady(ctx, t, h.Provider)
 	shared_testutil.StartAndWaitForReady(ctx, t, h.Client)
-
 
 	carBuf := new(bytes.Buffer)
 
@@ -252,7 +245,7 @@ func TestMakeDealNonBlocking(t *testing.T) {
 	ctx := context.Background()
 	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
 	defer cancel()
-	h := testharness.NewHarness(t, ctx, true, testnodes.DelayFakeCommonNode{}, false)
+	h := testharness.NewHarness(t, ctx, true, noOpDelay, noOpDelay, false)
 
 	testCids := shared_testutil.GenerateCids(2)
 
@@ -293,7 +286,7 @@ func TestRestartOnlyProviderDataTransfer(t *testing.T) {
 	ctx := context.Background()
 	ctx, cancel := context.WithTimeout(ctx, 30*time.Second)
 	defer cancel()
-	h := newHarness(t, ctx, true, noOpDelay, noOpDelay)
+	h := testharness.NewHarness(t, ctx, true, noOpDelay, noOpDelay, false)
 	client := h.Client
 	host1 := h.TestData.Host1
 	host2 := h.TestData.Host2
@@ -334,7 +327,7 @@ func TestRestartOnlyProviderDataTransfer(t *testing.T) {
 	require.True(t, cd.State == storagemarket.StorageDealStartDataTransfer || cd.State == storagemarket.StorageDealTransferring)
 
 	// RESTART ONLY PROVIDER
-	h.createNewProvider(t, ctx, h.TestData, h.TempFilePath)
+	h.CreateNewProvider(t, ctx, h.TestData, h.TempFilePath, false)
 	pds, err := h.Provider.ListLocalDeals()
 	require.NoError(t, err)
 	t.Logf("provider state after stopping is %s", storagemarket.DealStates[pds[0].State])
@@ -383,24 +376,26 @@ func TestRestartOnlyProviderDataTransfer(t *testing.T) {
 // FIXME Gets hung sometimes
 func TestRestartClient(t *testing.T) {
 	testCases := map[string]struct {
-		stopAtEvent         storagemarket.ClientEvent
+		stopAtClientEvent   storagemarket.ClientEvent
+		stopAtProviderEvent storagemarket.ProviderEvent
+
 		expectedClientState storagemarket.StorageDealStatus
 		clientDelay         testnodes.DelayFakeCommonNode
 		providerDelay       testnodes.DelayFakeCommonNode
-		fh                  func(h *harness)
 	}{
 
 		"ClientEventDataTransferInitiated": {
 			// This test can fail if client crashes without seeing a Provider DT complete
 			// See https://github.com/filecoin-project/lotus/issues/3966
-			stopAtEvent:         storagemarket.ClientEventDataTransferInitiated,
+			stopAtClientEvent:   storagemarket.ClientEventDataTransferInitiated,
 			expectedClientState: storagemarket.StorageDealTransferring,
 			clientDelay:         noOpDelay,
 			providerDelay:       noOpDelay,
 		},
 
 		"ClientEventDataTransferComplete": {
-			stopAtEvent:         storagemarket.ClientEventDataTransferComplete,
+			stopAtClientEvent:   storagemarket.ClientEventDataTransferComplete,
+			stopAtProviderEvent: storagemarket.ProviderEventDataTransferCompleted,
 			expectedClientState: storagemarket.StorageDealCheckForAcceptance,
 		},
 
@@ -408,7 +403,7 @@ func TestRestartClient(t *testing.T) {
 			//Edge case : Provider begins the state machine on recieving a deal stream request
 			//client crashes -> restarts -> sends deal stream again -> state machine fails
 			// See https://github.com/filecoin-project/lotus/issues/3966
-			stopAtEvent:         storagemarket.ClientEventFundsEnsured,
+			stopAtClientEvent:   storagemarket.ClientEventFundsEnsured,
 			expectedClientState: storagemarket.StorageDealFundsEnsured,
 			clientDelay:         noOpDelay,
 			providerDelay:       noOpDelay,
@@ -416,28 +411,28 @@ func TestRestartClient(t *testing.T) {
 
 		// FIXME
 		"ClientEventInitiateDataTransfer": { // works well but sometimes state progresses beyond StorageDealStartDataTransfer
-			stopAtEvent:         storagemarket.ClientEventInitiateDataTransfer,
+			stopAtClientEvent:   storagemarket.ClientEventInitiateDataTransfer,
 			expectedClientState: storagemarket.StorageDealStartDataTransfer,
 			clientDelay:         noOpDelay,
 			providerDelay:       noOpDelay,
 		},
 
 		"ClientEventDealAccepted": { // works well
-			stopAtEvent:         storagemarket.ClientEventDealAccepted,
+			stopAtClientEvent:   storagemarket.ClientEventDealAccepted,
 			expectedClientState: storagemarket.StorageDealProposalAccepted,
 			clientDelay:         testnodes.DelayFakeCommonNode{ValidatePublishedDeal: true},
 			providerDelay:       testnodes.DelayFakeCommonNode{OnDealExpiredOrSlashed: true},
 		},
 
 		"ClientEventDealActivated": { // works well
-			stopAtEvent:         storagemarket.ClientEventDealActivated,
+			stopAtClientEvent:   storagemarket.ClientEventDealActivated,
 			expectedClientState: storagemarket.StorageDealActive,
 			clientDelay:         testnodes.DelayFakeCommonNode{OnDealExpiredOrSlashed: true},
 			providerDelay:       testnodes.DelayFakeCommonNode{OnDealExpiredOrSlashed: true},
 		},
 
 		"ClientEventDealPublished": { // works well
-			stopAtEvent:         storagemarket.ClientEventDealPublished,
+			stopAtClientEvent:   storagemarket.ClientEventDealPublished,
 			expectedClientState: storagemarket.StorageDealSealing,
 			clientDelay:         testnodes.DelayFakeCommonNode{OnDealSectorCommitted: true},
 			providerDelay:       testnodes.DelayFakeCommonNode{OnDealExpiredOrSlashed: true},
@@ -447,25 +442,23 @@ func TestRestartClient(t *testing.T) {
 	for name, tc := range testCases {
 		t.Run(name, func(t *testing.T) {
 			ctx := context.Background()
-			ctx, cancel := context.WithTimeout(ctx, 10*time.Second)
+			ctx, cancel := context.WithTimeout(ctx, 50*time.Second)
 			defer cancel()
-			h := newHarness(t, ctx, true, tc.clientDelay, tc.providerDelay)
+			h := testharness.NewHarness(t, ctx, true, tc.clientDelay, tc.providerDelay, false)
 			host1 := h.TestData.Host1
 			host2 := h.TestData.Host2
 
-			shared_testutil.StartAndWaitForReady(ctx, t, h.Provider)
-			shared_testutil.StartAndWaitForReady(ctx, t, h.Client)
+			require.NoError(t, h.Provider.Start(ctx))
+			require.NoError(t, h.Client.Start(ctx))
 
 			// set ask price where we'll accept any price
 			err := h.Provider.SetAsk(big.NewInt(0), big.NewInt(0), 50_000)
 			require.NoError(t, err)
 
 			wg := sync.WaitGroup{}
-
 			wg.Add(1)
-			var providerState []storagemarket.MinerDeal
 			_ = h.Client.SubscribeToEvents(func(event storagemarket.ClientEvent, deal storagemarket.ClientDeal) {
-				if event == tc.stopAtEvent {
+				if event == tc.stopAtClientEvent {
 					// Stop the client and provider at some point during deal negotiation
 					ev := storagemarket.ClientEvents[event]
 					t.Logf("event %s has happened on client, shutting down client and provider", ev)
@@ -478,10 +471,6 @@ func TestRestartClient(t *testing.T) {
 						require.NoError(t, h.Provider.Stop())
 					}
 
-					// deal could have expired already on the provider side for the `ClientEventDealAccepted` event
-					// so, we should wait on the `ProviderEventDealExpired` event ONLY if the deal has not expired.
-					providerState, err = h.Provider.ListLocalDeals()
-					assert.NoError(t, err)
 					wg.Done()
 				}
 			})
@@ -501,10 +490,6 @@ func TestRestartClient(t *testing.T) {
 			result := h.ProposeStorageDeal(t, &storagemarket.DataRef{TransferType: storagemarket.TTGraphsync, Root: h.PayloadCid}, false, false)
 			proposalCid := result.ProposalCid
 			t.Log("storage deal proposed")
-			if tc.fh != nil {
-				tc.fh(h)
-			}
-			t.Log("node harness executed")
 
 			wg.Wait()
 			t.Log("both client and provider have been shutdown the first time")
@@ -514,7 +499,8 @@ func TestRestartClient(t *testing.T) {
 			t.Logf("client state after stopping is %s", storagemarket.DealStates[cd.State])
 			require.Equal(t, tc.expectedClientState, cd.State)
 
-			h = newHarnessWithTestData(t, ctx, h.TestData, h.SMState, true, h.TempFilePath, noOpDelay, noOpDelay)
+			h = testharness.NewHarnessWithTestData(t, ctx, h.TestData, h.SMState, true, h.TempFilePath, noOpDelay, noOpDelay,
+				false)
 
 			pds, err := h.Provider.ListLocalDeals()
 			require.NoError(t, err)
@@ -530,7 +516,6 @@ func TestRestartClient(t *testing.T) {
 					wg.Done()
 				}
 			})
-
 
 			wg.Add(1)
 			_ = h.Client.SubscribeToEvents(func(event storagemarket.ClientEvent, deal storagemarket.ClientDeal) {

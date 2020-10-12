@@ -7,8 +7,7 @@ import (
 
 	"github.com/ipfs/go-cid"
 	"github.com/ipfs/go-datastore"
-	graphsyncimpl "github.com/ipfs/go-graphsync/impl"
-	gsnetwork "github.com/ipfs/go-graphsync/network"
+	"github.com/ipfs/go-datastore/namespace"
 	"github.com/ipld/go-ipld-prime"
 	cidlink "github.com/ipld/go-ipld-prime/linking/cid"
 	"github.com/libp2p/go-libp2p-core/peer"
@@ -36,7 +35,8 @@ import (
 
 func TestStorageRetrieval(t *testing.T) {
 	bgCtx := context.Background()
-	sh := testharness.NewHarness(t, bgCtx, true, testnodes.DelayFakeCommonNode{}, false)
+	sh := testharness.NewHarness(t, bgCtx, true, testnodes.DelayFakeCommonNode{},
+		testnodes.DelayFakeCommonNode{}, false)
 	shared_testutil.StartAndWaitForReady(bgCtx, t, sh.Client)
 	shared_testutil.StartAndWaitForReady(bgCtx, t, sh.Provider)
 

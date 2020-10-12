@@ -5,9 +5,17 @@ import (
 	"sync"
 	"testing"
 
+	dtimpl "github.com/filecoin-project/go-data-transfer/impl"
+	dtgstransport "github.com/filecoin-project/go-data-transfer/transport/graphsync"
+	"github.com/filecoin-project/go-fil-markets/filestore"
+	piecestoreimpl "github.com/filecoin-project/go-fil-markets/piecestore/impl"
+	"github.com/filecoin-project/go-fil-markets/storagemarket/impl/funds"
+	"github.com/filecoin-project/go-fil-markets/storagemarket/impl/storedask"
 	"github.com/ipfs/go-cid"
 	"github.com/ipfs/go-datastore"
 	"github.com/ipfs/go-datastore/namespace"
+	graphsyncimpl "github.com/ipfs/go-graphsync/impl"
+	gsnetwork "github.com/ipfs/go-graphsync/network"
 	"github.com/ipld/go-ipld-prime"
 	cidlink "github.com/ipld/go-ipld-prime/linking/cid"
 	"github.com/libp2p/go-libp2p-core/protocol"
@@ -37,14 +45,15 @@ type StorageHarness struct {
 	TempFilePath string
 }
 
-func NewHarness(t *testing.T, ctx context.Context, useStore bool, d testnodes.DelayFakeCommonNode, disableNewDeals bool) *StorageHarness {
+func NewHarness(t *testing.T, ctx context.Context, useStore bool, cd testnodes.DelayFakeCommonNode, pd testnodes.DelayFakeCommonNode,
+	disableNewDeals bool) *StorageHarness {
 	smState := testnodes.NewStorageMarketState()
-	return NewHarnessWithTestData(t, ctx, shared_testutil.NewLibp2pTestData(ctx, t), smState, useStore, "", d, disableNewDeals)
+	return NewHarnessWithTestData(t, ctx, shared_testutil.NewLibp2pTestData(ctx, t), smState, useStore, "", cd, pd, disableNewDeals)
 }
 
 func NewHarnessWithTestData(t *testing.T, ctx context.Context, td *shared_testutil.Libp2pTestData, smState *testnodes.StorageMarketState, useStore bool, tempPath string,
-	delayFakeEnvNode testnodes.DelayFakeCommonNode, disableNewDeals bool) *StorageHarness {
-	deps := dependencies.NewDependenciesWithTestData(t, ctx, td, smState, tempPath, delayFakeEnvNode)
+	cd testnodes.DelayFakeCommonNode, pd testnodes.DelayFakeCommonNode, disableNewDeals bool) *StorageHarness {
+	deps := dependencies.NewDependenciesWithTestData(t, ctx, td, smState, tempPath, cd, pd)
 	fpath := filepath.Join("storagemarket", "fixtures", "payload.txt")
 	var rootLink ipld.Link
 	var storeID *multistore.StoreID
@@ -108,6 +117,45 @@ func NewHarnessWithTestData(t *testing.T, ctx context.Context, td *shared_testut
 		Client:              client,
 		Provider:            provider,
 	}
+}
+
+func (h *StorageHarness) CreateNewProvider(t *testing.T, ctx context.Context, td *shared_testutil.Libp2pTestData, tempPath string, disableNewDeals bool) {
+	gs2 := graphsyncimpl.New(ctx, gsnetwork.NewFromLibp2pHost(td.Host2), td.Loader2, td.Storer2)
+	dtTransport2 := dtgstransport.NewTransport(td.Host2.ID(), gs2)
+	dt2, err := dtimpl.NewDataTransfer(td.DTStore2, td.DTNet2, dtTransport2, td.DTStoredCounter2)
+	require.NoError(t, err)
+	err = dt2.Start(ctx)
+	require.NoError(t, err)
+
+	storedAskDs := namespace.Wrap(td.Ds2, datastore.NewKey("/storage/ask"))
+	storedAsk, err := storedask.NewStoredAsk(storedAskDs, datastore.NewKey("latest-ask"), h.StorageDependencies.ProviderNode,
+		h.StorageDependencies.ProviderAddr)
+	require.NoError(t, err)
+
+	fs, err := filestore.NewLocalFileStore(filestore.OsPath(tempPath))
+	require.NoError(t, err)
+
+	providerDealFunds, err := funds.NewDealFunds(td.Ds2, datastore.NewKey("storage/provider/dealfunds"))
+	require.NoError(t, err)
+
+	ps, err := piecestoreimpl.NewPieceStore(td.Ds2)
+	require.NoError(t, err)
+
+	provider, err := storageimpl.NewProvider(
+		network.NewFromLibp2pHost(td.Host2, network.RetryParameters(0, 0, 0)),
+		td.Ds2,
+		fs,
+		td.MultiStore2,
+		ps,
+		dt2,
+		h.ProviderNode,
+		h.ProviderAddr,
+		abi.RegisteredSealProof_StackedDrg2KiBV1,
+		storedAsk,
+		providerDealFunds,
+	)
+	require.NoError(t, err)
+	h.Provider = provider
 }
 
 func (h *StorageHarness) ProposeStorageDeal(t *testing.T, dataRef *storagemarket.DataRef, fastRetrieval, verifiedDeal bool) *storagemarket.ProposeStorageDealResult {

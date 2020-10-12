@@ -8,16 +8,11 @@ require (
 	github.com/filecoin-project/filecoin-ffi v0.30.4-0.20200716204036-cddc56607e1d
 	github.com/filecoin-project/go-address v0.0.3
 	github.com/filecoin-project/go-cbor-util v0.0.0-20191219014500-08c40a1e63a2
-	github.com/filecoin-project/go-data-transfer v0.6.4-0.20200917052501-ad68178710ec
-	github.com/filecoin-project/go-multistore v0.0.3
-	github.com/filecoin-project/go-padreader v0.0.0-20200903213702-ed5fae088b20
-	github.com/filecoin-project/go-state-types v0.0.0-20200911004822-964d6c679cfc
-	github.com/filecoin-project/go-statemachine v0.0.0-20200813232949-df9b130df370
-	github.com/filecoin-project/go-data-transfer v0.6.7
+	github.com/filecoin-project/go-data-transfer v0.6.8-0.20201012061237-d181ba9cacad
 	github.com/filecoin-project/go-ds-versioning v0.1.0
 	github.com/filecoin-project/go-multistore v0.0.3
 	github.com/filecoin-project/go-padreader v0.0.0-20200903213702-ed5fae088b20
-	github.com/filecoin-project/go-state-types v0.0.0-20200905071437-95828685f9df
+	github.com/filecoin-project/go-state-types v0.0.0-20200911004822-964d6c679cfc
 	github.com/filecoin-project/go-statemachine v0.0.0-20200925024713-05bd7c71fbfe
 	github.com/filecoin-project/go-statestore v0.1.0
 	github.com/filecoin-project/go-storedcounter v0.0.0-20200421200003-1c99c62e8a5b
@@ -27,8 +22,6 @@ require (
 	github.com/ipfs/go-block-format v0.0.2
 	github.com/ipfs/go-blockservice v0.1.4-0.20200624145336-a978cec6e834
 	github.com/ipfs/go-cid v0.0.7
-	github.com/ipfs/go-datastore v0.4.4
-	github.com/ipfs/go-graphsync v0.1.3-0.20200917191402-a2784abf0b23
 	github.com/ipfs/go-datastore v0.4.5
 	github.com/ipfs/go-graphsync v0.2.1
 	github.com/ipfs/go-ipfs-blockstore v1.0.1
@@ -42,7 +35,7 @@ require (
 	github.com/ipfs/go-log/v2 v2.0.5
 	github.com/ipfs/go-merkledag v0.3.2
 	github.com/ipfs/go-unixfs v0.2.4
-	github.com/ipld/go-car v0.1.1-0.20200923150018-8cdef32e2da4
+	github.com/ipld/go-car v0.1.1-0.20200923145034-fcc7bb8f1440
 	github.com/ipld/go-ipld-prime v0.5.1-0.20200828233916-988837377a7f
 	github.com/jbenet/go-random v0.0.0-20190219211222-123a90aedc0c
 	github.com/jpillora/backoff v1.0.0

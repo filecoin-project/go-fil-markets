@@ -9,6 +9,8 @@ import (
 
 	"github.com/ipfs/go-datastore"
 	"github.com/ipfs/go-datastore/namespace"
+	graphsyncimpl "github.com/ipfs/go-graphsync/impl"
+	"github.com/ipfs/go-graphsync/network"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -32,38 +34,42 @@ import (
 
 // StorageDependencies are the dependencies required to initialize a storage client/provider
 type StorageDependencies struct {
-	Ctx                 context.Context
-	Epoch               abi.ChainEpoch
-	ProviderAddr        address.Address
-	ClientAddr          address.Address
-	ClientNode          *testnodes.FakeClientNode
-	ProviderNode        *testnodes.FakeProviderNode
-	SMState             *testnodes.StorageMarketState
-	TempFilePath        string
-	ProviderInfo        storagemarket.StorageProviderInfo
-	TestData            *shared_testutil.Libp2pTestData
-	PieceStore          piecestore.PieceStore
-	DTClient            datatransfer.Manager
-	DTProvider          datatransfer.Manager
-	PeerResolver        *discoveryimpl.Local
-	DelayFakeCommonNode testnodes.DelayFakeCommonNode
-	Fs                  filestore.FileStore
-	ClientDealFunds     funds.DealFunds
-	StoredAsk           *storedask.StoredAsk
-	ProviderDealFunds   funds.DealFunds
+	Ctx                               context.Context
+	Epoch                             abi.ChainEpoch
+	ProviderAddr                      address.Address
+	ClientAddr                        address.Address
+	ClientNode                        *testnodes.FakeClientNode
+	ProviderNode                      *testnodes.FakeProviderNode
+	SMState                           *testnodes.StorageMarketState
+	TempFilePath                      string
+	ProviderInfo                      storagemarket.StorageProviderInfo
+	TestData                          *shared_testutil.Libp2pTestData
+	PieceStore                        piecestore.PieceStore
+	DTClient                          datatransfer.Manager
+	DTProvider                        datatransfer.Manager
+	PeerResolver                      *discoveryimpl.Local
+	ClientDelayFakeCommonNode         testnodes.DelayFakeCommonNode
+	ProviderClientDelayFakeCommonNode testnodes.DelayFakeCommonNode
+	Fs                                filestore.FileStore
+	ClientDealFunds                   funds.DealFunds
+	StoredAsk                         *storedask.StoredAsk
+	ProviderDealFunds                 funds.DealFunds
 }
 
 func NewDependenciesWithTestData(t *testing.T, ctx context.Context, td *shared_testutil.Libp2pTestData, smState *testnodes.StorageMarketState, tempPath string,
-	delayFakeEnvNode testnodes.DelayFakeCommonNode) *StorageDependencies {
+	cd testnodes.DelayFakeCommonNode, pd testnodes.DelayFakeCommonNode) *StorageDependencies {
 
-	delayFakeEnvNode.OnDealSectorCommittedChan = make(chan struct{})
-	delayFakeEnvNode.OnDealExpiredOrSlashedChan = make(chan struct{})
+	cd.OnDealSectorCommittedChan = make(chan struct{})
+	cd.OnDealExpiredOrSlashedChan = make(chan struct{})
+
+	pd.OnDealSectorCommittedChan = make(chan struct{})
+	pd.OnDealExpiredOrSlashedChan = make(chan struct{})
 
 	epoch := abi.ChainEpoch(100)
 
 	clientNode := testnodes.FakeClientNode{
 		FakeCommonNode: testnodes.FakeCommonNode{SMState: smState,
-			DelayFakeCommonNode: delayFakeEnvNode},
+			DelayFakeCommonNode: cd},
 		ClientAddr:         address.TestAddress,
 		ExpectedMinerInfos: []address.Address{address.TestAddress2},
 	}
@@ -87,7 +93,7 @@ func NewDependenciesWithTestData(t *testing.T, ctx context.Context, td *shared_t
 
 	providerNode := &testnodes.FakeProviderNode{
 		FakeCommonNode: testnodes.FakeCommonNode{
-			DelayFakeCommonNode:    delayFakeEnvNode,
+			DelayFakeCommonNode:    pd,
 			SMState:                smState,
 			WaitForMessageRetBytes: psdReturnBytes.Bytes(),
 		},
@@ -97,7 +103,9 @@ func NewDependenciesWithTestData(t *testing.T, ctx context.Context, td *shared_t
 	assert.NoError(t, err)
 
 	// create provider and client
-	dtTransport1 := dtgstransport.NewTransport(td.Host1.ID(), td.GraphSync1)
+
+	gs1 := graphsyncimpl.New(ctx, network.NewFromLibp2pHost(td.Host1), td.Loader1, td.Storer1)
+	dtTransport1 := dtgstransport.NewTransport(td.Host1.ID(), gs1)
 	dt1, err := dtimpl.NewDataTransfer(td.DTStore1, td.DTNet1, dtTransport1, td.DTStoredCounter1)
 	require.NoError(t, err)
 	err = dt1.Start(ctx)
@@ -109,7 +117,8 @@ func NewDependenciesWithTestData(t *testing.T, ctx context.Context, td *shared_t
 	require.NoError(t, err)
 	shared_testutil.StartAndWaitForReady(ctx, t, discovery)
 
-	dtTransport2 := dtgstransport.NewTransport(td.Host2.ID(), td.GraphSync2)
+	gs2 := graphsyncimpl.New(ctx, network.NewFromLibp2pHost(td.Host2), td.Loader2, td.Storer2)
+	dtTransport2 := dtgstransport.NewTransport(td.Host2.ID(), gs2)
 	dt2, err := dtimpl.NewDataTransfer(td.DTStore2, td.DTNet2, dtTransport2, td.DTStoredCounter2)
 	require.NoError(t, err)
 	err = dt2.Start(ctx)
@@ -132,24 +141,25 @@ func NewDependenciesWithTestData(t *testing.T, ctx context.Context, td *shared_t
 
 	smState.Providers = map[address.Address]*storagemarket.StorageProviderInfo{providerAddr: &providerInfo}
 	return &StorageDependencies{
-		Ctx:                 ctx,
-		Epoch:               epoch,
-		ClientAddr:          clientNode.ClientAddr,
-		ProviderAddr:        providerAddr,
-		ClientNode:          &clientNode,
-		ProviderNode:        providerNode,
-		ProviderInfo:        providerInfo,
-		TestData:            td,
-		SMState:             smState,
-		TempFilePath:        tempPath,
-		DelayFakeCommonNode: delayFakeEnvNode,
-		DTClient:            dt1,
-		DTProvider:          dt2,
-		PeerResolver:        discovery,
-		PieceStore:          ps,
-		Fs:                  fs,
-		ClientDealFunds:     clientDealFunds,
-		StoredAsk:           storedAsk,
-		ProviderDealFunds:   providerDealFunds,
+		Ctx:                               ctx,
+		Epoch:                             epoch,
+		ClientAddr:                        clientNode.ClientAddr,
+		ProviderAddr:                      providerAddr,
+		ClientNode:                        &clientNode,
+		ProviderNode:                      providerNode,
+		ProviderInfo:                      providerInfo,
+		TestData:                          td,
+		SMState:                           smState,
+		TempFilePath:                      tempPath,
+		ClientDelayFakeCommonNode:         cd,
+		ProviderClientDelayFakeCommonNode: pd,
+		DTClient:                          dt1,
+		DTProvider:                        dt2,
+		PeerResolver:                      discovery,
+		PieceStore:                        ps,
+		Fs:                                fs,
+		ClientDealFunds:                   clientDealFunds,
+		StoredAsk:                         storedAsk,
+		ProviderDealFunds:                 providerDealFunds,
 	}
 }

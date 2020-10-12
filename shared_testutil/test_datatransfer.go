@@ -127,4 +127,8 @@ func (tdt *TestDataTransfer) InProgressChannels(ctx context.Context) (map[datatr
 	return map[datatransfer.ChannelID]datatransfer.ChannelState{}, nil
 }
 
+func (tdt *TestDataTransfer) OnReady(f datatransfer.ReadyFunc) {
+
+}
+
 var _ datatransfer.Manager = new(TestDataTransfer)
