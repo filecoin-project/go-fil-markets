@@ -17,6 +17,7 @@ import (
 	"github.com/filecoin-project/go-address"
 	datatransfer "github.com/filecoin-project/go-data-transfer"
 	dtimpl "github.com/filecoin-project/go-data-transfer/impl"
+	"github.com/filecoin-project/go-data-transfer/testutil"
 	dtgstransport "github.com/filecoin-project/go-data-transfer/transport/graphsync"
 	"github.com/filecoin-project/go-state-types/abi"
 	"github.com/filecoin-project/specs-actors/actors/builtin/market"
@@ -108,7 +109,8 @@ func NewDependenciesWithTestData(t *testing.T, ctx context.Context, td *shared_t
 	dtTransport1 := dtgstransport.NewTransport(td.Host1.ID(), gs1)
 	dt1, err := dtimpl.NewDataTransfer(td.DTStore1, td.DTNet1, dtTransport1, td.DTStoredCounter1)
 	require.NoError(t, err)
-	err = dt1.Start(ctx)
+	testutil.StartAndWaitForReady(ctx, t, dt1)
+
 	require.NoError(t, err)
 	clientDealFunds, err := funds.NewDealFunds(td.Ds1, datastore.NewKey("storage/client/dealfunds"))
 	require.NoError(t, err)
@@ -121,8 +123,7 @@ func NewDependenciesWithTestData(t *testing.T, ctx context.Context, td *shared_t
 	dtTransport2 := dtgstransport.NewTransport(td.Host2.ID(), gs2)
 	dt2, err := dtimpl.NewDataTransfer(td.DTStore2, td.DTNet2, dtTransport2, td.DTStoredCounter2)
 	require.NoError(t, err)
-	err = dt2.Start(ctx)
-	require.NoError(t, err)
+	testutil.StartAndWaitForReady(ctx, t, dt2)
 
 	storedAskDs := namespace.Wrap(td.Ds2, datastore.NewKey("/storage/ask"))
 	storedAsk, err := storedask.NewStoredAsk(storedAskDs, datastore.NewKey("latest-ask"), providerNode, providerAddr)

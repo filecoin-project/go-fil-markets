@@ -5,12 +5,6 @@ import (
 	"sync"
 	"testing"
 
-	dtimpl "github.com/filecoin-project/go-data-transfer/impl"
-	dtgstransport "github.com/filecoin-project/go-data-transfer/transport/graphsync"
-	"github.com/filecoin-project/go-fil-markets/filestore"
-	piecestoreimpl "github.com/filecoin-project/go-fil-markets/piecestore/impl"
-	"github.com/filecoin-project/go-fil-markets/storagemarket/impl/funds"
-	"github.com/filecoin-project/go-fil-markets/storagemarket/impl/storedask"
 	"github.com/ipfs/go-cid"
 	"github.com/ipfs/go-datastore"
 	"github.com/ipfs/go-datastore/namespace"
@@ -23,14 +17,21 @@ import (
 	"github.com/stretchr/testify/require"
 	"golang.org/x/net/context"
 
+	dtimpl "github.com/filecoin-project/go-data-transfer/impl"
+	"github.com/filecoin-project/go-data-transfer/testutil"
+	dtgstransport "github.com/filecoin-project/go-data-transfer/transport/graphsync"
 	"github.com/filecoin-project/go-multistore"
 	"github.com/filecoin-project/go-state-types/abi"
 	"github.com/filecoin-project/go-state-types/big"
 	"github.com/filecoin-project/specs-actors/actors/builtin"
 
+	"github.com/filecoin-project/go-fil-markets/filestore"
+	piecestoreimpl "github.com/filecoin-project/go-fil-markets/piecestore/impl"
 	"github.com/filecoin-project/go-fil-markets/shared_testutil"
 	"github.com/filecoin-project/go-fil-markets/storagemarket"
 	storageimpl "github.com/filecoin-project/go-fil-markets/storagemarket/impl"
+	"github.com/filecoin-project/go-fil-markets/storagemarket/impl/funds"
+	"github.com/filecoin-project/go-fil-markets/storagemarket/impl/storedask"
 	"github.com/filecoin-project/go-fil-markets/storagemarket/network"
 	"github.com/filecoin-project/go-fil-markets/storagemarket/testharness/dependencies"
 	"github.com/filecoin-project/go-fil-markets/storagemarket/testnodes"
@@ -124,8 +125,7 @@ func (h *StorageHarness) CreateNewProvider(t *testing.T, ctx context.Context, td
 	dtTransport2 := dtgstransport.NewTransport(td.Host2.ID(), gs2)
 	dt2, err := dtimpl.NewDataTransfer(td.DTStore2, td.DTNet2, dtTransport2, td.DTStoredCounter2)
 	require.NoError(t, err)
-	err = dt2.Start(ctx)
-	require.NoError(t, err)
+	testutil.StartAndWaitForReady(ctx, t, dt2)
 
 	storedAskDs := namespace.Wrap(td.Ds2, datastore.NewKey("/storage/ask"))
 	storedAsk, err := storedask.NewStoredAsk(storedAskDs, datastore.NewKey("latest-ask"), h.StorageDependencies.ProviderNode,
