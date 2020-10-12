@@ -33,16 +33,21 @@ func (d *dealStatusStream) WriteDealStatusRequest(q DealStatusRequest) error {
 	return cborutil.WriteCborRPC(d.rw, &q)
 }
 
-func (d *dealStatusStream) ReadDealStatusResponse() (DealStatusResponse, error) {
+func (d *dealStatusStream) ReadDealStatusResponse() (DealStatusResponse, []byte, error) {
 	var qr DealStatusResponse
 
 	if err := qr.UnmarshalCBOR(d.buffered); err != nil {
-		return DealStatusResponseUndefined, err
+		return DealStatusResponseUndefined, nil, err
 	}
-	return qr, nil
+
+	origBytes, err := cborutil.Dump(&qr.DealState)
+	if err != nil {
+		return DealStatusResponseUndefined, nil, err
+	}
+	return qr, origBytes, nil
 }
 
-func (d *dealStatusStream) WriteDealStatusResponse(qr DealStatusResponse) error {
+func (d *dealStatusStream) WriteDealStatusResponse(qr DealStatusResponse, _ ResigningFunc) error {
 	return cborutil.WriteCborRPC(d.rw, &qr)
 }
 

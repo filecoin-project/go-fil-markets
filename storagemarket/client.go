@@ -21,14 +21,14 @@ type StorageClient interface {
 	// in progress deals
 	Start(ctx context.Context) error
 
+	// OnReady registers a listener for when the client comes on line
+	OnReady(shared.ReadyFunc)
+
 	// Stop ends deal processing on a StorageClient
 	Stop() error
 
 	// ListProviders queries chain state and returns active storage providers
 	ListProviders(ctx context.Context) (<-chan StorageProviderInfo, error)
-
-	// ListDeals lists on-chain deals associated with this storage client
-	ListDeals(ctx context.Context, addr address.Address) ([]StorageDeal, error)
 
 	// ListLocalDeals lists deals initiated by this storage client
 	ListLocalDeals(ctx context.Context) ([]ClientDeal, error)
@@ -37,7 +37,7 @@ type StorageClient interface {
 	GetLocalDeal(ctx context.Context, cid cid.Cid) (ClientDeal, error)
 
 	// GetAsk returns the current ask for a storage provider
-	GetAsk(ctx context.Context, info StorageProviderInfo) (*SignedStorageAsk, error)
+	GetAsk(ctx context.Context, info StorageProviderInfo) (*StorageAsk, error)
 
 	// GetProviderDealState queries a provider for the current state of a client's deal
 	GetProviderDealState(ctx context.Context, proposalCid cid.Cid) (*ProviderDealState, error)

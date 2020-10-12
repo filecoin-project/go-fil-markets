@@ -18,11 +18,24 @@ import (
 	"github.com/filecoin-project/go-fil-markets/retrievalmarket"
 	rm "github.com/filecoin-project/go-fil-markets/retrievalmarket"
 	"github.com/filecoin-project/go-fil-markets/retrievalmarket/impl/dtutils"
+	"github.com/filecoin-project/go-fil-markets/retrievalmarket/migrations"
 	"github.com/filecoin-project/go-fil-markets/shared_testutil"
 )
 
 func TestProviderDataTransferSubscriber(t *testing.T) {
 	dealProposal := shared_testutil.MakeTestDealProposal()
+	legacyProposal := migrations.DealProposal0{
+		PayloadCID: dealProposal.PayloadCID,
+		ID:         dealProposal.ID,
+		Params0: migrations.Params0{
+			Selector:                dealProposal.Selector,
+			PieceCID:                dealProposal.PieceCID,
+			PricePerByte:            dealProposal.PricePerByte,
+			PaymentInterval:         dealProposal.PaymentInterval,
+			PaymentIntervalIncrease: dealProposal.PaymentIntervalIncrease,
+			UnsealPrice:             dealProposal.UnsealPrice,
+		},
+	}
 	testPeers := shared_testutil.GeneratePeers(2)
 	transferID := datatransfer.TransferID(rand.Uint64())
 	tests := map[string]struct {
@@ -45,6 +58,19 @@ func TestProviderDataTransferSubscriber(t *testing.T) {
 				Sender:     testPeers[0],
 				Recipient:  testPeers[1],
 				Vouchers:   []datatransfer.Voucher{&dealProposal},
+				Status:     datatransfer.Ongoing},
+			expectedID:    rm.ProviderDealIdentifier{DealID: dealProposal.ID, Receiver: testPeers[1]},
+			expectedEvent: rm.ProviderEventDealAccepted,
+			expectedArgs:  []interface{}{datatransfer.ChannelID{ID: transferID, Initiator: testPeers[1], Responder: testPeers[0]}},
+		},
+		"accept, legacy": {
+			code: datatransfer.Accept,
+			state: shared_testutil.TestChannelParams{
+				IsPull:     true,
+				TransferID: transferID,
+				Sender:     testPeers[0],
+				Recipient:  testPeers[1],
+				Vouchers:   []datatransfer.Voucher{&legacyProposal},
 				Status:     datatransfer.Ongoing},
 			expectedID:    rm.ProviderDealIdentifier{DealID: dealProposal.ID, Receiver: testPeers[1]},
 			expectedEvent: rm.ProviderEventDealAccepted,
@@ -96,6 +122,18 @@ func TestProviderDataTransferSubscriber(t *testing.T) {
 }
 func TestClientDataTransferSubscriber(t *testing.T) {
 	dealProposal := shared_testutil.MakeTestDealProposal()
+	legacyProposal := migrations.DealProposal0{
+		PayloadCID: dealProposal.PayloadCID,
+		ID:         dealProposal.ID,
+		Params0: migrations.Params0{
+			Selector:                dealProposal.Selector,
+			PieceCID:                dealProposal.PieceCID,
+			PricePerByte:            dealProposal.PricePerByte,
+			PaymentInterval:         dealProposal.PaymentInterval,
+			PaymentIntervalIncrease: dealProposal.PaymentIntervalIncrease,
+			UnsealPrice:             dealProposal.UnsealPrice,
+		},
+	}
 	paymentOwed := shared_testutil.MakeTestTokenAmount()
 	tests := map[string]struct {
 		code          datatransfer.EventCode
@@ -175,6 +213,18 @@ func TestClientDataTransferSubscriber(t *testing.T) {
 			expectedID:    dealProposal.ID,
 			expectedEvent: rm.ClientEventDealAccepted,
 		},
+		"new voucher result - accepted, legacy": {
+			code: datatransfer.NewVoucherResult,
+			state: shared_testutil.TestChannelParams{
+				Vouchers: []datatransfer.Voucher{&legacyProposal},
+				VoucherResults: []datatransfer.VoucherResult{&migrations.DealResponse0{
+					Status: retrievalmarket.DealStatusAccepted,
+					ID:     dealProposal.ID,
+				}},
+				Status: datatransfer.Ongoing},
+			expectedID:    dealProposal.ID,
+			expectedEvent: rm.ClientEventDealAccepted,
+		},
 		"new voucher result - funds needed last payment": {
 			code: datatransfer.NewVoucherResult,
 			state: shared_testutil.TestChannelParams{
@@ -236,6 +286,17 @@ func TestClientDataTransferSubscriber(t *testing.T) {
 			expectedID:    dealProposal.ID,
 			expectedEvent: rm.ClientEventDataTransferError,
 			expectedArgs:  []interface{}{errors.New("deal data transfer failed: something went wrong")},
+		},
+		"error, response rejected": {
+			code:    datatransfer.Error,
+			message: datatransfer.ErrRejected.Error(),
+			state: shared_testutil.TestChannelParams{
+				Vouchers: []datatransfer.Voucher{&dealProposal},
+				Status:   datatransfer.Ongoing,
+				Message:  datatransfer.ErrRejected.Error()},
+			expectedID:    dealProposal.ID,
+			expectedEvent: rm.ClientEventDealRejected,
+			expectedArgs:  []interface{}{"rejected for unknown reasons"},
 		},
 	}
 	for test, data := range tests {
@@ -311,6 +372,17 @@ func TestTransportConfigurer(t *testing.T) {
 		},
 		"store getter succeeds": {
 			voucher: &rm.DealProposal{
+				PayloadCID: payloadCID,
+				ID:         expectedDealID,
+			},
+			transport:        &fakeGsTransport{Transport: &fakeTransport{}},
+			getterCalled:     true,
+			useStoreCalled:   true,
+			returnedStore:    &multistore.Store{},
+			returnedStoreErr: nil,
+		},
+		"store getter succeeds, legacy": {
+			voucher: &migrations.DealProposal0{
 				PayloadCID: payloadCID,
 				ID:         expectedDealID,
 			},

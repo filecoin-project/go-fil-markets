@@ -35,6 +35,27 @@ func RetryParameters(minDuration time.Duration, maxDuration time.Duration, attem
 	}
 }
 
+// SupportedAskProtocols sets what ask protocols this network instances listens on
+func SupportedAskProtocols(supportedProtocols []protocol.ID) Option {
+	return func(impl *libp2pStorageMarketNetwork) {
+		impl.supportedAskProtocols = supportedProtocols
+	}
+}
+
+// SupportedDealProtocols sets what deal protocols this network instances listens on
+func SupportedDealProtocols(supportedProtocols []protocol.ID) Option {
+	return func(impl *libp2pStorageMarketNetwork) {
+		impl.supportedDealProtocols = supportedProtocols
+	}
+}
+
+// SupportedDealStatusProtocols sets what deal status protocols this network instances listens on
+func SupportedDealStatusProtocols(supportedProtocols []protocol.ID) Option {
+	return func(impl *libp2pStorageMarketNetwork) {
+		impl.supportedDealStatusProtocols = supportedProtocols
+	}
+}
+
 // NewFromLibp2pHost builds a storage market network on top of libp2p
 func NewFromLibp2pHost(h host.Host, options ...Option) StorageMarketNetwork {
 	impl := &libp2pStorageMarketNetwork{
@@ -42,6 +63,18 @@ func NewFromLibp2pHost(h host.Host, options ...Option) StorageMarketNetwork {
 		maxStreamOpenAttempts: defaultMaxStreamOpenAttempts,
 		minAttemptDuration:    defaultMinAttemptDuration,
 		maxAttemptDuration:    defaultMaxAttemptDuration,
+		supportedAskProtocols: []protocol.ID{
+			storagemarket.AskProtocolID,
+			storagemarket.OldAskProtocolID,
+		},
+		supportedDealProtocols: []protocol.ID{
+			storagemarket.DealProtocolID,
+			storagemarket.OldDealProtocolID,
+		},
+		supportedDealStatusProtocols: []protocol.ID{
+			storagemarket.DealStatusProtocolID,
+			storagemarket.OldDealStatusProtocolID,
+		},
 	}
 	for _, option := range options {
 		option(impl)
@@ -54,42 +87,54 @@ func NewFromLibp2pHost(h host.Host, options ...Option) StorageMarketNetwork {
 type libp2pStorageMarketNetwork struct {
 	host host.Host
 	// inbound messages from the network are forwarded to the receiver
-	receiver              StorageReceiver
-	maxStreamOpenAttempts float64
-	minAttemptDuration    time.Duration
-	maxAttemptDuration    time.Duration
+	receiver                     StorageReceiver
+	maxStreamOpenAttempts        float64
+	minAttemptDuration           time.Duration
+	maxAttemptDuration           time.Duration
+	supportedAskProtocols        []protocol.ID
+	supportedDealProtocols       []protocol.ID
+	supportedDealStatusProtocols []protocol.ID
 }
 
 func (impl *libp2pStorageMarketNetwork) NewAskStream(ctx context.Context, id peer.ID) (StorageAskStream, error) {
-	s, err := impl.openStream(ctx, id, storagemarket.AskProtocolID)
+	s, err := impl.openStream(ctx, id, impl.supportedAskProtocols)
 	if err != nil {
 		log.Warn(err)
 		return nil, err
 	}
 	buffered := bufio.NewReaderSize(s, 16)
+	if s.Protocol() == storagemarket.OldAskProtocolID {
+		return &legacyAskStream{p: id, rw: s, buffered: buffered}, nil
+	}
 	return &askStream{p: id, rw: s, buffered: buffered}, nil
 }
 
 func (impl *libp2pStorageMarketNetwork) NewDealStream(ctx context.Context, id peer.ID) (StorageDealStream, error) {
-	s, err := impl.openStream(ctx, id, storagemarket.DealProtocolID)
+	s, err := impl.openStream(ctx, id, impl.supportedDealProtocols)
 	if err != nil {
 		return nil, err
 	}
 	buffered := bufio.NewReaderSize(s, 16)
+	if s.Protocol() == storagemarket.OldDealProtocolID {
+		return &legacyDealStream{p: id, rw: s, buffered: buffered, host: impl.host}, nil
+	}
 	return &dealStream{p: id, rw: s, buffered: buffered, host: impl.host}, nil
 }
 
 func (impl *libp2pStorageMarketNetwork) NewDealStatusStream(ctx context.Context, id peer.ID) (DealStatusStream, error) {
-	s, err := impl.openStream(ctx, id, storagemarket.DealStatusProtocolID)
+	s, err := impl.openStream(ctx, id, impl.supportedDealStatusProtocols)
 	if err != nil {
 		log.Warn(err)
 		return nil, err
 	}
 	buffered := bufio.NewReaderSize(s, 16)
+	if s.Protocol() == storagemarket.OldDealStatusProtocolID {
+		return &legacyDealStatusStream{p: id, rw: s, buffered: buffered}, nil
+	}
 	return &dealStatusStream{p: id, rw: s, buffered: buffered}, nil
 }
 
-func (impl *libp2pStorageMarketNetwork) openStream(ctx context.Context, id peer.ID, protocol protocol.ID) (network.Stream, error) {
+func (impl *libp2pStorageMarketNetwork) openStream(ctx context.Context, id peer.ID, protocols []protocol.ID) (network.Stream, error) {
 	b := &backoff.Backoff{
 		Min:    impl.minAttemptDuration,
 		Max:    impl.maxAttemptDuration,
@@ -98,7 +143,7 @@ func (impl *libp2pStorageMarketNetwork) openStream(ctx context.Context, id peer.
 	}
 
 	for {
-		s, err := impl.host.NewStream(ctx, id, protocol)
+		s, err := impl.host.NewStream(ctx, id, protocols...)
 		if err == nil {
 			return s, err
 		}
@@ -114,24 +159,41 @@ func (impl *libp2pStorageMarketNetwork) openStream(ctx context.Context, id peer.
 
 func (impl *libp2pStorageMarketNetwork) SetDelegate(r StorageReceiver) error {
 	impl.receiver = r
-	impl.host.SetStreamHandler(storagemarket.DealProtocolID, impl.handleNewDealStream)
-	impl.host.SetStreamHandler(storagemarket.AskProtocolID, impl.handleNewAskStream)
-	impl.host.SetStreamHandler(storagemarket.DealStatusProtocolID, impl.handleNewDealStatusStream)
+	for _, proto := range impl.supportedAskProtocols {
+		impl.host.SetStreamHandler(proto, impl.handleNewAskStream)
+	}
+	for _, proto := range impl.supportedDealProtocols {
+		impl.host.SetStreamHandler(proto, impl.handleNewDealStream)
+	}
+	for _, proto := range impl.supportedDealStatusProtocols {
+		impl.host.SetStreamHandler(proto, impl.handleNewDealStatusStream)
+	}
 	return nil
 }
 
 func (impl *libp2pStorageMarketNetwork) StopHandlingRequests() error {
 	impl.receiver = nil
-	impl.host.RemoveStreamHandler(storagemarket.DealProtocolID)
-	impl.host.RemoveStreamHandler(storagemarket.AskProtocolID)
-	impl.host.RemoveStreamHandler(storagemarket.DealStatusProtocolID)
+	for _, proto := range impl.supportedAskProtocols {
+		impl.host.RemoveStreamHandler(proto)
+	}
+	for _, proto := range impl.supportedDealProtocols {
+		impl.host.RemoveStreamHandler(proto)
+	}
+	for _, proto := range impl.supportedDealStatusProtocols {
+		impl.host.RemoveStreamHandler(proto)
+	}
 	return nil
 }
 
 func (impl *libp2pStorageMarketNetwork) handleNewAskStream(s network.Stream) {
 	reader := impl.getReaderOrReset(s)
 	if reader != nil {
-		as := &askStream{s.Conn().RemotePeer(), s, reader}
+		var as StorageAskStream
+		if s.Protocol() == storagemarket.OldAskProtocolID {
+			as = &legacyAskStream{s.Conn().RemotePeer(), s, reader}
+		} else {
+			as = &askStream{s.Conn().RemotePeer(), s, reader}
+		}
 		impl.receiver.HandleAskStream(as)
 	}
 }
@@ -139,7 +201,12 @@ func (impl *libp2pStorageMarketNetwork) handleNewAskStream(s network.Stream) {
 func (impl *libp2pStorageMarketNetwork) handleNewDealStream(s network.Stream) {
 	reader := impl.getReaderOrReset(s)
 	if reader != nil {
-		ds := &dealStream{s.Conn().RemotePeer(), impl.host, s, reader}
+		var ds StorageDealStream
+		if s.Protocol() == storagemarket.OldDealProtocolID {
+			ds = &legacyDealStream{s.Conn().RemotePeer(), impl.host, s, reader}
+		} else {
+			ds = &dealStream{s.Conn().RemotePeer(), impl.host, s, reader}
+		}
 		impl.receiver.HandleDealStream(ds)
 	}
 }
@@ -147,7 +214,12 @@ func (impl *libp2pStorageMarketNetwork) handleNewDealStream(s network.Stream) {
 func (impl *libp2pStorageMarketNetwork) handleNewDealStatusStream(s network.Stream) {
 	reader := impl.getReaderOrReset(s)
 	if reader != nil {
-		qs := &dealStatusStream{s.Conn().RemotePeer(), impl.host, s, reader}
+		var qs DealStatusStream
+		if s.Protocol() == storagemarket.OldDealStatusProtocolID {
+			qs = &legacyDealStatusStream{s.Conn().RemotePeer(), impl.host, s, reader}
+		} else {
+			qs = &dealStatusStream{s.Conn().RemotePeer(), impl.host, s, reader}
+		}
 		impl.receiver.HandleDealStatusStream(qs)
 	}
 }

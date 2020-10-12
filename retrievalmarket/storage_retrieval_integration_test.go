@@ -1,11 +1,7 @@
 package retrievalmarket_test
 
 import (
-	"bytes"
 	"context"
-	"io/ioutil"
-	"math/rand"
-	"path/filepath"
 	"testing"
 	"time"
 
@@ -21,18 +17,12 @@ import (
 
 	"github.com/filecoin-project/go-address"
 	datatransfer "github.com/filecoin-project/go-data-transfer"
-	dtimpl "github.com/filecoin-project/go-data-transfer/impl"
-	dtgstransport "github.com/filecoin-project/go-data-transfer/transport/graphsync"
-	"github.com/filecoin-project/go-multistore"
 	"github.com/filecoin-project/go-state-types/abi"
 	"github.com/filecoin-project/go-state-types/big"
-	"github.com/filecoin-project/specs-actors/actors/builtin/market"
 	"github.com/filecoin-project/specs-actors/actors/builtin/paych"
 
-	"github.com/filecoin-project/go-fil-markets/filestore"
 	"github.com/filecoin-project/go-fil-markets/piecestore"
 	"github.com/filecoin-project/go-fil-markets/retrievalmarket"
-	"github.com/filecoin-project/go-fil-markets/retrievalmarket/discovery"
 	retrievalimpl "github.com/filecoin-project/go-fil-markets/retrievalmarket/impl"
 	testnodes2 "github.com/filecoin-project/go-fil-markets/retrievalmarket/impl/testnodes"
 	rmnet "github.com/filecoin-project/go-fil-markets/retrievalmarket/network"
@@ -40,19 +30,15 @@ import (
 	"github.com/filecoin-project/go-fil-markets/shared_testutil"
 	tut "github.com/filecoin-project/go-fil-markets/shared_testutil"
 	"github.com/filecoin-project/go-fil-markets/storagemarket"
-	stormkt "github.com/filecoin-project/go-fil-markets/storagemarket/impl"
-	"github.com/filecoin-project/go-fil-markets/storagemarket/impl/funds"
-	"github.com/filecoin-project/go-fil-markets/storagemarket/impl/storedask"
-	"github.com/filecoin-project/go-fil-markets/storagemarket/network"
-	stornet "github.com/filecoin-project/go-fil-markets/storagemarket/network"
+	"github.com/filecoin-project/go-fil-markets/storagemarket/testharness"
 	"github.com/filecoin-project/go-fil-markets/storagemarket/testnodes"
 )
 
 func TestStorageRetrieval(t *testing.T) {
 	bgCtx := context.Background()
-	sh := newStorageHarness(bgCtx, t)
-	require.NoError(t, sh.Client.Start(bgCtx))
-	require.NoError(t, sh.Provider.Start(bgCtx))
+	sh := testharness.NewHarness(t, bgCtx, true, testnodes.DelayFakeCommonNode{}, false)
+	shared_testutil.StartAndWaitForReady(bgCtx, t, sh.Client)
+	shared_testutil.StartAndWaitForReady(bgCtx, t, sh.Provider)
 
 	// set up a subscriber
 	providerDealChan := make(chan storagemarket.MinerDeal)
@@ -71,7 +57,7 @@ func TestStorageRetrieval(t *testing.T) {
 	err := sh.Provider.SetAsk(big.NewInt(0), big.NewInt(0), 50_000)
 	assert.NoError(t, err)
 
-	result := sh.ProposeStorageDeal(t, &storagemarket.DataRef{TransferType: storagemarket.TTGraphsync, Root: sh.PayloadCid})
+	result := sh.ProposeStorageDeal(t, &storagemarket.DataRef{TransferType: storagemarket.TTGraphsync, Root: sh.PayloadCid}, false, false)
 	require.False(t, result.ProposalCid.Equals(cid.Undef))
 
 	time.Sleep(time.Millisecond * 200)
@@ -198,166 +184,8 @@ func TestStorageRetrieval(t *testing.T) {
 	require.Equal(t, retrievalmarket.DealStatusCompleted, clientDealState.Status)
 
 	rh.ClientNode.VerifyExpectations(t)
-	sh.TestData.VerifyFileTransferredIntoStore(t, sh.PieceLink, clientStoreID, false, uint64(fsize))
+	sh.TestData.VerifyFileTransferredIntoStore(t, cidlink.Link{Cid: sh.PayloadCid}, clientStoreID, false, uint64(fsize))
 
-}
-
-type storageHarness struct {
-	Ctx          context.Context
-	Epoch        abi.ChainEpoch
-	PieceLink    ipld.Link
-	PayloadCid   cid.Cid
-	StoreID      multistore.StoreID
-	ProviderAddr address.Address
-	DTClient     datatransfer.Manager
-	Client       storagemarket.StorageClient
-	ClientNode   *testnodes.FakeClientNode
-	DTProvider   datatransfer.Manager
-	Provider     storagemarket.StorageProvider
-	ProviderNode *testnodes.FakeProviderNode
-	ProviderInfo storagemarket.StorageProviderInfo
-	TestData     *shared_testutil.Libp2pTestData
-	PieceStore   piecestore.PieceStore
-	PeerResolver retrievalmarket.PeerResolver
-}
-
-func newStorageHarness(ctx context.Context, t *testing.T) *storageHarness {
-	epoch := abi.ChainEpoch(100)
-	td := shared_testutil.NewLibp2pTestData(ctx, t)
-	fpath := filepath.Join("retrievalmarket", "impl", "fixtures", "lorem.txt")
-	rootLink, storeID := td.LoadUnixFSFileToStore(t, fpath, false)
-	payloadCid := rootLink.(cidlink.Link).Cid
-	clientAddr := address.TestAddress
-	providerAddr := address.TestAddress2
-
-	smState := testnodes.NewStorageMarketState()
-	clientNode := testnodes.FakeClientNode{
-		FakeCommonNode: testnodes.FakeCommonNode{SMState: smState},
-		ClientAddr:     clientAddr,
-		MinerAddr:      providerAddr,
-		WorkerAddr:     providerAddr,
-	}
-
-	expDealID := abi.DealID(rand.Uint64())
-	psdReturn := market.PublishStorageDealsReturn{IDs: []abi.DealID{expDealID}}
-	psdReturnBytes := bytes.NewBuffer([]byte{})
-	require.NoError(t, psdReturn.MarshalCBOR(psdReturnBytes))
-
-	tempPath, err := ioutil.TempDir("", "storagemarket_test")
-	require.NoError(t, err)
-	ps := piecestore.NewPieceStore(td.Ds2)
-	providerNode := &testnodes.FakeProviderNode{
-		FakeCommonNode: testnodes.FakeCommonNode{
-			SMState:                smState,
-			WaitForMessageRetBytes: psdReturnBytes.Bytes(),
-		},
-		MinerAddr: providerAddr,
-	}
-	fs, err := filestore.NewLocalFileStore(filestore.OsPath(tempPath))
-	require.NoError(t, err)
-
-	// create provider and client
-	gs1 := graphsyncimpl.New(ctx, gsnetwork.NewFromLibp2pHost(td.Host1), td.Loader1, td.Storer1)
-	dtTransport1 := dtgstransport.NewTransport(td.Host1.ID(), gs1)
-	dt1, err := dtimpl.NewDataTransfer(td.DTStore1, td.DTNet1, dtTransport1, td.DTStoredCounter1)
-	require.NoError(t, err)
-	err = dt1.Start(ctx)
-	require.NoError(t, err)
-
-	peerResolver := discovery.NewLocal(td.Ds1)
-
-	clientDealFunds, err := funds.NewDealFunds(td.Ds1, datastore.NewKey("storage/client/dealfunds"))
-	require.NoError(t, err)
-
-	client, err := stormkt.NewClient(
-		stornet.NewFromLibp2pHost(td.Host1, stornet.RetryParameters(0, 0, 0)),
-		td.Bs1,
-		td.MultiStore1,
-		dt1,
-		peerResolver,
-		td.Ds1,
-		&clientNode,
-		clientDealFunds,
-		stormkt.DealPollingInterval(0),
-	)
-	require.NoError(t, err)
-
-	gs2 := graphsyncimpl.New(ctx, gsnetwork.NewFromLibp2pHost(td.Host2), td.Loader2, td.Storer2)
-	dtTransport2 := dtgstransport.NewTransport(td.Host2.ID(), gs2)
-	dt2, err := dtimpl.NewDataTransfer(td.DTStore2, td.DTNet2, dtTransport2, td.DTStoredCounter2)
-	require.NoError(t, err)
-	err = dt2.Start(ctx)
-	require.NoError(t, err)
-	storedAsk, err := storedask.NewStoredAsk(td.Ds2, datastore.NewKey("latest-ask"), providerNode, providerAddr)
-	require.NoError(t, err)
-	providerDealFunds, err := funds.NewDealFunds(td.Ds1, datastore.NewKey("storage/provider/dealfunds"))
-	require.NoError(t, err)
-
-	provider, err := stormkt.NewProvider(
-		stornet.NewFromLibp2pHost(td.Host2, network.RetryParameters(0, 0, 0)),
-		td.Ds2,
-		fs,
-		td.MultiStore2,
-		ps,
-		dt2,
-		providerNode,
-		providerAddr,
-		abi.RegisteredSealProof_StackedDrg2KiBV1,
-		storedAsk,
-		providerDealFunds,
-	)
-	require.NoError(t, err)
-
-	// set ask price where we'll accept any price
-	require.NoError(t, provider.SetAsk(big.NewInt(0), big.NewInt(0), 50_000))
-	require.NoError(t, provider.Start(ctx))
-
-	// Closely follows the MinerInfo struct in the spec
-	providerInfo := storagemarket.StorageProviderInfo{
-		Address:    providerAddr,
-		Owner:      providerAddr,
-		Worker:     providerAddr,
-		SectorSize: 1 << 20,
-		PeerID:     td.Host2.ID(),
-	}
-
-	smState.Providers = map[address.Address]*storagemarket.StorageProviderInfo{providerAddr: &providerInfo}
-	return &storageHarness{
-		Ctx:          ctx,
-		Epoch:        epoch,
-		PayloadCid:   payloadCid,
-		StoreID:      storeID,
-		ProviderAddr: providerAddr,
-		DTClient:     dt1,
-		Client:       client,
-		ClientNode:   &clientNode,
-		PieceLink:    rootLink,
-		PieceStore:   ps,
-		DTProvider:   dt2,
-		Provider:     provider,
-		ProviderNode: providerNode,
-		ProviderInfo: providerInfo,
-		TestData:     td,
-		PeerResolver: peerResolver,
-	}
-}
-
-func (sh *storageHarness) ProposeStorageDeal(t *testing.T, dataRef *storagemarket.DataRef) *storagemarket.ProposeStorageDealResult {
-	result, err := sh.Client.ProposeStorageDeal(sh.Ctx, storagemarket.ProposeStorageDealParams{
-		Addr:          sh.ProviderAddr,
-		Info:          &sh.ProviderInfo,
-		Data:          dataRef,
-		StartEpoch:    sh.Epoch + 100,
-		EndEpoch:      sh.Epoch + 20100,
-		Price:         big.NewInt(1),
-		Collateral:    big.NewInt(0),
-		Rt:            abi.RegisteredSealProof_StackedDrg2KiBV1,
-		FastRetrieval: false,
-		VerifiedDeal:  false,
-		StoreID:       &sh.StoreID,
-	})
-	assert.NoError(t, err)
-	return result
 }
 
 var _ datatransfer.RequestValidator = (*fakeDTValidator)(nil)
@@ -376,7 +204,7 @@ type retrievalHarness struct {
 	RetrievalParams             retrievalmarket.Params
 }
 
-func newRetrievalHarness(ctx context.Context, t *testing.T, sh *storageHarness, deal storagemarket.ClientDeal) *retrievalHarness {
+func newRetrievalHarness(ctx context.Context, t *testing.T, sh *testharness.StorageHarness, deal storagemarket.ClientDeal) *retrievalHarness {
 
 	var newPaychAmt abi.TokenAmount
 	paymentChannelRecorder := func(client, miner address.Address, amt abi.TokenAmount) {
@@ -411,9 +239,10 @@ func newRetrievalHarness(ctx context.Context, t *testing.T, sh *storageHarness, 
 	})
 
 	nw1 := rmnet.NewFromLibp2pHost(sh.TestData.Host1, rmnet.RetryParameters(0, 0, 0))
-	client, err := retrievalimpl.NewClient(nw1, sh.TestData.MultiStore1, sh.DTClient, clientNode, sh.PeerResolver, sh.TestData.Ds1, sh.TestData.RetrievalStoredCounter1)
+	clientDs := namespace.Wrap(sh.TestData.Ds1, datastore.NewKey("/retrievals/client"))
+	client, err := retrievalimpl.NewClient(nw1, sh.TestData.MultiStore1, sh.DTClient, clientNode, sh.PeerResolver, clientDs, sh.TestData.RetrievalStoredCounter1)
 	require.NoError(t, err)
-
+	tut.StartAndWaitForReady(ctx, t, client)
 	payloadCID := deal.DataRef.Root
 	providerPaymentAddr := deal.MinerWorker
 	providerNode := testnodes2.NewTestRetrievalProviderNode()
@@ -452,8 +281,10 @@ func newRetrievalHarness(ctx context.Context, t *testing.T, sh *storageHarness, 
 	}
 	pieceStore.ExpectCID(payloadCID, cidInfo)
 	pieceStore.ExpectPiece(expectedPiece, pieceInfo)
-	provider, err := retrievalimpl.NewProvider(providerPaymentAddr, providerNode, nw2, pieceStore, sh.TestData.MultiStore2, sh.DTProvider, sh.TestData.Ds2)
+	providerDs := namespace.Wrap(sh.TestData.Ds2, datastore.NewKey("/retrievals/provider"))
+	provider, err := retrievalimpl.NewProvider(providerPaymentAddr, providerNode, nw2, pieceStore, sh.TestData.MultiStore2, sh.DTProvider, providerDs)
 	require.NoError(t, err)
+	tut.StartAndWaitForReady(ctx, t, provider)
 
 	params := retrievalmarket.Params{
 		PricePerByte:            abi.NewTokenAmount(1000),
@@ -467,8 +298,6 @@ func newRetrievalHarness(ctx context.Context, t *testing.T, sh *storageHarness, 
 	ask.PaymentIntervalIncrease = params.PaymentIntervalIncrease
 	ask.PricePerByte = params.PricePerByte
 	provider.SetAsk(ask)
-
-	require.NoError(t, provider.Start())
 
 	return &retrievalHarness{
 		Ctx:             ctx,

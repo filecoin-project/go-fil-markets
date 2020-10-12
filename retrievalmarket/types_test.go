@@ -33,7 +33,7 @@ func TestParamsMarshalUnmarshal(t *testing.T) {
 
 	assert.Equal(t, params, *unmarshalled)
 
-	nb := basicnode.Style.Any.NewBuilder()
+	nb := basicnode.Prototype.Any.NewBuilder()
 	err = dagcbor.Decoder(nb, bytes.NewBuffer(unmarshalled.Selector.Raw))
 	assert.NoError(t, err)
 	sel := nb.Build()

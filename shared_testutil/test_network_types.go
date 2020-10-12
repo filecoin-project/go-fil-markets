@@ -9,6 +9,9 @@ import (
 	ma "github.com/multiformats/go-multiaddr"
 	"github.com/stretchr/testify/require"
 
+	cborutil "github.com/filecoin-project/go-cbor-util"
+
+	"github.com/filecoin-project/go-fil-markets/discovery"
 	rm "github.com/filecoin-project/go-fil-markets/retrievalmarket"
 	rmnet "github.com/filecoin-project/go-fil-markets/retrievalmarket/network"
 	smnet "github.com/filecoin-project/go-fil-markets/storagemarket/network"
@@ -390,10 +393,10 @@ func StubbedDealPaymentReader(payment rm.DealPayment) DealPaymentReader {
 type StorageDealProposalReader func() (smnet.Proposal, error)
 
 // StorageDealResponseReader is a function to mock reading deal responses.
-type StorageDealResponseReader func() (smnet.SignedResponse, error)
+type StorageDealResponseReader func() (smnet.SignedResponse, []byte, error)
 
 // StorageDealResponseWriter is a function to mock writing deal responses.
-type StorageDealResponseWriter func(smnet.SignedResponse) error
+type StorageDealResponseWriter func(smnet.SignedResponse, smnet.ResigningFunc) error
 
 // StorageDealProposalWriter is a function to mock writing deal proposals.
 type StorageDealProposalWriter func(smnet.Proposal) error
@@ -420,6 +423,8 @@ type TestStorageDealStreamParams struct {
 	ResponseReader StorageDealResponseReader
 	ResponseWriter StorageDealResponseWriter
 }
+
+var _ smnet.StorageDealStream = &TestStorageDealStream{}
 
 // NewTestStorageDealStream returns a new TestStorageDealStream with the
 // behavior specified by the paramaters, or default behaviors if not specified.
@@ -457,13 +462,13 @@ func (tsds *TestStorageDealStream) WriteDealProposal(dealProposal smnet.Proposal
 }
 
 // ReadDealResponse calls the mocked deal response reader function.
-func (tsds *TestStorageDealStream) ReadDealResponse() (smnet.SignedResponse, error) {
+func (tsds *TestStorageDealStream) ReadDealResponse() (smnet.SignedResponse, []byte, error) {
 	return tsds.responseReader()
 }
 
 // WriteDealResponse calls the mocked deal response writer function.
-func (tsds *TestStorageDealStream) WriteDealResponse(dealResponse smnet.SignedResponse) error {
-	return tsds.responseWriter(dealResponse)
+func (tsds *TestStorageDealStream) WriteDealResponse(dealResponse smnet.SignedResponse, resigningFunc smnet.ResigningFunc) error {
+	return tsds.responseWriter(dealResponse, resigningFunc)
 }
 
 // RemotePeer returns the other peer
@@ -481,8 +486,8 @@ func TrivialStorageDealProposalReader() (smnet.Proposal, error) {
 }
 
 // TrivialStorageDealResponseReader succeeds trivially, returning an empty deal response.
-func TrivialStorageDealResponseReader() (smnet.SignedResponse, error) {
-	return smnet.SignedResponse{}, nil
+func TrivialStorageDealResponseReader() (smnet.SignedResponse, []byte, error) {
+	return MakeTestStorageNetworkSignedResponse(), nil, nil
 }
 
 // TrivialStorageDealProposalWriter succeeds trivially, returning no error.
@@ -491,7 +496,7 @@ func TrivialStorageDealProposalWriter(smnet.Proposal) error {
 }
 
 // TrivialStorageDealResponseWriter succeeds trivially, returning no error.
-func TrivialStorageDealResponseWriter(smnet.SignedResponse) error {
+func TrivialStorageDealResponseWriter(smnet.SignedResponse, smnet.ResigningFunc) error {
 	return nil
 }
 
@@ -504,8 +509,9 @@ func StubbedStorageProposalReader(proposal smnet.Proposal) StorageDealProposalRe
 
 // StubbedStorageResponseReader returns the given deal response when called
 func StubbedStorageResponseReader(response smnet.SignedResponse) StorageDealResponseReader {
-	return func() (smnet.SignedResponse, error) {
-		return response, nil
+	return func() (smnet.SignedResponse, []byte, error) {
+		origBytes, _ := cborutil.Dump(&response.Response)
+		return response, origBytes, nil
 	}
 }
 
@@ -525,8 +531,8 @@ func FailStorageResponseWriter(smnet.SignedResponse) error {
 }
 
 // FailStorageResponseReader always fails
-func FailStorageResponseReader() (smnet.SignedResponse, error) {
-	return smnet.SignedResponseUndefined, errors.New("read response failed")
+func FailStorageResponseReader() (smnet.SignedResponse, []byte, error) {
+	return smnet.SignedResponseUndefined, nil, errors.New("read response failed")
 }
 
 // TestPeerResolver provides a fake retrievalmarket PeerResolver
@@ -539,7 +545,7 @@ func (tpr TestPeerResolver) GetPeers(cid.Cid) ([]rm.RetrievalPeer, error) {
 	return tpr.Peers, tpr.ResolverError
 }
 
-var _ rm.PeerResolver = &TestPeerResolver{}
+var _ discovery.PeerResolver = &TestPeerResolver{}
 
 type TestPeerTagger struct {
 	TagCalls   []peer.ID

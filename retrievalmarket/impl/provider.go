@@ -3,25 +3,29 @@ package retrievalimpl
 import (
 	"context"
 	"errors"
-	"sync"
 
 	"github.com/hannahhoward/go-pubsub"
 	"github.com/ipfs/go-cid"
 	"github.com/ipfs/go-datastore"
+	"github.com/ipfs/go-datastore/namespace"
 	"golang.org/x/xerrors"
 
 	"github.com/filecoin-project/go-address"
 	datatransfer "github.com/filecoin-project/go-data-transfer"
+	versioning "github.com/filecoin-project/go-ds-versioning/pkg"
+	versionedfsm "github.com/filecoin-project/go-ds-versioning/pkg/fsm"
 	"github.com/filecoin-project/go-multistore"
-	"github.com/filecoin-project/go-state-types/abi"
 	"github.com/filecoin-project/go-statemachine/fsm"
 
 	"github.com/filecoin-project/go-fil-markets/piecestore"
 	"github.com/filecoin-project/go-fil-markets/retrievalmarket"
+	"github.com/filecoin-project/go-fil-markets/retrievalmarket/impl/askstore"
 	"github.com/filecoin-project/go-fil-markets/retrievalmarket/impl/dtutils"
 	"github.com/filecoin-project/go-fil-markets/retrievalmarket/impl/providerstates"
 	"github.com/filecoin-project/go-fil-markets/retrievalmarket/impl/requestvalidation"
+	"github.com/filecoin-project/go-fil-markets/retrievalmarket/migrations"
 	rmnet "github.com/filecoin-project/go-fil-markets/retrievalmarket/network"
+	"github.com/filecoin-project/go-fil-markets/shared"
 )
 
 // RetrievalProviderOption is a function that configures a retrieval provider
@@ -32,20 +36,21 @@ type DealDecider func(ctx context.Context, state retrievalmarket.ProviderDealSta
 
 // Provider is the production implementation of the RetrievalProvider interface
 type Provider struct {
-	multiStore       *multistore.MultiStore
-	dataTransfer     datatransfer.Manager
-	node             retrievalmarket.RetrievalProviderNode
-	network          rmnet.RetrievalMarketNetwork
-	requestValidator *requestvalidation.ProviderRequestValidator
-	revalidator      *requestvalidation.ProviderRevalidator
-	minerAddress     address.Address
-	pieceStore       piecestore.PieceStore
-	subscribers      *pubsub.PubSub
-	stateMachines    fsm.Group
-	dealDecider      DealDecider
-
-	askLk sync.Mutex
-	ask   *retrievalmarket.Ask
+	multiStore           *multistore.MultiStore
+	dataTransfer         datatransfer.Manager
+	node                 retrievalmarket.RetrievalProviderNode
+	network              rmnet.RetrievalMarketNetwork
+	requestValidator     *requestvalidation.ProviderRequestValidator
+	revalidator          *requestvalidation.ProviderRevalidator
+	minerAddress         address.Address
+	pieceStore           piecestore.PieceStore
+	readySub             *pubsub.PubSub
+	subscribers          *pubsub.PubSub
+	stateMachines        fsm.Group
+	migrateStateMachines func(context.Context) error
+	dealDecider          DealDecider
+	askStore             retrievalmarket.AskStore
+	disableNewDeals      bool
 }
 
 type internalProviderEvent struct {
@@ -68,22 +73,17 @@ func providerDispatcher(evt pubsub.Event, subscriberFn pubsub.SubscriberFn) erro
 
 var _ retrievalmarket.RetrievalProvider = new(Provider)
 
-// DefaultPricePerByte is the charge per byte retrieved if the miner does
-// not specifically set it
-var DefaultPricePerByte = abi.NewTokenAmount(2)
-
-// DefaultPaymentInterval is the baseline interval, set to 1Mb
-// if the miner does not explicitly set it otherwise
-var DefaultPaymentInterval = uint64(1 << 20)
-
-// DefaultPaymentIntervalIncrease is the amount interval increases on each payment,
-// set to to 1Mb if the miner does not explicitly set it otherwise
-var DefaultPaymentIntervalIncrease = uint64(1 << 20)
-
 // DealDeciderOpt sets a custom protocol
 func DealDeciderOpt(dd DealDecider) RetrievalProviderOption {
 	return func(provider *Provider) {
 		provider.dealDecider = dd
+	}
+}
+
+// DisableNewDeals disables setup for v1 deal protocols
+func DisableNewDeals() RetrievalProviderOption {
+	return func(provider *Provider) {
+		provider.disableNewDeals = true
 	}
 }
 
@@ -106,14 +106,24 @@ func NewProvider(minerAddress address.Address,
 		minerAddress: minerAddress,
 		pieceStore:   pieceStore,
 		subscribers:  pubsub.New(providerDispatcher),
-		ask: &retrievalmarket.Ask{
-			PricePerByte:            DefaultPricePerByte,
-			PaymentInterval:         DefaultPaymentInterval,
-			PaymentIntervalIncrease: DefaultPaymentIntervalIncrease,
-			UnsealPrice:             abi.NewTokenAmount(0),
-		},
+		readySub:     pubsub.New(shared.ReadyDispatcher),
 	}
-	statemachines, err := fsm.New(ds, fsm.Parameters{
+
+	err := shared.MoveKey(ds, "retrieval-ask", "retrieval-ask/latest")
+	if err != nil {
+		return nil, err
+	}
+	askStore, err := askstore.NewAskStore(namespace.Wrap(ds, datastore.NewKey("retrieval-ask")), datastore.NewKey("latest"))
+	if err != nil {
+		return nil, err
+	}
+	p.askStore = askStore
+
+	retrievalMigrations, err := migrations.ProviderMigrations.Build()
+	if err != nil {
+		return nil, err
+	}
+	p.stateMachines, p.migrateStateMachines, err = versionedfsm.NewVersionedFSM(ds, fsm.Parameters{
 		Environment:     &providerDealEnvironment{p},
 		StateType:       retrievalmarket.ProviderDealState{},
 		StateKeyField:   "Status",
@@ -121,32 +131,62 @@ func NewProvider(minerAddress address.Address,
 		StateEntryFuncs: providerstates.ProviderStateEntryFuncs,
 		FinalityStates:  providerstates.ProviderFinalityStates,
 		Notifier:        p.notifySubscribers,
-	})
+	}, retrievalMigrations, versioning.VersionKey("1"))
 	if err != nil {
 		return nil, err
 	}
 	p.Configure(opts...)
-	p.stateMachines = statemachines
 	p.requestValidator = requestvalidation.NewProviderRequestValidator(&providerValidationEnvironment{p})
-	err = p.dataTransfer.RegisterVoucherType(&retrievalmarket.DealProposal{}, p.requestValidator)
-	if err != nil {
-		return nil, err
-	}
+	transportConfigurer := dtutils.TransportConfigurer(network.ID(), &providerStoreGetter{p})
 	p.revalidator = requestvalidation.NewProviderRevalidator(&providerRevalidatorEnvironment{p})
-	err = p.dataTransfer.RegisterRevalidator(&retrievalmarket.DealPayment{}, p.revalidator)
+
+	if p.disableNewDeals {
+		err = p.dataTransfer.RegisterVoucherType(&migrations.DealProposal0{}, p.requestValidator)
+		if err != nil {
+			return nil, err
+		}
+		err = p.dataTransfer.RegisterRevalidator(&migrations.DealPayment0{}, p.revalidator)
+		if err != nil {
+			return nil, err
+		}
+	} else {
+		err = p.dataTransfer.RegisterVoucherType(&retrievalmarket.DealProposal{}, p.requestValidator)
+		if err != nil {
+			return nil, err
+		}
+		err = p.dataTransfer.RegisterVoucherType(&migrations.DealProposal0{}, p.requestValidator)
+		if err != nil {
+			return nil, err
+		}
+
+		err = p.dataTransfer.RegisterRevalidator(&retrievalmarket.DealPayment{}, p.revalidator)
+		if err != nil {
+			return nil, err
+		}
+		err = p.dataTransfer.RegisterRevalidator(&migrations.DealPayment0{}, requestvalidation.NewLegacyRevalidator(p.revalidator))
+		if err != nil {
+			return nil, err
+		}
+
+		err = p.dataTransfer.RegisterVoucherResultType(&retrievalmarket.DealResponse{})
+		if err != nil {
+			return nil, err
+		}
+
+		err = p.dataTransfer.RegisterTransportConfigurer(&retrievalmarket.DealProposal{}, transportConfigurer)
+		if err != nil {
+			return nil, err
+		}
+	}
+	err = p.dataTransfer.RegisterVoucherResultType(&migrations.DealResponse0{})
 	if err != nil {
 		return nil, err
 	}
-	err = p.dataTransfer.RegisterVoucherResultType(&retrievalmarket.DealResponse{})
+	err = p.dataTransfer.RegisterTransportConfigurer(&migrations.DealProposal0{}, transportConfigurer)
 	if err != nil {
 		return nil, err
 	}
 	dataTransfer.SubscribeToEvents(dtutils.ProviderDataTransferSubscriber(p.stateMachines))
-	err = p.dataTransfer.RegisterTransportConfigurer(&retrievalmarket.DealProposal{},
-		dtutils.TransportConfigurer(network.ID(), &providerStoreGetter{p}))
-	if err != nil {
-		return nil, err
-	}
 	return p, nil
 }
 
@@ -157,8 +197,23 @@ func (p *Provider) Stop() error {
 
 // Start begins listening for deals on the given host.
 // Start must be called in order to accept incoming deals.
-func (p *Provider) Start() error {
+func (p *Provider) Start(ctx context.Context) error {
+	go func() {
+		err := p.migrateStateMachines(ctx)
+		if err != nil {
+			log.Errorf("Migrating retrieval provider state machines: %s", err.Error())
+		}
+		err = p.readySub.Publish(err)
+		if err != nil {
+			log.Warnf("Publish retrieval provider ready event: %s", err.Error())
+		}
+	}()
 	return p.network.SetDelegate(p)
+}
+
+// OnReady registers a listener for when the provider has finished starting up
+func (p *Provider) OnReady(ready shared.ReadyFunc) {
+	p.readySub.Subscribe(ready)
 }
 
 func (p *Provider) notifySubscribers(eventName fsm.EventName, state fsm.StateType) {
@@ -174,17 +229,16 @@ func (p *Provider) SubscribeToEvents(subscriber retrievalmarket.ProviderSubscrib
 
 // GetAsk returns the current deal parameters this provider accepts
 func (p *Provider) GetAsk() *retrievalmarket.Ask {
-	p.askLk.Lock()
-	defer p.askLk.Unlock()
-	a := *p.ask
-	return &a
+	return p.askStore.GetAsk()
 }
 
 // SetAsk sets the deal parameters this provider accepts
 func (p *Provider) SetAsk(ask *retrievalmarket.Ask) {
-	p.askLk.Lock()
-	defer p.askLk.Unlock()
-	p.ask = ask
+	err := p.askStore.SetAsk(ask)
+
+	if err != nil {
+		log.Warnf("Error setting retrieval ask: %w", err)
+	}
 }
 
 // ListDeals lists all known retrieval deals

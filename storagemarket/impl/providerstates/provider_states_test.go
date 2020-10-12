@@ -3,6 +3,7 @@ package providerstates_test
 import (
 	"bytes"
 	"context"
+	"encoding/base64"
 	"errors"
 	"fmt"
 	"math/rand"
@@ -24,8 +25,10 @@ import (
 	"github.com/filecoin-project/go-state-types/exitcode"
 	"github.com/filecoin-project/go-statemachine/fsm"
 	fsmtest "github.com/filecoin-project/go-statemachine/fsm/testutil"
+	"github.com/filecoin-project/specs-actors/actors/builtin"
 	"github.com/filecoin-project/specs-actors/actors/builtin/market"
 	"github.com/filecoin-project/specs-actors/actors/builtin/verifreg"
+	satesting "github.com/filecoin-project/specs-actors/support/testing"
 
 	"github.com/filecoin-project/go-fil-markets/filestore"
 	"github.com/filecoin-project/go-fil-markets/piecestore"
@@ -48,6 +51,11 @@ func TestValidateDealProposal(t *testing.T) {
 	require.NoError(t, err)
 	bigDataCap := big.NewIntUnsigned(uint64(defaultPieceSize))
 	smallDataCap := big.NewIntUnsigned(uint64(defaultPieceSize - 1))
+
+	invalidLabelBytes := make([]byte, 257)
+	rand.Read(invalidLabelBytes)
+	invalidLabel := base64.StdEncoding.EncodeToString(invalidLabelBytes)
+
 	tests := map[string]struct {
 		nodeParams        nodeParams
 		dealParams        dealParams
@@ -119,7 +127,19 @@ func TestValidateDealProposal(t *testing.T) {
 		},
 		"Not enough funds": {
 			nodeParams: nodeParams{
-				ClientMarketBalance: abi.NewTokenAmount(150 * 10000),
+				ClientMarketBalance: big.NewInt(200*10000 - 1),
+			},
+			dealInspector: func(t *testing.T, deal storagemarket.MinerDeal, env *fakeEnvironment) {
+				tut.AssertDealState(t, storagemarket.StorageDealRejecting, deal.State)
+				require.Equal(t, "deal rejected: clientMarketBalance.Available too small", deal.Message)
+			},
+		},
+		"Not enough funds due to client collateral": {
+			nodeParams: nodeParams{
+				ClientMarketBalance: big.NewInt(200*10000 + 99),
+			},
+			dealParams: dealParams{
+				ClientCollateral: big.NewInt(100),
 			},
 			dealInspector: func(t *testing.T, deal storagemarket.MinerDeal, env *fakeEnvironment) {
 				tut.AssertDealState(t, storagemarket.StorageDealRejecting, deal.State)
@@ -172,6 +192,75 @@ func TestValidateDealProposal(t *testing.T) {
 				require.True(t, deal.Proposal.VerifiedDeal)
 				tut.AssertDealState(t, storagemarket.StorageDealRejecting, deal.State)
 				require.Equal(t, "deal rejected: verified deal DataCap too small for proposed piece size", deal.Message)
+			},
+		},
+		"label is too long": {
+			dealParams: dealParams{
+				Label: invalidLabel,
+			},
+			dealInspector: func(t *testing.T, deal storagemarket.MinerDeal, env *fakeEnvironment) {
+				tut.AssertDealState(t, storagemarket.StorageDealRejecting, deal.State)
+				require.Equal(t, "deal rejected: deal label can be at most 256 bytes, is 344", deal.Message)
+			},
+		},
+		"invalid piece size": {
+			dealParams: dealParams{
+				PieceSize: 129,
+			},
+			dealInspector: func(t *testing.T, deal storagemarket.MinerDeal, env *fakeEnvironment) {
+				tut.AssertDealState(t, storagemarket.StorageDealRejecting, deal.State)
+				require.Equal(t, "deal rejected: proposal piece size is invalid: padded piece size must be a power of 2", deal.Message)
+			},
+		},
+		"invalid piece cid prefix": {
+			dealParams: dealParams{
+				PieceCid: &tut.GenerateCids(1)[0],
+			},
+			dealInspector: func(t *testing.T, deal storagemarket.MinerDeal, env *fakeEnvironment) {
+				tut.AssertDealState(t, storagemarket.StorageDealRejecting, deal.State)
+				require.Equal(t, "deal rejected: proposal PieceCID had wrong prefix", deal.Message)
+			},
+		},
+		"end epoch before start": {
+			dealParams: dealParams{
+				StartEpoch: 1000,
+				EndEpoch:   900,
+			},
+			dealInspector: func(t *testing.T, deal storagemarket.MinerDeal, env *fakeEnvironment) {
+				tut.AssertDealState(t, storagemarket.StorageDealRejecting, deal.State)
+				require.Equal(t, "deal rejected: proposal end before proposal start", deal.Message)
+			},
+		},
+		"start epoch has already passed": {
+			dealParams: dealParams{
+				StartEpoch: defaultHeight - 1,
+			},
+			dealInspector: func(t *testing.T, deal storagemarket.MinerDeal, env *fakeEnvironment) {
+				tut.AssertDealState(t, storagemarket.StorageDealRejecting, deal.State)
+				require.Equal(t, "deal rejected: deal start epoch has already elapsed", deal.Message)
+			},
+		},
+		"deal duration too short (less than 180 days)": {
+			dealParams: dealParams{
+				StartEpoch: defaultHeight,
+				EndEpoch:   defaultHeight + builtin.EpochsInDay*180 - 1,
+			},
+			dealInspector: func(t *testing.T, deal storagemarket.MinerDeal, env *fakeEnvironment) {
+				tut.AssertDealState(t, storagemarket.StorageDealRejecting, deal.State)
+				require.Equal(t, "deal rejected: deal duration out of bounds", deal.Message)
+			},
+		},
+		"deal duration too long (more than 540 days)": {
+			nodeParams: nodeParams{
+				ClientMarketBalance: big.Mul(abi.NewTokenAmount(builtin.EpochsInDay*54+1), defaultStoragePricePerEpoch),
+			},
+			dealParams: dealParams{
+				StartEpoch: defaultHeight,
+				EndEpoch:   defaultHeight + builtin.EpochsInDay*540 + 1,
+			},
+			dealInspector: func(t *testing.T, deal storagemarket.MinerDeal, env *fakeEnvironment) {
+				tut.AssertDealState(t, storagemarket.StorageDealRejecting, deal.State)
+				require.Equal(t, "deal rejected: deal duration out of bounds", deal.Message)
 			},
 		},
 	}
@@ -935,8 +1024,8 @@ var defaultTipSetToken = []byte{1, 2, 3}
 var defaultStoragePricePerEpoch = abi.NewTokenAmount(10000)
 var defaultPieceSize = abi.PaddedPieceSize(1048576)
 var defaultStartEpoch = abi.ChainEpoch(200)
-var defaultEndEpoch = abi.ChainEpoch(400)
-var defaultPieceCid = tut.GenerateCids(1)[0]
+var defaultEndEpoch = defaultStartEpoch + ((24*3600)/30)*200 // 200 days
+var defaultPieceCid = satesting.MakeCID("piece cid", &market.PieceCIDPrefix)
 var defaultPath = filestore.Path("file.txt")
 var defaultMetadataPath = filestore.Path("metadataPath.txt")
 var defaultClientAddress = address.TestAddress
@@ -948,7 +1037,7 @@ var defaultDataRef = storagemarket.DataRef{
 	Root:         tut.GenerateCids(1)[0],
 	TransferType: storagemarket.TTGraphsync,
 }
-var defaultClientMarketBalance = abi.NewTokenAmount(200 * 10000)
+var defaultClientMarketBalance = big.Mul(big.NewInt(int64(defaultEndEpoch-defaultStartEpoch)), defaultStoragePricePerEpoch)
 
 var defaultAsk = storagemarket.StorageAsk{
 	Price:         abi.NewTokenAmount(10000000),
@@ -1015,12 +1104,14 @@ type nodeParams struct {
 }
 
 type dealParams struct {
+	PieceCid             *cid.Cid
 	PiecePath            filestore.Path
 	MetadataPath         filestore.Path
 	DealID               abi.DealID
 	DataRef              *storagemarket.DataRef
 	StoragePricePerEpoch abi.TokenAmount
 	ProviderCollateral   abi.TokenAmount
+	ClientCollateral     abi.TokenAmount
 	PieceSize            abi.PaddedPieceSize
 	StartEpoch           abi.ChainEpoch
 	EndEpoch             abi.ChainEpoch
@@ -1028,6 +1119,7 @@ type dealParams struct {
 	VerifiedDeal         bool
 	ReserveFunds         bool
 	TransferChannelId    *datatransfer.ChannelID
+	Label                string
 }
 
 type environmentParams struct {
@@ -1129,12 +1221,19 @@ func makeExecutor(ctx context.Context,
 			StoragePricePerEpoch: defaultStoragePricePerEpoch,
 			ProviderCollateral:   defaultProviderCollateral,
 			ClientCollateral:     defaultClientCollateral,
+			Label:                dealParams.Label,
+		}
+		if dealParams.PieceCid != nil {
+			proposal.PieceCID = *dealParams.PieceCid
 		}
 		if !dealParams.StoragePricePerEpoch.Nil() {
 			proposal.StoragePricePerEpoch = dealParams.StoragePricePerEpoch
 		}
 		if !dealParams.ProviderCollateral.Nil() {
 			proposal.ProviderCollateral = dealParams.ProviderCollateral
+		}
+		if !dealParams.ClientCollateral.Nil() {
+			proposal.ClientCollateral = dealParams.ClientCollateral
 		}
 		if dealParams.StartEpoch != abi.ChainEpoch(0) {
 			proposal.StartEpoch = dealParams.StartEpoch

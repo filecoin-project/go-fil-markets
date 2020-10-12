@@ -42,11 +42,11 @@ func (e *fakeEnvironment) Node() retrievalmarket.RetrievalClientNode {
 	return e.node
 }
 
-func (e *fakeEnvironment) OpenDataTransfer(ctx context.Context, to peer.ID, proposal *rm.DealProposal) (datatransfer.ChannelID, error) {
+func (e *fakeEnvironment) OpenDataTransfer(ctx context.Context, to peer.ID, proposal *rm.DealProposal, legacy bool) (datatransfer.ChannelID, error) {
 	return datatransfer.ChannelID{ID: datatransfer.TransferID(rand.Uint64()), Responder: to, Initiator: testnet.GeneratePeers(1)[0]}, e.OpenDataTransferError
 }
 
-func (e *fakeEnvironment) SendDataTransferVoucher(_ context.Context, _ datatransfer.ChannelID, _ *rm.DealPayment) error {
+func (e *fakeEnvironment) SendDataTransferVoucher(_ context.Context, _ datatransfer.ChannelID, _ *rm.DealPayment, _ bool) error {
 	return e.SendDataTransferVoucherError
 }
 
@@ -73,6 +73,15 @@ func TestProposeDeal(t *testing.T) {
 		runProposeDeal(t, openError, dealState)
 		require.Empty(t, dealState.Message)
 		require.Equal(t, dealState.Status, retrievalmarket.DealStatusWaitForAcceptance)
+		require.Equal(t, dealState.ChannelID.Responder, dealState.Sender)
+	})
+
+	t.Run("it works, legacy", func(t *testing.T) {
+		dealState := makeDealState(retrievalmarket.DealStatusRetryLegacy)
+		var openError error = nil
+		runProposeDeal(t, openError, dealState)
+		require.Empty(t, dealState.Message)
+		require.Equal(t, dealState.Status, retrievalmarket.DealStatusWaitForAcceptanceLegacy)
 		require.Equal(t, dealState.ChannelID.Responder, dealState.Sender)
 	})
 

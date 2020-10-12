@@ -1,6 +1,7 @@
 package shared_testutil
 
 import (
+	"context"
 	"errors"
 	"testing"
 
@@ -9,6 +10,7 @@ import (
 
 	"github.com/filecoin-project/go-fil-markets/piecestore"
 	"github.com/filecoin-project/go-fil-markets/retrievalmarket"
+	"github.com/filecoin-project/go-fil-markets/shared"
 )
 
 // TestPieceStore is piecestore who's query results are mocked
@@ -143,4 +145,11 @@ func (tps *TestPieceStore) ListCidInfoKeys() ([]cid.Cid, error) {
 
 func (tps *TestPieceStore) ListPieceInfoKeys() ([]cid.Cid, error) {
 	panic("do not call me")
+}
+
+func (tps *TestPieceStore) Start(ctx context.Context) error {
+	return nil
+}
+
+func (tps *TestPieceStore) OnReady(ready shared.ReadyFunc) {
 }

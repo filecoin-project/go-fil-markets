@@ -75,9 +75,6 @@ type StorageProviderNode interface {
 	// PublishDeals publishes a deal on chain, returns the message cid, but does not wait for message to appear
 	PublishDeals(ctx context.Context, deal MinerDeal) (cid.Cid, error)
 
-	// ListProviderDeals lists all deals on chain associated with a storage provider
-	ListProviderDeals(ctx context.Context, addr address.Address, tok shared.TipSetToken) ([]StorageDeal, error)
-
 	// OnDealComplete is called when a deal is complete and on chain, and data has been transferred and is ready to be added to a sector
 	OnDealComplete(ctx context.Context, deal MinerDeal, pieceSize abi.UnpaddedPieceSize, pieceReader io.Reader) (*PackingResult, error)
 
@@ -95,9 +92,6 @@ type StorageProviderNode interface {
 type StorageClientNode interface {
 	StorageCommon
 
-	// ListClientDeals lists all on-chain deals associated with a storage client
-	ListClientDeals(ctx context.Context, addr address.Address, tok shared.TipSetToken) ([]StorageDeal, error)
-
 	// GetStorageProviders returns information about known miners
 	ListStorageProviders(ctx context.Context, tok shared.TipSetToken) ([]*StorageProviderInfo, error)
 
@@ -109,9 +103,6 @@ type StorageClientNode interface {
 
 	// GetDefaultWalletAddress returns the address for this client
 	GetDefaultWalletAddress(ctx context.Context) (address.Address, error)
-
-	// ValidateAskSignature verifies a the signature is valid for a given SignedStorageAsk
-	ValidateAskSignature(ctx context.Context, ask *SignedStorageAsk, tok shared.TipSetToken) (bool, error)
 
 	// GetMinerInfo returns info for a single miner with the given address
 	GetMinerInfo(ctx context.Context, maddr address.Address, tok shared.TipSetToken) (*StorageProviderInfo, error)

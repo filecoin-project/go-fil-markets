@@ -17,6 +17,7 @@ import (
 
 	"github.com/filecoin-project/go-fil-markets/piecestore"
 	"github.com/filecoin-project/go-fil-markets/retrievalmarket"
+	"github.com/filecoin-project/go-fil-markets/retrievalmarket/migrations"
 	"github.com/filecoin-project/go-fil-markets/shared"
 )
 
@@ -59,9 +60,33 @@ func (rv *ProviderRequestValidator) ValidatePush(sender peer.ID, voucher datatra
 // ValidatePull validates a pull request received from the peer that will receive data
 func (rv *ProviderRequestValidator) ValidatePull(receiver peer.ID, voucher datatransfer.Voucher, baseCid cid.Cid, selector ipld.Node) (datatransfer.VoucherResult, error) {
 	proposal, ok := voucher.(*retrievalmarket.DealProposal)
+	var legacyProtocol bool
 	if !ok {
-		return nil, errors.New("wrong voucher type")
+		legacyProposal, ok := voucher.(*migrations.DealProposal0)
+		if !ok {
+			return nil, errors.New("wrong voucher type")
+		}
+		newProposal := migrations.MigrateDealProposal0To1(*legacyProposal)
+		proposal = &newProposal
+		legacyProtocol = true
 	}
+	response, err := rv.validatePull(receiver, proposal, legacyProtocol, baseCid, selector)
+	if response == nil {
+		return nil, err
+	}
+	if legacyProtocol {
+		downgradedResponse := migrations.DealResponse0{
+			Status:      response.Status,
+			ID:          response.ID,
+			Message:     response.Message,
+			PaymentOwed: response.PaymentOwed,
+		}
+		return &downgradedResponse, err
+	}
+	return response, err
+}
+
+func (rv *ProviderRequestValidator) validatePull(receiver peer.ID, proposal *retrievalmarket.DealProposal, legacyProtocol bool, baseCid cid.Cid, selector ipld.Node) (*retrievalmarket.DealResponse, error) {
 
 	if proposal.PayloadCID != baseCid {
 		return nil, errors.New("incorrect CID for this proposal")
@@ -81,8 +106,9 @@ func (rv *ProviderRequestValidator) ValidatePull(receiver peer.ID, voucher datat
 	}
 
 	pds := retrievalmarket.ProviderDealState{
-		DealProposal: *proposal,
-		Receiver:     receiver,
+		DealProposal:   *proposal,
+		Receiver:       receiver,
+		LegacyProtocol: legacyProtocol,
 	}
 
 	status, err := rv.acceptDeal(&pds)
@@ -110,20 +136,9 @@ func (rv *ProviderRequestValidator) ValidatePull(receiver peer.ID, voucher datat
 }
 
 func (rv *ProviderRequestValidator) acceptDeal(deal *retrievalmarket.ProviderDealState) (retrievalmarket.DealStatus, error) {
-	// verify we have the piece
-	pieceInfo, err := rv.env.GetPiece(deal.PayloadCID, deal.PieceCID)
-	if err != nil {
-		if err == retrievalmarket.ErrNotFound {
-			return retrievalmarket.DealStatusDealNotFound, err
-		}
-		return retrievalmarket.DealStatusErrored, err
-	}
-
-	deal.PieceInfo = &pieceInfo
-
 	// check that the deal parameters match our required parameters or
 	// reject outright
-	err = rv.env.CheckDealParams(deal.PricePerByte, deal.PaymentInterval, deal.PaymentIntervalIncrease, deal.UnsealPrice)
+	err := rv.env.CheckDealParams(deal.PricePerByte, deal.PaymentInterval, deal.PaymentIntervalIncrease, deal.UnsealPrice)
 	if err != nil {
 		return retrievalmarket.DealStatusRejected, err
 	}
@@ -135,6 +150,17 @@ func (rv *ProviderRequestValidator) acceptDeal(deal *retrievalmarket.ProviderDea
 	if !accepted {
 		return retrievalmarket.DealStatusRejected, errors.New(reason)
 	}
+
+	// verify we have the piece
+	pieceInfo, err := rv.env.GetPiece(deal.PayloadCID, deal.PieceCID)
+	if err != nil {
+		if err == retrievalmarket.ErrNotFound {
+			return retrievalmarket.DealStatusDealNotFound, err
+		}
+		return retrievalmarket.DealStatusErrored, err
+	}
+
+	deal.PieceInfo = &pieceInfo
 
 	deal.StoreID, err = rv.env.NextStoreID()
 	if err != nil {

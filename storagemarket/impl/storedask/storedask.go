@@ -11,10 +11,15 @@ import (
 
 	"github.com/filecoin-project/go-address"
 	cborutil "github.com/filecoin-project/go-cbor-util"
+	versioning "github.com/filecoin-project/go-ds-versioning/pkg"
+	versionedds "github.com/filecoin-project/go-ds-versioning/pkg/datastore"
+	"github.com/filecoin-project/go-ds-versioning/pkg/versioned"
 	"github.com/filecoin-project/go-state-types/abi"
+	"github.com/filecoin-project/go-state-types/crypto"
 
 	"github.com/filecoin-project/go-fil-markets/storagemarket"
 	"github.com/filecoin-project/go-fil-markets/storagemarket/impl/providerutils"
+	"github.com/filecoin-project/go-fil-markets/storagemarket/migrations"
 )
 
 var log = logging.Logger("storedask")
@@ -52,10 +57,28 @@ type StoredAsk struct {
 func NewStoredAsk(ds datastore.Batching, dsKey datastore.Key, spn storagemarket.StorageProviderNode, actor address.Address) (*StoredAsk, error) {
 
 	s := &StoredAsk{
-		ds:    ds,
 		spn:   spn,
 		actor: actor,
+		dsKey: dsKey,
 	}
+
+	askMigrations, err := versioned.BuilderList{
+		versioned.NewVersionedBuilder(migrations.GetMigrateSignedStorageAsk0To1(s.sign), versioning.VersionKey("1")),
+	}.Build()
+
+	if err != nil {
+		return nil, err
+	}
+
+	versionedDs, migrateDs := versionedds.NewVersionedDatastore(ds, askMigrations, versioning.VersionKey("1"))
+
+	// TODO: this is a bit risky -- but this is just a single key so it's probably ok to run migrations in the constructor
+	err = migrateDs(context.TODO())
+	if err != nil {
+		return nil, err
+	}
+
+	s.ds = versionedDs
 
 	if err := s.tryLoadAsk(); err != nil {
 		return nil, err
@@ -103,21 +126,24 @@ func (s *StoredAsk) SetAsk(price abi.TokenAmount, verifiedPrice abi.TokenAmount,
 		option(ask)
 	}
 
-	tok, _, err := s.spn.GetChainHead(ctx)
+	sig, err := s.sign(ctx, ask)
 	if err != nil {
 		return err
 	}
-
-	sig, err := providerutils.SignMinerData(ctx, ask, s.actor, tok, s.spn.GetMinerWorkerAddress, s.spn.SignBytes)
-	if err != nil {
-		return err
-	}
-
 	return s.saveAsk(&storagemarket.SignedStorageAsk{
 		Ask:       ask,
 		Signature: sig,
 	})
 
+}
+
+func (s *StoredAsk) sign(ctx context.Context, ask *storagemarket.StorageAsk) (*crypto.Signature, error) {
+	tok, _, err := s.spn.GetChainHead(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	return providerutils.SignMinerData(ctx, ask, s.actor, tok, s.spn.GetMinerWorkerAddress, s.spn.SignBytes)
 }
 
 // GetAsk returns the current signed storage ask, or nil if one does not exist.

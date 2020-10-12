@@ -1,7 +1,10 @@
 package storedask_test
 
 import (
+	"bytes"
+	"context"
 	"errors"
+	"math/rand"
 	"testing"
 
 	"github.com/ipfs/go-datastore"
@@ -12,7 +15,9 @@ import (
 	"github.com/filecoin-project/go-state-types/abi"
 
 	"github.com/filecoin-project/go-fil-markets/storagemarket"
+	"github.com/filecoin-project/go-fil-markets/storagemarket/impl/providerutils"
 	"github.com/filecoin-project/go-fil-markets/storagemarket/impl/storedask"
+	"github.com/filecoin-project/go-fil-markets/storagemarket/migrations"
 	"github.com/filecoin-project/go-fil-markets/storagemarket/testnodes"
 )
 
@@ -88,4 +93,51 @@ func TestStoredAsk(t *testing.T) {
 		err = storedAskError.SetAsk(testPrice, testVerifiedPrice, testDuration)
 		require.Error(t, err)
 	})
+}
+func TestMigrations(t *testing.T) {
+	ctx := context.Background()
+	ds := dss.MutexWrap(datastore.NewMapDatastore())
+	spn := &testnodes.FakeProviderNode{
+		FakeCommonNode: testnodes.FakeCommonNode{
+			SMState: testnodes.NewStorageMarketState(),
+		},
+	}
+	actor := address.TestAddress2
+	oldAsk := &migrations.StorageAsk0{
+		Price:         abi.NewTokenAmount(rand.Int63()),
+		VerifiedPrice: abi.NewTokenAmount(rand.Int63()),
+		MinPieceSize:  abi.PaddedPieceSize(rand.Uint64()),
+		MaxPieceSize:  abi.PaddedPieceSize(rand.Uint64()),
+		Miner:         address.TestAddress2,
+		Timestamp:     abi.ChainEpoch(rand.Int63()),
+		Expiry:        abi.ChainEpoch(rand.Int63()),
+		SeqNo:         rand.Uint64(),
+	}
+	tok, _, err := spn.GetChainHead(ctx)
+	require.NoError(t, err)
+	sig, err := providerutils.SignMinerData(ctx, oldAsk, actor, tok, spn.GetMinerWorkerAddress, spn.SignBytes)
+	require.NoError(t, err)
+	oldSignedAsk := &migrations.SignedStorageAsk0{
+		Ask:       oldAsk,
+		Signature: sig,
+	}
+	buf := new(bytes.Buffer)
+	err = oldSignedAsk.MarshalCBOR(buf)
+	require.NoError(t, err)
+	err = ds.Put(datastore.NewKey("latest-ask"), buf.Bytes())
+	require.NoError(t, err)
+	storedAsk, err := storedask.NewStoredAsk(ds, datastore.NewKey("latest-ask"), spn, actor)
+	require.NoError(t, err)
+	ask := storedAsk.GetAsk()
+	expectedAsk := &storagemarket.StorageAsk{
+		Price:         oldAsk.Price,
+		VerifiedPrice: oldAsk.VerifiedPrice,
+		MinPieceSize:  oldAsk.MinPieceSize,
+		MaxPieceSize:  oldAsk.MaxPieceSize,
+		Miner:         oldAsk.Miner,
+		Timestamp:     oldAsk.Timestamp,
+		Expiry:        oldAsk.Expiry,
+		SeqNo:         oldAsk.SeqNo,
+	}
+	require.Equal(t, expectedAsk, ask.Ask)
 }
