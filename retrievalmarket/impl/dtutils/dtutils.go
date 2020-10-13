@@ -31,6 +31,8 @@ func providerEvent(event datatransfer.Event, channelState datatransfer.ChannelSt
 	switch event.Code {
 	case datatransfer.Accept:
 		return rm.ProviderEventDealAccepted, []interface{}{channelState.ChannelID()}
+	case datatransfer.Disconnected:
+		return rm.ProviderEventDataTransferError, []interface{}{fmt.Errorf("deal data transfer stalled (peer hungup)")}
 	case datatransfer.Error:
 		return rm.ProviderEventDataTransferError, []interface{}{fmt.Errorf("deal data transfer failed: %s", event.Message)}
 	case datatransfer.Cancel:
@@ -112,6 +114,8 @@ func clientEvent(event datatransfer.Event, channelState datatransfer.ChannelStat
 		}
 
 		return clientEventForResponse(response)
+	case datatransfer.Disconnected:
+		return rm.ClientEventDataTransferError, []interface{}{fmt.Errorf("deal data transfer stalled (peer hungup)")}
 	case datatransfer.Error:
 		if channelState.Message() == datatransfer.ErrRejected.Error() {
 			return rm.ClientEventDealRejected, []interface{}{"rejected for unknown reasons"}

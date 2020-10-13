@@ -100,8 +100,15 @@ var ClientEvents = fsm.Events{
 		From(storagemarket.StorageDealTransferring).ToJustRecord().
 		Action(func(deal *storagemarket.ClientDeal, channelId datatransfer.ChannelID) error {
 			deal.TransferChannelID = &channelId
+			deal.Message = ""
 			return nil
 		}),
+
+	fsm.Event(storagemarket.ClientEventDataTransferStalled).
+		From(storagemarket.StorageDealTransferring).ToJustRecord().Action(func(deal *storagemarket.ClientDeal) error {
+		deal.Message = "data transfer appears to be stalled. attempt restart"
+		return nil
+	}),
 
 	fsm.Event(storagemarket.ClientEventDataTransferComplete).
 		FromMany(storagemarket.StorageDealTransferring, storagemarket.StorageDealStartDataTransfer).To(storagemarket.StorageDealCheckForAcceptance),

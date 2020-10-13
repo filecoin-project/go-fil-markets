@@ -90,6 +90,20 @@ func TestProviderDataTransferSubscriber(t *testing.T) {
 			expectedEvent: rm.ProviderEventDataTransferError,
 			expectedArgs:  []interface{}{errors.New("deal data transfer failed: something went wrong")},
 		},
+		"disconnected": {
+			code:    datatransfer.Disconnected,
+			message: "something went wrong",
+			state: shared_testutil.TestChannelParams{
+				IsPull:     true,
+				TransferID: transferID,
+				Sender:     testPeers[0],
+				Recipient:  testPeers[1],
+				Vouchers:   []datatransfer.Voucher{&dealProposal},
+				Status:     datatransfer.Ongoing},
+			expectedID:    rm.ProviderDealIdentifier{DealID: dealProposal.ID, Receiver: testPeers[1]},
+			expectedEvent: rm.ProviderEventDataTransferError,
+			expectedArgs:  []interface{}{errors.New("deal data transfer stalled (peer hungup)")},
+		},
 		"completed": {
 			code: datatransfer.ResumeResponder,
 			state: shared_testutil.TestChannelParams{
@@ -286,6 +300,16 @@ func TestClientDataTransferSubscriber(t *testing.T) {
 			expectedID:    dealProposal.ID,
 			expectedEvent: rm.ClientEventDataTransferError,
 			expectedArgs:  []interface{}{errors.New("deal data transfer failed: something went wrong")},
+		},
+		"disconnected": {
+			code:    datatransfer.Disconnected,
+			message: "something went wrong",
+			state: shared_testutil.TestChannelParams{
+				Vouchers: []datatransfer.Voucher{&dealProposal},
+				Status:   datatransfer.Ongoing},
+			expectedID:    dealProposal.ID,
+			expectedEvent: rm.ClientEventDataTransferError,
+			expectedArgs:  []interface{}{errors.New("deal data transfer stalled (peer hungup)")},
 		},
 		"error, response rejected": {
 			code:    datatransfer.Error,
