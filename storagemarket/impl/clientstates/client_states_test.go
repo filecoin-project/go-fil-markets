@@ -234,14 +234,18 @@ func TestProposeDeal(t *testing.T) {
 func TestInitiateDataTransfer(t *testing.T) {
 	t.Run("succeeds and starts the data transfer", func(t *testing.T) {
 		runAndInspect(t, storagemarket.StorageDealStartDataTransfer, clientstates.InitiateDataTransfer, testCase{
+			envParams: envParams{
+				dataTransferChannelId: datatransfer.ChannelID{peer.ID("1"), peer.ID("2"), datatransfer.TransferID(1)},
+			},
 			inspector: func(deal storagemarket.ClientDeal, env *fakeEnvironment) {
 				assert.Len(t, env.startDataTransferCalls, 1)
 				assert.Equal(t, env.startDataTransferCalls[0].to, deal.Miner)
 				assert.Equal(t, env.startDataTransferCalls[0].baseCid, deal.DataRef.Root)
-				tut.AssertDealState(t, storagemarket.StorageDealTransferring, deal.State)
+				assert.Equal(t, storagemarket.StorageDealStartDataTransfer, deal.State)
 			},
 		})
 	})
+
 	t.Run("starts polling for acceptance with manual transfers", func(t *testing.T) {
 		runAndInspect(t, storagemarket.StorageDealStartDataTransfer, clientstates.InitiateDataTransfer, testCase{
 			envParams: envParams{
@@ -253,12 +257,31 @@ func TestInitiateDataTransfer(t *testing.T) {
 			},
 		})
 	})
+
 	t.Run("fails if it can't initiate data transfer", func(t *testing.T) {
 		runAndInspect(t, storagemarket.StorageDealStartDataTransfer, clientstates.InitiateDataTransfer, testCase{
 			envParams: envParams{
 				startDataTransferError: xerrors.Errorf("failed to start data transfer"),
 			},
 			inspector: func(deal storagemarket.ClientDeal, env *fakeEnvironment) {
+				tut.AssertDealState(t, storagemarket.StorageDealFailing, deal.State)
+			},
+		})
+	})
+}
+
+func TestRestartDataTransfer(t *testing.T) {
+	t.Run("fails if can't restart data transfer", func(t *testing.T) {
+		err := xerrors.New("error")
+
+		runAndInspect(t, storagemarket.StorageDealClientTransferRestart, clientstates.RestartDataTransfer, testCase{
+			envParams: envParams{
+				restartDataTransferError: err,
+			},
+			inspector: func(deal storagemarket.ClientDeal, env *fakeEnvironment) {
+				assert.Len(t, env.restartDataTransferCalls, 1)
+				assert.Equal(t, datatransfer.ChannelID{}, env.restartDataTransferCalls[0].channelId)
+				assert.Equal(t, xerrors.Errorf("failed to restart data transfer: %w", err).Error(), deal.Message)
 				tut.AssertDealState(t, storagemarket.StorageDealFailing, deal.State)
 			},
 		})
@@ -502,12 +525,14 @@ func TestFailDeal(t *testing.T) {
 }
 
 type envParams struct {
-	dealStream             *tut.TestStorageDealStream
-	startDataTransferError error
-	manualTransfer         bool
-	providerDealState      *storagemarket.ProviderDealState
-	getDealStatusErr       error
-	pollingInterval        time.Duration
+	dealStream               *tut.TestStorageDealStream
+	startDataTransferError   error
+	restartDataTransferError error
+	dataTransferChannelId    datatransfer.ChannelID
+	manualTransfer           bool
+	providerDealState        *storagemarket.ProviderDealState
+	getDealStatusErr         error
+	pollingInterval          time.Duration
 }
 
 type dealStateParams struct {
@@ -536,6 +561,7 @@ func makeExecutor(ctx context.Context,
 		assert.NoError(t, err)
 		dealState.AddFundsCid = &tut.GenerateCids(1)[0]
 		dealState.FastRetrieval = dealParams.fastRetrieval
+		dealState.TransferChannelID = &datatransfer.ChannelID{}
 
 		if dealParams.addFundsCid != nil {
 			dealState.AddFundsCid = dealParams.addFundsCid
@@ -544,14 +570,16 @@ func makeExecutor(ctx context.Context,
 			dealState.FundsReserved = clientDealProposal.Proposal.ClientBalanceRequirement()
 		}
 		environment := &fakeEnvironment{
-			node:                   node,
-			dealStream:             envParams.dealStream,
-			startDataTransferError: envParams.startDataTransferError,
-			providerDealState:      envParams.providerDealState,
-			getDealStatusErr:       envParams.getDealStatusErr,
-			pollingInterval:        envParams.pollingInterval,
-			dealFunds:              tut.NewTestDealFunds(),
-			peerTagger:             tut.NewTestPeerTagger(),
+			node:                       node,
+			dealStream:                 envParams.dealStream,
+			startDataTransferError:     envParams.startDataTransferError,
+			startDataTransferChannelId: envParams.dataTransferChannelId,
+			restartDataTransferError:   envParams.restartDataTransferError,
+			providerDealState:          envParams.providerDealState,
+			getDealStatusErr:           envParams.getDealStatusErr,
+			pollingInterval:            envParams.pollingInterval,
+			dealFunds:                  tut.NewTestDealFunds(),
+			peerTagger:                 tut.NewTestPeerTagger(),
 		}
 
 		if environment.pollingInterval == 0 {
@@ -615,15 +643,22 @@ func makeNode(params nodeParams) storagemarket.StorageClientNode {
 }
 
 type fakeEnvironment struct {
-	node                   storagemarket.StorageClientNode
-	dealStream             *tut.TestStorageDealStream
-	startDataTransferError error
+	node       storagemarket.StorageClientNode
+	dealStream *tut.TestStorageDealStream
+
+	startDataTransferChannelId datatransfer.ChannelID
+	startDataTransferError     error
+
 	startDataTransferCalls []dataTransferParams
-	providerDealState      *storagemarket.ProviderDealState
-	getDealStatusErr       error
-	pollingInterval        time.Duration
-	dealFunds              *tut.TestDealFunds
-	peerTagger             *tut.TestPeerTagger
+
+	restartDataTransferError error
+	restartDataTransferCalls []restartDataTransferParams
+
+	providerDealState *storagemarket.ProviderDealState
+	getDealStatusErr  error
+	pollingInterval   time.Duration
+	dealFunds         *tut.TestDealFunds
+	peerTagger        *tut.TestPeerTagger
 }
 
 type dataTransferParams struct {
@@ -633,14 +668,24 @@ type dataTransferParams struct {
 	selector ipld.Node
 }
 
-func (fe *fakeEnvironment) StartDataTransfer(_ context.Context, to peer.ID, voucher datatransfer.Voucher, baseCid cid.Cid, selector ipld.Node) error {
+type restartDataTransferParams struct {
+	channelId datatransfer.ChannelID
+}
+
+func (fe *fakeEnvironment) StartDataTransfer(_ context.Context, to peer.ID, voucher datatransfer.Voucher, baseCid cid.Cid, selector ipld.Node) (datatransfer.ChannelID, error) {
 	fe.startDataTransferCalls = append(fe.startDataTransferCalls, dataTransferParams{
 		to:       to,
 		voucher:  voucher,
 		baseCid:  baseCid,
 		selector: selector,
 	})
-	return fe.startDataTransferError
+	return fe.startDataTransferChannelId, fe.startDataTransferError
+}
+
+func (fe *fakeEnvironment) RestartDataTransfer(_ context.Context, channelId datatransfer.ChannelID) error {
+	fe.restartDataTransferCalls = append(fe.restartDataTransferCalls, restartDataTransferParams{channelId: channelId})
+
+	return fe.restartDataTransferError
 }
 
 func (fe *fakeEnvironment) Node() storagemarket.StorageClientNode {

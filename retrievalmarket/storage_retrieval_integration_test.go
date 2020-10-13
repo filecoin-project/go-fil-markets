@@ -35,7 +35,8 @@ import (
 
 func TestStorageRetrieval(t *testing.T) {
 	bgCtx := context.Background()
-	sh := testharness.NewHarness(t, bgCtx, true, testnodes.DelayFakeCommonNode{}, false)
+	sh := testharness.NewHarness(t, bgCtx, true, testnodes.DelayFakeCommonNode{},
+		testnodes.DelayFakeCommonNode{}, false)
 	shared_testutil.StartAndWaitForReady(bgCtx, t, sh.Client)
 	shared_testutil.StartAndWaitForReady(bgCtx, t, sh.Provider)
 

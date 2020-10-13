@@ -10,6 +10,7 @@ import (
 	"golang.org/x/xerrors"
 
 	"github.com/filecoin-project/go-address"
+	datatransfer "github.com/filecoin-project/go-data-transfer"
 	"github.com/filecoin-project/go-multistore"
 
 	"github.com/filecoin-project/go-fil-markets/filestore"
@@ -27,6 +28,11 @@ import (
 
 type providerDealEnvironment struct {
 	p *Provider
+}
+
+func (p *providerDealEnvironment) RestartDataTransfer(ctx context.Context, chID datatransfer.ChannelID) error {
+	return p.p.dataTransfer.RestartDataTransferChannel(ctx, chID)
+
 }
 
 func (p *providerDealEnvironment) Address() address.Address {

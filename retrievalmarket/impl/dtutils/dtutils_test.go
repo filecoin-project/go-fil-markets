@@ -6,6 +6,7 @@ import (
 	"math/rand"
 	"testing"
 
+	"github.com/ipfs/go-cid"
 	"github.com/ipld/go-ipld-prime"
 	peer "github.com/libp2p/go-libp2p-core/peer"
 	"github.com/stretchr/testify/require"
@@ -147,7 +148,7 @@ func TestClientDataTransferSubscriber(t *testing.T) {
 			ignored: true,
 		},
 		"progress": {
-			code: datatransfer.Progress,
+			code: datatransfer.DataReceived,
 			state: shared_testutil.TestChannelParams{
 				Vouchers: []datatransfer.Voucher{&dealProposal},
 				Status:   datatransfer.Ongoing,
@@ -433,7 +434,8 @@ func (fsg *fakeStoreGetter) Get(otherPeer peer.ID, dealID rm.DealID) (*multistor
 
 type fakeTransport struct{}
 
-func (ft *fakeTransport) OpenChannel(ctx context.Context, dataSender peer.ID, channelID datatransfer.ChannelID, root ipld.Link, stor ipld.Node, msg datatransfer.Message) error {
+func (ft *fakeTransport) OpenChannel(ctx context.Context, dataSender peer.ID, channelID datatransfer.ChannelID, root ipld.Link, stor ipld.Node,
+	doNotSend []cid.Cid, msg datatransfer.Message) error {
 	return nil
 }
 

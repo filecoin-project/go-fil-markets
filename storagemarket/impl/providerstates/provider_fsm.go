@@ -4,6 +4,7 @@ import (
 	"github.com/ipfs/go-cid"
 	"golang.org/x/xerrors"
 
+	datatransfer "github.com/filecoin-project/go-data-transfer"
 	"github.com/filecoin-project/go-state-types/abi"
 	"github.com/filecoin-project/go-state-types/big"
 	"github.com/filecoin-project/go-statemachine/fsm"
@@ -39,7 +40,27 @@ var ProviderEvents = fsm.Events{
 			return nil
 		}),
 	fsm.Event(storagemarket.ProviderEventDataTransferInitiated).
-		From(storagemarket.StorageDealWaitingForData).To(storagemarket.StorageDealTransferring),
+		From(storagemarket.StorageDealWaitingForData).To(storagemarket.StorageDealTransferring).
+		Action(func(deal *storagemarket.MinerDeal, channelId datatransfer.ChannelID) error {
+			deal.TransferChannelId = &channelId
+			return nil
+		}),
+
+	fsm.Event(storagemarket.ProviderEventDataTransferRestartFailed).
+		From(storagemarket.StorageDealProviderTransferRestart).To(storagemarket.StorageDealFailing).
+		Action(func(deal *storagemarket.MinerDeal, err error) error {
+			deal.Message = xerrors.Errorf("error restarting data transfer: %w", err).Error()
+			return nil
+		}),
+
+	fsm.Event(storagemarket.ProviderEventDataTransferRestarted).
+		FromMany(storagemarket.StorageDealWaitingForData, storagemarket.StorageDealProviderTransferRestart).To(storagemarket.StorageDealTransferring).
+		From(storagemarket.StorageDealTransferring).ToJustRecord().
+		Action(func(deal *storagemarket.MinerDeal, channelId datatransfer.ChannelID) error {
+			deal.TransferChannelId = &channelId
+			return nil
+		}),
+
 	fsm.Event(storagemarket.ProviderEventDataTransferCompleted).
 		From(storagemarket.StorageDealTransferring).To(storagemarket.StorageDealVerifyData),
 	fsm.Event(storagemarket.ProviderEventDataVerificationFailed).
@@ -144,6 +165,7 @@ var ProviderEvents = fsm.Events{
 	fsm.Event(storagemarket.ProviderEventFailed).From(storagemarket.StorageDealFailing).To(storagemarket.StorageDealError),
 	fsm.Event(storagemarket.ProviderEventRestart).
 		FromMany(storagemarket.StorageDealValidating, storagemarket.StorageDealAcceptWait, storagemarket.StorageDealRejecting).To(storagemarket.StorageDealError).
+		From(storagemarket.StorageDealTransferring).To(storagemarket.StorageDealProviderTransferRestart).
 		FromAny().ToNoChange(),
 
 	fsm.Event(storagemarket.ProviderEventTrackFundsFailed).
@@ -172,19 +194,20 @@ var ProviderEvents = fsm.Events{
 
 // ProviderStateEntryFuncs are the handlers for different states in a storage client
 var ProviderStateEntryFuncs = fsm.StateEntryFuncs{
-	storagemarket.StorageDealValidating:          ValidateDealProposal,
-	storagemarket.StorageDealAcceptWait:          DecideOnProposal,
-	storagemarket.StorageDealVerifyData:          VerifyData,
-	storagemarket.StorageDealEnsureProviderFunds: EnsureProviderFunds,
-	storagemarket.StorageDealProviderFunding:     WaitForFunding,
-	storagemarket.StorageDealPublish:             PublishDeal,
-	storagemarket.StorageDealPublishing:          WaitForPublish,
-	storagemarket.StorageDealStaged:              HandoffDeal,
-	storagemarket.StorageDealSealing:             VerifyDealActivated,
-	storagemarket.StorageDealRejecting:           RejectDeal,
-	storagemarket.StorageDealFinalizing:          CleanupDeal,
-	storagemarket.StorageDealActive:              WaitForDealCompletion,
-	storagemarket.StorageDealFailing:             FailDeal,
+	storagemarket.StorageDealValidating:              ValidateDealProposal,
+	storagemarket.StorageDealAcceptWait:              DecideOnProposal,
+	storagemarket.StorageDealVerifyData:              VerifyData,
+	storagemarket.StorageDealEnsureProviderFunds:     EnsureProviderFunds,
+	storagemarket.StorageDealProviderFunding:         WaitForFunding,
+	storagemarket.StorageDealPublish:                 PublishDeal,
+	storagemarket.StorageDealPublishing:              WaitForPublish,
+	storagemarket.StorageDealStaged:                  HandoffDeal,
+	storagemarket.StorageDealSealing:                 VerifyDealActivated,
+	storagemarket.StorageDealRejecting:               RejectDeal,
+	storagemarket.StorageDealFinalizing:              CleanupDeal,
+	storagemarket.StorageDealActive:                  WaitForDealCompletion,
+	storagemarket.StorageDealFailing:                 FailDeal,
+	storagemarket.StorageDealProviderTransferRestart: RestartDataTransfer,
 }
 
 // ProviderFinalityStates are the states that terminate deal processing for a deal.

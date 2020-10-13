@@ -82,6 +82,10 @@ func (tdt *TestDataTransfer) OpenPushDataChannel(ctx context.Context, to peer.ID
 	return datatransfer.ChannelID{}, nil
 }
 
+func (tdt *TestDataTransfer) RestartDataTransferChannel(ctx context.Context, chId datatransfer.ChannelID) error {
+	return nil
+}
+
 // OpenPullDataChannel does nothing
 func (tdt *TestDataTransfer) OpenPullDataChannel(ctx context.Context, to peer.ID, voucher datatransfer.Voucher, baseCid cid.Cid, selector ipld.Node) (datatransfer.ChannelID, error) {
 	return datatransfer.ChannelID{}, nil
@@ -121,6 +125,10 @@ func (tdt *TestDataTransfer) SubscribeToEvents(subscriber datatransfer.Subscribe
 // InProgressChannels returns empty
 func (tdt *TestDataTransfer) InProgressChannels(ctx context.Context) (map[datatransfer.ChannelID]datatransfer.ChannelState, error) {
 	return map[datatransfer.ChannelID]datatransfer.ChannelState{}, nil
+}
+
+func (tdt *TestDataTransfer) OnReady(f datatransfer.ReadyFunc) {
+
 }
 
 var _ datatransfer.Manager = new(TestDataTransfer)

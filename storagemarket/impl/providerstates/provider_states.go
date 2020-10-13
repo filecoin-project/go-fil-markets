@@ -11,8 +11,9 @@ import (
 	"golang.org/x/xerrors"
 
 	"github.com/filecoin-project/go-address"
+	datatransfer "github.com/filecoin-project/go-data-transfer"
 	"github.com/filecoin-project/go-multistore"
-	"github.com/filecoin-project/go-padreader"
+	padreader "github.com/filecoin-project/go-padreader"
 	"github.com/filecoin-project/go-state-types/abi"
 	"github.com/filecoin-project/go-state-types/big"
 	"github.com/filecoin-project/go-state-types/exitcode"
@@ -37,6 +38,7 @@ const DealMaxLabelSize = 256
 // ProviderDealEnvironment are the dependencies needed for processing deals
 // with a ProviderStateEntryFunc
 type ProviderDealEnvironment interface {
+	RestartDataTransfer(ctx context.Context, chID datatransfer.ChannelID) error
 	Address() address.Address
 	Node() storagemarket.StorageProviderNode
 	Ask() storagemarket.StorageAsk
@@ -198,7 +200,6 @@ func DecideOnProposal(ctx fsm.Context, environment ProviderDealEnvironment, deal
 // VerifyData verifies that data received for a deal matches the pieceCID
 // in the proposal
 func VerifyData(ctx fsm.Context, environment ProviderDealEnvironment, deal storagemarket.MinerDeal) error {
-
 	pieceCid, piecePath, metadataPath, err := environment.GeneratePieceCommitmentToFile(deal.StoreID, deal.Ref.Root, shared.AllSelector())
 	if err != nil {
 		return ctx.Trigger(storagemarket.ProviderEventDataVerificationFailed, xerrors.Errorf("error generating CommP: %w", err))
@@ -282,6 +283,30 @@ func PublishDeal(ctx fsm.Context, environment ProviderDealEnvironment, deal stor
 	}
 
 	return ctx.Trigger(storagemarket.ProviderEventDealPublishInitiated, mcid)
+}
+
+// RestartDataTransfer restarts a data transfer that was earlier initiated by the client
+func RestartDataTransfer(ctx fsm.Context, environment ProviderDealEnvironment, deal storagemarket.MinerDeal) error {
+	log.Infof("restarting data transfer for deal %s", deal.ProposalCid)
+
+	if deal.TransferChannelId == nil {
+		return ctx.Trigger(storagemarket.ProviderEventDataTransferRestartFailed, xerrors.New("channelId on provider deal is nil"))
+	}
+
+	// We need to do this in a goroutine as `environment.RestartDataTransfer` calls `GetSync` on the state machine under the hood
+	// and we should NEVER call `GetSync` in the call stack for a state handler as it causes a deadlock.
+	go func() {
+		// restart the push data transfer. This will complete asynchronously and the
+		// completion of the data transfer will trigger a change in deal state
+		err := environment.RestartDataTransfer(ctx.Context(),
+			*deal.TransferChannelId,
+		)
+		if err != nil {
+			ctx.Trigger(storagemarket.ProviderEventDataTransferRestartFailed, err)
+		}
+	}()
+
+	return nil
 }
 
 // WaitForPublish waits for the publish message on chain and sends the deal id back to the client

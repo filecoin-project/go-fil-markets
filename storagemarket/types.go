@@ -7,6 +7,7 @@ import (
 	cbg "github.com/whyrusleeping/cbor-gen"
 
 	"github.com/filecoin-project/go-address"
+	datatransfer "github.com/filecoin-project/go-data-transfer"
 	"github.com/filecoin-project/go-multistore"
 	"github.com/filecoin-project/go-state-types/abi"
 	"github.com/filecoin-project/go-state-types/crypto"
@@ -102,27 +103,30 @@ type MinerDeal struct {
 
 	DealID       abi.DealID
 	CreationTime cbg.CborTime
+
+	TransferChannelId *datatransfer.ChannelID
 }
 
 // ClientDeal is the local state tracked for a deal by a StorageClient
 type ClientDeal struct {
 	market.ClientDealProposal
-	ProposalCid    cid.Cid
-	AddFundsCid    *cid.Cid
-	State          StorageDealStatus
-	Miner          peer.ID
-	MinerWorker    address.Address
-	DealID         abi.DealID
-	DataRef        *DataRef
-	Message        string
-	PublishMessage *cid.Cid
-	SlashEpoch     abi.ChainEpoch
-	PollRetryCount uint64
-	PollErrorCount uint64
-	FastRetrieval  bool
-	StoreID        *multistore.StoreID
-	FundsReserved  abi.TokenAmount
-	CreationTime   cbg.CborTime
+	ProposalCid       cid.Cid
+	AddFundsCid       *cid.Cid
+	State             StorageDealStatus
+	Miner             peer.ID
+	MinerWorker       address.Address
+	DealID            abi.DealID
+	DataRef           *DataRef
+	Message           string
+	PublishMessage    *cid.Cid
+	SlashEpoch        abi.ChainEpoch
+	PollRetryCount    uint64
+	PollErrorCount    uint64
+	FastRetrieval     bool
+	StoreID           *multistore.StoreID
+	FundsReserved     abi.TokenAmount
+	CreationTime      cbg.CborTime
+	TransferChannelID *datatransfer.ChannelID
 }
 
 // StorageProviderInfo describes on chain information about a StorageProvider

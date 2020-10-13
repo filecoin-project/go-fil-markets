@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 
+	datatransfer "github.com/filecoin-project/go-data-transfer"
 	filestore "github.com/filecoin-project/go-fil-markets/filestore"
 	multistore "github.com/filecoin-project/go-multistore"
 	abi "github.com/filecoin-project/go-state-types/abi"
@@ -23,7 +24,7 @@ func (t *ClientDeal) MarshalCBOR(w io.Writer) error {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	if _, err := w.Write([]byte{177}); err != nil {
+	if _, err := w.Write([]byte{178}); err != nil {
 		return err
 	}
 
@@ -338,6 +339,22 @@ func (t *ClientDeal) MarshalCBOR(w io.Writer) error {
 	if err := t.CreationTime.MarshalCBOR(w); err != nil {
 		return err
 	}
+
+	// t.TransferChannelID (datatransfer.ChannelID) (struct)
+	if len("TransferChannelID") > cbg.MaxLength {
+		return xerrors.Errorf("Value in field \"TransferChannelID\" was too long")
+	}
+
+	if err := cbg.WriteMajorTypeHeaderBuf(scratch, w, cbg.MajTextString, uint64(len("TransferChannelID"))); err != nil {
+		return err
+	}
+	if _, err := io.WriteString(w, string("TransferChannelID")); err != nil {
+		return err
+	}
+
+	if err := t.TransferChannelID.MarshalCBOR(w); err != nil {
+		return err
+	}
 	return nil
 }
 
@@ -644,6 +661,26 @@ func (t *ClientDeal) UnmarshalCBOR(r io.Reader) error {
 				}
 
 			}
+			// t.TransferChannelID (datatransfer.ChannelID) (struct)
+		case "TransferChannelID":
+
+			{
+
+				b, err := br.ReadByte()
+				if err != nil {
+					return err
+				}
+				if b != cbg.CborNull[0] {
+					if err := br.UnreadByte(); err != nil {
+						return err
+					}
+					t.TransferChannelID = new(datatransfer.ChannelID)
+					if err := t.TransferChannelID.UnmarshalCBOR(br); err != nil {
+						return xerrors.Errorf("unmarshaling t.TransferChannelID pointer: %w", err)
+					}
+				}
+
+			}
 
 		default:
 			return fmt.Errorf("unknown struct field %d: '%s'", i, name)
@@ -657,7 +694,7 @@ func (t *MinerDeal) MarshalCBOR(w io.Writer) error {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	if _, err := w.Write([]byte{178}); err != nil {
+	if _, err := w.Write([]byte{179}); err != nil {
 		return err
 	}
 
@@ -1009,6 +1046,22 @@ func (t *MinerDeal) MarshalCBOR(w io.Writer) error {
 	if err := t.CreationTime.MarshalCBOR(w); err != nil {
 		return err
 	}
+
+	// t.TransferChannelId (datatransfer.ChannelID) (struct)
+	if len("TransferChannelId") > cbg.MaxLength {
+		return xerrors.Errorf("Value in field \"TransferChannelId\" was too long")
+	}
+
+	if err := cbg.WriteMajorTypeHeaderBuf(scratch, w, cbg.MajTextString, uint64(len("TransferChannelId"))); err != nil {
+		return err
+	}
+	if _, err := io.WriteString(w, string("TransferChannelId")); err != nil {
+		return err
+	}
+
+	if err := t.TransferChannelId.MarshalCBOR(w); err != nil {
+		return err
+	}
 	return nil
 }
 
@@ -1323,6 +1376,26 @@ func (t *MinerDeal) UnmarshalCBOR(r io.Reader) error {
 
 				if err := t.CreationTime.UnmarshalCBOR(br); err != nil {
 					return xerrors.Errorf("unmarshaling t.CreationTime: %w", err)
+				}
+
+			}
+			// t.TransferChannelId (datatransfer.ChannelID) (struct)
+		case "TransferChannelId":
+
+			{
+
+				b, err := br.ReadByte()
+				if err != nil {
+					return err
+				}
+				if b != cbg.CborNull[0] {
+					if err := br.UnreadByte(); err != nil {
+						return err
+					}
+					t.TransferChannelId = new(datatransfer.ChannelID)
+					if err := t.TransferChannelId.UnmarshalCBOR(br); err != nil {
+						return xerrors.Errorf("unmarshaling t.TransferChannelId pointer: %w", err)
+					}
 				}
 
 			}

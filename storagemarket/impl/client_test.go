@@ -31,6 +31,8 @@ import (
 	"github.com/filecoin-project/go-fil-markets/storagemarket/testnodes"
 )
 
+var noOpDelay = testnodes.DelayFakeCommonNode{}
+
 func TestClient_Configure(t *testing.T) {
 	c := &storageimpl.Client{}
 	assert.Equal(t, time.Duration(0), c.PollingInterval())
@@ -44,7 +46,8 @@ func TestClient_Migrations(t *testing.T) {
 	ctx := context.Background()
 	ctx, cancel := context.WithTimeout(ctx, 10*time.Second)
 	defer cancel()
-	deps := dependencies.NewDependenciesWithTestData(t, ctx, shared_testutil.NewLibp2pTestData(ctx, t), testnodes.NewStorageMarketState(), "", testnodes.DelayFakeCommonNode{})
+	deps := dependencies.NewDependenciesWithTestData(t, ctx, shared_testutil.NewLibp2pTestData(ctx, t), testnodes.NewStorageMarketState(), "", noOpDelay,
+		noOpDelay)
 
 	clientDs := namespace.Wrap(deps.TestData.Ds1, datastore.NewKey("/deals/client"))
 

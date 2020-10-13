@@ -29,7 +29,8 @@ var log = logging.Logger("storagemarket_impl")
 type ClientDealEnvironment interface {
 	Node() storagemarket.StorageClientNode
 	NewDealStream(ctx context.Context, p peer.ID) (network.StorageDealStream, error)
-	StartDataTransfer(ctx context.Context, to peer.ID, voucher datatransfer.Voucher, baseCid cid.Cid, selector ipld.Node) error
+	StartDataTransfer(ctx context.Context, to peer.ID, voucher datatransfer.Voucher, baseCid cid.Cid, selector ipld.Node) (datatransfer.ChannelID, error)
+	RestartDataTransfer(ctx context.Context, chid datatransfer.ChannelID) error
 	GetProviderDealState(ctx context.Context, proposalCid cid.Cid) (*storagemarket.ProviderDealState, error)
 	PollingInterval() time.Duration
 	DealFunds() funds.DealFunds
@@ -140,6 +141,22 @@ func ProposeDeal(ctx fsm.Context, environment ClientDealEnvironment, deal storag
 	return ctx.Trigger(storagemarket.ClientEventInitiateDataTransfer)
 }
 
+// RestartDataTransfer restarts a data transfer to the provider that was initiated earlier
+func RestartDataTransfer(ctx fsm.Context, environment ClientDealEnvironment, deal storagemarket.ClientDeal) error {
+	log.Infof("restarting data transfer for deal deal %s", deal.ProposalCid)
+
+	// restart the push data transfer. This will complete asynchronously and the
+	// completion of the data transfer will trigger a change in deal state
+	err := environment.RestartDataTransfer(ctx.Context(),
+		*deal.TransferChannelID,
+	)
+	if err != nil {
+		return ctx.Trigger(storagemarket.ClientEventDataTransferRestartFailed, err)
+	}
+
+	return nil
+}
+
 // InitiateDataTransfer initiates data transfer to the provider
 func InitiateDataTransfer(ctx fsm.Context, environment ClientDealEnvironment, deal storagemarket.ClientDeal) error {
 	if deal.DataRef.TransferType == storagemarket.TTManual {
@@ -151,7 +168,7 @@ func InitiateDataTransfer(ctx fsm.Context, environment ClientDealEnvironment, de
 
 	// initiate a push data transfer. This will complete asynchronously and the
 	// completion of the data transfer will trigger a change in deal state
-	err := environment.StartDataTransfer(ctx.Context(),
+	_, err := environment.StartDataTransfer(ctx.Context(),
 		deal.Miner,
 		&requestvalidation.StorageDataTransferVoucher{Proposal: deal.ProposalCid},
 		deal.DataRef.Root,
@@ -162,7 +179,7 @@ func InitiateDataTransfer(ctx fsm.Context, environment ClientDealEnvironment, de
 		return ctx.Trigger(storagemarket.ClientEventDataTransferFailed, xerrors.Errorf("failed to open push data channel: %w", err))
 	}
 
-	return ctx.Trigger(storagemarket.ClientEventDataTransferInitiated)
+	return nil
 }
 
 // CheckForDealAcceptance is run until the deal is sealed and published by the provider, or errors

@@ -10,6 +10,8 @@ import (
 	"github.com/ipfs/go-cid"
 	"github.com/ipfs/go-datastore"
 	"github.com/ipfs/go-datastore/namespace"
+	graphsyncimpl "github.com/ipfs/go-graphsync/impl"
+	"github.com/ipfs/go-graphsync/network"
 	"github.com/ipld/go-ipld-prime"
 	cidlink "github.com/ipld/go-ipld-prime/linking/cid"
 	basicnode "github.com/ipld/go-ipld-prime/node/basic"
@@ -19,6 +21,7 @@ import (
 
 	"github.com/filecoin-project/go-address"
 	dtimpl "github.com/filecoin-project/go-data-transfer/impl"
+	"github.com/filecoin-project/go-data-transfer/testutil"
 	dtgstransport "github.com/filecoin-project/go-data-transfer/transport/graphsync"
 	"github.com/filecoin-project/go-multistore"
 	"github.com/filecoin-project/go-state-types/abi"
@@ -97,10 +100,12 @@ func requireSetupTestClientAndProvider(ctx context.Context, t *testing.T, payChA
 		CreatePaychCID: cids[0],
 		AddFundsCID:    cids[1],
 	})
-	dtTransport1 := dtgstransport.NewTransport(testData.Host1.ID(), testData.GraphSync1)
+
+	gs1 := graphsyncimpl.New(ctx, network.NewFromLibp2pHost(testData.Host1), testData.Loader1, testData.Storer1)
+	dtTransport1 := dtgstransport.NewTransport(testData.Host1.ID(), gs1)
 	dt1, err := dtimpl.NewDataTransfer(testData.DTStore1, testData.DTNet1, dtTransport1, testData.DTStoredCounter1)
 	require.NoError(t, err)
-	err = dt1.Start(ctx)
+	testutil.StartAndWaitForReady(ctx, t, dt1)
 	require.NoError(t, err)
 	clientDs := namespace.Wrap(testData.Ds1, datastore.NewKey("/retrievals/client"))
 	client, err := retrievalimpl.NewClient(nw1, testData.MultiStore1, dt1, rcNode1, &tut.TestPeerResolver{}, clientDs, testData.RetrievalStoredCounter1)
@@ -135,10 +140,12 @@ func requireSetupTestClientAndProvider(ctx context.Context, t *testing.T, payChA
 	}
 
 	paymentAddress := address.TestAddress2
-	dtTransport2 := dtgstransport.NewTransport(testData.Host2.ID(), testData.GraphSync2)
+
+	gs2 := graphsyncimpl.New(ctx, network.NewFromLibp2pHost(testData.Host2), testData.Loader2, testData.Storer2)
+	dtTransport2 := dtgstransport.NewTransport(testData.Host2.ID(), gs2)
 	dt2, err := dtimpl.NewDataTransfer(testData.DTStore2, testData.DTNet2, dtTransport2, testData.DTStoredCounter2)
 	require.NoError(t, err)
-	err = dt2.Start(ctx)
+	testutil.StartAndWaitForReady(ctx, t, dt2)
 	require.NoError(t, err)
 	providerDs := namespace.Wrap(testData.Ds2, datastore.NewKey("/retrievals/provider"))
 	provider, err := retrievalimpl.NewProvider(paymentAddress, providerNode, nw2, pieceStore, testData.MultiStore2, dt2, providerDs)
@@ -589,10 +596,12 @@ func setupClient(
 		IntegrationTest:        true,
 		ChannelAvailableFunds:  channelAvailableFunds,
 	})
-	dtTransport1 := dtgstransport.NewTransport(testData.Host1.ID(), testData.GraphSync1)
+
+	gs1 := graphsyncimpl.New(ctx, network.NewFromLibp2pHost(testData.Host1), testData.Loader1, testData.Storer1)
+	dtTransport1 := dtgstransport.NewTransport(testData.Host1.ID(), gs1)
 	dt1, err := dtimpl.NewDataTransfer(testData.DTStore1, testData.DTNet1, dtTransport1, testData.DTStoredCounter1)
 	require.NoError(t, err)
-	err = dt1.Start(ctx)
+	testutil.StartAndWaitForReady(ctx, t, dt1)
 	require.NoError(t, err)
 	clientDs := namespace.Wrap(testData.Ds1, datastore.NewKey("/retrievals/client"))
 
@@ -624,10 +633,12 @@ func setupProvider(
 	}
 	pieceStore.ExpectCID(payloadCID, cidInfo)
 	pieceStore.ExpectPiece(expectedPiece, pieceInfo)
-	dtTransport2 := dtgstransport.NewTransport(testData.Host2.ID(), testData.GraphSync2)
+
+	gs2 := graphsyncimpl.New(ctx, network.NewFromLibp2pHost(testData.Host2), testData.Loader2, testData.Storer2)
+	dtTransport2 := dtgstransport.NewTransport(testData.Host2.ID(), gs2)
 	dt2, err := dtimpl.NewDataTransfer(testData.DTStore2, testData.DTNet2, dtTransport2, testData.DTStoredCounter2)
 	require.NoError(t, err)
-	err = dt2.Start(ctx)
+	testutil.StartAndWaitForReady(ctx, t, dt2)
 	require.NoError(t, err)
 	providerDs := namespace.Wrap(testData.Ds2, datastore.NewKey("/retrievals/provider"))
 

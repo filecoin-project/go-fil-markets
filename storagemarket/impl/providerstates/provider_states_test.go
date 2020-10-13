@@ -9,6 +9,7 @@ import (
 	"math/rand"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/ipfs/go-cid"
 	"github.com/ipld/go-ipld-prime"
@@ -18,6 +19,7 @@ import (
 	"golang.org/x/xerrors"
 
 	"github.com/filecoin-project/go-address"
+	datatransfer "github.com/filecoin-project/go-data-transfer"
 	"github.com/filecoin-project/go-multistore"
 	"github.com/filecoin-project/go-state-types/abi"
 	"github.com/filecoin-project/go-state-types/big"
@@ -487,6 +489,57 @@ func TestEnsureProviderFunds(t *testing.T) {
 	for test, data := range tests {
 		t.Run(test, func(t *testing.T) {
 			runEnsureProviderFunds(t, data.nodeParams, data.environmentParams, data.dealParams, data.fileStoreParams, data.pieceStoreParams, data.dealInspector)
+		})
+	}
+}
+
+func TestRestartDataTransfer(t *testing.T) {
+	channelId := datatransfer.ChannelID{Initiator: peer.ID("1"), Responder: peer.ID("2")}
+	ctx := context.Background()
+	eventProcessor, err := fsm.NewEventProcessor(storagemarket.MinerDeal{}, "State", providerstates.ProviderEvents)
+	require.NoError(t, err)
+	runRestartDataTransfer := makeExecutor(ctx, eventProcessor, providerstates.RestartDataTransfer, storagemarket.StorageDealProviderTransferRestart)
+	tests := map[string]struct {
+		nodeParams        nodeParams
+		dealParams        dealParams
+		environmentParams environmentParams
+		fileStoreParams   tut.TestFileStoreParams
+		pieceStoreParams  tut.TestPieceStoreParams
+		dealInspector     func(t *testing.T, deal storagemarket.MinerDeal, env *fakeEnvironment)
+	}{
+		"succeeds": {
+			dealParams: dealParams{
+				TransferChannelId: &channelId,
+			},
+			dealInspector: func(t *testing.T, deal storagemarket.MinerDeal, env *fakeEnvironment) {
+				require.Eventually(t, func() bool {
+					return len(env.restartDataTransferCalls) == 1
+				}, 5*time.Second, 200*time.Millisecond)
+				require.Equal(t, channelId, env.restartDataTransferCalls[0].chId)
+				tut.AssertDealState(t, storagemarket.StorageDealProviderTransferRestart, deal.State)
+			},
+		},
+		// TODO FIXME
+		/*"RestartDataTransfer errors": {
+			dealParams: dealParams{
+				TransferChannelId: &channelId,
+			},
+			environmentParams: environmentParams{
+				RestartDataTransferError: xerrors.New("some error"),
+			},
+			dealInspector: func(t *testing.T, deal storagemarket.MinerDeal, env *fakeEnvironment) {
+				require.Eventually(t, func() bool {
+					fmt.Printf("\n deal state is %s", storagemarket.DealStates[deal.State])
+					return deal.State == storagemarket.StorageDealFailing
+				}, 5*time.Second, 200*time.Millisecond)
+
+				require.Equal(t, "error restarting data transfer: some error", deal.Message)
+			},
+		},*/
+	}
+	for test, data := range tests {
+		t.Run(test, func(t *testing.T) {
+			runRestartDataTransfer(t, data.nodeParams, data.environmentParams, data.dealParams, data.fileStoreParams, data.pieceStoreParams, data.dealInspector)
 		})
 	}
 }
@@ -1066,24 +1119,26 @@ type dealParams struct {
 	FastRetrieval        bool
 	VerifiedDeal         bool
 	ReserveFunds         bool
+	TransferChannelId    *datatransfer.ChannelID
 	Label                string
 }
 
 type environmentParams struct {
-	Address                 address.Address
-	Ask                     storagemarket.StorageAsk
-	DataTransferError       error
-	PieceCid                cid.Cid
-	Path                    filestore.Path
-	MetadataPath            filestore.Path
-	GenerateCommPError      error
-	SendSignedResponseError error
-	DisconnectError         error
-	TagsProposal            bool
-	RejectDeal              bool
-	RejectReason            string
-	DecisionError           error
-	DeleteStoreError        error
+	Address                  address.Address
+	Ask                      storagemarket.StorageAsk
+	DataTransferError        error
+	PieceCid                 cid.Cid
+	Path                     filestore.Path
+	MetadataPath             filestore.Path
+	GenerateCommPError       error
+	SendSignedResponseError  error
+	DisconnectError          error
+	TagsProposal             bool
+	RejectDeal               bool
+	RejectReason             string
+	DecisionError            error
+	DeleteStoreError         error
+	RestartDataTransferError error
 }
 
 type executor func(t *testing.T,
@@ -1217,6 +1272,9 @@ func makeExecutor(ctx context.Context,
 		if dealParams.ReserveFunds {
 			dealState.FundsReserved = proposal.ProviderCollateral
 		}
+		if dealParams.TransferChannelId != nil {
+			dealState.TransferChannelId = dealParams.TransferChannelId
+		}
 
 		fs := tut.NewTestFileStore(fileStoreParams)
 		pieceStore := tut.NewTestPieceStoreWithParams(pieceStoreParams)
@@ -1245,6 +1303,8 @@ func makeExecutor(ctx context.Context,
 			pieceStore:              pieceStore,
 			dealFunds:               tut.NewTestDealFunds(),
 			peerTagger:              tut.NewTestPeerTagger(),
+
+			restartDataTransferError: params.RestartDataTransferError,
 		}
 		if environment.pieceCid == cid.Undef {
 			environment.pieceCid = defaultPieceCid
@@ -1274,6 +1334,10 @@ func makeExecutor(ctx context.Context,
 	}
 }
 
+type restartDataTransferCall struct {
+	chId datatransfer.ChannelID
+}
+
 type fakeEnvironment struct {
 	address                 address.Address
 	node                    *testnodes.FakeProviderNode
@@ -1296,6 +1360,14 @@ type fakeEnvironment struct {
 	receivedTags            map[string]struct{}
 	dealFunds               *tut.TestDealFunds
 	peerTagger              *tut.TestPeerTagger
+
+	restartDataTransferCalls []restartDataTransferCall
+	restartDataTransferError error
+}
+
+func (fe *fakeEnvironment) RestartDataTransfer(_ context.Context, chId datatransfer.ChannelID) error {
+	fe.restartDataTransferCalls = append(fe.restartDataTransferCalls, restartDataTransferCall{chId})
+	return fe.restartDataTransferError
 }
 
 func (fe *fakeEnvironment) Address() address.Address {

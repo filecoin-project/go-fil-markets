@@ -23,6 +23,8 @@ import (
 	"github.com/filecoin-project/go-fil-markets/storagemarket/testnodes"
 )
 
+var noOpDelay = testnodes.DelayFakeCommonNode{}
+
 func TestMakeDeal(t *testing.T) {
 	ctx := context.Background()
 	testCases := map[string]struct {
@@ -44,7 +46,7 @@ func TestMakeDeal(t *testing.T) {
 		t.Run(testCase, func(t *testing.T) {
 			ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
 			defer cancel()
-			h := testharness.NewHarness(t, ctx, data.useStore, testnodes.DelayFakeCommonNode{}, data.disableNewDeals)
+			h := testharness.NewHarness(t, ctx, data.useStore, noOpDelay, noOpDelay, data.disableNewDeals)
 			shared_testutil.StartAndWaitForReady(ctx, t, h.Provider)
 			shared_testutil.StartAndWaitForReady(ctx, t, h.Client)
 
@@ -176,7 +178,7 @@ func TestMakeDealOffline(t *testing.T) {
 	ctx := context.Background()
 	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
 	defer cancel()
-	h := testharness.NewHarness(t, ctx, true, testnodes.DelayFakeCommonNode{}, false)
+	h := testharness.NewHarness(t, ctx, true, noOpDelay, noOpDelay, false)
 	shared_testutil.StartAndWaitForReady(ctx, t, h.Provider)
 	shared_testutil.StartAndWaitForReady(ctx, t, h.Client)
 
@@ -243,7 +245,8 @@ func TestMakeDealNonBlocking(t *testing.T) {
 	ctx := context.Background()
 	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
 	defer cancel()
-	h := testharness.NewHarness(t, ctx, true, testnodes.DelayFakeCommonNode{}, false)
+	h := testharness.NewHarness(t, ctx, true, noOpDelay, noOpDelay, false)
+
 	testCids := shared_testutil.GenerateCids(2)
 
 	h.ProviderNode.WaitForMessageBlocks = true
@@ -270,69 +273,203 @@ func TestMakeDealNonBlocking(t *testing.T) {
 	// Provider should be blocking on waiting for funds to appear on chain
 	pd := providerDeals[0]
 	assert.Equal(t, result.ProposalCid, pd.ProposalCid)
-	shared_testutil.AssertDealState(t, storagemarket.StorageDealProviderFunding, pd.State)
+	require.Eventually(t, func() bool {
+		return pd.State == storagemarket.StorageDealProviderFunding
+	}, 1*time.Second, 100*time.Millisecond, "actual deal status is %s", storagemarket.DealStates[pd.State])
 }
 
+func TestRestartOnlyProviderDataTransfer(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping test in short mode")
+	}
+
+	ctx := context.Background()
+	ctx, cancel := context.WithTimeout(ctx, 30*time.Second)
+	defer cancel()
+	h := testharness.NewHarness(t, ctx, true, noOpDelay, noOpDelay, false)
+	client := h.Client
+	host1 := h.TestData.Host1
+	host2 := h.TestData.Host2
+
+	// start client and provider
+	shared_testutil.StartAndWaitForReady(ctx, t, h.Provider)
+	shared_testutil.StartAndWaitForReady(ctx, t, h.Client)
+
+	// set ask price where we'll accept any price
+	err := h.Provider.SetAsk(big.NewInt(0), big.NewInt(0), 50_000)
+	require.NoError(t, err)
+
+	// wait for provider to enter deal transferring state and stop
+	wg := sync.WaitGroup{}
+	wg.Add(1)
+	var providerState []storagemarket.MinerDeal
+	_ = h.Provider.SubscribeToEvents(func(event storagemarket.ProviderEvent, deal storagemarket.MinerDeal) {
+		if event == storagemarket.ProviderEventDataTransferInitiated {
+			ev := storagemarket.ProviderEvents[event]
+			t.Logf("event %s has happened on provider, shutting down provider", ev)
+			require.NoError(t, h.TestData.MockNet.UnlinkPeers(host1.ID(), host2.ID()))
+			require.NoError(t, h.TestData.MockNet.DisconnectPeers(host1.ID(), host2.ID()))
+			require.NoError(t, h.Provider.Stop())
+
+			// deal could have expired already on the provider side for the `ClientEventDealAccepted` event
+			// so, we should wait on the `ProviderEventDealExpired` event ONLY if the deal has not expired.
+			providerState, err = h.Provider.ListLocalDeals()
+			assert.NoError(t, err)
+			wg.Done()
+		}
+	})
+
+	result := h.ProposeStorageDeal(t, &storagemarket.DataRef{TransferType: storagemarket.TTGraphsync, Root: h.PayloadCid}, false, false)
+	proposalCid := result.ProposalCid
+	t.Log("storage deal proposed")
+
+	wg.Wait()
+	t.Log("provider has been shutdown the first time")
+
+	// Assert client state
+	cd, err := client.GetLocalDeal(ctx, proposalCid)
+	require.NoError(t, err)
+	t.Logf("client state after stopping is %s", storagemarket.DealStates[cd.State])
+	require.True(t, cd.State == storagemarket.StorageDealStartDataTransfer || cd.State == storagemarket.StorageDealTransferring)
+
+	// RESTART ONLY PROVIDER
+	h.CreateNewProvider(t, ctx, h.TestData, h.TempFilePath, false)
+
+	t.Logf("provider state after stopping is %s", storagemarket.DealStates[providerState[0].State])
+	require.Equal(t, storagemarket.StorageDealTransferring, providerState[0].State)
+
+	expireWg := sync.WaitGroup{}
+	expireWg.Add(1)
+	_ = h.Provider.SubscribeToEvents(func(event storagemarket.ProviderEvent, deal storagemarket.MinerDeal) {
+		if event == storagemarket.ProviderEventDealExpired {
+			expireWg.Done()
+		}
+	})
+
+	expireWg.Add(1)
+	_ = client.SubscribeToEvents(func(event storagemarket.ClientEvent, deal storagemarket.ClientDeal) {
+		if event == storagemarket.ClientEventDealExpired {
+			expireWg.Done()
+		}
+	})
+
+	// sleep so go-data-transfer gives up on retries after creating new connection
+	time.Sleep(15 * time.Second)
+	t.Log("finished sleeping")
+	require.NoError(t, h.TestData.MockNet.LinkAll())
+	time.Sleep(200 * time.Millisecond)
+	conn, err := h.TestData.MockNet.ConnectPeers(host1.ID(), host2.ID())
+	require.NoError(t, err)
+	require.NotNil(t, conn)
+	shared_testutil.StartAndWaitForReady(ctx, t, h.Provider)
+	t.Log("------- provider has been restarted---------")
+	expireWg.Wait()
+	t.Log("---------- finished waiting for expected events-------")
+
+	cd, err = client.GetLocalDeal(ctx, proposalCid)
+	require.NoError(t, err)
+	shared_testutil.AssertDealState(t, storagemarket.StorageDealExpired, cd.State)
+
+	providerDeals, err := h.Provider.ListLocalDeals()
+	require.NoError(t, err)
+
+	pd := providerDeals[0]
+	require.Equal(t, pd.ProposalCid, proposalCid)
+	shared_testutil.AssertDealState(t, storagemarket.StorageDealExpired, pd.State)
+}
+
+// FIXME Gets hung sometimes
 func TestRestartClient(t *testing.T) {
 	testCases := map[string]struct {
 		stopAtClientEvent   storagemarket.ClientEvent
 		stopAtProviderEvent storagemarket.ProviderEvent
-		fh                  func(h *testharness.StorageHarness)
+
+		expectedClientState storagemarket.StorageDealStatus
+		clientDelay         testnodes.DelayFakeCommonNode
+		providerDelay       testnodes.DelayFakeCommonNode
 	}{
-		"ClientEventFundsEnsured": {
-			stopAtClientEvent: storagemarket.ClientEventFundsEnsured,
-		},
-		"ClientEventInitiateDataTransfer": {
-			stopAtClientEvent: storagemarket.ClientEventInitiateDataTransfer,
-		},
+
 		"ClientEventDataTransferInitiated": {
-			stopAtClientEvent: storagemarket.ClientEventDataTransferInitiated,
+			// This test can fail if client crashes without seeing a Provider DT complete
+			// See https://github.com/filecoin-project/lotus/issues/3966
+			stopAtClientEvent:   storagemarket.ClientEventDataTransferInitiated,
+			expectedClientState: storagemarket.StorageDealTransferring,
+			clientDelay:         noOpDelay,
+			providerDelay:       noOpDelay,
 		},
+
 		"ClientEventDataTransferComplete": {
 			stopAtClientEvent:   storagemarket.ClientEventDataTransferComplete,
 			stopAtProviderEvent: storagemarket.ProviderEventDataTransferCompleted,
+			expectedClientState: storagemarket.StorageDealCheckForAcceptance,
 		},
-		"ClientEventDealAccepted": {
-			stopAtClientEvent: storagemarket.ClientEventDealAccepted,
+
+		"ClientEventFundsEnsured": {
+			//Edge case : Provider begins the state machine on recieving a deal stream request
+			//client crashes -> restarts -> sends deal stream again -> state machine fails
+			// See https://github.com/filecoin-project/lotus/issues/3966
+			stopAtClientEvent:   storagemarket.ClientEventFundsEnsured,
+			expectedClientState: storagemarket.StorageDealFundsEnsured,
+			clientDelay:         noOpDelay,
+			providerDelay:       noOpDelay,
 		},
-		"ClientEventDealActivated": {
-			stopAtClientEvent: storagemarket.ClientEventDealActivated,
-			fh: func(h *testharness.StorageHarness) {
-				h.DelayFakeCommonNode.OnDealSectorCommittedChan <- struct{}{}
-				h.DelayFakeCommonNode.OnDealSectorCommittedChan <- struct{}{}
-			},
+
+		// FIXME
+		"ClientEventInitiateDataTransfer": { // works well but sometimes state progresses beyond StorageDealStartDataTransfer
+			stopAtClientEvent:   storagemarket.ClientEventInitiateDataTransfer,
+			expectedClientState: storagemarket.StorageDealStartDataTransfer,
+			clientDelay:         noOpDelay,
+			providerDelay:       noOpDelay,
 		},
-		"ClientEventDealPublished": {
-			stopAtClientEvent: storagemarket.ClientEventDealPublished,
-			fh: func(h *testharness.StorageHarness) {
-				h.DelayFakeCommonNode.OnDealSectorCommittedChan <- struct{}{}
-				h.DelayFakeCommonNode.OnDealSectorCommittedChan <- struct{}{}
-			},
+
+		"ClientEventDealAccepted": { // works well
+			stopAtClientEvent:   storagemarket.ClientEventDealAccepted,
+			expectedClientState: storagemarket.StorageDealProposalAccepted,
+			clientDelay:         testnodes.DelayFakeCommonNode{ValidatePublishedDeal: true},
+			providerDelay:       testnodes.DelayFakeCommonNode{OnDealExpiredOrSlashed: true},
+		},
+
+		"ClientEventDealActivated": { // works well
+			stopAtClientEvent:   storagemarket.ClientEventDealActivated,
+			expectedClientState: storagemarket.StorageDealActive,
+			clientDelay:         testnodes.DelayFakeCommonNode{OnDealExpiredOrSlashed: true},
+			providerDelay:       testnodes.DelayFakeCommonNode{OnDealExpiredOrSlashed: true},
+		},
+
+		"ClientEventDealPublished": { // works well
+			stopAtClientEvent:   storagemarket.ClientEventDealPublished,
+			expectedClientState: storagemarket.StorageDealSealing,
+			clientDelay:         testnodes.DelayFakeCommonNode{OnDealSectorCommitted: true},
+			providerDelay:       testnodes.DelayFakeCommonNode{OnDealExpiredOrSlashed: true},
 		},
 	}
 
 	for name, tc := range testCases {
 		t.Run(name, func(t *testing.T) {
 			ctx := context.Background()
-			ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
+			ctx, cancel := context.WithTimeout(ctx, 50*time.Second)
 			defer cancel()
-			h := testharness.NewHarness(t, ctx, true, testnodes.DelayFakeCommonNode{OnDealExpiredOrSlashed: true,
-				OnDealSectorCommitted: true}, false)
+			h := testharness.NewHarness(t, ctx, true, tc.clientDelay, tc.providerDelay, false)
+			host1 := h.TestData.Host1
+			host2 := h.TestData.Host2
 
-			shared_testutil.StartAndWaitForReady(ctx, t, h.Provider)
 			shared_testutil.StartAndWaitForReady(ctx, t, h.Client)
+			shared_testutil.StartAndWaitForReady(ctx, t, h.Provider)
 
 			// set ask price where we'll accept any price
 			err := h.Provider.SetAsk(big.NewInt(0), big.NewInt(0), 50_000)
-			assert.NoError(t, err)
+			require.NoError(t, err)
 
 			wg := sync.WaitGroup{}
-
 			wg.Add(1)
 			var providerState []storagemarket.MinerDeal
 			_ = h.Client.SubscribeToEvents(func(event storagemarket.ClientEvent, deal storagemarket.ClientDeal) {
 				if event == tc.stopAtClientEvent {
-					// Stop the client
+					// Stop the client and provider at some point during deal negotiation
+					ev := storagemarket.ClientEvents[event]
+					t.Logf("event %s has happened on client, shutting down client and provider", ev)
+					require.NoError(t, h.TestData.MockNet.UnlinkPeers(host1.ID(), host2.ID()))
+					require.NoError(t, h.TestData.MockNet.DisconnectPeers(host1.ID(), host2.ID()))
 					require.NoError(t, h.Client.Stop())
 
 					// if a provider stop event isn't specified, just stop the provider here
@@ -362,19 +499,24 @@ func TestRestartClient(t *testing.T) {
 
 			result := h.ProposeStorageDeal(t, &storagemarket.DataRef{TransferType: storagemarket.TTGraphsync, Root: h.PayloadCid}, false, false)
 			proposalCid := result.ProposalCid
-
-			if tc.fh != nil {
-				tc.fh(h)
-			}
+			t.Log("storage deal proposed")
 
 			wg.Wait()
+			t.Log("both client and provider have been shutdown the first time")
 
 			cd, err := h.Client.GetLocalDeal(ctx, proposalCid)
-			assert.NoError(t, err)
-			if tc.stopAtClientEvent != storagemarket.ClientEventDealActivated && tc.stopAtClientEvent != storagemarket.ClientEventDealPublished {
-				assert.NotEqual(t, storagemarket.StorageDealActive, cd.State)
+			require.NoError(t, err)
+			t.Logf("client state after stopping is %s", storagemarket.DealStates[cd.State])
+			require.Equal(t, tc.expectedClientState, cd.State)
+
+			h = testharness.NewHarnessWithTestData(t, ctx, h.TestData, h.SMState, true, h.TempFilePath, noOpDelay, noOpDelay,
+				false)
+
+			if len(providerState) == 0 {
+				t.Log("no deal created on provider after stopping")
+			} else {
+				t.Logf("provider state after stopping is %s", storagemarket.DealStates[providerState[0].State])
 			}
-			h = testharness.NewHarnessWithTestData(t, ctx, h.TestData, h.SMState, true, h.TempFilePath, testnodes.DelayFakeCommonNode{}, false)
 
 			if len(providerState) == 0 || providerState[0].State != storagemarket.StorageDealExpired {
 				wg.Add(1)
@@ -384,7 +526,6 @@ func TestRestartClient(t *testing.T) {
 					}
 				})
 			}
-
 			wg.Add(1)
 			_ = h.Client.SubscribeToEvents(func(event storagemarket.ClientEvent, deal storagemarket.ClientDeal) {
 				if event == storagemarket.ClientEventDealExpired {
@@ -392,20 +533,26 @@ func TestRestartClient(t *testing.T) {
 				}
 			})
 
+			require.NoError(t, h.TestData.MockNet.LinkAll())
+			time.Sleep(200 * time.Millisecond)
+			conn, err := h.TestData.MockNet.ConnectPeers(host1.ID(), host2.ID())
+			require.NoError(t, err)
+			require.NotNil(t, conn)
 			shared_testutil.StartAndWaitForReady(ctx, t, h.Provider)
 			shared_testutil.StartAndWaitForReady(ctx, t, h.Client)
-
+			t.Log("------- client and provider have been restarted---------")
 			wg.Wait()
+			t.Log("---------- finished waiting for expected events-------")
 
 			cd, err = h.Client.GetLocalDeal(ctx, proposalCid)
-			assert.NoError(t, err)
+			require.NoError(t, err)
 			shared_testutil.AssertDealState(t, storagemarket.StorageDealExpired, cd.State)
 
 			providerDeals, err := h.Provider.ListLocalDeals()
-			assert.NoError(t, err)
+			require.NoError(t, err)
 
 			pd := providerDeals[0]
-			assert.Equal(t, pd.ProposalCid, proposalCid)
+			require.Equal(t, pd.ProposalCid, proposalCid)
 			shared_testutil.AssertDealState(t, storagemarket.StorageDealExpired, pd.State)
 		})
 	}

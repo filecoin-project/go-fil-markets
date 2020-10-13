@@ -18,6 +18,7 @@ stateDiagram-v2
 	state "StorageDealPublish" as 24
 	state "StorageDealPublishing" as 25
 	state "StorageDealError" as 26
+	state "StorageDealProviderTransferRestart" as 27
 	4 : On entry runs HandoffDeal
 	5 : On entry runs VerifyDealActivated
 	6 : On entry runs CleanupDeal
@@ -31,6 +32,7 @@ stateDiagram-v2
 	22 : On entry runs WaitForFunding
 	24 : On entry runs PublishDeal
 	25 : On entry runs WaitForPublish
+	27 : On entry runs RestartDataTransfer
 	[*] --> 0
 	note right of 0
 		The following events are not shown cause they can trigger from any state.
@@ -47,6 +49,9 @@ stateDiagram-v2
 	15 --> 18 : ProviderEventDataRequested
 	17 --> 11 : ProviderEventDataTransferFailed
 	18 --> 17 : ProviderEventDataTransferInitiated
+	27 --> 11 : ProviderEventDataTransferRestartFailed
+	18 --> 17 : ProviderEventDataTransferRestarted
+	27 --> 17 : ProviderEventDataTransferRestarted
 	17 --> 19 : ProviderEventDataTransferCompleted
 	19 --> 11 : ProviderEventDataVerificationFailed
 	18 --> 20 : ProviderEventVerifiedData
@@ -75,12 +80,16 @@ stateDiagram-v2
 	10 --> 26 : ProviderEventRestart
 	14 --> 26 : ProviderEventRestart
 	15 --> 26 : ProviderEventRestart
+	17 --> 27 : ProviderEventRestart
 	20 --> 11 : ProviderEventTrackFundsFailed
 
 	note left of 4 : The following events only record in this state.<br><br>ProviderEventPieceStoreErrored
 
 
 	note left of 11 : The following events only record in this state.<br><br>ProviderEventFundsReleased
+
+
+	note left of 17 : The following events only record in this state.<br><br>ProviderEventDataTransferRestarted
 
 
 	note left of 20 : The following events only record in this state.<br><br>ProviderEventFundsReserved

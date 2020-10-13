@@ -21,6 +21,10 @@ import (
 )
 
 func TestProviderDataTransferSubscriber(t *testing.T) {
+	ps := shared_testutil.GeneratePeers(2)
+	init := ps[0]
+	resp := ps[1]
+	tid := datatransfer.TransferID(1)
 	expectedProposalCID := shared_testutil.GenerateCids(1)[0]
 	tests := map[string]struct {
 		code          datatransfer.EventCode
@@ -45,6 +49,18 @@ func TestProviderDataTransferSubscriber(t *testing.T) {
 			},
 			expectedID:    expectedProposalCID,
 			expectedEvent: storagemarket.ProviderEventDataTransferInitiated,
+			expectedArgs:  []interface{}{datatransfer.ChannelID{Initiator: init, Responder: resp, ID: tid}},
+		},
+		"restart event": {
+			code:   datatransfer.Restart,
+			status: datatransfer.Ongoing,
+			called: true,
+			voucher: &requestvalidation.StorageDataTransferVoucher{
+				Proposal: expectedProposalCID,
+			},
+			expectedID:    expectedProposalCID,
+			expectedEvent: storagemarket.ProviderEventDataTransferRestarted,
+			expectedArgs:  []interface{}{datatransfer.ChannelID{Initiator: init, Responder: resp, ID: tid}},
 		},
 		"completion status": {
 			code:   datatransfer.Complete,
@@ -55,6 +71,15 @@ func TestProviderDataTransferSubscriber(t *testing.T) {
 			},
 			expectedID:    expectedProposalCID,
 			expectedEvent: storagemarket.ProviderEventDataTransferCompleted,
+		},
+		"data received": {
+			code:   datatransfer.DataReceived,
+			status: datatransfer.Ongoing,
+			called: false,
+			voucher: &requestvalidation.StorageDataTransferVoucher{
+				Proposal: expectedProposalCID,
+			},
+			expectedID: expectedProposalCID,
 		},
 		"error event": {
 			code:    datatransfer.Error,
@@ -69,7 +94,7 @@ func TestProviderDataTransferSubscriber(t *testing.T) {
 			expectedArgs:  []interface{}{errors.New("deal data transfer failed: something went wrong")},
 		},
 		"other event": {
-			code:   datatransfer.Progress,
+			code:   datatransfer.DataSent,
 			status: datatransfer.Ongoing,
 			called: false,
 			voucher: &requestvalidation.StorageDataTransferVoucher{
@@ -82,7 +107,8 @@ func TestProviderDataTransferSubscriber(t *testing.T) {
 			fdg := &fakeDealGroup{}
 			subscriber := dtutils.ProviderDataTransferSubscriber(fdg)
 			subscriber(datatransfer.Event{Code: data.code, Message: data.message}, shared_testutil.NewTestChannel(
-				shared_testutil.TestChannelParams{Vouchers: []datatransfer.Voucher{data.voucher}, Status: data.status},
+				shared_testutil.TestChannelParams{Vouchers: []datatransfer.Voucher{data.voucher}, Status: data.status,
+					Sender: init, Recipient: resp, TransferID: tid, IsPull: false},
 			))
 			if data.called {
 				require.True(t, fdg.called)
@@ -97,6 +123,11 @@ func TestProviderDataTransferSubscriber(t *testing.T) {
 }
 
 func TestClientDataTransferSubscriber(t *testing.T) {
+	ps := shared_testutil.GeneratePeers(2)
+	init := ps[0]
+	resp := ps[1]
+	tid := datatransfer.TransferID(1)
+
 	expectedProposalCID := shared_testutil.GenerateCids(1)[0]
 	tests := map[string]struct {
 		code          datatransfer.EventCode
@@ -122,6 +153,28 @@ func TestClientDataTransferSubscriber(t *testing.T) {
 			expectedID:    expectedProposalCID,
 			expectedEvent: storagemarket.ClientEventDataTransferComplete,
 		},
+		"restart event": {
+			code:   datatransfer.Restart,
+			status: datatransfer.Ongoing,
+			called: true,
+			voucher: &requestvalidation.StorageDataTransferVoucher{
+				Proposal: expectedProposalCID,
+			},
+			expectedID:    expectedProposalCID,
+			expectedEvent: storagemarket.ClientEventDataTransferRestarted,
+			expectedArgs:  []interface{}{datatransfer.ChannelID{Initiator: init, Responder: resp, ID: tid}},
+		},
+		"accept event": {
+			code:   datatransfer.Accept,
+			status: datatransfer.Requested,
+			called: true,
+			voucher: &requestvalidation.StorageDataTransferVoucher{
+				Proposal: expectedProposalCID,
+			},
+			expectedID:    expectedProposalCID,
+			expectedEvent: storagemarket.ClientEventDataTransferInitiated,
+			expectedArgs:  []interface{}{datatransfer.ChannelID{Initiator: init, Responder: resp, ID: tid}},
+		},
 		"error event": {
 			code:    datatransfer.Error,
 			message: "something went wrong",
@@ -135,7 +188,7 @@ func TestClientDataTransferSubscriber(t *testing.T) {
 			expectedArgs:  []interface{}{errors.New("deal data transfer failed: something went wrong")},
 		},
 		"other event": {
-			code:   datatransfer.Progress,
+			code:   datatransfer.DataReceived,
 			status: datatransfer.Ongoing,
 			called: false,
 			voucher: &requestvalidation.StorageDataTransferVoucher{
@@ -143,12 +196,14 @@ func TestClientDataTransferSubscriber(t *testing.T) {
 			},
 		},
 	}
+
 	for test, data := range tests {
 		t.Run(test, func(t *testing.T) {
 			fdg := &fakeDealGroup{}
 			subscriber := dtutils.ClientDataTransferSubscriber(fdg)
 			subscriber(datatransfer.Event{Code: data.code, Message: data.message}, shared_testutil.NewTestChannel(
-				shared_testutil.TestChannelParams{Vouchers: []datatransfer.Voucher{data.voucher}, Status: data.status},
+				shared_testutil.TestChannelParams{Vouchers: []datatransfer.Voucher{data.voucher}, Status: data.status,
+					Sender: init, Recipient: resp, TransferID: tid, IsPull: false},
 			))
 			if data.called {
 				require.True(t, fdg.called)
@@ -260,7 +315,7 @@ func (fsg *fakeStoreGetter) Get(proposalCid cid.Cid) (*multistore.Store, error) 
 
 type fakeTransport struct{}
 
-func (ft *fakeTransport) OpenChannel(ctx context.Context, dataSender peer.ID, channelID datatransfer.ChannelID, root ipld.Link, stor ipld.Node, msg datatransfer.Message) error {
+func (ft *fakeTransport) OpenChannel(ctx context.Context, dataSender peer.ID, channelID datatransfer.ChannelID, root ipld.Link, stor ipld.Node, doNotSend []cid.Cid, msg datatransfer.Message) error {
 	return nil
 }
 

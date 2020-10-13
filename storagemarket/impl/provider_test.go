@@ -47,7 +47,8 @@ func TestProvider_Migrations(t *testing.T) {
 	ctx := context.Background()
 	ctx, cancel := context.WithTimeout(ctx, 10*time.Second)
 	defer cancel()
-	deps := dependencies.NewDependenciesWithTestData(t, ctx, shared_testutil.NewLibp2pTestData(ctx, t), testnodes.NewStorageMarketState(), "", testnodes.DelayFakeCommonNode{})
+	deps := dependencies.NewDependenciesWithTestData(t, ctx, shared_testutil.NewLibp2pTestData(ctx, t), testnodes.NewStorageMarketState(), "",
+		noOpDelay, noOpDelay)
 
 	providerDs := namespace.Wrap(deps.TestData.Ds1, datastore.NewKey("/deals/provider"))
 
@@ -184,7 +185,8 @@ func TestHandleDealStream(t *testing.T) {
 
 		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel()
-		deps := dependencies.NewDependenciesWithTestData(t, ctx, shared_testutil.NewLibp2pTestData(ctx, t), testnodes.NewStorageMarketState(), "", testnodes.DelayFakeCommonNode{})
+		deps := dependencies.NewDependenciesWithTestData(t, ctx, shared_testutil.NewLibp2pTestData(ctx, t), testnodes.NewStorageMarketState(), "",
+			noOpDelay, noOpDelay)
 		var providerDs datastore.Batching = namespace.Wrap(deps.TestData.Ds1, datastore.NewKey("/deals/provider"))
 		namespaced := shared_testutil.DatastoreAtVersion(t, providerDs, "1")
 
