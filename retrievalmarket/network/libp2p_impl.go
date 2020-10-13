@@ -107,8 +107,13 @@ func (impl *libp2pRetrievalMarketNetwork) openStream(ctx context.Context, id pee
 		if nAttempts == impl.maxStreamOpenAttempts {
 			return nil, xerrors.Errorf("exhausted %d attempts but failed to open stream, err: %w", int(impl.maxStreamOpenAttempts), err)
 		}
-		d := b.Duration()
-		time.Sleep(d)
+		ebt := time.NewTimer(b.Duration())
+		select {
+		case <-ctx.Done():
+			ebt.Stop()
+			return nil, xerrors.Errorf("backoff canceled by context")
+		case <-ebt.C:
+		}
 	}
 }
 
