@@ -561,6 +561,7 @@ func makeExecutor(ctx context.Context,
 		assert.NoError(t, err)
 		dealState.AddFundsCid = &tut.GenerateCids(1)[0]
 		dealState.FastRetrieval = dealParams.fastRetrieval
+		dealState.TransferChannelID = &datatransfer.ChannelID{}
 
 		if dealParams.addFundsCid != nil {
 			dealState.AddFundsCid = dealParams.addFundsCid

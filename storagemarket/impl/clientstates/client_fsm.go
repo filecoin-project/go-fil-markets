@@ -91,13 +91,17 @@ var ClientEvents = fsm.Events{
 	fsm.Event(storagemarket.ClientEventDataTransferInitiated).
 		FromMany(storagemarket.StorageDealStartDataTransfer).To(storagemarket.StorageDealTransferring).
 		Action(func(deal *storagemarket.ClientDeal, channelId datatransfer.ChannelID) error {
-			deal.TransferChannelID = channelId
+			deal.TransferChannelID = &channelId
 			return nil
 		}),
 
 	fsm.Event(storagemarket.ClientEventDataTransferRestarted).
 		FromMany(storagemarket.StorageDealClientTransferRestart, storagemarket.StorageDealStartDataTransfer).To(storagemarket.StorageDealTransferring).
-		From(storagemarket.StorageDealTransferring).ToJustRecord(),
+		From(storagemarket.StorageDealTransferring).ToJustRecord().
+		Action(func(deal *storagemarket.ClientDeal, channelId datatransfer.ChannelID) error {
+			deal.TransferChannelID = &channelId
+			return nil
+		}),
 
 	fsm.Event(storagemarket.ClientEventDataTransferComplete).
 		FromMany(storagemarket.StorageDealTransferring, storagemarket.StorageDealStartDataTransfer).To(storagemarket.StorageDealCheckForAcceptance),

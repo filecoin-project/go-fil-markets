@@ -55,7 +55,11 @@ var ProviderEvents = fsm.Events{
 
 	fsm.Event(storagemarket.ProviderEventDataTransferRestarted).
 		FromMany(storagemarket.StorageDealWaitingForData, storagemarket.StorageDealProviderTransferRestart).To(storagemarket.StorageDealTransferring).
-		From(storagemarket.StorageDealTransferring).ToJustRecord(),
+		From(storagemarket.StorageDealTransferring).ToJustRecord().
+		Action(func(deal *storagemarket.MinerDeal, channelId datatransfer.ChannelID) error {
+			deal.TransferChannelId = &channelId
+			return nil
+		}),
 
 	fsm.Event(storagemarket.ProviderEventDataTransferCompleted).
 		From(storagemarket.StorageDealTransferring).To(storagemarket.StorageDealVerifyData),

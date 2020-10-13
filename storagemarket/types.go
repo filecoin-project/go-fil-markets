@@ -126,7 +126,7 @@ type ClientDeal struct {
 	StoreID           *multistore.StoreID
 	FundsReserved     abi.TokenAmount
 	CreationTime      cbg.CborTime
-	TransferChannelID datatransfer.ChannelID
+	TransferChannelID *datatransfer.ChannelID
 }
 
 // StorageProviderInfo describes on chain information about a StorageProvider

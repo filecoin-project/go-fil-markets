@@ -60,6 +60,7 @@ func TestProviderDataTransferSubscriber(t *testing.T) {
 			},
 			expectedID:    expectedProposalCID,
 			expectedEvent: storagemarket.ProviderEventDataTransferRestarted,
+			expectedArgs:  []interface{}{datatransfer.ChannelID{Initiator: init, Responder: resp, ID: tid}},
 		},
 		"completion status": {
 			code:   datatransfer.Complete,
@@ -161,6 +162,7 @@ func TestClientDataTransferSubscriber(t *testing.T) {
 			},
 			expectedID:    expectedProposalCID,
 			expectedEvent: storagemarket.ClientEventDataTransferRestarted,
+			expectedArgs:  []interface{}{datatransfer.ChannelID{Initiator: init, Responder: resp, ID: tid}},
 		},
 		"accept event": {
 			code:   datatransfer.Accept,

@@ -666,8 +666,18 @@ func (t *ClientDeal) UnmarshalCBOR(r io.Reader) error {
 
 			{
 
-				if err := t.TransferChannelID.UnmarshalCBOR(br); err != nil {
-					return xerrors.Errorf("unmarshaling t.TransferChannelID: %w", err)
+				b, err := br.ReadByte()
+				if err != nil {
+					return err
+				}
+				if b != cbg.CborNull[0] {
+					if err := br.UnreadByte(); err != nil {
+						return err
+					}
+					t.TransferChannelID = new(datatransfer.ChannelID)
+					if err := t.TransferChannelID.UnmarshalCBOR(br); err != nil {
+						return xerrors.Errorf("unmarshaling t.TransferChannelID pointer: %w", err)
+					}
 				}
 
 			}

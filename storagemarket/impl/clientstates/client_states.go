@@ -148,7 +148,7 @@ func RestartDataTransfer(ctx fsm.Context, environment ClientDealEnvironment, dea
 	// restart the push data transfer. This will complete asynchronously and the
 	// completion of the data transfer will trigger a change in deal state
 	err := environment.RestartDataTransfer(ctx.Context(),
-		deal.TransferChannelID,
+		*deal.TransferChannelID,
 	)
 	if err != nil {
 		return ctx.Trigger(storagemarket.ClientEventDataTransferRestartFailed, err)
