@@ -10,10 +10,10 @@ stateDiagram-v2
 	state "StorageDealCheckForAcceptance" as 13
 	state "StorageDealStartDataTransfer" as 16
 	state "StorageDealTransferring" as 17
-	state "StorageDealClientTransferRestart" as 19
-	state "StorageDealEnsureClientFunds" as 23
-	state "StorageDealClientFunding" as 25
-	state "StorageDealError" as 28
+	state "StorageDealEnsureClientFunds" as 21
+	state "StorageDealClientFunding" as 23
+	state "StorageDealError" as 26
+	state "StorageDealClientTransferRestart" as 28
 	3 : On entry runs ValidateDealPublished
 	5 : On entry runs VerifyDealActivated
 	7 : On entry runs WaitForDealCompletion
@@ -21,9 +21,9 @@ stateDiagram-v2
 	12 : On entry runs ProposeDeal
 	13 : On entry runs CheckForDealAcceptance
 	16 : On entry runs InitiateDataTransfer
-	19 : On entry runs RestartDataTransfer
-	23 : On entry runs EnsureClientFunds
-	25 : On entry runs WaitForFunding
+	21 : On entry runs EnsureClientFunds
+	23 : On entry runs WaitForFunding
+	28 : On entry runs RestartDataTransfer
 	[*] --> 0
 	note right of 0
 		The following events are not shown cause they can trigger from any state.
@@ -31,38 +31,38 @@ stateDiagram-v2
 		ClientEventStreamCloseError - transitions state to StorageDealError
 		ClientEventRestart - does not transition state
 	end note
-	0 --> 23 : ClientEventOpen
-	23 --> 25 : ClientEventFundingInitiated
+	0 --> 21 : ClientEventOpen
+	21 --> 23 : ClientEventFundingInitiated
+	21 --> 11 : ClientEventEnsureFundsFailed
 	23 --> 11 : ClientEventEnsureFundsFailed
-	25 --> 11 : ClientEventEnsureFundsFailed
+	21 --> 12 : ClientEventFundsEnsured
 	23 --> 12 : ClientEventFundsEnsured
-	25 --> 12 : ClientEventFundsEnsured
-	12 --> 28 : ClientEventWriteProposalFailed
+	12 --> 26 : ClientEventWriteProposalFailed
 	12 --> 11 : ClientEventReadResponseFailed
 	12 --> 11 : ClientEventResponseVerificationFailed
 	12 --> 16 : ClientEventInitiateDataTransfer
 	12 --> 11 : ClientEventUnexpectedDealState
 	16 --> 11 : ClientEventDataTransferFailed
 	17 --> 11 : ClientEventDataTransferFailed
-	19 --> 11 : ClientEventDataTransferRestartFailed
+	28 --> 11 : ClientEventDataTransferRestartFailed
 	16 --> 17 : ClientEventDataTransferInitiated
 	16 --> 17 : ClientEventDataTransferRestarted
-	19 --> 17 : ClientEventDataTransferRestarted
+	28 --> 17 : ClientEventDataTransferRestarted
 	16 --> 13 : ClientEventDataTransferComplete
 	17 --> 13 : ClientEventDataTransferComplete
 	13 --> 13 : ClientEventWaitForDealState
 	13 --> 11 : ClientEventResponseDealDidNotMatch
 	13 --> 11 : ClientEventDealRejected
 	13 --> 3 : ClientEventDealAccepted
-	3 --> 28 : ClientEventDealPublishFailed
+	3 --> 26 : ClientEventDealPublishFailed
 	3 --> 5 : ClientEventDealPublished
-	5 --> 28 : ClientEventDealActivationFailed
+	5 --> 26 : ClientEventDealActivationFailed
 	5 --> 7 : ClientEventDealActivated
 	7 --> 9 : ClientEventDealSlashed
 	7 --> 8 : ClientEventDealExpired
-	7 --> 28 : ClientEventDealCompletionFailed
-	11 --> 28 : ClientEventFailed
-	17 --> 19 : ClientEventRestart
+	7 --> 26 : ClientEventDealCompletionFailed
+	11 --> 26 : ClientEventFailed
+	17 --> 28 : ClientEventRestart
 
 	note left of 3 : The following events only record in this state.<br><br>ClientEventFundsReleased
 
@@ -73,8 +73,8 @@ stateDiagram-v2
 	note left of 17 : The following events only record in this state.<br><br>ClientEventDataTransferRestarted
 
 
-	note left of 23 : The following events only record in this state.<br><br>ClientEventFundsReserved
+	note left of 21 : The following events only record in this state.<br><br>ClientEventFundsReserved
 
 	9 --> [*]
 	8 --> [*]
-	28 --> [*]
+	26 --> [*]

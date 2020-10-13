@@ -292,8 +292,8 @@ func TestRestartOnlyProviderDataTransfer(t *testing.T) {
 	host2 := h.TestData.Host2
 
 	// start client and provider
-	require.NoError(t, h.Provider.Start(ctx))
-	require.NoError(t, client.Start(ctx))
+	shared_testutil.StartAndWaitForReady(ctx, t, h.Provider)
+	shared_testutil.StartAndWaitForReady(ctx, t, h.Client)
 
 	// set ask price where we'll accept any price
 	err := h.Provider.SetAsk(big.NewInt(0), big.NewInt(0), 50_000)
@@ -302,6 +302,7 @@ func TestRestartOnlyProviderDataTransfer(t *testing.T) {
 	// wait for provider to enter deal transferring state and stop
 	wg := sync.WaitGroup{}
 	wg.Add(1)
+	var providerState []storagemarket.MinerDeal
 	_ = h.Provider.SubscribeToEvents(func(event storagemarket.ProviderEvent, deal storagemarket.MinerDeal) {
 		if event == storagemarket.ProviderEventDataTransferInitiated {
 			ev := storagemarket.ProviderEvents[event]
@@ -309,6 +310,11 @@ func TestRestartOnlyProviderDataTransfer(t *testing.T) {
 			require.NoError(t, h.TestData.MockNet.UnlinkPeers(host1.ID(), host2.ID()))
 			require.NoError(t, h.TestData.MockNet.DisconnectPeers(host1.ID(), host2.ID()))
 			require.NoError(t, h.Provider.Stop())
+
+			// deal could have expired already on the provider side for the `ClientEventDealAccepted` event
+			// so, we should wait on the `ProviderEventDealExpired` event ONLY if the deal has not expired.
+			providerState, err = h.Provider.ListLocalDeals()
+			assert.NoError(t, err)
 			wg.Done()
 		}
 	})
@@ -328,10 +334,9 @@ func TestRestartOnlyProviderDataTransfer(t *testing.T) {
 
 	// RESTART ONLY PROVIDER
 	h.CreateNewProvider(t, ctx, h.TestData, h.TempFilePath, false)
-	pds, err := h.Provider.ListLocalDeals()
-	require.NoError(t, err)
-	t.Logf("provider state after stopping is %s", storagemarket.DealStates[pds[0].State])
-	require.Equal(t, storagemarket.StorageDealTransferring, pds[0].State)
+
+	t.Logf("provider state after stopping is %s", storagemarket.DealStates[providerState[0].State])
+	require.Equal(t, storagemarket.StorageDealTransferring, providerState[0].State)
 
 	expireWg := sync.WaitGroup{}
 	expireWg.Add(1)
@@ -356,7 +361,7 @@ func TestRestartOnlyProviderDataTransfer(t *testing.T) {
 	conn, err := h.TestData.MockNet.ConnectPeers(host1.ID(), host2.ID())
 	require.NoError(t, err)
 	require.NotNil(t, conn)
-	require.NoError(t, h.Provider.Start(ctx))
+	shared_testutil.StartAndWaitForReady(ctx, t, h.Provider)
 	t.Log("------- provider has been restarted---------")
 	expireWg.Wait()
 	t.Log("---------- finished waiting for expected events-------")
@@ -448,8 +453,8 @@ func TestRestartClient(t *testing.T) {
 			host1 := h.TestData.Host1
 			host2 := h.TestData.Host2
 
-			require.NoError(t, h.Provider.Start(ctx))
-			require.NoError(t, h.Client.Start(ctx))
+			shared_testutil.StartAndWaitForReady(ctx, t, h.Client)
+			shared_testutil.StartAndWaitForReady(ctx, t, h.Provider)
 
 			// set ask price where we'll accept any price
 			err := h.Provider.SetAsk(big.NewInt(0), big.NewInt(0), 50_000)
@@ -457,6 +462,7 @@ func TestRestartClient(t *testing.T) {
 
 			wg := sync.WaitGroup{}
 			wg.Add(1)
+			var providerState []storagemarket.MinerDeal
 			_ = h.Client.SubscribeToEvents(func(event storagemarket.ClientEvent, deal storagemarket.ClientDeal) {
 				if event == tc.stopAtClientEvent {
 					// Stop the client and provider at some point during deal negotiation
@@ -471,6 +477,10 @@ func TestRestartClient(t *testing.T) {
 						require.NoError(t, h.Provider.Stop())
 					}
 
+					// deal could have expired already on the provider side for the `ClientEventDealAccepted` event
+					// so, we should wait on the `ProviderEventDealExpired` event ONLY if the deal has not expired.
+					providerState, err = h.Provider.ListLocalDeals()
+					assert.NoError(t, err)
 					wg.Done()
 				}
 			})
@@ -502,21 +512,20 @@ func TestRestartClient(t *testing.T) {
 			h = testharness.NewHarnessWithTestData(t, ctx, h.TestData, h.SMState, true, h.TempFilePath, noOpDelay, noOpDelay,
 				false)
 
-			pds, err := h.Provider.ListLocalDeals()
-			require.NoError(t, err)
-			if len(pds) == 0 {
+			if len(providerState) == 0 {
 				t.Log("no deal created on provider after stopping")
 			} else {
-				t.Logf("provider state after stopping is %s", storagemarket.DealStates[pds[0].State])
+				t.Logf("provider state after stopping is %s", storagemarket.DealStates[providerState[0].State])
 			}
 
-			wg.Add(1)
-			_ = h.Provider.SubscribeToEvents(func(event storagemarket.ProviderEvent, deal storagemarket.MinerDeal) {
-				if event == storagemarket.ProviderEventDealExpired {
-					wg.Done()
-				}
-			})
-
+			if len(providerState) == 0 || providerState[0].State != storagemarket.StorageDealExpired {
+				wg.Add(1)
+				_ = h.Provider.SubscribeToEvents(func(event storagemarket.ProviderEvent, deal storagemarket.MinerDeal) {
+					if event == storagemarket.ProviderEventDealExpired {
+						wg.Done()
+					}
+				})
+			}
 			wg.Add(1)
 			_ = h.Client.SubscribeToEvents(func(event storagemarket.ClientEvent, deal storagemarket.ClientDeal) {
 				if event == storagemarket.ClientEventDealExpired {
@@ -529,8 +538,8 @@ func TestRestartClient(t *testing.T) {
 			conn, err := h.TestData.MockNet.ConnectPeers(host1.ID(), host2.ID())
 			require.NoError(t, err)
 			require.NotNil(t, conn)
-			require.NoError(t, h.Provider.Start(ctx))
-			require.NoError(t, h.Client.Start(ctx))
+			shared_testutil.StartAndWaitForReady(ctx, t, h.Provider)
+			shared_testutil.StartAndWaitForReady(ctx, t, h.Client)
 			t.Log("------- client and provider have been restarted---------")
 			wg.Wait()
 			t.Log("---------- finished waiting for expected events-------")

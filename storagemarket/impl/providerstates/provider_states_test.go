@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"math/rand"
+	"strings"
 	"testing"
 	"time"
 
@@ -131,7 +132,7 @@ func TestValidateDealProposal(t *testing.T) {
 			},
 			dealInspector: func(t *testing.T, deal storagemarket.MinerDeal, env *fakeEnvironment) {
 				tut.AssertDealState(t, storagemarket.StorageDealRejecting, deal.State)
-				require.Equal(t, "deal rejected: clientMarketBalance.Available too small", deal.Message)
+				require.True(t, strings.Contains(deal.Message, "deal rejected: clientMarketBalance.Available too small"))
 			},
 		},
 		"Not enough funds due to client collateral": {
@@ -143,7 +144,7 @@ func TestValidateDealProposal(t *testing.T) {
 			},
 			dealInspector: func(t *testing.T, deal storagemarket.MinerDeal, env *fakeEnvironment) {
 				tut.AssertDealState(t, storagemarket.StorageDealRejecting, deal.State)
-				require.Equal(t, "deal rejected: clientMarketBalance.Available too small", deal.Message)
+				require.True(t, strings.Contains(deal.Message, "deal rejected: clientMarketBalance.Available too small"))
 			},
 		},
 		"verified deal succeeds": {
@@ -247,7 +248,7 @@ func TestValidateDealProposal(t *testing.T) {
 			},
 			dealInspector: func(t *testing.T, deal storagemarket.MinerDeal, env *fakeEnvironment) {
 				tut.AssertDealState(t, storagemarket.StorageDealRejecting, deal.State)
-				require.Equal(t, "deal rejected: deal duration out of bounds", deal.Message)
+				require.True(t, strings.Contains(deal.Message, "deal rejected: deal duration out of bounds"))
 			},
 		},
 		"deal duration too long (more than 540 days)": {
@@ -260,7 +261,7 @@ func TestValidateDealProposal(t *testing.T) {
 			},
 			dealInspector: func(t *testing.T, deal storagemarket.MinerDeal, env *fakeEnvironment) {
 				tut.AssertDealState(t, storagemarket.StorageDealRejecting, deal.State)
-				require.Equal(t, "deal rejected: deal duration out of bounds", deal.Message)
+				require.True(t, strings.Contains(deal.Message, "deal rejected: deal duration out of bounds"))
 			},
 		},
 	}

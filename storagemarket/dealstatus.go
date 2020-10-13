@@ -65,14 +65,6 @@ const (
 	// StorageDealTransferring means data is being sent from the client to the provider via the data transfer module
 	StorageDealTransferring
 
-	// StorageDealProviderTransferRestart means a storage deal data transfer from client to provider will be restarted
-	// by the provider
-	StorageDealProviderTransferRestart
-
-	// StorageDealClientTransferRestart means a storage deal data transfer from client to provider will be restarted
-	// by the client
-	StorageDealClientTransferRestart
-
 	// StorageDealWaitingForData indicates either a manual transfer
 	// or that the provider has not received a data transfer request from the client
 	StorageDealWaitingForData
@@ -102,6 +94,14 @@ const (
 
 	// StorageDealError means the deal has failed due to an error, and no further updates will occur
 	StorageDealError
+
+	// StorageDealProviderTransferRestart means a storage deal data transfer from client to provider will be restarted
+	// by the provider
+	StorageDealProviderTransferRestart
+
+	// StorageDealClientTransferRestart means a storage deal data transfer from client to provider will be restarted
+	// by the client
+	StorageDealClientTransferRestart
 )
 
 // DealStates maps StorageDealStatus codes to string names

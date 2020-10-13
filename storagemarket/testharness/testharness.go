@@ -25,13 +25,9 @@ import (
 	"github.com/filecoin-project/go-state-types/big"
 	"github.com/filecoin-project/specs-actors/actors/builtin"
 
-	"github.com/filecoin-project/go-fil-markets/filestore"
-	piecestoreimpl "github.com/filecoin-project/go-fil-markets/piecestore/impl"
 	"github.com/filecoin-project/go-fil-markets/shared_testutil"
 	"github.com/filecoin-project/go-fil-markets/storagemarket"
 	storageimpl "github.com/filecoin-project/go-fil-markets/storagemarket/impl"
-	"github.com/filecoin-project/go-fil-markets/storagemarket/impl/funds"
-	"github.com/filecoin-project/go-fil-markets/storagemarket/impl/storedask"
 	"github.com/filecoin-project/go-fil-markets/storagemarket/network"
 	"github.com/filecoin-project/go-fil-markets/storagemarket/testharness/dependencies"
 	"github.com/filecoin-project/go-fil-markets/storagemarket/testnodes"
@@ -127,32 +123,19 @@ func (h *StorageHarness) CreateNewProvider(t *testing.T, ctx context.Context, td
 	require.NoError(t, err)
 	testutil.StartAndWaitForReady(ctx, t, dt2)
 
-	storedAskDs := namespace.Wrap(td.Ds2, datastore.NewKey("/storage/ask"))
-	storedAsk, err := storedask.NewStoredAsk(storedAskDs, datastore.NewKey("latest-ask"), h.StorageDependencies.ProviderNode,
-		h.StorageDependencies.ProviderAddr)
-	require.NoError(t, err)
-
-	fs, err := filestore.NewLocalFileStore(filestore.OsPath(tempPath))
-	require.NoError(t, err)
-
-	providerDealFunds, err := funds.NewDealFunds(td.Ds2, datastore.NewKey("storage/provider/dealfunds"))
-	require.NoError(t, err)
-
-	ps, err := piecestoreimpl.NewPieceStore(td.Ds2)
-	require.NoError(t, err)
-
+	providerDs := namespace.Wrap(td.Ds1, datastore.NewKey("/deals/provider"))
 	provider, err := storageimpl.NewProvider(
 		network.NewFromLibp2pHost(td.Host2, network.RetryParameters(0, 0, 0)),
-		td.Ds2,
-		fs,
+		providerDs,
+		h.Fs,
 		td.MultiStore2,
-		ps,
+		h.PieceStore,
 		dt2,
 		h.ProviderNode,
 		h.ProviderAddr,
 		abi.RegisteredSealProof_StackedDrg2KiBV1,
-		storedAsk,
-		providerDealFunds,
+		h.StoredAsk,
+		h.ProviderDealFunds,
 	)
 	require.NoError(t, err)
 	h.Provider = provider
