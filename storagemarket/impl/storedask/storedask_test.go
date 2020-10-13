@@ -56,6 +56,7 @@ func TestStoredAsk(t *testing.T) {
 		require.Equal(t, ask.Ask.VerifiedPrice, testVerifiedPrice)
 		require.Equal(t, ask.Ask.Expiry-ask.Ask.Timestamp, testDuration)
 	})
+
 	t.Run("node errors", func(t *testing.T) {
 		spnStateIDErr := &testnodes.FakeProviderNode{
 			FakeCommonNode: testnodes.FakeCommonNode{
@@ -94,6 +95,34 @@ func TestStoredAsk(t *testing.T) {
 		require.Error(t, err)
 	})
 }
+
+func TestMinPieceSize(t *testing.T) {
+	// create ask with options
+	ds := dss.MutexWrap(datastore.NewMapDatastore())
+	spn := &testnodes.FakeProviderNode{
+		FakeCommonNode: testnodes.FakeCommonNode{
+			SMState: testnodes.NewStorageMarketState(),
+		},
+	}
+	actor := address.TestAddress2
+	ms := abi.PaddedPieceSize(1024)
+	storedAsk2, err := storedask.NewStoredAsk(ds, datastore.NewKey("latest-ask"), spn, actor, storagemarket.MinPieceSize(ms))
+	require.NoError(t, err)
+	ask := storedAsk2.GetAsk()
+	require.EqualValues(t, ms, ask.Ask.MinPieceSize)
+
+	// now change the min piece size via set ask
+	testPrice := abi.NewTokenAmount(1000000000)
+	testVerifiedPrice := abi.NewTokenAmount(100000000)
+	testDuration := abi.ChainEpoch(200)
+	newSize := abi.PaddedPieceSize(150)
+	require.NoError(t, storedAsk2.SetAsk(testPrice, testVerifiedPrice, testDuration, storagemarket.MinPieceSize(newSize)))
+
+	// call get
+	ask = storedAsk2.GetAsk()
+	require.EqualValues(t, newSize, ask.Ask.MinPieceSize)
+}
+
 func TestMigrations(t *testing.T) {
 	ctx := context.Background()
 	ds := dss.MutexWrap(datastore.NewMapDatastore())

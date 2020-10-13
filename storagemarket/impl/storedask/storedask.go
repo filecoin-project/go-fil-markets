@@ -54,8 +54,8 @@ type StoredAsk struct {
 // NewStoredAsk returns a new instance of StoredAsk
 // It will initialize a new SignedStorageAsk on disk if one is not set
 // Otherwise it loads the current SignedStorageAsk from disk
-func NewStoredAsk(ds datastore.Batching, dsKey datastore.Key, spn storagemarket.StorageProviderNode, actor address.Address) (*StoredAsk, error) {
-
+func NewStoredAsk(ds datastore.Batching, dsKey datastore.Key, spn storagemarket.StorageProviderNode, actor address.Address,
+	opts ...storagemarket.StorageAskOption) (*StoredAsk, error) {
 	s := &StoredAsk{
 		spn:   spn,
 		actor: actor,
@@ -87,7 +87,7 @@ func NewStoredAsk(ds datastore.Batching, dsKey datastore.Key, spn storagemarket.
 	if s.ask == nil {
 		// TODO: we should be fine with this state, and just say it means 'not actively accepting deals'
 		// for now... lets just set a price
-		if err := s.SetAsk(DefaultPrice, DefaultVerifiedPrice, DefaultDuration); err != nil {
+		if err := s.SetAsk(DefaultPrice, DefaultVerifiedPrice, DefaultDuration, opts...); err != nil {
 			return nil, xerrors.Errorf("failed setting a default price: %w", err)
 		}
 	}
@@ -101,8 +101,11 @@ func (s *StoredAsk) SetAsk(price abi.TokenAmount, verifiedPrice abi.TokenAmount,
 	s.askLk.Lock()
 	defer s.askLk.Unlock()
 	var seqno uint64
+	minPieceSize := DefaultMinPieceSize
 	if s.ask != nil {
 		seqno = s.ask.Ask.SeqNo + 1
+		minPieceSize = s.ask.Ask.MinPieceSize
+
 	}
 
 	ctx := context.TODO()
@@ -118,7 +121,7 @@ func (s *StoredAsk) SetAsk(price abi.TokenAmount, verifiedPrice abi.TokenAmount,
 		Expiry:        height + duration,
 		Miner:         s.actor,
 		SeqNo:         seqno,
-		MinPieceSize:  DefaultMinPieceSize,
+		MinPieceSize:  minPieceSize,
 		MaxPieceSize:  DefaultMaxPieceSize,
 	}
 
