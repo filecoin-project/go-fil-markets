@@ -145,6 +145,10 @@ func ProposeDeal(ctx fsm.Context, environment ClientDealEnvironment, deal storag
 func RestartDataTransfer(ctx fsm.Context, environment ClientDealEnvironment, deal storagemarket.ClientDeal) error {
 	log.Infof("restarting data transfer for deal deal %s", deal.ProposalCid)
 
+	if deal.TransferChannelID == nil {
+		return ctx.Trigger(storagemarket.ClientEventDataTransferRestartFailed, xerrors.New("channelId on client deal is nil"))
+	}
+
 	// restart the push data transfer. This will complete asynchronously and the
 	// completion of the data transfer will trigger a change in deal state
 	err := environment.RestartDataTransfer(ctx.Context(),
