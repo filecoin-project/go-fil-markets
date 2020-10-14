@@ -1,5 +1,40 @@
 # go-fil-markets changelog
 
+# go-fil-markets v0.9.0
+
+Major update with data transfer protocol v1.1 with support for restarts
+Also restarts data transfer automatically for storage market side
+
+### Changelog
+
+- github.com/filecoin-project/go-fil-markets:
+  - Record data transfer errors (#432) ([filecoin-project/go-fil-markets#432](https://github.com/filecoin-project/go-fil-markets/pull/432))
+  - set ask correct behaviour (#433) ([filecoin-project/go-fil-markets#433](https://github.com/filecoin-project/go-fil-markets/pull/433))
+  - Resume Storage Market Data Transfer (#430) ([filecoin-project/go-fil-markets#430](https://github.com/filecoin-project/go-fil-markets/pull/430))
+  - Exponential backoff, rebased (#431) ([filecoin-project/go-fil-markets#431](https://github.com/filecoin-project/go-fil-markets/pull/431))
+  - Providers should reject deals with invalid durations (#427) ([filecoin-project/go-fil-markets#427](https://github.com/filecoin-project/go-fil-markets/pull/427))
+  - docs(CHANGELOG): update for 0.7.1 ([filecoin-project/go-fil-markets#428](https://github.com/filecoin-project/go-fil-markets/pull/428))
+- github.com/filecoin-project/go-data-transfer (v0.6.7 -> v0.9.0):
+  - docs(CHANGELOG): update for 0.9.0
+  - Message compatibility on graphsync (#102) ([filecoin-project/go-data-transfer#102](https://github.com/filecoin-project/go-data-transfer/pull/102))
+  - Handle network errors/stalls (#101) ([filecoin-project/go-data-transfer#101](https://github.com/filecoin-project/go-data-transfer/pull/101))
+  - Resume Data Transfer (#100) ([filecoin-project/go-data-transfer#100](https://github.com/filecoin-project/go-data-transfer/pull/100))
+  - docs(CHANGELOG): update for 0.6.7 release ([filecoin-project/go-data-transfer#98](https://github.com/filecoin-project/go-data-transfer/pull/98))
+- github.com/ipfs/go-graphsync (v0.2.1 -> v0.3.0):
+  - feat(CHANGELOG): update for 0.3.0
+  - docs(CHANGELOG): update for 0.2.1 ([ipfs/go-graphsync#103](https://github.com/ipfs/go-graphsync/pull/103))
+  - Track actual network operations in a response (#102) ([ipfs/go-graphsync#102](https://github.com/ipfs/go-graphsync/pull/102))
+  - feat(responsecache): prune blocks more intelligently (#101) ([ipfs/go-graphsync#101](https://github.com/ipfs/go-graphsync/pull/101))
+
+### Contributors
+
+| Contributor | Commits | Lines ± | Files Changed |
+|-------------|---------|---------|---------------|
+| Aarsh Shah | 3 | +10588/-2517 | 105 |
+| Hannah Howard | 6 | +2463/-1036 | 68 |
+| hannahhoward | 2 | +50/-3 | 5 |
+| Aayush Rajasekaran | 1 | +23/-20 | 4 |
+
 # go-fil-markets v0.7.1
 
 minor bug fixes and optimizations
