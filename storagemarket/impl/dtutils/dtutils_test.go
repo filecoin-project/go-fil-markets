@@ -62,6 +62,16 @@ func TestProviderDataTransferSubscriber(t *testing.T) {
 			expectedEvent: storagemarket.ProviderEventDataTransferRestarted,
 			expectedArgs:  []interface{}{datatransfer.ChannelID{Initiator: init, Responder: resp, ID: tid}},
 		},
+		"disconnected event": {
+			code:   datatransfer.Disconnected,
+			status: datatransfer.Ongoing,
+			called: true,
+			voucher: &requestvalidation.StorageDataTransferVoucher{
+				Proposal: expectedProposalCID,
+			},
+			expectedID:    expectedProposalCID,
+			expectedEvent: storagemarket.ProviderEventDataTransferStalled,
+		},
 		"completion status": {
 			code:   datatransfer.Complete,
 			status: datatransfer.Completed,
@@ -163,6 +173,16 @@ func TestClientDataTransferSubscriber(t *testing.T) {
 			expectedID:    expectedProposalCID,
 			expectedEvent: storagemarket.ClientEventDataTransferRestarted,
 			expectedArgs:  []interface{}{datatransfer.ChannelID{Initiator: init, Responder: resp, ID: tid}},
+		},
+		"disconnected event": {
+			code:   datatransfer.Disconnected,
+			status: datatransfer.Ongoing,
+			called: true,
+			voucher: &requestvalidation.StorageDataTransferVoucher{
+				Proposal: expectedProposalCID,
+			},
+			expectedID:    expectedProposalCID,
+			expectedEvent: storagemarket.ClientEventDataTransferStalled,
 		},
 		"accept event": {
 			code:   datatransfer.Accept,

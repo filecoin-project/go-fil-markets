@@ -51,6 +51,11 @@ func ProviderDataTransferSubscriber(deals EventReceiver) datatransfer.Subscriber
 			if err != nil {
 				log.Errorf("processing dt event: %w", err)
 			}
+		case datatransfer.Disconnected:
+			err := deals.Send(voucher.Proposal, storagemarket.ProviderEventDataTransferStalled)
+			if err != nil {
+				log.Errorf("processing dt event: %w", err)
+			}
 		case datatransfer.Open:
 			err := deals.Send(voucher.Proposal, storagemarket.ProviderEventDataTransferInitiated, channelState.ChannelID())
 			if err != nil {
@@ -89,6 +94,11 @@ func ClientDataTransferSubscriber(deals EventReceiver) datatransfer.Subscriber {
 		switch event.Code {
 		case datatransfer.Restart:
 			err := deals.Send(voucher.Proposal, storagemarket.ClientEventDataTransferRestarted, channelState.ChannelID())
+			if err != nil {
+				log.Errorf("processing dt event: %w", err)
+			}
+		case datatransfer.Disconnected:
+			err := deals.Send(voucher.Proposal, storagemarket.ClientEventDataTransferStalled)
 			if err != nil {
 				log.Errorf("processing dt event: %w", err)
 			}

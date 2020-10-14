@@ -58,8 +58,15 @@ var ProviderEvents = fsm.Events{
 		From(storagemarket.StorageDealTransferring).ToJustRecord().
 		Action(func(deal *storagemarket.MinerDeal, channelId datatransfer.ChannelID) error {
 			deal.TransferChannelId = &channelId
+			deal.Message = ""
 			return nil
 		}),
+
+	fsm.Event(storagemarket.ProviderEventDataTransferStalled).
+		From(storagemarket.StorageDealTransferring).ToJustRecord().Action(func(deal *storagemarket.MinerDeal) error {
+		deal.Message = "data transfer appears to be stalled. attempt restart"
+		return nil
+	}),
 
 	fsm.Event(storagemarket.ProviderEventDataTransferCompleted).
 		From(storagemarket.StorageDealTransferring).To(storagemarket.StorageDealVerifyData),

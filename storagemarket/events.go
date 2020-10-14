@@ -93,6 +93,9 @@ const (
 
 	// ClientEventRestart is used to resume the deal after a state machine shutdown
 	ClientEventRestart
+
+	// ClientEventDataTransferStalled happens when the clients data transfer experiences a disconnect
+	ClientEventDataTransferStalled
 )
 
 // ClientEvents maps client event codes to string names
@@ -127,6 +130,7 @@ var ClientEvents = map[ClientEvent]string{
 	ClientEventRestart:                    "ClientEventRestart",
 	ClientEventDataTransferRestarted:      "ClientEventDataTransferRestarted",
 	ClientEventDataTransferRestartFailed:  "ClientEventDataTransferRestartFailed",
+	ClientEventDataTransferStalled:        "ClientEventDataTransferStalled",
 }
 
 // ProviderEvent is an event that happens in the provider's deal state machine
@@ -253,6 +257,9 @@ const (
 
 	// ProviderEventDataTransferRestartFailed means a data transfer that was restarted by the provider failed
 	ProviderEventDataTransferRestartFailed
+
+	// ProviderEventDataTransferStalled happens when the providers data transfer experiences a disconnect
+	ProviderEventDataTransferStalled
 )
 
 // ProviderEvents maps provider event codes to string names
@@ -295,4 +302,5 @@ var ProviderEvents = map[ProviderEvent]string{
 	ProviderEventRestart:                   "ProviderEventRestart",
 	ProviderEventDataTransferRestarted:     "ProviderEventDataTransferRestarted",
 	ProviderEventDataTransferRestartFailed: "ProviderEventDataTransferRestartFailed",
+	ProviderEventDataTransferStalled:       "ProviderEventDataTransferStalled",
 }
