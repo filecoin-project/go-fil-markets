@@ -95,17 +95,19 @@ func NewStoredAsk(ds datastore.Batching, dsKey datastore.Key, spn storagemarket.
 }
 
 // SetAsk configures the storage miner's ask with the provided prices (for unverified and verified deals),
-// duration, and options. Any previously-existing ask is replaced.
+// duration, and options. Any previously-existing ask is replaced.  If no options are passed to configure
+// MinPieceSize and MaxPieceSize, the previous ask's values will be used, if available.
 // It also increments the sequence number on the ask
 func (s *StoredAsk) SetAsk(price abi.TokenAmount, verifiedPrice abi.TokenAmount, duration abi.ChainEpoch, options ...storagemarket.StorageAskOption) error {
 	s.askLk.Lock()
 	defer s.askLk.Unlock()
 	var seqno uint64
 	minPieceSize := DefaultMinPieceSize
+	maxPieceSize := DefaultMaxPieceSize
 	if s.ask != nil {
 		seqno = s.ask.Ask.SeqNo + 1
 		minPieceSize = s.ask.Ask.MinPieceSize
-
+		maxPieceSize = s.ask.Ask.MaxPieceSize
 	}
 
 	ctx := context.TODO()
@@ -122,7 +124,7 @@ func (s *StoredAsk) SetAsk(price abi.TokenAmount, verifiedPrice abi.TokenAmount,
 		Miner:         s.actor,
 		SeqNo:         seqno,
 		MinPieceSize:  minPieceSize,
-		MaxPieceSize:  DefaultMaxPieceSize,
+		MaxPieceSize:  maxPieceSize,
 	}
 
 	for _, option := range options {
