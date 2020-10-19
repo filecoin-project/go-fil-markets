@@ -96,7 +96,7 @@ func TestStoredAsk(t *testing.T) {
 	})
 }
 
-func TestMinPieceSize(t *testing.T) {
+func TestPieceSizeLimits(t *testing.T) {
 	// create ask with options
 	ds := dss.MutexWrap(datastore.NewMapDatastore())
 	spn := &testnodes.FakeProviderNode{
@@ -105,22 +105,33 @@ func TestMinPieceSize(t *testing.T) {
 		},
 	}
 	actor := address.TestAddress2
-	ms := abi.PaddedPieceSize(1024)
-	storedAsk2, err := storedask.NewStoredAsk(ds, datastore.NewKey("latest-ask"), spn, actor, storagemarket.MinPieceSize(ms))
+	min := abi.PaddedPieceSize(1024)
+	max := abi.PaddedPieceSize(4096)
+	sa, err := storedask.NewStoredAsk(ds, datastore.NewKey("latest-ask"), spn, actor, storagemarket.MinPieceSize(min), storagemarket.MaxPieceSize(max))
 	require.NoError(t, err)
-	ask := storedAsk2.GetAsk()
-	require.EqualValues(t, ms, ask.Ask.MinPieceSize)
+	ask := sa.GetAsk()
+	require.EqualValues(t, min, ask.Ask.MinPieceSize)
+	require.EqualValues(t, max, ask.Ask.MaxPieceSize)
 
-	// now change the min piece size via set ask
+	// SetAsk should not clobber previously-set options
+	require.NoError(t, sa.SetAsk(ask.Ask.Price, ask.Ask.VerifiedPrice, ask.Ask.Expiry))
+	require.NoError(t, err)
+	ask = sa.GetAsk()
+	require.EqualValues(t, min, ask.Ask.MinPieceSize)
+	require.EqualValues(t, max, ask.Ask.MaxPieceSize)
+
+	// now change the size limits via set ask
 	testPrice := abi.NewTokenAmount(1000000000)
 	testVerifiedPrice := abi.NewTokenAmount(100000000)
 	testDuration := abi.ChainEpoch(200)
-	newSize := abi.PaddedPieceSize(150)
-	require.NoError(t, storedAsk2.SetAsk(testPrice, testVerifiedPrice, testDuration, storagemarket.MinPieceSize(newSize)))
+	newMin := abi.PaddedPieceSize(150)
+	newMax := abi.PaddedPieceSize(12345)
+	require.NoError(t, sa.SetAsk(testPrice, testVerifiedPrice, testDuration, storagemarket.MinPieceSize(newMin), storagemarket.MaxPieceSize(newMax)))
 
 	// call get
-	ask = storedAsk2.GetAsk()
-	require.EqualValues(t, newSize, ask.Ask.MinPieceSize)
+	ask = sa.GetAsk()
+	require.EqualValues(t, newMin, ask.Ask.MinPieceSize)
+	require.EqualValues(t, newMax, ask.Ask.MaxPieceSize)
 }
 
 func TestMigrations(t *testing.T) {
