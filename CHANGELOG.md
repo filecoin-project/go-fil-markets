@@ -1,5 +1,21 @@
 # go-fil-markets changelog
 
+# go-fil-markets v0.9.1
+
+Critical bug fix for v0.9.0
+
+### Changelog
+
+- github.com/filecoin-project/go-fil-markets:
+  - fix(clientstates): fix panil on transfer id not present (#437) ([filecoin-project/go-fil-markets#437](https://github.com/filecoin-project/go-fil-markets/pull/437))
+  - docs(CHANGELOG): update for 0.9.0 release ([filecoin-project/go-fil-markets#434](https://github.com/filecoin-project/go-fil-markets/pull/434))
+
+### Contributors
+
+| Contributor | Commits | Lines ± | Files Changed |
+|-------------|---------|---------|---------------|
+| Hannah Howard | 1 | +4/-0 | 1 |
+
 # go-fil-markets v0.9.0
 
 Major update with data transfer protocol v1.1 with support for restarts
