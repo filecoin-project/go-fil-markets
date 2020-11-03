@@ -185,7 +185,7 @@ func (n *FakeCommonNode) DealProviderCollateralBounds(ctx context.Context, size 
 }
 
 // OnDealSectorCommitted returns immediately, and returns stubbed errors
-func (n *FakeCommonNode) OnDealSectorCommitted(ctx context.Context, provider address.Address, dealID abi.DealID, cb storagemarket.DealSectorCommittedCallback) error {
+func (n *FakeCommonNode) OnDealSectorCommitted(ctx context.Context, provider address.Address, dealID abi.DealID, publishCid *cid.Cid, cb storagemarket.DealSectorCommittedCallback) error {
 	if n.DelayFakeCommonNode.OnDealSectorCommitted {
 		select {
 		case <-ctx.Done():

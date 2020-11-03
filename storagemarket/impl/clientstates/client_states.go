@@ -259,7 +259,7 @@ func VerifyDealActivated(ctx fsm.Context, environment ClientDealEnvironment, dea
 		}
 	}
 
-	if err := environment.Node().OnDealSectorCommitted(ctx.Context(), deal.Proposal.Provider, deal.DealID, cb); err != nil {
+	if err := environment.Node().OnDealSectorCommitted(ctx.Context(), deal.Proposal.Provider, deal.DealID, deal.PublishMessage, cb); err != nil {
 		return ctx.Trigger(storagemarket.ClientEventDealActivationFailed, err)
 	}
 
