@@ -72,7 +72,9 @@ var ProviderEvents = fsm.Events{
 		From(storagemarket.StorageDealTransferring).To(storagemarket.StorageDealVerifyData),
 	fsm.Event(storagemarket.ProviderEventDataVerificationFailed).
 		From(storagemarket.StorageDealVerifyData).To(storagemarket.StorageDealFailing).
-		Action(func(deal *storagemarket.MinerDeal, err error) error {
+		Action(func(deal *storagemarket.MinerDeal, err error, path filestore.Path, metadataPath filestore.Path) error {
+			deal.PiecePath = path
+			deal.MetadataPath = metadataPath
 			deal.Message = xerrors.Errorf("deal data verification failed: %w", err).Error()
 			return nil
 		}),

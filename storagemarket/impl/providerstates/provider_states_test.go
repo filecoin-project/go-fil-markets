@@ -350,7 +350,6 @@ func TestVerifyData(t *testing.T) {
 				tut.AssertDealState(t, storagemarket.StorageDealEnsureProviderFunds, deal.State)
 				require.Equal(t, expPath, deal.PiecePath)
 				require.Equal(t, expMetaPath, deal.MetadataPath)
-
 			},
 		},
 		"generate piece CID fails": {
@@ -364,11 +363,15 @@ func TestVerifyData(t *testing.T) {
 		},
 		"piece CIDs do not match": {
 			environmentParams: environmentParams{
-				PieceCid: tut.GenerateCids(1)[0],
+				Path:         expPath,
+				MetadataPath: expMetaPath,
+				PieceCid:     tut.GenerateCids(1)[0],
 			},
 			dealInspector: func(t *testing.T, deal storagemarket.MinerDeal, env *fakeEnvironment) {
 				tut.AssertDealState(t, storagemarket.StorageDealFailing, deal.State)
 				require.Equal(t, "deal data verification failed: proposal CommP doesn't match calculated CommP", deal.Message)
+				require.Equal(t, expPath, deal.PiecePath)
+				require.Equal(t, expMetaPath, deal.MetadataPath)
 			},
 		},
 	}
