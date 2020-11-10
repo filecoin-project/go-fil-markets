@@ -202,12 +202,12 @@ func DecideOnProposal(ctx fsm.Context, environment ProviderDealEnvironment, deal
 func VerifyData(ctx fsm.Context, environment ProviderDealEnvironment, deal storagemarket.MinerDeal) error {
 	pieceCid, piecePath, metadataPath, err := environment.GeneratePieceCommitmentToFile(deal.StoreID, deal.Ref.Root, shared.AllSelector())
 	if err != nil {
-		return ctx.Trigger(storagemarket.ProviderEventDataVerificationFailed, xerrors.Errorf("error generating CommP: %w", err))
+		return ctx.Trigger(storagemarket.ProviderEventDataVerificationFailed, xerrors.Errorf("error generating CommP: %w", err), filestore.Path(""), filestore.Path(""))
 	}
 
 	// Verify CommP matches
 	if pieceCid != deal.Proposal.PieceCID {
-		return ctx.Trigger(storagemarket.ProviderEventDataVerificationFailed, xerrors.Errorf("proposal CommP doesn't match calculated CommP"))
+		return ctx.Trigger(storagemarket.ProviderEventDataVerificationFailed, xerrors.Errorf("proposal CommP doesn't match calculated CommP"), piecePath, metadataPath)
 	}
 
 	return ctx.Trigger(storagemarket.ProviderEventVerifiedData, piecePath, metadataPath)
