@@ -437,7 +437,7 @@ func VerifyDealActivated(ctx fsm.Context, environment ProviderDealEnvironment, d
 		}
 	}
 
-	err := environment.Node().OnDealSectorCommitted(ctx.Context(), deal.Proposal.Provider, deal.DealID, cb)
+	err := environment.Node().OnDealSectorCommitted(ctx.Context(), deal.Proposal.Provider, deal.DealID, deal.Proposal, deal.PublishCid, cb)
 
 	if err != nil {
 		return ctx.Trigger(storagemarket.ProviderEventDealActivationFailed, err)
