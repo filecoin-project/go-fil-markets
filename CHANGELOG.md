@@ -1,5 +1,23 @@
 # go-fil-markets changelog
 
+# go-fil-markets v1.0.0
+
+Cut 1.0.0 release with a few fixes
+
+### Changelog
+
+- github.com/filecoin-project/go-fil-markets:
+  - docs(CHANGELOG): update for 0.9.1 ([filecoin-project/go-fil-markets#439](https://github.com/filecoin-project/go-fil-markets/pull/439))
+  - If available, SetAsk will use a previously-stored ask for default values for Min/Max piece sizes (#438) ([filecoin-project/go-fil-markets#438](https://github.com/filecoin-project/go-fil-markets/pull/438))
+  - Create SECURITY.md (#436) ([filecoin-project/go-fil-markets#436](https://github.com/filecoin-project/go-fil-markets/pull/436))
+
+### Contributors
+
+| Contributor | Commits | Lines ± | Files Changed |
+|-------------|---------|---------|---------------|
+| Ingar Shu | 1 | +26/-13 | 2 |
+| David Dias | 1 | +9/-0 | 1 |
+
 # go-fil-markets v0.9.1
 
 Critical bug fix for v0.9.0
