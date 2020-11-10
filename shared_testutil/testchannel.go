@@ -24,6 +24,7 @@ type TestChannelParams struct {
 	Message        string
 	Sent           uint64
 	Received       uint64
+	Queued         uint64
 	Status         datatransfer.Status
 	Vouchers       []datatransfer.Voucher
 	VoucherResults []datatransfer.VoucherResult
@@ -43,6 +44,7 @@ type TestChannel struct {
 	isPull         bool
 	sent           uint64
 	received       uint64
+	queued         uint64
 	status         datatransfer.Status
 	vouchers       []datatransfer.Voucher
 	voucherResults []datatransfer.VoucherResult
@@ -71,6 +73,7 @@ func NewTestChannel(params TestChannelParams) datatransfer.ChannelState {
 		status:         params.Status,
 		sent:           rand.Uint64(),
 		received:       rand.Uint64(),
+		queued:         rand.Uint64(),
 		vouchers:       []datatransfer.Voucher{FakeDTType{}},
 		voucherResults: []datatransfer.VoucherResult{FakeDTType{}},
 	}
@@ -113,6 +116,9 @@ func NewTestChannel(params TestChannelParams) datatransfer.ChannelState {
 	}
 	if params.Received != 0 {
 		tc.received = params.Received
+	}
+	if params.Queued != 0 {
+		tc.queued = params.Queued
 	}
 	return tc
 }
@@ -206,6 +212,11 @@ func (tc *TestChannel) Sent() uint64 {
 // Received returns the number of bytes received
 func (tc *TestChannel) Received() uint64 {
 	return tc.received
+}
+
+// Received returns the number of bytes received
+func (tc *TestChannel) Queued() uint64 {
+	return tc.queued
 }
 
 // Message offers additional information about the current status

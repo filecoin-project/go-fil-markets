@@ -474,6 +474,10 @@ func (ft *fakeTransport) SetEventHandler(events datatransfer.EventsHandler) erro
 func (ft *fakeTransport) CleanupChannel(chid datatransfer.ChannelID) {
 }
 
+func (ft *fakeTransport) Shutdown(context.Context) error {
+	return nil
+}
+
 type fakeGsTransport struct {
 	datatransfer.Transport
 	lastChannelID datatransfer.ChannelID
