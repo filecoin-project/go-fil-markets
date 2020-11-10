@@ -1,5 +1,22 @@
 # go-fil-markets changelog
 
+# go-fil-markets v1.0.1
+
+Minor bug fixes and interface change for OnDealSectorCommitted
+
+### Changelog
+
+- github.com/filecoin-project/go-fil-markets:
+  - Pass PublishCID (#441) ([filecoin-project/go-fil-markets#441](https://github.com/filecoin-project/go-fil-markets/pull/441))
+  - docs(CHANGELOG): update for 1.0.0 release ([filecoin-project/go-fil-markets#443](https://github.com/filecoin-project/go-fil-markets/pull/443))
+  - fix(providerstates): save paths on commP mismatch (#440) ([filecoin-project/go-fil-markets#440](https://github.com/filecoin-project/go-fil-markets/pull/440))
+
+### Contributors
+
+| Contributor | Commits | Lines ± | Files Changed |
+|-------------|---------|---------|---------------|
+| Hannah Howard | 2 | +14/-9 | 7 |
+
 # go-fil-markets v1.0.0
 
 Cut 1.0.0 release with a few fixes
