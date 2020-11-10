@@ -34,10 +34,11 @@ type StorageCommon interface {
 	// Adds funds with the StorageMinerActor for a storage participant.  Used by both providers and clients.
 	AddFunds(ctx context.Context, addr address.Address, amount abi.TokenAmount) (cid.Cid, error)
 
-	// EnsureFunds ensures that a storage market participant has a certain amount of available funds
-	// If additional funds are needed, they will be sent from the 'wallet' address, and a cid for the
-	// corresponding chain message is returned
-	EnsureFunds(ctx context.Context, addr, wallet address.Address, amount abi.TokenAmount, tok shared.TipSetToken) (cid.Cid, error)
+	// ReserveFunds ensures that the given amount of funds is available for the deal
+	ReserveFunds(ctx context.Context, wallet, addr address.Address, amt abi.TokenAmount) (cid.Cid, error)
+
+	// ReleaseFunds releases funds reserved with ReserveFunds
+	ReleaseFunds(ctx context.Context, addr address.Address, amt abi.TokenAmount) error
 
 	// GetBalance returns locked/unlocked for a storage participant.  Used by both providers and clients.
 	GetBalance(ctx context.Context, addr address.Address, tok shared.TipSetToken) (Balance, error)

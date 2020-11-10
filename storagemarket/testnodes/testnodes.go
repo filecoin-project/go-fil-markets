@@ -74,6 +74,7 @@ func (sma *StorageMarketState) StateKey() (shared.TipSetToken, abi.ChainEpoch) {
 // where responses are stubbed
 type FakeCommonNode struct {
 	SMState                    *StorageMarketState
+	DealFunds                  *shared_testutil.TestDealFunds
 	AddFundsCid                cid.Cid
 	EnsureFundsError           error
 	VerifySignatureFails       bool
@@ -126,16 +127,23 @@ func (n *FakeCommonNode) AddFunds(ctx context.Context, addr address.Address, amo
 	return n.AddFundsCid, nil
 }
 
-// EnsureFunds adds funds to the given actor in the storage market state to ensure it has at least the given amount
-func (n *FakeCommonNode) EnsureFunds(ctx context.Context, addr, wallet address.Address, amount abi.TokenAmount, tok shared.TipSetToken) (cid.Cid, error) {
+// ReserveFunds reserves funds required for a deal with the storage market actor
+func (n *FakeCommonNode) ReserveFunds(ctx context.Context, wallet, addr address.Address, amt abi.TokenAmount) (cid.Cid, error) {
+	n.DealFunds.Reserve(amt)
 	if n.EnsureFundsError == nil {
 		balance := n.SMState.Balance(addr)
-		if balance.Available.LessThan(amount) {
-			return n.AddFunds(ctx, addr, big.Sub(amount, balance.Available))
+		if balance.Available.LessThan(amt) {
+			return n.AddFunds(ctx, addr, big.Sub(amt, balance.Available))
 		}
 	}
 
 	return cid.Undef, n.EnsureFundsError
+}
+
+// ReleaseFunds releases funds reserved with ReserveFunds
+func (n *FakeCommonNode) ReleaseFunds(ctx context.Context, addr address.Address, amt abi.TokenAmount) error {
+	n.DealFunds.Release(amt)
+	return nil
 }
 
 // WaitForMessage simulates waiting for a message to appear on chain

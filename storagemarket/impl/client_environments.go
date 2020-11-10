@@ -12,7 +12,6 @@ import (
 	"github.com/filecoin-project/go-multistore"
 
 	"github.com/filecoin-project/go-fil-markets/storagemarket"
-	"github.com/filecoin-project/go-fil-markets/storagemarket/impl/funds"
 	"github.com/filecoin-project/go-fil-markets/storagemarket/network"
 )
 
@@ -48,10 +47,6 @@ func (c *clientDealEnvironment) GetProviderDealState(ctx context.Context, propos
 
 func (c *clientDealEnvironment) PollingInterval() time.Duration {
 	return c.c.pollingInterval
-}
-
-func (c *clientDealEnvironment) DealFunds() funds.DealFunds {
-	return c.c.dealFunds
 }
 
 type clientStoreGetter struct {

@@ -28,7 +28,6 @@ import (
 	piecestoreimpl "github.com/filecoin-project/go-fil-markets/piecestore/impl"
 	"github.com/filecoin-project/go-fil-markets/shared_testutil"
 	"github.com/filecoin-project/go-fil-markets/storagemarket"
-	"github.com/filecoin-project/go-fil-markets/storagemarket/impl/funds"
 	"github.com/filecoin-project/go-fil-markets/storagemarket/impl/storedask"
 	"github.com/filecoin-project/go-fil-markets/storagemarket/testnodes"
 )
@@ -52,9 +51,7 @@ type StorageDependencies struct {
 	ClientDelayFakeCommonNode         testnodes.DelayFakeCommonNode
 	ProviderClientDelayFakeCommonNode testnodes.DelayFakeCommonNode
 	Fs                                filestore.FileStore
-	ClientDealFunds                   funds.DealFunds
 	StoredAsk                         *storedask.StoredAsk
-	ProviderDealFunds                 funds.DealFunds
 }
 
 func NewDependenciesWithTestData(t *testing.T, ctx context.Context, td *shared_testutil.Libp2pTestData, smState *testnodes.StorageMarketState, tempPath string,
@@ -69,7 +66,9 @@ func NewDependenciesWithTestData(t *testing.T, ctx context.Context, td *shared_t
 	epoch := abi.ChainEpoch(100)
 
 	clientNode := testnodes.FakeClientNode{
-		FakeCommonNode: testnodes.FakeCommonNode{SMState: smState,
+		FakeCommonNode: testnodes.FakeCommonNode{
+			SMState:             smState,
+			DealFunds:           shared_testutil.NewTestDealFunds(),
 			DelayFakeCommonNode: cd},
 		ClientAddr:         address.TestAddress,
 		ExpectedMinerInfos: []address.Address{address.TestAddress2},
@@ -96,6 +95,7 @@ func NewDependenciesWithTestData(t *testing.T, ctx context.Context, td *shared_t
 		FakeCommonNode: testnodes.FakeCommonNode{
 			DelayFakeCommonNode:    pd,
 			SMState:                smState,
+			DealFunds:              shared_testutil.NewTestDealFunds(),
 			WaitForMessageRetBytes: psdReturnBytes.Bytes(),
 		},
 		MinerAddr: providerAddr,
@@ -111,10 +111,6 @@ func NewDependenciesWithTestData(t *testing.T, ctx context.Context, td *shared_t
 	require.NoError(t, err)
 	testutil.StartAndWaitForReady(ctx, t, dt1)
 
-	require.NoError(t, err)
-	clientDealFunds, err := funds.NewDealFunds(td.Ds1, datastore.NewKey("storage/client/dealfunds"))
-	require.NoError(t, err)
-
 	discovery, err := discoveryimpl.NewLocal(namespace.Wrap(td.Ds1, datastore.NewKey("/deals/local")))
 	require.NoError(t, err)
 	shared_testutil.StartAndWaitForReady(ctx, t, discovery)
@@ -127,8 +123,6 @@ func NewDependenciesWithTestData(t *testing.T, ctx context.Context, td *shared_t
 
 	storedAskDs := namespace.Wrap(td.Ds2, datastore.NewKey("/storage/ask"))
 	storedAsk, err := storedask.NewStoredAsk(storedAskDs, datastore.NewKey("latest-ask"), providerNode, providerAddr)
-	assert.NoError(t, err)
-	providerDealFunds, err := funds.NewDealFunds(td.Ds2, datastore.NewKey("storage/provider/dealfunds"))
 	assert.NoError(t, err)
 
 	// Closely follows the MinerInfo struct in the spec
@@ -159,8 +153,6 @@ func NewDependenciesWithTestData(t *testing.T, ctx context.Context, td *shared_t
 		PeerResolver:                      discovery,
 		PieceStore:                        ps,
 		Fs:                                fs,
-		ClientDealFunds:                   clientDealFunds,
 		StoredAsk:                         storedAsk,
-		ProviderDealFunds:                 providerDealFunds,
 	}
 }
