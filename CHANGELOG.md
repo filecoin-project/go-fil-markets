@@ -1,5 +1,19 @@
 # go-fil-markets changelog
 
+# go-fil-markets v1.0.2
+
+Integrate new lotus FundManager
+
+### Changelog
+
+- [Integrate new FundManager](https://github.com/filecoin-project/go-fil-markets/pull/445)
+
+### Contributors
+
+| Contributor | Commits | Lines ± | Files Changed |
+|-------------|---------|---------|---------------|
+| Dirk McCormick | 1 | +75/-311 | 17 |
+
 # go-fil-markets v1.0.0
 
 Cut 1.0.0 release with a few fixes
