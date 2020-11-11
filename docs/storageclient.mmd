@@ -6,11 +6,11 @@ stateDiagram-v2
 	state "StorageDealExpired" as 8
 	state "StorageDealSlashed" as 9
 	state "StorageDealFailing" as 11
-	state "StorageDealFundsEnsured" as 12
+	state "StorageDealFundsReserved" as 12
 	state "StorageDealCheckForAcceptance" as 13
 	state "StorageDealStartDataTransfer" as 16
 	state "StorageDealTransferring" as 17
-	state "StorageDealEnsureClientFunds" as 21
+	state "StorageDealReserveClientFunds" as 21
 	state "StorageDealClientFunding" as 23
 	state "StorageDealError" as 26
 	state "StorageDealClientTransferRestart" as 28
@@ -21,7 +21,7 @@ stateDiagram-v2
 	12 : On entry runs ProposeDeal
 	13 : On entry runs CheckForDealAcceptance
 	16 : On entry runs InitiateDataTransfer
-	21 : On entry runs EnsureClientFunds
+	21 : On entry runs ReserveClientFunds
 	23 : On entry runs WaitForFunding
 	28 : On entry runs RestartDataTransfer
 	[*] --> 0
@@ -33,10 +33,10 @@ stateDiagram-v2
 	end note
 	0 --> 21 : ClientEventOpen
 	21 --> 23 : ClientEventFundingInitiated
-	21 --> 11 : ClientEventEnsureFundsFailed
-	23 --> 11 : ClientEventEnsureFundsFailed
-	21 --> 12 : ClientEventFundsEnsured
-	23 --> 12 : ClientEventFundsEnsured
+	21 --> 11 : ClientEventReserveFundsFailed
+	23 --> 11 : ClientEventReserveFundsFailed
+	21 --> 12 : ClientEventFundingComplete
+	23 --> 12 : ClientEventFundingComplete
 	12 --> 26 : ClientEventWriteProposalFailed
 	12 --> 11 : ClientEventReadResponseFailed
 	12 --> 11 : ClientEventResponseVerificationFailed

@@ -34,7 +34,6 @@ import (
 	"github.com/filecoin-project/go-fil-markets/storagemarket/impl/clientstates"
 	"github.com/filecoin-project/go-fil-markets/storagemarket/impl/clientutils"
 	"github.com/filecoin-project/go-fil-markets/storagemarket/impl/dtutils"
-	"github.com/filecoin-project/go-fil-markets/storagemarket/impl/funds"
 	"github.com/filecoin-project/go-fil-markets/storagemarket/impl/requestvalidation"
 	"github.com/filecoin-project/go-fil-markets/storagemarket/migrations"
 	"github.com/filecoin-project/go-fil-markets/storagemarket/network"
@@ -61,7 +60,6 @@ type Client struct {
 	statemachines        fsm.Group
 	migrateStateMachines func(context.Context) error
 	pollingInterval      time.Duration
-	dealFunds            funds.DealFunds
 
 	unsubDataTransfer datatransfer.Unsubscribe
 }
@@ -86,7 +84,6 @@ func NewClient(
 	discovery *discoveryimpl.Local,
 	ds datastore.Batching,
 	scn storagemarket.StorageClientNode,
-	dealFunds funds.DealFunds,
 	options ...StorageClientOption,
 ) (*Client, error) {
 	carIO := cario.NewCarIO()
@@ -101,7 +98,6 @@ func NewClient(
 		pubSub:          pubsub.New(clientDispatcher),
 		readySub:        pubsub.New(shared.ReadyDispatcher),
 		pollingInterval: DefaultPollingInterval,
-		dealFunds:       dealFunds,
 	}
 	storageMigrations, err := migrations.ClientMigrations.Build()
 	if err != nil {

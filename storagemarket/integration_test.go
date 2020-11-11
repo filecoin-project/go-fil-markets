@@ -115,7 +115,7 @@ func TestMakeDeal(t *testing.T) {
 				storagemarket.StorageDealWaitingForData,
 				storagemarket.StorageDealTransferring,
 				storagemarket.StorageDealVerifyData,
-				storagemarket.StorageDealEnsureProviderFunds,
+				storagemarket.StorageDealReserveProviderFunds,
 				storagemarket.StorageDealPublish,
 				storagemarket.StorageDealPublishing,
 				storagemarket.StorageDealStaged,
@@ -126,9 +126,9 @@ func TestMakeDeal(t *testing.T) {
 			}
 
 			expClientStates := []storagemarket.StorageDealStatus{
-				storagemarket.StorageDealEnsureClientFunds,
+				storagemarket.StorageDealReserveClientFunds,
 				//storagemarket.StorageDealClientFunding,  // skipped because funds available
-				storagemarket.StorageDealFundsEnsured,
+				storagemarket.StorageDealFundsReserved,
 				storagemarket.StorageDealStartDataTransfer,
 				storagemarket.StorageDealTransferring,
 				storagemarket.StorageDealCheckForAcceptance,
@@ -211,7 +211,10 @@ func TestMakeDealOffline(t *testing.T) {
 
 	cd, err := h.Client.GetLocalDeal(ctx, proposalCid)
 	assert.NoError(t, err)
-	shared_testutil.AssertDealState(t, storagemarket.StorageDealCheckForAcceptance, cd.State)
+	require.Eventually(t, func() bool {
+		cd, _ = h.Client.GetLocalDeal(ctx, proposalCid)
+		return cd.State == storagemarket.StorageDealCheckForAcceptance
+	}, 1*time.Second, 100*time.Millisecond, "actual deal status is %s", storagemarket.DealStates[cd.State])
 
 	providerDeals, err := h.Provider.ListLocalDeals()
 	assert.NoError(t, err)
@@ -274,6 +277,9 @@ func TestMakeDealNonBlocking(t *testing.T) {
 	pd := providerDeals[0]
 	assert.Equal(t, result.ProposalCid, pd.ProposalCid)
 	require.Eventually(t, func() bool {
+		providerDeals, err := h.Provider.ListLocalDeals()
+		assert.NoError(t, err)
+		pd = providerDeals[0]
 		return pd.State == storagemarket.StorageDealProviderFunding
 	}, 1*time.Second, 100*time.Millisecond, "actual deal status is %s", storagemarket.DealStates[pd.State])
 }
@@ -404,12 +410,12 @@ func TestRestartClient(t *testing.T) {
 			expectedClientState: storagemarket.StorageDealCheckForAcceptance,
 		},
 
-		"ClientEventFundsEnsured": {
+		"ClientEventFundingComplete": {
 			//Edge case : Provider begins the state machine on recieving a deal stream request
 			//client crashes -> restarts -> sends deal stream again -> state machine fails
 			// See https://github.com/filecoin-project/lotus/issues/3966
-			stopAtClientEvent:   storagemarket.ClientEventFundsEnsured,
-			expectedClientState: storagemarket.StorageDealFundsEnsured,
+			stopAtClientEvent:   storagemarket.ClientEventFundingComplete,
+			expectedClientState: storagemarket.StorageDealFundsReserved,
 			clientDelay:         noOpDelay,
 			providerDelay:       noOpDelay,
 		},

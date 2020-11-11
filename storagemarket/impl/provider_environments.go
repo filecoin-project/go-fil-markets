@@ -16,7 +16,6 @@ import (
 	"github.com/filecoin-project/go-fil-markets/filestore"
 	"github.com/filecoin-project/go-fil-markets/piecestore"
 	"github.com/filecoin-project/go-fil-markets/storagemarket"
-	"github.com/filecoin-project/go-fil-markets/storagemarket/impl/funds"
 	"github.com/filecoin-project/go-fil-markets/storagemarket/impl/providerstates"
 	"github.com/filecoin-project/go-fil-markets/storagemarket/impl/providerutils"
 	"github.com/filecoin-project/go-fil-markets/storagemarket/network"
@@ -104,10 +103,6 @@ func (p *providerDealEnvironment) RunCustomDecisionLogic(ctx context.Context, de
 		return true, "", nil
 	}
 	return p.p.customDealDeciderFunc(ctx, deal)
-}
-
-func (p *providerDealEnvironment) DealFunds() funds.DealFunds {
-	return p.p.dealFunds
 }
 
 func (p *providerDealEnvironment) TagPeer(id peer.ID, s string) {

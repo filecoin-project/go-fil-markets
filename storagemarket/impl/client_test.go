@@ -125,7 +125,6 @@ func TestClient_Migrations(t *testing.T) {
 		deps.PeerResolver,
 		clientDs,
 		deps.ClientNode,
-		deps.ClientDealFunds,
 		storageimpl.DealPollingInterval(0),
 	)
 	require.NoError(t, err)

@@ -15,21 +15,21 @@ import (
 // ClientEvents are the events that can happen in a storage client
 var ClientEvents = fsm.Events{
 	fsm.Event(storagemarket.ClientEventOpen).
-		From(storagemarket.StorageDealUnknown).To(storagemarket.StorageDealEnsureClientFunds),
+		From(storagemarket.StorageDealUnknown).To(storagemarket.StorageDealReserveClientFunds),
 	fsm.Event(storagemarket.ClientEventFundingInitiated).
-		From(storagemarket.StorageDealEnsureClientFunds).To(storagemarket.StorageDealClientFunding).
+		From(storagemarket.StorageDealReserveClientFunds).To(storagemarket.StorageDealClientFunding).
 		Action(func(deal *storagemarket.ClientDeal, mcid cid.Cid) error {
 			deal.AddFundsCid = &mcid
 			return nil
 		}),
-	fsm.Event(storagemarket.ClientEventEnsureFundsFailed).
-		FromMany(storagemarket.StorageDealClientFunding, storagemarket.StorageDealEnsureClientFunds).To(storagemarket.StorageDealFailing).
+	fsm.Event(storagemarket.ClientEventReserveFundsFailed).
+		FromMany(storagemarket.StorageDealClientFunding, storagemarket.StorageDealReserveClientFunds).To(storagemarket.StorageDealFailing).
 		Action(func(deal *storagemarket.ClientDeal, err error) error {
 			deal.Message = xerrors.Errorf("adding market funds failed: %w", err).Error()
 			return nil
 		}),
 	fsm.Event(storagemarket.ClientEventFundsReserved).
-		From(storagemarket.StorageDealEnsureClientFunds).ToJustRecord().
+		From(storagemarket.StorageDealReserveClientFunds).ToJustRecord().
 		Action(func(deal *storagemarket.ClientDeal, fundsReserved abi.TokenAmount) error {
 			if deal.FundsReserved.Nil() {
 				deal.FundsReserved = fundsReserved
@@ -44,31 +44,31 @@ var ClientEvents = fsm.Events{
 			deal.FundsReserved = big.Subtract(deal.FundsReserved, fundsReleased)
 			return nil
 		}),
-	fsm.Event(storagemarket.ClientEventFundsEnsured).
-		FromMany(storagemarket.StorageDealEnsureClientFunds, storagemarket.StorageDealClientFunding).To(storagemarket.StorageDealFundsEnsured),
+	fsm.Event(storagemarket.ClientEventFundingComplete).
+		FromMany(storagemarket.StorageDealReserveClientFunds, storagemarket.StorageDealClientFunding).To(storagemarket.StorageDealFundsReserved),
 	fsm.Event(storagemarket.ClientEventWriteProposalFailed).
-		From(storagemarket.StorageDealFundsEnsured).To(storagemarket.StorageDealError).
+		From(storagemarket.StorageDealFundsReserved).To(storagemarket.StorageDealError).
 		Action(func(deal *storagemarket.ClientDeal, err error) error {
 			deal.Message = xerrors.Errorf("sending proposal to storage provider failed: %w", err).Error()
 			return nil
 		}),
 	fsm.Event(storagemarket.ClientEventReadResponseFailed).
-		From(storagemarket.StorageDealFundsEnsured).To(storagemarket.StorageDealFailing).
+		From(storagemarket.StorageDealFundsReserved).To(storagemarket.StorageDealFailing).
 		Action(func(deal *storagemarket.ClientDeal, err error) error {
 			deal.Message = xerrors.Errorf("error reading Response message: %w", err).Error()
 			return nil
 		}),
 	fsm.Event(storagemarket.ClientEventResponseVerificationFailed).
-		From(storagemarket.StorageDealFundsEnsured).To(storagemarket.StorageDealFailing).
+		From(storagemarket.StorageDealFundsReserved).To(storagemarket.StorageDealFailing).
 		Action(func(deal *storagemarket.ClientDeal) error {
 			deal.Message = "unable to verify signature on deal response"
 			return nil
 		}),
 	fsm.Event(storagemarket.ClientEventInitiateDataTransfer).
-		From(storagemarket.StorageDealFundsEnsured).To(storagemarket.StorageDealStartDataTransfer),
+		From(storagemarket.StorageDealFundsReserved).To(storagemarket.StorageDealStartDataTransfer),
 
 	fsm.Event(storagemarket.ClientEventUnexpectedDealState).
-		From(storagemarket.StorageDealFundsEnsured).To(storagemarket.StorageDealFailing).
+		From(storagemarket.StorageDealFundsReserved).To(storagemarket.StorageDealFailing).
 		Action(func(deal *storagemarket.ClientDeal, status storagemarket.StorageDealStatus, providerMessage string) error {
 			deal.Message = xerrors.Errorf("unexpected deal status while waiting for data request: %d (%s). Provider message: %s", status, storagemarket.DealStates[status], providerMessage).Error()
 			return nil
@@ -187,9 +187,9 @@ var ClientEvents = fsm.Events{
 
 // ClientStateEntryFuncs are the handlers for different states in a storage client
 var ClientStateEntryFuncs = fsm.StateEntryFuncs{
-	storagemarket.StorageDealEnsureClientFunds:     EnsureClientFunds,
+	storagemarket.StorageDealReserveClientFunds:    ReserveClientFunds,
 	storagemarket.StorageDealClientFunding:         WaitForFunding,
-	storagemarket.StorageDealFundsEnsured:          ProposeDeal,
+	storagemarket.StorageDealFundsReserved:         ProposeDeal,
 	storagemarket.StorageDealStartDataTransfer:     InitiateDataTransfer,
 	storagemarket.StorageDealClientTransferRestart: RestartDataTransfer,
 	storagemarket.StorageDealCheckForAcceptance:    CheckForDealAcceptance,
