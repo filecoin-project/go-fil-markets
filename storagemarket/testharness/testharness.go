@@ -74,7 +74,6 @@ func NewHarnessWithTestData(t *testing.T, ctx context.Context, td *shared_testut
 		deps.PeerResolver,
 		clientDs,
 		deps.ClientNode,
-		deps.ClientDealFunds,
 		storageimpl.DealPollingInterval(0),
 	)
 	require.NoError(t, err)
@@ -99,7 +98,6 @@ func NewHarnessWithTestData(t *testing.T, ctx context.Context, td *shared_testut
 		deps.ProviderAddr,
 		abi.RegisteredSealProof_StackedDrg2KiBV1,
 		deps.StoredAsk,
-		deps.ProviderDealFunds,
 	)
 	assert.NoError(t, err)
 
@@ -135,7 +133,6 @@ func (h *StorageHarness) CreateNewProvider(t *testing.T, ctx context.Context, td
 		h.ProviderAddr,
 		abi.RegisteredSealProof_StackedDrg2KiBV1,
 		h.StoredAsk,
-		h.ProviderDealFunds,
 	)
 	require.NoError(t, err)
 	h.Provider = provider

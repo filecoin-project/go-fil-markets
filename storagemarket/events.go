@@ -7,8 +7,8 @@ const (
 	// ClientEventOpen indicates a new deal was started
 	ClientEventOpen ClientEvent = iota
 
-	// ClientEventEnsureFundsFailed happens when attempting to ensure the client has enough funds available fails
-	ClientEventEnsureFundsFailed
+	// ClientEventReserveFundsFailed happens when attempting to reserve funds for a deal fails
+	ClientEventReserveFundsFailed
 
 	// ClientEventFundingInitiated happens when a client has sent a message adding funds to its balance
 	ClientEventFundingInitiated
@@ -19,8 +19,8 @@ const (
 	// ClientEventFundsReleased happens when a client released funds for a deal (updating our tracked funds)
 	ClientEventFundsReleased
 
-	// ClientEventFundsEnsured happens when a client successfully ensures it has funds for a deal
-	ClientEventFundsEnsured
+	// ClientEventFundingComplete happens when a client successfully reserves funds for a deal
+	ClientEventFundingComplete
 
 	// ClientEventWriteProposalFailed indicates an attempt to send a deal proposal to a provider failed
 	ClientEventWriteProposalFailed
@@ -101,11 +101,11 @@ const (
 // ClientEvents maps client event codes to string names
 var ClientEvents = map[ClientEvent]string{
 	ClientEventOpen:                       "ClientEventOpen",
-	ClientEventEnsureFundsFailed:          "ClientEventEnsureFundsFailed",
+	ClientEventReserveFundsFailed:         "ClientEventReserveFundsFailed",
 	ClientEventFundingInitiated:           "ClientEventFundingInitiated",
 	ClientEventFundsReserved:              "ClientEventFundsReserved",
 	ClientEventFundsReleased:              "ClientEventFundsReleased",
-	ClientEventFundsEnsured:               "ClientEventFundsEnsured",
+	ClientEventFundingComplete:            "ClientEventFundingComplete",
 	ClientEventWriteProposalFailed:        "ClientEventWriteProposalFailed",
 	ClientEventInitiateDataTransfer:       "ClientEventInitiateDataTransfer",
 	ClientEventDataTransferInitiated:      "ClientEventDataTransferInitiated",

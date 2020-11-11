@@ -17,7 +17,6 @@ import (
 
 	"github.com/filecoin-project/go-fil-markets/shared"
 	"github.com/filecoin-project/go-fil-markets/storagemarket"
-	"github.com/filecoin-project/go-fil-markets/storagemarket/impl/funds"
 	"github.com/filecoin-project/go-fil-markets/storagemarket/impl/requestvalidation"
 	"github.com/filecoin-project/go-fil-markets/storagemarket/network"
 )
@@ -33,45 +32,28 @@ type ClientDealEnvironment interface {
 	RestartDataTransfer(ctx context.Context, chid datatransfer.ChannelID) error
 	GetProviderDealState(ctx context.Context, proposalCid cid.Cid) (*storagemarket.ProviderDealState, error)
 	PollingInterval() time.Duration
-	DealFunds() funds.DealFunds
 	network.PeerTagger
 }
 
 // ClientStateEntryFunc is the type for all state entry functions on a storage client
 type ClientStateEntryFunc func(ctx fsm.Context, environment ClientDealEnvironment, deal storagemarket.ClientDeal) error
 
-// EnsureClientFunds attempts to ensure the client has enough funds for the deal being proposed
-func EnsureClientFunds(ctx fsm.Context, environment ClientDealEnvironment, deal storagemarket.ClientDeal) error {
+// ReserveClientFunds attempts to reserve funds for this deal and ensure they are available in the Storage Market Actor
+func ReserveClientFunds(ctx fsm.Context, environment ClientDealEnvironment, deal storagemarket.ClientDeal) error {
 	node := environment.Node()
 
-	tok, _, err := node.GetChainHead(ctx.Context())
+	mcid, err := node.ReserveFunds(ctx.Context(), deal.Proposal.Client, deal.Proposal.Client, deal.Proposal.ClientBalanceRequirement())
 	if err != nil {
-		return ctx.Trigger(storagemarket.ClientEventEnsureFundsFailed, xerrors.Errorf("acquiring chain head: %w", err))
-	}
-
-	var requiredFunds abi.TokenAmount
-	if deal.FundsReserved.Nil() || deal.FundsReserved.IsZero() {
-		requiredFunds, err = environment.DealFunds().Reserve(deal.Proposal.ClientBalanceRequirement())
-		if err != nil {
-			return ctx.Trigger(storagemarket.ClientEventEnsureFundsFailed, xerrors.Errorf("tracking deal funds: %w", err))
-		}
-	} else {
-		requiredFunds = environment.DealFunds().Get()
+		return ctx.Trigger(storagemarket.ClientEventReserveFundsFailed, err)
 	}
 
 	_ = ctx.Trigger(storagemarket.ClientEventFundsReserved, deal.Proposal.ClientBalanceRequirement())
 
-	mcid, err := node.EnsureFunds(ctx.Context(), deal.Proposal.Client, deal.Proposal.Client, requiredFunds, tok)
-
-	if err != nil {
-		return ctx.Trigger(storagemarket.ClientEventEnsureFundsFailed, err)
-	}
-
 	// if no message was sent, and there was no error, funds were already available
 	if mcid == cid.Undef {
-		return ctx.Trigger(storagemarket.ClientEventFundsEnsured)
+		return ctx.Trigger(storagemarket.ClientEventFundingComplete)
 	}
-
+	// Otherwise wait for funds to be added
 	return ctx.Trigger(storagemarket.ClientEventFundingInitiated, mcid)
 }
 
@@ -81,12 +63,12 @@ func WaitForFunding(ctx fsm.Context, environment ClientDealEnvironment, deal sto
 
 	return node.WaitForMessage(ctx.Context(), *deal.AddFundsCid, func(code exitcode.ExitCode, bytes []byte, finalCid cid.Cid, err error) error {
 		if err != nil {
-			return ctx.Trigger(storagemarket.ClientEventEnsureFundsFailed, xerrors.Errorf("AddFunds err: %w", err))
+			return ctx.Trigger(storagemarket.ClientEventReserveFundsFailed, xerrors.Errorf("AddFunds err: %w", err))
 		}
 		if code != exitcode.Ok {
-			return ctx.Trigger(storagemarket.ClientEventEnsureFundsFailed, xerrors.Errorf("AddFunds exit code: %s", code.String()))
+			return ctx.Trigger(storagemarket.ClientEventReserveFundsFailed, xerrors.Errorf("AddFunds exit code: %s", code.String()))
 		}
-		return ctx.Trigger(storagemarket.ClientEventFundsEnsured)
+		return ctx.Trigger(storagemarket.ClientEventFundingComplete)
 
 	})
 }
@@ -234,14 +216,7 @@ func ValidateDealPublished(ctx fsm.Context, environment ClientDealEnvironment, d
 		return ctx.Trigger(storagemarket.ClientEventDealPublishFailed, err)
 	}
 
-	if !deal.FundsReserved.Nil() && !deal.FundsReserved.IsZero() {
-		_, err = environment.DealFunds().Release(deal.FundsReserved)
-		if err != nil {
-			// nonfatal error
-			log.Warnf("failed to release funds from local tracker: %s", err)
-		}
-		_ = ctx.Trigger(storagemarket.ClientEventFundsReleased, deal.FundsReserved)
-	}
+	releaseReservedFunds(ctx, environment, deal)
 
 	// at this point data transfer is complete, so unprotect peer connection
 	environment.UntagPeer(deal.Miner, deal.ProposalCid.String())
@@ -297,14 +272,7 @@ func WaitForDealCompletion(ctx fsm.Context, environment ClientDealEnvironment, d
 
 // FailDeal cleans up a failing deal
 func FailDeal(ctx fsm.Context, environment ClientDealEnvironment, deal storagemarket.ClientDeal) error {
-	if !deal.FundsReserved.Nil() && !deal.FundsReserved.IsZero() {
-		_, err := environment.DealFunds().Release(deal.FundsReserved)
-		if err != nil {
-			// nonfatal error
-			log.Warnf("failed to release funds from local tracker: %s", err)
-		}
-		_ = ctx.Trigger(storagemarket.ClientEventFundsReleased, deal.FundsReserved)
-	}
+	releaseReservedFunds(ctx, environment, deal)
 
 	// TODO: store in some sort of audit log
 	log.Errorf("deal %s failed: %s", deal.ProposalCid, deal.Message)
@@ -312,6 +280,17 @@ func FailDeal(ctx fsm.Context, environment ClientDealEnvironment, deal storagema
 	environment.UntagPeer(deal.Miner, deal.ProposalCid.String())
 
 	return ctx.Trigger(storagemarket.ClientEventFailed)
+}
+
+func releaseReservedFunds(ctx fsm.Context, environment ClientDealEnvironment, deal storagemarket.ClientDeal) {
+	if !deal.FundsReserved.Nil() && !deal.FundsReserved.IsZero() {
+		err := environment.Node().ReleaseFunds(ctx.Context(), deal.Proposal.Client, deal.FundsReserved)
+		if err != nil {
+			// nonfatal error
+			log.Warnf("failed to release funds: %s", err)
+		}
+		_ = ctx.Trigger(storagemarket.ClientEventFundsReleased, deal.FundsReserved)
+	}
 }
 
 func isAccepted(status storagemarket.StorageDealStatus) bool {

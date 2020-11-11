@@ -115,7 +115,7 @@ func TestMakeDeal(t *testing.T) {
 				storagemarket.StorageDealWaitingForData,
 				storagemarket.StorageDealTransferring,
 				storagemarket.StorageDealVerifyData,
-				storagemarket.StorageDealEnsureProviderFunds,
+				storagemarket.StorageDealReserveProviderFunds,
 				storagemarket.StorageDealPublish,
 				storagemarket.StorageDealPublishing,
 				storagemarket.StorageDealStaged,
@@ -126,9 +126,9 @@ func TestMakeDeal(t *testing.T) {
 			}
 
 			expClientStates := []storagemarket.StorageDealStatus{
-				storagemarket.StorageDealEnsureClientFunds,
+				storagemarket.StorageDealReserveClientFunds,
 				//storagemarket.StorageDealClientFunding,  // skipped because funds available
-				storagemarket.StorageDealFundsEnsured,
+				storagemarket.StorageDealFundsReserved,
 				storagemarket.StorageDealStartDataTransfer,
 				storagemarket.StorageDealTransferring,
 				storagemarket.StorageDealCheckForAcceptance,
@@ -404,12 +404,12 @@ func TestRestartClient(t *testing.T) {
 			expectedClientState: storagemarket.StorageDealCheckForAcceptance,
 		},
 
-		"ClientEventFundsEnsured": {
+		"ClientEventFundsReserved": {
 			//Edge case : Provider begins the state machine on recieving a deal stream request
 			//client crashes -> restarts -> sends deal stream again -> state machine fails
 			// See https://github.com/filecoin-project/lotus/issues/3966
-			stopAtClientEvent:   storagemarket.ClientEventFundsEnsured,
-			expectedClientState: storagemarket.StorageDealFundsEnsured,
+			stopAtClientEvent:   storagemarket.ClientEventFundingComplete,
+			expectedClientState: storagemarket.StorageDealFundsReserved,
 			clientDelay:         noOpDelay,
 			providerDelay:       noOpDelay,
 		},

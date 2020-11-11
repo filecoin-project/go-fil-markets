@@ -13,7 +13,7 @@ stateDiagram-v2
 	state "StorageDealTransferring" as 17
 	state "StorageDealWaitingForData" as 18
 	state "StorageDealVerifyData" as 19
-	state "StorageDealEnsureProviderFunds" as 20
+	state "StorageDealReserveProviderFunds" as 20
 	state "StorageDealProviderFunding" as 22
 	state "StorageDealPublish" as 24
 	state "StorageDealPublishing" as 25
@@ -28,7 +28,7 @@ stateDiagram-v2
 	14 : On entry runs ValidateDealProposal
 	15 : On entry runs DecideOnProposal
 	19 : On entry runs VerifyData
-	20 : On entry runs EnsureProviderFunds
+	20 : On entry runs ReserveProviderFunds
 	22 : On entry runs WaitForFunding
 	24 : On entry runs PublishDeal
 	25 : On entry runs WaitForPublish

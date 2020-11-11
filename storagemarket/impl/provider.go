@@ -29,7 +29,6 @@ import (
 	"github.com/filecoin-project/go-fil-markets/storagemarket"
 	"github.com/filecoin-project/go-fil-markets/storagemarket/impl/connmanager"
 	"github.com/filecoin-project/go-fil-markets/storagemarket/impl/dtutils"
-	"github.com/filecoin-project/go-fil-markets/storagemarket/impl/funds"
 	"github.com/filecoin-project/go-fil-markets/storagemarket/impl/providerstates"
 	"github.com/filecoin-project/go-fil-markets/storagemarket/impl/providerutils"
 	"github.com/filecoin-project/go-fil-markets/storagemarket/impl/requestvalidation"
@@ -59,7 +58,6 @@ type Provider struct {
 	pieceStore                piecestore.PieceStore
 	conns                     *connmanager.ConnManager
 	storedAsk                 StoredAsk
-	dealFunds                 funds.DealFunds
 	actor                     address.Address
 	dataTransfer              datatransfer.Manager
 	universalRetrievalEnabled bool
@@ -111,7 +109,6 @@ func NewProvider(net network.StorageMarketNetwork,
 	minerAddress address.Address,
 	rt abi.RegisteredSealProof,
 	storedAsk StoredAsk,
-	dealFunds funds.DealFunds,
 	options ...StorageProviderOption,
 ) (storagemarket.StorageProvider, error) {
 	carIO := cario.NewCarIO()
@@ -127,7 +124,6 @@ func NewProvider(net network.StorageMarketNetwork,
 		pieceStore:   pieceStore,
 		conns:        connmanager.NewConnManager(),
 		storedAsk:    storedAsk,
-		dealFunds:    dealFunds,
 		actor:        minerAddress,
 		dataTransfer: dataTransfer,
 		pubSub:       pubsub.New(providerDispatcher),

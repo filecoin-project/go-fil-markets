@@ -62,7 +62,8 @@ Implement the [`StorageCommon`](#StorageCommon), [`StorageProviderNode`](#Storag
  functions are:
 * [`GetChainHead`](#GetChainHead)
 * [`AddFunds`](#AddFunds)
-* [`EnsureFunds`](#EnsureFunds)
+* [`ReserveFunds`](#ReserveFunds)
+* [`ReleaseFunds`](#ReleaseFunds)
 * [`GetBalance`](#GetBalance)
 * [`VerifySignature`](#VerifySignature)
 * [`WaitForMessage`](#WaitForMessage)
@@ -76,14 +77,21 @@ func AddFunds(ctx context.Context, addr address.Address, amount abi.TokenAmount)
 
 Send `amount` to `addr` by posting a message on chain. Return the message CID.
 
-#### EnsureFunds
+#### ReserveFunds
 ```go
-func EnsureFunds(ctx context.Context, addr, wallet address.Address, amount abi.TokenAmount, 
-            tok shared.TipSetToken) (cid.Cid, error)
+func ReserveFunds(ctx context.Context, addr, wallet address.Address, amount abi.TokenAmount) (cid.Cid, error)
 ```
  
-Make sure `addr` has `amount` funds and if not, `wallet` should send any needed balance to
-  `addr` by posting a message on chain. Returns the message CID.
+Add `amount` to the total reserved funds for `addr`. If total available balance for `addr` in StorageMarketActor is not greater than total reserved, `wallet` should send any needed balance to `addr` by posting a message on chain. Returns the message CID.
+
+#### ReserveFunds
+```go
+func ReleaseFunds(ctx context.Context, addr address.Address, amount abi.TokenAmount) (cid.Cid, error)
+```
+ 
+Release `amount` funds from reserved total for `addr`. No withdrawal is performed for `addr` in the storage market actor but the funds released become
+available for future withdrawal
+(if new total reserved < total available in SMA) 
 
 #### GetBalance
 ```go

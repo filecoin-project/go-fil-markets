@@ -25,7 +25,6 @@ import (
 	"github.com/filecoin-project/go-fil-markets/piecestore"
 	"github.com/filecoin-project/go-fil-markets/shared"
 	"github.com/filecoin-project/go-fil-markets/storagemarket"
-	"github.com/filecoin-project/go-fil-markets/storagemarket/impl/funds"
 	"github.com/filecoin-project/go-fil-markets/storagemarket/impl/providerutils"
 	"github.com/filecoin-project/go-fil-markets/storagemarket/network"
 )
@@ -49,7 +48,6 @@ type ProviderDealEnvironment interface {
 	FileStore() filestore.FileStore
 	PieceStore() piecestore.PieceStore
 	RunCustomDecisionLogic(context.Context, storagemarket.MinerDeal) (bool, string, error)
-	DealFunds() funds.DealFunds
 	network.PeerTagger
 }
 
@@ -213,8 +211,8 @@ func VerifyData(ctx fsm.Context, environment ProviderDealEnvironment, deal stora
 	return ctx.Trigger(storagemarket.ProviderEventVerifiedData, piecePath, metadataPath)
 }
 
-// EnsureProviderFunds adds funds, as needed to the StorageMarketActor, so the miner has adequate collateral for the deal
-func EnsureProviderFunds(ctx fsm.Context, environment ProviderDealEnvironment, deal storagemarket.MinerDeal) error {
+// ReserveProviderFunds adds funds, as needed to the StorageMarketActor, so the miner has adequate collateral for the deal
+func ReserveProviderFunds(ctx fsm.Context, environment ProviderDealEnvironment, deal storagemarket.MinerDeal) error {
 	node := environment.Node()
 
 	tok, _, err := node.GetChainHead(ctx.Context())
@@ -226,25 +224,15 @@ func EnsureProviderFunds(ctx fsm.Context, environment ProviderDealEnvironment, d
 	if err != nil {
 		return ctx.Trigger(storagemarket.ProviderEventNodeErrored, xerrors.Errorf("looking up miner worker: %w", err))
 	}
-	var requiredFunds abi.TokenAmount
-	if deal.FundsReserved.Nil() || deal.FundsReserved.IsZero() {
-		requiredFunds, err = environment.DealFunds().Reserve(deal.Proposal.ProviderCollateral)
-		if err != nil {
-			return ctx.Trigger(storagemarket.ProviderEventTrackFundsFailed, xerrors.Errorf("tracking deal funds: %w", err))
-		}
-	} else {
-		requiredFunds = environment.DealFunds().Get()
+
+	mcid, err := node.ReserveFunds(ctx.Context(), waddr, deal.Proposal.Provider, deal.Proposal.ProviderCollateral)
+	if err != nil {
+		return ctx.Trigger(storagemarket.ProviderEventNodeErrored, xerrors.Errorf("reserving funds: %w", err))
 	}
 
 	_ = ctx.Trigger(storagemarket.ProviderEventFundsReserved, deal.Proposal.ProviderCollateral)
 
-	mcid, err := node.EnsureFunds(ctx.Context(), deal.Proposal.Provider, waddr, requiredFunds, tok)
-
-	if err != nil {
-		return ctx.Trigger(storagemarket.ProviderEventNodeErrored, xerrors.Errorf("ensuring funds: %w", err))
-	}
-
-	// if no message was sent, and there was no error, it was instantaneous
+	// if no message was sent, and there was no error, funds were already available
 	if mcid == cid.Undef {
 		return ctx.Trigger(storagemarket.ProviderEventFunded)
 	}
@@ -324,14 +312,7 @@ func WaitForPublish(ctx fsm.Context, environment ProviderDealEnvironment, deal s
 			return ctx.Trigger(storagemarket.ProviderEventDealPublishError, xerrors.Errorf("PublishStorageDeals error unmarshalling result: %w", err))
 		}
 
-		if !deal.FundsReserved.Nil() && !deal.FundsReserved.IsZero() {
-			_, err = environment.DealFunds().Release(deal.FundsReserved)
-			if err != nil {
-				// nonfatal error
-				log.Warnf("failed to release funds from local tracker: %s", err)
-			}
-			_ = ctx.Trigger(storagemarket.ProviderEventFundsReleased, deal.FundsReserved)
-		}
+		releaseReservedFunds(ctx, environment, deal)
 
 		return ctx.Trigger(storagemarket.ProviderEventDealPublished, retval.IDs[0], finalCid)
 	})
@@ -520,14 +501,18 @@ func FailDeal(ctx fsm.Context, environment ProviderDealEnvironment, deal storage
 			log.Warnf("deleting store id %d: %w", *deal.StoreID, err)
 		}
 	}
+	releaseReservedFunds(ctx, environment, deal)
+
+	return ctx.Trigger(storagemarket.ProviderEventFailed)
+}
+
+func releaseReservedFunds(ctx fsm.Context, environment ProviderDealEnvironment, deal storagemarket.MinerDeal) {
 	if !deal.FundsReserved.Nil() && !deal.FundsReserved.IsZero() {
-		_, err := environment.DealFunds().Release(deal.FundsReserved)
+		err := environment.Node().ReleaseFunds(ctx.Context(), deal.Proposal.Provider, deal.FundsReserved)
 		if err != nil {
 			// nonfatal error
-			log.Warnf("failed to release funds from local tracker: %s", err)
+			log.Warnf("failed to release funds: %s", err)
 		}
 		_ = ctx.Trigger(storagemarket.ProviderEventFundsReleased, deal.FundsReserved)
 	}
-
-	return ctx.Trigger(storagemarket.ProviderEventFailed)
 }

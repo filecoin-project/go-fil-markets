@@ -37,7 +37,6 @@ import (
 	tut "github.com/filecoin-project/go-fil-markets/shared_testutil"
 	"github.com/filecoin-project/go-fil-markets/storagemarket"
 	"github.com/filecoin-project/go-fil-markets/storagemarket/impl/blockrecorder"
-	"github.com/filecoin-project/go-fil-markets/storagemarket/impl/funds"
 	"github.com/filecoin-project/go-fil-markets/storagemarket/impl/providerstates"
 	"github.com/filecoin-project/go-fil-markets/storagemarket/network"
 	"github.com/filecoin-project/go-fil-markets/storagemarket/testnodes"
@@ -347,7 +346,7 @@ func TestVerifyData(t *testing.T) {
 				MetadataPath: expMetaPath,
 			},
 			dealInspector: func(t *testing.T, deal storagemarket.MinerDeal, env *fakeEnvironment) {
-				tut.AssertDealState(t, storagemarket.StorageDealEnsureProviderFunds, deal.State)
+				tut.AssertDealState(t, storagemarket.StorageDealReserveProviderFunds, deal.State)
 				require.Equal(t, expPath, deal.PiecePath)
 				require.Equal(t, expMetaPath, deal.MetadataPath)
 			},
@@ -422,11 +421,11 @@ func TestWaitForFunding(t *testing.T) {
 	}
 }
 
-func TestEnsureProviderFunds(t *testing.T) {
+func TestReserveProviderFunds(t *testing.T) {
 	ctx := context.Background()
 	eventProcessor, err := fsm.NewEventProcessor(storagemarket.MinerDeal{}, "State", providerstates.ProviderEvents)
 	require.NoError(t, err)
-	runEnsureProviderFunds := makeExecutor(ctx, eventProcessor, providerstates.EnsureProviderFunds, storagemarket.StorageDealEnsureProviderFunds)
+	runReserveProviderFunds := makeExecutor(ctx, eventProcessor, providerstates.ReserveProviderFunds, storagemarket.StorageDealReserveProviderFunds)
 	cids := tut.GenerateCids(1)
 	tests := map[string]struct {
 		nodeParams        nodeParams
@@ -439,19 +438,9 @@ func TestEnsureProviderFunds(t *testing.T) {
 		"succeeds immediately": {
 			dealInspector: func(t *testing.T, deal storagemarket.MinerDeal, env *fakeEnvironment) {
 				tut.AssertDealState(t, storagemarket.StorageDealPublish, deal.State)
-				require.Equal(t, env.dealFunds.ReserveCalls[0], deal.Proposal.ProviderBalanceRequirement())
-				require.Len(t, env.dealFunds.ReleaseCalls, 0)
+				require.Equal(t, env.node.DealFunds.ReserveCalls[0], deal.Proposal.ProviderBalanceRequirement())
+				require.Len(t, env.node.DealFunds.ReleaseCalls, 0)
 				require.Equal(t, deal.Proposal.ProviderBalanceRequirement(), deal.FundsReserved)
-			},
-		},
-		"succeeds, funds already reserved": {
-			dealParams: dealParams{
-				ReserveFunds: true,
-			},
-			dealInspector: func(t *testing.T, deal storagemarket.MinerDeal, env *fakeEnvironment) {
-				tut.AssertDealState(t, storagemarket.StorageDealPublish, deal.State)
-				require.Len(t, env.dealFunds.ReserveCalls, 0)
-				require.Len(t, env.dealFunds.ReleaseCalls, 0)
 			},
 		},
 		"succeeds by sending an AddBalance message": {
@@ -464,8 +453,9 @@ func TestEnsureProviderFunds(t *testing.T) {
 			dealInspector: func(t *testing.T, deal storagemarket.MinerDeal, env *fakeEnvironment) {
 				tut.AssertDealState(t, storagemarket.StorageDealProviderFunding, deal.State)
 				require.Equal(t, &cids[0], deal.AddFundsCid)
-				require.Equal(t, env.dealFunds.ReserveCalls[0], deal.Proposal.ProviderBalanceRequirement())
-				require.Len(t, env.dealFunds.ReleaseCalls, 0)
+				require.Equal(t, env.node.DealFunds.ReserveCalls[0], deal.Proposal.ProviderBalanceRequirement())
+				require.Len(t, env.node.DealFunds.ReleaseCalls, 0)
+				require.Equal(t, deal.Proposal.ProviderBalanceRequirement(), deal.FundsReserved)
 			},
 		},
 		"get miner worker fails": {
@@ -474,24 +464,28 @@ func TestEnsureProviderFunds(t *testing.T) {
 			},
 			dealInspector: func(t *testing.T, deal storagemarket.MinerDeal, env *fakeEnvironment) {
 				tut.AssertDealState(t, storagemarket.StorageDealFailing, deal.State)
+				require.Len(t, env.node.DealFunds.ReserveCalls, 0)
+				require.Len(t, env.node.DealFunds.ReleaseCalls, 0)
+				require.True(t, deal.FundsReserved.Nil())
 				require.Equal(t, "error calling node: looking up miner worker: could not get worker", deal.Message)
 			},
 		},
-		"ensureFunds errors": {
+		"reserveFunds errors": {
 			nodeParams: nodeParams{
-				EnsureFundsError: errors.New("not enough funds"),
+				ReserveFundsError: errors.New("not enough funds"),
 			},
 			dealInspector: func(t *testing.T, deal storagemarket.MinerDeal, env *fakeEnvironment) {
 				tut.AssertDealState(t, storagemarket.StorageDealFailing, deal.State)
-				require.Equal(t, "error calling node: ensuring funds: not enough funds", deal.Message)
-				require.Equal(t, env.dealFunds.ReserveCalls[0], deal.Proposal.ProviderBalanceRequirement())
-				require.Len(t, env.dealFunds.ReleaseCalls, 0)
+				require.Equal(t, "error calling node: reserving funds: not enough funds", deal.Message)
+				require.Len(t, env.node.DealFunds.ReserveCalls, 0)
+				require.Len(t, env.node.DealFunds.ReleaseCalls, 0)
+				require.True(t, deal.FundsReserved.Nil())
 			},
 		},
 	}
 	for test, data := range tests {
 		t.Run(test, func(t *testing.T) {
-			runEnsureProviderFunds(t, data.nodeParams, data.environmentParams, data.dealParams, data.fileStoreParams, data.pieceStoreParams, data.dealInspector)
+			runReserveProviderFunds(t, data.nodeParams, data.environmentParams, data.dealParams, data.fileStoreParams, data.pieceStoreParams, data.dealInspector)
 		})
 	}
 }
@@ -609,7 +603,7 @@ func TestWaitForPublish(t *testing.T) {
 			dealInspector: func(t *testing.T, deal storagemarket.MinerDeal, env *fakeEnvironment) {
 				tut.AssertDealState(t, storagemarket.StorageDealStaged, deal.State)
 				require.Equal(t, expDealID, deal.DealID)
-				assert.Equal(t, env.dealFunds.ReleaseCalls[0], deal.Proposal.ProviderBalanceRequirement())
+				assert.Equal(t, env.node.DealFunds.ReleaseCalls[0], deal.Proposal.ProviderBalanceRequirement())
 				assert.True(t, deal.FundsReserved.Nil() || deal.FundsReserved.IsZero())
 				assert.Equal(t, deal.PublishCid, &finalCid)
 			},
@@ -621,7 +615,7 @@ func TestWaitForPublish(t *testing.T) {
 			dealInspector: func(t *testing.T, deal storagemarket.MinerDeal, env *fakeEnvironment) {
 				tut.AssertDealState(t, storagemarket.StorageDealStaged, deal.State)
 				require.Equal(t, expDealID, deal.DealID)
-				assert.Len(t, env.dealFunds.ReleaseCalls, 0)
+				assert.Len(t, env.node.DealFunds.ReleaseCalls, 0)
 			},
 		},
 		"PublishStorageDeal errors": {
@@ -997,7 +991,7 @@ func TestFailDeal(t *testing.T) {
 			},
 			dealInspector: func(t *testing.T, deal storagemarket.MinerDeal, env *fakeEnvironment) {
 				tut.AssertDealState(t, storagemarket.StorageDealError, deal.State)
-				assert.Equal(t, env.dealFunds.ReleaseCalls[0], deal.Proposal.ProviderBalanceRequirement())
+				assert.Equal(t, env.node.DealFunds.ReleaseCalls[0], deal.Proposal.ProviderBalanceRequirement())
 				assert.True(t, deal.FundsReserved.Nil() || deal.FundsReserved.IsZero())
 			},
 		},
@@ -1079,7 +1073,7 @@ func generatePublishDealsReturn(t *testing.T) (abi.DealID, []byte) {
 type nodeParams struct {
 	MinerAddr                           address.Address
 	MinerWorkerError                    error
-	EnsureFundsError                    error
+	ReserveFundsError                   error
 	Height                              abi.ChainEpoch
 	TipSetToken                         shared.TipSetToken
 	ClientMarketBalance                 abi.TokenAmount
@@ -1180,10 +1174,11 @@ func makeExecutor(ctx context.Context,
 
 		common := testnodes.FakeCommonNode{
 			SMState:                    smstate,
+			DealFunds:                  tut.NewTestDealFunds(),
 			GetChainHeadError:          nodeParams.MostRecentStateIDError,
 			GetBalanceError:            nodeParams.ClientMarketBalanceError,
 			VerifySignatureFails:       nodeParams.VerifySignatureFails,
-			EnsureFundsError:           nodeParams.EnsureFundsError,
+			ReserveFundsError:          nodeParams.ReserveFundsError,
 			DealCommittedSyncError:     nodeParams.DealCommittedSyncError,
 			DealCommittedAsyncError:    nodeParams.DealCommittedAsyncError,
 			AddFundsCid:                nodeParams.AddFundsCid,
@@ -1304,7 +1299,6 @@ func makeExecutor(ctx context.Context,
 			deleteStoreError:        params.DeleteStoreError,
 			fs:                      fs,
 			pieceStore:              pieceStore,
-			dealFunds:               tut.NewTestDealFunds(),
 			peerTagger:              tut.NewTestPeerTagger(),
 
 			restartDataTransferError: params.RestartDataTransferError,
@@ -1361,7 +1355,6 @@ type fakeEnvironment struct {
 	pieceStore              piecestore.PieceStore
 	expectedTags            map[string]struct{}
 	receivedTags            map[string]struct{}
-	dealFunds               *tut.TestDealFunds
 	peerTagger              *tut.TestPeerTagger
 
 	restartDataTransferCalls []restartDataTransferCall
@@ -1416,10 +1409,6 @@ func (fe *fakeEnvironment) PieceStore() piecestore.PieceStore {
 
 func (fe *fakeEnvironment) RunCustomDecisionLogic(context.Context, storagemarket.MinerDeal) (bool, string, error) {
 	return !fe.rejectDeal, fe.rejectReason, fe.decisionError
-}
-
-func (fe *fakeEnvironment) DealFunds() funds.DealFunds {
-	return fe.dealFunds
 }
 
 func (fe *fakeEnvironment) TagPeer(id peer.ID, s string) {
