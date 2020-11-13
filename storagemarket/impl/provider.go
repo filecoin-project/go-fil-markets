@@ -49,8 +49,6 @@ type StoredAsk interface {
 type Provider struct {
 	net network.StorageMarketNetwork
 
-	proofType abi.RegisteredSealProof
-
 	spn                       storagemarket.StorageProviderNode
 	fs                        filestore.FileStore
 	multiStore                *multistore.MultiStore
@@ -107,7 +105,6 @@ func NewProvider(net network.StorageMarketNetwork,
 	dataTransfer datatransfer.Manager,
 	spn storagemarket.StorageProviderNode,
 	minerAddress address.Address,
-	rt abi.RegisteredSealProof,
 	storedAsk StoredAsk,
 	options ...StorageProviderOption,
 ) (storagemarket.StorageProvider, error) {
@@ -116,7 +113,6 @@ func NewProvider(net network.StorageMarketNetwork,
 
 	h := &Provider{
 		net:          net,
-		proofType:    rt,
 		spn:          spn,
 		fs:           fs,
 		multiStore:   multiStore,
@@ -313,7 +309,13 @@ func (p *Provider) ImportDataForDeal(ctx context.Context, propCid cid.Cid, data 
 		return xerrors.Errorf("failed to seek through temp imported file: %w", err)
 	}
 
-	pieceCid, _, err := pieceio.GeneratePieceCommitment(p.proofType, tempfi, pieceSize)
+	proofType, err := p.spn.GetProofType(ctx, p.actor, nil)
+	if err != nil {
+		cleanup()
+		return xerrors.Errorf("failed to determine proof type: %w", err)
+	}
+
+	pieceCid, _, err := pieceio.GeneratePieceCommitment(proofType, tempfi, pieceSize)
 	if err != nil {
 		cleanup()
 		return xerrors.Errorf("failed to generate commP")

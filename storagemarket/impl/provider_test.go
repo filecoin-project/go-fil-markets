@@ -136,7 +136,6 @@ func TestProvider_Migrations(t *testing.T) {
 		deps.DTProvider,
 		deps.ProviderNode,
 		deps.ProviderAddr,
-		abi.RegisteredSealProof_StackedDrg2KiBV1,
 		deps.StoredAsk,
 	)
 	require.NoError(t, err)
@@ -228,7 +227,6 @@ func TestHandleDealStream(t *testing.T) {
 			deps.DTProvider,
 			deps.ProviderNode,
 			deps.ProviderAddr,
-			abi.RegisteredSealProof_StackedDrg2KiBV1,
 			deps.StoredAsk,
 		)
 		require.NoError(t, err)

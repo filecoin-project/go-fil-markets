@@ -55,10 +55,14 @@ func (p *providerDealEnvironment) DeleteStore(storeID multistore.StoreID) error 
 }
 
 func (p *providerDealEnvironment) GeneratePieceCommitmentToFile(storeID *multistore.StoreID, payloadCid cid.Cid, selector ipld.Node) (cid.Cid, filestore.Path, filestore.Path, error) {
-	if p.p.universalRetrievalEnabled {
-		return providerutils.GeneratePieceCommitmentWithMetadata(p.p.fs, p.p.pio.GeneratePieceCommitmentToFile, p.p.proofType, payloadCid, selector, storeID)
+	proofType, err := p.p.spn.GetProofType(context.TODO(), p.p.actor, nil)
+	if err != nil {
+		return cid.Undef, "", "", err
 	}
-	pieceCid, piecePath, _, err := p.p.pio.GeneratePieceCommitmentToFile(p.p.proofType, payloadCid, selector, storeID)
+	if p.p.universalRetrievalEnabled {
+		return providerutils.GeneratePieceCommitmentWithMetadata(p.p.fs, p.p.pio.GeneratePieceCommitmentToFile, proofType, payloadCid, selector, storeID)
+	}
+	pieceCid, piecePath, _, err := p.p.pio.GeneratePieceCommitmentToFile(proofType, payloadCid, selector, storeID)
 	return pieceCid, piecePath, filestore.Path(""), err
 }
 

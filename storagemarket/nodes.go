@@ -87,6 +87,9 @@ type StorageProviderNode interface {
 
 	// GetDataCap gets the current data cap for addr
 	GetDataCap(ctx context.Context, addr address.Address, tok shared.TipSetToken) (*verifreg.DataCap, error)
+
+	// GetProofType gets the current seal proof type for the given miner.
+	GetProofType(ctx context.Context, addr address.Address, tok shared.TipSetToken) (abi.RegisteredSealProof, error)
 }
 
 // StorageClientNode are node dependencies for a StorageClient
