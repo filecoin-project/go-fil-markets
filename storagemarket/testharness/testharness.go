@@ -96,7 +96,6 @@ func NewHarnessWithTestData(t *testing.T, ctx context.Context, td *shared_testut
 		deps.DTProvider,
 		deps.ProviderNode,
 		deps.ProviderAddr,
-		abi.RegisteredSealProof_StackedDrg2KiBV1,
 		deps.StoredAsk,
 	)
 	assert.NoError(t, err)
@@ -131,7 +130,6 @@ func (h *StorageHarness) CreateNewProvider(t *testing.T, ctx context.Context, td
 		dt2,
 		h.ProviderNode,
 		h.ProviderAddr,
-		abi.RegisteredSealProof_StackedDrg2KiBV1,
 		h.StoredAsk,
 	)
 	require.NoError(t, err)

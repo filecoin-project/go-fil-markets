@@ -361,4 +361,9 @@ func (n *FakeProviderNode) GetDataCap(ctx context.Context, addr address.Address,
 	return n.DataCap, n.GetDataCapErr
 }
 
+// GetProofType returns the miner's proof type.
+func (n *FakeProviderNode) GetProofType(ctx context.Context, addr address.Address, tok shared.TipSetToken) (abi.RegisteredSealProof, error) {
+	return abi.RegisteredSealProof_StackedDrg2KiBV1, nil
+}
+
 var _ storagemarket.StorageProviderNode = (*FakeProviderNode)(nil)
