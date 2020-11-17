@@ -10,8 +10,6 @@ import (
 
 	"github.com/filecoin-project/go-multistore"
 	"github.com/filecoin-project/go-state-types/abi"
-
-	"github.com/filecoin-project/go-fil-markets/filestore"
 )
 
 type WriteStore interface {
@@ -24,11 +22,7 @@ type ReadStore interface {
 
 // PieceIO converts between payloads and pieces
 type PieceIO interface {
-	GeneratePieceCommitment(rt abi.RegisteredSealProof, payloadCid cid.Cid, selector ipld.Node, storeID *multistore.StoreID) (cid.Cid, abi.UnpaddedPieceSize, error)
+	GeneratePieceReader(payloadCid cid.Cid, selector ipld.Node, storeID *multistore.StoreID, userOnNewCarBlocks ...car.OnNewCarBlockFunc) (io.ReadCloser, uint64, error, <-chan error)
+	GeneratePieceCommitment(rt abi.RegisteredSealProof, payloadCid cid.Cid, selector ipld.Node, storeID *multistore.StoreID, userOnNewCarBlocks ...car.OnNewCarBlockFunc) (cid.Cid, abi.UnpaddedPieceSize, error)
 	ReadPiece(storeID *multistore.StoreID, r io.Reader) (cid.Cid, error)
-}
-
-type PieceIOWithStore interface {
-	PieceIO
-	GeneratePieceCommitmentToFile(rt abi.RegisteredSealProof, payloadCid cid.Cid, selector ipld.Node, storeID *multistore.StoreID, userOnNewCarBlocks ...car.OnNewCarBlockFunc) (cid.Cid, filestore.Path, abi.UnpaddedPieceSize, error)
 }

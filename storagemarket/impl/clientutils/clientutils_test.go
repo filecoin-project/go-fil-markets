@@ -9,6 +9,7 @@ import (
 	"testing"
 
 	"github.com/ipfs/go-cid"
+	"github.com/ipld/go-car"
 	"github.com/ipld/go-ipld-prime"
 	"github.com/stretchr/testify/require"
 
@@ -91,12 +92,16 @@ type testPieceIO struct {
 	err                error
 }
 
-func (t *testPieceIO) GeneratePieceCommitment(rt abi.RegisteredSealProof, payloadCid cid.Cid, selector ipld.Node, storeID *multistore.StoreID) (cid.Cid, abi.UnpaddedPieceSize, error) {
+func (t *testPieceIO) GeneratePieceCommitment(rt abi.RegisteredSealProof, payloadCid cid.Cid, selector ipld.Node, storeID *multistore.StoreID, userOnNewCarBlocks ...car.OnNewCarBlockFunc) (cid.Cid, abi.UnpaddedPieceSize, error) {
 	require.Equal(t.t, rt, t.expectedRt)
 	require.Equal(t.t, payloadCid, t.expectedPayloadCid)
 	require.Equal(t.t, selector, t.expectedSelector)
 	require.Equal(t.t, storeID, t.expectedStoreID)
 	return t.pieceCID, t.pieceSize, t.err
+}
+
+func (t *testPieceIO) GeneratePieceReader(cid.Cid, ipld.Node, *multistore.StoreID, ...car.OnNewCarBlockFunc) (io.ReadCloser, uint64, error, <-chan error) {
+	panic("not implemented")
 }
 
 func (t *testPieceIO) ReadPiece(storeID *multistore.StoreID, r io.Reader) (cid.Cid, error) {

@@ -76,7 +76,7 @@ func SignMinerData(ctx context.Context, data interface{}, address address.Addres
 }
 
 // CommPGenerator is a commP generating function that writes to a file
-type CommPGenerator func(abi.RegisteredSealProof, cid.Cid, ipld.Node, *multistore.StoreID, ...car.OnNewCarBlockFunc) (cid.Cid, filestore.Path, abi.UnpaddedPieceSize, error)
+type CommPGenerator func(abi.RegisteredSealProof, cid.Cid, ipld.Node, *multistore.StoreID, ...car.OnNewCarBlockFunc) (cid.Cid, abi.UnpaddedPieceSize, error)
 
 // GeneratePieceCommitmentWithMetadata generates a piece commitment along with block metadata
 func GeneratePieceCommitmentWithMetadata(
@@ -85,19 +85,19 @@ func GeneratePieceCommitmentWithMetadata(
 	proofType abi.RegisteredSealProof,
 	payloadCid cid.Cid,
 	selector ipld.Node,
-	storeID *multistore.StoreID) (cid.Cid, filestore.Path, filestore.Path, error) {
+	storeID *multistore.StoreID) (cid.Cid, filestore.Path, error) {
 	metadataFile, err := fileStore.CreateTemp()
 	if err != nil {
-		return cid.Cid{}, "", "", err
+		return cid.Cid{}, "", err
 	}
 	blockRecorder := blockrecorder.RecordEachBlockTo(metadataFile)
-	pieceCid, path, _, err := commPGenerator(proofType, payloadCid, selector, storeID, blockRecorder)
+	pieceCid, _, err := commPGenerator(proofType, payloadCid, selector, storeID, blockRecorder)
 	_ = metadataFile.Close()
 	if err != nil {
 		_ = fileStore.Delete(metadataFile.Path())
-		return cid.Cid{}, "", "", err
+		return cid.Cid{}, "", err
 	}
-	return pieceCid, path, metadataFile.Path(), err
+	return pieceCid, metadataFile.Path(), err
 }
 
 // LoadBlockLocations loads a metadata file then converts it to a map of cid -> blockLocation

@@ -25,9 +25,9 @@ func (c carIO) WriteCar(ctx context.Context, bs pieceio.ReadStore, payloadCid ci
 	return sc.Write(w, userOnNewCarBlocks...)
 }
 
-func (c carIO) PrepareCar(ctx context.Context, bs pieceio.ReadStore, payloadCid cid.Cid, selector ipld.Node) (pieceio.PreparedCar, error) {
+func (c carIO) PrepareCar(ctx context.Context, bs pieceio.ReadStore, payloadCid cid.Cid, selector ipld.Node, userOnNewCarBlocks ...car.OnNewCarBlockFunc) (pieceio.PreparedCar, error) {
 	sc := car.NewSelectiveCar(ctx, bs, []car.Dag{{Root: payloadCid, Selector: selector}})
-	return sc.Prepare()
+	return sc.Prepare(userOnNewCarBlocks...)
 }
 
 func (c carIO) LoadCar(bs pieceio.WriteStore, r io.Reader) (cid.Cid, error) {

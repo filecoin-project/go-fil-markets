@@ -6,6 +6,7 @@ import (
 	"encoding/base64"
 	"errors"
 	"fmt"
+	"io"
 	"math/rand"
 	"strings"
 	"testing"
@@ -329,7 +330,6 @@ func TestVerifyData(t *testing.T) {
 	ctx := context.Background()
 	eventProcessor, err := fsm.NewEventProcessor(storagemarket.MinerDeal{}, "State", providerstates.ProviderEvents)
 	require.NoError(t, err)
-	expPath := filestore.Path("applesauce.txt")
 	expMetaPath := filestore.Path("somemetadata.txt")
 	runVerifyData := makeExecutor(ctx, eventProcessor, providerstates.VerifyData, storagemarket.StorageDealVerifyData)
 	tests := map[string]struct {
@@ -342,12 +342,11 @@ func TestVerifyData(t *testing.T) {
 	}{
 		"succeeds": {
 			environmentParams: environmentParams{
-				Path:         expPath,
 				MetadataPath: expMetaPath,
 			},
 			dealInspector: func(t *testing.T, deal storagemarket.MinerDeal, env *fakeEnvironment) {
 				tut.AssertDealState(t, storagemarket.StorageDealReserveProviderFunds, deal.State)
-				require.Equal(t, expPath, deal.PiecePath)
+				require.Equal(t, filestore.Path(""), deal.PiecePath)
 				require.Equal(t, expMetaPath, deal.MetadataPath)
 			},
 		},
@@ -362,14 +361,13 @@ func TestVerifyData(t *testing.T) {
 		},
 		"piece CIDs do not match": {
 			environmentParams: environmentParams{
-				Path:         expPath,
 				MetadataPath: expMetaPath,
 				PieceCid:     tut.GenerateCids(1)[0],
 			},
 			dealInspector: func(t *testing.T, deal storagemarket.MinerDeal, env *fakeEnvironment) {
 				tut.AssertDealState(t, storagemarket.StorageDealFailing, deal.State)
 				require.Equal(t, "deal data verification failed: proposal CommP doesn't match calculated CommP", deal.Message)
-				require.Equal(t, expPath, deal.PiecePath)
+				require.Equal(t, filestore.Path(""), deal.PiecePath)
 				require.Equal(t, expMetaPath, deal.MetadataPath)
 			},
 		},
@@ -664,6 +662,17 @@ func TestHandoffDeal(t *testing.T) {
 				require.True(t, deal.AvailableForRetrieval)
 			},
 		},
+		"succeed, assemble piece on demand": {
+			dealParams: dealParams{
+				FastRetrieval: true,
+			},
+			dealInspector: func(t *testing.T, deal storagemarket.MinerDeal, env *fakeEnvironment) {
+				tut.AssertDealState(t, storagemarket.StorageDealSealing, deal.State)
+				require.Len(t, env.node.OnDealCompleteCalls, 1)
+				require.True(t, env.node.OnDealCompleteCalls[0].FastRetrieval)
+				require.True(t, deal.AvailableForRetrieval)
+			},
+		},
 		"succeeds w metadata": {
 			dealParams: dealParams{
 				PiecePath:     defaultPath,
@@ -747,6 +756,20 @@ func TestHandoffDeal(t *testing.T) {
 				require.Equal(t, deal.Message, fmt.Sprintf("operating on multistore: unable to delete store %d: something awful has happened", *deal.StoreID))
 			},
 		},
+		"deleting store fails, on demand": {
+			environmentParams: environmentParams{
+				DeleteStoreError: errors.New("something awful has happened"),
+			},
+			dealParams: dealParams{
+				FastRetrieval: true,
+			},
+			dealInspector: func(t *testing.T, deal storagemarket.MinerDeal, env *fakeEnvironment) {
+				tut.AssertDealState(t, storagemarket.StorageDealFailing, deal.State)
+				require.Len(t, env.node.OnDealCompleteCalls, 1)
+				require.True(t, env.node.OnDealCompleteCalls[0].FastRetrieval)
+				require.Equal(t, deal.Message, fmt.Sprintf("operating on multistore: unable to delete store %d: something awful has happened", *deal.StoreID))
+			},
+		},
 		"opening file errors": {
 			dealParams: dealParams{
 				PiecePath: filestore.Path("missing.txt"),
@@ -770,6 +793,42 @@ func TestHandoffDeal(t *testing.T) {
 			dealInspector: func(t *testing.T, deal storagemarket.MinerDeal, env *fakeEnvironment) {
 				tut.AssertDealState(t, storagemarket.StorageDealFailing, deal.State)
 				require.Equal(t, "handing off deal to node: failed building sector", deal.Message)
+			},
+		},
+		"assemble piece on demand fails immediately": {
+			environmentParams: environmentParams{
+				GeneratePieceReaderErr: errors.New("something went wrong"),
+			},
+			dealParams: dealParams{
+				FastRetrieval: true,
+			},
+			dealInspector: func(t *testing.T, deal storagemarket.MinerDeal, env *fakeEnvironment) {
+				tut.AssertDealState(t, storagemarket.StorageDealFailing, deal.State)
+				require.Equal(t, "handing off deal to node: something went wrong", deal.Message)
+			},
+		},
+		"assemble piece on demand fails async": {
+			environmentParams: environmentParams{
+				GeneratePieceReaderErrAsync: errors.New("something went wrong"),
+			},
+			dealParams: dealParams{
+				FastRetrieval: true,
+			},
+			dealInspector: func(t *testing.T, deal storagemarket.MinerDeal, env *fakeEnvironment) {
+				tut.AssertDealState(t, storagemarket.StorageDealFailing, deal.State)
+				require.Equal(t, "handing off deal to node: something went wrong", deal.Message)
+			},
+		},
+		"assemble piece on demand fails closing reader": {
+			environmentParams: environmentParams{
+				PieceReader: newStubbedReadCloser(errors.New("something went wrong")),
+			},
+			dealParams: dealParams{
+				FastRetrieval: true,
+			},
+			dealInspector: func(t *testing.T, deal storagemarket.MinerDeal, env *fakeEnvironment) {
+				tut.AssertDealState(t, storagemarket.StorageDealFailing, deal.State)
+				require.Equal(t, "handing off deal to node: something went wrong", deal.Message)
 			},
 		},
 	}
@@ -1121,21 +1180,24 @@ type dealParams struct {
 }
 
 type environmentParams struct {
-	Address                  address.Address
-	Ask                      storagemarket.StorageAsk
-	DataTransferError        error
-	PieceCid                 cid.Cid
-	Path                     filestore.Path
-	MetadataPath             filestore.Path
-	GenerateCommPError       error
-	SendSignedResponseError  error
-	DisconnectError          error
-	TagsProposal             bool
-	RejectDeal               bool
-	RejectReason             string
-	DecisionError            error
-	DeleteStoreError         error
-	RestartDataTransferError error
+	Address                     address.Address
+	Ask                         storagemarket.StorageAsk
+	DataTransferError           error
+	PieceCid                    cid.Cid
+	MetadataPath                filestore.Path
+	GenerateCommPError          error
+	PieceReader                 io.ReadCloser
+	PieceSize                   uint64
+	GeneratePieceReaderErr      error
+	GeneratePieceReaderErrAsync error
+	SendSignedResponseError     error
+	DisconnectError             error
+	TagsProposal                bool
+	RejectDeal                  bool
+	RejectReason                string
+	DecisionError               error
+	DeleteStoreError            error
+	RestartDataTransferError    error
 }
 
 type executor func(t *testing.T,
@@ -1281,33 +1343,33 @@ func makeExecutor(ctx context.Context,
 			expectedTags[dealState.ProposalCid.String()] = struct{}{}
 		}
 		environment := &fakeEnvironment{
-			expectedTags:            expectedTags,
-			receivedTags:            make(map[string]struct{}),
-			address:                 params.Address,
-			node:                    node,
-			ask:                     params.Ask,
-			dataTransferError:       params.DataTransferError,
-			pieceCid:                params.PieceCid,
-			path:                    params.Path,
-			metadataPath:            params.MetadataPath,
-			generateCommPError:      params.GenerateCommPError,
-			sendSignedResponseError: params.SendSignedResponseError,
-			disconnectError:         params.DisconnectError,
-			rejectDeal:              params.RejectDeal,
-			rejectReason:            params.RejectReason,
-			decisionError:           params.DecisionError,
-			deleteStoreError:        params.DeleteStoreError,
-			fs:                      fs,
-			pieceStore:              pieceStore,
-			peerTagger:              tut.NewTestPeerTagger(),
+			expectedTags:                expectedTags,
+			receivedTags:                make(map[string]struct{}),
+			address:                     params.Address,
+			node:                        node,
+			ask:                         params.Ask,
+			dataTransferError:           params.DataTransferError,
+			pieceCid:                    params.PieceCid,
+			metadataPath:                params.MetadataPath,
+			generateCommPError:          params.GenerateCommPError,
+			pieceReader:                 params.PieceReader,
+			pieceSize:                   params.PieceSize,
+			generatePieceReaderErr:      params.GeneratePieceReaderErr,
+			generatePieceReaderErrAsync: params.GeneratePieceReaderErrAsync,
+			sendSignedResponseError:     params.SendSignedResponseError,
+			disconnectError:             params.DisconnectError,
+			rejectDeal:                  params.RejectDeal,
+			rejectReason:                params.RejectReason,
+			decisionError:               params.DecisionError,
+			deleteStoreError:            params.DeleteStoreError,
+			fs:                          fs,
+			pieceStore:                  pieceStore,
+			peerTagger:                  tut.NewTestPeerTagger(),
 
 			restartDataTransferError: params.RestartDataTransferError,
 		}
 		if environment.pieceCid == cid.Undef {
 			environment.pieceCid = defaultPieceCid
-		}
-		if environment.path == filestore.Path("") {
-			environment.path = defaultPath
 		}
 		if environment.metadataPath == filestore.Path("") {
 			environment.metadataPath = defaultMetadataPath
@@ -1317,6 +1379,12 @@ func makeExecutor(ctx context.Context,
 		}
 		if environment.ask == storagemarket.StorageAskUndefined {
 			environment.ask = defaultAsk
+		}
+		if environment.pieceSize == 0 {
+			environment.pieceSize = uint64(defaultPieceSize)
+		}
+		if environment.pieceReader == nil {
+			environment.pieceReader = newStubbedReadCloser(nil)
 		}
 
 		fsmCtx := fsmtest.NewTestContext(ctx, eventProcessor)
@@ -1336,26 +1404,29 @@ type restartDataTransferCall struct {
 }
 
 type fakeEnvironment struct {
-	address                 address.Address
-	node                    *testnodes.FakeProviderNode
-	ask                     storagemarket.StorageAsk
-	dataTransferError       error
-	pieceCid                cid.Cid
-	path                    filestore.Path
-	metadataPath            filestore.Path
-	generateCommPError      error
-	sendSignedResponseError error
-	disconnectCalls         int
-	disconnectError         error
-	rejectDeal              bool
-	rejectReason            string
-	decisionError           error
-	deleteStoreError        error
-	fs                      filestore.FileStore
-	pieceStore              piecestore.PieceStore
-	expectedTags            map[string]struct{}
-	receivedTags            map[string]struct{}
-	peerTagger              *tut.TestPeerTagger
+	address                     address.Address
+	node                        *testnodes.FakeProviderNode
+	ask                         storagemarket.StorageAsk
+	dataTransferError           error
+	pieceCid                    cid.Cid
+	metadataPath                filestore.Path
+	generateCommPError          error
+	pieceReader                 io.ReadCloser
+	pieceSize                   uint64
+	generatePieceReaderErr      error
+	generatePieceReaderErrAsync error
+	sendSignedResponseError     error
+	disconnectCalls             int
+	disconnectError             error
+	rejectDeal                  bool
+	rejectReason                string
+	decisionError               error
+	deleteStoreError            error
+	fs                          filestore.FileStore
+	pieceStore                  piecestore.PieceStore
+	expectedTags                map[string]struct{}
+	receivedTags                map[string]struct{}
+	peerTagger                  *tut.TestPeerTagger
 
 	restartDataTransferCalls []restartDataTransferCall
 	restartDataTransferError error
@@ -1382,8 +1453,14 @@ func (fe *fakeEnvironment) DeleteStore(storeID multistore.StoreID) error {
 	return fe.deleteStoreError
 }
 
-func (fe *fakeEnvironment) GeneratePieceCommitmentToFile(storeID *multistore.StoreID, payloadCid cid.Cid, selector ipld.Node) (cid.Cid, filestore.Path, filestore.Path, error) {
-	return fe.pieceCid, fe.path, fe.metadataPath, fe.generateCommPError
+func (fe *fakeEnvironment) GeneratePieceReader(storeID *multistore.StoreID, payloadCid cid.Cid, selector ipld.Node) (io.ReadCloser, uint64, error, <-chan error) {
+	errChan := make(chan error, 1)
+	errChan <- fe.generatePieceReaderErrAsync
+	return fe.pieceReader, fe.pieceSize, fe.generatePieceReaderErr, errChan
+}
+
+func (fe *fakeEnvironment) GeneratePieceCommitment(storeID *multistore.StoreID, payloadCid cid.Cid, selector ipld.Node) (cid.Cid, filestore.Path, error) {
+	return fe.pieceCid, fe.metadataPath, fe.generateCommPError
 }
 
 func (fe *fakeEnvironment) SendSignedResponse(ctx context.Context, response *network.Response) error {
@@ -1420,3 +1497,19 @@ func (fe *fakeEnvironment) UntagPeer(id peer.ID, s string) {
 }
 
 var _ providerstates.ProviderDealEnvironment = &fakeEnvironment{}
+
+type stubbedReadCloser struct {
+	err error
+}
+
+func (src *stubbedReadCloser) Read(p []byte) (n int, err error) {
+	return 0, io.EOF
+}
+
+func (src *stubbedReadCloser) Close() error {
+	return src.err
+}
+
+func newStubbedReadCloser(err error) io.ReadCloser {
+	return &stubbedReadCloser{err}
+}
