@@ -207,7 +207,7 @@ func TestMakeDealOffline(t *testing.T) {
 
 	h.WaitForClientEvent(&wg, storagemarket.ClientEventDataTransferComplete)
 	h.WaitForProviderEvent(&wg, storagemarket.ProviderEventDataRequested)
-	wg.Wait()
+	waitGroupWait(ctx, &wg)
 
 	cd, err := h.Client.GetLocalDeal(ctx, proposalCid)
 	assert.NoError(t, err)
@@ -230,7 +230,7 @@ func TestMakeDealOffline(t *testing.T) {
 
 	h.WaitForClientEvent(&wg, storagemarket.ClientEventDealExpired)
 	h.WaitForProviderEvent(&wg, storagemarket.ProviderEventDealExpired)
-	wg.Wait()
+	waitGroupWait(ctx, &wg)
 
 	cd, err = h.Client.GetLocalDeal(ctx, proposalCid)
 	assert.NoError(t, err)
@@ -264,7 +264,7 @@ func TestMakeDealNonBlocking(t *testing.T) {
 	wg := sync.WaitGroup{}
 	h.WaitForClientEvent(&wg, storagemarket.ClientEventDataTransferComplete)
 	h.WaitForProviderEvent(&wg, storagemarket.ProviderEventFundingInitiated)
-	wg.Wait()
+	waitGroupWait(ctx, &wg)
 
 	cd, err := h.Client.GetLocalDeal(ctx, result.ProposalCid)
 	assert.NoError(t, err)
@@ -329,7 +329,7 @@ func TestRestartOnlyProviderDataTransfer(t *testing.T) {
 	proposalCid := result.ProposalCid
 	t.Log("storage deal proposed")
 
-	wg.Wait()
+	waitGroupWait(ctx, &wg)
 	t.Log("provider has been shutdown the first time")
 
 	// Assert client state
@@ -369,7 +369,7 @@ func TestRestartOnlyProviderDataTransfer(t *testing.T) {
 	require.NotNil(t, conn)
 	shared_testutil.StartAndWaitForReady(ctx, t, h.Provider)
 	t.Log("------- provider has been restarted---------")
-	expireWg.Wait()
+	waitGroupWait(ctx, &expireWg)
 	t.Log("---------- finished waiting for expected events-------")
 
 	cd, err = client.GetLocalDeal(ctx, proposalCid)
@@ -507,7 +507,7 @@ func TestRestartClient(t *testing.T) {
 			proposalCid := result.ProposalCid
 			t.Log("storage deal proposed")
 
-			wg.Wait()
+			waitGroupWait(ctx, &wg)
 			t.Log("both client and provider have been shutdown the first time")
 
 			cd, err := h.Client.GetLocalDeal(ctx, proposalCid)
@@ -547,7 +547,7 @@ func TestRestartClient(t *testing.T) {
 			shared_testutil.StartAndWaitForReady(ctx, t, h.Provider)
 			shared_testutil.StartAndWaitForReady(ctx, t, h.Client)
 			t.Log("------- client and provider have been restarted---------")
-			wg.Wait()
+			waitGroupWait(ctx, &wg)
 			t.Log("---------- finished waiting for expected events-------")
 
 			cd, err = h.Client.GetLocalDeal(ctx, proposalCid)
@@ -561,5 +561,19 @@ func TestRestartClient(t *testing.T) {
 			require.Equal(t, pd.ProposalCid, proposalCid)
 			shared_testutil.AssertDealState(t, storagemarket.StorageDealExpired, pd.State)
 		})
+	}
+}
+
+// waitGroupWait calls wg.Wait while respecting context cancellation
+func waitGroupWait(ctx context.Context, wg *sync.WaitGroup) {
+	done := make(chan struct{})
+	go func() {
+		wg.Wait()
+		close(done)
+	}()
+
+	select {
+	case <-ctx.Done():
+	case <-done:
 	}
 }
