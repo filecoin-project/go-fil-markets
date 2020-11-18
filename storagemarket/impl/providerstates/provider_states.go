@@ -330,12 +330,6 @@ func HandoffDeal(ctx fsm.Context, environment ProviderDealEnvironment, deal stor
 		if err != nil {
 			return ctx.Trigger(storagemarket.ProviderEventFileStoreErrored, xerrors.Errorf("reading piece at path %s: %w", deal.PiecePath, err))
 		}
-		if deal.StoreID != nil {
-			err := environment.DeleteStore(*deal.StoreID)
-			if err != nil {
-				return ctx.Trigger(storagemarket.ProviderEventMultistoreErrored, xerrors.Errorf("unable to delete store %d: %w", *deal.StoreID, err))
-			}
-		}
 		packingInfo, packingErr = handoffDeal(ctx.Context(), environment, deal, file, uint64(file.Size()))
 	} else {
 		pieceReader, pieceSize, err, writeErrChan := environment.GeneratePieceReader(deal.StoreID, deal.Ref.Root, shared.AllSelector())
@@ -354,12 +348,6 @@ func HandoffDeal(ctx fsm.Context, environment ProviderDealEnvironment, deal stor
 		}
 		if err != nil {
 			return ctx.Trigger(storagemarket.ProviderEventDealHandoffFailed, err)
-		}
-		if deal.StoreID != nil {
-			err := environment.DeleteStore(*deal.StoreID)
-			if err != nil {
-				return ctx.Trigger(storagemarket.ProviderEventMultistoreErrored, xerrors.Errorf("unable to delete store %d: %w", *deal.StoreID, err))
-			}
 		}
 	}
 
@@ -428,14 +416,22 @@ func recordPiece(environment ProviderDealEnvironment, deal storagemarket.MinerDe
 
 // CleanupDeal clears the filestore once we know the mining component has read the data and it is in a sealed sector
 func CleanupDeal(ctx fsm.Context, environment ProviderDealEnvironment, deal storagemarket.MinerDeal) error {
-	err := environment.FileStore().Delete(deal.PiecePath)
-	if err != nil {
-		log.Warnf("deleting piece at path %s: %w", deal.PiecePath, err)
+	if deal.PiecePath != "" {
+		err := environment.FileStore().Delete(deal.PiecePath)
+		if err != nil {
+			log.Warnf("deleting piece at path %s: %w", deal.PiecePath, err)
+		}
 	}
-	if deal.MetadataPath != filestore.Path("") {
+	if deal.MetadataPath != "" {
 		err := environment.FileStore().Delete(deal.MetadataPath)
 		if err != nil {
 			log.Warnf("deleting piece at path %s: %w", deal.MetadataPath, err)
+		}
+	}
+	if deal.StoreID != nil {
+		err := environment.DeleteStore(*deal.StoreID)
+		if err != nil {
+			log.Warnf("deleting store %d: %w", deal.StoreID, err)
 		}
 	}
 

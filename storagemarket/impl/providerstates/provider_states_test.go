@@ -739,37 +739,6 @@ func TestHandoffDeal(t *testing.T) {
 				require.Equal(t, "recording piece for retrieval: failed to add deal for piece: could not add deal info", deal.Message)
 			},
 		},
-		"deleting store fails": {
-			environmentParams: environmentParams{
-				DeleteStoreError: errors.New("something awful has happened"),
-			},
-			dealParams: dealParams{
-				PiecePath:     defaultPath,
-				FastRetrieval: true,
-			},
-			fileStoreParams: tut.TestFileStoreParams{
-				Files:         []filestore.File{defaultDataFile},
-				ExpectedOpens: []filestore.Path{defaultPath},
-			},
-			dealInspector: func(t *testing.T, deal storagemarket.MinerDeal, env *fakeEnvironment) {
-				tut.AssertDealState(t, storagemarket.StorageDealFailing, deal.State)
-				require.Equal(t, deal.Message, fmt.Sprintf("operating on multistore: unable to delete store %d: something awful has happened", *deal.StoreID))
-			},
-		},
-		"deleting store fails, on demand": {
-			environmentParams: environmentParams{
-				DeleteStoreError: errors.New("something awful has happened"),
-			},
-			dealParams: dealParams{
-				FastRetrieval: true,
-			},
-			dealInspector: func(t *testing.T, deal storagemarket.MinerDeal, env *fakeEnvironment) {
-				tut.AssertDealState(t, storagemarket.StorageDealFailing, deal.State)
-				require.Len(t, env.node.OnDealCompleteCalls, 1)
-				require.True(t, env.node.OnDealCompleteCalls[0].FastRetrieval)
-				require.Equal(t, deal.Message, fmt.Sprintf("operating on multistore: unable to delete store %d: something awful has happened", *deal.StoreID))
-			},
-		},
 		"opening file errors": {
 			dealParams: dealParams{
 				PiecePath: filestore.Path("missing.txt"),
@@ -1196,7 +1165,6 @@ type environmentParams struct {
 	RejectDeal                  bool
 	RejectReason                string
 	DecisionError               error
-	DeleteStoreError            error
 	RestartDataTransferError    error
 }
 
@@ -1361,7 +1329,6 @@ func makeExecutor(ctx context.Context,
 			rejectDeal:                  params.RejectDeal,
 			rejectReason:                params.RejectReason,
 			decisionError:               params.DecisionError,
-			deleteStoreError:            params.DeleteStoreError,
 			fs:                          fs,
 			pieceStore:                  pieceStore,
 			peerTagger:                  tut.NewTestPeerTagger(),

@@ -142,7 +142,6 @@ var ProviderEvents = fsm.Events{
 			return nil
 		}),
 	fsm.Event(storagemarket.ProviderEventDealHandedOff).From(storagemarket.StorageDealStaged).To(storagemarket.StorageDealSealing).Action(func(deal *storagemarket.MinerDeal) error {
-		deal.StoreID = nil
 		deal.AvailableForRetrieval = true
 		return nil
 	}),
@@ -155,7 +154,11 @@ var ProviderEvents = fsm.Events{
 	fsm.Event(storagemarket.ProviderEventDealActivated).
 		From(storagemarket.StorageDealSealing).To(storagemarket.StorageDealFinalizing),
 	fsm.Event(storagemarket.ProviderEventFinalized).
-		From(storagemarket.StorageDealFinalizing).To(storagemarket.StorageDealActive),
+		From(storagemarket.StorageDealFinalizing).To(storagemarket.StorageDealActive).
+		Action(func(deal *storagemarket.MinerDeal) error {
+			deal.StoreID = nil
+			return nil
+		}),
 	fsm.Event(storagemarket.ProviderEventDealSlashed).
 		From(storagemarket.StorageDealActive).To(storagemarket.StorageDealSlashed).
 		Action(func(deal *storagemarket.MinerDeal, slashEpoch abi.ChainEpoch) error {
