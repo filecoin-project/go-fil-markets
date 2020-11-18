@@ -125,7 +125,9 @@ func Test_StoreRestoreMemoryBuffer(t *testing.T) {
 	}).Node()
 
 	r, pieceSize, err, writeErrChan := pio.GeneratePieceReader(nd3.Cid(), node, &storeID)
+	require.NoError(t, err)
 	commitment, paddedSize, err := pio.GeneratePieceCommitment(abi.RegisteredSealProof_StackedDrg2KiBV1, nd3.Cid(), node, &storeID)
+	require.NoError(t, err)
 	require.NotEqual(t, commitment, cid.Undef)
 
 	paddedReader, secondPaddedSize := padreader.New(r, pieceSize)
