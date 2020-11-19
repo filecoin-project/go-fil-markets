@@ -3,15 +3,12 @@
 package mocks
 
 import (
-	cid "github.com/ipfs/go-cid"
-	car "github.com/ipld/go-car"
-
 	context "context"
-
 	io "io"
 
+	cid "github.com/ipfs/go-cid"
+	car "github.com/ipld/go-car"
 	ipld "github.com/ipld/go-ipld-prime"
-
 	mock "github.com/stretchr/testify/mock"
 
 	pieceio "github.com/filecoin-project/go-fil-markets/pieceio"
