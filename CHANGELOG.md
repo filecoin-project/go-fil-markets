@@ -1,5 +1,20 @@
 # go-fil-markets changelog
 
+# go-fil-markets v1.0.5
+
+- github.com/filecoin-project/go-fil-markets:
+  - Remove temp files (#449) ([filecoin-project/go-fil-markets#449](https://github.com/filecoin-project/go-fil-markets/pull/449))
+  - fix: fail fast in tests that use a waitgroup Wait() (#450) ([filecoin-project/go-fil-markets#450](https://github.com/filecoin-project/go-fil-markets/pull/450))
+  - Make it possible to configure the proof type at runtime. ([filecoin-project/go-fil-markets#448](https://github.com/filecoin-project/go-fil-markets/pull/448))
+
+Contributors
+
+| Contributor | Commits | Lines ± | Files Changed |
+|-------------|---------|---------|---------------|
+| Hannah Howard | 1 | +292/-393 | 17 |
+| Steven Allen | 1 | +21/-11 | 6 |
+| dirkmc | 1 | +21/-7 | 1 |
+
 # go-fil-markets v1.0.4
 
 Integrate new lotus FundManager
