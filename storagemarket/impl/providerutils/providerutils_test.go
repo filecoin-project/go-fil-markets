@@ -127,13 +127,11 @@ func TestCommPGenerationWithMetadata(t *testing.T) {
 	storeID := multistore.StoreID(4)
 	proofType := abi.RegisteredSealProof_StackedDrg2KiBV1
 	pieceCid := shared_testutil.GenerateCids(1)[0]
-	piecePath := filestore.Path("apiece.jpg")
 	pieceSize := abi.UnpaddedPieceSize(rand.Uint64())
 	testCases := map[string]struct {
 		fileStoreParams      shared_testutil.TestFileStoreParams
 		commPErr             error
 		expectedPieceCid     cid.Cid
-		expectedPiecePath    filestore.Path
 		expectedMetadataPath filestore.Path
 		shouldErr            bool
 	}{
@@ -142,7 +140,6 @@ func TestCommPGenerationWithMetadata(t *testing.T) {
 				AvailableTempFiles: []filestore.File{tempFile},
 			},
 			expectedPieceCid:     pieceCid,
-			expectedPiecePath:    piecePath,
 			expectedMetadataPath: tempFilePath,
 			shouldErr:            false,
 		},
@@ -162,12 +159,11 @@ func TestCommPGenerationWithMetadata(t *testing.T) {
 
 	for testName, testCase := range testCases {
 		t.Run(testName, func(t *testing.T) {
-			fcp := &fakeCommPGenerator{pieceCid, piecePath, pieceSize, testCase.commPErr}
+			fcp := &fakeCommPGenerator{pieceCid, pieceSize, testCase.commPErr}
 			fs := shared_testutil.NewTestFileStore(testCase.fileStoreParams)
-			resultPieceCid, resultPiecePath, resultMetadataPath, resultErr := providerutils.GeneratePieceCommitmentWithMetadata(
+			resultPieceCid, resultMetadataPath, resultErr := providerutils.GeneratePieceCommitmentWithMetadata(
 				fs, fcp.GenerateCommPToFile, proofType, payloadCid, selector, &storeID)
 			require.Equal(t, resultPieceCid, testCase.expectedPieceCid)
-			require.Equal(t, resultPiecePath, testCase.expectedPiecePath)
 			require.Equal(t, resultMetadataPath, testCase.expectedMetadataPath)
 			if testCase.shouldErr {
 				require.Error(t, resultErr)
@@ -181,13 +177,12 @@ func TestCommPGenerationWithMetadata(t *testing.T) {
 
 type fakeCommPGenerator struct {
 	pieceCid cid.Cid
-	path     filestore.Path
 	size     abi.UnpaddedPieceSize
 	err      error
 }
 
-func (fcp *fakeCommPGenerator) GenerateCommPToFile(abi.RegisteredSealProof, cid.Cid, ipld.Node, *multistore.StoreID, ...car.OnNewCarBlockFunc) (cid.Cid, filestore.Path, abi.UnpaddedPieceSize, error) {
-	return fcp.pieceCid, fcp.path, fcp.size, fcp.err
+func (fcp *fakeCommPGenerator) GenerateCommPToFile(abi.RegisteredSealProof, cid.Cid, ipld.Node, *multistore.StoreID, ...car.OnNewCarBlockFunc) (cid.Cid, abi.UnpaddedPieceSize, error) {
+	return fcp.pieceCid, fcp.size, fcp.err
 }
 
 func TestLoadBlockLocations(t *testing.T) {

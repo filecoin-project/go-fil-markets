@@ -3,7 +3,9 @@ package providerstates
 import (
 	"bytes"
 	"context"
+	"errors"
 	"fmt"
+	"io"
 
 	"github.com/ipfs/go-cid"
 	logging "github.com/ipfs/go-log/v2"
@@ -42,7 +44,8 @@ type ProviderDealEnvironment interface {
 	Node() storagemarket.StorageProviderNode
 	Ask() storagemarket.StorageAsk
 	DeleteStore(storeID multistore.StoreID) error
-	GeneratePieceCommitmentToFile(storeID *multistore.StoreID, payloadCid cid.Cid, selector ipld.Node) (cid.Cid, filestore.Path, filestore.Path, error)
+	GeneratePieceCommitment(storeID *multistore.StoreID, payloadCid cid.Cid, selector ipld.Node) (cid.Cid, filestore.Path, error)
+	GeneratePieceReader(storeID *multistore.StoreID, payloadCid cid.Cid, selector ipld.Node) (io.ReadCloser, uint64, error, <-chan error)
 	SendSignedResponse(ctx context.Context, response *network.Response) error
 	Disconnect(proposalCid cid.Cid) error
 	FileStore() filestore.FileStore
@@ -198,17 +201,17 @@ func DecideOnProposal(ctx fsm.Context, environment ProviderDealEnvironment, deal
 // VerifyData verifies that data received for a deal matches the pieceCID
 // in the proposal
 func VerifyData(ctx fsm.Context, environment ProviderDealEnvironment, deal storagemarket.MinerDeal) error {
-	pieceCid, piecePath, metadataPath, err := environment.GeneratePieceCommitmentToFile(deal.StoreID, deal.Ref.Root, shared.AllSelector())
+	pieceCid, metadataPath, err := environment.GeneratePieceCommitment(deal.StoreID, deal.Ref.Root, shared.AllSelector())
 	if err != nil {
 		return ctx.Trigger(storagemarket.ProviderEventDataVerificationFailed, xerrors.Errorf("error generating CommP: %w", err), filestore.Path(""), filestore.Path(""))
 	}
 
 	// Verify CommP matches
 	if pieceCid != deal.Proposal.PieceCID {
-		return ctx.Trigger(storagemarket.ProviderEventDataVerificationFailed, xerrors.Errorf("proposal CommP doesn't match calculated CommP"), piecePath, metadataPath)
+		return ctx.Trigger(storagemarket.ProviderEventDataVerificationFailed, xerrors.Errorf("proposal CommP doesn't match calculated CommP"), filestore.Path(""), metadataPath)
 	}
 
-	return ctx.Trigger(storagemarket.ProviderEventVerifiedData, piecePath, metadataPath)
+	return ctx.Trigger(storagemarket.ProviderEventVerifiedData, filestore.Path(""), metadataPath)
 }
 
 // ReserveProviderFunds adds funds, as needed to the StorageMarketActor, so the miner has adequate collateral for the deal
@@ -320,20 +323,50 @@ func WaitForPublish(ctx fsm.Context, environment ProviderDealEnvironment, deal s
 
 // HandoffDeal hands off a published deal for sealing and commitment in a sector
 func HandoffDeal(ctx fsm.Context, environment ProviderDealEnvironment, deal storagemarket.MinerDeal) error {
-	file, err := environment.FileStore().Open(deal.PiecePath)
-	if err != nil {
-		return ctx.Trigger(storagemarket.ProviderEventFileStoreErrored, xerrors.Errorf("reading piece at path %s: %w", deal.PiecePath, err))
-	}
-	if deal.StoreID != nil {
-		err := environment.DeleteStore(*deal.StoreID)
+	var packingInfo *storagemarket.PackingResult
+	var packingErr error
+	if deal.PiecePath != filestore.Path("") {
+		file, err := environment.FileStore().Open(deal.PiecePath)
 		if err != nil {
-			return ctx.Trigger(storagemarket.ProviderEventMultistoreErrored, xerrors.Errorf("unable to delete store %d: %w", *deal.StoreID, err))
+			return ctx.Trigger(storagemarket.ProviderEventFileStoreErrored, xerrors.Errorf("reading piece at path %s: %w", deal.PiecePath, err))
+		}
+		packingInfo, packingErr = handoffDeal(ctx.Context(), environment, deal, file, uint64(file.Size()))
+	} else {
+		pieceReader, pieceSize, err, writeErrChan := environment.GeneratePieceReader(deal.StoreID, deal.Ref.Root, shared.AllSelector())
+		if err != nil {
+			return ctx.Trigger(storagemarket.ProviderEventDealHandoffFailed, err)
+		}
+		packingInfo, packingErr = handoffDeal(ctx.Context(), environment, deal, pieceReader, pieceSize)
+		err = pieceReader.Close()
+		if err != nil {
+			return ctx.Trigger(storagemarket.ProviderEventDealHandoffFailed, err)
+		}
+		select {
+		case <-ctx.Context().Done():
+			return ctx.Trigger(storagemarket.ProviderEventDealHandoffFailed, errors.New("write never finished"))
+		case err = <-writeErrChan:
+		}
+		if err != nil {
+			return ctx.Trigger(storagemarket.ProviderEventDealHandoffFailed, err)
 		}
 	}
 
-	paddedReader, paddedSize := padreader.New(file, uint64(file.Size()))
-	packingInfo, err := environment.Node().OnDealComplete(
-		ctx.Context(),
+	if packingErr != nil {
+		return ctx.Trigger(storagemarket.ProviderEventDealHandoffFailed, packingErr)
+	}
+
+	if err := recordPiece(environment, deal, packingInfo.SectorNumber, packingInfo.Offset, packingInfo.Size); err != nil {
+		log.Errorf("failed to register deal data for retrieval: %s", err)
+		_ = ctx.Trigger(storagemarket.ProviderEventPieceStoreErrored, err)
+	}
+
+	return ctx.Trigger(storagemarket.ProviderEventDealHandedOff)
+}
+
+func handoffDeal(ctx context.Context, environment ProviderDealEnvironment, deal storagemarket.MinerDeal, reader io.Reader, size uint64) (*storagemarket.PackingResult, error) {
+	paddedReader, paddedSize := padreader.New(reader, size)
+	return environment.Node().OnDealComplete(
+		ctx,
 		storagemarket.MinerDeal{
 			Client:             deal.Client,
 			ClientDealProposal: deal.ClientDealProposal,
@@ -347,16 +380,6 @@ func HandoffDeal(ctx fsm.Context, environment ProviderDealEnvironment, deal stor
 		paddedSize,
 		paddedReader,
 	)
-	if err != nil {
-		return ctx.Trigger(storagemarket.ProviderEventDealHandoffFailed, err)
-	}
-
-	if err := recordPiece(environment, deal, packingInfo.SectorNumber, packingInfo.Offset, packingInfo.Size); err != nil {
-		log.Errorf("failed to register deal data for retrieval: %s", err)
-		_ = ctx.Trigger(storagemarket.ProviderEventPieceStoreErrored, err)
-	}
-
-	return ctx.Trigger(storagemarket.ProviderEventDealHandedOff)
 }
 
 func recordPiece(environment ProviderDealEnvironment, deal storagemarket.MinerDeal, sectorID abi.SectorNumber, offset, length abi.PaddedPieceSize) error {
@@ -393,14 +416,22 @@ func recordPiece(environment ProviderDealEnvironment, deal storagemarket.MinerDe
 
 // CleanupDeal clears the filestore once we know the mining component has read the data and it is in a sealed sector
 func CleanupDeal(ctx fsm.Context, environment ProviderDealEnvironment, deal storagemarket.MinerDeal) error {
-	err := environment.FileStore().Delete(deal.PiecePath)
-	if err != nil {
-		log.Warnf("deleting piece at path %s: %w", deal.PiecePath, err)
+	if deal.PiecePath != "" {
+		err := environment.FileStore().Delete(deal.PiecePath)
+		if err != nil {
+			log.Warnf("deleting piece at path %s: %w", deal.PiecePath, err)
+		}
 	}
-	if deal.MetadataPath != filestore.Path("") {
+	if deal.MetadataPath != "" {
 		err := environment.FileStore().Delete(deal.MetadataPath)
 		if err != nil {
 			log.Warnf("deleting piece at path %s: %w", deal.MetadataPath, err)
+		}
+	}
+	if deal.StoreID != nil {
+		err := environment.DeleteStore(*deal.StoreID)
+		if err != nil {
+			log.Warnf("deleting store %d: %w", deal.StoreID, err)
 		}
 	}
 

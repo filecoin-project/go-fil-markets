@@ -52,7 +52,7 @@ type Provider struct {
 	spn                       storagemarket.StorageProviderNode
 	fs                        filestore.FileStore
 	multiStore                *multistore.MultiStore
-	pio                       pieceio.PieceIOWithStore
+	pio                       pieceio.PieceIO
 	pieceStore                piecestore.PieceStore
 	conns                     *connmanager.ConnManager
 	storedAsk                 StoredAsk
@@ -109,7 +109,7 @@ func NewProvider(net network.StorageMarketNetwork,
 	options ...StorageProviderOption,
 ) (storagemarket.StorageProvider, error) {
 	carIO := cario.NewCarIO()
-	pio := pieceio.NewPieceIOWithStore(carIO, fs, nil, multiStore)
+	pio := pieceio.NewPieceIO(carIO, nil, multiStore)
 
 	h := &Provider{
 		net:          net,

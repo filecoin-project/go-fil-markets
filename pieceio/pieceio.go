@@ -17,8 +17,6 @@ import (
 	"github.com/filecoin-project/go-multistore"
 	"github.com/filecoin-project/go-padreader"
 	"github.com/filecoin-project/go-state-types/abi"
-
-	"github.com/filecoin-project/go-fil-markets/filestore"
 )
 
 type PreparedCar interface {
@@ -32,7 +30,7 @@ type CarIO interface {
 
 	// PrepareCar prepares a car so that its total size can be calculated without writing it to a file.
 	// It can then be written with PreparedCar.Dump
-	PrepareCar(ctx context.Context, bs ReadStore, payloadCid cid.Cid, node ipld.Node) (PreparedCar, error)
+	PrepareCar(ctx context.Context, bs ReadStore, payloadCid cid.Cid, node ipld.Node, userOnNewCarBlocks ...car.OnNewCarBlockFunc) (PreparedCar, error)
 
 	// LoadCar loads blocks into the a store from a given CAR file
 	LoadCar(bs WriteStore, r io.Reader) (cid.Cid, error)
@@ -52,40 +50,37 @@ func NewPieceIO(carIO CarIO, bs blockstore.Blockstore, multiStore MultiStore) Pi
 	return &pieceIO{carIO, bs, multiStore}
 }
 
-type pieceIOWithStore struct {
-	pieceIO
-	store filestore.FileStore
-}
-
-func NewPieceIOWithStore(carIO CarIO, store filestore.FileStore, bs blockstore.Blockstore, multiStore MultiStore) PieceIOWithStore {
-	return &pieceIOWithStore{pieceIO{carIO, bs, multiStore}, store}
-}
-
-func (pio *pieceIO) GeneratePieceCommitment(rt abi.RegisteredSealProof, payloadCid cid.Cid, selector ipld.Node, storeID *multistore.StoreID) (cid.Cid, abi.UnpaddedPieceSize, error) {
+func (pio *pieceIO) GeneratePieceReader(payloadCid cid.Cid, selector ipld.Node, storeID *multistore.StoreID, userOnNewCarBlocks ...car.OnNewCarBlockFunc) (io.ReadCloser, uint64, error, <-chan error) {
 	bstore, err := pio.bstore(storeID)
 	if err != nil {
-		return cid.Undef, 0, err
+		return nil, 0, err, nil
 	}
-	preparedCar, err := pio.carIO.PrepareCar(context.Background(), bstore, payloadCid, selector)
+	preparedCar, err := pio.carIO.PrepareCar(context.Background(), bstore, payloadCid, selector, userOnNewCarBlocks...)
 	if err != nil {
-		return cid.Undef, 0, err
+		return nil, 0, err, nil
 	}
 	pieceSize := uint64(preparedCar.Size())
 	r, w, err := os.Pipe()
 	if err != nil {
-		return cid.Undef, 0, err
+		return nil, 0, err, nil
 	}
-	var stop sync.WaitGroup
-	stop.Add(1)
-	var werr error
+	writeErr := make(chan error, 1)
 	go func() {
-		defer stop.Done()
-		werr = preparedCar.Dump(w)
+		werr := preparedCar.Dump(w)
 		err := w.Close()
 		if werr == nil && err != nil {
 			werr = err
 		}
+		writeErr <- werr
 	}()
+	return r, pieceSize, nil, writeErr
+}
+
+func (pio *pieceIO) GeneratePieceCommitment(rt abi.RegisteredSealProof, payloadCid cid.Cid, selector ipld.Node, storeID *multistore.StoreID, userOnNewCarBlocks ...car.OnNewCarBlockFunc) (cid.Cid, abi.UnpaddedPieceSize, error) {
+	r, pieceSize, err, writeErrChan := pio.GeneratePieceReader(payloadCid, selector, storeID, userOnNewCarBlocks...)
+	if err != nil {
+		return cid.Undef, 0, err
+	}
 	commitment, paddedSize, err := GeneratePieceCommitment(rt, r, pieceSize)
 	closeErr := r.Close()
 	if err != nil {
@@ -94,44 +89,11 @@ func (pio *pieceIO) GeneratePieceCommitment(rt abi.RegisteredSealProof, payloadC
 	if closeErr != nil {
 		return cid.Undef, 0, closeErr
 	}
-	stop.Wait()
+	werr := <-writeErrChan
 	if werr != nil {
 		return cid.Undef, 0, werr
 	}
 	return commitment, paddedSize, nil
-}
-
-func (pio *pieceIOWithStore) GeneratePieceCommitmentToFile(rt abi.RegisteredSealProof, payloadCid cid.Cid, selector ipld.Node, storeID *multistore.StoreID, userOnNewCarBlocks ...car.OnNewCarBlockFunc) (cid.Cid, filestore.Path, abi.UnpaddedPieceSize, error) {
-	bstore, err := pio.bstore(storeID)
-	if err != nil {
-		return cid.Undef, "", 0, err
-	}
-	f, err := pio.store.CreateTemp()
-	if err != nil {
-		return cid.Undef, "", 0, err
-	}
-	cleanup := func() {
-		f.Close()
-		_ = pio.store.Delete(f.Path())
-	}
-	err = pio.carIO.WriteCar(context.Background(), bstore, payloadCid, selector, f, userOnNewCarBlocks...)
-	if err != nil {
-		cleanup()
-		return cid.Undef, "", 0, err
-	}
-	pieceSize := uint64(f.Size())
-	_, err = f.Seek(0, io.SeekStart)
-	if err != nil {
-		cleanup()
-		return cid.Undef, "", 0, err
-	}
-	commitment, paddedSize, err := GeneratePieceCommitment(rt, f, pieceSize)
-	if err != nil {
-		cleanup()
-		return cid.Undef, "", 0, err
-	}
-	_ = f.Close()
-	return commitment, f.Path(), paddedSize, nil
 }
 
 func GeneratePieceCommitment(rt abi.RegisteredSealProof, rd io.Reader, pieceSize uint64) (cid.Cid, abi.UnpaddedPieceSize, error) {
