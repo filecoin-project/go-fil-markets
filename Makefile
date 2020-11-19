@@ -17,11 +17,6 @@ $(FFI_DEPS): .filecoin-build ;
 	git submodule update --init --recursive
 	@touch $@
 
-pieceio: .update-modules .filecoin-build
-	go build ./pieceio
-.PHONY: pieceio
-SUBMODULES+=pieceio
-
 filestore:
 	go build ./filestore
 .PHONY: filestore
