@@ -438,6 +438,24 @@ func CleanupDeal(ctx fsm.Context, environment ProviderDealEnvironment, deal stor
 	return ctx.Trigger(storagemarket.ProviderEventFinalized)
 }
 
+// VerifyDealPreCommitted verifies that a deal has been pre-committed
+func VerifyDealPreCommitted(ctx fsm.Context, environment ProviderDealEnvironment, deal storagemarket.MinerDeal) error {
+	cb := func(sectorNumber abi.SectorNumber, err error) {
+		if err != nil {
+			_ = ctx.Trigger(storagemarket.ProviderEventDealPrecommitFailed, err)
+		} else {
+			_ = ctx.Trigger(storagemarket.ProviderEventDealPrecommitted, sectorNumber)
+		}
+	}
+
+	err := environment.Node().OnDealSectorPreCommitted(ctx.Context(), deal.Proposal.Provider, deal.DealID, deal.Proposal, deal.PublishCid, cb)
+
+	if err != nil {
+		return ctx.Trigger(storagemarket.ProviderEventDealPrecommitFailed, err)
+	}
+	return nil
+}
+
 // VerifyDealActivated verifies that a deal has been committed to a sector and activated
 func VerifyDealActivated(ctx fsm.Context, environment ProviderDealEnvironment, deal storagemarket.MinerDeal) error {
 	// TODO: consider waiting for seal to happen
@@ -449,7 +467,7 @@ func VerifyDealActivated(ctx fsm.Context, environment ProviderDealEnvironment, d
 		}
 	}
 
-	err := environment.Node().OnDealSectorCommitted(ctx.Context(), deal.Proposal.Provider, deal.DealID, deal.Proposal, deal.PublishCid, cb)
+	err := environment.Node().OnDealSectorCommitted(ctx.Context(), deal.Proposal.Provider, deal.DealID, deal.SectorNumber, deal.Proposal, deal.PublishCid, cb)
 
 	if err != nil {
 		return ctx.Trigger(storagemarket.ProviderEventDealActivationFailed, err)

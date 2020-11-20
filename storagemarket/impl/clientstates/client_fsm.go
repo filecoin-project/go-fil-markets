@@ -152,9 +152,21 @@ var ClientEvents = fsm.Events{
 			return nil
 		}),
 	fsm.Event(storagemarket.ClientEventDealPublished).
-		From(storagemarket.StorageDealProposalAccepted).To(storagemarket.StorageDealSealing).
+		From(storagemarket.StorageDealProposalAccepted).To(storagemarket.StorageDealAwaitingPreCommit).
 		Action(func(deal *storagemarket.ClientDeal, dealID abi.DealID) error {
 			deal.DealID = dealID
+			return nil
+		}),
+	fsm.Event(storagemarket.ClientEventDealPrecommitFailed).
+		From(storagemarket.StorageDealAwaitingPreCommit).To(storagemarket.StorageDealError).
+		Action(func(deal *storagemarket.ClientDeal, err error) error {
+			deal.Message = xerrors.Errorf("error awaiting deal pre-commit: %w", err).Error()
+			return nil
+		}),
+	fsm.Event(storagemarket.ClientEventDealPrecommitted).
+		From(storagemarket.StorageDealAwaitingPreCommit).To(storagemarket.StorageDealSealing).
+		Action(func(deal *storagemarket.ClientDeal, sectorNumber abi.SectorNumber) error {
+			deal.SectorNumber = sectorNumber
 			return nil
 		}),
 	fsm.Event(storagemarket.ClientEventDealActivationFailed).
@@ -194,6 +206,7 @@ var ClientStateEntryFuncs = fsm.StateEntryFuncs{
 	storagemarket.StorageDealClientTransferRestart: RestartDataTransfer,
 	storagemarket.StorageDealCheckForAcceptance:    CheckForDealAcceptance,
 	storagemarket.StorageDealProposalAccepted:      ValidateDealPublished,
+	storagemarket.StorageDealAwaitingPreCommit:     VerifyDealPreCommitted,
 	storagemarket.StorageDealSealing:               VerifyDealActivated,
 	storagemarket.StorageDealActive:                WaitForDealCompletion,
 	storagemarket.StorageDealFailing:               FailDeal,

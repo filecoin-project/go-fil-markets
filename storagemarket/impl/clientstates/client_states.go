@@ -224,6 +224,24 @@ func ValidateDealPublished(ctx fsm.Context, environment ClientDealEnvironment, d
 	return ctx.Trigger(storagemarket.ClientEventDealPublished, dealID)
 }
 
+// VerifyDealPreCommitted verifies that a deal has been pre-committed
+func VerifyDealPreCommitted(ctx fsm.Context, environment ClientDealEnvironment, deal storagemarket.ClientDeal) error {
+	cb := func(sectorNumber abi.SectorNumber, err error) {
+		if err != nil {
+			_ = ctx.Trigger(storagemarket.ClientEventDealPrecommitFailed, err)
+		} else {
+			_ = ctx.Trigger(storagemarket.ClientEventDealPrecommitted, sectorNumber)
+		}
+	}
+
+	err := environment.Node().OnDealSectorPreCommitted(ctx.Context(), deal.Proposal.Provider, deal.DealID, deal.Proposal, deal.PublishMessage, cb)
+
+	if err != nil {
+		return ctx.Trigger(storagemarket.ClientEventDealPrecommitFailed, err)
+	}
+	return nil
+}
+
 // VerifyDealActivated confirms that a deal was successfully committed to a sector and is active
 func VerifyDealActivated(ctx fsm.Context, environment ClientDealEnvironment, deal storagemarket.ClientDeal) error {
 	cb := func(err error) {
@@ -234,7 +252,7 @@ func VerifyDealActivated(ctx fsm.Context, environment ClientDealEnvironment, dea
 		}
 	}
 
-	if err := environment.Node().OnDealSectorCommitted(ctx.Context(), deal.Proposal.Provider, deal.DealID, deal.Proposal, deal.PublishMessage, cb); err != nil {
+	if err := environment.Node().OnDealSectorCommitted(ctx.Context(), deal.Proposal.Provider, deal.DealID, deal.SectorNumber, deal.Proposal, deal.PublishMessage, cb); err != nil {
 		return ctx.Trigger(storagemarket.ClientEventDealActivationFailed, err)
 	}
 
@@ -295,6 +313,7 @@ func releaseReservedFunds(ctx fsm.Context, environment ClientDealEnvironment, de
 
 func isAccepted(status storagemarket.StorageDealStatus) bool {
 	return status == storagemarket.StorageDealStaged ||
+		status == storagemarket.StorageDealAwaitingPreCommit ||
 		status == storagemarket.StorageDealSealing ||
 		status == storagemarket.StorageDealActive ||
 		status == storagemarket.StorageDealExpired ||

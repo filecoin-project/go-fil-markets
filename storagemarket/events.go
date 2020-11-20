@@ -73,6 +73,12 @@ const (
 	// ClientEventDealPublished happens when a deal is successfully published
 	ClientEventDealPublished
 
+	// ClientEventDealPrecommitFailed happens when an error occurs waiting for deal pre-commit
+	ClientEventDealPrecommitFailed
+
+	// ClientEventDealPrecommitted happens when a deal is successfully pre-commited
+	ClientEventDealPrecommitted
+
 	// ClientEventDealActivationFailed happens when a client cannot verify a deal was activated
 	ClientEventDealActivationFailed
 
@@ -215,21 +221,20 @@ const (
 	// ProviderEventDealHandedOff happens when a deal is successfully handed off to the node for processing in a sector
 	ProviderEventDealHandedOff
 
+	// ProviderEventDealPrecommitFailed happens when an error occurs waiting for deal pre-commit
+	ProviderEventDealPrecommitFailed
+
+	// ProviderEventDealPrecommitted happens when a deal is successfully pre-commited
+	ProviderEventDealPrecommitted
+
 	// ProviderEventDealActivationFailed happens when an error occurs activating a deal
 	ProviderEventDealActivationFailed
-
-	// ProviderEventUnableToLocatePiece happens when an attempt to learn the location of a piece from
-	// the node fails
-	ProviderEventUnableToLocatePiece
 
 	// ProviderEventDealActivated happens when a deal is successfully activated and commited to a sector
 	ProviderEventDealActivated
 
 	// ProviderEventPieceStoreErrored happens when an attempt to save data in the piece store errors
 	ProviderEventPieceStoreErrored
-
-	// ProviderEventReadMetadataErrored happens when an error occurs reading recorded piece metadata
-	ProviderEventReadMetadataErrored
 
 	// ProviderEventFinalized happens when final housekeeping is complete and a deal is active
 	ProviderEventFinalized

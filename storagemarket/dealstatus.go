@@ -23,6 +23,9 @@ const (
 	// StorageDealStaged means a deal has been published and data is ready to be put into a sector
 	StorageDealStaged
 
+	// StorageDealAwaitingPreCommit means a deal is ready and must be pre-committed
+	StorageDealAwaitingPreCommit
+
 	// StorageDealSealing means a deal is in a sector that is being sealed
 	StorageDealSealing
 
@@ -113,6 +116,7 @@ var DealStates = map[StorageDealStatus]string{
 	StorageDealAcceptWait:              "StorageDealAcceptWait",
 	StorageDealStartDataTransfer:       "StorageDealStartDataTransfer",
 	StorageDealStaged:                  "StorageDealStaged",
+	StorageDealAwaitingPreCommit:       "StorageDealAwaitingPreCommit",
 	StorageDealSealing:                 "StorageDealSealing",
 	StorageDealActive:                  "StorageDealActive",
 	StorageDealExpired:                 "StorageDealExpired",
