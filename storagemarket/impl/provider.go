@@ -12,18 +12,20 @@ import (
 
 	"github.com/filecoin-project/go-address"
 	cborutil "github.com/filecoin-project/go-cbor-util"
+	"github.com/filecoin-project/go-commp-utils/ffiwrapper"
+	"github.com/filecoin-project/go-commp-utils/pieceio"
+	"github.com/filecoin-project/go-commp-utils/pieceio/cario"
 	datatransfer "github.com/filecoin-project/go-data-transfer"
 	versioning "github.com/filecoin-project/go-ds-versioning/pkg"
 	versionedfsm "github.com/filecoin-project/go-ds-versioning/pkg/fsm"
 	"github.com/filecoin-project/go-multistore"
+	"github.com/filecoin-project/go-padreader"
 	"github.com/filecoin-project/go-state-types/abi"
 	"github.com/filecoin-project/go-state-types/crypto"
 	"github.com/filecoin-project/go-state-types/exitcode"
 	"github.com/filecoin-project/go-statemachine/fsm"
 
 	"github.com/filecoin-project/go-fil-markets/filestore"
-	"github.com/filecoin-project/go-fil-markets/pieceio"
-	"github.com/filecoin-project/go-fil-markets/pieceio/cario"
 	"github.com/filecoin-project/go-fil-markets/piecestore"
 	"github.com/filecoin-project/go-fil-markets/shared"
 	"github.com/filecoin-project/go-fil-markets/storagemarket"
@@ -315,10 +317,10 @@ func (p *Provider) ImportDataForDeal(ctx context.Context, propCid cid.Cid, data 
 		return xerrors.Errorf("failed to determine proof type: %w", err)
 	}
 
-	pieceCid, _, err := pieceio.GeneratePieceCommitment(proofType, tempfi, pieceSize)
+	pieceCid, err := generatePieceCommitment(proofType, tempfi, pieceSize)
 	if err != nil {
 		cleanup()
-		return xerrors.Errorf("failed to generate commP")
+		return xerrors.Errorf("failed to generate commP: %w", err)
 	}
 
 	// Verify CommP matches
@@ -328,7 +330,15 @@ func (p *Provider) ImportDataForDeal(ctx context.Context, propCid cid.Cid, data 
 	}
 
 	return p.deals.Send(propCid, storagemarket.ProviderEventVerifiedData, tempfi.Path(), filestore.Path(""))
+}
 
+func generatePieceCommitment(rt abi.RegisteredSealProof, rd io.Reader, pieceSize uint64) (cid.Cid, error) {
+	paddedReader, paddedSize := padreader.New(rd, pieceSize)
+	commitment, err := ffiwrapper.GeneratePieceCIDFromFile(rt, paddedReader, paddedSize)
+	if err != nil {
+		return cid.Undef, err
+	}
+	return commitment, nil
 }
 
 // GetAsk returns the storage miner's ask, or nil if one does not exist.

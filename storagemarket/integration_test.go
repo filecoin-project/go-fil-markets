@@ -11,11 +11,11 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/filecoin-project/go-commp-utils/pieceio"
+	"github.com/filecoin-project/go-commp-utils/pieceio/cario"
 	"github.com/filecoin-project/go-state-types/abi"
 	"github.com/filecoin-project/go-state-types/big"
 
-	"github.com/filecoin-project/go-fil-markets/pieceio"
-	"github.com/filecoin-project/go-fil-markets/pieceio/cario"
 	"github.com/filecoin-project/go-fil-markets/shared"
 	"github.com/filecoin-project/go-fil-markets/shared_testutil"
 	"github.com/filecoin-project/go-fil-markets/storagemarket"
@@ -182,15 +182,13 @@ func TestMakeDealOffline(t *testing.T) {
 	shared_testutil.StartAndWaitForReady(ctx, t, h.Provider)
 	shared_testutil.StartAndWaitForReady(ctx, t, h.Client)
 
-	carBuf := new(bytes.Buffer)
-
 	store, err := h.TestData.MultiStore1.Get(*h.StoreID)
 	require.NoError(t, err)
 
-	err = cario.NewCarIO().WriteCar(ctx, store.Bstore, h.PayloadCid, shared.AllSelector(), carBuf)
-	require.NoError(t, err)
+	cio := cario.NewCarIO()
+	pio := pieceio.NewPieceIO(cio, store.Bstore, h.TestData.MultiStore1)
 
-	commP, size, err := pieceio.GeneratePieceCommitment(abi.RegisteredSealProof_StackedDrg2KiBV1, carBuf, uint64(carBuf.Len()))
+	commP, size, err := pio.GeneratePieceCommitment(abi.RegisteredSealProof_StackedDrg2KiBV1, h.PayloadCid, shared.AllSelector(), h.StoreID)
 	assert.NoError(t, err)
 
 	dataRef := &storagemarket.DataRef{
@@ -223,7 +221,9 @@ func TestMakeDealOffline(t *testing.T) {
 	assert.True(t, pd.ProposalCid.Equals(proposalCid))
 	shared_testutil.AssertDealState(t, storagemarket.StorageDealWaitingForData, pd.State)
 
-	err = cario.NewCarIO().WriteCar(ctx, store.Bstore, h.PayloadCid, shared.AllSelector(), carBuf)
+	carBuf := new(bytes.Buffer)
+	err = cio.WriteCar(ctx, store.Bstore, h.PayloadCid, shared.AllSelector(), carBuf)
+	require.NoError(t, err)
 	require.NoError(t, err)
 	err = h.Provider.ImportDataForDeal(ctx, pd.ProposalCid, carBuf)
 	require.NoError(t, err)

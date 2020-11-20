@@ -17,17 +17,8 @@ $(FFI_DEPS): .filecoin-build ;
 	git submodule update --init --recursive
 	@touch $@
 
-pieceio: .update-modules .filecoin-build
-	go build ./pieceio
-.PHONY: pieceio
-SUBMODULES+=pieceio
-
-filestore:
-	go build ./filestore
-.PHONY: filestore
-SUBMODULES+=filestore
-
-build: $(SUBMODULES)
+build: .filecoin-build .update-modules
+	go build ./...
 
 test: build
 	gotestsum -- -coverprofile=coverage.txt -timeout 5m ./...
