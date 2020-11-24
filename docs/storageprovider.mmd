@@ -19,6 +19,7 @@ stateDiagram-v2
 	state "StorageDealPublishing" as 25
 	state "StorageDealError" as 26
 	state "StorageDealProviderTransferRestart" as 27
+	state "StorageDealAwaitingPreCommit" as 29
 	4 : On entry runs HandoffDeal
 	5 : On entry runs VerifyDealActivated
 	6 : On entry runs CleanupDeal
@@ -33,6 +34,7 @@ stateDiagram-v2
 	24 : On entry runs PublishDeal
 	25 : On entry runs WaitForPublish
 	27 : On entry runs RestartDataTransfer
+	29 : On entry runs VerifyDealPreCommitted
 	[*] --> 0
 	note right of 0
 		The following events are not shown cause they can trigger from any state.
@@ -67,11 +69,15 @@ stateDiagram-v2
 	4 --> 11 : ProviderEventFileStoreErrored
 	5 --> 11 : ProviderEventFileStoreErrored
 	7 --> 11 : ProviderEventFileStoreErrored
+	29 --> 11 : ProviderEventFileStoreErrored
 	4 --> 11 : ProviderEventMultistoreErrored
 	4 --> 11 : ProviderEventDealHandoffFailed
-	4 --> 5 : ProviderEventDealHandedOff
+	4 --> 29 : ProviderEventDealHandedOff
+	29 --> 11 : <invalid Value>
+	29 --> 5 : <invalid Value>
 	5 --> 11 : ProviderEventDealActivationFailed
 	5 --> 6 : ProviderEventDealActivated
+	29 --> 6 : ProviderEventDealActivated
 	6 --> 7 : ProviderEventCleanupFinished
 	7 --> 9 : ProviderEventDealSlashed
 	7 --> 8 : ProviderEventDealExpired

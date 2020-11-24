@@ -16,6 +16,11 @@ import (
 	"github.com/filecoin-project/go-fil-markets/shared"
 )
 
+// DealSectorPreCommittedCallback is a callback that runs when a sector is pre-committed
+// sectorNumber: the number of the sector that the deal is in
+// isActive: the deal is already active
+type DealSectorPreCommittedCallback func(sectorNumber abi.SectorNumber, isActive bool, err error)
+
 // DealSectorCommittedCallback is a callback that runs when a sector is committed
 type DealSectorCommittedCallback func(err error)
 
@@ -55,8 +60,11 @@ type StorageCommon interface {
 	// DealProviderCollateralBounds returns the min and max collateral a storage provider can issue.
 	DealProviderCollateralBounds(ctx context.Context, size abi.PaddedPieceSize, isVerified bool) (abi.TokenAmount, abi.TokenAmount, error)
 
+	// OnDealSectorPreCommitted waits for a deal's sector to be pre-committed
+	OnDealSectorPreCommitted(ctx context.Context, provider address.Address, dealID abi.DealID, proposal market.DealProposal, publishCid *cid.Cid, cb DealSectorPreCommittedCallback) error
+
 	// OnDealSectorCommitted waits for a deal's sector to be sealed and proved, indicating the deal is active
-	OnDealSectorCommitted(ctx context.Context, provider address.Address, dealID abi.DealID, proposal market.DealProposal, publishCid *cid.Cid, cb DealSectorCommittedCallback) error
+	OnDealSectorCommitted(ctx context.Context, provider address.Address, dealID abi.DealID, sectorNumber abi.SectorNumber, proposal market.DealProposal, publishCid *cid.Cid, cb DealSectorCommittedCallback) error
 
 	// OnDealExpiredOrSlashed registers callbacks to be called when the deal expires or is slashed
 	OnDealExpiredOrSlashed(ctx context.Context, dealID abi.DealID, onDealExpired DealExpiredCallback, onDealSlashed DealSlashedCallback) error

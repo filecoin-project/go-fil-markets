@@ -105,6 +105,7 @@ type MinerDeal struct {
 	CreationTime cbg.CborTime
 
 	TransferChannelId *datatransfer.ChannelID
+	SectorNumber      abi.SectorNumber
 }
 
 // ClientDeal is the local state tracked for a deal by a StorageClient
@@ -127,6 +128,7 @@ type ClientDeal struct {
 	FundsReserved     abi.TokenAmount
 	CreationTime      cbg.CborTime
 	TransferChannelID *datatransfer.ChannelID
+	SectorNumber      abi.SectorNumber
 }
 
 // StorageProviderInfo describes on chain information about a StorageProvider

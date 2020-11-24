@@ -14,6 +14,7 @@ stateDiagram-v2
 	state "StorageDealClientFunding" as 23
 	state "StorageDealError" as 26
 	state "StorageDealClientTransferRestart" as 28
+	state "StorageDealAwaitingPreCommit" as 29
 	3 : On entry runs ValidateDealPublished
 	5 : On entry runs VerifyDealActivated
 	7 : On entry runs WaitForDealCompletion
@@ -24,6 +25,7 @@ stateDiagram-v2
 	21 : On entry runs ReserveClientFunds
 	23 : On entry runs WaitForFunding
 	28 : On entry runs RestartDataTransfer
+	29 : On entry runs VerifyDealPreCommitted
 	[*] --> 0
 	note right of 0
 		The following events are not shown cause they can trigger from any state.
@@ -55,9 +57,12 @@ stateDiagram-v2
 	13 --> 11 : ClientEventDealRejected
 	13 --> 3 : ClientEventDealAccepted
 	3 --> 26 : ClientEventDealPublishFailed
-	3 --> 5 : ClientEventDealPublished
+	3 --> 29 : ClientEventDealPublished
+	29 --> 26 : <invalid Value>
+	29 --> 5 : <invalid Value>
 	5 --> 26 : ClientEventDealActivationFailed
 	5 --> 7 : ClientEventDealActivated
+	29 --> 7 : ClientEventDealActivated
 	7 --> 9 : ClientEventDealSlashed
 	7 --> 8 : ClientEventDealExpired
 	7 --> 26 : ClientEventDealCompletionFailed

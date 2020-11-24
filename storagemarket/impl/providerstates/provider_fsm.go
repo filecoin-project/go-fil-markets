@@ -119,7 +119,7 @@ var ProviderEvents = fsm.Events{
 			return nil
 		}),
 	fsm.Event(storagemarket.ProviderEventFileStoreErrored).
-		FromMany(storagemarket.StorageDealStaged, storagemarket.StorageDealSealing, storagemarket.StorageDealActive).To(storagemarket.StorageDealFailing).
+		FromMany(storagemarket.StorageDealStaged, storagemarket.StorageDealAwaitingPreCommit, storagemarket.StorageDealSealing, storagemarket.StorageDealActive).To(storagemarket.StorageDealFailing).
 		Action(func(deal *storagemarket.MinerDeal, err error) error {
 			deal.Message = xerrors.Errorf("accessing file store: %w", err).Error()
 			return nil
@@ -141,10 +141,24 @@ var ProviderEvents = fsm.Events{
 			deal.Message = xerrors.Errorf("recording piece for retrieval: %w", err).Error()
 			return nil
 		}),
-	fsm.Event(storagemarket.ProviderEventDealHandedOff).From(storagemarket.StorageDealStaged).To(storagemarket.StorageDealSealing).Action(func(deal *storagemarket.MinerDeal) error {
-		deal.AvailableForRetrieval = true
-		return nil
-	}),
+	fsm.Event(storagemarket.ProviderEventDealHandedOff).
+		From(storagemarket.StorageDealStaged).To(storagemarket.StorageDealAwaitingPreCommit).
+		Action(func(deal *storagemarket.MinerDeal) error {
+			deal.AvailableForRetrieval = true
+			return nil
+		}),
+	fsm.Event(storagemarket.ProviderEventDealPrecommitFailed).
+		From(storagemarket.StorageDealAwaitingPreCommit).To(storagemarket.StorageDealFailing).
+		Action(func(deal *storagemarket.MinerDeal, err error) error {
+			deal.Message = xerrors.Errorf("error awaiting deal pre-commit: %w", err).Error()
+			return nil
+		}),
+	fsm.Event(storagemarket.ProviderEventDealPrecommitted).
+		From(storagemarket.StorageDealAwaitingPreCommit).To(storagemarket.StorageDealSealing).
+		Action(func(deal *storagemarket.MinerDeal, sectorNumber abi.SectorNumber) error {
+			deal.SectorNumber = sectorNumber
+			return nil
+		}),
 	fsm.Event(storagemarket.ProviderEventDealActivationFailed).
 		From(storagemarket.StorageDealSealing).To(storagemarket.StorageDealFailing).
 		Action(func(deal *storagemarket.MinerDeal, err error) error {
@@ -152,7 +166,8 @@ var ProviderEvents = fsm.Events{
 			return nil
 		}),
 	fsm.Event(storagemarket.ProviderEventDealActivated).
-		From(storagemarket.StorageDealSealing).To(storagemarket.StorageDealFinalizing),
+		FromMany(storagemarket.StorageDealAwaitingPreCommit, storagemarket.StorageDealSealing).
+		To(storagemarket.StorageDealFinalizing),
 	fsm.Event(storagemarket.ProviderEventFinalized).
 		From(storagemarket.StorageDealFinalizing).To(storagemarket.StorageDealActive).
 		Action(func(deal *storagemarket.MinerDeal) error {
@@ -214,6 +229,7 @@ var ProviderStateEntryFuncs = fsm.StateEntryFuncs{
 	storagemarket.StorageDealPublish:                 PublishDeal,
 	storagemarket.StorageDealPublishing:              WaitForPublish,
 	storagemarket.StorageDealStaged:                  HandoffDeal,
+	storagemarket.StorageDealAwaitingPreCommit:       VerifyDealPreCommitted,
 	storagemarket.StorageDealSealing:                 VerifyDealActivated,
 	storagemarket.StorageDealRejecting:               RejectDeal,
 	storagemarket.StorageDealFinalizing:              CleanupDeal,

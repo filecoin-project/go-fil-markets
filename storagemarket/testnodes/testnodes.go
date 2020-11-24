@@ -81,6 +81,10 @@ type FakeCommonNode struct {
 	GetBalanceError            error
 	GetChainHeadError          error
 	SignBytesError             error
+	PreCommittedSectorNumber   abi.SectorNumber
+	PreCommittedIsActive       bool
+	DealPreCommittedSyncError  error
+	DealPreCommittedAsyncError error
 	DealCommittedSyncError     error
 	DealCommittedAsyncError    error
 	WaitForDealCompletionError error
@@ -101,6 +105,9 @@ type FakeCommonNode struct {
 
 // DelayFakeCommonNode allows configuring delay in the FakeCommonNode functions
 type DelayFakeCommonNode struct {
+	OnDealSectorPreCommitted     bool
+	OnDealSectorPreCommittedChan chan struct{}
+
 	OnDealSectorCommitted     bool
 	OnDealSectorCommittedChan chan struct{}
 
@@ -192,8 +199,23 @@ func (n *FakeCommonNode) DealProviderCollateralBounds(ctx context.Context, size 
 	return abi.NewTokenAmount(5000), builtin.TotalFilecoin, nil
 }
 
+// OnDealSectorPreCommitted returns immediately, and returns stubbed errors
+func (n *FakeCommonNode) OnDealSectorPreCommitted(ctx context.Context, provider address.Address, dealID abi.DealID, proposal market.DealProposal, publishCid *cid.Cid, cb storagemarket.DealSectorPreCommittedCallback) error {
+	if n.DelayFakeCommonNode.OnDealSectorPreCommitted {
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case <-n.DelayFakeCommonNode.OnDealSectorPreCommittedChan:
+		}
+	}
+	if n.DealPreCommittedSyncError == nil {
+		cb(n.PreCommittedSectorNumber, n.PreCommittedIsActive, n.DealPreCommittedAsyncError)
+	}
+	return n.DealPreCommittedSyncError
+}
+
 // OnDealSectorCommitted returns immediately, and returns stubbed errors
-func (n *FakeCommonNode) OnDealSectorCommitted(ctx context.Context, provider address.Address, dealID abi.DealID, proposal market.DealProposal, publishCid *cid.Cid, cb storagemarket.DealSectorCommittedCallback) error {
+func (n *FakeCommonNode) OnDealSectorCommitted(ctx context.Context, provider address.Address, dealID abi.DealID, sectorNumber abi.SectorNumber, proposal market.DealProposal, publishCid *cid.Cid, cb storagemarket.DealSectorCommittedCallback) error {
 	if n.DelayFakeCommonNode.OnDealSectorCommitted {
 		select {
 		case <-ctx.Done():

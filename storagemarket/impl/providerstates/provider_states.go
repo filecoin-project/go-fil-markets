@@ -438,6 +438,32 @@ func CleanupDeal(ctx fsm.Context, environment ProviderDealEnvironment, deal stor
 	return ctx.Trigger(storagemarket.ProviderEventFinalized)
 }
 
+// VerifyDealPreCommitted verifies that a deal has been pre-committed
+func VerifyDealPreCommitted(ctx fsm.Context, environment ProviderDealEnvironment, deal storagemarket.MinerDeal) error {
+	cb := func(sectorNumber abi.SectorNumber, isActive bool, err error) {
+		// It's possible that
+		// - we miss the pre-commit message and have to wait for prove-commit
+		// - the deal is already active (for example if the node is restarted
+		//   while waiting for pre-commit)
+		// In either of these two cases, isActive will be true.
+		switch {
+		case err != nil:
+			_ = ctx.Trigger(storagemarket.ProviderEventDealPrecommitFailed, err)
+		case isActive:
+			_ = ctx.Trigger(storagemarket.ProviderEventDealActivated)
+		default:
+			_ = ctx.Trigger(storagemarket.ProviderEventDealPrecommitted, sectorNumber)
+		}
+	}
+
+	err := environment.Node().OnDealSectorPreCommitted(ctx.Context(), deal.Proposal.Provider, deal.DealID, deal.Proposal, deal.PublishCid, cb)
+
+	if err != nil {
+		return ctx.Trigger(storagemarket.ProviderEventDealPrecommitFailed, err)
+	}
+	return nil
+}
+
 // VerifyDealActivated verifies that a deal has been committed to a sector and activated
 func VerifyDealActivated(ctx fsm.Context, environment ProviderDealEnvironment, deal storagemarket.MinerDeal) error {
 	// TODO: consider waiting for seal to happen
@@ -449,7 +475,7 @@ func VerifyDealActivated(ctx fsm.Context, environment ProviderDealEnvironment, d
 		}
 	}
 
-	err := environment.Node().OnDealSectorCommitted(ctx.Context(), deal.Proposal.Provider, deal.DealID, deal.Proposal, deal.PublishCid, cb)
+	err := environment.Node().OnDealSectorCommitted(ctx.Context(), deal.Proposal.Provider, deal.DealID, deal.SectorNumber, deal.Proposal, deal.PublishCid, cb)
 
 	if err != nil {
 		return ctx.Trigger(storagemarket.ProviderEventDealActivationFailed, err)

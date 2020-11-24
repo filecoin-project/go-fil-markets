@@ -24,7 +24,7 @@ func (t *ClientDeal) MarshalCBOR(w io.Writer) error {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	if _, err := w.Write([]byte{178}); err != nil {
+	if _, err := w.Write([]byte{179}); err != nil {
 		return err
 	}
 
@@ -355,6 +355,23 @@ func (t *ClientDeal) MarshalCBOR(w io.Writer) error {
 	if err := t.TransferChannelID.MarshalCBOR(w); err != nil {
 		return err
 	}
+
+	// t.SectorNumber (abi.SectorNumber) (uint64)
+	if len("SectorNumber") > cbg.MaxLength {
+		return xerrors.Errorf("Value in field \"SectorNumber\" was too long")
+	}
+
+	if err := cbg.WriteMajorTypeHeaderBuf(scratch, w, cbg.MajTextString, uint64(len("SectorNumber"))); err != nil {
+		return err
+	}
+	if _, err := io.WriteString(w, string("SectorNumber")); err != nil {
+		return err
+	}
+
+	if err := cbg.WriteMajorTypeHeaderBuf(scratch, w, cbg.MajUnsignedInt, uint64(t.SectorNumber)); err != nil {
+		return err
+	}
+
 	return nil
 }
 
@@ -681,6 +698,21 @@ func (t *ClientDeal) UnmarshalCBOR(r io.Reader) error {
 				}
 
 			}
+			// t.SectorNumber (abi.SectorNumber) (uint64)
+		case "SectorNumber":
+
+			{
+
+				maj, extra, err = cbg.CborReadHeaderBuf(br, scratch)
+				if err != nil {
+					return err
+				}
+				if maj != cbg.MajUnsignedInt {
+					return fmt.Errorf("wrong type for uint64 field")
+				}
+				t.SectorNumber = abi.SectorNumber(extra)
+
+			}
 
 		default:
 			return fmt.Errorf("unknown struct field %d: '%s'", i, name)
@@ -694,7 +726,7 @@ func (t *MinerDeal) MarshalCBOR(w io.Writer) error {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	if _, err := w.Write([]byte{179}); err != nil {
+	if _, err := w.Write([]byte{180}); err != nil {
 		return err
 	}
 
@@ -1062,6 +1094,23 @@ func (t *MinerDeal) MarshalCBOR(w io.Writer) error {
 	if err := t.TransferChannelId.MarshalCBOR(w); err != nil {
 		return err
 	}
+
+	// t.SectorNumber (abi.SectorNumber) (uint64)
+	if len("SectorNumber") > cbg.MaxLength {
+		return xerrors.Errorf("Value in field \"SectorNumber\" was too long")
+	}
+
+	if err := cbg.WriteMajorTypeHeaderBuf(scratch, w, cbg.MajTextString, uint64(len("SectorNumber"))); err != nil {
+		return err
+	}
+	if _, err := io.WriteString(w, string("SectorNumber")); err != nil {
+		return err
+	}
+
+	if err := cbg.WriteMajorTypeHeaderBuf(scratch, w, cbg.MajUnsignedInt, uint64(t.SectorNumber)); err != nil {
+		return err
+	}
+
 	return nil
 }
 
@@ -1397,6 +1446,21 @@ func (t *MinerDeal) UnmarshalCBOR(r io.Reader) error {
 						return xerrors.Errorf("unmarshaling t.TransferChannelId pointer: %w", err)
 					}
 				}
+
+			}
+			// t.SectorNumber (abi.SectorNumber) (uint64)
+		case "SectorNumber":
+
+			{
+
+				maj, extra, err = cbg.CborReadHeaderBuf(br, scratch)
+				if err != nil {
+					return err
+				}
+				if maj != cbg.MajUnsignedInt {
+					return fmt.Errorf("wrong type for uint64 field")
+				}
+				t.SectorNumber = abi.SectorNumber(extra)
 
 			}
 

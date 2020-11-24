@@ -102,6 +102,9 @@ const (
 	// StorageDealClientTransferRestart means a storage deal data transfer from client to provider will be restarted
 	// by the client
 	StorageDealClientTransferRestart
+
+	// StorageDealAwaitingPreCommit means a deal is ready and must be pre-committed
+	StorageDealAwaitingPreCommit
 )
 
 // DealStates maps StorageDealStatus codes to string names
@@ -113,6 +116,7 @@ var DealStates = map[StorageDealStatus]string{
 	StorageDealAcceptWait:              "StorageDealAcceptWait",
 	StorageDealStartDataTransfer:       "StorageDealStartDataTransfer",
 	StorageDealStaged:                  "StorageDealStaged",
+	StorageDealAwaitingPreCommit:       "StorageDealAwaitingPreCommit",
 	StorageDealSealing:                 "StorageDealSealing",
 	StorageDealActive:                  "StorageDealActive",
 	StorageDealExpired:                 "StorageDealExpired",

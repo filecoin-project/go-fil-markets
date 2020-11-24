@@ -294,6 +294,7 @@ func TestCheckForDealAcceptance(t *testing.T) {
 	t.Run("succeeds when provider indicates a successful deal", func(t *testing.T) {
 		successStates := []storagemarket.StorageDealStatus{
 			storagemarket.StorageDealActive,
+			storagemarket.StorageDealAwaitingPreCommit,
 			storagemarket.StorageDealSealing,
 			storagemarket.StorageDealStaged,
 			storagemarket.StorageDealSlashed,
@@ -376,7 +377,7 @@ func TestValidateDealPublished(t *testing.T) {
 				reserveFunds: true,
 			},
 			inspector: func(deal storagemarket.ClientDeal, env *fakeEnvironment) {
-				tut.AssertDealState(t, storagemarket.StorageDealSealing, deal.State)
+				tut.AssertDealState(t, storagemarket.StorageDealAwaitingPreCommit, deal.State)
 				assert.Equal(t, abi.DealID(5), deal.DealID)
 				assert.Equal(t, env.node.DealFunds.ReleaseCalls[0], deal.Proposal.ClientBalanceRequirement())
 				assert.True(t, deal.FundsReserved.Nil() || deal.FundsReserved.IsZero())
@@ -389,7 +390,7 @@ func TestValidateDealPublished(t *testing.T) {
 		runAndInspect(t, storagemarket.StorageDealProposalAccepted, clientstates.ValidateDealPublished, testCase{
 			nodeParams: nodeParams{ValidatePublishedDealID: abi.DealID(5)},
 			inspector: func(deal storagemarket.ClientDeal, env *fakeEnvironment) {
-				tut.AssertDealState(t, storagemarket.StorageDealSealing, deal.State)
+				tut.AssertDealState(t, storagemarket.StorageDealAwaitingPreCommit, deal.State)
 				assert.Equal(t, abi.DealID(5), deal.DealID)
 				assert.Len(t, env.node.DealFunds.ReleaseCalls, 0)
 				assert.Len(t, env.peerTagger.UntagCalls, 1)
@@ -406,6 +407,44 @@ func TestValidateDealPublished(t *testing.T) {
 			inspector: func(deal storagemarket.ClientDeal, env *fakeEnvironment) {
 				tut.AssertDealState(t, storagemarket.StorageDealError, deal.State)
 				assert.Equal(t, "error validating deal published: Something went wrong", deal.Message)
+			},
+		})
+	})
+}
+
+func TestVerifyDealPreCommitted(t *testing.T) {
+	t.Run("succeeds", func(t *testing.T) {
+		runAndInspect(t, storagemarket.StorageDealAwaitingPreCommit, clientstates.VerifyDealPreCommitted, testCase{
+			nodeParams: nodeParams{PreCommittedSectorNumber: abi.SectorNumber(10)},
+			inspector: func(deal storagemarket.ClientDeal, env *fakeEnvironment) {
+				tut.AssertDealState(t, storagemarket.StorageDealSealing, deal.State)
+				assert.Equal(t, abi.SectorNumber(10), deal.SectorNumber)
+			},
+		})
+	})
+	t.Run("succeeds, active", func(t *testing.T) {
+		runAndInspect(t, storagemarket.StorageDealAwaitingPreCommit, clientstates.VerifyDealPreCommitted, testCase{
+			nodeParams: nodeParams{PreCommittedIsActive: true},
+			inspector: func(deal storagemarket.ClientDeal, env *fakeEnvironment) {
+				tut.AssertDealState(t, storagemarket.StorageDealActive, deal.State)
+			},
+		})
+	})
+	t.Run("fails synchronously", func(t *testing.T) {
+		runAndInspect(t, storagemarket.StorageDealAwaitingPreCommit, clientstates.VerifyDealPreCommitted, testCase{
+			nodeParams: nodeParams{DealPreCommittedSyncError: errors.New("Something went wrong")},
+			inspector: func(deal storagemarket.ClientDeal, env *fakeEnvironment) {
+				tut.AssertDealState(t, storagemarket.StorageDealError, deal.State)
+				assert.Equal(t, "error awaiting deal pre-commit: Something went wrong", deal.Message)
+			},
+		})
+	})
+	t.Run("fails asynchronously", func(t *testing.T) {
+		runAndInspect(t, storagemarket.StorageDealAwaitingPreCommit, clientstates.VerifyDealPreCommitted, testCase{
+			nodeParams: nodeParams{DealPreCommittedAsyncError: errors.New("Something went wrong later")},
+			inspector: func(deal storagemarket.ClientDeal, env *fakeEnvironment) {
+				tut.AssertDealState(t, storagemarket.StorageDealError, deal.State)
+				assert.Equal(t, "error awaiting deal pre-commit: Something went wrong later", deal.Message)
 			},
 		})
 	})
@@ -595,6 +634,10 @@ type nodeParams struct {
 	ValidationError            error
 	ValidatePublishedDealID    abi.DealID
 	ValidatePublishedError     error
+	PreCommittedSectorNumber   abi.SectorNumber
+	PreCommittedIsActive       bool
+	DealPreCommittedSyncError  error
+	DealPreCommittedAsyncError error
 	DealCommittedSyncError     error
 	DealCommittedAsyncError    error
 	WaitForDealCompletionError error
@@ -620,6 +663,10 @@ func makeNode(params nodeParams) *testnodes.FakeClientNode {
 	out.ValidationError = params.ValidationError
 	out.ValidatePublishedDealID = params.ValidatePublishedDealID
 	out.ValidatePublishedError = params.ValidatePublishedError
+	out.PreCommittedSectorNumber = params.PreCommittedSectorNumber
+	out.PreCommittedIsActive = params.PreCommittedIsActive
+	out.DealPreCommittedSyncError = params.DealPreCommittedSyncError
+	out.DealPreCommittedAsyncError = params.DealPreCommittedAsyncError
 	out.DealCommittedSyncError = params.DealCommittedSyncError
 	out.DealCommittedAsyncError = params.DealCommittedAsyncError
 	out.WaitForDealCompletionError = params.WaitForDealCompletionError

@@ -656,7 +656,7 @@ func TestHandoffDeal(t *testing.T) {
 				ExpectedOpens: []filestore.Path{defaultPath},
 			},
 			dealInspector: func(t *testing.T, deal storagemarket.MinerDeal, env *fakeEnvironment) {
-				tut.AssertDealState(t, storagemarket.StorageDealSealing, deal.State)
+				tut.AssertDealState(t, storagemarket.StorageDealAwaitingPreCommit, deal.State)
 				require.Len(t, env.node.OnDealCompleteCalls, 1)
 				require.True(t, env.node.OnDealCompleteCalls[0].FastRetrieval)
 				require.True(t, deal.AvailableForRetrieval)
@@ -667,7 +667,7 @@ func TestHandoffDeal(t *testing.T) {
 				FastRetrieval: true,
 			},
 			dealInspector: func(t *testing.T, deal storagemarket.MinerDeal, env *fakeEnvironment) {
-				tut.AssertDealState(t, storagemarket.StorageDealSealing, deal.State)
+				tut.AssertDealState(t, storagemarket.StorageDealAwaitingPreCommit, deal.State)
 				require.Len(t, env.node.OnDealCompleteCalls, 1)
 				require.True(t, env.node.OnDealCompleteCalls[0].FastRetrieval)
 				require.True(t, deal.AvailableForRetrieval)
@@ -684,7 +684,7 @@ func TestHandoffDeal(t *testing.T) {
 				ExpectedOpens: []filestore.Path{defaultPath, defaultMetadataPath},
 			},
 			dealInspector: func(t *testing.T, deal storagemarket.MinerDeal, env *fakeEnvironment) {
-				tut.AssertDealState(t, storagemarket.StorageDealSealing, deal.State)
+				tut.AssertDealState(t, storagemarket.StorageDealAwaitingPreCommit, deal.State)
 				require.Len(t, env.node.OnDealCompleteCalls, 1)
 				require.True(t, env.node.OnDealCompleteCalls[0].FastRetrieval)
 				require.True(t, deal.AvailableForRetrieval)
@@ -701,7 +701,7 @@ func TestHandoffDeal(t *testing.T) {
 				ExpectedOpens: []filestore.Path{defaultPath},
 			},
 			dealInspector: func(t *testing.T, deal storagemarket.MinerDeal, env *fakeEnvironment) {
-				tut.AssertDealState(t, storagemarket.StorageDealSealing, deal.State)
+				tut.AssertDealState(t, storagemarket.StorageDealAwaitingPreCommit, deal.State)
 				require.Equal(t, fmt.Sprintf("recording piece for retrieval: failed to load block locations: file not found"), deal.Message)
 			},
 		},
@@ -718,7 +718,7 @@ func TestHandoffDeal(t *testing.T) {
 				AddPieceBlockLocationsError: errors.New("could not add block locations"),
 			},
 			dealInspector: func(t *testing.T, deal storagemarket.MinerDeal, env *fakeEnvironment) {
-				tut.AssertDealState(t, storagemarket.StorageDealSealing, deal.State)
+				tut.AssertDealState(t, storagemarket.StorageDealAwaitingPreCommit, deal.State)
 				require.Equal(t, "recording piece for retrieval: failed to add piece block locations: could not add block locations", deal.Message)
 			},
 		},
@@ -735,7 +735,7 @@ func TestHandoffDeal(t *testing.T) {
 				AddDealForPieceError: errors.New("could not add deal info"),
 			},
 			dealInspector: func(t *testing.T, deal storagemarket.MinerDeal, env *fakeEnvironment) {
-				tut.AssertDealState(t, storagemarket.StorageDealSealing, deal.State)
+				tut.AssertDealState(t, storagemarket.StorageDealAwaitingPreCommit, deal.State)
 				require.Equal(t, "recording piece for retrieval: failed to add deal for piece: could not add deal info", deal.Message)
 			},
 		},
@@ -804,6 +804,62 @@ func TestHandoffDeal(t *testing.T) {
 	for test, data := range tests {
 		t.Run(test, func(t *testing.T) {
 			runHandoffDeal(t, data.nodeParams, data.environmentParams, data.dealParams, data.fileStoreParams, data.pieceStoreParams, data.dealInspector)
+		})
+	}
+}
+
+func TestVerifyDealPrecommitted(t *testing.T) {
+	ctx := context.Background()
+	eventProcessor, err := fsm.NewEventProcessor(storagemarket.MinerDeal{}, "State", providerstates.ProviderEvents)
+	require.NoError(t, err)
+	runVerifyDealActivated := makeExecutor(ctx, eventProcessor, providerstates.VerifyDealPreCommitted, storagemarket.StorageDealAwaitingPreCommit)
+	tests := map[string]struct {
+		nodeParams        nodeParams
+		dealParams        dealParams
+		environmentParams environmentParams
+		fileStoreParams   tut.TestFileStoreParams
+		pieceStoreParams  tut.TestPieceStoreParams
+		dealInspector     func(t *testing.T, deal storagemarket.MinerDeal, env *fakeEnvironment)
+	}{
+		"succeeds": {
+			nodeParams: nodeParams{
+				PreCommittedSectorNumber: abi.SectorNumber(10),
+			},
+			dealInspector: func(t *testing.T, deal storagemarket.MinerDeal, env *fakeEnvironment) {
+				tut.AssertDealState(t, storagemarket.StorageDealSealing, deal.State)
+				require.Equal(t, abi.SectorNumber(10), deal.SectorNumber)
+			},
+		},
+		"succeeds, active": {
+			nodeParams: nodeParams{
+				PreCommittedIsActive: true,
+			},
+			dealInspector: func(t *testing.T, deal storagemarket.MinerDeal, env *fakeEnvironment) {
+				tut.AssertDealState(t, storagemarket.StorageDealFinalizing, deal.State)
+			},
+		},
+		"sync error": {
+			nodeParams: nodeParams{
+				DealPreCommittedSyncError: errors.New("couldn't check deal pre-commit"),
+			},
+			dealInspector: func(t *testing.T, deal storagemarket.MinerDeal, env *fakeEnvironment) {
+				tut.AssertDealState(t, storagemarket.StorageDealFailing, deal.State)
+				require.Equal(t, "error awaiting deal pre-commit: couldn't check deal pre-commit", deal.Message)
+			},
+		},
+		"async error": {
+			nodeParams: nodeParams{
+				DealPreCommittedAsyncError: errors.New("deal did not appear on chain"),
+			},
+			dealInspector: func(t *testing.T, deal storagemarket.MinerDeal, env *fakeEnvironment) {
+				tut.AssertDealState(t, storagemarket.StorageDealFailing, deal.State)
+				require.Equal(t, "error awaiting deal pre-commit: deal did not appear on chain", deal.Message)
+			},
+		},
+	}
+	for test, data := range tests {
+		t.Run(test, func(t *testing.T) {
+			runVerifyDealActivated(t, data.nodeParams, data.environmentParams, data.dealParams, data.fileStoreParams, data.pieceStoreParams, data.dealInspector)
 		})
 	}
 }
@@ -1114,6 +1170,10 @@ type nodeParams struct {
 	PublishDealsError                   error
 	OnDealCompleteError                 error
 	LocatePieceForDealWithinSectorError error
+	PreCommittedSectorNumber            abi.SectorNumber
+	PreCommittedIsActive                bool
+	DealPreCommittedSyncError           error
+	DealPreCommittedAsyncError          error
 	DealCommittedSyncError              error
 	DealCommittedAsyncError             error
 	WaitForMessageBlocks                bool
@@ -1209,6 +1269,10 @@ func makeExecutor(ctx context.Context,
 			GetBalanceError:            nodeParams.ClientMarketBalanceError,
 			VerifySignatureFails:       nodeParams.VerifySignatureFails,
 			ReserveFundsError:          nodeParams.ReserveFundsError,
+			PreCommittedIsActive:       nodeParams.PreCommittedIsActive,
+			PreCommittedSectorNumber:   nodeParams.PreCommittedSectorNumber,
+			DealPreCommittedSyncError:  nodeParams.DealPreCommittedSyncError,
+			DealPreCommittedAsyncError: nodeParams.DealPreCommittedAsyncError,
 			DealCommittedSyncError:     nodeParams.DealCommittedSyncError,
 			DealCommittedAsyncError:    nodeParams.DealCommittedAsyncError,
 			AddFundsCid:                nodeParams.AddFundsCid,
