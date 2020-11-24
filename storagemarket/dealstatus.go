@@ -23,9 +23,6 @@ const (
 	// StorageDealStaged means a deal has been published and data is ready to be put into a sector
 	StorageDealStaged
 
-	// StorageDealAwaitingPreCommit means a deal is ready and must be pre-committed
-	StorageDealAwaitingPreCommit
-
 	// StorageDealSealing means a deal is in a sector that is being sealed
 	StorageDealSealing
 
@@ -105,6 +102,9 @@ const (
 	// StorageDealClientTransferRestart means a storage deal data transfer from client to provider will be restarted
 	// by the client
 	StorageDealClientTransferRestart
+
+	// StorageDealAwaitingPreCommit means a deal is ready and must be pre-committed
+	StorageDealAwaitingPreCommit
 )
 
 // DealStates maps StorageDealStatus codes to string names
