@@ -1,5 +1,21 @@
 # go-fil-markets changelog
 
+# go-fil-markets v1.0.7
+
+Seperate pre-commit & post-commit states for deals
+
+### Changelog
+
+- github.com/filecoin-project/go-fil-markets:
+  - docs(CHANGELOG): update for v1.0.6 ([filecoin-project/go-fil-markets#454](https://github.com/filecoin-project/go-fil-markets/pull/454))
+  - Add StorageDealAwaitingPreCommit state (#453) ([filecoin-project/go-fil-markets#453](https://github.com/filecoin-project/go-fil-markets/pull/453))
+
+### Contributors
+
+| Contributor | Commits | Lines ± | Files Changed |
+|-------------|---------|---------|---------------|
+| dirkmc | 1 | +349/-37 | 19 |
+
 # go-fil-markets v1.0.6
 
 Complete removal of temp file usage
