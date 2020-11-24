@@ -822,8 +822,20 @@ func TestVerifyDealPrecommitted(t *testing.T) {
 		dealInspector     func(t *testing.T, deal storagemarket.MinerDeal, env *fakeEnvironment)
 	}{
 		"succeeds": {
+			nodeParams: nodeParams{
+				PreCommittedSectorNumber: abi.SectorNumber(10),
+			},
 			dealInspector: func(t *testing.T, deal storagemarket.MinerDeal, env *fakeEnvironment) {
 				tut.AssertDealState(t, storagemarket.StorageDealSealing, deal.State)
+				require.Equal(t, abi.SectorNumber(10), deal.SectorNumber)
+			},
+		},
+		"succeeds, active": {
+			nodeParams: nodeParams{
+				PreCommittedIsActive: true,
+			},
+			dealInspector: func(t *testing.T, deal storagemarket.MinerDeal, env *fakeEnvironment) {
+				tut.AssertDealState(t, storagemarket.StorageDealFinalizing, deal.State)
 			},
 		},
 		"sync error": {
@@ -1158,6 +1170,8 @@ type nodeParams struct {
 	PublishDealsError                   error
 	OnDealCompleteError                 error
 	LocatePieceForDealWithinSectorError error
+	PreCommittedSectorNumber            abi.SectorNumber
+	PreCommittedIsActive                bool
 	DealPreCommittedSyncError           error
 	DealPreCommittedAsyncError          error
 	DealCommittedSyncError              error
@@ -1255,6 +1269,8 @@ func makeExecutor(ctx context.Context,
 			GetBalanceError:            nodeParams.ClientMarketBalanceError,
 			VerifySignatureFails:       nodeParams.VerifySignatureFails,
 			ReserveFundsError:          nodeParams.ReserveFundsError,
+			PreCommittedIsActive:       nodeParams.PreCommittedIsActive,
+			PreCommittedSectorNumber:   nodeParams.PreCommittedSectorNumber,
 			DealPreCommittedSyncError:  nodeParams.DealPreCommittedSyncError,
 			DealPreCommittedAsyncError: nodeParams.DealPreCommittedAsyncError,
 			DealCommittedSyncError:     nodeParams.DealCommittedSyncError,

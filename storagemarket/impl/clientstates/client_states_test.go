@@ -415,8 +415,18 @@ func TestValidateDealPublished(t *testing.T) {
 func TestVerifyDealPreCommitted(t *testing.T) {
 	t.Run("succeeds", func(t *testing.T) {
 		runAndInspect(t, storagemarket.StorageDealAwaitingPreCommit, clientstates.VerifyDealPreCommitted, testCase{
+			nodeParams: nodeParams{PreCommittedSectorNumber: abi.SectorNumber(10)},
 			inspector: func(deal storagemarket.ClientDeal, env *fakeEnvironment) {
 				tut.AssertDealState(t, storagemarket.StorageDealSealing, deal.State)
+				assert.Equal(t, abi.SectorNumber(10), deal.SectorNumber)
+			},
+		})
+	})
+	t.Run("succeeds, active", func(t *testing.T) {
+		runAndInspect(t, storagemarket.StorageDealAwaitingPreCommit, clientstates.VerifyDealPreCommitted, testCase{
+			nodeParams: nodeParams{PreCommittedIsActive: true},
+			inspector: func(deal storagemarket.ClientDeal, env *fakeEnvironment) {
+				tut.AssertDealState(t, storagemarket.StorageDealActive, deal.State)
 			},
 		})
 	})
@@ -624,6 +634,8 @@ type nodeParams struct {
 	ValidationError            error
 	ValidatePublishedDealID    abi.DealID
 	ValidatePublishedError     error
+	PreCommittedSectorNumber   abi.SectorNumber
+	PreCommittedIsActive       bool
 	DealPreCommittedSyncError  error
 	DealPreCommittedAsyncError error
 	DealCommittedSyncError     error
@@ -651,6 +663,8 @@ func makeNode(params nodeParams) *testnodes.FakeClientNode {
 	out.ValidationError = params.ValidationError
 	out.ValidatePublishedDealID = params.ValidatePublishedDealID
 	out.ValidatePublishedError = params.ValidatePublishedError
+	out.PreCommittedSectorNumber = params.PreCommittedSectorNumber
+	out.PreCommittedIsActive = params.PreCommittedIsActive
 	out.DealPreCommittedSyncError = params.DealPreCommittedSyncError
 	out.DealPreCommittedAsyncError = params.DealPreCommittedAsyncError
 	out.DealCommittedSyncError = params.DealCommittedSyncError

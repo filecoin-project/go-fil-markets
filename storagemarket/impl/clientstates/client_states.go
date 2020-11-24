@@ -226,10 +226,18 @@ func ValidateDealPublished(ctx fsm.Context, environment ClientDealEnvironment, d
 
 // VerifyDealPreCommitted verifies that a deal has been pre-committed
 func VerifyDealPreCommitted(ctx fsm.Context, environment ClientDealEnvironment, deal storagemarket.ClientDeal) error {
-	cb := func(sectorNumber abi.SectorNumber, err error) {
-		if err != nil {
+	cb := func(sectorNumber abi.SectorNumber, isActive bool, err error) {
+		// It's possible that
+		// - we miss the pre-commit message and have to wait for prove-commit
+		// - the deal is already active (for example if the node is restarted
+		//   while waiting for pre-commit)
+		// In either of these two cases, isActive will be true.
+		switch {
+		case err != nil:
 			_ = ctx.Trigger(storagemarket.ClientEventDealPrecommitFailed, err)
-		} else {
+		case isActive:
+			_ = ctx.Trigger(storagemarket.ClientEventDealActivated)
+		default:
 			_ = ctx.Trigger(storagemarket.ClientEventDealPrecommitted, sectorNumber)
 		}
 	}

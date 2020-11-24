@@ -166,7 +166,8 @@ var ProviderEvents = fsm.Events{
 			return nil
 		}),
 	fsm.Event(storagemarket.ProviderEventDealActivated).
-		From(storagemarket.StorageDealSealing).To(storagemarket.StorageDealFinalizing),
+		FromMany(storagemarket.StorageDealAwaitingPreCommit, storagemarket.StorageDealSealing).
+		To(storagemarket.StorageDealFinalizing),
 	fsm.Event(storagemarket.ProviderEventFinalized).
 		From(storagemarket.StorageDealFinalizing).To(storagemarket.StorageDealActive).
 		Action(func(deal *storagemarket.MinerDeal) error {

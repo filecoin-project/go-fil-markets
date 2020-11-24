@@ -81,6 +81,8 @@ type FakeCommonNode struct {
 	GetBalanceError            error
 	GetChainHeadError          error
 	SignBytesError             error
+	PreCommittedSectorNumber   abi.SectorNumber
+	PreCommittedIsActive       bool
 	DealPreCommittedSyncError  error
 	DealPreCommittedAsyncError error
 	DealCommittedSyncError     error
@@ -207,7 +209,7 @@ func (n *FakeCommonNode) OnDealSectorPreCommitted(ctx context.Context, provider 
 		}
 	}
 	if n.DealPreCommittedSyncError == nil {
-		cb(0, n.DealPreCommittedAsyncError)
+		cb(n.PreCommittedSectorNumber, n.PreCommittedIsActive, n.DealPreCommittedAsyncError)
 	}
 	return n.DealPreCommittedSyncError
 }

@@ -176,7 +176,8 @@ var ClientEvents = fsm.Events{
 			return nil
 		}),
 	fsm.Event(storagemarket.ClientEventDealActivated).
-		From(storagemarket.StorageDealSealing).To(storagemarket.StorageDealActive),
+		FromMany(storagemarket.StorageDealAwaitingPreCommit, storagemarket.StorageDealSealing).
+		To(storagemarket.StorageDealActive),
 	fsm.Event(storagemarket.ClientEventDealSlashed).
 		From(storagemarket.StorageDealActive).To(storagemarket.StorageDealSlashed).
 		Action(func(deal *storagemarket.ClientDeal, slashEpoch abi.ChainEpoch) error {

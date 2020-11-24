@@ -17,7 +17,9 @@ import (
 )
 
 // DealSectorCommittedCallback is a callback that runs when a sector is pre-committed
-type DealSectorPreCommittedCallback func(number abi.SectorNumber, err error)
+// sectorNumber: the number of the sector that the deal is in
+// isActive: the deal is already active
+type DealSectorPreCommittedCallback func(sectorNumber abi.SectorNumber, isActive bool, err error)
 
 // DealSectorCommittedCallback is a callback that runs when a sector is committed
 type DealSectorCommittedCallback func(err error)
