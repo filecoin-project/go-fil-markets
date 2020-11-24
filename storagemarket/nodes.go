@@ -16,7 +16,7 @@ import (
 	"github.com/filecoin-project/go-fil-markets/shared"
 )
 
-// DealSectorCommittedCallback is a callback that runs when a sector is pre-committed
+// DealSectorPreCommittedCallback is a callback that runs when a sector is pre-committed
 // sectorNumber: the number of the sector that the deal is in
 // isActive: the deal is already active
 type DealSectorPreCommittedCallback func(sectorNumber abi.SectorNumber, isActive bool, err error)
