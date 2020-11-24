@@ -1,13 +1,33 @@
 # go-fil-markets changelog
 
+# go-fil-markets v1.0.6
+
+Complete removal of temp file usage
+
+### Changelog
+
+- github.com/filecoin-project/go-fil-markets:
+  - Integrate go-commp-utils (#452) ([filecoin-project/go-fil-markets#452](https://github.com/filecoin-project/go-fil-markets/pull/452))
+  - release: v1.0.5 ([filecoin-project/go-fil-markets#451](https://github.com/filecoin-project/go-fil-markets/pull/451))
+
+### Contributors
+
+| Contributor | Commits | Lines ± | Files Changed |
+|-------------|---------|---------|---------------|
+| dirkmc | 1 | +51/-854 | 21 |
+
 # go-fil-markets v1.0.5
+
+Minor bug fix release
+
+### Changelog
 
 - github.com/filecoin-project/go-fil-markets:
   - Remove temp files (#449) ([filecoin-project/go-fil-markets#449](https://github.com/filecoin-project/go-fil-markets/pull/449))
   - fix: fail fast in tests that use a waitgroup Wait() (#450) ([filecoin-project/go-fil-markets#450](https://github.com/filecoin-project/go-fil-markets/pull/450))
   - Make it possible to configure the proof type at runtime. ([filecoin-project/go-fil-markets#448](https://github.com/filecoin-project/go-fil-markets/pull/448))
 
-Contributors
+### Contributors
 
 | Contributor | Commits | Lines ± | Files Changed |
 |-------------|---------|---------|---------------|
