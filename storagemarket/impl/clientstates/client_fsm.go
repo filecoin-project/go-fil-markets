@@ -110,8 +110,21 @@ var ClientEvents = fsm.Events{
 		return nil
 	}),
 
+	fsm.Event(storagemarket.ClientEventDataTransferCancelled).
+		FromMany(
+			storagemarket.StorageDealStartDataTransfer,
+			storagemarket.StorageDealTransferring,
+			storagemarket.StorageDealClientTransferRestart,
+		).
+		To(storagemarket.StorageDealFailing).
+		Action(func(deal *storagemarket.ClientDeal) error {
+			deal.Message = "data transfer cancelled"
+			return nil
+		}),
+
 	fsm.Event(storagemarket.ClientEventDataTransferComplete).
-		FromMany(storagemarket.StorageDealTransferring, storagemarket.StorageDealStartDataTransfer).To(storagemarket.StorageDealCheckForAcceptance),
+		FromMany(storagemarket.StorageDealTransferring, storagemarket.StorageDealStartDataTransfer).
+		To(storagemarket.StorageDealCheckForAcceptance),
 	fsm.Event(storagemarket.ClientEventWaitForDealState).
 		From(storagemarket.StorageDealCheckForAcceptance).ToNoChange().
 		Action(func(deal *storagemarket.ClientDeal, pollError bool) error {

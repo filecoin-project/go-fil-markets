@@ -7,7 +7,7 @@ orbs:
 executors:
   golang:
     docker:
-      - image: circleci/golang:1.13-node
+      - image: circleci/golang:1.14-node
     resource_class: large
 
 commands:

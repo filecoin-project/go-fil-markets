@@ -50,6 +50,9 @@ stateDiagram-v2
 	16 --> 17 : ClientEventDataTransferInitiated
 	16 --> 17 : ClientEventDataTransferRestarted
 	28 --> 17 : ClientEventDataTransferRestarted
+	16 --> 11 : ClientEventDataTransferCancelled
+	17 --> 11 : ClientEventDataTransferCancelled
+	28 --> 11 : ClientEventDataTransferCancelled
 	16 --> 13 : ClientEventDataTransferComplete
 	17 --> 13 : ClientEventDataTransferComplete
 	13 --> 13 : ClientEventWaitForDealState

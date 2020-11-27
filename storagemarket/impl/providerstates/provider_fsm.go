@@ -68,6 +68,18 @@ var ProviderEvents = fsm.Events{
 		return nil
 	}),
 
+	fsm.Event(storagemarket.ProviderEventDataTransferCancelled).
+		FromMany(
+			storagemarket.StorageDealWaitingForData,
+			storagemarket.StorageDealTransferring,
+			storagemarket.StorageDealProviderTransferRestart,
+		).
+		To(storagemarket.StorageDealFailing).
+		Action(func(deal *storagemarket.MinerDeal) error {
+			deal.Message = "data transfer cancelled"
+			return nil
+		}),
+
 	fsm.Event(storagemarket.ProviderEventDataTransferCompleted).
 		From(storagemarket.StorageDealTransferring).To(storagemarket.StorageDealVerifyData),
 	fsm.Event(storagemarket.ProviderEventDataVerificationFailed).

@@ -44,29 +44,26 @@ func ProviderDataTransferSubscriber(deals EventReceiver) datatransfer.Subscriber
 			}
 		}
 
-		// data transfer events for progress do not affect deal state
-		switch event.Code {
-		case datatransfer.Restart:
-			err := deals.Send(voucher.Proposal, storagemarket.ProviderEventDataTransferRestarted, channelState.ChannelID())
-			if err != nil {
-				log.Errorf("processing dt event: %w", err)
+		// Translate from data transfer events to provider FSM events
+		// Note: We ignore data transfer progress events (they do not affect deal state)
+		err := func() error {
+			switch event.Code {
+			case datatransfer.Cancel:
+				return deals.Send(voucher.Proposal, storagemarket.ProviderEventDataTransferCancelled)
+			case datatransfer.Restart:
+				return deals.Send(voucher.Proposal, storagemarket.ProviderEventDataTransferRestarted, channelState.ChannelID())
+			case datatransfer.Disconnected:
+				return deals.Send(voucher.Proposal, storagemarket.ProviderEventDataTransferStalled)
+			case datatransfer.Open:
+				return deals.Send(voucher.Proposal, storagemarket.ProviderEventDataTransferInitiated, channelState.ChannelID())
+			case datatransfer.Error:
+				return deals.Send(voucher.Proposal, storagemarket.ProviderEventDataTransferFailed, fmt.Errorf("deal data transfer failed: %s", event.Message))
+			default:
+				return nil
 			}
-		case datatransfer.Disconnected:
-			err := deals.Send(voucher.Proposal, storagemarket.ProviderEventDataTransferStalled)
-			if err != nil {
-				log.Errorf("processing dt event: %w", err)
-			}
-		case datatransfer.Open:
-			err := deals.Send(voucher.Proposal, storagemarket.ProviderEventDataTransferInitiated, channelState.ChannelID())
-			if err != nil {
-				log.Errorf("processing dt event: %w", err)
-			}
-		case datatransfer.Error:
-			err := deals.Send(voucher.Proposal, storagemarket.ProviderEventDataTransferFailed, fmt.Errorf("deal data transfer failed: %s", event.Message))
-			if err != nil {
-				log.Errorf("processing dt event: %w", err)
-			}
-		default:
+		}()
+		if err != nil {
+			log.Errorf("processing dt event: %w", err)
 		}
 	}
 }
@@ -90,29 +87,26 @@ func ClientDataTransferSubscriber(deals EventReceiver) datatransfer.Subscriber {
 			}
 		}
 
-		// data transfer events for progress do not affect deal state
-		switch event.Code {
-		case datatransfer.Restart:
-			err := deals.Send(voucher.Proposal, storagemarket.ClientEventDataTransferRestarted, channelState.ChannelID())
-			if err != nil {
-				log.Errorf("processing dt event: %w", err)
+		// Translate from data transfer events to client FSM events
+		// Note: We ignore data transfer progress events (they do not affect deal state)
+		err := func() error {
+			switch event.Code {
+			case datatransfer.Cancel:
+				return deals.Send(voucher.Proposal, storagemarket.ClientEventDataTransferCancelled)
+			case datatransfer.Restart:
+				return deals.Send(voucher.Proposal, storagemarket.ClientEventDataTransferRestarted, channelState.ChannelID())
+			case datatransfer.Disconnected:
+				return deals.Send(voucher.Proposal, storagemarket.ClientEventDataTransferStalled)
+			case datatransfer.Accept:
+				return deals.Send(voucher.Proposal, storagemarket.ClientEventDataTransferInitiated, channelState.ChannelID())
+			case datatransfer.Error:
+				return deals.Send(voucher.Proposal, storagemarket.ClientEventDataTransferFailed, fmt.Errorf("deal data transfer failed: %s", event.Message))
+			default:
+				return nil
 			}
-		case datatransfer.Disconnected:
-			err := deals.Send(voucher.Proposal, storagemarket.ClientEventDataTransferStalled)
-			if err != nil {
-				log.Errorf("processing dt event: %w", err)
-			}
-		case datatransfer.Accept:
-			err := deals.Send(voucher.Proposal, storagemarket.ClientEventDataTransferInitiated, channelState.ChannelID())
-			if err != nil {
-				log.Errorf("processing dt event: %w", err)
-			}
-		case datatransfer.Error:
-			err := deals.Send(voucher.Proposal, storagemarket.ClientEventDataTransferFailed, fmt.Errorf("deal data transfer failed: %s", event.Message))
-			if err != nil {
-				log.Errorf("processing dt event: %w", err)
-			}
-		default:
+		}()
+		if err != nil {
+			log.Errorf("processing dt event: %w", err)
 		}
 	}
 }

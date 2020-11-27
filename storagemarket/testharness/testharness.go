@@ -101,7 +101,7 @@ func NewHarnessWithTestData(t *testing.T, ctx context.Context, td *shared_testut
 	assert.NoError(t, err)
 
 	// set ask price where we'll accept any price
-	err = provider.SetAsk(big.NewInt(0), big.NewInt(0), 50_000)
+	err = provider.SetAsk(big.NewInt(0), big.NewInt(0), 50000)
 	assert.NoError(t, err)
 
 	return &StorageHarness{
@@ -116,7 +116,7 @@ func NewHarnessWithTestData(t *testing.T, ctx context.Context, td *shared_testut
 func (h *StorageHarness) CreateNewProvider(t *testing.T, ctx context.Context, td *shared_testutil.Libp2pTestData, tempPath string, disableNewDeals bool) {
 	gs2 := graphsyncimpl.New(ctx, gsnetwork.NewFromLibp2pHost(td.Host2), td.Loader2, td.Storer2)
 	dtTransport2 := dtgstransport.NewTransport(td.Host2.ID(), gs2)
-	dt2, err := dtimpl.NewDataTransfer(td.DTStore2, td.DTNet2, dtTransport2, td.DTStoredCounter2)
+	dt2, err := dtimpl.NewDataTransfer(td.DTStore2, td.DTTmpDir2, td.DTNet2, dtTransport2, td.DTStoredCounter2)
 	require.NoError(t, err)
 	testutil.StartAndWaitForReady(ctx, t, dt2)
 

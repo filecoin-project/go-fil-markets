@@ -5,6 +5,7 @@ import (
 	"context"
 	"io/ioutil"
 	"math/rand"
+	"os"
 	"testing"
 
 	"github.com/ipfs/go-datastore"
@@ -85,6 +86,7 @@ func NewDependenciesWithTestData(t *testing.T, ctx context.Context, td *shared_t
 	if len(tempPath) == 0 {
 		tempPath, err = ioutil.TempDir("", "storagemarket_test")
 		assert.NoError(t, err)
+		t.Cleanup(func() { _ = os.RemoveAll(tempPath) })
 	}
 
 	ps, err := piecestoreimpl.NewPieceStore(td.Ds2)
@@ -107,7 +109,7 @@ func NewDependenciesWithTestData(t *testing.T, ctx context.Context, td *shared_t
 
 	gs1 := graphsyncimpl.New(ctx, network.NewFromLibp2pHost(td.Host1), td.Loader1, td.Storer1)
 	dtTransport1 := dtgstransport.NewTransport(td.Host1.ID(), gs1)
-	dt1, err := dtimpl.NewDataTransfer(td.DTStore1, td.DTNet1, dtTransport1, td.DTStoredCounter1)
+	dt1, err := dtimpl.NewDataTransfer(td.DTStore1, td.DTTmpDir1, td.DTNet1, dtTransport1, td.DTStoredCounter1)
 	require.NoError(t, err)
 	testutil.StartAndWaitForReady(ctx, t, dt1)
 
@@ -117,7 +119,7 @@ func NewDependenciesWithTestData(t *testing.T, ctx context.Context, td *shared_t
 
 	gs2 := graphsyncimpl.New(ctx, network.NewFromLibp2pHost(td.Host2), td.Loader2, td.Storer2)
 	dtTransport2 := dtgstransport.NewTransport(td.Host2.ID(), gs2)
-	dt2, err := dtimpl.NewDataTransfer(td.DTStore2, td.DTNet2, dtTransport2, td.DTStoredCounter2)
+	dt2, err := dtimpl.NewDataTransfer(td.DTStore2, td.DTTmpDir2, td.DTNet2, dtTransport2, td.DTStoredCounter2)
 	require.NoError(t, err)
 	testutil.StartAndWaitForReady(ctx, t, dt2)
 
