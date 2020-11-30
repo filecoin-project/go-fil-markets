@@ -340,6 +340,7 @@ func TestCheckForDealAcceptance(t *testing.T) {
 				tut.AssertDealState(t, storagemarket.StorageDealCheckForAcceptance, deal.State)
 				assert.Equal(t, uint64(1), deal.PollRetryCount)
 				assert.Equal(t, uint64(1), deal.PollErrorCount)
+				assert.Equal(t, "Provider state: StorageDealUnknown", deal.Message)
 			},
 		})
 	})
@@ -351,6 +352,7 @@ func TestCheckForDealAcceptance(t *testing.T) {
 			},
 			inspector: func(deal storagemarket.ClientDeal, env *fakeEnvironment) {
 				tut.AssertDealState(t, storagemarket.StorageDealCheckForAcceptance, deal.State)
+				assert.Equal(t, "Provider state: StorageDealVerifyData", deal.Message)
 			},
 		})
 	})
