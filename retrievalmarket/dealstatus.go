@@ -34,7 +34,7 @@ const (
 	DealStatusFundsNeededUnseal
 
 	// DealStatusFailing indicates something went wrong during a retrieval,
-	// and we are cleaning up before termianting with an error
+	// and we are cleaning up before terminating with an error
 	DealStatusFailing
 
 	// DealStatusRejected indicates the provider rejected a client's deal proposal
@@ -45,10 +45,10 @@ const (
 	// continue processing the deal
 	DealStatusFundsNeeded
 
-	// DealStatusSendFunds indicats the client is now going to send funds because we reached the threshold of the last payment
+	// DealStatusSendFunds indicates the client is now going to send funds because we reached the threshold of the last payment
 	DealStatusSendFunds
 
-	// DealStatusSendFundsLastPayment indicats the client is now going to send final funds because
+	// DealStatusSendFundsLastPayment indicates the client is now going to send final funds because
 	// we reached the threshold of the final payment
 	DealStatusSendFundsLastPayment
 
