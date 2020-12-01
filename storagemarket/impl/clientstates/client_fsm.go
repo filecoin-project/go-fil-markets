@@ -153,6 +153,7 @@ var ClientEvents = fsm.Events{
 		From(storagemarket.StorageDealCheckForAcceptance).To(storagemarket.StorageDealProposalAccepted).
 		Action(func(deal *storagemarket.ClientDeal, publishMessage *cid.Cid) error {
 			deal.PublishMessage = publishMessage
+			deal.Message = ""
 			return nil
 		}),
 	fsm.Event(storagemarket.ClientEventStreamCloseError).
