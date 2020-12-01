@@ -1,5 +1,28 @@
 # go-fil-markets changelog
 
+# go-fil-markets v1.0.8
+
+### Changelog
+
+- feat: go-data-transfer 1.2.2 (#459) ([filecoin-project/go-fil-markets#459](https://github.com/filecoin-project/go-fil-markets/pull/459))
+- Cancel transfer should cause Storage deal to fail (#457) ([filecoin-project/go-fil-markets#457](https://github.com/filecoin-project/go-fil-markets/pull/457))
+- Give more visibility (to the client) while waiting for deal acceptance (#458) ([filecoin-project/go-fil-markets#458](https://github.com/filecoin-project/go-fil-markets/pull/458))
+- docs(CHANGELOG): update for v1.0.7 release ([filecoin-project/go-fil-markets#456](https://github.com/filecoin-project/go-fil-markets/pull/456))
+- github.com/filecoin-project/go-data-transfer (v1.0.1 -> v1.2.2):
+  - fix(graphsync): fix UseStore for restarts (#115) ([filecoin-project/go-data-transfer#115](https://github.com/filecoin-project/go-data-transfer/pull/115))
+  - Fire cancel locally even if remote cancel fails (#120) ([filecoin-project/go-data-transfer#120](https://github.com/filecoin-project/go-data-transfer/pull/120))
+  - fix: respect context when opening stream (#119) ([filecoin-project/go-data-transfer#119](https://github.com/filecoin-project/go-data-transfer/pull/119))
+
+Contributors
+
+| Contributor | Commits | Lines ± | Files Changed |
+|-------------|---------|---------|---------------|
+| Hannah Howard | 2 | +1307/-213 | 22 |
+| dirkmc | 5 | +395/-82 | 23 |
+| Steven Allen | 4 | +419/-37 | 8 |
+| Ingar Shu | 1 | +10/-5 | 3 |
+| Dirk McCormick | 1 | +13/-0 | 1 |
+
 # go-fil-markets v1.0.7
 
 Seperate pre-commit & post-commit states for deals
