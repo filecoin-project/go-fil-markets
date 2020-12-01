@@ -1,6 +1,8 @@
 package clientstates
 
 import (
+	"fmt"
+
 	"github.com/ipfs/go-cid"
 	"golang.org/x/xerrors"
 
@@ -114,11 +116,12 @@ var ClientEvents = fsm.Events{
 		FromMany(storagemarket.StorageDealTransferring, storagemarket.StorageDealStartDataTransfer).To(storagemarket.StorageDealCheckForAcceptance),
 	fsm.Event(storagemarket.ClientEventWaitForDealState).
 		From(storagemarket.StorageDealCheckForAcceptance).ToNoChange().
-		Action(func(deal *storagemarket.ClientDeal, pollError bool) error {
+		Action(func(deal *storagemarket.ClientDeal, pollError bool, providerState storagemarket.StorageDealStatus) error {
 			deal.PollRetryCount++
 			if pollError {
 				deal.PollErrorCount++
 			}
+			deal.Message = fmt.Sprintf("Provider state: %s", storagemarket.DealStates[providerState])
 			return nil
 		}),
 	fsm.Event(storagemarket.ClientEventResponseDealDidNotMatch).
