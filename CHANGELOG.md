@@ -1,5 +1,19 @@
 # go-fil-markets changelog
 
+# go-fil-markets v1.0.9
+
+### Changelog
+
+- github.com/filecoin-project/go-fil-markets:
+  - fix: clear deal message when deal accepted (#461) ([filecoin-project/go-fil-markets#461](https://github.com/filecoin-project/go-fil-markets/pull/461))
+  
+Contributors
+
+| Contributor | Commits | Lines ± | Files Changed |
+|-------------|---------|---------|---------------|
+| dirkmc | 2 | +24/-0 | 2 |
+
+
 # go-fil-markets v1.0.8
 
 ### Changelog
