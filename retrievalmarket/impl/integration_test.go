@@ -103,7 +103,7 @@ func requireSetupTestClientAndProvider(ctx context.Context, t *testing.T, payChA
 
 	gs1 := graphsyncimpl.New(ctx, network.NewFromLibp2pHost(testData.Host1), testData.Loader1, testData.Storer1)
 	dtTransport1 := dtgstransport.NewTransport(testData.Host1.ID(), gs1)
-	dt1, err := dtimpl.NewDataTransfer(testData.DTStore1, testData.DTNet1, dtTransport1, testData.DTStoredCounter1)
+	dt1, err := dtimpl.NewDataTransfer(testData.DTStore1, testData.DTTmpDir1, testData.DTNet1, dtTransport1, testData.DTStoredCounter1)
 	require.NoError(t, err)
 	testutil.StartAndWaitForReady(ctx, t, dt1)
 	require.NoError(t, err)
@@ -143,7 +143,7 @@ func requireSetupTestClientAndProvider(ctx context.Context, t *testing.T, payChA
 
 	gs2 := graphsyncimpl.New(ctx, network.NewFromLibp2pHost(testData.Host2), testData.Loader2, testData.Storer2)
 	dtTransport2 := dtgstransport.NewTransport(testData.Host2.ID(), gs2)
-	dt2, err := dtimpl.NewDataTransfer(testData.DTStore2, testData.DTNet2, dtTransport2, testData.DTStoredCounter2)
+	dt2, err := dtimpl.NewDataTransfer(testData.DTStore2, testData.DTTmpDir2, testData.DTNet2, dtTransport2, testData.DTStoredCounter2)
 	require.NoError(t, err)
 	testutil.StartAndWaitForReady(ctx, t, dt2)
 	require.NoError(t, err)
@@ -599,7 +599,7 @@ func setupClient(
 
 	gs1 := graphsyncimpl.New(ctx, network.NewFromLibp2pHost(testData.Host1), testData.Loader1, testData.Storer1)
 	dtTransport1 := dtgstransport.NewTransport(testData.Host1.ID(), gs1)
-	dt1, err := dtimpl.NewDataTransfer(testData.DTStore1, testData.DTNet1, dtTransport1, testData.DTStoredCounter1)
+	dt1, err := dtimpl.NewDataTransfer(testData.DTStore1, testData.DTTmpDir1, testData.DTNet1, dtTransport1, testData.DTStoredCounter1)
 	require.NoError(t, err)
 	testutil.StartAndWaitForReady(ctx, t, dt1)
 	require.NoError(t, err)
@@ -636,7 +636,7 @@ func setupProvider(
 
 	gs2 := graphsyncimpl.New(ctx, network.NewFromLibp2pHost(testData.Host2), testData.Loader2, testData.Storer2)
 	dtTransport2 := dtgstransport.NewTransport(testData.Host2.ID(), gs2)
-	dt2, err := dtimpl.NewDataTransfer(testData.DTStore2, testData.DTNet2, dtTransport2, testData.DTStoredCounter2)
+	dt2, err := dtimpl.NewDataTransfer(testData.DTStore2, testData.DTTmpDir2, testData.DTNet2, dtTransport2, testData.DTStoredCounter2)
 	require.NoError(t, err)
 	testutil.StartAndWaitForReady(ctx, t, dt2)
 	require.NoError(t, err)
