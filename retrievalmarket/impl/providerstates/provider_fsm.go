@@ -89,8 +89,10 @@ var ProviderEvents = fsm.Events{
 	fsm.Event(rm.ProviderEventComplete).FromMany(rm.DealStatusBlocksComplete, rm.DealStatusFinalizing).To(rm.DealStatusCompleting),
 	fsm.Event(rm.ProviderEventCleanupComplete).From(rm.DealStatusCompleting).To(rm.DealStatusCompleted),
 
-	// Error cleanup
-	fsm.Event(rm.ProviderEventCancelComplete).FromMany(rm.DealStatusFailing).To(rm.DealStatusErrored),
+	// Cancellation / Error cleanup
+	fsm.Event(rm.ProviderEventCancelComplete).
+		From(rm.DealStatusCancelling).To(rm.DealStatusCancelled).
+		From(rm.DealStatusFailing).To(rm.DealStatusErrored),
 
 	// data transfer errors
 	fsm.Event(rm.ProviderEventDataTransferError).
@@ -104,7 +106,8 @@ var ProviderEvents = fsm.Events{
 
 	fsm.Event(rm.ProviderEventClientCancelled).
 		From(rm.DealStatusFailing).ToJustRecord().
-		FromAny().To(rm.DealStatusCancelled).Action(
+		From(rm.DealStatusCancelling).ToJustRecord().
+		FromAny().To(rm.DealStatusCancelling).Action(
 		func(deal *rm.ProviderDealState) error {
 			if deal.Status != rm.DealStatusFailing {
 				deal.Message = "Client cancelled retrieval"
@@ -120,6 +123,7 @@ var ProviderStateEntryFuncs = fsm.StateEntryFuncs{
 	rm.DealStatusUnsealing:         UnsealData,
 	rm.DealStatusUnsealed:          UnpauseDeal,
 	rm.DealStatusFailing:           CancelDeal,
+	rm.DealStatusCancelling:        CancelDeal,
 	rm.DealStatusCompleting:        CleanupDeal,
 }
 
