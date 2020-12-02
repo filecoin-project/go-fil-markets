@@ -270,18 +270,18 @@ var ClientEvents = fsm.Events{
 	fsm.Event(rm.ClientEventProviderCancelled).
 		From(rm.DealStatusFailing).ToJustRecord().
 		From(rm.DealStatusCancelling).ToJustRecord().
-		FromAny().To(rm.DealStatusErrored).Action(
+		FromAny().To(rm.DealStatusCancelling).Action(
 		func(deal *rm.ClientDealState) error {
 			if deal.Status != rm.DealStatusFailing && deal.Status != rm.DealStatusCancelling {
-				deal.Message = "Provider cancelled retrieval due to error"
+				deal.Message = "Provider cancelled retrieval"
 			}
 			return nil
 		},
 	),
 
-	// user manually cancells retrieval
+	// user manually cancels retrieval
 	fsm.Event(rm.ClientEventCancel).FromAny().To(rm.DealStatusCancelling).Action(func(deal *rm.ClientDealState) error {
-		deal.Message = "Retrieval Cancelled"
+		deal.Message = "Client cancelled retrieval"
 		return nil
 	}),
 
