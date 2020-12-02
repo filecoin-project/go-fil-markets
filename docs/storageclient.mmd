@@ -50,6 +50,7 @@ stateDiagram-v2
 	16 --> 17 : ClientEventDataTransferInitiated
 	16 --> 17 : ClientEventDataTransferRestarted
 	28 --> 17 : ClientEventDataTransferRestarted
+	17 --> 11 : ClientEventDataTransferStalled
 	16 --> 11 : ClientEventDataTransferCancelled
 	17 --> 11 : ClientEventDataTransferCancelled
 	28 --> 11 : ClientEventDataTransferCancelled
@@ -78,7 +79,7 @@ stateDiagram-v2
 	note left of 11 : The following events only record in this state.<br><br>ClientEventFundsReleased
 
 
-	note left of 17 : The following events only record in this state.<br><br>ClientEventDataTransferRestarted<br>ClientEventDataTransferStalled
+	note left of 17 : The following events only record in this state.<br><br>ClientEventDataTransferRestarted
 
 
 	note left of 21 : The following events only record in this state.<br><br>ClientEventFundsReserved

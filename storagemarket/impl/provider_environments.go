@@ -11,7 +11,6 @@ import (
 	"golang.org/x/xerrors"
 
 	"github.com/filecoin-project/go-address"
-	datatransfer "github.com/filecoin-project/go-data-transfer"
 	"github.com/filecoin-project/go-multistore"
 
 	"github.com/filecoin-project/go-fil-markets/filestore"
@@ -28,11 +27,6 @@ import (
 
 type providerDealEnvironment struct {
 	p *Provider
-}
-
-func (p *providerDealEnvironment) RestartDataTransfer(ctx context.Context, chID datatransfer.ChannelID) error {
-	return p.p.dataTransfer.RestartDataTransferChannel(ctx, chID)
-
 }
 
 func (p *providerDealEnvironment) Address() address.Address {
@@ -129,8 +123,14 @@ type providerStoreGetter struct {
 }
 
 func (psg *providerStoreGetter) Get(proposalCid cid.Cid) (*multistore.Store, error) {
+	// Wait for the provider to be ready
+	err := awaitProviderReady(psg.p)
+	if err != nil {
+		return nil, err
+	}
+
 	var deal storagemarket.MinerDeal
-	err := psg.p.deals.Get(proposalCid).Get(&deal)
+	err = psg.p.deals.Get(proposalCid).Get(&deal)
 	if err != nil {
 		return nil, err
 	}
@@ -145,7 +145,23 @@ type providerPushDeals struct {
 }
 
 func (ppd *providerPushDeals) Get(proposalCid cid.Cid) (storagemarket.MinerDeal, error) {
+	// Wait for the provider to be ready
 	var deal storagemarket.MinerDeal
-	err := ppd.p.deals.GetSync(context.TODO(), proposalCid, &deal)
+	err := awaitProviderReady(ppd.p)
+	if err != nil {
+		return deal, err
+	}
+
+	err = ppd.p.deals.GetSync(context.TODO(), proposalCid, &deal)
 	return deal, err
+}
+
+// awaitProviderReady waits for the provider to startup
+func awaitProviderReady(p *Provider) error {
+	err := p.AwaitReady()
+	if err != nil {
+		return xerrors.Errorf("could not get deal with proposal CID %s: error waiting for provider startup: %w")
+	}
+
+	return nil
 }

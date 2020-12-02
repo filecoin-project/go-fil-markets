@@ -107,10 +107,12 @@ var ClientEvents = fsm.Events{
 		}),
 
 	fsm.Event(storagemarket.ClientEventDataTransferStalled).
-		From(storagemarket.StorageDealTransferring).ToJustRecord().Action(func(deal *storagemarket.ClientDeal) error {
-		deal.Message = "data transfer appears to be stalled. attempt restart"
-		return nil
-	}),
+		From(storagemarket.StorageDealTransferring).
+		To(storagemarket.StorageDealFailing).
+		Action(func(deal *storagemarket.ClientDeal, err error) error {
+			deal.Message = xerrors.Errorf("could not complete data transfer, could not connect to provider %s", deal.Miner).Error()
+			return nil
+		}),
 
 	fsm.Event(storagemarket.ClientEventDataTransferCancelled).
 		FromMany(

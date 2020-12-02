@@ -18,7 +18,7 @@ stateDiagram-v2
 	state "StorageDealPublish" as 24
 	state "StorageDealPublishing" as 25
 	state "StorageDealError" as 26
-	state "StorageDealProviderTransferRestart" as 27
+	state "StorageDealProviderTransferAwaitRestart" as 27
 	state "StorageDealAwaitingPreCommit" as 29
 	4 : On entry runs HandoffDeal
 	5 : On entry runs VerifyDealActivated
@@ -33,7 +33,6 @@ stateDiagram-v2
 	22 : On entry runs WaitForFunding
 	24 : On entry runs PublishDeal
 	25 : On entry runs WaitForPublish
-	27 : On entry runs RestartDataTransfer
 	29 : On entry runs VerifyDealPreCommitted
 	[*] --> 0
 	note right of 0
@@ -50,14 +49,16 @@ stateDiagram-v2
 	14 --> 15 : ProviderEventDealDeciding
 	15 --> 18 : ProviderEventDataRequested
 	17 --> 11 : ProviderEventDataTransferFailed
+	27 --> 11 : ProviderEventDataTransferFailed
 	18 --> 17 : ProviderEventDataTransferInitiated
-	27 --> 11 : ProviderEventDataTransferRestartFailed
+	27 --> 17 : ProviderEventDataTransferInitiated
 	18 --> 17 : ProviderEventDataTransferRestarted
 	27 --> 17 : ProviderEventDataTransferRestarted
 	17 --> 11 : ProviderEventDataTransferCancelled
 	18 --> 11 : ProviderEventDataTransferCancelled
 	27 --> 11 : ProviderEventDataTransferCancelled
 	17 --> 19 : ProviderEventDataTransferCompleted
+	27 --> 19 : ProviderEventDataTransferCompleted
 	19 --> 11 : ProviderEventDataVerificationFailed
 	18 --> 20 : ProviderEventVerifiedData
 	19 --> 20 : ProviderEventVerifiedData
@@ -105,6 +106,9 @@ stateDiagram-v2
 
 
 	note left of 25 : The following events only record in this state.<br><br>ProviderEventFundsReleased
+
+
+	note left of 27 : The following events only record in this state.<br><br>ProviderEventDataTransferStalled
 
 	26 --> [*]
 	9 --> [*]
