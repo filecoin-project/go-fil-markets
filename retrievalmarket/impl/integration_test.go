@@ -525,11 +525,11 @@ CurrentInterval: %d
 			}
 
 			if testCase.failsUnseal {
-				require.Equal(t, retrievalmarket.DealStatusErrored, providerDealState.Status)
+				tut.AssertRetrievalDealState(t, retrievalmarket.DealStatusErrored, providerDealState.Status)
 			} else if testCase.cancelled {
-				require.Equal(t, retrievalmarket.DealStatusCancelled, providerDealState.Status)
+				tut.AssertRetrievalDealState(t, retrievalmarket.DealStatusCancelled, providerDealState.Status)
 			} else {
-				require.Equal(t, retrievalmarket.DealStatusCompleted, providerDealState.Status)
+				tut.AssertRetrievalDealState(t, retrievalmarket.DealStatusCompleted, providerDealState.Status)
 			}
 			// TODO this is terrible, but it's temporary until the test harness refactor
 			// in the resuming retrieval deals branch is done
