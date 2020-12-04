@@ -2,12 +2,14 @@ package providerstates
 
 import (
 	"context"
+	"errors"
 	"io"
 
 	"golang.org/x/xerrors"
 
 	datatransfer "github.com/filecoin-project/go-data-transfer"
 	"github.com/filecoin-project/go-multistore"
+	"github.com/filecoin-project/go-statemachine"
 	"github.com/filecoin-project/go-statemachine/fsm"
 
 	"github.com/filecoin-project/go-fil-markets/piecestore"
@@ -86,7 +88,7 @@ func CancelDeal(ctx fsm.Context, environment ProviderDealEnvironment, deal rm.Pr
 		return ctx.Trigger(rm.ProviderEventMultiStoreError, err)
 	}
 	err = environment.CloseDataTransfer(ctx.Context(), deal.ChannelID)
-	if err != nil {
+	if err != nil && !errors.Is(err, statemachine.ErrTerminated) {
 		return ctx.Trigger(rm.ProviderEventDataTransferError, err)
 	}
 	return ctx.Trigger(rm.ProviderEventCancelComplete)

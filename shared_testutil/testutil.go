@@ -19,6 +19,7 @@ import (
 	versioning "github.com/filecoin-project/go-ds-versioning/pkg"
 	"github.com/filecoin-project/specs-actors/actors/builtin/paych"
 
+	"github.com/filecoin-project/go-fil-markets/retrievalmarket"
 	"github.com/filecoin-project/go-fil-markets/storagemarket"
 )
 
@@ -109,6 +110,14 @@ func AssertDealState(t *testing.T, expected storagemarket.StorageDealStatus, act
 		"Unexpected deal status\nexpected: %s (%d)\nactual  : %s (%d)",
 		storagemarket.DealStates[expected], expected,
 		storagemarket.DealStates[actual], actual,
+	)
+}
+
+func AssertRetrievalDealState(t *testing.T, expected, actual retrievalmarket.DealStatus) {
+	assert.Equal(t, expected, actual,
+		"Unexpected retrieval deal status:\nexpected: %s (%d)\nactual  : %s (%d)",
+		retrievalmarket.DealStatuses[expected], expected,
+		retrievalmarket.DealStatuses[actual], actual,
 	)
 }
 

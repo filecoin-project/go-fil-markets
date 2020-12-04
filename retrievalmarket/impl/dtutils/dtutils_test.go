@@ -116,6 +116,18 @@ func TestProviderDataTransferSubscriber(t *testing.T) {
 			expectedID:    rm.ProviderDealIdentifier{DealID: dealProposal.ID, Receiver: testPeers[1]},
 			expectedEvent: rm.ProviderEventComplete,
 		},
+		"cancel": {
+			code: datatransfer.Cancel,
+			state: shared_testutil.TestChannelParams{
+				IsPull:     true,
+				TransferID: transferID,
+				Sender:     testPeers[0],
+				Recipient:  testPeers[1],
+				Vouchers:   []datatransfer.Voucher{&dealProposal},
+				Status:     datatransfer.Completed},
+			expectedID:    rm.ProviderDealIdentifier{DealID: dealProposal.ID, Receiver: testPeers[1]},
+			expectedEvent: rm.ProviderEventClientCancelled,
+		},
 	}
 	for test, data := range tests {
 		t.Run(test, func(t *testing.T) {
