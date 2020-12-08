@@ -116,6 +116,10 @@ func (tdt *TestDataTransfer) TransferChannelStatus(ctx context.Context, x datatr
 	return datatransfer.ChannelNotFoundError
 }
 
+func (tdt *TestDataTransfer) ChannelState(ctx context.Context, chid datatransfer.ChannelID) (datatransfer.ChannelState, error) {
+	return nil, nil
+}
+
 // SubscribeToEvents records subscribers
 func (tdt *TestDataTransfer) SubscribeToEvents(subscriber datatransfer.Subscriber) datatransfer.Unsubscribe {
 	tdt.Subscribers = append(tdt.Subscribers, subscriber)
