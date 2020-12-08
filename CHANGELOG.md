@@ -1,5 +1,26 @@
 # go-fil-markets changelog
 
+# go-fil-markets v1.0.10
+
+### Changelog
+
+Generating Changelog for github.com/filecoin-project/go-fil-markets v1.0.9..73534649f61b89d2a332b0939e19aa440a9dc6dc
+- github.com/filecoin-project/go-fil-markets:
+  - feat: update to go-data-transfer v1.2.3 (#465) ([filecoin-project/go-fil-markets#465](https://github.com/filecoin-project/go-fil-markets/pull/465))
+  - Normalize final states for cancelled retrieval deals (#464) ([filecoin-project/go-fil-markets#464](https://github.com/filecoin-project/go-fil-markets/pull/464))
+- github.com/filecoin-project/go-data-transfer (v1.2.2 -> v1.2.3):
+  - Better retry config (#124) ([filecoin-project/go-data-transfer#124](https://github.com/filecoin-project/go-data-transfer/pull/124))
+  - feat: expose channel state on Manager interface (#125) ([filecoin-project/go-data-transfer#125](https://github.com/filecoin-project/go-data-transfer/pull/125))
+  - Fix typo, wrap correct FSM error (#123) ([filecoin-project/go-data-transfer#123](https://github.com/filecoin-project/go-data-transfer/pull/123))
+
+Contributors
+
+| Contributor | Commits | Lines ± | Files Changed |
+|-------------|---------|---------|---------------|
+| dirkmc | 5 | +188/-10 | 10 |
+| Ingar Shu | 2 | +59/-26 | 16 |
+| Dirk McCormick | 1 | +16/-0 | 1 |
+
 # go-fil-markets v1.0.9
 
 ### Changelog
