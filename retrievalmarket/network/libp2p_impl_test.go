@@ -172,7 +172,7 @@ func TestLibp2pRetrievalMarketNetwork_StopHandlingRequests(t *testing.T) {
 	bgCtx := context.Background()
 	td := shared_testutil.NewLibp2pTestData(bgCtx, t)
 
-	fromNetwork := network.NewFromLibp2pHost(td.Host1, network.RetryParameters(0, 0, 0))
+	fromNetwork := network.NewFromLibp2pHost(td.Host1, network.RetryParameters(0, 0, 0, 0))
 	toNetwork := network.NewFromLibp2pHost(td.Host2)
 	toHost := td.Host2.ID()
 

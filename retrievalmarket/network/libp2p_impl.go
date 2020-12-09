@@ -6,20 +6,15 @@ import (
 	"time"
 
 	logging "github.com/ipfs/go-log/v2"
-	"github.com/jpillora/backoff"
 	"github.com/libp2p/go-libp2p-core/host"
 	"github.com/libp2p/go-libp2p-core/network"
 	"github.com/libp2p/go-libp2p-core/peer"
 	"github.com/libp2p/go-libp2p-core/protocol"
 	ma "github.com/multiformats/go-multiaddr"
-	"golang.org/x/xerrors"
 
 	"github.com/filecoin-project/go-fil-markets/retrievalmarket"
+	"github.com/filecoin-project/go-fil-markets/shared"
 )
-
-const defaultMaxStreamOpenAttempts = 5
-const defaultMinAttemptDuration = 1 * time.Second
-const defaultMaxAttemptDuration = 5 * time.Minute
 
 var log = logging.Logger("retrieval_network")
 var _ RetrievalMarketNetwork = new(libp2pRetrievalMarketNetwork)
@@ -28,11 +23,9 @@ var _ RetrievalMarketNetwork = new(libp2pRetrievalMarketNetwork)
 type Option func(*libp2pRetrievalMarketNetwork)
 
 // RetryParameters changes the default parameters around connection reopening
-func RetryParameters(minDuration time.Duration, maxDuration time.Duration, attempts float64) Option {
+func RetryParameters(minDuration time.Duration, maxDuration time.Duration, attempts float64, backoffFactor float64) Option {
 	return func(impl *libp2pRetrievalMarketNetwork) {
-		impl.maxStreamOpenAttempts = attempts
-		impl.minAttemptDuration = minDuration
-		impl.maxAttemptDuration = maxDuration
+		impl.retryStream.SetOptions(shared.RetryParameters(minDuration, maxDuration, attempts, backoffFactor))
 	}
 }
 
@@ -47,10 +40,8 @@ func SupportedProtocols(supportedProtocols []protocol.ID) Option {
 // libp2p host
 func NewFromLibp2pHost(h host.Host, options ...Option) RetrievalMarketNetwork {
 	impl := &libp2pRetrievalMarketNetwork{
-		host:                  h,
-		maxStreamOpenAttempts: defaultMaxStreamOpenAttempts,
-		minAttemptDuration:    defaultMinAttemptDuration,
-		maxAttemptDuration:    defaultMaxAttemptDuration,
+		host:        h,
+		retryStream: shared.NewRetryStream(h),
 		supportedProtocols: []protocol.ID{
 			retrievalmarket.QueryProtocolID,
 			retrievalmarket.OldQueryProtocolID,
@@ -66,18 +57,16 @@ func NewFromLibp2pHost(h host.Host, options ...Option) RetrievalMarketNetwork {
 // NetMessage objects, into the graphsync network interface.
 // It implements the RetrievalMarketNetwork API.
 type libp2pRetrievalMarketNetwork struct {
-	host host.Host
+	host        host.Host
+	retryStream *shared.RetryStream
 	// inbound messages from the network are forwarded to the receiver
-	receiver              RetrievalReceiver
-	maxStreamOpenAttempts float64
-	minAttemptDuration    time.Duration
-	maxAttemptDuration    time.Duration
-	supportedProtocols    []protocol.ID
+	receiver           RetrievalReceiver
+	supportedProtocols []protocol.ID
 }
 
 //  NewQueryStream creates a new RetrievalQueryStream using the provided peer.ID
 func (impl *libp2pRetrievalMarketNetwork) NewQueryStream(id peer.ID) (RetrievalQueryStream, error) {
-	s, err := impl.openStream(context.Background(), id, impl.supportedProtocols)
+	s, err := impl.retryStream.OpenStream(context.Background(), id, impl.supportedProtocols)
 	if err != nil {
 		log.Warn(err)
 		return nil, err
@@ -87,34 +76,6 @@ func (impl *libp2pRetrievalMarketNetwork) NewQueryStream(id peer.ID) (RetrievalQ
 		return &oldQueryStream{p: id, rw: s, buffered: buffered}, nil
 	}
 	return &queryStream{p: id, rw: s, buffered: buffered}, nil
-}
-
-func (impl *libp2pRetrievalMarketNetwork) openStream(ctx context.Context, id peer.ID, protocols []protocol.ID) (network.Stream, error) {
-	b := &backoff.Backoff{
-		Min:    impl.minAttemptDuration,
-		Max:    impl.maxAttemptDuration,
-		Factor: impl.maxStreamOpenAttempts,
-		Jitter: true,
-	}
-
-	for {
-		s, err := impl.host.NewStream(ctx, id, protocols...)
-		if err == nil {
-			return s, err
-		}
-
-		nAttempts := b.Attempt()
-		if nAttempts == impl.maxStreamOpenAttempts {
-			return nil, xerrors.Errorf("exhausted %d attempts but failed to open stream, err: %w", int(impl.maxStreamOpenAttempts), err)
-		}
-		ebt := time.NewTimer(b.Duration())
-		select {
-		case <-ctx.Done():
-			ebt.Stop()
-			return nil, xerrors.Errorf("backoff canceled by context")
-		case <-ebt.C:
-		}
-	}
 }
 
 // SetDelegate sets a RetrievalReceiver to handle stream data

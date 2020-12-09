@@ -118,7 +118,7 @@ func TestClient_Migrations(t *testing.T) {
 		require.NoError(t, err)
 	}
 	client, err := storageimpl.NewClient(
-		network.NewFromLibp2pHost(deps.TestData.Host1, network.RetryParameters(0, 0, 0)),
+		network.NewFromLibp2pHost(deps.TestData.Host1, network.RetryParameters(0, 0, 0, 0)),
 		deps.TestData.Bs1,
 		deps.TestData.MultiStore1,
 		deps.DTClient,

@@ -67,7 +67,7 @@ func NewHarnessWithTestData(t *testing.T, ctx context.Context, td *shared_testut
 
 	clientDs := namespace.Wrap(td.Ds1, datastore.NewKey("/deals/client"))
 	client, err := storageimpl.NewClient(
-		network.NewFromLibp2pHost(td.Host1, network.RetryParameters(0, 0, 0)),
+		network.NewFromLibp2pHost(td.Host1, network.RetryParameters(0, 0, 0, 0)),
 		td.Bs1,
 		td.MultiStore1,
 		deps.DTClient,
@@ -79,7 +79,7 @@ func NewHarnessWithTestData(t *testing.T, ctx context.Context, td *shared_testut
 	require.NoError(t, err)
 
 	providerDs := namespace.Wrap(td.Ds1, datastore.NewKey("/deals/provider"))
-	networkOptions := []network.Option{network.RetryParameters(0, 0, 0)}
+	networkOptions := []network.Option{network.RetryParameters(0, 0, 0, 0)}
 	if disableNewDeals {
 		networkOptions = append(networkOptions,
 			network.SupportedAskProtocols([]protocol.ID{storagemarket.OldAskProtocolID}),
@@ -122,7 +122,7 @@ func (h *StorageHarness) CreateNewProvider(t *testing.T, ctx context.Context, td
 
 	providerDs := namespace.Wrap(td.Ds1, datastore.NewKey("/deals/provider"))
 	provider, err := storageimpl.NewProvider(
-		network.NewFromLibp2pHost(td.Host2, network.RetryParameters(0, 0, 0)),
+		network.NewFromLibp2pHost(td.Host2, network.RetryParameters(0, 0, 0, 0)),
 		providerDs,
 		h.Fs,
 		td.MultiStore2,
