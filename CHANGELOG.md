@@ -1,5 +1,29 @@
 # go-fil-markets changelog
 
+# go-fil-markets v1.0.11
+
+When the miner restarts it should not dial the client, the client will automatically dial the miner.
+
+### Changelog
+
+- github.com/filecoin-project/go-fil-markets:
+  - on restart miner shouldn't dial client (#463) ([filecoin-project/go-fil-markets#463](https://github.com/filecoin-project/go-fil-markets/pull/463))
+- github.com/filecoin-project/go-data-transfer (v1.2.3 -> v1.2.4):
+  - Automatically restart push channel (#127) ([filecoin-project/go-data-transfer#127](https://github.com/filecoin-project/go-data-transfer/pull/127))
+- github.com/ipfs/go-graphsync (v0.5.0 -> v0.5.2):
+  - RegisterNetworkErrorListener should fire when there's an error connecting to the peer (#127) ([ipfs/go-graphsync#127](https://github.com/ipfs/go-graphsync/pull/127))
+  - Permit multiple data subscriptions per original topic (#128) ([ipfs/go-graphsync#128](https://github.com/ipfs/go-graphsync/pull/128))
+
+Contributors
+
+| Contributor | Commits | Lines ± | Files Changed |
+|-------------|---------|---------|---------------|
+| dirkmc | 6 | +1491/-282 | 42 |
+| Alex Cruikshank | 1 | +188/-110 | 12 |
+| hannahhoward | 1 | +30/-14 | 8 |
+| Hannah Howard | 1 | +23/-6 | 3 |
+| Dirk McCormick | 1 | +19/-0 | 1 |
+
 # go-fil-markets v1.0.10
 
 ### Changelog
