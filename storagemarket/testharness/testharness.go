@@ -45,12 +45,12 @@ type StorageHarness struct {
 func NewHarness(t *testing.T, ctx context.Context, useStore bool, cd testnodes.DelayFakeCommonNode, pd testnodes.DelayFakeCommonNode,
 	disableNewDeals bool) *StorageHarness {
 	smState := testnodes.NewStorageMarketState()
-	return NewHarnessWithTestData(t, ctx, shared_testutil.NewLibp2pTestData(ctx, t), smState, useStore, "", cd, pd, disableNewDeals)
+	td := shared_testutil.NewLibp2pTestData(ctx, t)
+	deps := dependencies.NewDependenciesWithTestData(t, ctx, td, smState, "", cd, pd)
+	return NewHarnessWithTestData(t, td, deps, useStore, disableNewDeals)
 }
 
-func NewHarnessWithTestData(t *testing.T, ctx context.Context, td *shared_testutil.Libp2pTestData, smState *testnodes.StorageMarketState, useStore bool, tempPath string,
-	cd testnodes.DelayFakeCommonNode, pd testnodes.DelayFakeCommonNode, disableNewDeals bool) *StorageHarness {
-	deps := dependencies.NewDependenciesWithTestData(t, ctx, td, smState, tempPath, cd, pd)
+func NewHarnessWithTestData(t *testing.T, td *shared_testutil.Libp2pTestData, deps *dependencies.StorageDependencies, useStore bool, disableNewDeals bool) *StorageHarness {
 	fpath := filepath.Join("storagemarket", "fixtures", "payload.txt")
 	var rootLink ipld.Link
 	var storeID *multistore.StoreID
@@ -113,7 +113,7 @@ func NewHarnessWithTestData(t *testing.T, ctx context.Context, td *shared_testut
 	}
 }
 
-func (h *StorageHarness) CreateNewProvider(t *testing.T, ctx context.Context, td *shared_testutil.Libp2pTestData, tempPath string, disableNewDeals bool) {
+func (h *StorageHarness) CreateNewProvider(t *testing.T, ctx context.Context, td *shared_testutil.Libp2pTestData) storagemarket.StorageProvider {
 	gs2 := graphsyncimpl.New(ctx, gsnetwork.NewFromLibp2pHost(td.Host2), td.Loader2, td.Storer2)
 	dtTransport2 := dtgstransport.NewTransport(td.Host2.ID(), gs2)
 	dt2, err := dtimpl.NewDataTransfer(td.DTStore2, td.DTTmpDir2, td.DTNet2, dtTransport2, td.DTStoredCounter2)
@@ -133,7 +133,7 @@ func (h *StorageHarness) CreateNewProvider(t *testing.T, ctx context.Context, td
 		h.StoredAsk,
 	)
 	require.NoError(t, err)
-	h.Provider = provider
+	return provider
 }
 
 func (h *StorageHarness) ProposeStorageDeal(t *testing.T, dataRef *storagemarket.DataRef, fastRetrieval, verifiedDeal bool) *storagemarket.ProposeStorageDealResult {

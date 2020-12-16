@@ -46,7 +46,7 @@ func ValidatePush(
 			return nil
 		}
 	}
-	return xerrors.Errorf("Deal State %s: %w", deal.State, ErrInacceptableDealState)
+	return xerrors.Errorf("Deal State %s: %w", storagemarket.DealStates[deal.State], ErrInacceptableDealState)
 }
 
 // ValidatePull validates a pull request received from the peer that will receive data
