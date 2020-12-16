@@ -298,7 +298,7 @@ func TestRestartOnlyProviderDataTransfer(t *testing.T) {
 	td.DTNet1 = dtnet.NewFromLibp2pHost(td.Host1, dtClientNetRetry)
 
 	// Configure data-transfer to restart after stalling
-	restartConf := dtimpl.PushChannelRestartConfig(100*time.Millisecond, 1, 200*time.Millisecond)
+	restartConf := dtimpl.PushChannelRestartConfig(100*time.Millisecond, 10, 1, 200*time.Millisecond)
 	smState := testnodes.NewStorageMarketState()
 	depGen := dependencies.NewDepGenerator()
 	depGen.ClientNewDataTransfer = func(ds datastore.Batching, dir string, transferNetwork dtnet.DataTransferNetwork, transport datatransfer.Transport, counter *storedcounter.StoredCounter) (datatransfer.Manager, error) {
