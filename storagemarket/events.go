@@ -265,6 +265,7 @@ const (
 	ProviderEventRestart
 
 	// ProviderEventDataTransferRestartFailed means a data transfer that was restarted by the provider failed
+	// Deprecated: this event is no longer used
 	ProviderEventDataTransferRestartFailed
 
 	// ProviderEventDataTransferStalled happens when the providers data transfer experiences a disconnect

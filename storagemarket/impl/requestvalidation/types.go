@@ -35,12 +35,12 @@ var (
 
 	// ErrInacceptableDealState means the deal for this transfer is not in a deal state
 	// where transfer can be performed
-	ErrInacceptableDealState = errors.New("deal is not a in a state where deals are accepted")
+	ErrInacceptableDealState = errors.New("deal is not in a state where deals are accepted")
 
 	// DataTransferStates are the states in which it would make sense to actually start a data transfer
 	// We accept deals even in the StorageDealTransferring state too as we could also also receive a data transfer restart request
 	DataTransferStates = []storagemarket.StorageDealStatus{storagemarket.StorageDealValidating, storagemarket.StorageDealWaitingForData, storagemarket.StorageDealUnknown,
-		storagemarket.StorageDealTransferring, storagemarket.StorageDealProviderTransferRestart}
+		storagemarket.StorageDealTransferring, storagemarket.StorageDealProviderTransferAwaitRestart}
 )
 
 // StorageDataTransferVoucher is the voucher type for data transfers

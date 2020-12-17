@@ -63,7 +63,7 @@ type Provider struct {
 	universalRetrievalEnabled bool
 	customDealDeciderFunc     DealDeciderFunc
 	pubSub                    *pubsub.PubSub
-	readySub                  *pubsub.PubSub
+	readyMgr                  *shared.ReadyManager
 
 	deals        fsm.Group
 	migrateDeals func(context.Context) error
@@ -125,7 +125,7 @@ func NewProvider(net network.StorageMarketNetwork,
 		actor:        minerAddress,
 		dataTransfer: dataTransfer,
 		pubSub:       pubsub.New(providerDispatcher),
-		readySub:     pubsub.New(shared.ReadyDispatcher),
+		readyMgr:     shared.NewReadyManager(),
 	}
 	storageMigrations, err := migrations.ProviderMigrations.Build()
 	if err != nil {
@@ -178,7 +178,11 @@ func (p *Provider) Start(ctx context.Context) error {
 
 // OnReady registers a listener for when the provider has finished starting up
 func (p *Provider) OnReady(ready shared.ReadyFunc) {
-	p.readySub.Subscribe(ready)
+	p.readyMgr.OnReady(ready)
+}
+
+func (p *Provider) AwaitReady() error {
+	return p.readyMgr.AwaitReady()
 }
 
 /*
@@ -268,6 +272,7 @@ func (p *Provider) receiveDeal(s network.StorageDealStream) error {
 
 // Stop terminates processing of deals on a StorageProvider
 func (p *Provider) Stop() error {
+	p.readyMgr.Stop()
 	p.unsubDataTransfer()
 	err := p.deals.Stop(context.TODO())
 	if err != nil {
@@ -555,7 +560,7 @@ func (p *Provider) dispatch(eventName fsm.EventName, deal fsm.StateType) {
 
 func (p *Provider) start(ctx context.Context) error {
 	err := p.migrateDeals(ctx)
-	publishErr := p.readySub.Publish(err)
+	publishErr := p.readyMgr.FireReady(err)
 	if publishErr != nil {
 		log.Warnf("Publish storage provider ready event: %s", err.Error())
 	}

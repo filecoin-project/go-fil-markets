@@ -10,7 +10,6 @@ import (
 	"math/rand"
 	"strings"
 	"testing"
-	"time"
 
 	"github.com/ipfs/go-cid"
 	"github.com/ipld/go-ipld-prime"
@@ -484,57 +483,6 @@ func TestReserveProviderFunds(t *testing.T) {
 	for test, data := range tests {
 		t.Run(test, func(t *testing.T) {
 			runReserveProviderFunds(t, data.nodeParams, data.environmentParams, data.dealParams, data.fileStoreParams, data.pieceStoreParams, data.dealInspector)
-		})
-	}
-}
-
-func TestRestartDataTransfer(t *testing.T) {
-	channelId := datatransfer.ChannelID{Initiator: peer.ID("1"), Responder: peer.ID("2")}
-	ctx := context.Background()
-	eventProcessor, err := fsm.NewEventProcessor(storagemarket.MinerDeal{}, "State", providerstates.ProviderEvents)
-	require.NoError(t, err)
-	runRestartDataTransfer := makeExecutor(ctx, eventProcessor, providerstates.RestartDataTransfer, storagemarket.StorageDealProviderTransferRestart)
-	tests := map[string]struct {
-		nodeParams        nodeParams
-		dealParams        dealParams
-		environmentParams environmentParams
-		fileStoreParams   tut.TestFileStoreParams
-		pieceStoreParams  tut.TestPieceStoreParams
-		dealInspector     func(t *testing.T, deal storagemarket.MinerDeal, env *fakeEnvironment)
-	}{
-		"succeeds": {
-			dealParams: dealParams{
-				TransferChannelId: &channelId,
-			},
-			dealInspector: func(t *testing.T, deal storagemarket.MinerDeal, env *fakeEnvironment) {
-				require.Eventually(t, func() bool {
-					return len(env.restartDataTransferCalls) == 1
-				}, 5*time.Second, 200*time.Millisecond)
-				require.Equal(t, channelId, env.restartDataTransferCalls[0].chId)
-				tut.AssertDealState(t, storagemarket.StorageDealProviderTransferRestart, deal.State)
-			},
-		},
-		// TODO FIXME
-		/*"RestartDataTransfer errors": {
-			dealParams: dealParams{
-				TransferChannelId: &channelId,
-			},
-			environmentParams: environmentParams{
-				RestartDataTransferError: xerrors.New("some error"),
-			},
-			dealInspector: func(t *testing.T, deal storagemarket.MinerDeal, env *fakeEnvironment) {
-				require.Eventually(t, func() bool {
-					fmt.Printf("\n deal state is %s", storagemarket.DealStates[deal.State])
-					return deal.State == storagemarket.StorageDealFailing
-				}, 5*time.Second, 200*time.Millisecond)
-
-				require.Equal(t, "error restarting data transfer: some error", deal.Message)
-			},
-		},*/
-	}
-	for test, data := range tests {
-		t.Run(test, func(t *testing.T) {
-			runRestartDataTransfer(t, data.nodeParams, data.environmentParams, data.dealParams, data.fileStoreParams, data.pieceStoreParams, data.dealInspector)
 		})
 	}
 }
