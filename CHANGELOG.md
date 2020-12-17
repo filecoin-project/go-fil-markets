@@ -1,5 +1,19 @@
 # go-fil-markets changelog
 
+# go-fil-markets v1.1.0
+
+Better retry config
+
+### Changelog
+- github.com/filecoin-project/go-fil-markets:
+  - feat: retry config - separate max open attempts from backoff factor (#467) ([filecoin-project/go-fil-markets#467](https://github.com/filecoin-project/go-fil-markets/pull/467))
+
+Contributors
+
+| Contributor | Commits | Lines ± | Files Changed |
+|-------------|---------|---------|---------------|
+| dirkmc | 2 | +236/-113 | 12 |
+
 # go-fil-markets v1.0.11
 
 When the miner restarts it should not dial the client, the client will automatically dial the miner.
