@@ -128,7 +128,7 @@ func TestProvider_Migrations(t *testing.T) {
 		require.NoError(t, err)
 	}
 	provider, err := storageimpl.NewProvider(
-		network.NewFromLibp2pHost(deps.TestData.Host2, network.RetryParameters(0, 0, 0)),
+		network.NewFromLibp2pHost(deps.TestData.Host2, network.RetryParameters(0, 0, 0, 0)),
 		providerDs,
 		deps.Fs,
 		deps.TestData.MultiStore2,
@@ -219,7 +219,7 @@ func TestHandleDealStream(t *testing.T) {
 		require.NoError(t, err)
 
 		provider, err := storageimpl.NewProvider(
-			network.NewFromLibp2pHost(deps.TestData.Host2, network.RetryParameters(0, 0, 0)),
+			network.NewFromLibp2pHost(deps.TestData.Host2, network.RetryParameters(0, 0, 0, 0)),
 			providerDs,
 			deps.Fs,
 			deps.TestData.MultiStore2,

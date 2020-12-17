@@ -93,7 +93,7 @@ func requireSetupTestClientAndProvider(ctx context.Context, t *testing.T, payChA
 	retrievalmarket.RetrievalPeer,
 	retrievalmarket.RetrievalProvider) {
 	testData := tut.NewLibp2pTestData(ctx, t)
-	nw1 := rmnet.NewFromLibp2pHost(testData.Host1, rmnet.RetryParameters(100*time.Millisecond, 1*time.Second, 5))
+	nw1 := rmnet.NewFromLibp2pHost(testData.Host1, rmnet.RetryParameters(100*time.Millisecond, 1*time.Second, 5, 5))
 	cids := tut.GenerateCids(2)
 	rcNode1 := testnodes.NewTestRetrievalClientNode(testnodes.TestRetrievalClientNodeParams{
 		PayCh:          payChAddr,
@@ -111,7 +111,7 @@ func requireSetupTestClientAndProvider(ctx context.Context, t *testing.T, payChA
 	client, err := retrievalimpl.NewClient(nw1, testData.MultiStore1, dt1, rcNode1, &tut.TestPeerResolver{}, clientDs, testData.RetrievalStoredCounter1)
 	require.NoError(t, err)
 	tut.StartAndWaitForReady(ctx, t, client)
-	nw2 := rmnet.NewFromLibp2pHost(testData.Host2, rmnet.RetryParameters(0, 0, 0))
+	nw2 := rmnet.NewFromLibp2pHost(testData.Host2, rmnet.RetryParameters(0, 0, 0, 0))
 	providerNode := testnodes.NewTestRetrievalProviderNode()
 	pieceStore := tut.NewTestPieceStore()
 	expectedCIDs := tut.GenerateCids(3)
@@ -409,7 +409,7 @@ func TestClientCanMakeDealWithProvider(t *testing.T) {
 				require.NoError(t, providerNode.ExpectVoucher(clientPaymentChannel, expectedVoucher, proof, voucherAmt, voucherAmt, nil))
 			}
 
-			nw1 := rmnet.NewFromLibp2pHost(testData.Host1, rmnet.RetryParameters(0, 0, 0))
+			nw1 := rmnet.NewFromLibp2pHost(testData.Host1, rmnet.RetryParameters(0, 0, 0, 0))
 			createdChan, newLaneAddr, createdVoucher, clientNode, client, err := setupClient(bgCtx, t, clientPaymentChannel, expectedVoucher, nw1, testData, testCase.addFunds, testCase.channelAvailableFunds)
 			require.NoError(t, err)
 			tut.StartAndWaitForReady(ctx, t, client)
@@ -621,7 +621,7 @@ func setupProvider(
 	decider retrievalimpl.DealDecider,
 	disableNewDeals bool,
 ) retrievalmarket.RetrievalProvider {
-	nw2 := rmnet.NewFromLibp2pHost(testData.Host2, rmnet.RetryParameters(0, 0, 0))
+	nw2 := rmnet.NewFromLibp2pHost(testData.Host2, rmnet.RetryParameters(0, 0, 0, 0))
 	pieceStore := tut.NewTestPieceStore()
 	expectedPiece := tut.GenerateCids(1)[0]
 	cidInfo := piecestore.CIDInfo{
