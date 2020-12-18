@@ -1,5 +1,19 @@
 # go-fil-markets changelog
 
+# go-fil-markets v1.1.1
+
+- github.com/filecoin-project/go-fil-markets:
+  - feat: go-data-transfer v1.2.5 (with restart limit) (#470) ([filecoin-project/go-fil-markets#470](https://github.com/filecoin-project/go-fil-markets/pull/470))
+- github.com/filecoin-project/go-data-transfer (v1.2.4 -> v1.2.5):
+  - feat: limit consecutive restarts with no data transfer (#129) ([filecoin-project/go-data-transfer#129](https://github.com/filecoin-project/go-data-transfer/pull/129))
+
+Contributors
+
+| Contributor | Commits | Lines ± | Files Changed |
+|-------------|---------|---------|---------------|
+| dirkmc | 4 | +212/-82 | 9 |
+| Dirk McCormick | 1 | +13/-0 | 1 |
+
 # go-fil-markets v1.1.0
 
 Better retry config
