@@ -1,5 +1,24 @@
 # go-fil-markets changelog
 
+# go-fil-markets v1.1.2
+
+Generating Changelog for github.com/filecoin-project/go-fil-markets v1.1.1..d43e9447747b51824c9628e7cff5f2d2c97ae253
+- github.com/filecoin-project/go-fil-markets:
+  - feat: update to go-data-transfer v1.2.7 (#472) ([filecoin-project/go-fil-markets#472](https://github.com/filecoin-project/go-fil-markets/pull/472))
+- github.com/filecoin-project/go-data-transfer (v1.2.5 -> v1.2.7):
+  - feat: configurable send message timeouts (#136) ([filecoin-project/go-data-transfer#136](https://github.com/filecoin-project/go-data-transfer/pull/136))
+  - log request / response events (#137) ([filecoin-project/go-data-transfer#137](https://github.com/filecoin-project/go-data-transfer/pull/137))
+  - fix: dont complete transfer because graphsync request was cancelled (#134) ([filecoin-project/go-data-transfer#134](https://github.com/filecoin-project/go-data-transfer/pull/134))
+  - feat: better push channel monitor logging (#133) ([filecoin-project/go-data-transfer#133](https://github.com/filecoin-project/go-data-transfer/pull/133))
+  - add logging to push channel monitor (#131) ([filecoin-project/go-data-transfer#131](https://github.com/filecoin-project/go-data-transfer/pull/131))
+
+Contributors
+
+| Contributor | Commits | Lines ± | Files Changed |
+|-------------|---------|---------|---------------|
+| dirkmc | 9 | +216/-72 | 17 |
+| Dirk McCormick | 1 | +17/-2 | 1 |
+
 # go-fil-markets v1.1.1
 
 - github.com/filecoin-project/go-fil-markets:
