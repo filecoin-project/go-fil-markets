@@ -338,6 +338,7 @@ type FakeProviderNode struct {
 	PieceSectorID                       uint64
 	PublishDealID                       abi.DealID
 	PublishDealsError                   error
+	WaitForPublishDealsError            error
 	OnDealCompleteError                 error
 	LastOnDealCompleteBytes             []byte
 	OnDealCompleteCalls                 []storagemarket.MinerDeal
@@ -352,6 +353,24 @@ func (n *FakeProviderNode) PublishDeals(ctx context.Context, deal storagemarket.
 		return shared_testutil.GenerateCids(1)[0], nil
 	}
 	return cid.Undef, n.PublishDealsError
+}
+
+// WaitForPublishDeals simulates waiting for the deal to be published and
+// calling the callback with the results
+func (n *FakeProviderNode) WaitForPublishDeals(ctx context.Context, mcid cid.Cid, proposal market.DealProposal) (*storagemarket.PublishDealsWaitResult, error) {
+	if n.WaitForPublishDealsError != nil {
+		return nil, n.WaitForPublishDealsError
+	}
+
+	finalCid := n.WaitForMessageFinalCid
+	if finalCid.Equals(cid.Undef) {
+		finalCid = mcid
+	}
+
+	return &storagemarket.PublishDealsWaitResult{
+		DealID:   n.PublishDealID,
+		FinalCid: finalCid,
+	}, nil
 }
 
 // OnDealComplete simulates passing of the deal to the storage miner, and does nothing
