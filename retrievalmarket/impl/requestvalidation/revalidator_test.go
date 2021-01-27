@@ -29,9 +29,11 @@ func TestOnPushDataReceived(t *testing.T) {
 	require.NoError(t, err)
 	require.Nil(t, voucherResult)
 }
-func TestOnPullDataSent(t *testing.T) {
 
+func TestOnPullDataSent(t *testing.T) {
 	deal := *makeDealState(rm.DealStatusOngoing)
+	dealZeroPricePerByte := deal
+	dealZeroPricePerByte.PricePerByte = big.Zero()
 	legacyDeal := deal
 	legacyDeal.LegacyProtocol = true
 	testCases := map[string]struct {
@@ -57,6 +59,15 @@ func TestOnPullDataSent(t *testing.T) {
 			expectedID:      deal.Identifier(),
 			expectedEvent:   rm.ProviderEventBlockSent,
 			expectedArgs:    []interface{}{deal.TotalSent + uint64(500)},
+			expectedHandled: true,
+			dataAmount:      uint64(500),
+		},
+		"record block zero price per byte": {
+			deal:            dealZeroPricePerByte,
+			channelID:       dealZeroPricePerByte.ChannelID,
+			expectedID:      dealZeroPricePerByte.Identifier(),
+			expectedEvent:   rm.ProviderEventBlockSent,
+			expectedArgs:    []interface{}{dealZeroPricePerByte.TotalSent + uint64(500)},
 			expectedHandled: true,
 			dataAmount:      uint64(500),
 		},
@@ -125,6 +136,8 @@ func TestOnPullDataSent(t *testing.T) {
 
 func TestOnComplete(t *testing.T) {
 	deal := *makeDealState(rm.DealStatusOngoing)
+	dealZeroPricePerByte := deal
+	dealZeroPricePerByte.PricePerByte = big.Zero()
 	legacyDeal := deal
 	legacyDeal.LegacyProtocol = true
 	channelID := deal.ChannelID
@@ -208,6 +221,26 @@ func TestOnComplete(t *testing.T) {
 				Status: rm.DealStatusCompleted,
 			},
 			deal:      deal,
+			channelID: channelID,
+		},
+		"all funds paid zero price per byte": {
+			unpaidAmount: uint64(0),
+			expectedEvents: []eventSent{
+				{
+					ID:    dealZeroPricePerByte.Identifier(),
+					Event: rm.ProviderEventBlockSent,
+					Args:  []interface{}{dealZeroPricePerByte.TotalSent},
+				},
+				{
+					ID:    dealZeroPricePerByte.Identifier(),
+					Event: rm.ProviderEventBlocksCompleted,
+				},
+			},
+			expectedResult: &rm.DealResponse{
+				ID:     dealZeroPricePerByte.ID,
+				Status: rm.DealStatusCompleted,
+			},
+			deal:      dealZeroPricePerByte,
 			channelID: channelID,
 		},
 		"all funds paid, legacyDeal": {

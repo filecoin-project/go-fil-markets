@@ -129,7 +129,7 @@ func clientEvent(event datatransfer.Event, channelState datatransfer.ChannelStat
 
 // ClientDataTransferSubscriber is the function called when an event occurs in a data
 // transfer initiated on the client -- it reads the voucher to verify this even occurred
-// in a storage market deal, then, based on the data transfer event that occurred, it dispatches
+// in a retrieval market deal, then, based on the data transfer event that occurred, it dispatches
 // an event to the appropriate state machine
 func ClientDataTransferSubscriber(deals EventReceiver) datatransfer.Subscriber {
 	return func(event datatransfer.Event, channelState datatransfer.ChannelState) {
@@ -148,7 +148,8 @@ func ClientDataTransferSubscriber(deals EventReceiver) datatransfer.Subscriber {
 		// data transfer events for progress do not affect deal state
 		err := deals.Send(dealProposal.ID, retrievalEvent, params...)
 		if err != nil {
-			log.Errorf("processing dt event: %w", err)
+			log.Errorf("processing dt event %s for state %s: %s",
+				datatransfer.Events[event.Code], datatransfer.Statuses[channelState.Status()], err)
 		}
 	}
 }

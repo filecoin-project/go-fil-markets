@@ -84,7 +84,9 @@ func (pr *ProviderRevalidator) loadDealState(channel *channelData) error {
 func (pr *ProviderRevalidator) writeDealState(deal rm.ProviderDealState) {
 	channel := pr.trackedChannels[deal.ChannelID]
 	channel.totalSent = deal.TotalSent
-	channel.totalPaidFor = big.Div(big.Max(big.Sub(deal.FundsReceived, deal.UnsealPrice), big.Zero()), deal.PricePerByte).Uint64()
+	if !deal.PricePerByte.IsZero() {
+		channel.totalPaidFor = big.Div(big.Max(big.Sub(deal.FundsReceived, deal.UnsealPrice), big.Zero()), deal.PricePerByte).Uint64()
+	}
 	channel.interval = deal.CurrentInterval
 	channel.pricePerByte = deal.PricePerByte
 	channel.legacyProtocol = deal.LegacyProtocol
@@ -195,19 +197,20 @@ func (pr *ProviderRevalidator) OnPullDataSent(chid datatransfer.ChannelID, addit
 	}
 
 	channel.totalSent += additionalBytesSent
-	if channel.totalSent-channel.totalPaidFor >= channel.interval {
-		paymentOwed := big.Mul(abi.NewTokenAmount(int64(channel.totalSent-channel.totalPaidFor)), channel.pricePerByte)
-		err := pr.env.SendEvent(channel.dealID, rm.ProviderEventPaymentRequested, channel.totalSent)
-		if err != nil {
-			return true, nil, err
-		}
-		return true, finalResponse(&rm.DealResponse{
-			ID:          channel.dealID.DealID,
-			Status:      rm.DealStatusFundsNeeded,
-			PaymentOwed: paymentOwed,
-		}, channel.legacyProtocol), datatransfer.ErrPause
+	if channel.pricePerByte.IsZero() || channel.totalSent-channel.totalPaidFor < channel.interval {
+		return true, nil, pr.env.SendEvent(channel.dealID, rm.ProviderEventBlockSent, channel.totalSent)
 	}
-	return true, nil, pr.env.SendEvent(channel.dealID, rm.ProviderEventBlockSent, channel.totalSent)
+
+	paymentOwed := big.Mul(abi.NewTokenAmount(int64(channel.totalSent-channel.totalPaidFor)), channel.pricePerByte)
+	err = pr.env.SendEvent(channel.dealID, rm.ProviderEventPaymentRequested, channel.totalSent)
+	if err != nil {
+		return true, nil, err
+	}
+	return true, finalResponse(&rm.DealResponse{
+		ID:          channel.dealID.DealID,
+		Status:      rm.DealStatusFundsNeeded,
+		PaymentOwed: paymentOwed,
+	}, channel.legacyProtocol), datatransfer.ErrPause
 }
 
 // OnPushDataReceived is called on the responder side when more bytes are received

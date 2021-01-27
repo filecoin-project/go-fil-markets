@@ -24,6 +24,7 @@ stateDiagram-v2
 	state "DealStatusCancelled" as 26
 	state "DealStatusRetryLegacy" as 27
 	state "DealStatusWaitForAcceptanceLegacy" as 28
+	state "DealStatusWaitingForLastBlocks" as 29
 	0 : On entry runs ProposeDeal
 	4 : On entry runs WaitPaymentChannelReady
 	5 : On entry runs WaitPaymentChannelReady
@@ -82,9 +83,12 @@ stateDiagram-v2
 	13 --> 18 : ClientEventAllBlocksReceived
 	14 --> 12 : ClientEventAllBlocksReceived
 	18 --> 18 : ClientEventAllBlocksReceived
+	29 --> 15 : ClientEventAllBlocksReceived
 	10 --> 10 : ClientEventBlocksReceived
 	13 --> 13 : ClientEventBlocksReceived
 	14 --> 14 : ClientEventBlocksReceived
+	21 --> 21 : ClientEventBlocksReceived
+	29 --> 29 : ClientEventBlocksReceived
 	10 --> 11 : ClientEventSendFunds
 	14 --> 12 : ClientEventSendFunds
 	22 --> 23 : ClientEventFundsExpended
@@ -100,6 +104,7 @@ stateDiagram-v2
 	19 --> 15 : ClientEventComplete
 	21 --> 15 : ClientEventCompleteVerified
 	21 --> 17 : ClientEventEarlyTermination
+	21 --> 29 : ClientEventWaitForLastBlocks
 	8 --> 17 : ClientEventCancelComplete
 	25 --> 26 : ClientEventCancelComplete
 	23 --> 22 : ClientEventRecheckFunds

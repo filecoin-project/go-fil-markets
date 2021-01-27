@@ -171,9 +171,22 @@ func CancelDeal(ctx fsm.Context, environment ClientDealEnvironment, deal rm.Clie
 
 // CheckComplete verifies that a provider that completed without a last payment requested did in fact send us all the data
 func CheckComplete(ctx fsm.Context, environment ClientDealEnvironment, deal rm.ClientDealState) error {
-	if !deal.AllBlocksReceived {
-		return ctx.Trigger(rm.ClientEventEarlyTermination)
+	// This function is called when the provider tells the client that it has
+	// sent all the blocks, so check if all blocks have been received.
+	if deal.AllBlocksReceived {
+		return ctx.Trigger(rm.ClientEventCompleteVerified)
 	}
 
-	return ctx.Trigger(rm.ClientEventCompleteVerified)
+	// If the deal price per byte is zero, wait for the last blocks to
+	// arrive
+	if deal.PricePerByte.IsZero() {
+		return ctx.Trigger(rm.ClientEventWaitForLastBlocks)
+	}
+
+	// If the deal price per byte is non-zero, the provider should only
+	// have sent the complete message after receiving the last payment
+	// from the client, which should happen after all blocks have been
+	// received. So if they haven't been received the provider is trying
+	// to terminate the deal early.
+	return ctx.Trigger(rm.ClientEventEarlyTermination)
 }

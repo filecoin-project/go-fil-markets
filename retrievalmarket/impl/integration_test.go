@@ -187,6 +187,7 @@ func TestClientCanMakeDealWithProvider(t *testing.T) {
 		voucherAmts             []abi.TokenAmount
 		selector                ipld.Node
 		unsealPrice             abi.TokenAmount
+		zeroPricePerByte        bool
 		paramsV1, addFunds      bool
 		skipStores              bool
 		failsUnseal             bool
@@ -259,6 +260,11 @@ func TestClientCanMakeDealWithProvider(t *testing.T) {
 			filename:    "lorem.txt",
 			filesize:    19000,
 			voucherAmts: []abi.TokenAmount{abi.NewTokenAmount(10136000), abi.NewTokenAmount(9784000)},
+		},
+		{name: "multi-block file retrieval with zero price per byte succeeds",
+			filename:         "lorem.txt",
+			filesize:         19000,
+			zeroPricePerByte: true,
 		},
 		{name: "multi-block file retrieval succeeds with V1 params and AllSelector",
 			filename:    "lorem.txt",
@@ -337,6 +343,9 @@ func TestClientCanMakeDealWithProvider(t *testing.T) {
 				paymentIntervalIncrease = uint64(1000)
 			}
 			pricePerByte := abi.NewTokenAmount(1000)
+			if testCase.zeroPricePerByte {
+				pricePerByte = abi.NewTokenAmount(0)
+			}
 			unsealPrice := testCase.unsealPrice
 			if unsealPrice.Int == nil {
 				unsealPrice = big.Zero()
@@ -509,9 +518,11 @@ CurrentInterval: %d
 				require.NotNil(t, createdChan)
 				require.Equal(t, expectedTotal, createdChan.amt)
 				require.Equal(t, clientPaymentChannel, *newLaneAddr)
-				// verify that the voucher was saved/seen by the client with correct values
-				require.NotNil(t, createdVoucher)
-				tut.TestVoucherEquality(t, createdVoucher, expectedVoucher)
+				if !testCase.zeroPricePerByte {
+					// verify that the voucher was saved/seen by the client with correct values
+					require.NotNil(t, createdVoucher)
+					tut.TestVoucherEquality(t, createdVoucher, expectedVoucher)
+				}
 				assert.Equal(t, retrievalmarket.DealStatusCompleted, clientDealState.Status)
 			}
 			ctx, cancel = context.WithTimeout(bgCtx, 5*time.Second)
