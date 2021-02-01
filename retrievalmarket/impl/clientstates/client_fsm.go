@@ -178,6 +178,7 @@ var ClientEvents = fsm.Events{
 		FromMany(paymentChannelCreationStates...).ToJustRecord().
 		FromMany(rm.DealStatusSendFunds, rm.DealStatusFundsNeeded).ToJustRecord().
 		From(rm.DealStatusFundsNeededLastPayment).To(rm.DealStatusSendFundsLastPayment).
+		From(rm.DealStatusClientWaitingForLastBlocks).To(rm.DealStatusCompleted).
 		Action(func(deal *rm.ClientDealState) error {
 			deal.AllBlocksReceived = true
 			return nil
@@ -185,7 +186,9 @@ var ClientEvents = fsm.Events{
 	fsm.Event(rm.ClientEventBlocksReceived).
 		FromMany(rm.DealStatusOngoing,
 			rm.DealStatusFundsNeeded,
-			rm.DealStatusFundsNeededLastPayment).ToNoChange().
+			rm.DealStatusFundsNeededLastPayment,
+			rm.DealStatusCheckComplete,
+			rm.DealStatusClientWaitingForLastBlocks).ToNoChange().
 		FromMany(paymentChannelCreationStates...).ToJustRecord().
 		Action(recordReceived),
 
@@ -259,6 +262,12 @@ var ClientEvents = fsm.Events{
 			deal.Message = "Provider sent complete status without sending all data"
 			return nil
 		}),
+
+	// the provider indicated that all blocks have been sent, so the client
+	// should wait for the last blocks to arrive (only needed when price
+	// per byte is zero)
+	fsm.Event(rm.ClientEventWaitForLastBlocks).
+		From(rm.DealStatusCheckComplete).To(rm.DealStatusClientWaitingForLastBlocks),
 
 	// after cancelling a deal is complete
 	fsm.Event(rm.ClientEventCancelComplete).

@@ -114,6 +114,11 @@ const (
 
 	// ClientEventCancel runs when a user cancels a deal
 	ClientEventCancel
+
+	// ClientEventWaitForLastBlocks is fired when the provider has told
+	// the client that all blocks were sent for the deal, and the client is
+	// waiting for the last blocks to arrive
+	ClientEventWaitForLastBlocks
 )
 
 // ClientEvents is a human readable map of client event name -> event description
@@ -152,6 +157,7 @@ var ClientEvents = map[ClientEvent]string{
 	ClientEventVoucherShortfall:              "ClientEventVoucherShortfall",
 	ClientEventRecheckFunds:                  "ClientEventRecheckFunds",
 	ClientEventCancel:                        "ClientEventCancel",
+	ClientEventWaitForLastBlocks:             "ClientEventWaitForLastBlocks",
 }
 
 // ProviderEvent is an event that occurs in a deal lifecycle on the provider

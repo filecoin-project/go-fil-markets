@@ -106,6 +106,13 @@ const (
 
 	// DealStatusWaitForAcceptanceLegacy means we're waiting to hear the results on the legacy protocol
 	DealStatusWaitForAcceptanceLegacy
+
+	// DealStatusClientWaitingForLastBlocks means that the provider has told
+	// the client that all blocks were sent for the deal, and the client is
+	// waiting for the last blocks to arrive. This should only happen when
+	// the deal price per byte is zero (if it's not zero the provider asks
+	// for final payment after sending the last blocks).
+	DealStatusClientWaitingForLastBlocks
 )
 
 // DealStatuses maps deal status to a human readable representation
@@ -139,4 +146,5 @@ var DealStatuses = map[DealStatus]string{
 	DealStatusCancelled:                    "DealStatusCancelled",
 	DealStatusRetryLegacy:                  "DealStatusRetryLegacy",
 	DealStatusWaitForAcceptanceLegacy:      "DealStatusWaitForAcceptanceLegacy",
+	DealStatusClientWaitingForLastBlocks:   "DealStatusWaitingForLastBlocks",
 }
