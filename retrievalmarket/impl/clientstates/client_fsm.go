@@ -80,12 +80,18 @@ var ClientEvents = fsm.Events{
 			deal.Message = xerrors.Errorf("error from payment channel: %w", err).Error()
 			return nil
 		}),
+
+	// Price of deal is zero so skip creating a payment channel
+	fsm.Event(rm.ClientEventPaymentChannelSkip).
+		From(rm.DealStatusAccepted).To(rm.DealStatusOngoing),
+
 	fsm.Event(rm.ClientEventPaymentChannelCreateInitiated).
 		From(rm.DealStatusAccepted).To(rm.DealStatusPaymentChannelCreating).
 		Action(func(deal *rm.ClientDealState, msgCID cid.Cid) error {
 			deal.WaitMsgCID = &msgCID
 			return nil
 		}),
+
 	fsm.Event(rm.ClientEventPaymentChannelAddingFunds).
 		FromMany(rm.DealStatusAccepted).To(rm.DealStatusPaymentChannelAllocatingLane).
 		FromMany(rm.DealStatusCheckFunds).To(rm.DealStatusPaymentChannelAddingFunds).
@@ -98,6 +104,7 @@ var ClientEvents = fsm.Events{
 			}
 			return nil
 		}),
+
 	fsm.Event(rm.ClientEventPaymentChannelReady).
 		From(rm.DealStatusPaymentChannelCreating).To(rm.DealStatusPaymentChannelAllocatingLane).
 		From(rm.DealStatusPaymentChannelAddingFunds).To(rm.DealStatusOngoing).
@@ -113,6 +120,7 @@ var ClientEvents = fsm.Events{
 			deal.Message = ""
 			return nil
 		}),
+
 	fsm.Event(rm.ClientEventAllocateLaneErrored).
 		FromMany(rm.DealStatusPaymentChannelAllocatingLane).
 		To(rm.DealStatusFailing).
@@ -253,6 +261,7 @@ var ClientEvents = fsm.Events{
 	// completing deals
 	fsm.Event(rm.ClientEventComplete).
 		From(rm.DealStatusOngoing).To(rm.DealStatusCheckComplete).
+		From(rm.DealStatusBlocksComplete).To(rm.DealStatusCheckComplete).
 		From(rm.DealStatusFinalizing).To(rm.DealStatusCompleted),
 	fsm.Event(rm.ClientEventCompleteVerified).
 		From(rm.DealStatusCheckComplete).To(rm.DealStatusCompleted),

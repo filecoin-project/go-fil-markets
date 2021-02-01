@@ -146,6 +146,14 @@ func TestSetupPaymentChannel(t *testing.T) {
 		require.Equal(t, dealState.Status, retrievalmarket.DealStatusFailing)
 	})
 
+	t.Run("payment channel skip if total funds is zero", func(t *testing.T) {
+		envParams := testnodes.TestRetrievalClientNodeParams{}
+		dealState := makeDealState(retrievalmarket.DealStatusAccepted)
+		dealState.TotalFunds = abi.NewTokenAmount(0)
+		runSetupPaymentChannel(t, envParams, dealState)
+		assert.Empty(t, dealState.Message)
+		assert.Equal(t, dealState.Status, retrievalmarket.DealStatusOngoing)
+	})
 }
 
 func TestWaitForPaymentReady(t *testing.T) {

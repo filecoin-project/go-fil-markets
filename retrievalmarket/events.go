@@ -119,6 +119,10 @@ const (
 	// the client that all blocks were sent for the deal, and the client is
 	// waiting for the last blocks to arrive
 	ClientEventWaitForLastBlocks
+
+	// ClientEventPaymentChannelSkip is fired when the total deal price is zero
+	// so there's no need to set up a payment channel
+	ClientEventPaymentChannelSkip
 )
 
 // ClientEvents is a human readable map of client event name -> event description
@@ -158,6 +162,7 @@ var ClientEvents = map[ClientEvent]string{
 	ClientEventRecheckFunds:                  "ClientEventRecheckFunds",
 	ClientEventCancel:                        "ClientEventCancel",
 	ClientEventWaitForLastBlocks:             "ClientEventWaitForLastBlocks",
+	ClientEventPaymentChannelSkip:            "ClientEventPaymentChannelSkip",
 }
 
 // ProviderEvent is an event that occurs in a deal lifecycle on the provider

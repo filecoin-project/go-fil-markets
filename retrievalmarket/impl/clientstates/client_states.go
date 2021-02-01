@@ -36,6 +36,10 @@ func ProposeDeal(ctx fsm.Context, environment ClientDealEnvironment, deal rm.Cli
 
 // SetupPaymentChannelStart initiates setting up a payment channel for a deal
 func SetupPaymentChannelStart(ctx fsm.Context, environment ClientDealEnvironment, deal rm.ClientDealState) error {
+	// If the total funds required for the deal are zero, skip creating the payment channel
+	if deal.TotalFunds.IsZero() {
+		return ctx.Trigger(rm.ClientEventPaymentChannelSkip)
+	}
 
 	tok, _, err := environment.Node().GetChainHead(ctx.Context())
 	if err != nil {

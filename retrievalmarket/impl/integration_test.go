@@ -514,11 +514,12 @@ CurrentInterval: %d
 			} else if testCase.cancelled {
 				assert.Equal(t, retrievalmarket.DealStatusCancelled, clientDealState.Status)
 			} else {
-				assert.Equal(t, clientDealState.PaymentInfo.Lane, expectedVoucher.Lane)
-				require.NotNil(t, createdChan)
-				require.Equal(t, expectedTotal, createdChan.amt)
-				require.Equal(t, clientPaymentChannel, *newLaneAddr)
 				if !testCase.zeroPricePerByte {
+					assert.Equal(t, clientDealState.PaymentInfo.Lane, expectedVoucher.Lane)
+					require.NotNil(t, createdChan)
+					require.Equal(t, expectedTotal, createdChan.amt)
+					require.Equal(t, clientPaymentChannel, *newLaneAddr)
+
 					// verify that the voucher was saved/seen by the client with correct values
 					require.NotNil(t, createdVoucher)
 					tut.TestVoucherEquality(t, createdVoucher, expectedVoucher)
