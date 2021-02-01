@@ -162,6 +162,7 @@ var ClientEvents = map[ClientEvent]string{
 	ClientEventRecheckFunds:                  "ClientEventRecheckFunds",
 	ClientEventCancel:                        "ClientEventCancel",
 	ClientEventWaitForLastBlocks:             "ClientEventWaitForLastBlocks",
+	ClientEventPaymentChannelSkip:            "ClientEventPaymentChannelSkip",
 }
 
 // ProviderEvent is an event that occurs in a deal lifecycle on the provider
