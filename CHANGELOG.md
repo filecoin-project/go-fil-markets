@@ -1,5 +1,18 @@
 # go-fil-markets changelog
 
+# go-fil-markets v1.1.4
+
+- github.com/filecoin-project/go-fil-markets:
+  - fix: add missing event name
+  - feat: skip payment channel creation if total price is zero
+
+Contributors
+
+| Contributor | Commits | Lines ± | Files Changed |
+|-------------|---------|---------|---------------|
+| Dirk McCormick | 2 | +37/-8 | 10 |
+| dirkmc | 1 | +11/-0 | 1 |
+
 # go-fil-markets v1.1.3
 
 - github.com/filecoin-project/go-fil-markets:
