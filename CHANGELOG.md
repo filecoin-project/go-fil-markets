@@ -1,5 +1,16 @@
 # go-fil-markets changelog
 
+# go-fil-markets v1.1.5
+
+- github.com/filecoin-project/go-fil-markets:
+  - retrieval: skip payment channel creation if total price is zero (#480) ([filecoin-project/go-fil-markets#480](https://github.com/filecoin-project/go-fil-markets/pull/480))
+
+Contributors
+
+| Contributor | Commits | Lines ± | Files Changed |
+|-------------|---------|---------|---------------|
+| dirkmc | 1 | +36/-7 | 8 |
+
 # go-fil-markets v1.1.3
 
 - github.com/filecoin-project/go-fil-markets:
