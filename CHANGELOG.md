@@ -1,5 +1,16 @@
 # go-fil-markets changelog
 
+# go-fil-markets v1.1.3
+
+- github.com/filecoin-project/go-fil-markets:
+  - fix: handle retrieval deals with zero price per byte (#477) ([filecoin-project/go-fil-markets#477](https://github.com/filecoin-project/go-fil-markets/pull/477))
+
+Contributors
+
+| Contributor | Commits | Lines ± | Files Changed |
+|-------------|---------|---------|---------------|
+| dirkmc | 2 | +144/-28 | 13 |
+
 # go-fil-markets v1.1.2
 
 Generating Changelog for github.com/filecoin-project/go-fil-markets v1.1.1..d43e9447747b51824c9628e7cff5f2d2c97ae253
