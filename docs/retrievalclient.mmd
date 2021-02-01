@@ -63,6 +63,7 @@ stateDiagram-v2
 	4 --> 8 : ClientEventPaymentChannelErrored
 	5 --> 8 : ClientEventPaymentChannelErrored
 	6 --> 8 : ClientEventPaymentChannelErrored
+	6 --> 13 : <invalid Value>
 	6 --> 4 : ClientEventPaymentChannelCreateInitiated
 	6 --> 24 : ClientEventPaymentChannelAddingFunds
 	22 --> 5 : ClientEventPaymentChannelAddingFunds
@@ -101,6 +102,7 @@ stateDiagram-v2
 	11 --> 13 : ClientEventPaymentSent
 	12 --> 19 : ClientEventPaymentSent
 	13 --> 21 : ClientEventComplete
+	18 --> 21 : ClientEventComplete
 	19 --> 15 : ClientEventComplete
 	21 --> 15 : ClientEventCompleteVerified
 	21 --> 17 : ClientEventEarlyTermination
