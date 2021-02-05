@@ -1,5 +1,17 @@
 # go-fil-markets changelog
 
+# go-fil-markets v1.1.7
+
+- github.com/filecoin-project/go-fil-markets:
+  - Better storage fsm error handling (#484) ([filecoin-project/go-fil-markets#484](https://github.com/filecoin-project/go-fil-markets/pull/484))
+  - release: v1.1.6 (#485) ([filecoin-project/go-fil-markets#485](https://github.com/filecoin-project/go-fil-markets/pull/485))
+
+Contributors
+
+| Contributor | Commits | Lines ± | Files Changed |
+|-------------|---------|---------|---------------|
+| dirkmc | 2 | +91/-20 | 3 |
+
 # go-fil-markets v1.1.6
 
 - github.com/filecoin-project/go-fil-markets:
