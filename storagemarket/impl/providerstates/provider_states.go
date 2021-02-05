@@ -307,8 +307,8 @@ func HandoffDeal(ctx fsm.Context, environment ProviderDealEnvironment, deal stor
 
 	var packingInfo *storagemarket.PackingResult
 	if deal.PiecePath != "" {
-		// In earlier versions of lotus the piece data was written to disk, so
-		// if PiecePath is set, create a Reader from the file path.
+		// Data for offline deals is stored on disk, so if PiecePath is set,
+		// create a Reader from the file path
 		file, err := environment.FileStore().Open(deal.PiecePath)
 		if err != nil {
 			return ctx.Trigger(storagemarket.ProviderEventFileStoreErrored,
@@ -325,7 +325,7 @@ func HandoffDeal(ctx fsm.Context, environment ProviderDealEnvironment, deal stor
 		// Create a reader to read the piece from the blockstore
 		pieceReader, pieceSize, err, writeErrChan := environment.GeneratePieceReader(deal.StoreID, deal.Ref.Root, shared.AllSelector())
 		if err != nil {
-			err := xerrors.Errorf("reading piece %s from store %d: %w", deal.Ref.Root, deal.StoreID, err)
+			err := xerrors.Errorf("reading piece %s from store %d: %w", deal.Ref.PieceCid, deal.StoreID, err)
 			return ctx.Trigger(storagemarket.ProviderEventDealHandoffFailed, err)
 		}
 
@@ -336,7 +336,7 @@ func HandoffDeal(ctx fsm.Context, environment ProviderDealEnvironment, deal stor
 		// Close the read side of the pipe
 		err = pieceReader.Close()
 		if err != nil {
-			err = xerrors.Errorf("closing reader for piece %s from store %d: %w", deal.Ref.Root, deal.StoreID, err)
+			err = xerrors.Errorf("closing reader for piece %s from store %d: %w", deal.Ref.PieceCid, deal.StoreID, err)
 			return triggerHandoffFailed(err, packingErr)
 		}
 
@@ -344,22 +344,22 @@ func HandoffDeal(ctx fsm.Context, environment ProviderDealEnvironment, deal stor
 		select {
 		case <-ctx.Context().Done():
 			return ctx.Trigger(storagemarket.ProviderEventDealHandoffFailed,
-				xerrors.Errorf("writing piece %s never finished: %w", deal.Ref.Root, ctx.Context().Err()))
+				xerrors.Errorf("writing piece %s never finished: %w", deal.Ref.PieceCid, ctx.Context().Err()))
 		case err = <-writeErrChan:
 			if err != nil {
-				err = xerrors.Errorf("writing piece %s: %w", deal.Ref.Root, err)
+				err = xerrors.Errorf("writing piece %s: %w", deal.Ref.PieceCid, err)
 				return triggerHandoffFailed(err, packingErr)
 			}
 		}
 
 		if packingErr != nil {
-			err = xerrors.Errorf("packing piece %s: %w", deal.Ref.Root, packingErr)
+			err = xerrors.Errorf("packing piece %s: %w", deal.Ref.PieceCid, packingErr)
 			return ctx.Trigger(storagemarket.ProviderEventDealHandoffFailed, err)
 		}
 	}
 
 	if err := recordPiece(environment, deal, packingInfo.SectorNumber, packingInfo.Offset, packingInfo.Size); err != nil {
-		err = xerrors.Errorf("failed to register deal data for piece %s for retrieval: %w", deal.Ref.Root, err)
+		err = xerrors.Errorf("failed to register deal data for piece %s for retrieval: %w", deal.Ref.PieceCid, err)
 		log.Error(err.Error())
 		_ = ctx.Trigger(storagemarket.ProviderEventPieceStoreErrored, err)
 	}

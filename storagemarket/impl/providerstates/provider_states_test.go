@@ -650,7 +650,7 @@ func TestHandoffDeal(t *testing.T) {
 			},
 			dealInspector: func(t *testing.T, deal storagemarket.MinerDeal, env *fakeEnvironment) {
 				tut.AssertDealState(t, storagemarket.StorageDealAwaitingPreCommit, deal.State)
-				require.Equal(t, fmt.Sprintf("recording piece for retrieval: failed to register deal data for piece %s for retrieval: failed to load block locations: file not found", deal.Ref.Root), deal.Message)
+				require.Equal(t, fmt.Sprintf("recording piece for retrieval: failed to register deal data for piece %s for retrieval: failed to load block locations: file not found", deal.Ref.PieceCid), deal.Message)
 			},
 		},
 		"add piece block locations errors": {
@@ -667,7 +667,7 @@ func TestHandoffDeal(t *testing.T) {
 			},
 			dealInspector: func(t *testing.T, deal storagemarket.MinerDeal, env *fakeEnvironment) {
 				tut.AssertDealState(t, storagemarket.StorageDealAwaitingPreCommit, deal.State)
-				require.Equal(t, fmt.Sprintf("recording piece for retrieval: failed to register deal data for piece %s for retrieval: failed to add piece block locations: could not add block locations", deal.Ref.Root), deal.Message)
+				require.Equal(t, fmt.Sprintf("recording piece for retrieval: failed to register deal data for piece %s for retrieval: failed to add piece block locations: could not add block locations", deal.Ref.PieceCid), deal.Message)
 			},
 		},
 		"add deal for piece errors": {
@@ -684,7 +684,7 @@ func TestHandoffDeal(t *testing.T) {
 			},
 			dealInspector: func(t *testing.T, deal storagemarket.MinerDeal, env *fakeEnvironment) {
 				tut.AssertDealState(t, storagemarket.StorageDealAwaitingPreCommit, deal.State)
-				require.Equal(t, fmt.Sprintf("recording piece for retrieval: failed to register deal data for piece %s for retrieval: failed to add deal for piece: could not add deal info", deal.Ref.Root), deal.Message)
+				require.Equal(t, fmt.Sprintf("recording piece for retrieval: failed to register deal data for piece %s for retrieval: failed to add deal for piece: could not add deal info", deal.Ref.PieceCid), deal.Message)
 			},
 		},
 		"opening file errors": {
@@ -721,7 +721,7 @@ func TestHandoffDeal(t *testing.T) {
 			},
 			dealInspector: func(t *testing.T, deal storagemarket.MinerDeal, env *fakeEnvironment) {
 				tut.AssertDealState(t, storagemarket.StorageDealFailing, deal.State)
-				require.Equal(t, fmt.Sprintf("handing off deal to node: reading piece %s from store %d: something went wrong", deal.Ref.Root, deal.StoreID), deal.Message)
+				require.Equal(t, fmt.Sprintf("handing off deal to node: reading piece %s from store %d: something went wrong", deal.Ref.PieceCid, deal.StoreID), deal.Message)
 			},
 		},
 		"assemble piece on demand fails async": {
@@ -733,7 +733,7 @@ func TestHandoffDeal(t *testing.T) {
 			},
 			dealInspector: func(t *testing.T, deal storagemarket.MinerDeal, env *fakeEnvironment) {
 				tut.AssertDealState(t, storagemarket.StorageDealFailing, deal.State)
-				require.Equal(t, fmt.Sprintf("handing off deal to node: writing piece %s: something went wrong", deal.Ref.Root), deal.Message)
+				require.Equal(t, fmt.Sprintf("handing off deal to node: writing piece %s: something went wrong", deal.Ref.PieceCid), deal.Message)
 			},
 		},
 		"assemble piece on demand fails closing reader": {
@@ -745,7 +745,7 @@ func TestHandoffDeal(t *testing.T) {
 			},
 			dealInspector: func(t *testing.T, deal storagemarket.MinerDeal, env *fakeEnvironment) {
 				tut.AssertDealState(t, storagemarket.StorageDealFailing, deal.State)
-				require.Equal(t, fmt.Sprintf("handing off deal to node: closing reader for piece %s from store %d: something went wrong", deal.Ref.Root, deal.StoreID), deal.Message)
+				require.Equal(t, fmt.Sprintf("handing off deal to node: closing reader for piece %s from store %d: something went wrong", deal.Ref.PieceCid, deal.StoreID), deal.Message)
 			},
 		},
 		"assemble piece on demand fails closing reader and OnComplete fails": {
@@ -760,7 +760,7 @@ func TestHandoffDeal(t *testing.T) {
 			},
 			dealInspector: func(t *testing.T, deal storagemarket.MinerDeal, env *fakeEnvironment) {
 				tut.AssertDealState(t, storagemarket.StorageDealFailing, deal.State)
-				require.Equal(t, fmt.Sprintf("handing off deal to node: closing reader for piece %s from store %d: close reader failed: packing error: failed building sector", deal.Ref.Root, deal.StoreID), deal.Message)
+				require.Equal(t, fmt.Sprintf("handing off deal to node: closing reader for piece %s from store %d: close reader failed: packing error: failed building sector", deal.Ref.PieceCid, deal.StoreID), deal.Message)
 			},
 		},
 		"assemble piece on demand fails async and OnComplete fails": {
@@ -775,7 +775,7 @@ func TestHandoffDeal(t *testing.T) {
 			},
 			dealInspector: func(t *testing.T, deal storagemarket.MinerDeal, env *fakeEnvironment) {
 				tut.AssertDealState(t, storagemarket.StorageDealFailing, deal.State)
-				require.Equal(t, fmt.Sprintf("handing off deal to node: writing piece %s: async err: packing error: failed building sector", deal.Ref.Root), deal.Message)
+				require.Equal(t, fmt.Sprintf("handing off deal to node: writing piece %s: async err: packing error: failed building sector", deal.Ref.PieceCid), deal.Message)
 			},
 		},
 	}
