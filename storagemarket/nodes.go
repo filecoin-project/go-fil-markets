@@ -77,12 +77,22 @@ type PackingResult struct {
 	Size         abi.PaddedPieceSize
 }
 
+// PublishDealsWaitResult is the result of a call to wait for publish deals to
+// appear on chain
+type PublishDealsWaitResult struct {
+	DealID   abi.DealID
+	FinalCid cid.Cid
+}
+
 // StorageProviderNode are node dependencies for a StorageProvider
 type StorageProviderNode interface {
 	StorageCommon
 
 	// PublishDeals publishes a deal on chain, returns the message cid, but does not wait for message to appear
 	PublishDeals(ctx context.Context, deal MinerDeal) (cid.Cid, error)
+
+	// WaitForPublishDeals waits for a deal publish message to land on chain.
+	WaitForPublishDeals(ctx context.Context, mcid cid.Cid, proposal market.DealProposal) (*PublishDealsWaitResult, error)
 
 	// OnDealComplete is called when a deal is complete and on chain, and data has been transferred and is ready to be added to a sector
 	OnDealComplete(ctx context.Context, deal MinerDeal, pieceSize abi.UnpaddedPieceSize, pieceReader io.Reader) (*PackingResult, error)

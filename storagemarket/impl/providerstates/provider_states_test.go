@@ -527,7 +527,7 @@ func TestWaitForPublish(t *testing.T) {
 	eventProcessor, err := fsm.NewEventProcessor(storagemarket.MinerDeal{}, "State", providerstates.ProviderEvents)
 	require.NoError(t, err)
 	runWaitForPublish := makeExecutor(ctx, eventProcessor, providerstates.WaitForPublish, storagemarket.StorageDealPublishing)
-	expDealID, psdReturnBytes := generatePublishDealsReturn(t)
+	expDealID := abi.DealID(10)
 	finalCid := tut.GenerateCids(10)[9]
 
 	tests := map[string]struct {
@@ -543,7 +543,7 @@ func TestWaitForPublish(t *testing.T) {
 				ReserveFunds: true,
 			},
 			nodeParams: nodeParams{
-				WaitForMessageRetBytes:   psdReturnBytes,
+				PublishDealID:            expDealID,
 				WaitForMessagePublishCid: finalCid,
 			},
 			dealInspector: func(t *testing.T, deal storagemarket.MinerDeal, env *fakeEnvironment) {
@@ -556,7 +556,8 @@ func TestWaitForPublish(t *testing.T) {
 		},
 		"succeeds, funds already released": {
 			nodeParams: nodeParams{
-				WaitForMessageRetBytes: psdReturnBytes,
+				PublishDealID:            expDealID,
+				WaitForMessagePublishCid: finalCid,
 			},
 			dealInspector: func(t *testing.T, deal storagemarket.MinerDeal, env *fakeEnvironment) {
 				tut.AssertDealState(t, storagemarket.StorageDealStaged, deal.State)
@@ -566,11 +567,11 @@ func TestWaitForPublish(t *testing.T) {
 		},
 		"PublishStorageDeal errors": {
 			nodeParams: nodeParams{
-				WaitForMessageExitCode: exitcode.SysErrForbidden,
+				WaitForPublishDealsError: errors.New("wait publish err"),
 			},
 			dealInspector: func(t *testing.T, deal storagemarket.MinerDeal, env *fakeEnvironment) {
 				tut.AssertDealState(t, storagemarket.StorageDealFailing, deal.State)
-				require.Equal(t, "PublishStorageDeal error: PublishStorageDeals exit code: SysErrForbidden(8)", deal.Message)
+				require.Equal(t, "PublishStorageDeal error: PublishStorageDeals errored: wait publish err", deal.Message)
 			},
 		},
 	}
@@ -1116,6 +1117,8 @@ type nodeParams struct {
 	PieceLength                         uint64
 	PieceSectorID                       uint64
 	PublishDealsError                   error
+	PublishDealID                       abi.DealID
+	WaitForPublishDealsError            error
 	OnDealCompleteError                 error
 	LocatePieceForDealWithinSectorError error
 	PreCommittedSectorNumber            abi.SectorNumber
@@ -1242,6 +1245,8 @@ func makeExecutor(ctx context.Context,
 			PieceLength:                         nodeParams.PieceLength,
 			PieceSectorID:                       nodeParams.PieceSectorID,
 			PublishDealsError:                   nodeParams.PublishDealsError,
+			PublishDealID:                       nodeParams.PublishDealID,
+			WaitForPublishDealsError:            nodeParams.WaitForPublishDealsError,
 			OnDealCompleteError:                 nodeParams.OnDealCompleteError,
 			LocatePieceForDealWithinSectorError: nodeParams.LocatePieceForDealWithinSectorError,
 			DataCap:                             nodeParams.DataCap,

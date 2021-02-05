@@ -1,7 +1,6 @@
 package providerstates
 
 import (
-	"bytes"
 	"context"
 	"errors"
 	"fmt"
@@ -274,25 +273,19 @@ func PublishDeal(ctx fsm.Context, environment ProviderDealEnvironment, deal stor
 	return ctx.Trigger(storagemarket.ProviderEventDealPublishInitiated, mcid)
 }
 
-// WaitForPublish waits for the publish message on chain and sends the deal id back to the client
+// WaitForPublish waits for the publish message on chain and saves the deal id
+// so it can be sent back to the client
 func WaitForPublish(ctx fsm.Context, environment ProviderDealEnvironment, deal storagemarket.MinerDeal) error {
-	return environment.Node().WaitForMessage(ctx.Context(), *deal.PublishCid, func(code exitcode.ExitCode, retBytes []byte, finalCid cid.Cid, err error) error {
-		if err != nil {
-			return ctx.Trigger(storagemarket.ProviderEventDealPublishError, xerrors.Errorf("PublishStorageDeals errored: %w", err))
-		}
-		if code != exitcode.Ok {
-			return ctx.Trigger(storagemarket.ProviderEventDealPublishError, xerrors.Errorf("PublishStorageDeals exit code: %s", code.String()))
-		}
-		var retval market.PublishStorageDealsReturn
-		err = retval.UnmarshalCBOR(bytes.NewReader(retBytes))
-		if err != nil {
-			return ctx.Trigger(storagemarket.ProviderEventDealPublishError, xerrors.Errorf("PublishStorageDeals error unmarshalling result: %w", err))
-		}
+	res, err := environment.Node().WaitForPublishDeals(ctx.Context(), *deal.PublishCid, deal.Proposal)
+	if err != nil {
+		return ctx.Trigger(storagemarket.ProviderEventDealPublishError, xerrors.Errorf("PublishStorageDeals errored: %w", err))
+	}
 
-		releaseReservedFunds(ctx, environment, deal)
+	// Once the deal has been published, release funds that were reserved
+	// for deal publishing
+	releaseReservedFunds(ctx, environment, deal)
 
-		return ctx.Trigger(storagemarket.ProviderEventDealPublished, retval.IDs[0], finalCid)
-	})
+	return ctx.Trigger(storagemarket.ProviderEventDealPublished, res.DealID, res.FinalCid)
 }
 
 // HandoffDeal hands off a published deal for sealing and commitment in a sector
