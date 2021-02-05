@@ -1,5 +1,16 @@
 # go-fil-markets changelog
 
+# go-fil-markets v1.1.6
+
+- github.com/filecoin-project/go-fil-markets:
+  - fix: move publish deals msg response parsing from markets into lotus (#475) ([filecoin-project/go-fil-markets#475](https://github.com/filecoin-project/go-fil-markets/pull/475))
+
+Contributors
+
+| Contributor | Commits | Lines ± | Files Changed |
+|-------------|---------|---------|---------------|
+| dirkmc | 2 | +60/-22 | 5 |
+
 # go-fil-markets v1.1.5
 
 - github.com/filecoin-project/go-fil-markets:
