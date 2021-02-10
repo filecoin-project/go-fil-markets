@@ -1,5 +1,16 @@
 # go-fil-markets changelog
 
+# go-fil-markets v1.1.8
+
+- github.com/filecoin-project/go-fil-markets:
+  - feat: add RawBlockSize to DataRef (#487) ([filecoin-project/go-fil-markets#487](https://github.com/filecoin-project/go-fil-markets/pull/487))
+
+Contributors
+
+| Contributor | Commits | Lines ± | Files Changed |
+|-------------|---------|---------|---------------|
+| dirkmc | 2 | +47/-3 | 3 |
+
 # go-fil-markets v1.1.7
 
 - github.com/filecoin-project/go-fil-markets:
