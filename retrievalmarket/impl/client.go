@@ -3,6 +3,9 @@ package retrievalimpl
 import (
 	"context"
 	"errors"
+	"fmt"
+	"sync"
+	"time"
 
 	"github.com/hannahhoward/go-pubsub"
 	"github.com/ipfs/go-cid"
@@ -45,6 +48,7 @@ type Client struct {
 	resolver             discovery.PeerResolver
 	stateMachines        fsm.Group
 	migrateStateMachines func(context.Context) error
+	stats                *internalStats
 }
 
 type internalEvent struct {
@@ -86,6 +90,7 @@ func NewClient(
 		storedCounter: storedCounter,
 		subscribers:   pubsub.New(dispatcher),
 		readySub:      pubsub.New(shared.ReadyDispatcher),
+		stats:         newRetrievalStats(),
 	}
 	retrievalMigrations, err := migrations.ClientMigrations.Build()
 	if err != nil {
@@ -140,6 +145,51 @@ func NewClient(
 	return c, nil
 }
 
+type measurement struct {
+	size    uint64
+	average uint64
+}
+
+// Stats gathered from the execution of a retrieval
+type internalStats struct {
+	lk sync.RWMutex
+	m  map[string]*measurement
+}
+
+// NewRetrievalStats starts data structure to gather metrics.
+func newRetrievalStats() *internalStats {
+	return &internalStats{
+		m: make(map[string]*measurement, 0),
+	}
+}
+
+// Update retrieval stats
+func (s *internalStats) update(metric string, value uint64) {
+	s.lk.Lock()
+	defer s.lk.Unlock()
+	// Check if initialized
+	if s.m[metric] == nil {
+		fmt.Println(s.m[metric])
+		s.m[metric] = &measurement{}
+	}
+	// Compute average
+	s.m[metric].average = (s.m[metric].average*s.m[metric].size + value) / (s.m[metric].size + 1)
+	// Update size
+	s.m[metric].size++
+}
+
+// Stats returns retreival stats
+func (c *Client) Stats() retrievalmarket.RetrievalStats {
+	c.stats.lk.RLock()
+	defer c.stats.lk.RUnlock()
+	out := make(retrievalmarket.RetrievalStats)
+	for k, v := range c.stats.m {
+		out[k] = v.average
+	}
+
+	return out
+}
+
 // Start initialized the Client, performing relevant database migrations
 func (c *Client) Start(ctx context.Context) error {
 	go func() {
@@ -162,11 +212,13 @@ func (c *Client) OnReady(ready shared.ReadyFunc) {
 
 // FindProviders uses PeerResolver interface to locate a list of providers who may have a given payload CID.
 func (c *Client) FindProviders(payloadCID cid.Cid) []retrievalmarket.RetrievalPeer {
+	t := time.Now()
 	peers, err := c.resolver.GetPeers(payloadCID)
 	if err != nil {
 		log.Errorf("failed to get peers: %s", err)
 		return []retrievalmarket.RetrievalPeer{}
 	}
+	c.stats.update("findProviders", uint64(time.Since(t).Nanoseconds()))
 	return peers
 }
 
@@ -179,6 +231,7 @@ The client creates a new `RetrievalQueryStream` for the chosen peer ID,
 and calls `WriteQuery` on it, which constructs a data-transfer message and writes it to the Query stream.
 */
 func (c *Client) Query(ctx context.Context, p retrievalmarket.RetrievalPeer, payloadCID cid.Cid, params retrievalmarket.QueryParams) (retrievalmarket.QueryResponse, error) {
+	t := time.Now()
 	err := c.addMultiaddrs(ctx, p)
 	if err != nil {
 		log.Warn(err)
@@ -200,7 +253,9 @@ func (c *Client) Query(ctx context.Context, p retrievalmarket.RetrievalPeer, pay
 		return retrievalmarket.QueryResponseUndefined, err
 	}
 
-	return s.ReadQueryResponse()
+	r, err := s.ReadQueryResponse()
+	c.stats.update("query", uint64(time.Since(t).Nanoseconds()))
+	return r, err
 }
 
 /*

@@ -47,6 +47,9 @@ type RetrievalClient interface {
 		storeID *multistore.StoreID,
 	) (DealID, error)
 
+	// Stats returns stats from the retrieval client implementation
+	Stats() RetrievalStats
+
 	// SubscribeToEvents listens for events that happen related to client retrievals
 	SubscribeToEvents(subscriber ClientSubscriber) Unsubscribe
 
