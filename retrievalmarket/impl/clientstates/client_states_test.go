@@ -50,6 +50,10 @@ func (e *fakeEnvironment) SendDataTransferVoucher(_ context.Context, _ datatrans
 	return e.SendDataTransferVoucherError
 }
 
+func (e *fakeEnvironment) CollectStats(key string, value uint64, average bool) {
+	return
+}
+
 func (e *fakeEnvironment) CloseDataTransfer(_ context.Context, _ datatransfer.ChannelID) error {
 	return e.CloseDataTransferError
 }

@@ -2,6 +2,7 @@ package clientstates
 
 import (
 	"context"
+	"time"
 
 	peer "github.com/libp2p/go-libp2p-core/peer"
 
@@ -22,6 +23,7 @@ type ClientDealEnvironment interface {
 	OpenDataTransfer(ctx context.Context, to peer.ID, proposal *rm.DealProposal, legacy bool) (datatransfer.ChannelID, error)
 	SendDataTransferVoucher(context.Context, datatransfer.ChannelID, *rm.DealPayment, bool) error
 	CloseDataTransfer(context.Context, datatransfer.ChannelID) error
+	CollectStats(key string, value uint64, average bool)
 }
 
 // ProposeDeal sends the proposal to the other party
@@ -40,7 +42,7 @@ func SetupPaymentChannelStart(ctx fsm.Context, environment ClientDealEnvironment
 	if deal.TotalFunds.IsZero() {
 		return ctx.Trigger(rm.ClientEventPaymentChannelSkip)
 	}
-
+	t := time.Now()
 	tok, _, err := environment.Node().GetChainHead(ctx.Context())
 	if err != nil {
 		return ctx.Trigger(rm.ClientEventPaymentChannelErrored, err)
@@ -54,25 +56,30 @@ func SetupPaymentChannelStart(ctx fsm.Context, environment ClientDealEnvironment
 	if paych == address.Undef {
 		return ctx.Trigger(rm.ClientEventPaymentChannelCreateInitiated, msgCID)
 	}
-
+	environment.CollectStats("setup_payment_channel", uint64(time.Since(t).Nanoseconds()), true)
 	return ctx.Trigger(rm.ClientEventPaymentChannelAddingFunds, msgCID, paych)
 }
 
 // WaitPaymentChannelReady waits for a pending operation on a payment channel -- either creating or depositing funds
 func WaitPaymentChannelReady(ctx fsm.Context, environment ClientDealEnvironment, deal rm.ClientDealState) error {
+	t := time.Now()
 	paych, err := environment.Node().WaitForPaymentChannelReady(ctx.Context(), *deal.WaitMsgCID)
 	if err != nil {
 		return ctx.Trigger(rm.ClientEventPaymentChannelErrored, err)
 	}
+
+	environment.CollectStats("wait_payment_channel", uint64(time.Since(t).Nanoseconds()), true)
 	return ctx.Trigger(rm.ClientEventPaymentChannelReady, paych)
 }
 
 // AllocateLane allocates a lane for this retrieval operation
 func AllocateLane(ctx fsm.Context, environment ClientDealEnvironment, deal rm.ClientDealState) error {
+	t := time.Now()
 	lane, err := environment.Node().AllocateLane(ctx.Context(), deal.PaymentInfo.PayCh)
 	if err != nil {
 		return ctx.Trigger(rm.ClientEventAllocateLaneErrored, err)
 	}
+	environment.CollectStats("allocate_lane", uint64(time.Since(t).Nanoseconds()), true)
 	return ctx.Trigger(rm.ClientEventLaneAllocated, lane)
 }
 
@@ -124,6 +131,7 @@ func SendFunds(ctx fsm.Context, environment ClientDealEnvironment, deal rm.Clien
 		return ctx.Trigger(rm.ClientEventCreateVoucherFailed, err)
 	}
 
+	t := time.Now()
 	// send payment voucher (or fail)
 	err = environment.SendDataTransferVoucher(ctx.Context(), deal.ChannelID, &rm.DealPayment{
 		ID:             deal.DealProposal.ID,
@@ -133,7 +141,10 @@ func SendFunds(ctx fsm.Context, environment ClientDealEnvironment, deal rm.Clien
 	if err != nil {
 		return ctx.Trigger(rm.ClientEventWriteDealPaymentErrored, err)
 	}
-
+	environment.CollectStats("send_voucher", uint64(time.Since(t).Nanoseconds()), true)
+	environment.CollectStats("num_sent_funds", 1, false)
+	// TODO: In case we want to monitor the amount sent in each voucher.
+	// environment.CollectStats("amount_send_funds", xxxx , false)
 	return ctx.Trigger(rm.ClientEventPaymentSent)
 }
 

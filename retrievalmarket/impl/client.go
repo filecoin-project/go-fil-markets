@@ -146,8 +146,8 @@ func NewClient(
 }
 
 type measurement struct {
-	size    uint64
-	average uint64
+	size  uint64
+	value uint64
 }
 
 // Stats gathered from the execution of a retrieval
@@ -173,9 +173,27 @@ func (s *internalStats) update(metric string, value uint64) {
 		s.m[metric] = &measurement{}
 	}
 	// Compute average
-	s.m[metric].average = (s.m[metric].average*s.m[metric].size + value) / (s.m[metric].size + 1)
+	s.m[metric].value = (s.m[metric].value*s.m[metric].size + value) / (s.m[metric].size + 1)
 	// Update size
 	s.m[metric].size++
+}
+
+// Update retrieval stats
+func (s *internalStats) increment(metric string, value uint64) {
+	s.lk.Lock()
+	defer s.lk.Unlock()
+	// Check if initialized
+	if s.m[metric] == nil {
+		fmt.Println(s.m[metric])
+		s.m[metric] = &measurement{}
+	}
+	// Increment
+	s.m[metric].value += value
+}
+
+// UpdateRetrievalStat with value public function
+func (c *Client) UpdateRetrievalStat(metric string, value uint64) {
+	c.stats.update(metric, value)
 }
 
 // Stats returns retreival stats
@@ -184,7 +202,7 @@ func (c *Client) Stats() retrievalmarket.RetrievalStats {
 	defer c.stats.lk.RUnlock()
 	out := make(retrievalmarket.RetrievalStats)
 	for k, v := range c.stats.m {
-		out[k] = v.average
+		out[k] = v.value
 	}
 
 	return out
@@ -421,6 +439,14 @@ type clientDealEnvironment struct {
 // Node returns the node interface for this deal
 func (c *clientDealEnvironment) Node() retrievalmarket.RetrievalClientNode {
 	return c.c.node
+}
+
+func (c *clientDealEnvironment) CollectStats(metric string, value uint64, average bool) {
+	if average {
+		c.c.stats.update(metric, value)
+	} else {
+		c.c.stats.increment(metric, value)
+	}
 }
 
 func (c *clientDealEnvironment) OpenDataTransfer(ctx context.Context, to peer.ID, proposal *retrievalmarket.DealProposal, legacy bool) (datatransfer.ChannelID, error) {
