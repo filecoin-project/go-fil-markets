@@ -49,6 +49,8 @@ type RetrievalClient interface {
 
 	// Stats returns stats from the retrieval client implementation
 	Stats() RetrievalStats
+	// ResetStats resets all the retrieval stats.
+	ResetStats()
 
 	// SubscribeToEvents listens for events that happen related to client retrievals
 	SubscribeToEvents(subscriber ClientSubscriber) Unsubscribe

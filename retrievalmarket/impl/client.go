@@ -208,6 +208,13 @@ func (c *Client) Stats() retrievalmarket.RetrievalStats {
 	return out
 }
 
+// ResetStats resets all the retrieval stats
+func (c *Client) ResetStats() {
+	c.stats.lk.RLock()
+	defer c.stats.lk.RUnlock()
+	c.stats.m = make(map[string]*measurement, 0)
+}
+
 // Start initialized the Client, performing relevant database migrations
 func (c *Client) Start(ctx context.Context) error {
 	go func() {

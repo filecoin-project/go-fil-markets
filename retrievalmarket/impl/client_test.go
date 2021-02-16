@@ -136,6 +136,11 @@ func TestClient_Query(t *testing.T) {
 		if s["query"] == 0 {
 			t.Fatal()
 		}
+		c.ResetStats()
+		s = c.Stats()
+		if s["query"] != 0 {
+			t.Fatal()
+		}
 	})
 
 	t.Run("when the stream returns error, returns error", func(t *testing.T) {
