@@ -18,7 +18,7 @@ import (
 	"github.com/filecoin-project/go-fil-markets/retrievalmarket"
 )
 
-//go:generate cbor-gen-for Query0 QueryResponse0 DealProposal0 DealResponse0 Params0 QueryParams0 DealPayment0 ClientDealState0 ProviderDealState0 PaymentInfo0 RetrievalPeer0 Ask0
+//go:generate cbor-gen-for Query0 QueryResponse0 DealProposal0 DealResponse0 Params0 QueryParams0 DealPayment0 ClientDealState0 ClientDealState1 ProviderDealState0 PaymentInfo0 RetrievalPeer0 Ask0
 
 // PaymentInfo0 is version 0 of PaymentInfo
 type PaymentInfo0 struct {
@@ -48,6 +48,31 @@ type ClientDealState0 struct {
 	UnsealFundsPaid      abi.TokenAmount
 	WaitMsgCID           *cid.Cid // the CID of any message the client deal is waiting for
 	VoucherShortfall     abi.TokenAmount
+}
+
+// ClientDealState0 is version 1 of ClientDealState
+type ClientDealState1 struct {
+	retrievalmarket.DealProposal
+	StoreID              *multistore.StoreID
+	ChannelID            datatransfer.ChannelID
+	LastPaymentRequested bool
+	AllBlocksReceived    bool
+	TotalFunds           abi.TokenAmount
+	ClientWallet         address.Address
+	MinerWallet          address.Address
+	PaymentInfo          *retrievalmarket.PaymentInfo
+	Status               retrievalmarket.DealStatus
+	Sender               peer.ID
+	TotalReceived        uint64
+	Message              string
+	BytesPaidFor         uint64
+	CurrentInterval      uint64
+	PaymentRequested     abi.TokenAmount
+	FundsSpent           abi.TokenAmount
+	UnsealFundsPaid      abi.TokenAmount
+	WaitMsgCID           *cid.Cid
+	VoucherShortfall     abi.TokenAmount
+	LegacyProtocol       bool
 }
 
 // ProviderDealState0 is version 0 of ProviderDealState
@@ -247,8 +272,8 @@ func MigratePaymentInfo0To1(oldPi *PaymentInfo0) *retrievalmarket.PaymentInfo {
 }
 
 // MigrateClientDealState0To1 migrates a tuple encoded deal state to a map encoded deal state
-func MigrateClientDealState0To1(oldDs *ClientDealState0) (*retrievalmarket.ClientDealState, error) {
-	return &retrievalmarket.ClientDealState{
+func MigrateClientDealState0To1(oldDs *ClientDealState0) (*ClientDealState1, error) {
+	return &ClientDealState1{
 		DealProposal:         MigrateDealProposal0To1(oldDs.DealProposal0),
 		StoreID:              oldDs.StoreID,
 		ChannelID:            oldDs.ChannelID,
@@ -258,6 +283,40 @@ func MigrateClientDealState0To1(oldDs *ClientDealState0) (*retrievalmarket.Clien
 		ClientWallet:         oldDs.ClientWallet,
 		MinerWallet:          oldDs.MinerWallet,
 		PaymentInfo:          MigratePaymentInfo0To1(oldDs.PaymentInfo),
+		Status:               oldDs.Status,
+		Sender:               oldDs.Sender,
+		TotalReceived:        oldDs.TotalReceived,
+		Message:              oldDs.Message,
+		BytesPaidFor:         oldDs.BytesPaidFor,
+		CurrentInterval:      oldDs.CurrentInterval,
+		PaymentRequested:     oldDs.PaymentRequested,
+		FundsSpent:           oldDs.FundsSpent,
+		UnsealFundsPaid:      oldDs.UnsealFundsPaid,
+		WaitMsgCID:           oldDs.WaitMsgCID,
+		VoucherShortfall:     oldDs.VoucherShortfall,
+		LegacyProtocol:       true,
+	}, nil
+}
+
+// MigrateClientDealState1To2 migrates from v1 to v2 of a ClientDealState.
+// The difference is that in v2 the ChannelID is a pointer, because the
+// ChannelID is not set until the data transfer has started, so it should
+// initially be nil.
+func MigrateClientDealState1To2(oldDs *ClientDealState1) (*retrievalmarket.ClientDealState, error) {
+	var chid *datatransfer.ChannelID
+	if oldDs.ChannelID.Initiator != "" && oldDs.ChannelID.Responder != "" {
+		chid = &oldDs.ChannelID
+	}
+	return &retrievalmarket.ClientDealState{
+		DealProposal:         oldDs.DealProposal,
+		StoreID:              oldDs.StoreID,
+		ChannelID:            chid,
+		LastPaymentRequested: oldDs.LastPaymentRequested,
+		AllBlocksReceived:    oldDs.AllBlocksReceived,
+		TotalFunds:           oldDs.TotalFunds,
+		ClientWallet:         oldDs.ClientWallet,
+		MinerWallet:          oldDs.MinerWallet,
+		PaymentInfo:          oldDs.PaymentInfo,
 		Status:               oldDs.Status,
 		Sender:               oldDs.Sender,
 		TotalReceived:        oldDs.TotalReceived,
@@ -310,7 +369,8 @@ func MigrateAsk0To1(oldAsk *Ask0) (*retrievalmarket.Ask, error) {
 
 // ClientMigrations are migrations for the client's store of retrieval deals
 var ClientMigrations = versioned.BuilderList{
-	versioned.NewVersionedBuilder(MigrateClientDealState0To1, versioning.VersionKey("1")),
+	versioned.NewVersionedBuilder(MigrateClientDealState0To1, "1"),
+	versioned.NewVersionedBuilder(MigrateClientDealState1To2, "2").OldVersion("1"),
 }
 
 // ProviderMigrations are migrations for the providers's store of retrieval deals

@@ -125,7 +125,7 @@ func SendFunds(ctx fsm.Context, environment ClientDealEnvironment, deal rm.Clien
 	}
 
 	// send payment voucher (or fail)
-	err = environment.SendDataTransferVoucher(ctx.Context(), deal.ChannelID, &rm.DealPayment{
+	err = environment.SendDataTransferVoucher(ctx.Context(), *deal.ChannelID, &rm.DealPayment{
 		ID:             deal.DealProposal.ID,
 		PaymentChannel: deal.PaymentInfo.PayCh,
 		PaymentVoucher: voucher,
@@ -164,10 +164,13 @@ func CheckFunds(ctx fsm.Context, environment ClientDealEnvironment, deal rm.Clie
 
 // CancelDeal clears a deal that went wrong for an unknown reason
 func CancelDeal(ctx fsm.Context, environment ClientDealEnvironment, deal rm.ClientDealState) error {
-	// Read next response (or fail)
-	err := environment.CloseDataTransfer(ctx.Context(), deal.ChannelID)
-	if err != nil {
-		return ctx.Trigger(rm.ClientEventDataTransferError, err)
+	// If the data transfer has started, cancel it
+	if deal.ChannelID != nil {
+		// Read next response (or fail)
+		err := environment.CloseDataTransfer(ctx.Context(), *deal.ChannelID)
+		if err != nil {
+			return ctx.Trigger(rm.ClientEventDataTransferError, err)
+		}
 	}
 
 	return ctx.Trigger(rm.ClientEventCancelComplete)

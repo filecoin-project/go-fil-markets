@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 
+	datatransfer "github.com/filecoin-project/go-data-transfer"
 	piecestore "github.com/filecoin-project/go-fil-markets/piecestore"
 	multistore "github.com/filecoin-project/go-multistore"
 	paych "github.com/filecoin-project/specs-actors/actors/builtin/paych"
@@ -1697,8 +1698,18 @@ func (t *ClientDealState) UnmarshalCBOR(r io.Reader) error {
 
 			{
 
-				if err := t.ChannelID.UnmarshalCBOR(br); err != nil {
-					return xerrors.Errorf("unmarshaling t.ChannelID: %w", err)
+				b, err := br.ReadByte()
+				if err != nil {
+					return err
+				}
+				if b != cbg.CborNull[0] {
+					if err := br.UnreadByte(); err != nil {
+						return err
+					}
+					t.ChannelID = new(datatransfer.ChannelID)
+					if err := t.ChannelID.UnmarshalCBOR(br); err != nil {
+						return xerrors.Errorf("unmarshaling t.ChannelID pointer: %w", err)
+					}
 				}
 
 			}
