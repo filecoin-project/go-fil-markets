@@ -69,9 +69,11 @@ func UnpauseDeal(ctx fsm.Context, environment ProviderDealEnvironment, deal rm.P
 	if err != nil {
 		return ctx.Trigger(rm.ProviderEventDataTransferError, err)
 	}
-	err = environment.ResumeDataTransfer(ctx.Context(), deal.ChannelID)
-	if err != nil {
-		return ctx.Trigger(rm.ProviderEventDataTransferError, err)
+	if deal.ChannelID != nil {
+		err = environment.ResumeDataTransfer(ctx.Context(), *deal.ChannelID)
+		if err != nil {
+			return ctx.Trigger(rm.ProviderEventDataTransferError, err)
+		}
 	}
 	return nil
 }
@@ -87,9 +89,11 @@ func CancelDeal(ctx fsm.Context, environment ProviderDealEnvironment, deal rm.Pr
 	if err != nil {
 		return ctx.Trigger(rm.ProviderEventMultiStoreError, err)
 	}
-	err = environment.CloseDataTransfer(ctx.Context(), deal.ChannelID)
-	if err != nil && !errors.Is(err, statemachine.ErrTerminated) {
-		return ctx.Trigger(rm.ProviderEventDataTransferError, err)
+	if deal.ChannelID != nil {
+		err = environment.CloseDataTransfer(ctx.Context(), *deal.ChannelID)
+		if err != nil && !errors.Is(err, statemachine.ErrTerminated) {
+			return ctx.Trigger(rm.ProviderEventDataTransferError, err)
+		}
 	}
 	return ctx.Trigger(rm.ProviderEventCancelComplete)
 }

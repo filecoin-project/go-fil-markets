@@ -330,6 +330,12 @@ func TestSendFunds(t *testing.T) {
 		node := testnodes.NewTestRetrievalClientNode(nodeParams)
 		environment := &fakeEnvironment{node, nil, sendDataTransferVoucherError, nil}
 		fsmCtx := fsmtest.NewTestContext(ctx, eventMachine)
+		dealState.ChannelID = &datatransfer.ChannelID{
+			Initiator: "initiator",
+			Responder: dealState.Sender,
+			ID:        1,
+		}
+		dealState.ChannelID.Responder = dealState.Sender
 		err := clientstates.SendFunds(fsmCtx, environment, *dealState)
 		require.NoError(t, err)
 		fsmCtx.ReplayEvents(t, dealState)
@@ -526,6 +532,11 @@ func TestCancelDeal(t *testing.T) {
 		node := testnodes.NewTestRetrievalClientNode(testnodes.TestRetrievalClientNodeParams{})
 		environment := &fakeEnvironment{node, nil, nil, closeError}
 		fsmCtx := fsmtest.NewTestContext(ctx, eventMachine)
+		dealState.ChannelID = &datatransfer.ChannelID{
+			Initiator: "initiator",
+			Responder: dealState.Sender,
+			ID:        1,
+		}
 		err := clientstates.CancelDeal(fsmCtx, environment, *dealState)
 		require.NoError(t, err)
 		fsmCtx.ReplayEvents(t, dealState)

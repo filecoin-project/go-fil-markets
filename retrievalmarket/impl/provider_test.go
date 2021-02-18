@@ -496,7 +496,7 @@ func TestProviderMigrations(t *testing.T) {
 				},
 			},
 			StoreID:   storeIDs[i],
-			ChannelID: channelIDs[i],
+			ChannelID: &channelIDs[i],
 			PieceInfo: &piecestore.PieceInfo{
 				PieceCID: *pieceCIDs[i],
 				Deals: []piecestore.DealInfo{

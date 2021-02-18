@@ -74,7 +74,7 @@ type ClientDealState struct {
 type ProviderDealState struct {
 	DealProposal
 	StoreID         multistore.StoreID
-	ChannelID       datatransfer.ChannelID
+	ChannelID       *datatransfer.ChannelID
 	PieceInfo       *piecestore.PieceInfo
 	Status          DealStatus
 	Receiver        peer.ID

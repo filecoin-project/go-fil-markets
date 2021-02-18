@@ -5,6 +5,8 @@ import (
 	"errors"
 	"sync"
 
+	logging "github.com/ipfs/go-log/v2"
+
 	datatransfer "github.com/filecoin-project/go-data-transfer"
 	"github.com/filecoin-project/go-state-types/abi"
 	"github.com/filecoin-project/go-state-types/big"
@@ -13,6 +15,8 @@ import (
 	rm "github.com/filecoin-project/go-fil-markets/retrievalmarket"
 	"github.com/filecoin-project/go-fil-markets/retrievalmarket/migrations"
 )
+
+var log = logging.Logger("retrieval-revalidator")
 
 // RevalidatorEnvironment are the dependencies needed to
 // build the logic of revalidation -- essentially, access to the node at statemachines
@@ -52,9 +56,15 @@ func NewProviderRevalidator(env RevalidatorEnvironment) *ProviderRevalidator {
 // a given channel ID with a retrieval deal, so that checks run for data sent
 // on the channel
 func (pr *ProviderRevalidator) TrackChannel(deal rm.ProviderDealState) {
+	// Sanity check
+	if deal.ChannelID == nil {
+		log.Errorf("cannot track deal %s: channel ID is nil", deal.ID)
+		return
+	}
+
 	pr.trackedChannelsLk.Lock()
 	defer pr.trackedChannelsLk.Unlock()
-	pr.trackedChannels[deal.ChannelID] = &channelData{
+	pr.trackedChannels[*deal.ChannelID] = &channelData{
 		dealID: deal.Identifier(),
 	}
 	pr.writeDealState(deal)
@@ -63,9 +73,15 @@ func (pr *ProviderRevalidator) TrackChannel(deal rm.ProviderDealState) {
 // UntrackChannel indicates a retrieval deal is finish and no longer is tracked
 // by this provider
 func (pr *ProviderRevalidator) UntrackChannel(deal rm.ProviderDealState) {
+	// Sanity check
+	if deal.ChannelID == nil {
+		log.Errorf("cannot untrack deal %s: channel ID is nil", deal.ID)
+		return
+	}
+
 	pr.trackedChannelsLk.Lock()
 	defer pr.trackedChannelsLk.Unlock()
-	delete(pr.trackedChannels, deal.ChannelID)
+	delete(pr.trackedChannels, *deal.ChannelID)
 }
 
 func (pr *ProviderRevalidator) loadDealState(channel *channelData) error {
@@ -82,7 +98,7 @@ func (pr *ProviderRevalidator) loadDealState(channel *channelData) error {
 }
 
 func (pr *ProviderRevalidator) writeDealState(deal rm.ProviderDealState) {
-	channel := pr.trackedChannels[deal.ChannelID]
+	channel := pr.trackedChannels[*deal.ChannelID]
 	channel.totalSent = deal.TotalSent
 	if !deal.PricePerByte.IsZero() {
 		channel.totalPaidFor = big.Div(big.Max(big.Sub(deal.FundsReceived, deal.UnsealPrice), big.Zero()), deal.PricePerByte).Uint64()

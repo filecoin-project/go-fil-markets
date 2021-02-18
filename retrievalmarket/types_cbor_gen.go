@@ -2236,8 +2236,18 @@ func (t *ProviderDealState) UnmarshalCBOR(r io.Reader) error {
 
 			{
 
-				if err := t.ChannelID.UnmarshalCBOR(br); err != nil {
-					return xerrors.Errorf("unmarshaling t.ChannelID: %w", err)
+				b, err := br.ReadByte()
+				if err != nil {
+					return err
+				}
+				if b != cbg.CborNull[0] {
+					if err := br.UnreadByte(); err != nil {
+						return err
+					}
+					t.ChannelID = new(datatransfer.ChannelID)
+					if err := t.ChannelID.UnmarshalCBOR(br); err != nil {
+						return xerrors.Errorf("unmarshaling t.ChannelID pointer: %w", err)
+					}
 				}
 
 			}
