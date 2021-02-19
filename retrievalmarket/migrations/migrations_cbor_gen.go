@@ -5,17 +5,21 @@ package migrations
 import (
 	"fmt"
 	"io"
+	"sort"
 
 	migrations "github.com/filecoin-project/go-fil-markets/piecestore/migrations"
 	retrievalmarket "github.com/filecoin-project/go-fil-markets/retrievalmarket"
 	multistore "github.com/filecoin-project/go-multistore"
 	paych "github.com/filecoin-project/specs-actors/actors/builtin/paych"
+	cid "github.com/ipfs/go-cid"
 	peer "github.com/libp2p/go-libp2p-core/peer"
 	cbg "github.com/whyrusleeping/cbor-gen"
 	xerrors "golang.org/x/xerrors"
 )
 
 var _ = xerrors.Errorf
+var _ = cid.Undef
+var _ = sort.Sort
 
 var lengthBufQuery0 = []byte{130}
 
