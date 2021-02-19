@@ -338,6 +338,8 @@ func (c *Client) ProposeStorageDeal(ctx context.Context, params storagemarket.Pr
 		return nil, xerrors.Errorf("computing commP failed: %w", err)
 	}
 
+	pricePerEpoch := big.Mul(big.NewInt(int64(pieceSize.Padded())), params.Price)
+
 	if uint64(pieceSize.Padded()) > params.Info.SectorSize {
 		return nil, fmt.Errorf("cannot propose a deal whose piece size (%d) is greater than sector size (%d)", pieceSize.Padded(), params.Info.SectorSize)
 	}
@@ -363,7 +365,7 @@ func (c *Client) ProposeStorageDeal(ctx context.Context, params storagemarket.Pr
 		Label:                label,
 		StartEpoch:           params.StartEpoch,
 		EndEpoch:             params.EndEpoch,
-		StoragePricePerEpoch: params.Price,
+		StoragePricePerEpoch: pricePerEpoch,
 		ProviderCollateral:   pcMin,
 		ClientCollateral:     big.Zero(),
 		VerifiedDeal:         params.VerifiedDeal,
