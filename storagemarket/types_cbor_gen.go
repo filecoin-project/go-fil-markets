@@ -2039,7 +2039,7 @@ func (t *DataRef) MarshalCBOR(w io.Writer) error {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	if _, err := w.Write([]byte{164}); err != nil {
+	if _, err := w.Write([]byte{165}); err != nil {
 		return err
 	}
 
@@ -2119,6 +2119,22 @@ func (t *DataRef) MarshalCBOR(w io.Writer) error {
 	}
 
 	if err := cbg.WriteMajorTypeHeaderBuf(scratch, w, cbg.MajUnsignedInt, uint64(t.PieceSize)); err != nil {
+		return err
+	}
+
+	// t.RawBlockSize (uint64) (uint64)
+	if len("RawBlockSize") > cbg.MaxLength {
+		return xerrors.Errorf("Value in field \"RawBlockSize\" was too long")
+	}
+
+	if err := cbg.WriteMajorTypeHeaderBuf(scratch, w, cbg.MajTextString, uint64(len("RawBlockSize"))); err != nil {
+		return err
+	}
+	if _, err := io.WriteString(w, string("RawBlockSize")); err != nil {
+		return err
+	}
+
+	if err := cbg.WriteMajorTypeHeaderBuf(scratch, w, cbg.MajUnsignedInt, uint64(t.RawBlockSize)); err != nil {
 		return err
 	}
 
@@ -2218,6 +2234,21 @@ func (t *DataRef) UnmarshalCBOR(r io.Reader) error {
 					return fmt.Errorf("wrong type for uint64 field")
 				}
 				t.PieceSize = abi.UnpaddedPieceSize(extra)
+
+			}
+			// t.RawBlockSize (uint64) (uint64)
+		case "RawBlockSize":
+
+			{
+
+				maj, extra, err = cbg.CborReadHeaderBuf(br, scratch)
+				if err != nil {
+					return err
+				}
+				if maj != cbg.MajUnsignedInt {
+					return fmt.Errorf("wrong type for uint64 field")
+				}
+				t.RawBlockSize = uint64(extra)
 
 			}
 
