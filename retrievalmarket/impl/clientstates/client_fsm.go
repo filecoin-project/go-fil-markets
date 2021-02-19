@@ -43,6 +43,7 @@ var ClientEvents = fsm.Events{
 	fsm.Event(rm.ClientEventDealProposed).
 		From(rm.DealStatusNew).To(rm.DealStatusWaitForAcceptance).
 		From(rm.DealStatusRetryLegacy).To(rm.DealStatusWaitForAcceptanceLegacy).
+		From(rm.DealStatusCancelling).ToJustRecord().
 		Action(func(deal *rm.ClientDealState, channelID datatransfer.ChannelID) error {
 			deal.ChannelID = &channelID
 			deal.Message = ""
@@ -329,6 +330,15 @@ var ClientFinalityStates = []fsm.StateKey{
 	rm.DealStatusCancelled,
 	rm.DealStatusRejected,
 	rm.DealStatusDealNotFound,
+}
+
+func IsFinalityState(st fsm.StateKey) bool {
+	for _, state := range ClientFinalityStates {
+		if st == state {
+			return true
+		}
+	}
+	return false
 }
 
 // ClientStateEntryFuncs are the handlers for different states in a retrieval client
