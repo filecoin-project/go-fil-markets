@@ -335,7 +335,6 @@ func TestSendFunds(t *testing.T) {
 			Responder: dealState.Sender,
 			ID:        1,
 		}
-		dealState.ChannelID.Responder = dealState.Sender
 		err := clientstates.SendFunds(fsmCtx, environment, *dealState)
 		require.NoError(t, err)
 		fsmCtx.ReplayEvents(t, dealState)
