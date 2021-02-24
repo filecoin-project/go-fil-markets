@@ -33,7 +33,7 @@ var ProviderEvents = fsm.Events{
 		From(rm.DealStatusFundsNeededUnseal).ToNoChange().
 		From(rm.DealStatusNew).To(rm.DealStatusUnsealing).
 		Action(func(deal *rm.ProviderDealState, channelID datatransfer.ChannelID) error {
-			deal.ChannelID = channelID
+			deal.ChannelID = &channelID
 			return nil
 		}),
 

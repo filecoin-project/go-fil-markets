@@ -44,7 +44,7 @@ var ClientEvents = fsm.Events{
 		From(rm.DealStatusNew).To(rm.DealStatusWaitForAcceptance).
 		From(rm.DealStatusRetryLegacy).To(rm.DealStatusWaitForAcceptanceLegacy).
 		Action(func(deal *rm.ClientDealState, channelID datatransfer.ChannelID) error {
-			deal.ChannelID = channelID
+			deal.ChannelID = &channelID
 			deal.Message = ""
 			return nil
 		}),

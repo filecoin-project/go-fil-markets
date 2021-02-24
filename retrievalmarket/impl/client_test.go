@@ -410,7 +410,7 @@ func TestMigrations(t *testing.T) {
 				},
 			},
 			StoreID:              storeIDs[i],
-			ChannelID:            channelIDs[i],
+			ChannelID:            &channelIDs[i],
 			LastPaymentRequested: lastPaymentRequesteds[i],
 			AllBlocksReceived:    allBlocksReceiveds[i],
 			TotalFunds:           totalFundss[i],

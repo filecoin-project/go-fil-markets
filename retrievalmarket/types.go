@@ -46,8 +46,9 @@ type PaymentInfo struct {
 // of a retrieval client
 type ClientDealState struct {
 	DealProposal
-	StoreID              *multistore.StoreID
-	ChannelID            datatransfer.ChannelID
+	StoreID *multistore.StoreID
+	// Set when the data transfer is started
+	ChannelID            *datatransfer.ChannelID
 	LastPaymentRequested bool
 	AllBlocksReceived    bool
 	TotalFunds           abi.TokenAmount
@@ -73,7 +74,7 @@ type ClientDealState struct {
 type ProviderDealState struct {
 	DealProposal
 	StoreID         multistore.StoreID
-	ChannelID       datatransfer.ChannelID
+	ChannelID       *datatransfer.ChannelID
 	PieceInfo       *piecestore.PieceInfo
 	Status          DealStatus
 	Receiver        peer.ID

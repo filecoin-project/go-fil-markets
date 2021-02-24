@@ -8,6 +8,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
+	datatransfer "github.com/filecoin-project/go-data-transfer"
 	"github.com/filecoin-project/go-state-types/abi"
 	"github.com/filecoin-project/go-state-types/big"
 	"github.com/filecoin-project/go-statemachine/fsm"
@@ -112,6 +113,11 @@ func TestUnpauseDeal(t *testing.T) {
 		environment := rmtesting.NewTestProviderDealEnvironment(node)
 		setupEnv(environment)
 		fsmCtx := fsmtest.NewTestContext(ctx, eventMachine)
+		dealState.ChannelID = &datatransfer.ChannelID{
+			Initiator: "initiator",
+			Responder: dealState.Receiver,
+			ID:        1,
+		}
 		err := providerstates.UnpauseDeal(fsmCtx, environment, *dealState)
 		require.NoError(t, err)
 		node.VerifyExpectations(t)
@@ -155,6 +161,11 @@ func TestCancelDeal(t *testing.T) {
 		environment := rmtesting.NewTestProviderDealEnvironment(node)
 		setupEnv(environment)
 		fsmCtx := fsmtest.NewTestContext(ctx, eventMachine)
+		dealState.ChannelID = &datatransfer.ChannelID{
+			Initiator: "initiator",
+			Responder: dealState.Receiver,
+			ID:        1,
+		}
 		err := providerstates.CancelDeal(fsmCtx, environment, *dealState)
 		require.NoError(t, err)
 		node.VerifyExpectations(t)
