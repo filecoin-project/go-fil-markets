@@ -97,6 +97,7 @@ func TestProposeDeal(t *testing.T) {
 		require.Equal(t, dealState.Status, retrievalmarket.DealStatusErrored)
 	})
 }
+
 func TestSetupPaymentChannel(t *testing.T) {
 	ctx := context.Background()
 	expectedPayCh := address.TestAddress2
@@ -135,7 +136,7 @@ func TestSetupPaymentChannel(t *testing.T) {
 		runSetupPaymentChannel(t, envParams, dealState)
 		require.Empty(t, dealState.Message)
 		require.Equal(t, envParams.AddFundsCID, *dealState.WaitMsgCID)
-		require.Equal(t, retrievalmarket.DealStatusPaymentChannelAllocatingLane, dealState.Status)
+		require.Equal(t, retrievalmarket.DealStatusPaymentChannelAddingInitialFunds, dealState.Status)
 		require.Equal(t, expectedPayCh, dealState.PaymentInfo.PayCh)
 	})
 
@@ -334,6 +335,11 @@ func TestSendFunds(t *testing.T) {
 		node := testnodes.NewTestRetrievalClientNode(nodeParams)
 		environment := &fakeEnvironment{node, nil, sendDataTransferVoucherError, nil}
 		fsmCtx := fsmtest.NewTestContext(ctx, eventMachine)
+		dealState.ChannelID = &datatransfer.ChannelID{
+			Initiator: "initiator",
+			Responder: dealState.Sender,
+			ID:        1,
+		}
 		err := clientstates.SendFunds(fsmCtx, environment, *dealState)
 		require.NoError(t, err)
 		fsmCtx.ReplayEvents(t, dealState)
@@ -530,6 +536,11 @@ func TestCancelDeal(t *testing.T) {
 		node := testnodes.NewTestRetrievalClientNode(testnodes.TestRetrievalClientNodeParams{})
 		environment := &fakeEnvironment{node, nil, nil, closeError}
 		fsmCtx := fsmtest.NewTestContext(ctx, eventMachine)
+		dealState.ChannelID = &datatransfer.ChannelID{
+			Initiator: "initiator",
+			Responder: dealState.Sender,
+			ID:        1,
+		}
 		err := clientstates.CancelDeal(fsmCtx, environment, *dealState)
 		require.NoError(t, err)
 		fsmCtx.ReplayEvents(t, dealState)

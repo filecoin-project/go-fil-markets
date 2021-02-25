@@ -1,5 +1,19 @@
 # go-fil-markets changelog
 
+# go-fil-markets v1.1.9
+
+- github.com/filecoin-project/go-fil-markets:
+  - Update cbor-gen to ingore unknown map fields (#492) ([filecoin-project/go-fil-markets#492](https://github.com/filecoin-project/go-fil-markets/pull/492))
+
+Contributors
+
+| Contributor | Commits | Lines ± | Files Changed |
+|-------------|---------|---------|---------------|
+| Łukasz Magiera | 1 | +111/-33 | 13 |
+| dirkmc | 1 | +11/-0 | 1 |
+| Whyrusleeping | 1 | +3/-1 | 1 |
+| Dirk McCormick | 1 | +1/-3 | 1 |
+
 # go-fil-markets v1.1.8
 
 - github.com/filecoin-project/go-fil-markets:

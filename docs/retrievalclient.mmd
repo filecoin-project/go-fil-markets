@@ -25,6 +25,7 @@ stateDiagram-v2
 	state "DealStatusRetryLegacy" as 27
 	state "DealStatusWaitForAcceptanceLegacy" as 28
 	state "DealStatusWaitingForLastBlocks" as 29
+	state "DealStatusPaymentChannelAddingInitialFunds" as 30
 	0 : On entry runs ProposeDeal
 	4 : On entry runs WaitPaymentChannelReady
 	5 : On entry runs WaitPaymentChannelReady
@@ -40,6 +41,7 @@ stateDiagram-v2
 	24 : On entry runs AllocateLane
 	25 : On entry runs CancelDeal
 	27 : On entry runs ProposeDeal
+	30 : On entry runs WaitPaymentChannelReady
 	[*] --> 0
 	note right of 0
 		The following events are not shown cause they can trigger from any state.
@@ -65,11 +67,12 @@ stateDiagram-v2
 	6 --> 8 : ClientEventPaymentChannelErrored
 	6 --> 13 : ClientEventPaymentChannelSkip
 	6 --> 4 : ClientEventPaymentChannelCreateInitiated
-	6 --> 24 : ClientEventPaymentChannelAddingFunds
+	6 --> 30 : ClientEventPaymentChannelAddingFunds
 	22 --> 5 : ClientEventPaymentChannelAddingFunds
 	4 --> 24 : ClientEventPaymentChannelReady
 	5 --> 13 : ClientEventPaymentChannelReady
 	22 --> 13 : ClientEventPaymentChannelReady
+	30 --> 24 : ClientEventPaymentChannelReady
 	24 --> 8 : ClientEventAllocateLaneErrored
 	24 --> 13 : ClientEventLaneAllocated
 	10 --> 14 : ClientEventLastPaymentRequested
@@ -132,7 +135,7 @@ stateDiagram-v2
 	note left of 24 : The following events only record in this state.<br><br>ClientEventLastPaymentRequested<br>ClientEventPaymentRequested<br>ClientEventAllBlocksReceived<br>ClientEventBlocksReceived
 
 
-	note left of 25 : The following events only record in this state.<br><br>ClientEventProviderCancelled
+	note left of 25 : The following events only record in this state.<br><br>ClientEventDealProposed<br>ClientEventProviderCancelled
 
 
 	note left of 28 : The following events only record in this state.<br><br>ClientEventLastPaymentRequested<br>ClientEventPaymentRequested<br>ClientEventAllBlocksReceived<br>ClientEventBlocksReceived

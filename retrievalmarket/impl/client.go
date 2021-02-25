@@ -16,7 +16,6 @@ import (
 
 	"github.com/filecoin-project/go-address"
 	datatransfer "github.com/filecoin-project/go-data-transfer"
-	versioning "github.com/filecoin-project/go-ds-versioning/pkg"
 	versionedfsm "github.com/filecoin-project/go-ds-versioning/pkg/fsm"
 	"github.com/filecoin-project/go-multistore"
 	"github.com/filecoin-project/go-state-types/abi"
@@ -49,6 +48,9 @@ type Client struct {
 	stateMachines        fsm.Group
 	migrateStateMachines func(context.Context) error
 	stats                *internalStats
+
+	// Guards concurrent access to Retrieve method
+	retrieveLk sync.Mutex
 }
 
 type internalEvent struct {
@@ -104,7 +106,7 @@ func NewClient(
 		StateEntryFuncs: clientstates.ClientStateEntryFuncs,
 		FinalityStates:  clientstates.ClientFinalityStates,
 		Notifier:        c.notifySubscribers,
-	}, retrievalMigrations, versioning.VersionKey("1"))
+	}, retrievalMigrations, "2")
 	if err != nil {
 		return nil, err
 	}
@@ -312,7 +314,17 @@ From then on, the statemachine controls the deal flow in the client. Other compo
 Documentation of the client state machine can be found at https://godoc.org/github.com/filecoin-project/go-fil-markets/retrievalmarket/impl/clientstates
 */
 func (c *Client) Retrieve(ctx context.Context, payloadCID cid.Cid, params retrievalmarket.Params, totalFunds abi.TokenAmount, p retrievalmarket.RetrievalPeer, clientWallet address.Address, minerWallet address.Address, storeID *multistore.StoreID) (retrievalmarket.DealID, error) {
-	err := c.addMultiaddrs(ctx, p)
+	c.retrieveLk.Lock()
+	defer c.retrieveLk.Unlock()
+
+	// Check if there's already an active retrieval deal with the same peer
+	// for the same payload CID
+	err := c.checkForActiveDeal(payloadCID, p.ID)
+	if err != nil {
+		return 0, err
+	}
+
+	err = c.addMultiaddrs(ctx, p)
 	if err != nil {
 		return 0, err
 	}
@@ -360,6 +372,31 @@ func (c *Client) Retrieve(ctx context.Context, payloadCID cid.Cid, params retrie
 	}
 
 	return dealID, nil
+}
+
+// Check if there's already an active retrieval deal with the same peer
+// for the same payload CID
+func (c *Client) checkForActiveDeal(payloadCID cid.Cid, pid peer.ID) error {
+	var deals []retrievalmarket.ClientDealState
+	err := c.stateMachines.List(&deals)
+	if err != nil {
+		return err
+	}
+
+	for _, deal := range deals {
+		match := deal.Sender == pid && deal.PayloadCID == payloadCID
+		active := !clientstates.IsFinalityState(deal.Status)
+		if match && active {
+			msg := fmt.Sprintf("there is an active retrieval deal with peer %s ", pid)
+			msg += fmt.Sprintf("for payload CID %s ", payloadCID)
+			msg += fmt.Sprintf("(retrieval deal ID %d, state %s) - ",
+				deal.ID, retrievalmarket.DealStatuses[deal.Status])
+			msg += "existing deal must be cancelled before starting a new retrieval deal"
+			err := xerrors.Errorf(msg)
+			return err
+		}
+	}
+	return nil
 }
 
 func (c *Client) notifySubscribers(eventName fsm.EventName, state fsm.StateType) {

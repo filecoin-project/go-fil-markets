@@ -5,16 +5,21 @@ package retrievalmarket
 import (
 	"fmt"
 	"io"
+	"sort"
 
+	datatransfer "github.com/filecoin-project/go-data-transfer"
 	piecestore "github.com/filecoin-project/go-fil-markets/piecestore"
 	multistore "github.com/filecoin-project/go-multistore"
 	paych "github.com/filecoin-project/specs-actors/actors/builtin/paych"
+	cid "github.com/ipfs/go-cid"
 	peer "github.com/libp2p/go-libp2p-core/peer"
 	cbg "github.com/whyrusleeping/cbor-gen"
 	xerrors "golang.org/x/xerrors"
 )
 
 var _ = xerrors.Errorf
+var _ = cid.Undef
+var _ = sort.Sort
 
 func (t *Query) MarshalCBOR(w io.Writer) error {
 	if t == nil {
@@ -119,7 +124,8 @@ func (t *Query) UnmarshalCBOR(r io.Reader) error {
 			}
 
 		default:
-			return fmt.Errorf("unknown struct field %d: '%s'", i, name)
+			// Field doesn't exist on this type, so ignore it
+			cbg.ScanForLinks(r, func(cid.Cid) {})
 		}
 	}
 
@@ -440,7 +446,8 @@ func (t *QueryResponse) UnmarshalCBOR(r io.Reader) error {
 			}
 
 		default:
-			return fmt.Errorf("unknown struct field %d: '%s'", i, name)
+			// Field doesn't exist on this type, so ignore it
+			cbg.ScanForLinks(r, func(cid.Cid) {})
 		}
 	}
 
@@ -580,7 +587,8 @@ func (t *DealProposal) UnmarshalCBOR(r io.Reader) error {
 			}
 
 		default:
-			return fmt.Errorf("unknown struct field %d: '%s'", i, name)
+			// Field doesn't exist on this type, so ignore it
+			cbg.ScanForLinks(r, func(cid.Cid) {})
 		}
 	}
 
@@ -756,7 +764,8 @@ func (t *DealResponse) UnmarshalCBOR(r io.Reader) error {
 			}
 
 		default:
-			return fmt.Errorf("unknown struct field %d: '%s'", i, name)
+			// Field doesn't exist on this type, so ignore it
+			cbg.ScanForLinks(r, func(cid.Cid) {})
 		}
 	}
 
@@ -996,7 +1005,8 @@ func (t *Params) UnmarshalCBOR(r io.Reader) error {
 			}
 
 		default:
-			return fmt.Errorf("unknown struct field %d: '%s'", i, name)
+			// Field doesn't exist on this type, so ignore it
+			cbg.ScanForLinks(r, func(cid.Cid) {})
 		}
 	}
 
@@ -1096,7 +1106,8 @@ func (t *QueryParams) UnmarshalCBOR(r io.Reader) error {
 			}
 
 		default:
-			return fmt.Errorf("unknown struct field %d: '%s'", i, name)
+			// Field doesn't exist on this type, so ignore it
+			cbg.ScanForLinks(r, func(cid.Cid) {})
 		}
 	}
 
@@ -1243,7 +1254,8 @@ func (t *DealPayment) UnmarshalCBOR(r io.Reader) error {
 			}
 
 		default:
-			return fmt.Errorf("unknown struct field %d: '%s'", i, name)
+			// Field doesn't exist on this type, so ignore it
+			cbg.ScanForLinks(r, func(cid.Cid) {})
 		}
 	}
 
@@ -1697,8 +1709,18 @@ func (t *ClientDealState) UnmarshalCBOR(r io.Reader) error {
 
 			{
 
-				if err := t.ChannelID.UnmarshalCBOR(br); err != nil {
-					return xerrors.Errorf("unmarshaling t.ChannelID: %w", err)
+				b, err := br.ReadByte()
+				if err != nil {
+					return err
+				}
+				if b != cbg.CborNull[0] {
+					if err := br.UnreadByte(); err != nil {
+						return err
+					}
+					t.ChannelID = new(datatransfer.ChannelID)
+					if err := t.ChannelID.UnmarshalCBOR(br); err != nil {
+						return xerrors.Errorf("unmarshaling t.ChannelID pointer: %w", err)
+					}
 				}
 
 			}
@@ -1953,7 +1975,8 @@ func (t *ClientDealState) UnmarshalCBOR(r io.Reader) error {
 			}
 
 		default:
-			return fmt.Errorf("unknown struct field %d: '%s'", i, name)
+			// Field doesn't exist on this type, so ignore it
+			cbg.ScanForLinks(r, func(cid.Cid) {})
 		}
 	}
 
@@ -2225,8 +2248,18 @@ func (t *ProviderDealState) UnmarshalCBOR(r io.Reader) error {
 
 			{
 
-				if err := t.ChannelID.UnmarshalCBOR(br); err != nil {
-					return xerrors.Errorf("unmarshaling t.ChannelID: %w", err)
+				b, err := br.ReadByte()
+				if err != nil {
+					return err
+				}
+				if b != cbg.CborNull[0] {
+					if err := br.UnreadByte(); err != nil {
+						return err
+					}
+					t.ChannelID = new(datatransfer.ChannelID)
+					if err := t.ChannelID.UnmarshalCBOR(br); err != nil {
+						return xerrors.Errorf("unmarshaling t.ChannelID pointer: %w", err)
+					}
 				}
 
 			}
@@ -2347,7 +2380,8 @@ func (t *ProviderDealState) UnmarshalCBOR(r io.Reader) error {
 			}
 
 		default:
-			return fmt.Errorf("unknown struct field %d: '%s'", i, name)
+			// Field doesn't exist on this type, so ignore it
+			cbg.ScanForLinks(r, func(cid.Cid) {})
 		}
 	}
 
@@ -2459,7 +2493,8 @@ func (t *PaymentInfo) UnmarshalCBOR(r io.Reader) error {
 			}
 
 		default:
-			return fmt.Errorf("unknown struct field %d: '%s'", i, name)
+			// Field doesn't exist on this type, so ignore it
+			cbg.ScanForLinks(r, func(cid.Cid) {})
 		}
 	}
 
@@ -2619,7 +2654,8 @@ func (t *RetrievalPeer) UnmarshalCBOR(r io.Reader) error {
 			}
 
 		default:
-			return fmt.Errorf("unknown struct field %d: '%s'", i, name)
+			// Field doesn't exist on this type, so ignore it
+			cbg.ScanForLinks(r, func(cid.Cid) {})
 		}
 	}
 
@@ -2788,7 +2824,8 @@ func (t *Ask) UnmarshalCBOR(r io.Reader) error {
 			}
 
 		default:
-			return fmt.Errorf("unknown struct field %d: '%s'", i, name)
+			// Field doesn't exist on this type, so ignore it
+			cbg.ScanForLinks(r, func(cid.Cid) {})
 		}
 	}
 

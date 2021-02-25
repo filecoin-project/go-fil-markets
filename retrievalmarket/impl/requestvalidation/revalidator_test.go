@@ -55,7 +55,7 @@ func TestOnPullDataSent(t *testing.T) {
 		},
 		"record block": {
 			deal:            deal,
-			channelID:       deal.ChannelID,
+			channelID:       *deal.ChannelID,
 			expectedID:      deal.Identifier(),
 			expectedEvent:   rm.ProviderEventBlockSent,
 			expectedArgs:    []interface{}{deal.TotalSent + uint64(500)},
@@ -64,7 +64,7 @@ func TestOnPullDataSent(t *testing.T) {
 		},
 		"record block zero price per byte": {
 			deal:            dealZeroPricePerByte,
-			channelID:       dealZeroPricePerByte.ChannelID,
+			channelID:       *dealZeroPricePerByte.ChannelID,
 			expectedID:      dealZeroPricePerByte.Identifier(),
 			expectedEvent:   rm.ProviderEventBlockSent,
 			expectedArgs:    []interface{}{dealZeroPricePerByte.TotalSent + uint64(500)},
@@ -73,7 +73,7 @@ func TestOnPullDataSent(t *testing.T) {
 		},
 		"request payment": {
 			deal:          deal,
-			channelID:     deal.ChannelID,
+			channelID:     *deal.ChannelID,
 			expectedID:    deal.Identifier(),
 			expectedEvent: rm.ProviderEventPaymentRequested,
 			expectedArgs:  []interface{}{deal.TotalSent + defaultCurrentInterval},
@@ -88,7 +88,7 @@ func TestOnPullDataSent(t *testing.T) {
 		},
 		"request payment, legacy": {
 			deal:          legacyDeal,
-			channelID:     legacyDeal.ChannelID,
+			channelID:     *legacyDeal.ChannelID,
 			expectedID:    legacyDeal.Identifier(),
 			expectedEvent: rm.ProviderEventPaymentRequested,
 			expectedArgs:  []interface{}{legacyDeal.TotalSent + defaultCurrentInterval},
@@ -140,7 +140,7 @@ func TestOnComplete(t *testing.T) {
 	dealZeroPricePerByte.PricePerByte = big.Zero()
 	legacyDeal := deal
 	legacyDeal.LegacyProtocol = true
-	channelID := deal.ChannelID
+	channelID := *deal.ChannelID
 	testCases := map[string]struct {
 		expectedEvents []eventSent
 		deal           rm.ProviderDealState
@@ -296,6 +296,7 @@ func TestRevalidate(t *testing.T) {
 
 	deal := *makeDealState(rm.DealStatusFundsNeeded)
 	deal.TotalSent = defaultTotalSent + defaultCurrentInterval
+	channelID := *deal.ChannelID
 	smallerPayment := abi.NewTokenAmount(400000)
 	payment := &retrievalmarket.DealPayment{
 		ID:             deal.ID,
@@ -329,7 +330,7 @@ func TestRevalidate(t *testing.T) {
 		},
 		"not a payment voucher": {
 			deal:          deal,
-			channelID:     deal.ChannelID,
+			channelID:     channelID,
 			noSend:        true,
 			expectedError: errors.New("wrong voucher type"),
 		},
@@ -338,7 +339,7 @@ func TestRevalidate(t *testing.T) {
 				tn.ChainHeadError = errors.New("something went wrong")
 			},
 			deal:          deal,
-			channelID:     deal.ChannelID,
+			channelID:     channelID,
 			voucher:       payment,
 			expectedError: errors.New("something went wrong"),
 			expectedID:    deal.Identifier(),
@@ -355,7 +356,7 @@ func TestRevalidate(t *testing.T) {
 				tn.ChainHeadError = errors.New("something went wrong")
 			},
 			deal:          deal,
-			channelID:     deal.ChannelID,
+			channelID:     channelID,
 			voucher:       legacyPayment,
 			expectedError: errors.New("something went wrong"),
 			expectedID:    deal.Identifier(),
@@ -372,7 +373,7 @@ func TestRevalidate(t *testing.T) {
 				_ = tn.ExpectVoucher(payCh, voucher, nil, defaultPaymentPerInterval, abi.NewTokenAmount(0), errors.New("your money's no good here"))
 			},
 			deal:          deal,
-			channelID:     deal.ChannelID,
+			channelID:     channelID,
 			voucher:       payment,
 			expectedError: errors.New("your money's no good here"),
 			expectedID:    deal.Identifier(),
@@ -389,7 +390,7 @@ func TestRevalidate(t *testing.T) {
 				_ = tn.ExpectVoucher(payCh, voucher, nil, defaultPaymentPerInterval, abi.NewTokenAmount(0), errors.New("your money's no good here"))
 			},
 			deal:          deal,
-			channelID:     deal.ChannelID,
+			channelID:     channelID,
 			voucher:       legacyPayment,
 			expectedError: errors.New("your money's no good here"),
 			expectedID:    deal.Identifier(),
@@ -406,7 +407,7 @@ func TestRevalidate(t *testing.T) {
 				_ = tn.ExpectVoucher(payCh, voucher, nil, defaultPaymentPerInterval, smallerPayment, nil)
 			},
 			deal:          deal,
-			channelID:     deal.ChannelID,
+			channelID:     channelID,
 			voucher:       payment,
 			expectedError: datatransfer.ErrPause,
 			expectedID:    deal.Identifier(),
@@ -423,7 +424,7 @@ func TestRevalidate(t *testing.T) {
 				_ = tn.ExpectVoucher(payCh, voucher, nil, defaultPaymentPerInterval, smallerPayment, nil)
 			},
 			deal:          deal,
-			channelID:     deal.ChannelID,
+			channelID:     channelID,
 			voucher:       legacyPayment,
 			expectedError: datatransfer.ErrPause,
 			expectedID:    deal.Identifier(),
@@ -440,7 +441,7 @@ func TestRevalidate(t *testing.T) {
 				_ = tn.ExpectVoucher(payCh, voucher, nil, defaultPaymentPerInterval, defaultPaymentPerInterval, nil)
 			},
 			deal:          deal,
-			channelID:     deal.ChannelID,
+			channelID:     channelID,
 			voucher:       payment,
 			expectedID:    deal.Identifier(),
 			expectedEvent: rm.ProviderEventPaymentReceived,
@@ -452,7 +453,7 @@ func TestRevalidate(t *testing.T) {
 				_ = tn.ExpectVoucher(payCh, voucher, nil, defaultPaymentPerInterval, defaultPaymentPerInterval, nil)
 			},
 			deal:          lastPaymentDeal,
-			channelID:     deal.ChannelID,
+			channelID:     channelID,
 			voucher:       payment,
 			expectedID:    deal.Identifier(),
 			expectedEvent: rm.ProviderEventPaymentReceived,
@@ -467,7 +468,7 @@ func TestRevalidate(t *testing.T) {
 				_ = tn.ExpectVoucher(payCh, voucher, nil, defaultPaymentPerInterval, defaultPaymentPerInterval, nil)
 			},
 			deal:          lastPaymentDeal,
-			channelID:     deal.ChannelID,
+			channelID:     channelID,
 			voucher:       legacyPayment,
 			expectedID:    deal.Identifier(),
 			expectedEvent: rm.ProviderEventPaymentReceived,
@@ -482,7 +483,7 @@ func TestRevalidate(t *testing.T) {
 				_ = tn.ExpectVoucher(payCh, voucher, nil, defaultPaymentPerInterval, big.Zero(), nil)
 			},
 			deal:          deal,
-			channelID:     deal.ChannelID,
+			channelID:     channelID,
 			voucher:       payment,
 			expectedID:    deal.Identifier(),
 			expectedEvent: rm.ProviderEventPaymentReceived,
@@ -565,7 +566,7 @@ func makeDealState(status retrievalmarket.DealStatus) *retrievalmarket.ProviderD
 		TotalSent:       defaultTotalSent,
 		CurrentInterval: defaultCurrentInterval,
 		FundsReceived:   defaultFundsReceived,
-		ChannelID:       channelID,
+		ChannelID:       &channelID,
 		Receiver:        channelID.Initiator,
 		DealProposal: retrievalmarket.DealProposal{
 			ID:     dealID,

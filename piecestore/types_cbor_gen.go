@@ -5,13 +5,17 @@ package piecestore
 import (
 	"fmt"
 	"io"
+	"sort"
 
 	abi "github.com/filecoin-project/go-state-types/abi"
+	cid "github.com/ipfs/go-cid"
 	cbg "github.com/whyrusleeping/cbor-gen"
 	xerrors "golang.org/x/xerrors"
 )
 
 var _ = xerrors.Errorf
+var _ = cid.Undef
+var _ = sort.Sort
 
 func (t *PieceInfo) MarshalCBOR(w io.Writer) error {
 	if t == nil {
@@ -144,7 +148,8 @@ func (t *PieceInfo) UnmarshalCBOR(r io.Reader) error {
 			}
 
 		default:
-			return fmt.Errorf("unknown struct field %d: '%s'", i, name)
+			// Field doesn't exist on this type, so ignore it
+			cbg.ScanForLinks(r, func(cid.Cid) {})
 		}
 	}
 
@@ -323,7 +328,8 @@ func (t *DealInfo) UnmarshalCBOR(r io.Reader) error {
 			}
 
 		default:
-			return fmt.Errorf("unknown struct field %d: '%s'", i, name)
+			// Field doesn't exist on this type, so ignore it
+			cbg.ScanForLinks(r, func(cid.Cid) {})
 		}
 	}
 
@@ -440,7 +446,8 @@ func (t *BlockLocation) UnmarshalCBOR(r io.Reader) error {
 			}
 
 		default:
-			return fmt.Errorf("unknown struct field %d: '%s'", i, name)
+			// Field doesn't exist on this type, so ignore it
+			cbg.ScanForLinks(r, func(cid.Cid) {})
 		}
 	}
 
@@ -550,7 +557,8 @@ func (t *PieceBlockLocation) UnmarshalCBOR(r io.Reader) error {
 			}
 
 		default:
-			return fmt.Errorf("unknown struct field %d: '%s'", i, name)
+			// Field doesn't exist on this type, so ignore it
+			cbg.ScanForLinks(r, func(cid.Cid) {})
 		}
 	}
 
@@ -687,7 +695,8 @@ func (t *CIDInfo) UnmarshalCBOR(r io.Reader) error {
 			}
 
 		default:
-			return fmt.Errorf("unknown struct field %d: '%s'", i, name)
+			// Field doesn't exist on this type, so ignore it
+			cbg.ScanForLinks(r, func(cid.Cid) {})
 		}
 	}
 

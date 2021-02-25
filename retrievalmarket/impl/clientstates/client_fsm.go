@@ -43,8 +43,9 @@ var ClientEvents = fsm.Events{
 	fsm.Event(rm.ClientEventDealProposed).
 		From(rm.DealStatusNew).To(rm.DealStatusWaitForAcceptance).
 		From(rm.DealStatusRetryLegacy).To(rm.DealStatusWaitForAcceptanceLegacy).
+		From(rm.DealStatusCancelling).ToJustRecord().
 		Action(func(deal *rm.ClientDealState, channelID datatransfer.ChannelID) error {
-			deal.ChannelID = channelID
+			deal.ChannelID = &channelID
 			deal.Message = ""
 			return nil
 		}),
@@ -92,8 +93,13 @@ var ClientEvents = fsm.Events{
 			return nil
 		}),
 
+	// Client is adding funds to payment channel
 	fsm.Event(rm.ClientEventPaymentChannelAddingFunds).
-		FromMany(rm.DealStatusAccepted).To(rm.DealStatusPaymentChannelAllocatingLane).
+		// If the deal has just been accepted, we are adding the initial funds
+		// to the payment channel
+		FromMany(rm.DealStatusAccepted).To(rm.DealStatusPaymentChannelAddingInitialFunds).
+		// If the deal was already ongoing, and ran out of funds, we are
+		// topping up funds in the payment channel
 		FromMany(rm.DealStatusCheckFunds).To(rm.DealStatusPaymentChannelAddingFunds).
 		Action(func(deal *rm.ClientDealState, msgCID cid.Cid, payCh address.Address) error {
 			deal.WaitMsgCID = &msgCID
@@ -105,8 +111,18 @@ var ClientEvents = fsm.Events{
 			return nil
 		}),
 
+	// The payment channel add funds message has landed on chain
 	fsm.Event(rm.ClientEventPaymentChannelReady).
+		// If the payment channel between client and provider was being created
+		// for the first time, or if the payment channel had already been
+		// created for an earlier deal but the initial funding for this deal
+		// was being added, then we still need to allocate a payment channel
+		// lane
 		From(rm.DealStatusPaymentChannelCreating).To(rm.DealStatusPaymentChannelAllocatingLane).
+		From(rm.DealStatusPaymentChannelAddingInitialFunds).To(rm.DealStatusPaymentChannelAllocatingLane).
+		// If the payment channel ran out of funds and needed to be topped up,
+		// then the payment channel lane already exists so just move straight
+		// to the ongoing state
 		From(rm.DealStatusPaymentChannelAddingFunds).To(rm.DealStatusOngoing).
 		From(rm.DealStatusCheckFunds).To(rm.DealStatusOngoing).
 		Action(func(deal *rm.ClientDealState, payCh address.Address) error {
@@ -316,21 +332,31 @@ var ClientFinalityStates = []fsm.StateKey{
 	rm.DealStatusDealNotFound,
 }
 
+func IsFinalityState(st fsm.StateKey) bool {
+	for _, state := range ClientFinalityStates {
+		if st == state {
+			return true
+		}
+	}
+	return false
+}
+
 // ClientStateEntryFuncs are the handlers for different states in a retrieval client
 var ClientStateEntryFuncs = fsm.StateEntryFuncs{
-	rm.DealStatusNew:                          ProposeDeal,
-	rm.DealStatusRetryLegacy:                  ProposeDeal,
-	rm.DealStatusAccepted:                     SetupPaymentChannelStart,
-	rm.DealStatusPaymentChannelCreating:       WaitPaymentChannelReady,
-	rm.DealStatusPaymentChannelAllocatingLane: AllocateLane,
-	rm.DealStatusOngoing:                      Ongoing,
-	rm.DealStatusFundsNeeded:                  ProcessPaymentRequested,
-	rm.DealStatusFundsNeededLastPayment:       ProcessPaymentRequested,
-	rm.DealStatusSendFunds:                    SendFunds,
-	rm.DealStatusSendFundsLastPayment:         SendFunds,
-	rm.DealStatusCheckFunds:                   CheckFunds,
-	rm.DealStatusPaymentChannelAddingFunds:    WaitPaymentChannelReady,
-	rm.DealStatusFailing:                      CancelDeal,
-	rm.DealStatusCancelling:                   CancelDeal,
-	rm.DealStatusCheckComplete:                CheckComplete,
+	rm.DealStatusNew:                              ProposeDeal,
+	rm.DealStatusRetryLegacy:                      ProposeDeal,
+	rm.DealStatusAccepted:                         SetupPaymentChannelStart,
+	rm.DealStatusPaymentChannelCreating:           WaitPaymentChannelReady,
+	rm.DealStatusPaymentChannelAddingInitialFunds: WaitPaymentChannelReady,
+	rm.DealStatusPaymentChannelAllocatingLane:     AllocateLane,
+	rm.DealStatusOngoing:                          Ongoing,
+	rm.DealStatusFundsNeeded:                      ProcessPaymentRequested,
+	rm.DealStatusFundsNeededLastPayment:           ProcessPaymentRequested,
+	rm.DealStatusSendFunds:                        SendFunds,
+	rm.DealStatusSendFundsLastPayment:             SendFunds,
+	rm.DealStatusCheckFunds:                       CheckFunds,
+	rm.DealStatusPaymentChannelAddingFunds:        WaitPaymentChannelReady,
+	rm.DealStatusFailing:                          CancelDeal,
+	rm.DealStatusCancelling:                       CancelDeal,
+	rm.DealStatusCheckComplete:                    CheckComplete,
 }
