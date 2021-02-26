@@ -3,8 +3,10 @@ package shared_testutil
 import (
 	"bytes"
 	"errors"
+	"fmt"
 	"io"
 	"io/ioutil"
+	"math/rand"
 	"os"
 	"path"
 	"path/filepath"
@@ -13,6 +15,7 @@ import (
 
 	blocks "github.com/ipfs/go-block-format"
 	"github.com/ipfs/go-blockservice"
+	"github.com/ipfs/go-cid"
 	"github.com/ipfs/go-datastore"
 	"github.com/ipfs/go-datastore/namespace"
 	dss "github.com/ipfs/go-datastore/sync"
@@ -69,38 +72,7 @@ type Libp2pTestData struct {
 func NewLibp2pTestData(ctx context.Context, t *testing.T) *Libp2pTestData {
 	testData := &Libp2pTestData{}
 	testData.Ctx = ctx
-	makeLoader := func(bs bstore.Blockstore) ipld.Loader {
-		return func(lnk ipld.Link, lnkCtx ipld.LinkContext) (io.Reader, error) {
-			c, ok := lnk.(cidlink.Link)
-			if !ok {
-				return nil, errors.New("incorrect Link Type")
-			}
-			// read block from one store
-			block, err := bs.Get(c.Cid)
-			if err != nil {
-				return nil, err
-			}
-			return bytes.NewReader(block.RawData()), nil
-		}
-	}
 
-	makeStorer := func(bs bstore.Blockstore) ipld.Storer {
-		return func(lnkCtx ipld.LinkContext) (io.Writer, ipld.StoreCommitter, error) {
-			var buf bytes.Buffer
-			var committer ipld.StoreCommitter = func(lnk ipld.Link) error {
-				c, ok := lnk.(cidlink.Link)
-				if !ok {
-					return errors.New("incorrect Link Type")
-				}
-				block, err := blocks.NewBlockWithCid(buf.Bytes(), c.Cid)
-				if err != nil {
-					return err
-				}
-				return bs.Put(block)
-			}
-			return &buf, committer, nil
-		}
-	}
 	var err error
 
 	testData.Ds1 = dss.MutexWrap(datastore.NewMapDatastore())
@@ -161,6 +133,119 @@ func NewLibp2pTestData(ctx context.Context, t *testing.T) *Libp2pTestData {
 	return testData
 }
 
+func makeLoader(bs bstore.Blockstore) ipld.Loader {
+	return func(lnk ipld.Link, lnkCtx ipld.LinkContext) (io.Reader, error) {
+		c, ok := lnk.(cidlink.Link)
+		if !ok {
+			return nil, errors.New("incorrect Link Type")
+		}
+		// read block from one store
+		block, err := bs.Get(c.Cid)
+		if err != nil {
+			return nil, err
+		}
+		return bytes.NewReader(block.RawData()), nil
+	}
+}
+
+func makeStorer(bs bstore.Blockstore) ipld.Storer {
+	return func(lnkCtx ipld.LinkContext) (io.Writer, ipld.StoreCommitter, error) {
+		var buf bytes.Buffer
+		var committer ipld.StoreCommitter = func(lnk ipld.Link) error {
+			c, ok := lnk.(cidlink.Link)
+			if !ok {
+				return errors.New("incorrect Link Type")
+			}
+			block, err := blocks.NewBlockWithCid(buf.Bytes(), c.Cid)
+			if err != nil {
+				return err
+			}
+			return bs.Put(block)
+		}
+		return &buf, committer, nil
+	}
+}
+
+type Libp2pNodeDeps struct {
+	Rand                   *rand.Rand
+	Dstore                 datastore.Batching
+	DTStoredCounter        *storedcounter.StoredCounter
+	RetrievalStoredCounter *storedcounter.StoredCounter
+	Bstore                 bstore.Blockstore
+	MultiStore             *multistore.MultiStore
+	DagService             ipldformat.DAGService
+	DTNet                  dtnet.DataTransferNetwork
+	DTStore                datastore.Batching
+	DTTmpDir               string
+	Loader                 ipld.Loader
+	Storer                 ipld.Storer
+	Host                   host.Host
+}
+
+func NewLibp2pNodeDeps(t *testing.T, rnd *rand.Rand, mn mocknet.Mocknet) *Libp2pNodeDeps {
+	testData := &Libp2pNodeDeps{
+		Rand: rnd,
+	}
+
+	var err error
+
+	// Create a data store and counters
+	testData.Dstore = dss.MutexWrap(datastore.NewMapDatastore())
+	testData.DTStoredCounter = storedcounter.New(testData.Dstore, datastore.NewKey("nextDTID"))
+	testData.RetrievalStoredCounter = storedcounter.New(testData.Dstore, datastore.NewKey("nextDealID"))
+
+	// make a bstore and dag service
+	testData.Bstore = bstore.NewBlockstore(testData.Dstore)
+	testData.MultiStore, err = multistore.NewMultiDstore(testData.Dstore)
+	require.NoError(t, err)
+	testData.DagService = merkledag.NewDAGService(blockservice.New(testData.Bstore, offline.Exchange(testData.Bstore)))
+
+	// setup an IPLD loader/storer for bstore
+	testData.Loader = makeLoader(testData.Bstore)
+	testData.Storer = makeStorer(testData.Bstore)
+
+	// create a peer
+	testData.Host, err = mn.GenPeer()
+	require.NoError(t, err)
+
+	// Create a network, store and temp dir for DataTransfer
+	testData.DTNet = dtnet.NewFromLibp2pHost(testData.Host)
+	testData.DTStore = namespace.Wrap(testData.Dstore, datastore.NewKey("DataTransfer"))
+
+	testData.DTTmpDir, err = ioutil.TempDir("", fmt.Sprintf("dt-tmp-%d", rnd.Uint64()))
+	require.NoError(t, err)
+	t.Cleanup(func() {
+		_ = os.RemoveAll(testData.DTTmpDir)
+	})
+
+	return testData
+}
+
+type StoredDAG struct {
+	PayloadCID cid.Cid
+	Data       []byte
+	Store      *multistore.MultiStore
+	StoreID    multistore.StoreID
+}
+
+func (m Libp2pNodeDeps) LoadUnixFsFileToStore(ctx context.Context, t *testing.T, size int) *StoredDAG {
+	storeID := m.MultiStore.Next()
+	store, err := m.MultiStore.Get(storeID)
+	require.NoError(t, err)
+
+	data := make([]byte, size)
+	m.Rand.Read(data)
+	r := bytes.NewReader(data)
+
+	data, link := LoadUnixFSFile(t, ctx, r, store.DAG)
+	return &StoredDAG{
+		PayloadCID: link.(cidlink.Link).Cid,
+		Data:       data,
+		Store:      m.MultiStore,
+		StoreID:    storeID,
+	}
+}
+
 const unixfsChunkSize uint64 = 1 << 10
 const unixfsLinksPerLevel = 1024
 
@@ -199,7 +284,6 @@ func (ltd *Libp2pTestData) LoadUnixFSFileToStore(t *testing.T, fixturesPath stri
 }
 
 func (ltd *Libp2pTestData) loadUnixFSFile(t *testing.T, fixturesPath string, dagService ipldformat.DAGService) ipld.Link {
-
 	// read in a fixture file
 	fpath, err := filepath.Abs(filepath.Join(thisDir(t), "..", fixturesPath))
 	require.NoError(t, err)
@@ -207,12 +291,21 @@ func (ltd *Libp2pTestData) loadUnixFSFile(t *testing.T, fixturesPath string, dag
 	f, err := os.Open(fpath)
 	require.NoError(t, err)
 
+	byts, link := LoadUnixFSFile(t, ltd.Ctx, f, dagService)
+
+	// save the original files bytes
+	ltd.OrigBytes = byts
+
+	return link
+}
+
+func LoadUnixFSFile(t *testing.T, ctx context.Context, f io.Reader, dagService ipldformat.DAGService) ([]byte, ipld.Link) {
 	var buf bytes.Buffer
 	tr := io.TeeReader(f, &buf)
 	file := files.NewReaderFile(tr)
 
 	// import to UnixFS
-	bufferedDS := ipldformat.NewBufferedDAG(ltd.Ctx, dagService)
+	bufferedDS := ipldformat.NewBufferedDAG(ctx, dagService)
 
 	params := helpers.DagBuilderParams{
 		Maxlinks:   unixfsLinksPerLevel,
@@ -230,10 +323,7 @@ func (ltd *Libp2pTestData) loadUnixFSFile(t *testing.T, fixturesPath string, dag
 	err = bufferedDS.Commit()
 	require.NoError(t, err)
 
-	// save the original files bytes
-	ltd.OrigBytes = buf.Bytes()
-
-	return cidlink.Link{Cid: nd.Cid()}
+	return buf.Bytes(), cidlink.Link{Cid: nd.Cid()}
 }
 
 func thisDir(t *testing.T) string {
@@ -270,27 +360,29 @@ func (ltd *Libp2pTestData) VerifyFileTransferredIntoStore(t *testing.T, link ipl
 }
 
 func (ltd *Libp2pTestData) verifyFileTransferred(t *testing.T, link ipld.Link, dagService ipldformat.DAGService, readLen uint64) {
-
 	c := link.(cidlink.Link).Cid
+	VerifyFileInStore(ltd.Ctx, t, ltd.OrigBytes, c, dagService)
+}
 
+func VerifyFileInStore(ctx context.Context, t *testing.T, origBytes []byte, payloadCID cid.Cid, dagService ipldformat.DAGService) {
 	// load the root of the UnixFS DAG from the new blockstore
-	otherNode, err := dagService.Get(ltd.Ctx, c)
+	otherNode, err := dagService.Get(ctx, payloadCID)
 	require.NoError(t, err)
 
 	// Setup a UnixFS file reader
-	n, err := unixfile.NewUnixfsFile(ltd.Ctx, dagService, otherNode)
+	n, err := unixfile.NewUnixfsFile(ctx, dagService, otherNode)
 	require.NoError(t, err)
 
 	fn, ok := n.(files.File)
 	require.True(t, ok)
 
 	// Read the bytes for the UnixFS File
-	finalBytes := make([]byte, readLen)
+	finalBytes := make([]byte, len(origBytes))
 	_, err = fn.Read(finalBytes)
 	if err != nil {
 		require.Equal(t, "EOF", err.Error())
 	}
 
 	// verify original bytes match final bytes!
-	require.EqualValues(t, ltd.OrigBytes[:readLen], finalBytes)
+	require.EqualValues(t, origBytes, finalBytes)
 }

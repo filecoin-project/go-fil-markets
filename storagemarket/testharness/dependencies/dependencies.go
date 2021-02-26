@@ -172,7 +172,7 @@ func (gen *DepGenerator) New(
 		PeerID:     td.Host2.ID(),
 	}
 
-	smState.Providers = map[address.Address]*storagemarket.StorageProviderInfo{providerAddr: &providerInfo}
+	smState.AddProvider(providerAddr, &providerInfo)
 	return &StorageDependencies{
 		Ctx:                               ctx,
 		Epoch:                             epoch,
