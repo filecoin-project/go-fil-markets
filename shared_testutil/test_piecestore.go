@@ -3,6 +3,7 @@ package shared_testutil
 import (
 	"context"
 	"errors"
+	"sync"
 	"testing"
 
 	"github.com/ipfs/go-cid"
@@ -18,12 +19,14 @@ type TestPieceStore struct {
 	addPieceBlockLocationsError error
 	addDealForPieceError        error
 	getPieceInfoError           error
-	piecesStubbed               map[cid.Cid]piecestore.PieceInfo
-	piecesExpected              map[cid.Cid]struct{}
-	piecesReceived              map[cid.Cid]struct{}
-	cidInfosStubbed             map[cid.Cid]piecestore.CIDInfo
-	cidInfosExpected            map[cid.Cid]struct{}
-	cidInfosReceived            map[cid.Cid]struct{}
+
+	lk               sync.Mutex
+	piecesStubbed    map[cid.Cid]piecestore.PieceInfo
+	piecesExpected   map[cid.Cid]struct{}
+	piecesReceived   map[cid.Cid]struct{}
+	cidInfosStubbed  map[cid.Cid]piecestore.CIDInfo
+	cidInfosExpected map[cid.Cid]struct{}
+	cidInfosReceived map[cid.Cid]struct{}
 }
 
 // TestPieceStoreParams sets parameters for a piece store
@@ -58,39 +61,60 @@ func NewTestPieceStoreWithParams(params TestPieceStoreParams) *TestPieceStore {
 // StubPiece creates a return value for the given piece cid without expecting it
 // to be called
 func (tps *TestPieceStore) StubPiece(pieceCid cid.Cid, pieceInfo piecestore.PieceInfo) {
+	tps.lk.Lock()
+	defer tps.lk.Unlock()
+
 	tps.piecesStubbed[pieceCid] = pieceInfo
 }
 
 // ExpectPiece records a piece being expected to be queried and return the given piece info
 func (tps *TestPieceStore) ExpectPiece(pieceCid cid.Cid, pieceInfo piecestore.PieceInfo) {
+	tps.lk.Lock()
 	tps.piecesExpected[pieceCid] = struct{}{}
+	tps.lk.Unlock()
+
 	tps.StubPiece(pieceCid, pieceInfo)
 }
 
 // ExpectMissingPiece records a piece being expected to be queried and should fail
 func (tps *TestPieceStore) ExpectMissingPiece(pieceCid cid.Cid) {
+	tps.lk.Lock()
+	defer tps.lk.Unlock()
+
 	tps.piecesExpected[pieceCid] = struct{}{}
 }
 
 // StubCID creates a return value for the given CID without expecting it
 // to be called
 func (tps *TestPieceStore) StubCID(c cid.Cid, cidInfo piecestore.CIDInfo) {
+	tps.lk.Lock()
+	defer tps.lk.Unlock()
+
 	tps.cidInfosStubbed[c] = cidInfo
 }
 
 // ExpectCID records a CID being expected to be queried and return the given CID info
 func (tps *TestPieceStore) ExpectCID(c cid.Cid, cidInfo piecestore.CIDInfo) {
+	tps.lk.Lock()
 	tps.cidInfosExpected[c] = struct{}{}
+	tps.lk.Unlock()
+
 	tps.StubCID(c, cidInfo)
 }
 
 // ExpectMissingCID records a CID being expected to be queried and should fail
 func (tps *TestPieceStore) ExpectMissingCID(c cid.Cid) {
+	tps.lk.Lock()
+	defer tps.lk.Unlock()
+
 	tps.cidInfosExpected[c] = struct{}{}
 }
 
 // VerifyExpectations verifies that the piecestore was queried in the expected ways
 func (tps *TestPieceStore) VerifyExpectations(t *testing.T) {
+	tps.lk.Lock()
+	defer tps.lk.Unlock()
+
 	require.Equal(t, tps.piecesExpected, tps.piecesReceived)
 	require.Equal(t, tps.cidInfosExpected, tps.cidInfosReceived)
 }
@@ -111,6 +135,9 @@ func (tps *TestPieceStore) GetPieceInfo(pieceCID cid.Cid) (piecestore.PieceInfo,
 		return piecestore.PieceInfoUndefined, tps.getPieceInfoError
 	}
 
+	tps.lk.Lock()
+	defer tps.lk.Unlock()
+
 	tps.piecesReceived[pieceCID] = struct{}{}
 
 	pio, ok := tps.piecesStubbed[pieceCID]
@@ -126,6 +153,9 @@ func (tps *TestPieceStore) GetPieceInfo(pieceCID cid.Cid) (piecestore.PieceInfo,
 
 // GetCIDInfo returns cid info if it's been stubbed
 func (tps *TestPieceStore) GetCIDInfo(c cid.Cid) (piecestore.CIDInfo, error) {
+	tps.lk.Lock()
+	defer tps.lk.Unlock()
+
 	tps.cidInfosReceived[c] = struct{}{}
 
 	cio, ok := tps.cidInfosStubbed[c]
