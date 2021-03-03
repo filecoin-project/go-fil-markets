@@ -465,33 +465,69 @@ func (p *Provider) HandleDealStatusStream(s network.DealStatusStream) {
 		return
 	}
 
+	dealState, err := p.processDealStatusRequest(&request)
+	if err != nil {
+		log.Errorf("failed to process deal status request: %s", err)
+		return
+	}
+
+	signature, err := p.sign(ctx, dealState)
+	if err != nil {
+		log.Errorf("failed to sign deal status response: %s", err)
+		return
+	}
+
+	response := network.DealStatusResponse{
+		DealState: *dealState,
+		Signature: *signature,
+	}
+
+	if err := s.WriteDealStatusResponse(response, p.sign); err != nil {
+		log.Warnf("failed to write deal status response: %s", err)
+		return
+	}
+}
+
+func (p *Provider) processDealStatusRequest(request *network.DealStatusRequest) (*storagemarket.ProviderDealState, error) {
 	// fetch deal state
 	var md = storagemarket.MinerDeal{}
 	if err := p.deals.Get(request.Proposal).Get(&md); err != nil {
 		log.Errorf("proposal doesn't exist in state store: %s", err)
-		return
+		return &storagemarket.ProviderDealState{
+			State:   storagemarket.StorageDealError,
+			Message: "no such proposal",
+		}, nil
 	}
 
 	// verify query signature
 	buf, err := cborutil.Dump(&request.Proposal)
 	if err != nil {
 		log.Errorf("failed to serialize status request: %s", err)
-		return
+		return &storagemarket.ProviderDealState{
+			State:   storagemarket.StorageDealError,
+			Message: "internal error",
+		}, nil
 	}
 
 	tok, _, err := p.spn.GetChainHead(ctx)
 	if err != nil {
 		log.Errorf("failed to get chain head: %s", err)
-		return
+		return &storagemarket.ProviderDealState{
+			State:   storagemarket.StorageDealError,
+			Message: "internal error",
+		}, nil
 	}
 
 	err = providerutils.VerifySignature(ctx, request.Signature, md.ClientDealProposal.Proposal.Client, buf, tok, p.spn.VerifySignature)
 	if err != nil {
 		log.Errorf("invalid deal status request signature: %s", err)
-		return
+		return &storagemarket.ProviderDealState{
+			State:   storagemarket.StorageDealError,
+			Message: "internal error",
+		}, nil
 	}
 
-	dealState := storagemarket.ProviderDealState{
+	return &storagemarket.ProviderDealState{
 		State:         md.State,
 		Message:       md.Message,
 		Proposal:      &md.Proposal,
@@ -500,23 +536,7 @@ func (p *Provider) HandleDealStatusStream(s network.DealStatusStream) {
 		PublishCid:    md.PublishCid,
 		DealID:        md.DealID,
 		FastRetrieval: md.FastRetrieval,
-	}
-
-	signature, err := p.sign(ctx, &dealState)
-	if err != nil {
-		log.Errorf("failed to sign deal status response: %s", err)
-		return
-	}
-
-	response := network.DealStatusResponse{
-		DealState: dealState,
-		Signature: *signature,
-	}
-
-	if err := s.WriteDealStatusResponse(response, p.sign); err != nil {
-		log.Warnf("failed to write deal status response: %s", err)
-		return
-	}
+	}, nil
 }
 
 // Configure applies the given list of StorageProviderOptions after a StorageProvider
