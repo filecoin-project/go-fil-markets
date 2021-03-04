@@ -28,7 +28,7 @@ func (t *ClientDeal) MarshalCBOR(w io.Writer) error {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	if _, err := w.Write([]byte{179}); err != nil {
+	if _, err := w.Write([]byte{180}); err != nil {
 		return err
 	}
 
@@ -195,6 +195,22 @@ func (t *ClientDeal) MarshalCBOR(w io.Writer) error {
 		return err
 	}
 	if _, err := io.WriteString(w, string(t.Message)); err != nil {
+		return err
+	}
+
+	// t.DealStages (storagemarket.DealStages) (struct)
+	if len("DealStages") > cbg.MaxLength {
+		return xerrors.Errorf("Value in field \"DealStages\" was too long")
+	}
+
+	if err := cbg.WriteMajorTypeHeaderBuf(scratch, w, cbg.MajTextString, uint64(len("DealStages"))); err != nil {
+		return err
+	}
+	if _, err := io.WriteString(w, string("DealStages")); err != nil {
+		return err
+	}
+
+	if err := t.DealStages.MarshalCBOR(w); err != nil {
 		return err
 	}
 
@@ -539,6 +555,26 @@ func (t *ClientDeal) UnmarshalCBOR(r io.Reader) error {
 				}
 
 				t.Message = string(sval)
+			}
+			// t.DealStages (storagemarket.DealStages) (struct)
+		case "DealStages":
+
+			{
+
+				b, err := br.ReadByte()
+				if err != nil {
+					return err
+				}
+				if b != cbg.CborNull[0] {
+					if err := br.UnreadByte(); err != nil {
+						return err
+					}
+					t.DealStages = new(DealStages)
+					if err := t.DealStages.UnmarshalCBOR(br); err != nil {
+						return xerrors.Errorf("unmarshaling t.DealStages pointer: %w", err)
+					}
+				}
+
 			}
 			// t.PublishMessage (cid.Cid) (struct)
 		case "PublishMessage":
@@ -2606,6 +2642,493 @@ func (t *ProviderDealState) UnmarshalCBOR(r io.Reader) error {
 				t.FastRetrieval = true
 			default:
 				return fmt.Errorf("booleans are either major type 7, value 20 or 21 (got %d)", extra)
+			}
+
+		default:
+			// Field doesn't exist on this type, so ignore it
+			cbg.ScanForLinks(r, func(cid.Cid) {})
+		}
+	}
+
+	return nil
+}
+func (t *DealStages) MarshalCBOR(w io.Writer) error {
+	if t == nil {
+		_, err := w.Write(cbg.CborNull)
+		return err
+	}
+	if _, err := w.Write([]byte{161}); err != nil {
+		return err
+	}
+
+	scratch := make([]byte, 9)
+
+	// t.Stages ([]*storagemarket.DealStage) (slice)
+	if len("Stages") > cbg.MaxLength {
+		return xerrors.Errorf("Value in field \"Stages\" was too long")
+	}
+
+	if err := cbg.WriteMajorTypeHeaderBuf(scratch, w, cbg.MajTextString, uint64(len("Stages"))); err != nil {
+		return err
+	}
+	if _, err := io.WriteString(w, string("Stages")); err != nil {
+		return err
+	}
+
+	if len(t.Stages) > cbg.MaxLength {
+		return xerrors.Errorf("Slice value in field t.Stages was too long")
+	}
+
+	if err := cbg.WriteMajorTypeHeaderBuf(scratch, w, cbg.MajArray, uint64(len(t.Stages))); err != nil {
+		return err
+	}
+	for _, v := range t.Stages {
+		if err := v.MarshalCBOR(w); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (t *DealStages) UnmarshalCBOR(r io.Reader) error {
+	*t = DealStages{}
+
+	br := cbg.GetPeeker(r)
+	scratch := make([]byte, 8)
+
+	maj, extra, err := cbg.CborReadHeaderBuf(br, scratch)
+	if err != nil {
+		return err
+	}
+	if maj != cbg.MajMap {
+		return fmt.Errorf("cbor input should be of type map")
+	}
+
+	if extra > cbg.MaxLength {
+		return fmt.Errorf("DealStages: map struct too large (%d)", extra)
+	}
+
+	var name string
+	n := extra
+
+	for i := uint64(0); i < n; i++ {
+
+		{
+			sval, err := cbg.ReadStringBuf(br, scratch)
+			if err != nil {
+				return err
+			}
+
+			name = string(sval)
+		}
+
+		switch name {
+		// t.Stages ([]*storagemarket.DealStage) (slice)
+		case "Stages":
+
+			maj, extra, err = cbg.CborReadHeaderBuf(br, scratch)
+			if err != nil {
+				return err
+			}
+
+			if extra > cbg.MaxLength {
+				return fmt.Errorf("t.Stages: array too large (%d)", extra)
+			}
+
+			if maj != cbg.MajArray {
+				return fmt.Errorf("expected cbor array")
+			}
+
+			if extra > 0 {
+				t.Stages = make([]*DealStage, extra)
+			}
+
+			for i := 0; i < int(extra); i++ {
+
+				var v DealStage
+				if err := v.UnmarshalCBOR(br); err != nil {
+					return err
+				}
+
+				t.Stages[i] = &v
+			}
+
+		default:
+			// Field doesn't exist on this type, so ignore it
+			cbg.ScanForLinks(r, func(cid.Cid) {})
+		}
+	}
+
+	return nil
+}
+func (t *DealStage) MarshalCBOR(w io.Writer) error {
+	if t == nil {
+		_, err := w.Write(cbg.CborNull)
+		return err
+	}
+	if _, err := w.Write([]byte{166}); err != nil {
+		return err
+	}
+
+	scratch := make([]byte, 9)
+
+	// t.Name (string) (string)
+	if len("Name") > cbg.MaxLength {
+		return xerrors.Errorf("Value in field \"Name\" was too long")
+	}
+
+	if err := cbg.WriteMajorTypeHeaderBuf(scratch, w, cbg.MajTextString, uint64(len("Name"))); err != nil {
+		return err
+	}
+	if _, err := io.WriteString(w, string("Name")); err != nil {
+		return err
+	}
+
+	if len(t.Name) > cbg.MaxLength {
+		return xerrors.Errorf("Value in field t.Name was too long")
+	}
+
+	if err := cbg.WriteMajorTypeHeaderBuf(scratch, w, cbg.MajTextString, uint64(len(t.Name))); err != nil {
+		return err
+	}
+	if _, err := io.WriteString(w, string(t.Name)); err != nil {
+		return err
+	}
+
+	// t.Description (string) (string)
+	if len("Description") > cbg.MaxLength {
+		return xerrors.Errorf("Value in field \"Description\" was too long")
+	}
+
+	if err := cbg.WriteMajorTypeHeaderBuf(scratch, w, cbg.MajTextString, uint64(len("Description"))); err != nil {
+		return err
+	}
+	if _, err := io.WriteString(w, string("Description")); err != nil {
+		return err
+	}
+
+	if len(t.Description) > cbg.MaxLength {
+		return xerrors.Errorf("Value in field t.Description was too long")
+	}
+
+	if err := cbg.WriteMajorTypeHeaderBuf(scratch, w, cbg.MajTextString, uint64(len(t.Description))); err != nil {
+		return err
+	}
+	if _, err := io.WriteString(w, string(t.Description)); err != nil {
+		return err
+	}
+
+	// t.ExpectedDuration (string) (string)
+	if len("ExpectedDuration") > cbg.MaxLength {
+		return xerrors.Errorf("Value in field \"ExpectedDuration\" was too long")
+	}
+
+	if err := cbg.WriteMajorTypeHeaderBuf(scratch, w, cbg.MajTextString, uint64(len("ExpectedDuration"))); err != nil {
+		return err
+	}
+	if _, err := io.WriteString(w, string("ExpectedDuration")); err != nil {
+		return err
+	}
+
+	if len(t.ExpectedDuration) > cbg.MaxLength {
+		return xerrors.Errorf("Value in field t.ExpectedDuration was too long")
+	}
+
+	if err := cbg.WriteMajorTypeHeaderBuf(scratch, w, cbg.MajTextString, uint64(len(t.ExpectedDuration))); err != nil {
+		return err
+	}
+	if _, err := io.WriteString(w, string(t.ExpectedDuration)); err != nil {
+		return err
+	}
+
+	// t.CreatedTime (typegen.CborTime) (struct)
+	if len("CreatedTime") > cbg.MaxLength {
+		return xerrors.Errorf("Value in field \"CreatedTime\" was too long")
+	}
+
+	if err := cbg.WriteMajorTypeHeaderBuf(scratch, w, cbg.MajTextString, uint64(len("CreatedTime"))); err != nil {
+		return err
+	}
+	if _, err := io.WriteString(w, string("CreatedTime")); err != nil {
+		return err
+	}
+
+	if err := t.CreatedTime.MarshalCBOR(w); err != nil {
+		return err
+	}
+
+	// t.UpdatedTime (typegen.CborTime) (struct)
+	if len("UpdatedTime") > cbg.MaxLength {
+		return xerrors.Errorf("Value in field \"UpdatedTime\" was too long")
+	}
+
+	if err := cbg.WriteMajorTypeHeaderBuf(scratch, w, cbg.MajTextString, uint64(len("UpdatedTime"))); err != nil {
+		return err
+	}
+	if _, err := io.WriteString(w, string("UpdatedTime")); err != nil {
+		return err
+	}
+
+	if err := t.UpdatedTime.MarshalCBOR(w); err != nil {
+		return err
+	}
+
+	// t.Logs ([]*storagemarket.Log) (slice)
+	if len("Logs") > cbg.MaxLength {
+		return xerrors.Errorf("Value in field \"Logs\" was too long")
+	}
+
+	if err := cbg.WriteMajorTypeHeaderBuf(scratch, w, cbg.MajTextString, uint64(len("Logs"))); err != nil {
+		return err
+	}
+	if _, err := io.WriteString(w, string("Logs")); err != nil {
+		return err
+	}
+
+	if len(t.Logs) > cbg.MaxLength {
+		return xerrors.Errorf("Slice value in field t.Logs was too long")
+	}
+
+	if err := cbg.WriteMajorTypeHeaderBuf(scratch, w, cbg.MajArray, uint64(len(t.Logs))); err != nil {
+		return err
+	}
+	for _, v := range t.Logs {
+		if err := v.MarshalCBOR(w); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (t *DealStage) UnmarshalCBOR(r io.Reader) error {
+	*t = DealStage{}
+
+	br := cbg.GetPeeker(r)
+	scratch := make([]byte, 8)
+
+	maj, extra, err := cbg.CborReadHeaderBuf(br, scratch)
+	if err != nil {
+		return err
+	}
+	if maj != cbg.MajMap {
+		return fmt.Errorf("cbor input should be of type map")
+	}
+
+	if extra > cbg.MaxLength {
+		return fmt.Errorf("DealStage: map struct too large (%d)", extra)
+	}
+
+	var name string
+	n := extra
+
+	for i := uint64(0); i < n; i++ {
+
+		{
+			sval, err := cbg.ReadStringBuf(br, scratch)
+			if err != nil {
+				return err
+			}
+
+			name = string(sval)
+		}
+
+		switch name {
+		// t.Name (string) (string)
+		case "Name":
+
+			{
+				sval, err := cbg.ReadStringBuf(br, scratch)
+				if err != nil {
+					return err
+				}
+
+				t.Name = string(sval)
+			}
+			// t.Description (string) (string)
+		case "Description":
+
+			{
+				sval, err := cbg.ReadStringBuf(br, scratch)
+				if err != nil {
+					return err
+				}
+
+				t.Description = string(sval)
+			}
+			// t.ExpectedDuration (string) (string)
+		case "ExpectedDuration":
+
+			{
+				sval, err := cbg.ReadStringBuf(br, scratch)
+				if err != nil {
+					return err
+				}
+
+				t.ExpectedDuration = string(sval)
+			}
+			// t.CreatedTime (typegen.CborTime) (struct)
+		case "CreatedTime":
+
+			{
+
+				if err := t.CreatedTime.UnmarshalCBOR(br); err != nil {
+					return xerrors.Errorf("unmarshaling t.CreatedTime: %w", err)
+				}
+
+			}
+			// t.UpdatedTime (typegen.CborTime) (struct)
+		case "UpdatedTime":
+
+			{
+
+				if err := t.UpdatedTime.UnmarshalCBOR(br); err != nil {
+					return xerrors.Errorf("unmarshaling t.UpdatedTime: %w", err)
+				}
+
+			}
+			// t.Logs ([]*storagemarket.Log) (slice)
+		case "Logs":
+
+			maj, extra, err = cbg.CborReadHeaderBuf(br, scratch)
+			if err != nil {
+				return err
+			}
+
+			if extra > cbg.MaxLength {
+				return fmt.Errorf("t.Logs: array too large (%d)", extra)
+			}
+
+			if maj != cbg.MajArray {
+				return fmt.Errorf("expected cbor array")
+			}
+
+			if extra > 0 {
+				t.Logs = make([]*Log, extra)
+			}
+
+			for i := 0; i < int(extra); i++ {
+
+				var v Log
+				if err := v.UnmarshalCBOR(br); err != nil {
+					return err
+				}
+
+				t.Logs[i] = &v
+			}
+
+		default:
+			// Field doesn't exist on this type, so ignore it
+			cbg.ScanForLinks(r, func(cid.Cid) {})
+		}
+	}
+
+	return nil
+}
+func (t *Log) MarshalCBOR(w io.Writer) error {
+	if t == nil {
+		_, err := w.Write(cbg.CborNull)
+		return err
+	}
+	if _, err := w.Write([]byte{162}); err != nil {
+		return err
+	}
+
+	scratch := make([]byte, 9)
+
+	// t.Log (string) (string)
+	if len("Log") > cbg.MaxLength {
+		return xerrors.Errorf("Value in field \"Log\" was too long")
+	}
+
+	if err := cbg.WriteMajorTypeHeaderBuf(scratch, w, cbg.MajTextString, uint64(len("Log"))); err != nil {
+		return err
+	}
+	if _, err := io.WriteString(w, string("Log")); err != nil {
+		return err
+	}
+
+	if len(t.Log) > cbg.MaxLength {
+		return xerrors.Errorf("Value in field t.Log was too long")
+	}
+
+	if err := cbg.WriteMajorTypeHeaderBuf(scratch, w, cbg.MajTextString, uint64(len(t.Log))); err != nil {
+		return err
+	}
+	if _, err := io.WriteString(w, string(t.Log)); err != nil {
+		return err
+	}
+
+	// t.UpdatedTime (typegen.CborTime) (struct)
+	if len("UpdatedTime") > cbg.MaxLength {
+		return xerrors.Errorf("Value in field \"UpdatedTime\" was too long")
+	}
+
+	if err := cbg.WriteMajorTypeHeaderBuf(scratch, w, cbg.MajTextString, uint64(len("UpdatedTime"))); err != nil {
+		return err
+	}
+	if _, err := io.WriteString(w, string("UpdatedTime")); err != nil {
+		return err
+	}
+
+	if err := t.UpdatedTime.MarshalCBOR(w); err != nil {
+		return err
+	}
+	return nil
+}
+
+func (t *Log) UnmarshalCBOR(r io.Reader) error {
+	*t = Log{}
+
+	br := cbg.GetPeeker(r)
+	scratch := make([]byte, 8)
+
+	maj, extra, err := cbg.CborReadHeaderBuf(br, scratch)
+	if err != nil {
+		return err
+	}
+	if maj != cbg.MajMap {
+		return fmt.Errorf("cbor input should be of type map")
+	}
+
+	if extra > cbg.MaxLength {
+		return fmt.Errorf("Log: map struct too large (%d)", extra)
+	}
+
+	var name string
+	n := extra
+
+	for i := uint64(0); i < n; i++ {
+
+		{
+			sval, err := cbg.ReadStringBuf(br, scratch)
+			if err != nil {
+				return err
+			}
+
+			name = string(sval)
+		}
+
+		switch name {
+		// t.Log (string) (string)
+		case "Log":
+
+			{
+				sval, err := cbg.ReadStringBuf(br, scratch)
+				if err != nil {
+					return err
+				}
+
+				t.Log = string(sval)
+			}
+			// t.UpdatedTime (typegen.CborTime) (struct)
+		case "UpdatedTime":
+
+			{
+
+				if err := t.UpdatedTime.UnmarshalCBOR(br); err != nil {
+					return xerrors.Errorf("unmarshaling t.UpdatedTime: %w", err)
+				}
+
 			}
 
 		default:

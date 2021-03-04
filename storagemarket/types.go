@@ -1,7 +1,11 @@
 package storagemarket
 
 import (
+	"fmt"
+	"time"
+
 	"github.com/ipfs/go-cid"
+	logging "github.com/ipfs/go-log/v2"
 	"github.com/libp2p/go-libp2p-core/peer"
 	ma "github.com/multiformats/go-multiaddr"
 	cbg "github.com/whyrusleeping/cbor-gen"
@@ -16,7 +20,9 @@ import (
 	"github.com/filecoin-project/go-fil-markets/filestore"
 )
 
-//go:generate cbor-gen-for --map-encoding ClientDeal MinerDeal Balance SignedStorageAsk StorageAsk DataRef ProviderDealState
+var log = logging.Logger("storagemrkt")
+
+//go:generate cbor-gen-for --map-encoding ClientDeal MinerDeal Balance SignedStorageAsk StorageAsk DataRef ProviderDealState DealStages DealStage Log
 
 // DealProtocolID is the ID for the libp2p protocol for proposing storage deals.
 const OldDealProtocolID = "/fil/storage/mk/1.0.1"
@@ -108,6 +114,71 @@ type MinerDeal struct {
 	SectorNumber      abi.SectorNumber
 }
 
+func NewDealStages() *DealStages {
+	return &DealStages{}
+}
+
+type DealStages struct {
+	Stages []*DealStage
+}
+
+type Log struct {
+	Log         string
+	UpdatedTime cbg.CborTime
+}
+
+func (ds *DealStages) GetStage(stage string) *DealStage {
+	for _, s := range ds.Stages {
+		if s.Name == stage {
+			return s
+		}
+	}
+
+	return nil
+}
+
+func (ds *DealStages) AddStageLog(stage, description, expectedDuration, msg string) {
+	log.Infof("adding log for stage <%s> msg <%s>", stage, msg)
+
+	now := curTime()
+	st := ds.GetStage(stage)
+	if st == nil {
+		st = &DealStage{
+			CreatedTime: now,
+		}
+		ds.Stages = append(ds.Stages, st)
+	}
+
+	st.Name = stage
+	st.Description = description
+	st.ExpectedDuration = expectedDuration
+	st.UpdatedTime = now
+	if msg != "" && (len(st.Logs) == 0 || st.Logs[len(st.Logs)-1].Log != msg) {
+		st.Logs = append(st.Logs, &Log{msg, now})
+	}
+}
+
+type DealStage struct {
+	Name             string
+	Description      string
+	ExpectedDuration string
+	CreatedTime      cbg.CborTime
+	UpdatedTime      cbg.CborTime
+	Logs             []*Log
+}
+
+func (d *ClientDeal) AddLog(msg string, a ...interface{}) {
+	if len(a) > 0 {
+		msg = fmt.Sprintf(msg, a...)
+	}
+
+	stage := DealStates[d.State]
+	description := DealStatesDescriptions[d.State]
+	expectedDuration := DealStatesDurations[d.State]
+
+	d.DealStages.AddStageLog(stage, description, expectedDuration, msg)
+}
+
 // ClientDeal is the local state tracked for a deal by a StorageClient
 type ClientDeal struct {
 	market.ClientDealProposal
@@ -119,6 +190,7 @@ type ClientDeal struct {
 	DealID            abi.DealID
 	DataRef           *DataRef
 	Message           string
+	DealStages        *DealStages
 	PublishMessage    *cid.Cid
 	SlashEpoch        abi.ChainEpoch
 	PollRetryCount    uint64
@@ -191,4 +263,9 @@ type ProviderDealState struct {
 	PublishCid    *cid.Cid
 	DealID        abi.DealID
 	FastRetrieval bool
+}
+
+func curTime() cbg.CborTime {
+	now := time.Now()
+	return cbg.CborTime(time.Unix(0, now.UnixNano()).UTC())
 }
