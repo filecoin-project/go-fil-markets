@@ -235,7 +235,7 @@ var ClientEvents = fsm.Events{
 	fsm.Event(storagemarket.ClientEventDealActivated).
 		FromMany(storagemarket.StorageDealAwaitingPreCommit, storagemarket.StorageDealSealing).
 		To(storagemarket.StorageDealActive).
-		Action(func(deal *storagemarket.ClientDeal, err error) error {
+		Action(func(deal *storagemarket.ClientDeal) error {
 			deal.AddLog("deal activated")
 			return nil
 		}),
@@ -257,7 +257,7 @@ var ClientEvents = fsm.Events{
 		}),
 	fsm.Event(storagemarket.ClientEventFailed).
 		From(storagemarket.StorageDealFailing).To(storagemarket.StorageDealError).
-		Action(func(deal *storagemarket.ClientDeal, err error) error {
+		Action(func(deal *storagemarket.ClientDeal) error {
 			deal.AddLog(deal.Message)
 			return nil
 		}),
