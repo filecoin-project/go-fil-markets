@@ -162,6 +162,7 @@ func MakeTestClientDeal(state storagemarket.StorageDealStatus, clientDealProposa
 		Miner:              p,
 		MinerWorker:        address.TestAddress2,
 		DataRef:            MakeTestDataRef(manualXfer),
+		DealStages:         storagemarket.NewDealStages(),
 	}, nil
 }
 
