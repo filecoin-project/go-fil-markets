@@ -138,7 +138,7 @@ func (ds *DealStages) GetStage(stage string) *DealStage {
 }
 
 func (ds *DealStages) AddStageLog(stage, description, expectedDuration, msg string) {
-	log.Infof("adding log for stage <%s> msg <%s>", stage, msg)
+	log.Debugf("adding log for stage <%s> msg <%s>", stage, msg)
 
 	now := curTime()
 	st := ds.GetStage(stage)
