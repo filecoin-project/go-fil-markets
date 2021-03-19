@@ -214,7 +214,7 @@ var ClientEvents = fsm.Events{
 	fsm.Event(storagemarket.ClientEventDealPrecommitFailed).
 		From(storagemarket.StorageDealAwaitingPreCommit).To(storagemarket.StorageDealError).
 		Action(func(deal *storagemarket.ClientDeal, err error) error {
-			deal.Message = xerrors.Errorf("error awaiting deal pre-commit: %w", err).Error()
+			deal.Message = xerrors.Errorf("error waiting for deal pre-commit message to appear on chain: %w", err).Error()
 			deal.AddLog(deal.Message)
 			return nil
 		}),
