@@ -22,7 +22,7 @@ var ClientEvents = fsm.Events{
 		From(storagemarket.StorageDealReserveClientFunds).To(storagemarket.StorageDealClientFunding).
 		Action(func(deal *storagemarket.ClientDeal, mcid cid.Cid) error {
 			deal.AddFundsCid = &mcid
-			deal.AddLog("adding funds with message <%s>", mcid)
+			deal.AddLog("reserving funds for storage deal, message cid: <%s>", mcid)
 			return nil
 		}),
 	fsm.Event(storagemarket.ClientEventReserveFundsFailed).
