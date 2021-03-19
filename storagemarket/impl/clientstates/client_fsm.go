@@ -222,7 +222,7 @@ var ClientEvents = fsm.Events{
 		From(storagemarket.StorageDealAwaitingPreCommit).To(storagemarket.StorageDealSealing).
 		Action(func(deal *storagemarket.ClientDeal, sectorNumber abi.SectorNumber) error {
 			deal.SectorNumber = sectorNumber
-			deal.AddLog("deal has been precommitted")
+			deal.AddLog("deal pre-commit message has landed on chain")
 			return nil
 		}),
 	fsm.Event(storagemarket.ClientEventDealActivationFailed).
