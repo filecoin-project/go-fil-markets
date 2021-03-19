@@ -160,7 +160,7 @@ var ClientEvents = fsm.Events{
 			case "StorageDealPublish":
 				deal.AddLog("waiting for provider to publish the deal on-chain") // TODO: is that right?
 			case "StorageDealPublishing":
-				deal.AddLog("provider has submitted the deal on-chain") // TODO: is that right?
+				deal.AddLog("provider has submitted the deal on-chain and is waiting for confirmation") // TODO: is that right?
 			case "StorageDealProviderFunding":
 				deal.AddLog("waiting for provider to lock collateral on-chain") // TODO: is that right?
 			default:
