@@ -153,7 +153,7 @@ func TestProposeDeal(t *testing.T) {
 			},
 			inspector: func(deal storagemarket.ClientDeal, env *fakeEnvironment) {
 				tut.AssertDealState(t, storagemarket.StorageDealFailing, deal.State)
-				assert.Equal(t, "error reading Response message: read response failed", deal.Message)
+				assert.Equal(t, "error reading Response message from provider: read response failed", deal.Message)
 			},
 		})
 	})
@@ -437,7 +437,7 @@ func TestVerifyDealPreCommitted(t *testing.T) {
 			nodeParams: nodeParams{DealPreCommittedSyncError: errors.New("Something went wrong")},
 			inspector: func(deal storagemarket.ClientDeal, env *fakeEnvironment) {
 				tut.AssertDealState(t, storagemarket.StorageDealError, deal.State)
-				assert.Equal(t, "error awaiting deal pre-commit: Something went wrong", deal.Message)
+				assert.Equal(t, "error waiting for deal pre-commit message to appear on chain: Something went wrong", deal.Message)
 			},
 		})
 	})
@@ -446,7 +446,7 @@ func TestVerifyDealPreCommitted(t *testing.T) {
 			nodeParams: nodeParams{DealPreCommittedAsyncError: errors.New("Something went wrong later")},
 			inspector: func(deal storagemarket.ClientDeal, env *fakeEnvironment) {
 				tut.AssertDealState(t, storagemarket.StorageDealError, deal.State)
-				assert.Equal(t, "error awaiting deal pre-commit: Something went wrong later", deal.Message)
+				assert.Equal(t, "error waiting for deal pre-commit message to appear on chain: Something went wrong later", deal.Message)
 			},
 		})
 	})
