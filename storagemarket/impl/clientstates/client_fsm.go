@@ -62,7 +62,7 @@ var ClientEvents = fsm.Events{
 	fsm.Event(storagemarket.ClientEventReadResponseFailed).
 		From(storagemarket.StorageDealFundsReserved).To(storagemarket.StorageDealFailing).
 		Action(func(deal *storagemarket.ClientDeal, err error) error {
-			deal.Message = xerrors.Errorf("error reading Response message: %w", err).Error()
+			deal.Message = xerrors.Errorf("error reading Response message from provider: %w", err).Error()
 			deal.AddLog(deal.Message)
 			return nil
 		}),
