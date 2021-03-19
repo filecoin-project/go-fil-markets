@@ -208,7 +208,7 @@ var ClientEvents = fsm.Events{
 		From(storagemarket.StorageDealProposalAccepted).To(storagemarket.StorageDealAwaitingPreCommit).
 		Action(func(deal *storagemarket.ClientDeal, dealID abi.DealID) error {
 			deal.DealID = dealID
-			deal.AddLog(deal.Message)
+			deal.AddLog("")
 			return nil
 		}),
 	fsm.Event(storagemarket.ClientEventDealPrecommitFailed).
@@ -258,7 +258,7 @@ var ClientEvents = fsm.Events{
 	fsm.Event(storagemarket.ClientEventFailed).
 		From(storagemarket.StorageDealFailing).To(storagemarket.StorageDealError).
 		Action(func(deal *storagemarket.ClientDeal) error {
-			deal.AddLog(deal.Message)
+			deal.AddLog("")
 			return nil
 		}),
 	fsm.Event(storagemarket.ClientEventRestart).From(storagemarket.StorageDealTransferring).To(storagemarket.StorageDealClientTransferRestart).
