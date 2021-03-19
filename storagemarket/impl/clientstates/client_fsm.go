@@ -243,7 +243,7 @@ var ClientEvents = fsm.Events{
 		From(storagemarket.StorageDealActive).To(storagemarket.StorageDealSlashed).
 		Action(func(deal *storagemarket.ClientDeal, slashEpoch abi.ChainEpoch) error {
 			deal.SlashEpoch = slashEpoch
-			deal.AddLog("deal slashed on <%d>", slashEpoch)
+			deal.AddLog("deal slashed at epoch <%d>", slashEpoch)
 			return nil
 		}),
 	fsm.Event(storagemarket.ClientEventDealExpired).
