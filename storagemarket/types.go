@@ -128,6 +128,10 @@ type Log struct {
 }
 
 func (ds *DealStages) GetStage(stage string) *DealStage {
+	if ds == nil {
+		return nil
+	}
+
 	for _, s := range ds.Stages {
 		if s.Name == stage {
 			return s
@@ -138,6 +142,10 @@ func (ds *DealStages) GetStage(stage string) *DealStage {
 }
 
 func (ds *DealStages) AddStageLog(stage, description, expectedDuration, msg string) {
+	if ds == nil {
+		return
+	}
+
 	log.Debugf("adding log for stage <%s> msg <%s>", stage, msg)
 
 	now := curTime()
