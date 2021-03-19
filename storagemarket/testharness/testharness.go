@@ -213,12 +213,12 @@ type ClientHarness struct {
 	PeerResolver *discoveryimpl.Local
 }
 
-func (g *StorageInstanceGenerator) NewClient() *ClientHarness {
+func (g *StorageInstanceGenerator) NewClient(td *shared_testutil.Libp2pNodeDeps, dt datatransfer.Manager) *ClientHarness {
 	ctx := g.ctx
 	t := g.t
-	td := shared_testutil.NewLibp2pNodeDeps(t, g.rnd, g.mn)
+	//td := shared_testutil.NewLibp2pNodeDeps(t, g.rnd, g.mn)
 
-	dt := CreateAndStartDataTransfer(ctx, t, td)
+	//dt := CreateAndStartDataTransfer(ctx, t, td, restartConf)
 	discovery, err := discoveryimpl.NewLocal(namespace.Wrap(td.Dstore, datastore.NewKey("/deals/local")))
 	require.NoError(t, err)
 	shared_testutil.StartAndWaitForReady(ctx, t, discovery)
@@ -247,10 +247,10 @@ func (g *StorageInstanceGenerator) NewClient() *ClientHarness {
 	)
 	require.NoError(t, err)
 	return &ClientHarness{
-		Client:       client,
-		Addr:         clientAddr,
-		NodeDeps:     td,
-		DataTransfer: dt,
+		Client:   client,
+		Addr:     clientAddr,
+		NodeDeps: td,
+		//DataTransfer: dt,
 		PeerResolver: discovery,
 	}
 }
@@ -344,10 +344,10 @@ func randAddress(t *testing.T, rnd *rand.Rand) address.Address {
 	return providerAddr
 }
 
-func CreateAndStartDataTransfer(ctx context.Context, t *testing.T, td *shared_testutil.Libp2pNodeDeps) datatransfer.Manager {
+func CreateAndStartDataTransfer(ctx context.Context, t *testing.T, td *shared_testutil.Libp2pNodeDeps, opts ...dtimpl.DataTransferOption) datatransfer.Manager {
 	gs := graphsyncimpl.New(ctx, gsnetwork.NewFromLibp2pHost(td.Host), td.Loader, td.Storer)
 	dtTransport := dtgstransport.NewTransport(td.Host.ID(), gs)
-	dt, err := dtimpl.NewDataTransfer(td.DTStore, td.DTTmpDir, td.DTNet, dtTransport, td.DTStoredCounter)
+	dt, err := dtimpl.NewDataTransfer(td.DTStore, td.DTTmpDir, td.DTNet, dtTransport, opts...)
 	require.NoError(t, err)
 	testutil.StartAndWaitForReady(ctx, t, dt)
 	return dt

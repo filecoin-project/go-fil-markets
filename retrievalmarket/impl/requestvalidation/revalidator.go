@@ -3,6 +3,7 @@ package requestvalidation
 import (
 	"context"
 	"errors"
+	"fmt"
 	"sync"
 
 	logging "github.com/ipfs/go-log/v2"
@@ -218,6 +219,7 @@ func (pr *ProviderRevalidator) OnPullDataSent(chid datatransfer.ChannelID, addit
 	}
 
 	paymentOwed := big.Mul(abi.NewTokenAmount(int64(channel.totalSent-channel.totalPaidFor)), channel.pricePerByte)
+	fmt.Printf("  Provider on data sent: Total sent: %d, paid for: %d, owed: %d\n", channel.totalSent, channel.totalPaidFor, paymentOwed)
 	err = pr.env.SendEvent(channel.dealID, rm.ProviderEventPaymentRequested, channel.totalSent)
 	if err != nil {
 		return true, nil, err

@@ -69,7 +69,7 @@ func ProviderDataTransferSubscriber(deals EventReceiver) datatransfer.Subscriber
 
 		err := deals.Send(rm.ProviderDealIdentifier{DealID: dealProposal.ID, Receiver: channelState.Recipient()}, retrievalEvent, params...)
 		if err != nil {
-			log.Errorf("processing dt event: %w", err)
+			log.Errorf("processing dt event: %s", err)
 		}
 
 	}

@@ -8,6 +8,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/filecoin-project/go-data-transfer/channelmonitor"
+
 	"github.com/ipfs/go-datastore"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -292,7 +294,7 @@ func TestRestartOnlyProviderDataTransfer(t *testing.T) {
 	ctx, cancel := context.WithTimeout(ctx, 30*time.Second)
 	defer cancel()
 
-	// Configure data-transfer to retry connection
+	// Configure data-transfer to retry connection 5 times, with 1 second back-off
 	dtClientNetRetry := dtnet.RetryParameters(time.Second, time.Second, 5, 1)
 	td := shared_testutil.NewLibp2pTestData(ctx, t)
 	td.DTNet1 = dtnet.NewFromLibp2pHost(td.Host1, dtClientNetRetry)

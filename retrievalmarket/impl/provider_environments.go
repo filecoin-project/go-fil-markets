@@ -63,6 +63,10 @@ func (pve *providerValidationEnvironment) RunDealDecisioningLogic(ctx context.Co
 	return pve.p.dealDecider(ctx, state)
 }
 
+func (pve *providerValidationEnvironment) AlreadyTracking(pds retrievalmarket.ProviderDealState) (bool, error) {
+	return pve.p.stateMachines.Has(pds.Identifier())
+}
+
 // StateMachines returns the FSM Group to begin tracking with
 func (pve *providerValidationEnvironment) BeginTracking(pds retrievalmarket.ProviderDealState) error {
 	err := pve.p.stateMachines.Begin(pds.Identifier(), &pds)

@@ -97,6 +97,7 @@ type RetrievalProviderHarness struct {
 	Provider     retrievalmarket.RetrievalProvider
 	ProviderNode *testnodes.TestRetrievalProviderNode
 	PieceStore   *shared_testutil.TestPieceStore
+	DataTransfer datatransfer.Manager
 	NodeDeps     *shared_testutil.Libp2pNodeDeps
 }
 
@@ -114,6 +115,7 @@ func NewRetrievalProvider(t *testing.T, params *RetrievalProviderParams) *Retrie
 	h := &RetrievalProviderHarness{
 		ProviderNode: testnodes.NewTestRetrievalProviderNode(),
 		PieceStore:   shared_testutil.NewTestPieceStore(),
+		DataTransfer: params.DataTransfer,
 		NodeDeps:     params.NodeDeps,
 	}
 

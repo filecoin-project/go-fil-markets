@@ -2,6 +2,7 @@ package clientstates
 
 import (
 	"context"
+	"fmt"
 
 	peer "github.com/libp2p/go-libp2p-core/peer"
 
@@ -89,6 +90,8 @@ func Ongoing(ctx fsm.Context, environment ClientDealEnvironment, deal rm.ClientD
 
 // ProcessPaymentRequested processes a request for payment from the provider
 func ProcessPaymentRequested(ctx fsm.Context, environment ClientDealEnvironment, deal rm.ClientDealState) error {
+	fmt.Printf("  ProcessPaymentRequested rcvd: %d, paid: %d, interval: %d\n",
+		deal.TotalReceived, deal.BytesPaidFor, deal.CurrentInterval)
 	// see if we need to send payment
 	if deal.TotalReceived-deal.BytesPaidFor >= deal.CurrentInterval ||
 		deal.AllBlocksReceived ||

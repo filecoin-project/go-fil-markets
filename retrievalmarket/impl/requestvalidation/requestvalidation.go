@@ -40,6 +40,7 @@ type ValidationEnvironment interface {
 	BeginTracking(pds retrievalmarket.ProviderDealState) error
 	// NextStoreID allocates a store for this deal
 	NextStoreID() (multistore.StoreID, error)
+	AlreadyTracking(pds retrievalmarket.ProviderDealState) (bool, error)
 }
 
 // ProviderRequestValidator validates incoming requests for the Retrieval Provider
@@ -111,12 +112,25 @@ func (rv *ProviderRequestValidator) validatePull(receiver peer.ID, proposal *ret
 		LegacyProtocol: legacyProtocol,
 	}
 
-	status, err := rv.acceptDeal(&pds)
-
 	response := retrievalmarket.DealResponse{
-		ID:     proposal.ID,
-		Status: status,
+		ID: proposal.ID,
 	}
+
+	// TODO: locking
+	already, err := rv.env.AlreadyTracking(pds)
+	if err != nil {
+		// TODO: Should the status be set to Error here?
+		response.Message = err.Error()
+		return &response, err
+	}
+	if already {
+		response.Status = retrievalmarket.DealStatusFundsNeeded
+		//return &response, datatransfer.ErrPause
+		return &response, nil
+	}
+
+	status, err := rv.acceptDeal(&pds)
+	response.Status = status
 
 	if status == retrievalmarket.DealStatusFundsNeededUnseal {
 		response.PaymentOwed = pds.UnsealPrice
