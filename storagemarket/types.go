@@ -22,7 +22,7 @@ import (
 
 var log = logging.Logger("storagemrkt")
 
-//go:generate cbor-gen-for --map-encoding ClientDeal MinerDeal Balance SignedStorageAsk StorageAsk DataRef ProviderDealState DealStages DealStage Log
+//go:generate cbor-gen-for --map-encoding OldClientDeal ClientDeal MinerDeal Balance SignedStorageAsk StorageAsk DataRef ProviderDealState DealStages DealStage Log
 
 // DealProtocolID is the ID for the libp2p protocol for proposing storage deals.
 const OldDealProtocolID = "/fil/storage/mk/1.0.1"
@@ -128,6 +128,10 @@ type Log struct {
 }
 
 func (ds *DealStages) GetStage(stage string) *DealStage {
+	if ds == nil {
+		return nil
+	}
+
 	for _, s := range ds.Stages {
 		if s.Name == stage {
 			return s
@@ -138,6 +142,10 @@ func (ds *DealStages) GetStage(stage string) *DealStage {
 }
 
 func (ds *DealStages) AddStageLog(stage, description, expectedDuration, msg string) {
+	if ds == nil {
+		return
+	}
+
 	log.Debugf("adding log for stage <%s> msg <%s>", stage, msg)
 
 	now := curTime()
@@ -191,6 +199,29 @@ type ClientDeal struct {
 	DataRef           *DataRef
 	Message           string
 	DealStages        *DealStages
+	PublishMessage    *cid.Cid
+	SlashEpoch        abi.ChainEpoch
+	PollRetryCount    uint64
+	PollErrorCount    uint64
+	FastRetrieval     bool
+	StoreID           *multistore.StoreID
+	FundsReserved     abi.TokenAmount
+	CreationTime      cbg.CborTime
+	TransferChannelID *datatransfer.ChannelID
+	SectorNumber      abi.SectorNumber
+}
+
+// No DealStages
+type OldClientDeal struct {
+	market.ClientDealProposal
+	ProposalCid       cid.Cid
+	AddFundsCid       *cid.Cid
+	State             StorageDealStatus
+	Miner             peer.ID
+	MinerWorker       address.Address
+	DealID            abi.DealID
+	DataRef           *DataRef
+	Message           string
 	PublishMessage    *cid.Cid
 	SlashEpoch        abi.ChainEpoch
 	PollRetryCount    uint64
