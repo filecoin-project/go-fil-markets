@@ -76,7 +76,7 @@ var ClientEvents = fsm.Events{
 	fsm.Event(storagemarket.ClientEventInitiateDataTransfer).
 		From(storagemarket.StorageDealFundsReserved).To(storagemarket.StorageDealStartDataTransfer).
 		Action(func(deal *storagemarket.ClientDeal) error {
-			deal.AddLog("initiate data transfer")
+			deal.AddLog("opening data transfer to storage provider")
 			return nil
 		}),
 	fsm.Event(storagemarket.ClientEventUnexpectedDealState).
