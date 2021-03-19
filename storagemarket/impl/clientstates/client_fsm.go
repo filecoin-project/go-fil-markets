@@ -187,7 +187,7 @@ var ClientEvents = fsm.Events{
 		Action(func(deal *storagemarket.ClientDeal, publishMessage *cid.Cid) error {
 			deal.PublishMessage = publishMessage
 			deal.Message = ""
-			deal.AddLog("deal has been accepted")
+			deal.AddLog("deal has been accepted by storage provider")
 			return nil
 		}),
 	fsm.Event(storagemarket.ClientEventStreamCloseError).
