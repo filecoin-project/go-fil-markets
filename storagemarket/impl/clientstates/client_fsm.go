@@ -79,7 +79,7 @@ var ClientEvents = fsm.Events{
 		FromMany(storagemarket.StorageDealStartDataTransfer, storagemarket.StorageDealTransferring).
 		To(storagemarket.StorageDealFailing).
 		Action(func(deal *storagemarket.ClientDeal, err error) error {
-			deal.Message = xerrors.Errorf("failed to initiate data transfer: %w", err).Error()
+			deal.Message = xerrors.Errorf("failed to complete data transfer: %w", err).Error()
 			return nil
 		}),
 
