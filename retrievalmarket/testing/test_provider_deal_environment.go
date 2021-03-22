@@ -40,7 +40,7 @@ func (te *TestProviderDealEnvironment) DeleteStore(storeID multistore.StoreID) e
 	return te.DeleteStoreError
 }
 
-func (te *TestProviderDealEnvironment) ReadIntoBlockstore(storeID multistore.StoreID, pieceData io.Reader) error {
+func (te *TestProviderDealEnvironment) ReadIntoBlockstore(storeID multistore.StoreID, pieceData io.ReadCloser) error {
 	return te.ReadIntoBlockstoreError
 }
 

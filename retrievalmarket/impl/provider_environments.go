@@ -113,25 +113,46 @@ func (pde *providerDealEnvironment) Node() retrievalmarket.RetrievalProviderNode
 	return pde.p.node
 }
 
-func (pde *providerDealEnvironment) ReadIntoBlockstore(storeID multistore.StoreID, pieceData io.Reader) error {
-	store, err := pde.p.multiStore.Get(storeID)
-	if err != nil {
+func (pde *providerDealEnvironment) ReadIntoBlockstore(storeID multistore.StoreID, pieceData io.ReadCloser) error {
+	// Get the the destination multistore
+	store, loadErr := pde.p.multiStore.Get(storeID)
+	if loadErr != nil {
+		return xerrors.Errorf("failed to read file into blockstore: failed to get multistore %d: %w", storeID, loadErr)
+	}
+
+	// Load the CAR into the blockstore
+	_, loadErr = cario.NewCarIO().LoadCar(store.Bstore, pieceData)
+	if loadErr != nil {
+		// Just log the error, so we can drain and close the reader before
+		// returning the error
+		loadErr = xerrors.Errorf("failed to load car file into blockstore: %w", loadErr)
+		log.Error(loadErr.Error())
+	}
+
+	// Attempt to drain and close the reader before returning any error
+	_, drainErr := io.Copy(ioutil.Discard, pieceData)
+	closeErr := pieceData.Close()
+
+	// If there was an error loading the CAR file into the blockstore, throw that error
+	if loadErr != nil {
+		return loadErr
+	}
+
+	// If there was an error draining the reader, throw that error
+	if drainErr != nil {
+		err := xerrors.Errorf("failed to read file into blockstore: failed to drain piece reader: %w", drainErr)
+		log.Error(err.Error())
 		return err
 	}
-	_, err = cario.NewCarIO().LoadCar(store.Bstore, pieceData)
 
-	// drain the reader first
-	_, derr := io.Copy(ioutil.Discard, pieceData)
-
-	if err != nil {
+	// If there was an error closing the reader, throw that error
+	if closeErr != nil {
+		err := xerrors.Errorf("failed to read file into blockstore: failed to close reader: %w", closeErr)
+		log.Error(err.Error())
 		return err
 	}
 
-	if derr != nil {
-		return xerrors.Errorf("draining piece reader: %w", derr)
-	}
-
-	return err
+	return nil
 }
 
 func (pde *providerDealEnvironment) TrackTransfer(deal retrievalmarket.ProviderDealState) error {
