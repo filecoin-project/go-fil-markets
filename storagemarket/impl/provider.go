@@ -465,10 +465,13 @@ func (p *Provider) HandleDealStatusStream(s network.DealStatusStream) {
 		return
 	}
 
-	dealState, err := p.processDealStatusRequest(&request)
+	dealState, err := p.processDealStatusRequest(ctx, &request)
 	if err != nil {
 		log.Errorf("failed to process deal status request: %s", err)
-		return
+		dealState = &storagemarket.ProviderDealState{
+			State:   storagemarket.StorageDealError,
+			Message: err.Error(),
+		}
 	}
 
 	signature, err := p.sign(ctx, dealState)
@@ -488,43 +491,31 @@ func (p *Provider) HandleDealStatusStream(s network.DealStatusStream) {
 	}
 }
 
-func (p *Provider) processDealStatusRequest(request *network.DealStatusRequest) (*storagemarket.ProviderDealState, error) {
+func (p *Provider) processDealStatusRequest(ctx context.Context, request *network.DealStatusRequest) (*storagemarket.ProviderDealState, error) {
 	// fetch deal state
 	var md = storagemarket.MinerDeal{}
 	if err := p.deals.Get(request.Proposal).Get(&md); err != nil {
 		log.Errorf("proposal doesn't exist in state store: %s", err)
-		return &storagemarket.ProviderDealState{
-			State:   storagemarket.StorageDealError,
-			Message: "no such proposal",
-		}, nil
+		return nil, xerrors.Errorf("no such proposal")
 	}
 
 	// verify query signature
 	buf, err := cborutil.Dump(&request.Proposal)
 	if err != nil {
 		log.Errorf("failed to serialize status request: %s", err)
-		return &storagemarket.ProviderDealState{
-			State:   storagemarket.StorageDealError,
-			Message: "internal error",
-		}, nil
+		return nil, xerrors.Errorf("internal error")
 	}
 
 	tok, _, err := p.spn.GetChainHead(ctx)
 	if err != nil {
 		log.Errorf("failed to get chain head: %s", err)
-		return &storagemarket.ProviderDealState{
-			State:   storagemarket.StorageDealError,
-			Message: "internal error",
-		}, nil
+		return nil, xerrors.Errorf("internal error")
 	}
 
 	err = providerutils.VerifySignature(ctx, request.Signature, md.ClientDealProposal.Proposal.Client, buf, tok, p.spn.VerifySignature)
 	if err != nil {
 		log.Errorf("invalid deal status request signature: %s", err)
-		return &storagemarket.ProviderDealState{
-			State:   storagemarket.StorageDealError,
-			Message: "internal error",
-		}, nil
+		return nil, xerrors.Errorf("internal error")
 	}
 
 	return &storagemarket.ProviderDealState{
