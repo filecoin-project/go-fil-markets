@@ -15,6 +15,7 @@ import (
 	"github.com/filecoin-project/go-commp-utils/pieceio"
 	"github.com/filecoin-project/go-commp-utils/pieceio/cario"
 	datatransfer "github.com/filecoin-project/go-data-transfer"
+	"github.com/filecoin-project/go-data-transfer/channelmonitor"
 	dtimpl "github.com/filecoin-project/go-data-transfer/impl"
 	dtnet "github.com/filecoin-project/go-data-transfer/network"
 	"github.com/filecoin-project/go-state-types/abi"
@@ -298,7 +299,15 @@ func TestRestartOnlyProviderDataTransfer(t *testing.T) {
 	td.DTNet1 = dtnet.NewFromLibp2pHost(td.Host1, dtClientNetRetry)
 
 	// Configure data-transfer to restart after stalling
-	restartConf := dtimpl.PushChannelRestartConfig(100*time.Millisecond, 10, 1, 200*time.Millisecond, 5)
+	restartConf := dtimpl.ChannelRestartConfig(channelmonitor.Config{
+		AcceptTimeout:          200 * time.Millisecond,
+		Interval:               100 * time.Millisecond,
+		MinBytesTransferred:    1,
+		ChecksPerInterval:      10,
+		RestartBackoff:         200 * time.Millisecond,
+		MaxConsecutiveRestarts: 5,
+		CompleteTimeout:        200 * time.Millisecond,
+	})
 	smState := testnodes.NewStorageMarketState()
 	depGen := dependencies.NewDepGenerator()
 	depGen.ClientNewDataTransfer = func(ds datastore.Batching, dir string, transferNetwork dtnet.DataTransferNetwork, transport datatransfer.Transport, counter *storedcounter.StoredCounter) (datatransfer.Manager, error) {
