@@ -21,7 +21,7 @@ import (
 type ProviderDealEnvironment interface {
 	// Node returns the node interface for this deal
 	Node() rm.RetrievalProviderNode
-	ReadIntoBlockstore(storeID multistore.StoreID, pieceData io.Reader) error
+	ReadIntoBlockstore(storeID multistore.StoreID, pieceData io.ReadCloser) error
 	TrackTransfer(deal rm.ProviderDealState) error
 	UntrackTransfer(deal rm.ProviderDealState) error
 	DeleteStore(storeID multistore.StoreID) error
@@ -29,7 +29,7 @@ type ProviderDealEnvironment interface {
 	CloseDataTransfer(context.Context, datatransfer.ChannelID) error
 }
 
-func firstSuccessfulUnseal(ctx context.Context, node rm.RetrievalProviderNode, pieceInfo piecestore.PieceInfo) (io.Reader, error) {
+func firstSuccessfulUnseal(ctx context.Context, node rm.RetrievalProviderNode, pieceInfo piecestore.PieceInfo) (io.ReadCloser, error) {
 	lastErr := xerrors.New("no sectors found to unseal from")
 	for _, deal := range pieceInfo.Deals {
 		reader, err := node.UnsealSector(ctx, deal.SectorID, deal.Offset.Unpadded(), deal.Length.Unpadded())
