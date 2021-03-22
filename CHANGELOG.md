@@ -1,5 +1,47 @@
 # go-fil-markets changelog
 
+# go-fil-markets v1.2.0
+
+- github.com/filecoin-project/go-fil-markets:
+  - feat: update to go-data-transfer v1.2.9 (#508) (#504) ([filecoin-project/go-fil-markets#504](https://github.com/filecoin-project/go-fil-markets/pull/504))
+  - always try to return some message to the client (#498) ([filecoin-project/go-fil-markets#498](https://github.com/filecoin-project/go-fil-markets/pull/498))
+  - fix: close the reader after unsealing into blockstore (#507) ([filecoin-project/go-fil-markets#507](https://github.com/filecoin-project/go-fil-markets/pull/507))
+  - fix: disallow concurrent retrieval deals for same peer/cid (#493) ([filecoin-project/go-fil-markets#493](https://github.com/filecoin-project/go-fil-markets/pull/493))
+  - make deal state channel id nilable (#490) ([filecoin-project/go-fil-markets#490](https://github.com/filecoin-project/go-fil-markets/pull/490))
+  - fix: add funds to payment channel before allocating lane (#495) ([filecoin-project/go-fil-markets#495](https://github.com/filecoin-project/go-fil-markets/pull/495))
+- github.com/filecoin-project/go-data-transfer (v1.2.7 -> v1.2.9):
+  - fix: log line in pull data channel monitor (#165) ([filecoin-project/go-data-transfer#165](https://github.com/filecoin-project/go-data-transfer/pull/165))
+  - feat: better reconnect behaviour (#162) ([filecoin-project/go-data-transfer#162](https://github.com/filecoin-project/go-data-transfer/pull/162))
+  - Improve push channel to detect when not all data has been received (#157) ([filecoin-project/go-data-transfer#157](https://github.com/filecoin-project/go-data-transfer/pull/157))
+  - fix: flaky TestSimulatedRetrievalFlow (#159) ([filecoin-project/go-data-transfer#159](https://github.com/filecoin-project/go-data-transfer/pull/159))
+  - feat: better logging (#155) ([filecoin-project/go-data-transfer#155](https://github.com/filecoin-project/go-data-transfer/pull/155))
+  - fix: add missing event names (#148) ([filecoin-project/go-data-transfer#148](https://github.com/filecoin-project/go-data-transfer/pull/148))
+  - enable codecov. (#146) ([filecoin-project/go-data-transfer#146](https://github.com/filecoin-project/go-data-transfer/pull/146))
+  - Better error message on complete (#145) ([filecoin-project/go-data-transfer#145](https://github.com/filecoin-project/go-data-transfer/pull/145))
+  - test: check total blocks sent when theres a restart (#140) ([filecoin-project/go-data-transfer#140](https://github.com/filecoin-project/go-data-transfer/pull/140))
+  - feat(deps): update to go-graphsync v0.6.0 (#139) ([filecoin-project/go-data-transfer#139](https://github.com/filecoin-project/go-data-transfer/pull/139))
+- github.com/ipfs/go-graphsync (v0.5.2 -> v0.6.0):
+  - docs(CHANGELOG): revise for 0.6.0
+  - docs(CHANGELOG): update for 0.6.0 release
+  - move block allocation into message queue (#140) ([ipfs/go-graphsync#140](https://github.com/ipfs/go-graphsync/pull/140))
+  - Response Assembler Refactor (#138) ([ipfs/go-graphsync#138](https://github.com/ipfs/go-graphsync/pull/138))
+  - Add error listener on receiver (#136) ([ipfs/go-graphsync#136](https://github.com/ipfs/go-graphsync/pull/136))
+  - Run testplan on in CI (#137) ([ipfs/go-graphsync#137](https://github.com/ipfs/go-graphsync/pull/137))
+  - fix(responsemanager): fix network error propogation (#133) ([ipfs/go-graphsync#133](https://github.com/ipfs/go-graphsync/pull/133))
+  - testground test for graphsync (#132) ([ipfs/go-graphsync#132](https://github.com/ipfs/go-graphsync/pull/132))
+
+Contributors
+
+| Contributor | Commits | Lines ± | Files Changed |
+|-------------|---------|---------|---------------|
+| dirkmc | 17 | +3973/-1000 | 88 |
+| Alex Cruikshank | 4 | +3135/-1785 | 46 |
+| Hannah Howard | 4 | +671/-386 | 28 |
+| Whyrusleeping | 1 | +33/-22 | 1 |
+| hannahhoward | 2 | +38/-15 | 4 |
+| Dirk McCormick | 1 | +19/-0 | 1 |
+| raulk | 1 | +2/-2 | 1 |
+
 # go-fil-markets v1.1.9
 
 - github.com/filecoin-project/go-fil-markets:
