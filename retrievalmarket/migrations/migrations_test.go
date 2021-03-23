@@ -266,7 +266,7 @@ func (te *mockProviderEnv) DeleteStore(storeID multistore.StoreID) error {
 	return nil
 }
 
-func (te *mockProviderEnv) ReadIntoBlockstore(storeID multistore.StoreID, pieceData io.Reader) error {
+func (te *mockProviderEnv) ReadIntoBlockstore(storeID multistore.StoreID, pieceData io.ReadCloser) error {
 	return nil
 }
 
