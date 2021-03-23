@@ -1,5 +1,19 @@
 # go-fil-markets changelog
 
+# go-fil-markets v1.2.1
+
+- github.com/filecoin-project/go-fil-markets:
+  - feat: update tests for go-data-transfer 1.3.0 (#510) ([filecoin-project/go-fil-markets#510](https://github.com/filecoin-project/go-fil-markets/pull/510))
+- github.com/filecoin-project/go-data-transfer (v1.2.9 -> v1.3.0):
+  - feat: use random number instead of incrementing counter for transfer ID (#169) ([filecoin-project/go-data-transfer#169](https://github.com/filecoin-project/go-data-transfer/pull/169))
+
+Contributors
+
+| Contributor | Commits | Lines ± | Files Changed |
+|-------------|---------|---------|---------------|
+| dirkmc | 4 | +185/-95 | 21 |
+| Dirk McCormick | 1 | +11/-0 | 1 |
+
 # go-fil-markets v1.2.0
 
 - github.com/filecoin-project/go-fil-markets:
