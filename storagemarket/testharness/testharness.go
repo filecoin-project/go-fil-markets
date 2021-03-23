@@ -116,7 +116,7 @@ func NewHarnessWithTestData(t *testing.T, td *shared_testutil.Libp2pTestData, de
 func (h *StorageHarness) CreateNewProvider(t *testing.T, ctx context.Context, td *shared_testutil.Libp2pTestData) storagemarket.StorageProvider {
 	gs2 := graphsyncimpl.New(ctx, gsnetwork.NewFromLibp2pHost(td.Host2), td.Loader2, td.Storer2)
 	dtTransport2 := dtgstransport.NewTransport(td.Host2.ID(), gs2)
-	dt2, err := dtimpl.NewDataTransfer(td.DTStore2, td.DTTmpDir2, td.DTNet2, dtTransport2, td.DTStoredCounter2)
+	dt2, err := dtimpl.NewDataTransfer(td.DTStore2, td.DTTmpDir2, td.DTNet2, dtTransport2)
 	require.NoError(t, err)
 	testutil.StartAndWaitForReady(ctx, t, dt2)
 

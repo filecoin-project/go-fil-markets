@@ -41,8 +41,6 @@ type Libp2pTestData struct {
 	Ctx                     context.Context
 	Ds1                     datastore.Batching
 	Ds2                     datastore.Batching
-	DTStoredCounter1        *storedcounter.StoredCounter
-	DTStoredCounter2        *storedcounter.StoredCounter
 	RetrievalStoredCounter1 *storedcounter.StoredCounter
 	RetrievalStoredCounter2 *storedcounter.StoredCounter
 	Bs1                     bstore.Blockstore
@@ -107,9 +105,6 @@ func NewLibp2pTestData(ctx context.Context, t *testing.T) *Libp2pTestData {
 
 	testData.Ds1 = dss.MutexWrap(datastore.NewMapDatastore())
 	testData.Ds2 = dss.MutexWrap(datastore.NewMapDatastore())
-
-	testData.DTStoredCounter1 = storedcounter.New(testData.Ds1, datastore.NewKey("nextDTID"))
-	testData.DTStoredCounter2 = storedcounter.New(testData.Ds2, datastore.NewKey("nextDTID"))
 
 	testData.RetrievalStoredCounter1 = storedcounter.New(testData.Ds1, datastore.NewKey("nextDealID"))
 	testData.RetrievalStoredCounter2 = storedcounter.New(testData.Ds2, datastore.NewKey("nextDealID"))
