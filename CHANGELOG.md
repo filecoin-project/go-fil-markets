@@ -1,5 +1,20 @@
 # go-fil-markets changelog
 
+# go-fil-markets v1.2.2
+
+- github.com/filecoin-project/go-fil-markets:
+  - feat: update to go-data-transfer v1.4.0 (#514) ([filecoin-project/go-fil-markets#514](https://github.com/filecoin-project/go-fil-markets/pull/514))
+- github.com/filecoin-project/go-data-transfer (v1.3.0 -> v1.4.0):
+  - feat: add config options to enable / disable push or pull monitoring individually (#174) ([filecoin-project/go-data-transfer#174](https://github.com/filecoin-project/go-data-transfer/pull/174))
+  - fix: ensure channel monitor shuts down when transfer complete (#171) ([filecoin-project/go-data-transfer#171](https://github.com/filecoin-project/go-data-transfer/pull/171))
+
+Contributors
+
+| Contributor | Commits | Lines ± | Files Changed |
+|-------------|---------|---------|---------------|
+| dirkmc | 5 | +65/-17 | 9 |
+| Dirk McCormick | 1 | +12/-0 | 1 |
+
 # go-fil-markets v1.2.1
 
 - github.com/filecoin-project/go-fil-markets:
