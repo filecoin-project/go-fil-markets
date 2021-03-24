@@ -299,6 +299,7 @@ func TestRestartOnlyProviderDataTransfer(t *testing.T) {
 
 	// Configure data-transfer to restart after stalling
 	restartConf := dtimpl.ChannelRestartConfig(channelmonitor.Config{
+		MonitorPushChannels:    true,
 		AcceptTimeout:          200 * time.Millisecond,
 		Interval:               100 * time.Millisecond,
 		MinBytesTransferred:    1,
@@ -636,6 +637,7 @@ func TestBounceConnectionDataTransfer(t *testing.T) {
 
 	// Configure data-transfer to automatically restart when connection goes down
 	restartConf := dtimpl.ChannelRestartConfig(channelmonitor.Config{
+		MonitorPushChannels:    true,
 		AcceptTimeout:          100 * time.Millisecond,
 		Interval:               100 * time.Millisecond,
 		MinBytesTransferred:    1,
