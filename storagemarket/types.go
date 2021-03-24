@@ -198,11 +198,12 @@ type ProviderDealState struct {
 // ListDealsPageParams configures the params which will be used to paginate & filter the deals that are returned by the
 // list deals commands.
 type ListDealsPageParams struct {
-	// CreationTimePageOffset is the minimum creation time of the deals which will be included in the deal list page.
+	// CreationTimePageOffset specifies the Deal Creation Time offset for the deal list page.
+	// Only deals that start after this time will be included in the deal list page.
 	CreationTimePageOffset time.Time
 
 	// DealsPerPage configures the number of deals to show on the deal list page.
-	// Defaults to math.MaxInt32.
+	// Defaults to all deals.
 	DealsPerPage int
 
 	// MinStartEpoch configures the minimum start epoch of the deals which will be included in the deal list page.

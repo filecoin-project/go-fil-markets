@@ -213,7 +213,11 @@ func (c *Client) ListLocalDeals(ctx context.Context, params ...storagemarket.Lis
 	}
 
 	// filter and return
-	filtered := make([]storagemarket.ClientDeal, 0, len(out))
+	l := len(out)
+	if filter.DealsPerPage != math.MaxInt32 {
+		l = filter.DealsPerPage
+	}
+	filtered := make([]storagemarket.ClientDeal, 0, l)
 	// sort by creation time first.
 	sort.SliceStable(out, func(i, j int) bool {
 		return out[i].CreationTime.Time().Before(out[j].CreationTime.Time())
