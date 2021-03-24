@@ -203,7 +203,7 @@ func (c *Client) ListLocalDeals(ctx context.Context, params ...storagemarket.Lis
 	}
 
 	filter := params[0]
-	// If NDeals isn't valid, show ALL deals that meet the criteria.
+	// If DealsPerPage isn't valid, show ALL deals that meet the criteria.
 	if filter.DealsPerPage <= 0 {
 		filter.DealsPerPage = math.MaxInt32
 	}
