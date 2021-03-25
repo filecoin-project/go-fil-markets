@@ -1,6 +1,8 @@
 package storagemarket
 
 import (
+	"time"
+
 	"github.com/ipfs/go-cid"
 	"github.com/libp2p/go-libp2p-core/peer"
 	ma "github.com/multiformats/go-multiaddr"
@@ -191,4 +193,28 @@ type ProviderDealState struct {
 	PublishCid    *cid.Cid
 	DealID        abi.DealID
 	FastRetrieval bool
+}
+
+// ListDealsPageParams configures the params which will be used to paginate & filter the deals that are returned by the
+// list deals commands.
+type ListDealsPageParams struct {
+	// CreationTimePageOffset specifies the Deal Creation Time offset for the deal list page.
+	// Only deals that start after this time will be included in the deal list page.
+	CreationTimePageOffset time.Time
+
+	// DealsPerPage configures the number of deals to show on the deal list page.
+	// Defaults to all deals.
+	DealsPerPage int
+
+	// MinStartEpoch configures the minimum start epoch of the deals which will be included in the deal list page.
+	// If this field is not configured, it becomes a no-op.
+	MinStartEpoch abi.ChainEpoch
+
+	// MaxEndEpoch configures the maximum end epoch of the deals which will be included in the deal list page.
+	// If this field is not configured, it becomes a no-op.
+	MaxEndEpoch abi.ChainEpoch
+
+	// HideDealsInErrorState will hide deals which are in the `StorageDealError` state from the deal list page.
+	// Defaults to false.
+	HideDealsInErrorState bool
 }

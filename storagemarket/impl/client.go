@@ -2,7 +2,10 @@ package storageimpl
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"math"
+	"sort"
 	"time"
 
 	"github.com/hannahhoward/go-pubsub"
@@ -184,12 +187,57 @@ func (c *Client) ListProviders(ctx context.Context) (<-chan storagemarket.Storag
 }
 
 // ListLocalDeals lists deals initiated by this storage client
-func (c *Client) ListLocalDeals(ctx context.Context) ([]storagemarket.ClientDeal, error) {
+func (c *Client) ListLocalDeals(ctx context.Context, params ...storagemarket.ListDealsPageParams) ([]storagemarket.ClientDeal, error) {
+	if len(params) > 1 {
+		return nil, errors.New("cannot pass more than one filter param")
+	}
+
+	// fetch deals from the state machine
 	var out []storagemarket.ClientDeal
 	if err := c.statemachines.List(&out); err != nil {
 		return nil, err
 	}
-	return out, nil
+	// return all deals if NO filter has been passed.
+	if len(params) == 0 {
+		return out, nil
+	}
+
+	filter := params[0]
+	// If DealsPerPage isn't valid, show ALL deals that meet the criteria.
+	if filter.DealsPerPage <= 0 {
+		filter.DealsPerPage = math.MaxInt32
+	}
+	// MaxEndEpoch is a noop if it hasn't been configured.
+	if filter.MaxEndEpoch <= 0 {
+		filter.MaxEndEpoch = math.MaxInt64
+	}
+
+	// filter and return
+	l := len(out)
+	if filter.DealsPerPage != math.MaxInt32 {
+		l = filter.DealsPerPage
+	}
+	filtered := make([]storagemarket.ClientDeal, 0, l)
+	// sort by creation time first.
+	sort.SliceStable(out, func(i, j int) bool {
+		return out[i].CreationTime.Time().Before(out[j].CreationTime.Time())
+	})
+
+	for _, d := range out {
+		if filter.HideDealsInErrorState && d.State == storagemarket.StorageDealError {
+			continue
+		}
+
+		if d.CreationTime.Time().After(filter.CreationTimePageOffset) && d.Proposal.StartEpoch >= filter.MinStartEpoch &&
+			d.Proposal.EndEpoch <= filter.MaxEndEpoch {
+			filtered = append(filtered, d)
+			if len(filtered) >= filter.DealsPerPage {
+				return filtered, nil
+			}
+		}
+	}
+
+	return filtered, nil
 }
 
 // GetLocalDeal lists deals that are in progress or rejected
