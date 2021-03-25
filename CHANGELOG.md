@@ -1,5 +1,18 @@
 # go-fil-markets changelog
 
+# go-fil-markets v1.2.3
+
+Generating Changelog for github.com/filecoin-project/go-fil-markets v1.2.2..cf830ee0459221d4ba7e91f105a0f19b6d5a453e
+- github.com/filecoin-project/go-fil-markets:
+  - fix: process payment request from provider while initiating payment channel (#520) ([filecoin-project/go-fil-markets#520](https://github.com/filecoin-project/go-fil-markets/pull/520))
+  - fix: remove LocatePieceForDealWithinSector (no longer used) (#518) ([filecoin-project/go-fil-markets#518](https://github.com/filecoin-project/go-fil-markets/pull/518))
+
+Contributors
+
+| Contributor | Commits | Lines ± | Files Changed |
+|-------------|---------|---------|---------------|
+| dirkmc | 3 | +66/-60 | 8 |
+
 # go-fil-markets v1.2.2
 
 - github.com/filecoin-project/go-fil-markets:

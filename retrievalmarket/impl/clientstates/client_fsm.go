@@ -25,6 +25,7 @@ var paymentChannelCreationStates = []fsm.StateKey{
 	rm.DealStatusWaitForAcceptanceLegacy,
 	rm.DealStatusAccepted,
 	rm.DealStatusPaymentChannelCreating,
+	rm.DealStatusPaymentChannelAddingInitialFunds,
 	rm.DealStatusPaymentChannelAllocatingLane,
 }
 
