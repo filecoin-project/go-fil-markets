@@ -23,7 +23,7 @@ import (
 
 var log = logging.Logger("storagemarket_impl")
 
-// MaxGraceEpochsForDealAcceptance is the maximum number of epochs we will wait for post the start epoch
+// MaxGraceEpochsForDealAcceptance is the maximum number of epochs we will wait for past the start epoch
 // for the provider to publish a deal.
 const MaxGraceEpochsForDealAcceptance = 10
 
@@ -178,7 +178,7 @@ func CheckForDealAcceptance(ctx fsm.Context, environment ClientDealEnvironment, 
 
 	if err == nil {
 		if currEpoch > deal.Proposal.StartEpoch+MaxGraceEpochsForDealAcceptance {
-			return ctx.Trigger(storagemarket.ClientEventDealRejected, deal.State, "start epoch already elapsed ")
+			return ctx.Trigger(storagemarket.ClientEventDealRejected, deal.State, "start epoch already elapsed")
 		}
 	}
 
