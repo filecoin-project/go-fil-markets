@@ -345,6 +345,27 @@ func TestCheckForDealAcceptance(t *testing.T) {
 		})
 	})
 
+	t.Run("stops polling if (start epoch + grace period) has elapsed", func(t *testing.T) {
+		startEpoch := abi.ChainEpoch(1)
+		maxEpoch := startEpoch + clientstates.MaxGraceEpochsForDealAcceptance
+
+		runAndInspect(t, storagemarket.StorageDealCheckForAcceptance, clientstates.CheckForDealAcceptance, testCase{
+			envParams: envParams{
+				providerDealState: makeProviderDealState(storagemarket.StorageDealVerifyData),
+			},
+			nodeParams: nodeParams{
+				CurrentEpoch: maxEpoch + 1,
+			},
+			stateParams: dealStateParams{
+				startEpoch: startEpoch,
+			},
+			inspector: func(deal storagemarket.ClientDeal, env *fakeEnvironment) {
+				tut.AssertDealState(t, storagemarket.StorageDealFailing, deal.State)
+				assert.Contains(t, deal.Message, "start epoch already elapsed")
+			},
+		})
+	})
+
 	t.Run("continues polling with an indeterminate deal state", func(t *testing.T) {
 		runAndInspect(t, storagemarket.StorageDealCheckForAcceptance, clientstates.CheckForDealAcceptance, testCase{
 			envParams: envParams{
@@ -567,6 +588,7 @@ type dealStateParams struct {
 	addFundsCid   *cid.Cid
 	reserveFunds  bool
 	fastRetrieval bool
+	startEpoch    abi.ChainEpoch
 }
 
 type executor func(t *testing.T,
@@ -597,6 +619,10 @@ func makeExecutor(ctx context.Context,
 		if dealParams.reserveFunds {
 			dealState.FundsReserved = clientDealProposal.Proposal.ClientBalanceRequirement()
 		}
+		if dealParams.startEpoch != 0 {
+			dealState.Proposal.StartEpoch = dealParams.startEpoch
+		}
+
 		environment := &fakeEnvironment{
 			node:                       node,
 			dealStream:                 envParams.dealStream,
@@ -623,6 +649,7 @@ func makeExecutor(ctx context.Context,
 }
 
 type nodeParams struct {
+	CurrentEpoch               abi.ChainEpoch
 	AddFundsCid                cid.Cid
 	ReserveFundsError          error
 	VerifySignatureFails       bool
@@ -651,6 +678,10 @@ type nodeParams struct {
 func makeNode(params nodeParams) *testnodes.FakeClientNode {
 	var out testnodes.FakeClientNode
 	out.SMState = testnodes.NewStorageMarketState()
+	if params.CurrentEpoch != 0 {
+		out.SMState.Epoch = params.CurrentEpoch
+	}
+
 	out.DealFunds = tut.NewTestDealFunds()
 	out.AddFundsCid = params.AddFundsCid
 	out.ReserveFundsError = params.ReserveFundsError
