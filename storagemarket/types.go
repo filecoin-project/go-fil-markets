@@ -214,7 +214,7 @@ type ListDealsPageParams struct {
 	// If this field is not configured, it becomes a no-op.
 	MaxEndEpoch abi.ChainEpoch
 
-	// ShowStorageDealError will also include deals which are in the `ShowStorageDealError` state.
+	// HideDealsInErrorState will hide deals which are in the `ShowStorageDealError` state from the deal list page.
 	// Defaults to false.
-	ShowStorageDealError bool
+	HideDealsInErrorState bool
 }

@@ -53,13 +53,13 @@ func TestClientListDeals(t *testing.T) {
 		},
 		"filter out errored deals": {
 			filter: []storagemarket.ListDealsPageParams{
-				{ShowStorageDealError: false},
+				{HideDealsInErrorState: true},
 			},
 			expectedCids: []cid.Cid{cid1, cid2, cid3},
 		},
 		"filter that includes errored deals": {
 			filter: []storagemarket.ListDealsPageParams{
-				{ShowStorageDealError: true},
+				{HideDealsInErrorState: false},
 			},
 			expectedCids: []cid.Cid{cid1, cid2, cid3, cid4},
 		},
@@ -67,7 +67,7 @@ func TestClientListDeals(t *testing.T) {
 			filter: []storagemarket.ListDealsPageParams{
 				{
 					CreationTimePageOffset: time.Now().Add(30 * time.Minute),
-					ShowStorageDealError:   true,
+					HideDealsInErrorState:  false,
 				},
 			},
 			expectedCids: []cid.Cid{cid2, cid3, cid4},
@@ -76,7 +76,7 @@ func TestClientListDeals(t *testing.T) {
 			filter: []storagemarket.ListDealsPageParams{
 				{
 					CreationTimePageOffset: time.Now().Add(90 * time.Minute),
-					ShowStorageDealError:   true,
+					HideDealsInErrorState:  false,
 				},
 			},
 			expectedCids: []cid.Cid{cid3, cid4},
@@ -85,7 +85,7 @@ func TestClientListDeals(t *testing.T) {
 			filter: []storagemarket.ListDealsPageParams{
 				{
 					CreationTimePageOffset: time.Now().Add(5 * time.Hour),
-					ShowStorageDealError:   true,
+					HideDealsInErrorState:  false,
 				},
 			},
 			expectedCids: nil,
@@ -93,8 +93,8 @@ func TestClientListDeals(t *testing.T) {
 		"show all deals with start epoch > 300, will show cid3 & cid4": {
 			filter: []storagemarket.ListDealsPageParams{
 				{
-					MinStartEpoch:        abi.ChainEpoch(300),
-					ShowStorageDealError: true,
+					MinStartEpoch:         abi.ChainEpoch(300),
+					HideDealsInErrorState: false,
 				},
 			},
 			expectedCids: []cid.Cid{cid3, cid4},
@@ -104,7 +104,7 @@ func TestClientListDeals(t *testing.T) {
 				{
 					CreationTimePageOffset: time.Now().Add(150 * time.Minute),
 					MinStartEpoch:          abi.ChainEpoch(300),
-					ShowStorageDealError:   true,
+					HideDealsInErrorState:  false,
 				},
 			},
 			expectedCids: []cid.Cid{cid4},
@@ -112,9 +112,9 @@ func TestClientListDeals(t *testing.T) {
 		"show deals with start epoch > 120 & end epoch < 501,  will show cid2 & cid3": {
 			filter: []storagemarket.ListDealsPageParams{
 				{
-					MinStartEpoch:        abi.ChainEpoch(120),
-					MaxEndEpoch:          abi.ChainEpoch(501),
-					ShowStorageDealError: true,
+					MinStartEpoch:         abi.ChainEpoch(120),
+					MaxEndEpoch:           abi.ChainEpoch(501),
+					HideDealsInErrorState: false,
 				},
 			},
 			expectedCids: []cid.Cid{cid2, cid3},
@@ -125,7 +125,7 @@ func TestClientListDeals(t *testing.T) {
 					CreationTimePageOffset: time.Now().Add(90 * time.Minute),
 					MinStartEpoch:          abi.ChainEpoch(120),
 					MaxEndEpoch:            abi.ChainEpoch(501),
-					ShowStorageDealError:   true,
+					HideDealsInErrorState:  false,
 				},
 			},
 			expectedCids: []cid.Cid{cid3},
@@ -152,18 +152,18 @@ func TestClientListDeals(t *testing.T) {
 
 	// Show only 2 deals
 	ds, err := client.ListLocalDeals(ctx, storagemarket.ListDealsPageParams{
-		DealsPerPage:         2,
-		ShowStorageDealError: true,
+		DealsPerPage:          2,
+		HideDealsInErrorState: false,
 	})
 	require.NoError(t, err)
 	require.Len(t, ds, 2)
 
 	// Show ONLY 1 deal with start epoch > 120 & end epoch < 501
 	f := storagemarket.ListDealsPageParams{
-		DealsPerPage:         1,
-		MinStartEpoch:        abi.ChainEpoch(120),
-		MaxEndEpoch:          abi.ChainEpoch(501),
-		ShowStorageDealError: true,
+		DealsPerPage:          1,
+		MinStartEpoch:         abi.ChainEpoch(120),
+		MaxEndEpoch:           abi.ChainEpoch(501),
+		HideDealsInErrorState: false,
 	}
 	ds, err = client.ListLocalDeals(ctx, f)
 	require.NoError(t, err)

@@ -224,7 +224,7 @@ func (c *Client) ListLocalDeals(ctx context.Context, params ...storagemarket.Lis
 	})
 
 	for _, d := range out {
-		if !filter.ShowStorageDealError && d.State == storagemarket.StorageDealError {
+		if filter.HideDealsInErrorState && d.State == storagemarket.StorageDealError {
 			continue
 		}
 
