@@ -389,14 +389,6 @@ func (n *FakeProviderNode) GetMinerWorkerAddress(ctx context.Context, miner addr
 	return address.Undef, n.MinerWorkerError
 }
 
-// LocatePieceForDealWithinSector returns stubbed data for a pieces location in a sector
-func (n *FakeProviderNode) LocatePieceForDealWithinSector(ctx context.Context, dealID abi.DealID, tok shared.TipSetToken) (sectorID abi.SectorNumber, offset abi.PaddedPieceSize, length abi.PaddedPieceSize, err error) {
-	if n.LocatePieceForDealWithinSectorError == nil {
-		return abi.SectorNumber(n.PieceSectorID), 0, abi.PaddedPieceSize(n.PieceLength), nil
-	}
-	return 0, 0, 0, n.LocatePieceForDealWithinSectorError
-}
-
 // GetDataCap gets the current data cap for addr
 func (n *FakeProviderNode) GetDataCap(ctx context.Context, addr address.Address, tok shared.TipSetToken) (*verifreg.DataCap, error) {
 	return n.DataCap, n.GetDataCapErr
