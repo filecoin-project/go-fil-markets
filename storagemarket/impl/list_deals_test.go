@@ -23,20 +23,7 @@ var noOpDelay = testnodes.DelayFakeCommonNode{}
 
 func TestClientListDeals(t *testing.T) {
 	ctx := context.Background()
-	deps := dependencies.NewDependenciesWithTestData(t, ctx, shared_testutil.NewLibp2pTestData(ctx, t), testnodes.NewStorageMarketState(), "", noOpDelay,
-		noOpDelay)
-	clientDs := namespace.Wrap(deps.TestData.Ds1, datastore.NewKey("/deals/client"))
-	client, err := NewClient(
-		nil,
-		deps.TestData.Bs1,
-		deps.TestData.MultiStore1,
-		deps.DTClient,
-		deps.PeerResolver,
-		clientDs,
-		deps.ClientNode,
-	)
-	require.NoError(t, err)
-	shared_testutil.StartAndWaitForReady(ctx, t, client)
+	client := mkClient(t, ctx)
 
 	// Add deals with different creation times, epochs & states
 	cid1, _ := genAndAddDeal(t, client, time.Now(), abi.ChainEpoch(100), abi.ChainEpoch(200), storagemarket.StorageDealAwaitingPreCommit)
@@ -169,6 +156,57 @@ func TestClientListDeals(t *testing.T) {
 	require.NoError(t, err)
 	require.Len(t, ds, 1)
 	require.True(t, ds[0].ProposalCid.Equals(cid2) || ds[0].ProposalCid.Equals(cid3))
+}
+
+func TestPagination(t *testing.T) {
+	ctx := context.Background()
+	client := mkClient(t, ctx)
+
+	// Add deals with different creation times, epochs & states
+	cid1, _ := genAndAddDeal(t, client, time.Now(), abi.ChainEpoch(100), abi.ChainEpoch(200), storagemarket.StorageDealAwaitingPreCommit)
+	cid2, _ := genAndAddDeal(t, client, time.Now().Add(1*time.Hour), abi.ChainEpoch(150), abi.ChainEpoch(300), storagemarket.StorageDealAcceptWait)
+	cid3, _ := genAndAddDeal(t, client, time.Now().Add(2*time.Hour), abi.ChainEpoch(450), abi.ChainEpoch(500), storagemarket.StorageDealCheckForAcceptance)
+	cid4, _ := genAndAddDeal(t, client, time.Now().Add(3*time.Hour), abi.ChainEpoch(400), abi.ChainEpoch(550), storagemarket.StorageDealError)
+
+	// Get me the first two deals without any filter
+	f := storagemarket.ListDealsPageParams{
+		DealsPerPage: 2,
+	}
+	ds1, err := client.ListLocalDeals(ctx, f)
+	require.NoError(t, err)
+	require.Len(t, ds1, 2)
+	require.Equal(t, cid1, ds1[0].ProposalCid)
+	require.Equal(t, cid2, ds1[1].ProposalCid)
+
+	// Get me two deals starting after the deals we just fetched
+	f = storagemarket.ListDealsPageParams{
+		DealsPerPage:           2,
+		CreationTimePageOffset: ds1[1].CreationTime.Time(),
+	}
+	ds2, err := client.ListLocalDeals(ctx, f)
+	require.NoError(t, err)
+	require.Len(t, ds2, 2)
+	require.Equal(t, cid3, ds2[0].ProposalCid)
+	require.Equal(t, cid4, ds2[1].ProposalCid)
+}
+
+func mkClient(t *testing.T, ctx context.Context) *Client {
+	deps := dependencies.NewDependenciesWithTestData(t, ctx, shared_testutil.NewLibp2pTestData(ctx, t), testnodes.NewStorageMarketState(), "", noOpDelay,
+		noOpDelay)
+	clientDs := namespace.Wrap(deps.TestData.Ds1, datastore.NewKey("/deals/client"))
+	client, err := NewClient(
+		nil,
+		deps.TestData.Bs1,
+		deps.TestData.MultiStore1,
+		deps.DTClient,
+		deps.PeerResolver,
+		clientDs,
+		deps.ClientNode,
+	)
+	require.NoError(t, err)
+	shared_testutil.StartAndWaitForReady(ctx, t, client)
+
+	return client
 }
 
 func genAndAddDeal(t *testing.T, client *Client, creationTime time.Time, startEpoch, endEpoch abi.ChainEpoch, state storagemarket.StorageDealStatus) (cid.Cid, *storagemarket.ClientDeal) {
