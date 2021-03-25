@@ -1134,40 +1134,39 @@ func generatePublishDealsReturn(t *testing.T) (abi.DealID, []byte) {
 }
 
 type nodeParams struct {
-	MinerAddr                           address.Address
-	MinerWorkerError                    error
-	ReserveFundsError                   error
-	Height                              abi.ChainEpoch
-	TipSetToken                         shared.TipSetToken
-	ClientMarketBalance                 abi.TokenAmount
-	ClientMarketBalanceError            error
-	AddFundsCid                         cid.Cid
-	VerifySignatureFails                bool
-	MostRecentStateIDError              error
-	PieceLength                         uint64
-	PieceSectorID                       uint64
-	PublishDealsError                   error
-	PublishDealID                       abi.DealID
-	WaitForPublishDealsError            error
-	OnDealCompleteError                 error
-	LocatePieceForDealWithinSectorError error
-	PreCommittedSectorNumber            abi.SectorNumber
-	PreCommittedIsActive                bool
-	DealPreCommittedSyncError           error
-	DealPreCommittedAsyncError          error
-	DealCommittedSyncError              error
-	DealCommittedAsyncError             error
-	WaitForMessageBlocks                bool
-	WaitForMessagePublishCid            cid.Cid
-	WaitForMessageError                 error
-	WaitForMessageExitCode              exitcode.ExitCode
-	WaitForMessageRetBytes              []byte
-	WaitForDealCompletionError          error
-	OnDealExpiredError                  error
-	OnDealSlashedError                  error
-	OnDealSlashedEpoch                  abi.ChainEpoch
-	DataCap                             *verifreg.DataCap
-	GetDataCapError                     error
+	MinerAddr                  address.Address
+	MinerWorkerError           error
+	ReserveFundsError          error
+	Height                     abi.ChainEpoch
+	TipSetToken                shared.TipSetToken
+	ClientMarketBalance        abi.TokenAmount
+	ClientMarketBalanceError   error
+	AddFundsCid                cid.Cid
+	VerifySignatureFails       bool
+	MostRecentStateIDError     error
+	PieceLength                uint64
+	PieceSectorID              uint64
+	PublishDealsError          error
+	PublishDealID              abi.DealID
+	WaitForPublishDealsError   error
+	OnDealCompleteError        error
+	PreCommittedSectorNumber   abi.SectorNumber
+	PreCommittedIsActive       bool
+	DealPreCommittedSyncError  error
+	DealPreCommittedAsyncError error
+	DealCommittedSyncError     error
+	DealCommittedAsyncError    error
+	WaitForMessageBlocks       bool
+	WaitForMessagePublishCid   cid.Cid
+	WaitForMessageError        error
+	WaitForMessageExitCode     exitcode.ExitCode
+	WaitForMessageRetBytes     []byte
+	WaitForDealCompletionError error
+	OnDealExpiredError         error
+	OnDealSlashedError         error
+	OnDealSlashedEpoch         abi.ChainEpoch
+	DataCap                    *verifreg.DataCap
+	GetDataCapError            error
 }
 
 type dealParams struct {
@@ -1269,18 +1268,17 @@ func makeExecutor(ctx context.Context,
 		}
 
 		node := &testnodes.FakeProviderNode{
-			FakeCommonNode:                      common,
-			MinerAddr:                           nodeParams.MinerAddr,
-			MinerWorkerError:                    nodeParams.MinerWorkerError,
-			PieceLength:                         nodeParams.PieceLength,
-			PieceSectorID:                       nodeParams.PieceSectorID,
-			PublishDealsError:                   nodeParams.PublishDealsError,
-			PublishDealID:                       nodeParams.PublishDealID,
-			WaitForPublishDealsError:            nodeParams.WaitForPublishDealsError,
-			OnDealCompleteError:                 nodeParams.OnDealCompleteError,
-			LocatePieceForDealWithinSectorError: nodeParams.LocatePieceForDealWithinSectorError,
-			DataCap:                             nodeParams.DataCap,
-			GetDataCapErr:                       nodeParams.GetDataCapError,
+			FakeCommonNode:           common,
+			MinerAddr:                nodeParams.MinerAddr,
+			MinerWorkerError:         nodeParams.MinerWorkerError,
+			PieceLength:              nodeParams.PieceLength,
+			PieceSectorID:            nodeParams.PieceSectorID,
+			PublishDealsError:        nodeParams.PublishDealsError,
+			PublishDealID:            nodeParams.PublishDealID,
+			WaitForPublishDealsError: nodeParams.WaitForPublishDealsError,
+			OnDealCompleteError:      nodeParams.OnDealCompleteError,
+			DataCap:                  nodeParams.DataCap,
+			GetDataCapErr:            nodeParams.GetDataCapError,
 		}
 
 		if nodeParams.MinerAddr == address.Undef {

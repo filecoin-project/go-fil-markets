@@ -20,7 +20,6 @@ import (
 	dtnet "github.com/filecoin-project/go-data-transfer/network"
 	"github.com/filecoin-project/go-state-types/abi"
 	"github.com/filecoin-project/go-state-types/big"
-	"github.com/filecoin-project/go-storedcounter"
 
 	"github.com/filecoin-project/go-fil-markets/shared"
 	"github.com/filecoin-project/go-fil-markets/shared_testutil"
@@ -300,6 +299,7 @@ func TestRestartOnlyProviderDataTransfer(t *testing.T) {
 
 	// Configure data-transfer to restart after stalling
 	restartConf := dtimpl.ChannelRestartConfig(channelmonitor.Config{
+		MonitorPushChannels:    true,
 		AcceptTimeout:          200 * time.Millisecond,
 		Interval:               100 * time.Millisecond,
 		MinBytesTransferred:    1,
@@ -310,8 +310,8 @@ func TestRestartOnlyProviderDataTransfer(t *testing.T) {
 	})
 	smState := testnodes.NewStorageMarketState()
 	depGen := dependencies.NewDepGenerator()
-	depGen.ClientNewDataTransfer = func(ds datastore.Batching, dir string, transferNetwork dtnet.DataTransferNetwork, transport datatransfer.Transport, counter *storedcounter.StoredCounter) (datatransfer.Manager, error) {
-		return dtimpl.NewDataTransfer(ds, dir, transferNetwork, transport, counter, restartConf)
+	depGen.ClientNewDataTransfer = func(ds datastore.Batching, dir string, transferNetwork dtnet.DataTransferNetwork, transport datatransfer.Transport) (datatransfer.Manager, error) {
+		return dtimpl.NewDataTransfer(ds, dir, transferNetwork, transport, restartConf)
 	}
 	deps := depGen.New(t, ctx, td, smState, "", noOpDelay, noOpDelay)
 	h := testharness.NewHarnessWithTestData(t, td, deps, true, false)
@@ -637,6 +637,7 @@ func TestBounceConnectionDataTransfer(t *testing.T) {
 
 	// Configure data-transfer to automatically restart when connection goes down
 	restartConf := dtimpl.ChannelRestartConfig(channelmonitor.Config{
+		MonitorPushChannels:    true,
 		AcceptTimeout:          100 * time.Millisecond,
 		Interval:               100 * time.Millisecond,
 		MinBytesTransferred:    1,
@@ -647,8 +648,8 @@ func TestBounceConnectionDataTransfer(t *testing.T) {
 	})
 	smState := testnodes.NewStorageMarketState()
 	depGen := dependencies.NewDepGenerator()
-	depGen.ClientNewDataTransfer = func(ds datastore.Batching, dir string, transferNetwork dtnet.DataTransferNetwork, transport datatransfer.Transport, counter *storedcounter.StoredCounter) (datatransfer.Manager, error) {
-		return dtimpl.NewDataTransfer(ds, dir, transferNetwork, transport, counter, restartConf)
+	depGen.ClientNewDataTransfer = func(ds datastore.Batching, dir string, transferNetwork dtnet.DataTransferNetwork, transport datatransfer.Transport) (datatransfer.Manager, error) {
+		return dtimpl.NewDataTransfer(ds, dir, transferNetwork, transport, restartConf)
 	}
 	deps := depGen.New(t, ctx, td, smState, "", noOpDelay, noOpDelay)
 	h := testharness.NewHarnessWithTestData(t, td, deps, true, false)

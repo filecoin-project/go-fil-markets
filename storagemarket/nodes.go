@@ -100,9 +100,6 @@ type StorageProviderNode interface {
 	// GetMinerWorkerAddress returns the worker address associated with a miner
 	GetMinerWorkerAddress(ctx context.Context, addr address.Address, tok shared.TipSetToken) (address.Address, error)
 
-	// LocatePieceForDealWithinSector looks up a given dealID in the miners sectors, and returns its sectorID and location
-	LocatePieceForDealWithinSector(ctx context.Context, dealID abi.DealID, tok shared.TipSetToken) (sectorID abi.SectorNumber, offset abi.PaddedPieceSize, length abi.PaddedPieceSize, err error)
-
 	// GetDataCap gets the current data cap for addr
 	GetDataCap(ctx context.Context, addr address.Address, tok shared.TipSetToken) (*verifreg.DataCap, error)
 

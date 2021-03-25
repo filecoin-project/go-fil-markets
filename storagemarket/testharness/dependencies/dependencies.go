@@ -22,7 +22,6 @@ import (
 	"github.com/filecoin-project/go-data-transfer/testutil"
 	dtgstransport "github.com/filecoin-project/go-data-transfer/transport/graphsync"
 	"github.com/filecoin-project/go-state-types/abi"
-	"github.com/filecoin-project/go-storedcounter"
 	"github.com/filecoin-project/specs-actors/actors/builtin/market"
 
 	discoveryimpl "github.com/filecoin-project/go-fil-markets/discovery/impl"
@@ -68,10 +67,10 @@ func NewDependenciesWithTestData(t *testing.T,
 	return NewDepGenerator().New(t, ctx, td, smState, tempPath, cd, pd)
 }
 
-type NewDataTransfer func(ds datastore.Batching, cidListsDir string, dataTransferNetwork network2.DataTransferNetwork, transport datatransfer.Transport, storedCounter *storedcounter.StoredCounter) (datatransfer.Manager, error)
+type NewDataTransfer func(ds datastore.Batching, cidListsDir string, dataTransferNetwork network2.DataTransferNetwork, transport datatransfer.Transport) (datatransfer.Manager, error)
 
-func defaultNewDataTransfer(ds datastore.Batching, dir string, transferNetwork network2.DataTransferNetwork, transport datatransfer.Transport, counter *storedcounter.StoredCounter) (datatransfer.Manager, error) {
-	return dtimpl.NewDataTransfer(ds, dir, transferNetwork, transport, counter)
+func defaultNewDataTransfer(ds datastore.Batching, dir string, transferNetwork network2.DataTransferNetwork, transport datatransfer.Transport) (datatransfer.Manager, error) {
+	return dtimpl.NewDataTransfer(ds, dir, transferNetwork, transport)
 }
 
 type DepGenerator struct {
@@ -146,7 +145,7 @@ func (gen *DepGenerator) New(
 
 	gs1 := graphsyncimpl.New(ctx, network.NewFromLibp2pHost(td.Host1), td.Loader1, td.Storer1)
 	dtTransport1 := dtgstransport.NewTransport(td.Host1.ID(), gs1)
-	dt1, err := gen.ClientNewDataTransfer(td.DTStore1, td.DTTmpDir1, td.DTNet1, dtTransport1, td.DTStoredCounter1)
+	dt1, err := gen.ClientNewDataTransfer(td.DTStore1, td.DTTmpDir1, td.DTNet1, dtTransport1)
 	require.NoError(t, err)
 	testutil.StartAndWaitForReady(ctx, t, dt1)
 
@@ -156,7 +155,7 @@ func (gen *DepGenerator) New(
 
 	gs2 := graphsyncimpl.New(ctx, network.NewFromLibp2pHost(td.Host2), td.Loader2, td.Storer2)
 	dtTransport2 := dtgstransport.NewTransport(td.Host2.ID(), gs2)
-	dt2, err := gen.ProviderNewDataTransfer(td.DTStore2, td.DTTmpDir2, td.DTNet2, dtTransport2, td.DTStoredCounter2)
+	dt2, err := gen.ProviderNewDataTransfer(td.DTStore2, td.DTTmpDir2, td.DTNet2, dtTransport2)
 	require.NoError(t, err)
 	testutil.StartAndWaitForReady(ctx, t, dt2)
 
