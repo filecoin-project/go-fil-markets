@@ -8,6 +8,6 @@ import (
 
 func TestDealStagesNil(t *testing.T) {
 	var ds *storagemarket.DealStages
-	ds.GetStage("none")
-	ds.AddStageLog("MyStage", "desc", "duration", "msg")
+	ds.GetStage("none")                                  // no panic.
+	ds.AddStageLog("MyStage", "desc", "duration", "msg") // no panic.
 }

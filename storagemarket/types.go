@@ -114,19 +114,61 @@ type MinerDeal struct {
 	SectorNumber      abi.SectorNumber
 }
 
+// NewDealStages creates a new DealStages object ready to be used.
+// EXPERIMENTAL; subject to change.
 func NewDealStages() *DealStages {
 	return &DealStages{}
 }
 
+// DealStages captures a timeline of the progress of a deal, grouped by stages.
+// EXPERIMENTAL; subject to change.
 type DealStages struct {
+	// Stages contains an entry for every stage that the deal has gone through.
+	// Each stage then contains logs.
 	Stages []*DealStage
 }
 
+// DealStages captures data about the execution of a deal stage.
+// EXPERIMENTAL; subject to change.
+type DealStage struct {
+	// Human-readable fields.
+	// TODO: these _will_ need to be converted to canonical representations, so
+	//  they are machine readable.
+	Name             string
+	Description      string
+	ExpectedDuration string
+
+	// Timestamps.
+	// TODO: may be worth adding an exit timestamp. It _could_ be inferred from
+	//  the start of the next stage, or from the timestamp of the last log line
+	//  if this is a terminal stage. But that's non-determistic and it relies on
+	//  assumptions.
+	CreatedTime cbg.CborTime
+	UpdatedTime cbg.CborTime
+
+	// Logs contains a detailed timeline of events that occurred inside
+	// this stage.
+	Logs []*Log
+}
+
+// Log represents a point-in-time event that occurred inside a deal stage.
+// EXPERIMENTAL; subject to change.
 type Log struct {
-	Log         string
+	// Log is a human readable message.
+	//
+	// TODO: this _may_ need to be converted to a canonical data model so it
+	//  is machine-readable.
+	Log string
+
 	UpdatedTime cbg.CborTime
 }
 
+// GetStage returns the DealStage object for a named stage, or nil if not found.
+//
+// TODO: the input should be a strongly-typed enum instead of a free-form string.
+// TODO: drop Get from GetStage to make this code more idiomatic. Return a
+//  second ok boolean to make it even more idiomatic.
+// EXPERIMENTAL; subject to change.
 func (ds *DealStages) GetStage(stage string) *DealStage {
 	if ds == nil {
 		return nil
@@ -141,6 +183,9 @@ func (ds *DealStages) GetStage(stage string) *DealStage {
 	return nil
 }
 
+// AddStageLog adds a log to the specified stage, creating the stage if it
+// doesn't exist yet.
+// EXPERIMENTAL; subject to change.
 func (ds *DealStages) AddStageLog(stage, description, expectedDuration, msg string) {
 	if ds == nil {
 		return
@@ -162,19 +207,13 @@ func (ds *DealStages) AddStageLog(stage, description, expectedDuration, msg stri
 	st.ExpectedDuration = expectedDuration
 	st.UpdatedTime = now
 	if msg != "" && (len(st.Logs) == 0 || st.Logs[len(st.Logs)-1].Log != msg) {
+		// only add the log if it's not a duplicate.
 		st.Logs = append(st.Logs, &Log{msg, now})
 	}
 }
 
-type DealStage struct {
-	Name             string
-	Description      string
-	ExpectedDuration string
-	CreatedTime      cbg.CborTime
-	UpdatedTime      cbg.CborTime
-	Logs             []*Log
-}
-
+// AddLog adds a log inside the DealStages object of the deal.
+// EXPERIMENTAL; subject to change.
 func (d *ClientDeal) AddLog(msg string, a ...interface{}) {
 	if len(a) > 0 {
 		msg = fmt.Sprintf(msg, a...)
