@@ -243,3 +243,7 @@ func (tc *TestChannel) LastVoucher() datatransfer.Voucher {
 func (tc *TestChannel) LastVoucherResult() datatransfer.VoucherResult {
 	return tc.voucherResults[len(tc.voucherResults)-1]
 }
+
+func (tc *TestChannel) Stages() *datatransfer.ChannelStages {
+	return nil
+}
