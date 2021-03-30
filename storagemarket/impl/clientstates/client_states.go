@@ -23,6 +23,10 @@ import (
 
 var log = logging.Logger("storagemarket_impl")
 
+// MaxGraceEpochsForDealAcceptance is the maximum number of epochs we will wait for past the start epoch
+// for the provider to publish a deal.
+const MaxGraceEpochsForDealAcceptance = 10
+
 // ClientDealEnvironment is an abstraction for interacting with
 // dependencies from the storage client environment
 type ClientDealEnvironment interface {
@@ -170,6 +174,13 @@ func InitiateDataTransfer(ctx fsm.Context, environment ClientDealEnvironment, de
 
 // CheckForDealAcceptance is run until the deal is sealed and published by the provider, or errors
 func CheckForDealAcceptance(ctx fsm.Context, environment ClientDealEnvironment, deal storagemarket.ClientDeal) error {
+	_, currEpoch, err := environment.Node().GetChainHead(ctx.Context())
+
+	if err == nil {
+		if currEpoch > deal.Proposal.StartEpoch+MaxGraceEpochsForDealAcceptance {
+			return ctx.Trigger(storagemarket.ClientEventDealRejected, deal.State, "start epoch already elapsed")
+		}
+	}
 
 	dealState, err := environment.GetProviderDealState(ctx.Context(), deal.ProposalCid)
 	if err != nil {
