@@ -3,6 +3,7 @@ package shared_testutil
 import (
 	"bytes"
 	"fmt"
+	"sync"
 	"testing"
 
 	blocks "github.com/ipfs/go-block-format"
@@ -47,8 +48,13 @@ func GenerateBlocksOfSize(n int, size int64) []blocks.Block {
 	return generatedBlocks
 }
 
+var genCidsLk sync.Mutex
+
 // GenerateCids produces n content identifiers.
 func GenerateCids(n int) []cid.Cid {
+	genCidsLk.Lock()
+	defer genCidsLk.Unlock()
+
 	cids := make([]cid.Cid, 0, n)
 	for i := 0; i < n; i++ {
 		c := blockGenerator.Next().Cid()
@@ -57,10 +63,14 @@ func GenerateCids(n int) []cid.Cid {
 	return cids
 }
 
+var genPeersLk sync.Mutex
 var peerSeq int
 
 // GeneratePeers creates n peer ids.
 func GeneratePeers(n int) []peer.ID {
+	genPeersLk.Lock()
+	defer genPeersLk.Unlock()
+
 	peerIds := make([]peer.ID, 0, n)
 	for i := 0; i < n; i++ {
 		peerSeq++

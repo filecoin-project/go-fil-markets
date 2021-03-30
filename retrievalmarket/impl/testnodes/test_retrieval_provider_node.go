@@ -7,6 +7,7 @@ import (
 	"errors"
 	"io"
 	"io/ioutil"
+	"sync"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -40,7 +41,9 @@ type voucherResult struct {
 // TestRetrievalProviderNode is a node adapter for a retrieval provider whose
 // responses are mocked
 type TestRetrievalProviderNode struct {
-	ChainHeadError   error
+	ChainHeadError error
+
+	lk               sync.Mutex
 	sectorStubs      map[sectorKey][]byte
 	expectations     map[sectorKey]struct{}
 	received         map[sectorKey]struct{}
@@ -63,25 +66,37 @@ func NewTestRetrievalProviderNode() *TestRetrievalProviderNode {
 
 // StubUnseal stubs a response to attempting to unseal a sector with the given paramters
 func (trpn *TestRetrievalProviderNode) StubUnseal(sectorID abi.SectorNumber, offset, length abi.UnpaddedPieceSize, data []byte) {
+	trpn.lk.Lock()
+	defer trpn.lk.Unlock()
+
 	trpn.sectorStubs[sectorKey{sectorID, offset, length}] = data
 }
 
 // ExpectFailedUnseal indicates an expectation that a call will be made to unseal
 // a sector with the given params and should fail
 func (trpn *TestRetrievalProviderNode) ExpectFailedUnseal(sectorID abi.SectorNumber, offset, length abi.UnpaddedPieceSize) {
+	trpn.lk.Lock()
+	defer trpn.lk.Unlock()
+
 	trpn.expectations[sectorKey{sectorID, offset, length}] = struct{}{}
 }
 
 // ExpectUnseal indicates an expectation that a call will be made to unseal
 // a sector with the given params and should return the given data
 func (trpn *TestRetrievalProviderNode) ExpectUnseal(sectorID abi.SectorNumber, offset, length abi.UnpaddedPieceSize, data []byte) {
+	trpn.lk.Lock()
 	trpn.expectations[sectorKey{sectorID, offset, length}] = struct{}{}
+	trpn.lk.Unlock()
+
 	trpn.StubUnseal(sectorID, offset, length, data)
 }
 
 // UnsealSector simulates unsealing a sector by returning a stubbed response
 // or erroring
 func (trpn *TestRetrievalProviderNode) UnsealSector(ctx context.Context, sectorID abi.SectorNumber, offset, length abi.UnpaddedPieceSize) (io.ReadCloser, error) {
+	trpn.lk.Lock()
+	defer trpn.lk.Unlock()
+
 	trpn.received[sectorKey{sectorID, offset, length}] = struct{}{}
 	data, ok := trpn.sectorStubs[sectorKey{sectorID, offset, length}]
 	if !ok {
@@ -93,6 +108,9 @@ func (trpn *TestRetrievalProviderNode) UnsealSector(ctx context.Context, sectorI
 // VerifyExpectations verifies that all expected calls were made and no other calls
 // were made
 func (trpn *TestRetrievalProviderNode) VerifyExpectations(t *testing.T) {
+	trpn.lk.Lock()
+	defer trpn.lk.Unlock()
+
 	require.Equal(t, len(trpn.expectedVouchers), len(trpn.receivedVouchers))
 	require.Equal(t, trpn.expectations, trpn.received)
 }
@@ -109,6 +127,10 @@ func (trpn *TestRetrievalProviderNode) SavePaymentVoucher(
 	if err != nil {
 		return abi.TokenAmount{}, err
 	}
+
+	trpn.lk.Lock()
+	defer trpn.lk.Unlock()
+
 	result, ok := trpn.expectedVouchers[key]
 	if ok {
 		trpn.receivedVouchers[key] = struct{}{}
@@ -160,6 +182,10 @@ func (trpn *TestRetrievalProviderNode) ExpectVoucher(
 	if err != nil {
 		return err
 	}
+
+	trpn.lk.Lock()
+	defer trpn.lk.Unlock()
+
 	trpn.expectedVouchers[key] = voucherResult{actualAmount, expectedErr}
 	return nil
 }

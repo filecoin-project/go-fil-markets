@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"sync"
 	"testing"
 
 	"github.com/ipfs/go-cid"
@@ -23,6 +24,7 @@ import (
 // TestRetrievalClientNode is a node adapter for a retrieval client whose responses
 // are stubbed
 type TestRetrievalClientNode struct {
+	lk                                sync.Mutex
 	addFundsOnly                      bool // set this to true to test adding funds to an existing payment channel
 	payCh                             address.Address
 	payChErr                          error
@@ -35,12 +37,12 @@ type TestRetrievalClientNode struct {
 	checkAvailableFundsErr            error
 	fundsAdded                        abi.TokenAmount
 	intergrationTest                  bool
-	knownAddreses                     map[retrievalmarket.RetrievalPeer][]ma.Multiaddr
-	receivedKnownAddresses            map[retrievalmarket.RetrievalPeer]struct{}
-	expectedKnownAddresses            map[retrievalmarket.RetrievalPeer]struct{}
 	allocateLaneRecorder              func(address.Address)
 	createPaymentVoucherRecorder      func(voucher *paych.SignedVoucher)
 	getCreatePaymentChannelRecorder   func(address.Address, address.Address, abi.TokenAmount)
+	knownAddreses                     map[retrievalmarket.RetrievalPeer][]ma.Multiaddr
+	receivedKnownAddresses            map[retrievalmarket.RetrievalPeer]struct{}
+	expectedKnownAddresses            map[retrievalmarket.RetrievalPeer]struct{}
 }
 
 // TestRetrievalClientNodeParams are parameters for initializing a TestRetrievalClientNode
@@ -91,6 +93,9 @@ func NewTestRetrievalClientNode(params TestRetrievalClientNodeParams) *TestRetri
 
 // GetOrCreatePaymentChannel returns a mocked payment channel
 func (trcn *TestRetrievalClientNode) GetOrCreatePaymentChannel(ctx context.Context, clientAddress address.Address, minerAddress address.Address, clientFundsAvailable abi.TokenAmount, tok shared.TipSetToken) (address.Address, cid.Cid, error) {
+	trcn.lk.Lock()
+	defer trcn.lk.Unlock()
+
 	if trcn.getCreatePaymentChannelRecorder != nil {
 		trcn.getCreatePaymentChannelRecorder(clientAddress, minerAddress, clientFundsAvailable)
 	}
@@ -106,6 +111,9 @@ func (trcn *TestRetrievalClientNode) GetOrCreatePaymentChannel(ctx context.Conte
 
 // AllocateLane creates a mock lane on a payment channel
 func (trcn *TestRetrievalClientNode) AllocateLane(ctx context.Context, paymentChannel address.Address) (uint64, error) {
+	trcn.lk.Lock()
+	defer trcn.lk.Unlock()
+
 	if trcn.allocateLaneRecorder != nil {
 		trcn.allocateLaneRecorder(paymentChannel)
 	}
@@ -114,9 +122,13 @@ func (trcn *TestRetrievalClientNode) AllocateLane(ctx context.Context, paymentCh
 
 // CreatePaymentVoucher creates a mock payment voucher based on a channel and lane
 func (trcn *TestRetrievalClientNode) CreatePaymentVoucher(ctx context.Context, paymentChannel address.Address, amount abi.TokenAmount, lane uint64, tok shared.TipSetToken) (*paych.SignedVoucher, error) {
+	trcn.lk.Lock()
+	defer trcn.lk.Unlock()
+
 	if trcn.createPaymentVoucherRecorder != nil {
 		trcn.createPaymentVoucherRecorder(trcn.voucher)
 	}
+
 	if trcn.intergrationTest && amount.GreaterThan(trcn.channelAvailableFunds.ConfirmedAmt) {
 		return nil, retrievalmarket.NewShortfallError(big.Sub(amount, trcn.channelAvailableFunds.ConfirmedAmt))
 	}
@@ -130,6 +142,9 @@ func (trcn *TestRetrievalClientNode) GetChainHead(ctx context.Context) (shared.T
 
 // WaitForPaymentChannelReady simulates waiting for a payment channel to finish adding funds
 func (trcn *TestRetrievalClientNode) WaitForPaymentChannelReady(ctx context.Context, messageCID cid.Cid) (address.Address, error) {
+	trcn.lk.Lock()
+	defer trcn.lk.Unlock()
+
 	if messageCID.Equals(trcn.createPaychMsgCID) && !trcn.addFundsOnly {
 		if trcn.intergrationTest {
 			trcn.channelAvailableFunds.ConfirmedAmt = big.Add(trcn.channelAvailableFunds.ConfirmedAmt, trcn.fundsAdded)
@@ -156,12 +171,18 @@ func (trcn *TestRetrievalClientNode) WaitForPaymentChannelReady(ctx context.Cont
 // ExpectKnownAddresses stubs a return for a look up of known addresses for the given retrieval peer
 // and the fact that it was looked up is verified with VerifyExpectations
 func (trcn *TestRetrievalClientNode) ExpectKnownAddresses(p retrievalmarket.RetrievalPeer, maddrs []ma.Multiaddr) {
+	trcn.lk.Lock()
+	defer trcn.lk.Unlock()
+
 	trcn.expectedKnownAddresses[p] = struct{}{}
 	trcn.knownAddreses[p] = maddrs
 }
 
 // GetKnownAddresses gets any on known multiaddrs for a given address, so we can add to the peer store
 func (trcn *TestRetrievalClientNode) GetKnownAddresses(ctx context.Context, p retrievalmarket.RetrievalPeer, tok shared.TipSetToken) ([]ma.Multiaddr, error) {
+	trcn.lk.Lock()
+	defer trcn.lk.Unlock()
+
 	trcn.receivedKnownAddresses[p] = struct{}{}
 	addrs, ok := trcn.knownAddreses[p]
 	if !ok {
@@ -172,16 +193,25 @@ func (trcn *TestRetrievalClientNode) GetKnownAddresses(ctx context.Context, p re
 
 // ResetChannelAvailableFunds is a way to manually change the funds in the payment channel
 func (trcn *TestRetrievalClientNode) ResetChannelAvailableFunds(channelAvailableFunds retrievalmarket.ChannelAvailableFunds) {
+	trcn.lk.Lock()
+	defer trcn.lk.Unlock()
+
 	trcn.channelAvailableFunds = addZeroesToAvailableFunds(channelAvailableFunds)
 }
 
 // VerifyExpectations verifies that all expected known addresses were looked up
 func (trcn *TestRetrievalClientNode) VerifyExpectations(t *testing.T) {
+	trcn.lk.Lock()
+	defer trcn.lk.Unlock()
+
 	require.Equal(t, trcn.expectedKnownAddresses, trcn.receivedKnownAddresses)
 }
 
 // CheckAvailableFunds returns the amount of available funds in a payment channel
 func (trcn *TestRetrievalClientNode) CheckAvailableFunds(ctx context.Context, payCh address.Address) (retrievalmarket.ChannelAvailableFunds, error) {
+	trcn.lk.Lock()
+	defer trcn.lk.Unlock()
+
 	return trcn.channelAvailableFunds, trcn.checkAvailableFundsErr
 }
 

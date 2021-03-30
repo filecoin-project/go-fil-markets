@@ -7,6 +7,7 @@ import (
 	"errors"
 	"io"
 	"io/ioutil"
+	"sync"
 	"testing"
 
 	"github.com/ipfs/go-cid"
@@ -34,8 +35,10 @@ type StorageMarketState struct {
 	TipSetToken shared.TipSetToken
 	Epoch       abi.ChainEpoch
 	DealID      abi.DealID
-	Balances    map[address.Address]abi.TokenAmount
-	Providers   map[address.Address]*storagemarket.StorageProviderInfo
+
+	lk        sync.Mutex
+	Balances  map[address.Address]abi.TokenAmount
+	Providers map[address.Address]*storagemarket.StorageProviderInfo
 }
 
 // NewStorageMarketState returns a new empty state for the storage market
@@ -50,6 +53,9 @@ func NewStorageMarketState() *StorageMarketState {
 
 // AddFunds adds funds for a given address in the storage market
 func (sma *StorageMarketState) AddFunds(addr address.Address, amount abi.TokenAmount) {
+	sma.lk.Lock()
+	defer sma.lk.Unlock()
+
 	if existing, ok := sma.Balances[addr]; ok {
 		sma.Balances[addr] = big.Add(existing, amount)
 	} else {
@@ -59,6 +65,9 @@ func (sma *StorageMarketState) AddFunds(addr address.Address, amount abi.TokenAm
 
 // Balance returns the balance of a given address in the market
 func (sma *StorageMarketState) Balance(addr address.Address) storagemarket.Balance {
+	sma.lk.Lock()
+	defer sma.lk.Unlock()
+
 	if existing, ok := sma.Balances[addr]; ok {
 		return storagemarket.Balance{Locked: big.NewInt(0), Available: existing}
 	}
@@ -68,6 +77,32 @@ func (sma *StorageMarketState) Balance(addr address.Address) storagemarket.Balan
 // StateKey returns a state key with the storage market states set Epoch
 func (sma *StorageMarketState) StateKey() (shared.TipSetToken, abi.ChainEpoch) {
 	return sma.TipSetToken, sma.Epoch
+}
+
+func (sma *StorageMarketState) AddProvider(addr address.Address, providerInfo *storagemarket.StorageProviderInfo) {
+	sma.lk.Lock()
+	defer sma.lk.Unlock()
+
+	sma.Providers[addr] = providerInfo
+}
+
+func (sma *StorageMarketState) GetProvider(addr address.Address) (*storagemarket.StorageProviderInfo, bool) {
+	sma.lk.Lock()
+	defer sma.lk.Unlock()
+
+	p, ok := sma.Providers[addr]
+	return p, ok
+}
+
+func (sma *StorageMarketState) ListProviders() ([]*storagemarket.StorageProviderInfo, error) {
+	sma.lk.Lock()
+	defer sma.lk.Unlock()
+
+	providers := make([]*storagemarket.StorageProviderInfo, 0, len(sma.Providers))
+	for _, provider := range sma.Providers {
+		providers = append(providers, provider)
+	}
+	return providers, nil
 }
 
 // FakeCommonNode implements common methods for the storage & client node adapters
@@ -275,16 +310,13 @@ type FakeClientNode struct {
 	ValidatePublishedDealID abi.DealID
 	ValidatePublishedError  error
 	ExpectedMinerInfos      []address.Address
+	receivedMinerInfosLk    sync.Mutex
 	receivedMinerInfos      []address.Address
 }
 
 // ListStorageProviders lists the providers in the storage market state
 func (n *FakeClientNode) ListStorageProviders(ctx context.Context, tok shared.TipSetToken) ([]*storagemarket.StorageProviderInfo, error) {
-	providers := make([]*storagemarket.StorageProviderInfo, 0, len(n.SMState.Providers))
-	for _, provider := range n.SMState.Providers {
-		providers = append(providers, provider)
-	}
-	return providers, nil
+	return n.SMState.ListProviders()
 }
 
 // ValidatePublishedDeal always succeeds
@@ -315,8 +347,11 @@ func (n *FakeClientNode) GetDefaultWalletAddress(ctx context.Context) (address.A
 
 // GetMinerInfo returns stubbed information for the first miner in storage market state
 func (n *FakeClientNode) GetMinerInfo(ctx context.Context, maddr address.Address, tok shared.TipSetToken) (*storagemarket.StorageProviderInfo, error) {
+	n.receivedMinerInfosLk.Lock()
+	defer n.receivedMinerInfosLk.Unlock()
+
 	n.receivedMinerInfos = append(n.receivedMinerInfos, maddr)
-	info, ok := n.SMState.Providers[maddr]
+	info, ok := n.SMState.GetProvider(maddr)
 	if !ok {
 		return nil, errors.New("Provider not found")
 	}
@@ -324,6 +359,9 @@ func (n *FakeClientNode) GetMinerInfo(ctx context.Context, maddr address.Address
 }
 
 func (n *FakeClientNode) VerifyExpectations(t *testing.T) {
+	n.receivedMinerInfosLk.Lock()
+	defer n.receivedMinerInfosLk.Unlock()
+
 	require.Equal(t, n.ExpectedMinerInfos, n.receivedMinerInfos)
 }
 
@@ -341,6 +379,8 @@ type FakeProviderNode struct {
 	WaitForPublishDealsError            error
 	OnDealCompleteError                 error
 	LastOnDealCompleteBytes             []byte
+	onDealCompleteLk                    sync.Mutex
+	OnDealCompleteBytes                 map[cid.Cid][]byte
 	OnDealCompleteCalls                 []storagemarket.MinerDeal
 	LocatePieceForDealWithinSectorError error
 	DataCap                             *verifreg.DataCap
@@ -375,8 +415,17 @@ func (n *FakeProviderNode) WaitForPublishDeals(ctx context.Context, mcid cid.Cid
 
 // OnDealComplete simulates passing of the deal to the storage miner, and does nothing
 func (n *FakeProviderNode) OnDealComplete(ctx context.Context, deal storagemarket.MinerDeal, pieceSize abi.UnpaddedPieceSize, pieceReader io.Reader) (*storagemarket.PackingResult, error) {
+	n.onDealCompleteLk.Lock()
+	defer n.onDealCompleteLk.Unlock()
+
 	n.OnDealCompleteCalls = append(n.OnDealCompleteCalls, deal)
 	n.LastOnDealCompleteBytes, _ = ioutil.ReadAll(pieceReader)
+
+	if n.OnDealCompleteBytes == nil {
+		n.OnDealCompleteBytes = make(map[cid.Cid][]byte)
+	}
+	n.OnDealCompleteBytes[deal.Ref.Root] = n.LastOnDealCompleteBytes[:]
+
 	// TODO: probably need to return some mock value here
 	return &storagemarket.PackingResult{}, n.OnDealCompleteError
 }

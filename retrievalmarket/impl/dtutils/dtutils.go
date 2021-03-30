@@ -120,7 +120,11 @@ func clientEvent(event datatransfer.Event, channelState datatransfer.ChannelStat
 		if channelState.Message() == datatransfer.ErrRejected.Error() {
 			return rm.ClientEventDealRejected, []interface{}{"rejected for unknown reasons"}
 		}
-		return rm.ClientEventDataTransferError, []interface{}{fmt.Errorf("deal data transfer failed: %s", event.Message)}
+		msg := event.Message
+		if channelState.Message() != "" {
+			msg += ": " + channelState.Message()
+		}
+		return rm.ClientEventDataTransferError, []interface{}{fmt.Errorf("deal data transfer failed: %s", msg)}
 	default:
 	}
 

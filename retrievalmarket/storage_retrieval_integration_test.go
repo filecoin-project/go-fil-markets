@@ -2,319 +2,368 @@ package retrievalmarket_test
 
 import (
 	"context"
+	"math/rand"
 	"testing"
 	"time"
 
 	"github.com/ipfs/go-cid"
-	"github.com/ipfs/go-datastore"
-	"github.com/ipfs/go-datastore/namespace"
 	"github.com/ipld/go-ipld-prime"
-	cidlink "github.com/ipld/go-ipld-prime/linking/cid"
 	"github.com/libp2p/go-libp2p-core/peer"
+	mocknet "github.com/libp2p/go-libp2p/p2p/net/mock"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"golang.org/x/xerrors"
 
-	"github.com/filecoin-project/go-address"
 	datatransfer "github.com/filecoin-project/go-data-transfer"
 	"github.com/filecoin-project/go-state-types/abi"
 	"github.com/filecoin-project/go-state-types/big"
-	"github.com/filecoin-project/specs-actors/actors/builtin/paych"
+	builtin2 "github.com/filecoin-project/specs-actors/v2/actors/builtin"
 
-	"github.com/filecoin-project/go-fil-markets/piecestore"
 	"github.com/filecoin-project/go-fil-markets/retrievalmarket"
-	retrievalimpl "github.com/filecoin-project/go-fil-markets/retrievalmarket/impl"
-	testnodes2 "github.com/filecoin-project/go-fil-markets/retrievalmarket/impl/testnodes"
-	rmnet "github.com/filecoin-project/go-fil-markets/retrievalmarket/network"
+	"github.com/filecoin-project/go-fil-markets/retrievalmarket/impl/testharness"
 	"github.com/filecoin-project/go-fil-markets/shared"
 	"github.com/filecoin-project/go-fil-markets/shared_testutil"
 	tut "github.com/filecoin-project/go-fil-markets/shared_testutil"
 	"github.com/filecoin-project/go-fil-markets/storagemarket"
-	"github.com/filecoin-project/go-fil-markets/storagemarket/testharness"
+	storageharness "github.com/filecoin-project/go-fil-markets/storagemarket/testharness"
 	"github.com/filecoin-project/go-fil-markets/storagemarket/testnodes"
 )
 
-func TestStorageRetrieval(t *testing.T) {
-	bgCtx := context.Background()
-	sh := testharness.NewHarness(t, bgCtx, true, testnodes.DelayFakeCommonNode{},
-		testnodes.DelayFakeCommonNode{}, false)
-	shared_testutil.StartAndWaitForReady(bgCtx, t, sh.Client)
-	shared_testutil.StartAndWaitForReady(bgCtx, t, sh.Provider)
+type providerNode struct {
+	storage   *storageharness.ProviderHarness
+	retrieval *testharness.RetrievalProviderHarness
+}
+type clientNode struct {
+	storage   *storageharness.ClientHarness
+	retrieval *testharness.RetrievalClientHarness
+	storedDAG *tut.StoredDAG
+}
 
-	// set up a subscriber
-	providerDealChan := make(chan storagemarket.MinerDeal)
-	subscriber := func(event storagemarket.ProviderEvent, deal storagemarket.MinerDeal) {
-		providerDealChan <- deal
+// TestConcurrentStorageRetrieval verifies that storage and retrieval deals
+// can be made concurrently
+func TestConcurrentStorageRetrieval(t *testing.T) {
+	// TODO: With 2 clients and 2 providers this test fails consistently.
+	// Need to understand why.
+	//clientCount := 2
+	//providerCount := 2
+	clientCount := 1
+	providerCount := 1
+	totalDeals := clientCount * providerCount
+
+	// Size of the file that will be generated
+	fileSize := 50000
+
+	// The amounts for vouchers that are expected to be sent during transfer
+	voucherAmts := []abi.TokenAmount{
+		abi.NewTokenAmount(10553000),
+		abi.NewTokenAmount(11264000),
+		abi.NewTokenAmount(12288000),
+		abi.NewTokenAmount(13312000),
+		abi.NewTokenAmount(4944000),
 	}
-	_ = sh.Provider.SubscribeToEvents(subscriber)
 
-	clientDealChan := make(chan storagemarket.ClientDeal)
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	mn := mocknet.New(ctx)
+	rnd := rand.New(rand.NewSource(42))
+	smState := testnodes.NewStorageMarketState()
+	storageGen := storageharness.NewStorageInstanceGenerator(ctx, t, rnd, mn, smState)
+
+	// Create storage clients
+	var clients []*clientNode
+	var providers []*providerNode
+	for i := 0; i < clientCount; i++ {
+		cl := storageGen.NewClient()
+
+		// Add a file to each client's store that the client will send to
+		// each provider in a storage deal
+		storedDAG := cl.NodeDeps.LoadUnixFsFileToStore(ctx, t, fileSize)
+		clients = append(clients, &clientNode{
+			storage:   cl,
+			storedDAG: storedDAG,
+		})
+	}
+
+	// Create storage providers
+	for i := 0; i < providerCount; i++ {
+		prv := storageGen.NewProvider()
+		providers = append(providers, &providerNode{
+			storage: prv,
+		})
+	}
+
+	// Connect all clients and providers
+	err := mn.LinkAll()
+	require.NoError(t, err)
+	time.Sleep(200 * time.Millisecond)
+
+	for _, cl := range clients {
+		for _, p := range providers {
+			_, err := mn.ConnectPeers(cl.storage.NodeDeps.Host.ID(), p.storage.NodeDeps.Host.ID())
+			require.NoError(t, err)
+		}
+	}
+
+	// Start all clients and providers
+	for _, cl := range clients {
+		shared_testutil.StartAndWaitForReady(ctx, t, cl.storage.Client)
+	}
+	for _, prv := range providers {
+		shared_testutil.StartAndWaitForReady(ctx, t, prv.storage.Provider)
+	}
+
+	// set up subscribers to watch for the completion of the deal on the client
+	clientDealCompleted := make(chan struct{}, totalDeals)
 	clientSubscriber := func(event storagemarket.ClientEvent, deal storagemarket.ClientDeal) {
-		clientDealChan <- deal
+		if deal.State == storagemarket.StorageDealExpired {
+			clientDealCompleted <- struct{}{}
+		}
 	}
-	_ = sh.Client.SubscribeToEvents(clientSubscriber)
+	for _, cl := range clients {
+		_ = cl.storage.Client.SubscribeToEvents(clientSubscriber)
+	}
 
-	// set ask price where we'll accept any price
-	err := sh.Provider.SetAsk(big.NewInt(0), big.NewInt(0), 50000)
-	assert.NoError(t, err)
+	// set up subscribers to watch for the completion of the deal on the
+	// provider
+	providerDealCompleted := make(chan struct{}, totalDeals)
+	provSubscriber := func(event storagemarket.ProviderEvent, deal storagemarket.MinerDeal) {
+		if deal.State == storagemarket.StorageDealExpired {
+			providerDealCompleted <- struct{}{}
+		}
+	}
+	for _, p := range providers {
+		// set ask price where we'll accept any price
+		err := p.storage.Provider.SetAsk(big.NewInt(0), big.NewInt(0), 50000)
+		assert.NoError(t, err)
 
-	result := sh.ProposeStorageDeal(t, &storagemarket.DataRef{TransferType: storagemarket.TTGraphsync, Root: sh.PayloadCid}, false, false)
-	require.False(t, result.ProposalCid.Equals(cid.Undef))
+		_ = p.storage.Provider.SubscribeToEvents(provSubscriber)
+	}
+
+	// Create a storage deal between each client and provider
+	var dealDuration = abi.ChainEpoch(180 * builtin2.EpochsInDay)
+	epoch := abi.ChainEpoch(100)
+	for _, cl := range clients {
+		cl := cl
+		dataRef := &storagemarket.DataRef{
+			TransferType: storagemarket.TTGraphsync,
+			Root:         cl.storedDAG.PayloadCID,
+		}
+		for _, prv := range providers {
+			p := prv
+			go func() {
+				result, err := cl.storage.Client.ProposeStorageDeal(ctx, storagemarket.ProposeStorageDealParams{
+					Addr:          cl.storage.Addr,
+					Info:          &p.storage.ProviderInfo,
+					Data:          dataRef,
+					StartEpoch:    epoch + 100,
+					EndEpoch:      epoch + 100 + dealDuration,
+					Price:         big.NewInt(1),
+					Collateral:    big.NewInt(0),
+					Rt:            abi.RegisteredSealProof_StackedDrg2KiBV1,
+					FastRetrieval: false,
+					VerifiedDeal:  false,
+					StoreID:       &cl.storedDAG.StoreID,
+				})
+				require.NoError(t, err)
+				require.False(t, result.ProposalCid.Equals(cid.Undef))
+			}()
+		}
+	}
 
 	time.Sleep(time.Millisecond * 200)
 
-	ctxTimeout, canc := context.WithTimeout(bgCtx, 25*time.Second)
-	defer canc()
+	// Wait for the storage deals to complete
+	ctxStgDealsTimeout, stgDealsCancel := context.WithTimeout(ctx, 5*time.Second)
+	defer stgDealsCancel()
 
-	var storageProviderSeenDeal storagemarket.MinerDeal
-	var storageClientSeenDeal storagemarket.ClientDeal
-	for storageProviderSeenDeal.State != storagemarket.StorageDealExpired ||
-		storageClientSeenDeal.State != storagemarket.StorageDealExpired {
+	clientAwaitingCompletion := totalDeals
+	providerAwaitingCompletion := totalDeals
+	for clientAwaitingCompletion > 0 && providerAwaitingCompletion > 0 {
 		select {
-		case storageProviderSeenDeal = <-providerDealChan:
-		case storageClientSeenDeal = <-clientDealChan:
-		case <-ctxTimeout.Done():
-			t.Fatalf("never saw completed deal, client deal state: %s (%d), provider deal state: %s (%d)",
-				storagemarket.DealStates[storageClientSeenDeal.State],
-				storageClientSeenDeal.State,
-				storagemarket.DealStates[storageProviderSeenDeal.State],
-				storageProviderSeenDeal.State,
-			)
+		case <-clientDealCompleted:
+			clientAwaitingCompletion--
+		case <-providerDealCompleted:
+			providerAwaitingCompletion--
+		case <-ctxStgDealsTimeout.Done():
+			t.Fatalf("timed out waiting for %d deals to complete - remaining: client %d, provider %d",
+				totalDeals, clientAwaitingCompletion, providerAwaitingCompletion)
 		}
 	}
 
-	rh := newRetrievalHarness(ctxTimeout, t, sh, storageClientSeenDeal)
+	t.Logf("%d storage deals completed", totalDeals)
+	t.Logf("Running %d retrieval deals", totalDeals)
 
-	clientDealStateChan := make(chan retrievalmarket.ClientDealState)
-	rh.Client.SubscribeToEvents(func(event retrievalmarket.ClientEvent, state retrievalmarket.ClientDealState) {
-		switch event {
-		case retrievalmarket.ClientEventComplete:
-			clientDealStateChan <- state
-		default:
-			msg := `
-			Client:
-			Event:           %s
-			Status:          %s
-			TotalReceived:   %d
-			BytesPaidFor:    %d
-			CurrentInterval: %d
-			TotalFunds:      %s
-			Message:         %s
-			`
-			t.Logf(msg, retrievalmarket.ClientEvents[event], retrievalmarket.DealStatuses[state.Status], state.TotalReceived, state.BytesPaidFor, state.CurrentInterval,
-				state.TotalFunds.String(), state.Message)
-		}
-	})
-
-	providerDealStateChan := make(chan retrievalmarket.ProviderDealState)
-	rh.Provider.SubscribeToEvents(func(event retrievalmarket.ProviderEvent, state retrievalmarket.ProviderDealState) {
-		switch event {
-		case retrievalmarket.ProviderEventCleanupComplete:
-			providerDealStateChan <- state
-		default:
-			msg := `
-			Provider:
-			Event:           %s
-			Status:          %s
-			TotalSent:       %d
-			FundsReceived:   %s
-			Message:		 %s
-			CurrentInterval: %d
-			`
-			t.Logf(msg, retrievalmarket.ProviderEvents[event], retrievalmarket.DealStatuses[state.Status], state.TotalSent, state.FundsReceived.String(), state.Message,
-				state.CurrentInterval)
-		}
-	})
-
-	// **** Send the query for the Piece
-	// set up retrieval params
-	peers := rh.Client.FindProviders(sh.PayloadCid)
-	require.Len(t, peers, 1)
-	retrievalPeer := peers[0]
-	require.NotNil(t, retrievalPeer.PieceCID)
-
-	rh.ClientNode.ExpectKnownAddresses(retrievalPeer, nil)
-
-	resp, err := rh.Client.Query(bgCtx, retrievalPeer, sh.PayloadCid, retrievalmarket.QueryParams{})
-	require.NoError(t, err)
-	require.Equal(t, retrievalmarket.QueryResponseAvailable, resp.Status)
-
-	// testing V1 only
-	rmParams, err := retrievalmarket.NewParamsV1(rh.RetrievalParams.PricePerByte, rh.RetrievalParams.PaymentInterval, rh.RetrievalParams.PaymentIntervalIncrease, shared.AllSelector(), nil, big.Zero())
-	require.NoError(t, err)
-
-	voucherAmts := []abi.TokenAmount{abi.NewTokenAmount(10136000), abi.NewTokenAmount(9784000)}
-	proof := []byte("")
-	for _, voucherAmt := range voucherAmts {
-		require.NoError(t, rh.ProviderNode.ExpectVoucher(*rh.ExpPaych, rh.ExpVoucher, proof, voucherAmt, voucherAmt, nil))
-	}
-	// just make sure there is enough to cover the transfer
-	fsize := 19000 // this is the known file size of the test file lorem.txt
-	expectedTotal := big.Mul(rh.RetrievalParams.PricePerByte, abi.NewTokenAmount(int64(fsize*2)))
-
-	// *** Retrieve the piece
-
-	clientStoreID := sh.TestData.MultiStore1.Next()
-	did, err := rh.Client.Retrieve(bgCtx, sh.PayloadCid, rmParams, expectedTotal, retrievalPeer, *rh.ExpPaych, retrievalPeer.Address, &clientStoreID)
-	assert.Equal(t, did, retrievalmarket.DealID(0))
-	require.NoError(t, err)
-
-	ctxTimeout, cancel := context.WithTimeout(bgCtx, 10*time.Second)
-	defer cancel()
-
-	// verify that client subscribers will be notified of state changes
-	var clientDealState retrievalmarket.ClientDealState
-	select {
-	case <-ctxTimeout.Done():
-		t.Error("deal never completed")
-		t.FailNow()
-	case clientDealState = <-clientDealStateChan:
-	}
-
-	ctxTimeout, cancel = context.WithTimeout(bgCtx, 5*time.Second)
-	defer cancel()
-	var providerDealState retrievalmarket.ProviderDealState
-	select {
-	case <-ctxTimeout.Done():
-		t.Error("provider never saw completed deal")
-		t.FailNow()
-	case providerDealState = <-providerDealStateChan:
-	}
-
-	require.Equal(t, retrievalmarket.DealStatusCompleted, providerDealState.Status)
-	require.Equal(t, retrievalmarket.DealStatusCompleted, clientDealState.Status)
-
-	rh.ClientNode.VerifyExpectations(t)
-	sh.TestData.VerifyFileTransferredIntoStore(t, cidlink.Link{Cid: sh.PayloadCid}, clientStoreID, false, uint64(fsize))
-
-}
-
-var _ datatransfer.RequestValidator = (*fakeDTValidator)(nil)
-
-type retrievalHarness struct {
-	Ctx                         context.Context
-	Epoch                       abi.ChainEpoch
-	Client                      retrievalmarket.RetrievalClient
-	ClientNode                  *testnodes2.TestRetrievalClientNode
-	Provider                    retrievalmarket.RetrievalProvider
-	ProviderNode                *testnodes2.TestRetrievalProviderNode
-	PieceStore                  piecestore.PieceStore
-	ExpPaych, NewLaneAddr       *address.Address
-	ExpPaychAmt, ActualPaychAmt *abi.TokenAmount
-	ExpVoucher, ActualVoucher   *paych.SignedVoucher
-	RetrievalParams             retrievalmarket.Params
-}
-
-func newRetrievalHarness(ctx context.Context, t *testing.T, sh *testharness.StorageHarness, deal storagemarket.ClientDeal) *retrievalHarness {
-
-	var newPaychAmt abi.TokenAmount
-	paymentChannelRecorder := func(client, miner address.Address, amt abi.TokenAmount) {
-		newPaychAmt = amt
-	}
-
-	var newLaneAddr address.Address
-	laneRecorder := func(paymentChannel address.Address) {
-		newLaneAddr = paymentChannel
-	}
-
-	var newVoucher paych.SignedVoucher
-	paymentVoucherRecorder := func(v *paych.SignedVoucher) {
-		newVoucher = *v
-	}
-
-	cids := tut.GenerateCids(2)
-	clientPaymentChannel, err := address.NewActorAddress([]byte("a"))
-
-	expectedVoucher := tut.MakeTestSignedVoucher()
-	require.NoError(t, err)
-	clientNode := testnodes2.NewTestRetrievalClientNode(testnodes2.TestRetrievalClientNodeParams{
-		Lane:                   expectedVoucher.Lane,
-		PayCh:                  clientPaymentChannel,
-		Voucher:                expectedVoucher,
-		PaymentChannelRecorder: paymentChannelRecorder,
-		AllocateLaneRecorder:   laneRecorder,
-		PaymentVoucherRecorder: paymentVoucherRecorder,
-		CreatePaychCID:         cids[0],
-		AddFundsCID:            cids[1],
-		IntegrationTest:        true,
-	})
-
-	nw1 := rmnet.NewFromLibp2pHost(sh.TestData.Host1, rmnet.RetryParameters(0, 0, 0, 0))
-	clientDs := namespace.Wrap(sh.TestData.Ds1, datastore.NewKey("/retrievals/client"))
-	client, err := retrievalimpl.NewClient(nw1, sh.TestData.MultiStore1, sh.DTClient, clientNode, sh.PeerResolver, clientDs, sh.TestData.RetrievalStoredCounter1)
-	require.NoError(t, err)
-	tut.StartAndWaitForReady(ctx, t, client)
-	payloadCID := deal.DataRef.Root
-	providerPaymentAddr := deal.MinerWorker
-	providerNode := testnodes2.NewTestRetrievalProviderNode()
-
-	carData := sh.ProviderNode.LastOnDealCompleteBytes
-	sectorID := abi.SectorNumber(100000)
-	offset := abi.PaddedPieceSize(1000)
-	pieceInfo := piecestore.PieceInfo{
-		PieceCID: tut.GenerateCids(1)[0],
-		Deals: []piecestore.DealInfo{
-			{
-				SectorID: sectorID,
-				Offset:   offset,
-				Length:   abi.UnpaddedPieceSize(uint64(len(carData))).Padded(),
-			},
-		},
-	}
-	providerNode.ExpectUnseal(sectorID, offset.Unpadded(), abi.UnpaddedPieceSize(uint64(len(carData))), carData)
-	// clear out provider blockstore
-	allCids, err := sh.TestData.Bs2.AllKeysChan(sh.Ctx)
-	require.NoError(t, err)
-	for c := range allCids {
-		err = sh.TestData.Bs2.DeleteBlock(c)
-		require.NoError(t, err)
-	}
-
-	nw2 := rmnet.NewFromLibp2pHost(sh.TestData.Host2, rmnet.RetryParameters(0, 0, 0, 0))
-	pieceStore := tut.NewTestPieceStore()
-	expectedPiece := tut.GenerateCids(1)[0]
-	cidInfo := piecestore.CIDInfo{
-		PieceBlockLocations: []piecestore.PieceBlockLocation{
-			{
-				PieceCID: expectedPiece,
-			},
-		},
-	}
-	pieceStore.ExpectCID(payloadCID, cidInfo)
-	pieceStore.ExpectPiece(expectedPiece, pieceInfo)
-	providerDs := namespace.Wrap(sh.TestData.Ds2, datastore.NewKey("/retrievals/provider"))
-	provider, err := retrievalimpl.NewProvider(providerPaymentAddr, providerNode, nw2, pieceStore, sh.TestData.MultiStore2, sh.DTProvider, providerDs)
-	require.NoError(t, err)
-	tut.StartAndWaitForReady(ctx, t, provider)
-
-	params := retrievalmarket.Params{
+	askParams := retrievalmarket.Params{
 		PricePerByte:            abi.NewTokenAmount(1000),
 		PaymentInterval:         uint64(10000),
 		PaymentIntervalIncrease: uint64(1000),
 		UnsealPrice:             big.Zero(),
 	}
 
-	ask := provider.GetAsk()
-	ask.PaymentInterval = params.PaymentInterval
-	ask.PaymentIntervalIncrease = params.PaymentIntervalIncrease
-	ask.PricePerByte = params.PricePerByte
-	provider.SetAsk(ask)
+	// Create retrieval clients
+	for _, cl := range clients {
+		cl.retrieval = testharness.NewRetrievalClient(t, &testharness.RetrievalClientParams{
+			Host:                   cl.storage.NodeDeps.Host,
+			Dstore:                 cl.storage.NodeDeps.Dstore,
+			MultiStore:             cl.storage.NodeDeps.MultiStore,
+			DataTransfer:           cl.storage.DataTransfer,
+			PeerResolver:           cl.storage.PeerResolver,
+			RetrievalStoredCounter: cl.storage.NodeDeps.DTStoredCounter,
+		})
+		tut.StartAndWaitForReady(ctx, t, cl.retrieval.Client)
+	}
 
-	return &retrievalHarness{
-		Ctx:             ctx,
-		Client:          client,
-		ClientNode:      clientNode,
-		Epoch:           sh.Epoch,
-		ExpPaych:        &clientPaymentChannel,
-		NewLaneAddr:     &newLaneAddr,
-		ActualPaychAmt:  &newPaychAmt,
-		ExpVoucher:      expectedVoucher,
-		ActualVoucher:   &newVoucher,
-		Provider:        provider,
-		ProviderNode:    providerNode,
-		PieceStore:      sh.PieceStore,
-		RetrievalParams: params,
+	// Create retrieval providers
+	for _, prv := range providers {
+		prv.retrieval = testharness.NewRetrievalProvider(t, &testharness.RetrievalProviderParams{
+			MockNet:      mn,
+			NodeDeps:     prv.storage.NodeDeps,
+			PaymentAddr:  prv.storage.ProviderInfo.Worker,
+			DataTransfer: prv.storage.DataTransfer,
+			AskParams:    askParams,
+		})
+		tut.StartAndWaitForReady(ctx, t, prv.retrieval.Provider)
+	}
+
+	// Set up each provider with car data that will be unsealed when the
+	// client makes a retrieval deal for the payload CID
+	for _, cl := range clients {
+		for _, prv := range providers {
+			payloadCID := cl.storedDAG.PayloadCID
+			carData := prv.storage.ProviderNode.OnDealCompleteBytes[payloadCID]
+			prv.retrieval.MockUnseal(ctx, t, payloadCID, carData)
+		}
+	}
+
+	// Each client retrieves data from each provider
+	retrievals := make(chan struct{}, totalDeals)
+	for clIdx, cl := range clients {
+		clIdx := clIdx
+		cl := cl
+
+		for prvIdx, prv := range providers {
+			prvIdx := prvIdx
+			prv := prv
+
+			go func() {
+				t.Logf("Starting retrieval deal client %d / provider %d", clIdx, prvIdx)
+				defer t.Logf("Completed retrieval deal client %d / provider %d", clIdx, prvIdx)
+
+				retrieve(ctx, t, cl, prv, askParams, voucherAmts, fileSize)
+
+				retrievals <- struct{}{}
+			}()
+		}
+	}
+
+	completed := 0
+	for completed < totalDeals {
+		select {
+		case <-retrievals:
+			completed++
+		case <-time.After(5 * time.Second):
+			t.Fatal("Timed out waiting for retrieval deals to complete")
+		}
 	}
 }
+
+func retrieve(ctx context.Context, t *testing.T, cl *clientNode, prv *providerNode, askParams retrievalmarket.Params, voucherAmts []abi.TokenAmount, fileSize int) {
+	payloadCID := cl.storedDAG.PayloadCID
+
+	// Watch for completion of client side of deal
+	clientDealComplete := make(chan error, 1)
+	cl.retrieval.Client.SubscribeToEvents(func(event retrievalmarket.ClientEvent, state retrievalmarket.ClientDealState) {
+		switch state.Status {
+		case retrievalmarket.DealStatusCompleted:
+			//t.Logf("  client %d / provider %d: client complete", clIdx, prvIdx)
+			clientDealComplete <- nil
+		case retrievalmarket.DealStatusErrored:
+			clientDealComplete <- xerrors.Errorf("Deal failed (client): %s", state.Message)
+		default:
+			//logClientState(event, state, t)
+		}
+	})
+
+	// Watch for completion of provider side of deal
+	providerDealComplete := make(chan error, 1)
+	prv.retrieval.Provider.SubscribeToEvents(func(event retrievalmarket.ProviderEvent, state retrievalmarket.ProviderDealState) {
+		switch state.Status {
+		case retrievalmarket.DealStatusCompleted:
+			//t.Logf("  client %d / provider %d: provider complete", clIdx, prvIdx)
+			providerDealComplete <- nil
+		case retrievalmarket.DealStatusErrored:
+			providerDealComplete <- xerrors.Errorf("Deal failed (provider): %s", state.Message)
+		default:
+			//logProviderState(event, state, t)
+		}
+	})
+
+	// *** Find providers of the payload CID
+	peers := cl.retrieval.Client.FindProviders(payloadCID)
+	var retrievalPeer retrievalmarket.RetrievalPeer
+	for _, rp := range peers {
+		if rp.ID == prv.retrieval.NodeDeps.Host.ID() {
+			retrievalPeer = rp
+		}
+	}
+	require.NotNil(t, retrievalPeer)
+	require.NotNil(t, retrievalPeer.PieceCID)
+
+	cl.retrieval.ClientNode.ExpectKnownAddresses(retrievalPeer, nil)
+
+	// *** Query the provider for the payload CID
+	resp, err := cl.retrieval.Client.Query(ctx, retrievalPeer, payloadCID, retrievalmarket.QueryParams{})
+	require.NoError(t, err)
+	require.Equal(t, retrievalmarket.QueryResponseAvailable, resp.Status)
+
+	// testing V1 only
+	rmParams, err := retrievalmarket.NewParamsV1(askParams.PricePerByte, askParams.PaymentInterval, askParams.PaymentIntervalIncrease, shared.AllSelector(), nil, big.Zero())
+	require.NoError(t, err)
+
+	proof := []byte("")
+	for _, voucherAmt := range voucherAmts {
+		require.NoError(t, prv.retrieval.ProviderNode.ExpectVoucher(cl.retrieval.Paych, cl.retrieval.ExpectedVoucher, proof, voucherAmt, voucherAmt, nil))
+	}
+	// just make sure there is enough to cover the transfer
+	expectedTotal := big.Mul(askParams.PricePerByte, abi.NewTokenAmount(int64(fileSize*2)))
+
+	// *** Retrieve the piece
+	// Create a new store so that the data is downloaded into a
+	// different place than the data that was originally uploaded
+	clientStoreID := cl.retrieval.MultiStore.Next()
+	_, err = cl.retrieval.Client.Retrieve(ctx, payloadCID, rmParams, expectedTotal, retrievalPeer, cl.retrieval.Paych, retrievalPeer.Address, &clientStoreID)
+	require.NoError(t, err)
+
+	ctxTimeout, cancel := context.WithTimeout(ctx, 5*time.Second)
+	defer cancel()
+
+	// Wait for retrieval deal to complete on the client and provider
+	doneCount := 0
+	for doneCount < 2 {
+		var err error
+		select {
+		case <-ctxTimeout.Done():
+			t.Error("deal never completed")
+			t.FailNow()
+		case err = <-clientDealComplete:
+		case err = <-providerDealComplete:
+		}
+		if err != nil {
+			t.Fatal(err)
+			return
+		}
+		doneCount++
+	}
+
+	// Verify that the file was correctly retrieved by the client
+	cl.retrieval.ClientNode.VerifyExpectations(t)
+	store, err := cl.storage.NodeDeps.MultiStore.Get(clientStoreID)
+	require.NoError(t, err)
+	tut.VerifyFileInStore(ctx, t, cl.storedDAG.Data, payloadCID, store.DAG)
+}
+
+var _ datatransfer.RequestValidator = (*fakeDTValidator)(nil)
 
 type fakeDTValidator struct{}
 
@@ -325,3 +374,32 @@ func (v *fakeDTValidator) ValidatePush(sender peer.ID, voucher datatransfer.Vouc
 func (v *fakeDTValidator) ValidatePull(receiver peer.ID, voucher datatransfer.Voucher, baseCid cid.Cid, selector ipld.Node) (datatransfer.VoucherResult, error) {
 	return nil, nil
 }
+
+//func logProviderState(event retrievalmarket.ProviderEvent, state retrievalmarket.ProviderDealState, t *testing.T) {
+//	msg := `
+//					Provider:
+//					Event:           %s
+//					Status:          %s
+//					TotalSent:       %d
+//					FundsReceived:   %s
+//					Message:		 %s
+//					CurrentInterval: %d
+//					`
+//	t.Logf(msg, retrievalmarket.ProviderEvents[event], retrievalmarket.DealStatuses[state.Status], state.TotalSent, state.FundsReceived.String(), state.Message,
+//		state.CurrentInterval)
+//}
+//
+//func logClientState(event retrievalmarket.ClientEvent, state retrievalmarket.ClientDealState, t *testing.T) {
+//	msg := `
+//					Client:
+//					Event:           %s
+//					Status:          %s
+//					TotalReceived:   %d
+//					BytesPaidFor:    %d
+//					CurrentInterval: %d
+//					TotalFunds:      %s
+//					Message:         %s
+//					`
+//	t.Logf(msg, retrievalmarket.ClientEvents[event], retrievalmarket.DealStatuses[state.Status], state.TotalReceived, state.BytesPaidFor, state.CurrentInterval,
+//		state.TotalFunds.String(), state.Message)
+//}

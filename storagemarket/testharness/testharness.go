@@ -1,6 +1,10 @@
 package testharness
 
 import (
+	"bytes"
+	"io/ioutil"
+	"math/rand"
+	"os"
 	"path/filepath"
 	"sync"
 	"testing"
@@ -13,10 +17,13 @@ import (
 	"github.com/ipld/go-ipld-prime"
 	cidlink "github.com/ipld/go-ipld-prime/linking/cid"
 	"github.com/libp2p/go-libp2p-core/protocol"
+	mocknet "github.com/libp2p/go-libp2p/p2p/net/mock"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"golang.org/x/net/context"
 
+	"github.com/filecoin-project/go-address"
+	datatransfer "github.com/filecoin-project/go-data-transfer"
 	dtimpl "github.com/filecoin-project/go-data-transfer/impl"
 	"github.com/filecoin-project/go-data-transfer/testutil"
 	dtgstransport "github.com/filecoin-project/go-data-transfer/transport/graphsync"
@@ -24,10 +31,16 @@ import (
 	"github.com/filecoin-project/go-state-types/abi"
 	"github.com/filecoin-project/go-state-types/big"
 	"github.com/filecoin-project/specs-actors/actors/builtin"
+	"github.com/filecoin-project/specs-actors/actors/builtin/market"
 
+	discoveryimpl "github.com/filecoin-project/go-fil-markets/discovery/impl"
+	"github.com/filecoin-project/go-fil-markets/filestore"
+	"github.com/filecoin-project/go-fil-markets/piecestore"
+	piecestoreimpl "github.com/filecoin-project/go-fil-markets/piecestore/impl"
 	"github.com/filecoin-project/go-fil-markets/shared_testutil"
 	"github.com/filecoin-project/go-fil-markets/storagemarket"
 	storageimpl "github.com/filecoin-project/go-fil-markets/storagemarket/impl"
+	"github.com/filecoin-project/go-fil-markets/storagemarket/impl/storedask"
 	"github.com/filecoin-project/go-fil-markets/storagemarket/network"
 	"github.com/filecoin-project/go-fil-markets/storagemarket/testharness/dependencies"
 	"github.com/filecoin-project/go-fil-markets/storagemarket/testnodes"
@@ -172,4 +185,170 @@ func (h *StorageHarness) WaitForClientEvent(wg *sync.WaitGroup, waitEvent storag
 			wg.Done()
 		}
 	})
+}
+
+type StorageInstanceGenerator struct {
+	ctx     context.Context
+	t       *testing.T
+	rnd     *rand.Rand
+	mn      mocknet.Mocknet
+	smState *testnodes.StorageMarketState
+}
+
+func NewStorageInstanceGenerator(ctx context.Context, t *testing.T, rnd *rand.Rand, mn mocknet.Mocknet, smState *testnodes.StorageMarketState) *StorageInstanceGenerator {
+	return &StorageInstanceGenerator{
+		ctx:     ctx,
+		t:       t,
+		rnd:     rnd,
+		mn:      mn,
+		smState: smState,
+	}
+}
+
+type ClientHarness struct {
+	Client       *storageimpl.Client
+	Addr         address.Address
+	NodeDeps     *shared_testutil.Libp2pNodeDeps
+	DataTransfer datatransfer.Manager
+	PeerResolver *discoveryimpl.Local
+}
+
+func (g *StorageInstanceGenerator) NewClient() *ClientHarness {
+	ctx := g.ctx
+	t := g.t
+	td := shared_testutil.NewLibp2pNodeDeps(t, g.rnd, g.mn)
+
+	dt := CreateAndStartDataTransfer(ctx, t, td)
+	discovery, err := discoveryimpl.NewLocal(namespace.Wrap(td.Dstore, datastore.NewKey("/deals/local")))
+	require.NoError(t, err)
+	shared_testutil.StartAndWaitForReady(ctx, t, discovery)
+
+	clientAddr := randAddress(t, g.rnd)
+	clientNode := testnodes.FakeClientNode{
+		FakeCommonNode: testnodes.FakeCommonNode{
+			SMState:             g.smState,
+			DealFunds:           shared_testutil.NewTestDealFunds(),
+			DelayFakeCommonNode: testnodes.DelayFakeCommonNode{},
+		},
+		ClientAddr:         clientAddr,
+		ExpectedMinerInfos: []address.Address{address.TestAddress2},
+	}
+
+	clientDs := namespace.Wrap(td.Dstore, datastore.NewKey("/deals/client"))
+	client, err := storageimpl.NewClient(
+		network.NewFromLibp2pHost(td.Host, network.RetryParameters(0, 0, 0, 0)),
+		td.Bstore,
+		td.MultiStore,
+		dt,
+		discovery,
+		clientDs,
+		&clientNode,
+		storageimpl.DealPollingInterval(0),
+	)
+	require.NoError(t, err)
+	return &ClientHarness{
+		Client:       client,
+		Addr:         clientAddr,
+		NodeDeps:     td,
+		DataTransfer: dt,
+		PeerResolver: discovery,
+	}
+}
+
+type ProviderHarness struct {
+	Provider     storagemarket.StorageProvider
+	ProviderInfo storagemarket.StorageProviderInfo
+	NodeDeps     *shared_testutil.Libp2pNodeDeps
+	DataTransfer datatransfer.Manager
+	PieceStore   piecestore.PieceStore
+	ProviderNode *testnodes.FakeProviderNode
+}
+
+func (g *StorageInstanceGenerator) NewProvider() *ProviderHarness {
+	ctx := g.ctx
+	t := g.t
+	td := shared_testutil.NewLibp2pNodeDeps(t, g.rnd, g.mn)
+
+	dt := CreateAndStartDataTransfer(ctx, t, td)
+
+	tempPath, err := ioutil.TempDir("", "storagemarket_test")
+	assert.NoError(t, err)
+	t.Cleanup(func() { _ = os.RemoveAll(tempPath) })
+
+	fs, err := filestore.NewLocalFileStore(filestore.OsPath(tempPath))
+	assert.NoError(t, err)
+
+	ps, err := piecestoreimpl.NewPieceStore(td.Dstore)
+	require.NoError(t, err)
+	shared_testutil.StartAndWaitForReady(ctx, t, ps)
+
+	expDealID := abi.DealID(rand.Uint64())
+	psdReturn := market.PublishStorageDealsReturn{IDs: []abi.DealID{expDealID}}
+	psdReturnBytes := bytes.NewBuffer([]byte{})
+	err = psdReturn.MarshalCBOR(psdReturnBytes)
+	assert.NoError(t, err)
+
+	providerAddr := randAddress(t, g.rnd)
+	providerNode := testnodes.FakeProviderNode{
+		FakeCommonNode: testnodes.FakeCommonNode{
+			DelayFakeCommonNode:    testnodes.DelayFakeCommonNode{},
+			SMState:                g.smState,
+			DealFunds:              shared_testutil.NewTestDealFunds(),
+			WaitForMessageRetBytes: psdReturnBytes.Bytes(),
+		},
+		MinerAddr: providerAddr,
+	}
+
+	storedAskDs := namespace.Wrap(td.Dstore, datastore.NewKey("/storage/ask"))
+	storedAsk, err := storedask.NewStoredAsk(storedAskDs, datastore.NewKey("latest-ask"), &providerNode, providerAddr)
+	assert.NoError(t, err)
+
+	// Closely follows the MinerInfo struct in the spec
+	providerInfo := storagemarket.StorageProviderInfo{
+		Address:    providerAddr,
+		Owner:      providerAddr,
+		Worker:     providerAddr,
+		SectorSize: 1 << 20,
+		PeerID:     td.Host.ID(),
+	}
+	g.smState.AddProvider(providerAddr, &providerInfo)
+
+	providerDs := namespace.Wrap(td.Dstore, datastore.NewKey("/deals/provider"))
+	provider, err := storageimpl.NewProvider(
+		network.NewFromLibp2pHost(td.Host, network.RetryParameters(0, 0, 0, 0)),
+		providerDs,
+		fs,
+		td.MultiStore,
+		ps,
+		dt,
+		&providerNode,
+		providerAddr,
+		storedAsk,
+	)
+	require.NoError(t, err)
+	return &ProviderHarness{
+		Provider:     provider,
+		NodeDeps:     td,
+		ProviderInfo: providerInfo,
+		DataTransfer: dt,
+		PieceStore:   ps,
+		ProviderNode: &providerNode,
+	}
+}
+
+func randAddress(t *testing.T, rnd *rand.Rand) address.Address {
+	provAddrBytes := make([]byte, 16)
+	rnd.Read(provAddrBytes)
+	providerAddr, err := address.NewActorAddress(provAddrBytes)
+	require.NoError(t, err)
+	return providerAddr
+}
+
+func CreateAndStartDataTransfer(ctx context.Context, t *testing.T, td *shared_testutil.Libp2pNodeDeps) datatransfer.Manager {
+	gs := graphsyncimpl.New(ctx, gsnetwork.NewFromLibp2pHost(td.Host), td.Loader, td.Storer)
+	dtTransport := dtgstransport.NewTransport(td.Host.ID(), gs)
+	dt, err := dtimpl.NewDataTransfer(td.DTStore, td.DTTmpDir, td.DTNet, dtTransport, td.DTStoredCounter)
+	require.NoError(t, err)
+	testutil.StartAndWaitForReady(ctx, t, dt)
+	return dt
 }
