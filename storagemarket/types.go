@@ -1,7 +1,11 @@
 package storagemarket
 
 import (
+	"fmt"
+	"time"
+
 	"github.com/ipfs/go-cid"
+	logging "github.com/ipfs/go-log/v2"
 	"github.com/libp2p/go-libp2p-core/peer"
 	ma "github.com/multiformats/go-multiaddr"
 	cbg "github.com/whyrusleeping/cbor-gen"
@@ -16,7 +20,9 @@ import (
 	"github.com/filecoin-project/go-fil-markets/filestore"
 )
 
-//go:generate cbor-gen-for --map-encoding ClientDeal MinerDeal Balance SignedStorageAsk StorageAsk DataRef ProviderDealState
+var log = logging.Logger("storagemrkt")
+
+//go:generate cbor-gen-for --map-encoding ClientDeal MinerDeal Balance SignedStorageAsk StorageAsk DataRef ProviderDealState DealStages DealStage Log
 
 // DealProtocolID is the ID for the libp2p protocol for proposing storage deals.
 const OldDealProtocolID = "/fil/storage/mk/1.0.1"
@@ -108,6 +114,118 @@ type MinerDeal struct {
 	SectorNumber      abi.SectorNumber
 }
 
+// NewDealStages creates a new DealStages object ready to be used.
+// EXPERIMENTAL; subject to change.
+func NewDealStages() *DealStages {
+	return &DealStages{}
+}
+
+// DealStages captures a timeline of the progress of a deal, grouped by stages.
+// EXPERIMENTAL; subject to change.
+type DealStages struct {
+	// Stages contains an entry for every stage that the deal has gone through.
+	// Each stage then contains logs.
+	Stages []*DealStage
+}
+
+// DealStages captures data about the execution of a deal stage.
+// EXPERIMENTAL; subject to change.
+type DealStage struct {
+	// Human-readable fields.
+	// TODO: these _will_ need to be converted to canonical representations, so
+	//  they are machine readable.
+	Name             string
+	Description      string
+	ExpectedDuration string
+
+	// Timestamps.
+	// TODO: may be worth adding an exit timestamp. It _could_ be inferred from
+	//  the start of the next stage, or from the timestamp of the last log line
+	//  if this is a terminal stage. But that's non-determistic and it relies on
+	//  assumptions.
+	CreatedTime cbg.CborTime
+	UpdatedTime cbg.CborTime
+
+	// Logs contains a detailed timeline of events that occurred inside
+	// this stage.
+	Logs []*Log
+}
+
+// Log represents a point-in-time event that occurred inside a deal stage.
+// EXPERIMENTAL; subject to change.
+type Log struct {
+	// Log is a human readable message.
+	//
+	// TODO: this _may_ need to be converted to a canonical data model so it
+	//  is machine-readable.
+	Log string
+
+	UpdatedTime cbg.CborTime
+}
+
+// GetStage returns the DealStage object for a named stage, or nil if not found.
+//
+// TODO: the input should be a strongly-typed enum instead of a free-form string.
+// TODO: drop Get from GetStage to make this code more idiomatic. Return a
+//  second ok boolean to make it even more idiomatic.
+// EXPERIMENTAL; subject to change.
+func (ds *DealStages) GetStage(stage string) *DealStage {
+	if ds == nil {
+		return nil
+	}
+
+	for _, s := range ds.Stages {
+		if s.Name == stage {
+			return s
+		}
+	}
+
+	return nil
+}
+
+// AddStageLog adds a log to the specified stage, creating the stage if it
+// doesn't exist yet.
+// EXPERIMENTAL; subject to change.
+func (ds *DealStages) AddStageLog(stage, description, expectedDuration, msg string) {
+	if ds == nil {
+		return
+	}
+
+	log.Debugf("adding log for stage <%s> msg <%s>", stage, msg)
+
+	now := curTime()
+	st := ds.GetStage(stage)
+	if st == nil {
+		st = &DealStage{
+			CreatedTime: now,
+		}
+		ds.Stages = append(ds.Stages, st)
+	}
+
+	st.Name = stage
+	st.Description = description
+	st.ExpectedDuration = expectedDuration
+	st.UpdatedTime = now
+	if msg != "" && (len(st.Logs) == 0 || st.Logs[len(st.Logs)-1].Log != msg) {
+		// only add the log if it's not a duplicate.
+		st.Logs = append(st.Logs, &Log{msg, now})
+	}
+}
+
+// AddLog adds a log inside the DealStages object of the deal.
+// EXPERIMENTAL; subject to change.
+func (d *ClientDeal) AddLog(msg string, a ...interface{}) {
+	if len(a) > 0 {
+		msg = fmt.Sprintf(msg, a...)
+	}
+
+	stage := DealStates[d.State]
+	description := DealStatesDescriptions[d.State]
+	expectedDuration := DealStatesDurations[d.State]
+
+	d.DealStages.AddStageLog(stage, description, expectedDuration, msg)
+}
+
 // ClientDeal is the local state tracked for a deal by a StorageClient
 type ClientDeal struct {
 	market.ClientDealProposal
@@ -119,6 +237,7 @@ type ClientDeal struct {
 	DealID            abi.DealID
 	DataRef           *DataRef
 	Message           string
+	DealStages        *DealStages
 	PublishMessage    *cid.Cid
 	SlashEpoch        abi.ChainEpoch
 	PollRetryCount    uint64
@@ -191,4 +310,9 @@ type ProviderDealState struct {
 	PublishCid    *cid.Cid
 	DealID        abi.DealID
 	FastRetrieval bool
+}
+
+func curTime() cbg.CborTime {
+	now := time.Now()
+	return cbg.CborTime(time.Unix(0, now.UnixNano()).UTC())
 }
