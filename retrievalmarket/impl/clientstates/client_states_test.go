@@ -12,6 +12,7 @@ import (
 
 	"github.com/filecoin-project/go-address"
 	datatransfer "github.com/filecoin-project/go-data-transfer"
+	"github.com/filecoin-project/go-data-transfer/testutil"
 	"github.com/filecoin-project/go-state-types/abi"
 	"github.com/filecoin-project/go-state-types/big"
 	"github.com/filecoin-project/go-statemachine/fsm"
@@ -52,6 +53,10 @@ func (e *fakeEnvironment) SendDataTransferVoucher(_ context.Context, _ datatrans
 
 func (e *fakeEnvironment) CloseDataTransfer(_ context.Context, _ datatransfer.ChannelID) error {
 	return e.CloseDataTransferError
+}
+
+func (e *fakeEnvironment) EnableDataRateMonitoring(id datatransfer.ChannelID) error {
+	return nil
 }
 
 func TestProposeDeal(t *testing.T) {
@@ -617,12 +622,12 @@ var defaultUnsealFundsPaid = abi.NewTokenAmount(0)
 
 func makeDealState(status retrievalmarket.DealStatus) *retrievalmarket.ClientDealState {
 	paymentInfo := &retrievalmarket.PaymentInfo{}
-
 	switch status {
 	case retrievalmarket.DealStatusNew, retrievalmarket.DealStatusAccepted, retrievalmarket.DealStatusPaymentChannelCreating:
 		paymentInfo = nil
 	}
 
+	peers := testutil.GeneratePeers(2)
 	return &retrievalmarket.ClientDealState{
 		TotalFunds:       defaultTotalFunds,
 		MinerWallet:      address.TestAddress,
@@ -638,6 +643,11 @@ func makeDealState(status retrievalmarket.DealStatus) *retrievalmarket.ClientDea
 		DealProposal: retrievalmarket.DealProposal{
 			ID:     retrievalmarket.DealID(10),
 			Params: retrievalmarket.NewParamsV0(defaultPricePerByte, 0, defaultIntervalIncrease),
+		},
+		ChannelID: &datatransfer.ChannelID{
+			Initiator: peers[0],
+			Responder: peers[1],
+			ID:        100,
 		},
 	}
 }

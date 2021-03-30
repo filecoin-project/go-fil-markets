@@ -3,6 +3,7 @@ package clientstates
 import (
 	"context"
 
+	logging "github.com/ipfs/go-log/v2"
 	peer "github.com/libp2p/go-libp2p-core/peer"
 
 	"github.com/filecoin-project/go-address"
@@ -14,6 +15,8 @@ import (
 	rm "github.com/filecoin-project/go-fil-markets/retrievalmarket"
 )
 
+var log = logging.Logger("rtvlclient")
+
 // ClientDealEnvironment is a bridge to the environment a client deal is executing in.
 // It provides access to relevant functionality on the retrieval client
 type ClientDealEnvironment interface {
@@ -22,6 +25,7 @@ type ClientDealEnvironment interface {
 	OpenDataTransfer(ctx context.Context, to peer.ID, proposal *rm.DealProposal, legacy bool) (datatransfer.ChannelID, error)
 	SendDataTransferVoucher(context.Context, datatransfer.ChannelID, *rm.DealPayment, bool) error
 	CloseDataTransfer(context.Context, datatransfer.ChannelID) error
+	EnableDataRateMonitoring(datatransfer.ChannelID) error
 }
 
 // ProposeDeal sends the proposal to the other party
@@ -78,6 +82,12 @@ func AllocateLane(ctx fsm.Context, environment ClientDealEnvironment, deal rm.Cl
 
 // Ongoing just double checks that we may need to move out of the ongoing state cause a payment was previously requested
 func Ongoing(ctx fsm.Context, environment ClientDealEnvironment, deal rm.ClientDealState) error {
+	err := environment.EnableDataRateMonitoring(*deal.ChannelID)
+	if err != nil {
+		// Not being able to monitor the data rate isn't really grounds for
+		// failing the deal, so just log a warning
+		log.Warnf("failed to enable data rate monitoring for channel %s: %s", deal.ChannelID, err)
+	}
 	if deal.PaymentRequested.GreaterThan(big.Zero()) {
 		if deal.LastPaymentRequested {
 			return ctx.Trigger(rm.ClientEventLastPaymentRequested, big.Zero())

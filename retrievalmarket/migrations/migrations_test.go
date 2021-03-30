@@ -255,6 +255,12 @@ func (e *mockClientEnv) CloseDataTransfer(_ context.Context, _ datatransfer.Chan
 	return nil
 }
 
+func (e *mockClientEnv) EnableDataRateMonitoring(id datatransfer.ChannelID) error {
+	return nil
+}
+
+var _ clientstates.ClientDealEnvironment = (*mockClientEnv)(nil)
+
 type mockProviderEnv struct {
 }
 
@@ -285,3 +291,5 @@ func (te *mockProviderEnv) ResumeDataTransfer(_ context.Context, _ datatransfer.
 func (te *mockProviderEnv) CloseDataTransfer(_ context.Context, _ datatransfer.ChannelID) error {
 	return nil
 }
+
+var _ providerstates.ProviderDealEnvironment = (*mockProviderEnv)(nil)

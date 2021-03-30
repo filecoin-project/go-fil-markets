@@ -91,6 +91,10 @@ func (tdt *TestDataTransfer) OpenPullDataChannel(ctx context.Context, to peer.ID
 	return datatransfer.ChannelID{}, nil
 }
 
+func (tdt *TestDataTransfer) EnableDataRateMonitoring(chid datatransfer.ChannelID) error {
+	return nil
+}
+
 // SendVoucher does nothing
 func (tdt *TestDataTransfer) SendVoucher(ctx context.Context, chid datatransfer.ChannelID, voucher datatransfer.Voucher) error {
 	return nil

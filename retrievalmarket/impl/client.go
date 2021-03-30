@@ -451,6 +451,10 @@ func (c *clientDealEnvironment) CloseDataTransfer(ctx context.Context, channelID
 	return c.c.dataTransfer.CloseDataTransferChannel(ctx, channelID)
 }
 
+func (c *clientDealEnvironment) EnableDataRateMonitoring(channelID datatransfer.ChannelID) error {
+	return c.c.dataTransfer.EnableDataRateMonitoring(channelID)
+}
+
 type clientStoreGetter struct {
 	c *Client
 }
