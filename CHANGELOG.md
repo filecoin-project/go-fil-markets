@@ -1,5 +1,23 @@
 # go-fil-markets changelog
 
+# go-fil-markets v1.2.4
+
+- github.com/filecoin-project/go-fil-markets:
+  - feat: update to go-data-transfer v1.4.1 (#523) ([filecoin-project/go-fil-markets#523](https://github.com/filecoin-project/go-fil-markets/pull/523))
+  - Poll Provider for acceptance only till (deal start epoch + grace period) has elapsed  (#516) ([filecoin-project/go-fil-markets#516](https://github.com/filecoin-project/go-fil-markets/pull/516))
+  - Add DealStages to track and log Deal status updates (#502) ([filecoin-project/go-fil-markets#502](https://github.com/filecoin-project/go-fil-markets/pull/502))
+- github.com/filecoin-project/go-data-transfer (v1.4.0 -> v1.4.1):
+  - Add ChannelStages to keep track of history of lifecycle of a DataTransfer (#163) ([filecoin-project/go-data-transfer#163](https://github.com/filecoin-project/go-data-transfer/pull/163))
+
+Contributors
+
+| Contributor | Commits | Lines ± | Files Changed |
+|-------------|---------|---------|---------------|
+| Anton Evangelatov | 2 | +1360/-39 | 16 |
+| Aarsh Shah | 1 | +42/-0 | 2 |
+| dirkmc | 3 | +32/-3 | 5 |
+| Dirk McCormick | 1 | +11/-0 | 1 |
+
 # go-fil-markets v1.2.3
 
 Generating Changelog for github.com/filecoin-project/go-fil-markets v1.2.2..cf830ee0459221d4ba7e91f105a0f19b6d5a453e
