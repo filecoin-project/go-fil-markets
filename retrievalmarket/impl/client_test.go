@@ -132,6 +132,15 @@ func TestClient_Query(t *testing.T) {
 		assert.NotNil(t, resp)
 		assert.Equal(t, expectedQueryResponse, resp)
 		node.VerifyExpectations(t)
+		s := c.Stats()
+		if s["query"] == 0 {
+			t.Fatal()
+		}
+		c.ResetStats()
+		s = c.Stats()
+		if s["query"] != 0 {
+			t.Fatal()
+		}
 	})
 
 	t.Run("when the stream returns error, returns error", func(t *testing.T) {

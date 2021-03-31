@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"sync"
+	"time"
 
 	"github.com/hannahhoward/go-pubsub"
 	"github.com/ipfs/go-cid"
@@ -46,6 +47,7 @@ type Client struct {
 	resolver             discovery.PeerResolver
 	stateMachines        fsm.Group
 	migrateStateMachines func(context.Context) error
+	stats                *internalStats
 
 	// Guards concurrent access to Retrieve method
 	retrieveLk sync.Mutex
@@ -90,6 +92,7 @@ func NewClient(
 		storedCounter: storedCounter,
 		subscribers:   pubsub.New(dispatcher),
 		readySub:      pubsub.New(shared.ReadyDispatcher),
+		stats:         newRetrievalStats(),
 	}
 	retrievalMigrations, err := migrations.ClientMigrations.Build()
 	if err != nil {
@@ -144,6 +147,76 @@ func NewClient(
 	return c, nil
 }
 
+type measurement struct {
+	size  uint64
+	value uint64
+}
+
+// Stats gathered from the execution of a retrieval
+type internalStats struct {
+	lk sync.RWMutex
+	m  map[string]*measurement
+}
+
+// NewRetrievalStats starts data structure to gather metrics.
+func newRetrievalStats() *internalStats {
+	return &internalStats{
+		m: make(map[string]*measurement, 0),
+	}
+}
+
+// Update retrieval stats
+func (s *internalStats) update(metric string, value uint64) {
+	s.lk.Lock()
+	defer s.lk.Unlock()
+	// Check if initialized
+	if s.m[metric] == nil {
+		fmt.Println(s.m[metric])
+		s.m[metric] = &measurement{}
+	}
+	// Compute average
+	s.m[metric].value = (s.m[metric].value*s.m[metric].size + value) / (s.m[metric].size + 1)
+	// Update size
+	s.m[metric].size++
+}
+
+// Update retrieval stats
+func (s *internalStats) increment(metric string, value uint64) {
+	s.lk.Lock()
+	defer s.lk.Unlock()
+	// Check if initialized
+	if s.m[metric] == nil {
+		fmt.Println(s.m[metric])
+		s.m[metric] = &measurement{}
+	}
+	// Increment
+	s.m[metric].value += value
+}
+
+// UpdateRetrievalStat with value public function
+func (c *Client) UpdateRetrievalStat(metric string, value uint64) {
+	c.stats.update(metric, value)
+}
+
+// Stats returns retreival stats
+func (c *Client) Stats() retrievalmarket.RetrievalStats {
+	c.stats.lk.RLock()
+	defer c.stats.lk.RUnlock()
+	out := make(retrievalmarket.RetrievalStats)
+	for k, v := range c.stats.m {
+		out[k] = v.value
+	}
+
+	return out
+}
+
+// ResetStats resets all the retrieval stats
+func (c *Client) ResetStats() {
+	c.stats.lk.RLock()
+	defer c.stats.lk.RUnlock()
+	c.stats.m = make(map[string]*measurement, 0)
+}
+
 // Start initialized the Client, performing relevant database migrations
 func (c *Client) Start(ctx context.Context) error {
 	go func() {
@@ -166,11 +239,13 @@ func (c *Client) OnReady(ready shared.ReadyFunc) {
 
 // FindProviders uses PeerResolver interface to locate a list of providers who may have a given payload CID.
 func (c *Client) FindProviders(payloadCID cid.Cid) []retrievalmarket.RetrievalPeer {
+	t := time.Now()
 	peers, err := c.resolver.GetPeers(payloadCID)
 	if err != nil {
 		log.Errorf("failed to get peers: %s", err)
 		return []retrievalmarket.RetrievalPeer{}
 	}
+	c.stats.update("findProviders", uint64(time.Since(t).Nanoseconds()))
 	return peers
 }
 
@@ -183,6 +258,7 @@ The client creates a new `RetrievalQueryStream` for the chosen peer ID,
 and calls `WriteQuery` on it, which constructs a data-transfer message and writes it to the Query stream.
 */
 func (c *Client) Query(ctx context.Context, p retrievalmarket.RetrievalPeer, payloadCID cid.Cid, params retrievalmarket.QueryParams) (retrievalmarket.QueryResponse, error) {
+	t := time.Now()
 	err := c.addMultiaddrs(ctx, p)
 	if err != nil {
 		log.Warn(err)
@@ -204,7 +280,9 @@ func (c *Client) Query(ctx context.Context, p retrievalmarket.RetrievalPeer, pay
 		return retrievalmarket.QueryResponseUndefined, err
 	}
 
-	return s.ReadQueryResponse()
+	r, err := s.ReadQueryResponse()
+	c.stats.update("query", uint64(time.Since(t).Nanoseconds()))
+	return r, err
 }
 
 /*
@@ -405,6 +483,14 @@ type clientDealEnvironment struct {
 // Node returns the node interface for this deal
 func (c *clientDealEnvironment) Node() retrievalmarket.RetrievalClientNode {
 	return c.c.node
+}
+
+func (c *clientDealEnvironment) CollectStats(metric string, value uint64, average bool) {
+	if average {
+		c.c.stats.update(metric, value)
+	} else {
+		c.c.stats.increment(metric, value)
+	}
 }
 
 func (c *clientDealEnvironment) OpenDataTransfer(ctx context.Context, to peer.ID, proposal *retrievalmarket.DealProposal, legacy bool) (datatransfer.ChannelID, error) {

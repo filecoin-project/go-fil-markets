@@ -277,6 +277,9 @@ func NewParamsV1(pricePerByte abi.TokenAmount, paymentInterval uint64, paymentIn
 	}, nil
 }
 
+// RetrievalStats structure
+type RetrievalStats map[string]uint64
+
 // DealID is an identifier for a retrieval deal (unique to a client)
 type DealID uint64
 
