@@ -123,10 +123,6 @@ func NewTestChannel(params TestChannelParams) datatransfer.ChannelState {
 	return tc
 }
 
-func (tc *TestChannel) Stages() *datatransfer.ChannelStages {
-	panic("not implemented")
-}
-
 // TransferID returns the transfer id for this channel
 func (tc *TestChannel) TransferID() datatransfer.TransferID {
 	return tc.transferID
