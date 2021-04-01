@@ -154,8 +154,7 @@ func TestStorageRetrieval(t *testing.T) {
 	// *** Retrieve the piece
 
 	clientStoreID := sh.TestData.MultiStore1.Next()
-	did, err := rh.Client.Retrieve(bgCtx, sh.PayloadCid, rmParams, expectedTotal, retrievalPeer, *rh.ExpPaych, retrievalPeer.Address, &clientStoreID)
-	assert.Equal(t, did, retrievalmarket.DealID(0))
+	_, err = rh.Client.Retrieve(bgCtx, sh.PayloadCid, rmParams, expectedTotal, retrievalPeer, *rh.ExpPaych, retrievalPeer.Address, &clientStoreID)
 	require.NoError(t, err)
 
 	ctxTimeout, cancel := context.WithTimeout(bgCtx, 10*time.Second)
@@ -240,7 +239,7 @@ func newRetrievalHarness(ctx context.Context, t *testing.T, sh *testharness.Stor
 
 	nw1 := rmnet.NewFromLibp2pHost(sh.TestData.Host1, rmnet.RetryParameters(0, 0, 0, 0))
 	clientDs := namespace.Wrap(sh.TestData.Ds1, datastore.NewKey("/retrievals/client"))
-	client, err := retrievalimpl.NewClient(nw1, sh.TestData.MultiStore1, sh.DTClient, clientNode, sh.PeerResolver, clientDs, sh.TestData.RetrievalStoredCounter1)
+	client, err := retrievalimpl.NewClient(nw1, sh.TestData.MultiStore1, sh.DTClient, clientNode, sh.PeerResolver, clientDs)
 	require.NoError(t, err)
 	tut.StartAndWaitForReady(ctx, t, client)
 	payloadCID := deal.DataRef.Root
