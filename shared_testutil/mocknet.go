@@ -34,34 +34,31 @@ import (
 
 	dtnet "github.com/filecoin-project/go-data-transfer/network"
 	"github.com/filecoin-project/go-multistore"
-	"github.com/filecoin-project/go-storedcounter"
 )
 
 type Libp2pTestData struct {
-	Ctx                     context.Context
-	Ds1                     datastore.Batching
-	Ds2                     datastore.Batching
-	RetrievalStoredCounter1 *storedcounter.StoredCounter
-	RetrievalStoredCounter2 *storedcounter.StoredCounter
-	Bs1                     bstore.Blockstore
-	Bs2                     bstore.Blockstore
-	MultiStore1             *multistore.MultiStore
-	MultiStore2             *multistore.MultiStore
-	DagService1             ipldformat.DAGService
-	DagService2             ipldformat.DAGService
-	DTNet1                  dtnet.DataTransferNetwork
-	DTNet2                  dtnet.DataTransferNetwork
-	DTStore1                datastore.Batching
-	DTStore2                datastore.Batching
-	DTTmpDir1               string
-	DTTmpDir2               string
-	Loader1                 ipld.Loader
-	Loader2                 ipld.Loader
-	Storer1                 ipld.Storer
-	Storer2                 ipld.Storer
-	Host1                   host.Host
-	Host2                   host.Host
-	OrigBytes               []byte
+	Ctx         context.Context
+	Ds1         datastore.Batching
+	Ds2         datastore.Batching
+	Bs1         bstore.Blockstore
+	Bs2         bstore.Blockstore
+	MultiStore1 *multistore.MultiStore
+	MultiStore2 *multistore.MultiStore
+	DagService1 ipldformat.DAGService
+	DagService2 ipldformat.DAGService
+	DTNet1      dtnet.DataTransferNetwork
+	DTNet2      dtnet.DataTransferNetwork
+	DTStore1    datastore.Batching
+	DTStore2    datastore.Batching
+	DTTmpDir1   string
+	DTTmpDir2   string
+	Loader1     ipld.Loader
+	Loader2     ipld.Loader
+	Storer1     ipld.Storer
+	Storer2     ipld.Storer
+	Host1       host.Host
+	Host2       host.Host
+	OrigBytes   []byte
 
 	MockNet mocknet.Mocknet
 }
@@ -105,9 +102,6 @@ func NewLibp2pTestData(ctx context.Context, t *testing.T) *Libp2pTestData {
 
 	testData.Ds1 = dss.MutexWrap(datastore.NewMapDatastore())
 	testData.Ds2 = dss.MutexWrap(datastore.NewMapDatastore())
-
-	testData.RetrievalStoredCounter1 = storedcounter.New(testData.Ds1, datastore.NewKey("nextDealID"))
-	testData.RetrievalStoredCounter2 = storedcounter.New(testData.Ds2, datastore.NewKey("nextDealID"))
 
 	// make a bstore and dag service
 	testData.Bs1 = bstore.NewBlockstore(testData.Ds1)

@@ -20,7 +20,6 @@ import (
 	"github.com/filecoin-project/go-state-types/abi"
 	"github.com/filecoin-project/go-state-types/big"
 	"github.com/filecoin-project/go-statemachine/fsm"
-	"github.com/filecoin-project/go-storedcounter"
 
 	"github.com/filecoin-project/go-fil-markets/discovery"
 	"github.com/filecoin-project/go-fil-markets/retrievalmarket"
@@ -35,11 +34,11 @@ var log = logging.Logger("retrieval")
 
 // Client is the production implementation of the RetrievalClient interface
 type Client struct {
-	network       rmnet.RetrievalMarketNetwork
-	dataTransfer  datatransfer.Manager
-	multiStore    *multistore.MultiStore
-	node          retrievalmarket.RetrievalClientNode
-	storedCounter *storedcounter.StoredCounter
+	network      rmnet.RetrievalMarketNetwork
+	dataTransfer datatransfer.Manager
+	multiStore   *multistore.MultiStore
+	node         retrievalmarket.RetrievalClientNode
+	dealIDGen    *shared.TimeCounter
 
 	subscribers          *pubsub.PubSub
 	readySub             *pubsub.PubSub
@@ -72,24 +71,16 @@ func dispatcher(evt pubsub.Event, subscriberFn pubsub.SubscriberFn) error {
 var _ retrievalmarket.RetrievalClient = &Client{}
 
 // NewClient creates a new retrieval client
-func NewClient(
-	network rmnet.RetrievalMarketNetwork,
-	multiStore *multistore.MultiStore,
-	dataTransfer datatransfer.Manager,
-	node retrievalmarket.RetrievalClientNode,
-	resolver discovery.PeerResolver,
-	ds datastore.Batching,
-	storedCounter *storedcounter.StoredCounter,
-) (retrievalmarket.RetrievalClient, error) {
+func NewClient(network rmnet.RetrievalMarketNetwork, multiStore *multistore.MultiStore, dataTransfer datatransfer.Manager, node retrievalmarket.RetrievalClientNode, resolver discovery.PeerResolver, ds datastore.Batching) (retrievalmarket.RetrievalClient, error) {
 	c := &Client{
-		network:       network,
-		multiStore:    multiStore,
-		dataTransfer:  dataTransfer,
-		node:          node,
-		resolver:      resolver,
-		storedCounter: storedCounter,
-		subscribers:   pubsub.New(dispatcher),
-		readySub:      pubsub.New(shared.ReadyDispatcher),
+		network:      network,
+		multiStore:   multiStore,
+		dataTransfer: dataTransfer,
+		node:         node,
+		resolver:     resolver,
+		dealIDGen:    shared.NewTimeCounter(),
+		subscribers:  pubsub.New(dispatcher),
+		readySub:     pubsub.New(shared.ReadyDispatcher),
 	}
 	retrievalMigrations, err := migrations.ClientMigrations.Build()
 	if err != nil {
@@ -250,10 +241,7 @@ func (c *Client) Retrieve(ctx context.Context, payloadCID cid.Cid, params retrie
 	if err != nil {
 		return 0, err
 	}
-	next, err := c.storedCounter.Next()
-	if err != nil {
-		return 0, err
-	}
+
 	// make sure the store is loadable
 	if storeID != nil {
 		_, err = c.multiStore.Get(*storeID)
@@ -261,6 +249,8 @@ func (c *Client) Retrieve(ctx context.Context, payloadCID cid.Cid, params retrie
 			return 0, err
 		}
 	}
+
+	next := c.dealIDGen.Next()
 	dealID := retrievalmarket.DealID(next)
 	dealState := retrievalmarket.ClientDealState{
 		DealProposal: retrievalmarket.DealProposal{
