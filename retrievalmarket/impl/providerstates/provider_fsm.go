@@ -81,7 +81,11 @@ var ProviderEvents = fsm.Events{
 		From(rm.DealStatusFundsNeededUnseal).To(rm.DealStatusUnsealing).
 		Action(func(deal *rm.ProviderDealState, fundsReceived abi.TokenAmount) error {
 			deal.FundsReceived = big.Add(deal.FundsReceived, fundsReceived)
-			deal.CurrentInterval += deal.PaymentIntervalIncrease
+
+			// only update interval if the payment is for bytes and not for unsealing.
+			if deal.Status != rm.DealStatusFundsNeededUnseal {
+				deal.CurrentInterval += deal.PaymentIntervalIncrease
+			}
 			return nil
 		}),
 

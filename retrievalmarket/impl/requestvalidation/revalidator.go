@@ -178,12 +178,21 @@ func (pr *ProviderRevalidator) processPayment(dealID rm.ProviderDealIdentifier, 
 
 	// resume deal
 	_ = pr.env.SendEvent(dealID, rm.ProviderEventPaymentReceived, received)
+
 	if deal.Status == rm.DealStatusFundsNeededLastPayment {
 		return &rm.DealResponse{
 			ID:     deal.ID,
 			Status: rm.DealStatusCompleted,
 		}, nil
 	}
+
+	// This is hacky. But, if we don't do this, the data transfer module will resume data transfer
+	// even though we haven't finished reading the Unsealed data into the local Block-store since data transfer
+	// treats a "nil" error from here as a resumption signal.
+	if deal.Status == rm.DealStatusUnsealing || deal.Status == rm.DealStatusFundsNeededUnseal {
+		return nil, datatransfer.ErrNoOp
+	}
+
 	return nil, nil
 }
 

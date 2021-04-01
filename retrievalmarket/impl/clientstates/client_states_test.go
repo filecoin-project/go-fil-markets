@@ -373,6 +373,27 @@ func TestSendFunds(t *testing.T) {
 		require.Equal(t, dealState.Status, retrievalmarket.DealStatusFinalizing)
 	})
 
+	t.Run("only unsealing payment is accounted for when price per bytes is zero", func(t *testing.T) {
+		dealState := makeDealState(retrievalmarket.DealStatusSendFundsLastPayment)
+		unsealPrice := abi.NewTokenAmount(100)
+
+		dealState.UnsealPrice = unsealPrice
+		dealState.PaymentRequested = unsealPrice
+		dealState.PricePerByte = abi.NewTokenAmount(0)
+
+		var sendVoucherError error = nil
+		nodeParams := testnodes.TestRetrievalClientNodeParams{
+			Voucher: testVoucher,
+		}
+		runSendFunds(t, sendVoucherError, nodeParams, dealState)
+		require.Empty(t, dealState.Message)
+		require.Equal(t, dealState.PaymentRequested, abi.NewTokenAmount(0))
+		require.Equal(t, dealState.FundsSpent, big.Add(defaultFundsSpent, unsealPrice))
+		require.Equal(t, dealState.BytesPaidFor, defaultBytesPaidFor)
+		require.Equal(t, dealState.CurrentInterval, defaultCurrentInterval)
+		require.Equal(t, dealState.Status, retrievalmarket.DealStatusFinalizing)
+	})
+
 	t.Run("more bytes since last payment than interval works, can charge more", func(t *testing.T) {
 		dealState := makeDealState(retrievalmarket.DealStatusSendFunds)
 		dealState.BytesPaidFor = defaultBytesPaidFor - 500
