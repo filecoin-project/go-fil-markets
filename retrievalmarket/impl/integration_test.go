@@ -508,9 +508,7 @@ CurrentInterval: %d
 				t.FailNow()
 			case clientDealState = <-clientDealStateChan:
 			}
-			if testCase.failsUnseal {
-				assert.Equal(t, retrievalmarket.DealStatusErrored, clientDealState.Status)
-			} else if testCase.cancelled {
+			if testCase.failsUnseal || testCase.cancelled {
 				assert.Equal(t, retrievalmarket.DealStatusCancelled, clientDealState.Status)
 			} else {
 				if !testCase.zeroPricePerByte {

@@ -58,7 +58,7 @@ func ProviderDataTransferSubscriber(deals EventReceiver) datatransfer.Subscriber
 		if channelState.Status() == datatransfer.Completed {
 			err := deals.Send(rm.ProviderDealIdentifier{DealID: dealProposal.ID, Receiver: channelState.Recipient()}, rm.ProviderEventComplete)
 			if err != nil {
-				log.Errorf("processing dt event: %w", err)
+				log.Errorf("processing dt event: %s", err)
 			}
 		}
 
@@ -69,7 +69,7 @@ func ProviderDataTransferSubscriber(deals EventReceiver) datatransfer.Subscriber
 
 		err := deals.Send(rm.ProviderDealIdentifier{DealID: dealProposal.ID, Receiver: channelState.Recipient()}, retrievalEvent, params...)
 		if err != nil {
-			log.Errorf("processing dt event: %w", err)
+			log.Errorf("processing dt event: %s", err)
 		}
 
 	}
