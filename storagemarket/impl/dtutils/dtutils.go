@@ -40,7 +40,7 @@ func ProviderDataTransferSubscriber(deals EventReceiver) datatransfer.Subscriber
 		if channelState.Status() == datatransfer.Completed {
 			err := deals.Send(voucher.Proposal, storagemarket.ProviderEventDataTransferCompleted)
 			if err != nil {
-				log.Errorf("processing dt event: %w", err)
+				log.Errorf("processing dt event: %s", err)
 			}
 		}
 
@@ -63,7 +63,7 @@ func ProviderDataTransferSubscriber(deals EventReceiver) datatransfer.Subscriber
 			}
 		}()
 		if err != nil {
-			log.Errorf("processing dt event: %w", err)
+			log.Errorf("processing dt event: %s", err)
 		}
 	}
 }
@@ -83,7 +83,7 @@ func ClientDataTransferSubscriber(deals EventReceiver) datatransfer.Subscriber {
 		if channelState.Status() == datatransfer.Completed {
 			err := deals.Send(voucher.Proposal, storagemarket.ClientEventDataTransferComplete)
 			if err != nil {
-				log.Errorf("processing dt event: %w", err)
+				log.Errorf("processing dt event: %s", err)
 			}
 		}
 
@@ -106,7 +106,7 @@ func ClientDataTransferSubscriber(deals EventReceiver) datatransfer.Subscriber {
 			}
 		}()
 		if err != nil {
-			log.Errorf("processing dt event: %w", err)
+			log.Errorf("processing dt event: %s", err)
 		}
 	}
 }

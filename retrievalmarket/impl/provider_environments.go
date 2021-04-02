@@ -21,6 +21,8 @@ import (
 	"github.com/filecoin-project/go-fil-markets/retrievalmarket/impl/dtutils"
 	"github.com/filecoin-project/go-fil-markets/retrievalmarket/impl/providerstates"
 	"github.com/filecoin-project/go-fil-markets/retrievalmarket/impl/requestvalidation"
+	"github.com/filecoin-project/go-fil-markets/shared"
+	mktshared "github.com/filecoin-project/go-fil-markets/shared"
 )
 
 var _ requestvalidation.ValidationEnvironment = new(providerValidationEnvironment)
@@ -170,7 +172,18 @@ func (pde *providerDealEnvironment) ResumeDataTransfer(ctx context.Context, chid
 }
 
 func (pde *providerDealEnvironment) CloseDataTransfer(ctx context.Context, chid datatransfer.ChannelID) error {
-	return pde.p.dataTransfer.CloseDataTransferChannel(ctx, chid)
+	// When we close the data transfer, we also send a cancel message to the peer.
+	// Make sure we don't wait too long to send the message.
+	ctx, cancel := context.WithTimeout(ctx, mktshared.CloseDataTransferTimeout)
+	defer cancel()
+
+	err := pde.p.dataTransfer.CloseDataTransferChannel(ctx, chid)
+	if shared.IsCtxDone(err) {
+		log.Warnf("failed to send cancel data transfer channel %s to client within timeout %s",
+			chid, shared.CloseDataTransferTimeout)
+		return nil
+	}
+	return err
 }
 
 func (pde *providerDealEnvironment) DeleteStore(storeID multistore.StoreID) error {

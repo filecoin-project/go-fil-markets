@@ -438,7 +438,18 @@ func (c *clientDealEnvironment) SendDataTransferVoucher(ctx context.Context, cha
 }
 
 func (c *clientDealEnvironment) CloseDataTransfer(ctx context.Context, channelID datatransfer.ChannelID) error {
-	return c.c.dataTransfer.CloseDataTransferChannel(ctx, channelID)
+	// When we close the data transfer, we also send a cancel message to the peer.
+	// Make sure we don't wait too long to send the message.
+	ctx, cancel := context.WithTimeout(ctx, shared.CloseDataTransferTimeout)
+	defer cancel()
+
+	err := c.c.dataTransfer.CloseDataTransferChannel(ctx, channelID)
+	if shared.IsCtxDone(err) {
+		log.Warnf("failed to send cancel data transfer channel %s to provider within timeout %s",
+			channelID, shared.CloseDataTransferTimeout)
+		return nil
+	}
+	return err
 }
 
 type clientStoreGetter struct {
