@@ -131,7 +131,7 @@ func (pr *ProviderRevalidator) Revalidate(channelID datatransfer.ChannelID, vouc
 	}
 
 	response, err := pr.processPayment(channel.dealID, payment)
-	if err == nil {
+	if err == nil || err == datatransfer.ErrResume {
 		channel.reload = true
 	}
 	return finalResponse(response, legacyProtocol), err
@@ -183,17 +183,16 @@ func (pr *ProviderRevalidator) processPayment(dealID rm.ProviderDealIdentifier, 
 		return &rm.DealResponse{
 			ID:     deal.ID,
 			Status: rm.DealStatusCompleted,
-		}, nil
+		}, datatransfer.ErrResume
 	}
 
-	// This is hacky. But, if we don't do this, the data transfer module will resume data transfer
-	// even though we haven't finished reading the Unsealed data into the local Block-store since data transfer
-	// treats a "nil" error from here as a resumption signal.
+	// We shouldn't resume the data transfer if we haven't finished unsealing/reading the unsealed data into the
+	// local block-store.
 	if deal.Status == rm.DealStatusUnsealing || deal.Status == rm.DealStatusFundsNeededUnseal {
-		return nil, datatransfer.ErrNoOp
+		return nil, nil
 	}
 
-	return nil, nil
+	return nil, datatransfer.ErrResume
 }
 
 func errorDealResponse(dealID rm.ProviderDealIdentifier, err error) *rm.DealResponse {
