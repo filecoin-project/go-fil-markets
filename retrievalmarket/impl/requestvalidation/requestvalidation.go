@@ -106,9 +106,10 @@ func (rv *ProviderRequestValidator) validatePull(receiver peer.ID, proposal *ret
 	}
 
 	pds := retrievalmarket.ProviderDealState{
-		DealProposal:   *proposal,
-		Receiver:       receiver,
-		LegacyProtocol: legacyProtocol,
+		DealProposal:    *proposal,
+		Receiver:        receiver,
+		LegacyProtocol:  legacyProtocol,
+		CurrentInterval: proposal.PaymentInterval,
 	}
 
 	status, err := rv.acceptDeal(&pds)

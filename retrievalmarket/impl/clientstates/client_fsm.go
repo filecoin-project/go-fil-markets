@@ -264,13 +264,17 @@ var ClientEvents = fsm.Events{
 			deal.FundsSpent = big.Add(deal.FundsSpent, deal.PaymentRequested)
 
 			paymentForUnsealing := big.Min(deal.PaymentRequested, big.Sub(deal.UnsealPrice, deal.UnsealFundsPaid))
-
-			bytesPaidFor := big.Div(big.Sub(deal.PaymentRequested, paymentForUnsealing), deal.PricePerByte).Uint64()
-			if bytesPaidFor >= deal.CurrentInterval {
-				deal.CurrentInterval += deal.DealProposal.PaymentIntervalIncrease
-			}
-			deal.BytesPaidFor += bytesPaidFor
 			deal.UnsealFundsPaid = big.Add(deal.UnsealFundsPaid, paymentForUnsealing)
+
+			// If the price per bytes is zero, we ONLY need to account for the Unsealing payments here.
+			if !deal.PricePerByte.IsZero() {
+				bytesPaidFor := big.Div(big.Sub(deal.PaymentRequested, paymentForUnsealing), deal.PricePerByte).Uint64()
+				if bytesPaidFor >= deal.CurrentInterval {
+					deal.CurrentInterval += deal.DealProposal.PaymentIntervalIncrease
+				}
+				deal.BytesPaidFor += bytesPaidFor
+			}
+
 			deal.PaymentRequested = abi.NewTokenAmount(0)
 			return nil
 		}),

@@ -446,6 +446,7 @@ func TestRevalidate(t *testing.T) {
 			expectedID:    deal.Identifier(),
 			expectedEvent: rm.ProviderEventPaymentReceived,
 			expectedArgs:  []interface{}{defaultPaymentPerInterval},
+			expectedError: datatransfer.ErrResume,
 		},
 
 		"it completes": {
@@ -458,6 +459,7 @@ func TestRevalidate(t *testing.T) {
 			expectedID:    deal.Identifier(),
 			expectedEvent: rm.ProviderEventPaymentReceived,
 			expectedArgs:  []interface{}{defaultPaymentPerInterval},
+			expectedError: datatransfer.ErrResume,
 			expectedResult: &rm.DealResponse{
 				ID:     deal.ID,
 				Status: rm.DealStatusCompleted,
@@ -471,6 +473,7 @@ func TestRevalidate(t *testing.T) {
 			channelID:     channelID,
 			voucher:       legacyPayment,
 			expectedID:    deal.Identifier(),
+			expectedError: datatransfer.ErrResume,
 			expectedEvent: rm.ProviderEventPaymentReceived,
 			expectedArgs:  []interface{}{defaultPaymentPerInterval},
 			expectedResult: &migrations.DealResponse0{
@@ -486,6 +489,7 @@ func TestRevalidate(t *testing.T) {
 			channelID:     channelID,
 			voucher:       payment,
 			expectedID:    deal.Identifier(),
+			expectedError: datatransfer.ErrResume,
 			expectedEvent: rm.ProviderEventPaymentReceived,
 			expectedArgs:  []interface{}{defaultPaymentPerInterval},
 		},
