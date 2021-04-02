@@ -1,5 +1,23 @@
 # go-fil-markets changelog
 
+# go-fil-markets v1.2.5
+
+- github.com/filecoin-project/go-fil-markets:
+  - add timeout for sending cancel message to peer when retrieval cancelled (#531) ([filecoin-project/go-fil-markets#531](https://github.com/filecoin-project/go-fil-markets/pull/531))
+  - Flush out & fix retrieval bugs (#525) ([filecoin-project/go-fil-markets#525](https://github.com/filecoin-project/go-fil-markets/pull/525))
+  - fix: use time-based deal ID instead of stored counter (#529) ([filecoin-project/go-fil-markets#529](https://github.com/filecoin-project/go-fil-markets/pull/529))
+- github.com/filecoin-project/go-data-transfer (v1.4.1 -> v1.4.2):
+  - Support no-op error responses  (#186) ([filecoin-project/go-data-transfer#186](https://github.com/filecoin-project/go-data-transfer/pull/186))
+  - fix: fail a pull channel when there is a timeout receiving the Complete message (#179) ([filecoin-project/go-data-transfer#179](https://github.com/filecoin-project/go-data-transfer/pull/179))
+
+Contributors
+
+| Contributor | Commits | Lines ± | Files Changed |
+|-------------|---------|---------|---------------|
+| Aarsh Shah | 2 | +293/-364 | 16 |
+| dirkmc | 4 | +206/-149 | 12 |
+| Dirk McCormick | 1 | +13/-0 | 1 |
+
 # go-fil-markets v1.2.4
 
 - github.com/filecoin-project/go-fil-markets:
