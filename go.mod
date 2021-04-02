@@ -6,7 +6,7 @@ require (
 	github.com/filecoin-project/go-address v0.0.3
 	github.com/filecoin-project/go-cbor-util v0.0.0-20191219014500-08c40a1e63a2
 	github.com/filecoin-project/go-commp-utils v0.0.0-20201119054358-b88f7a96a434
-	github.com/filecoin-project/go-data-transfer v1.4.1
+	github.com/filecoin-project/go-data-transfer v1.4.2
 	github.com/filecoin-project/go-ds-versioning v0.1.0
 	github.com/filecoin-project/go-multistore v0.0.3
 	github.com/filecoin-project/go-padreader v0.0.0-20200903213702-ed5fae088b20
@@ -43,7 +43,7 @@ require (
 	github.com/stretchr/testify v1.6.1
 	github.com/whyrusleeping/cbor-gen v0.0.0-20210219115102-f37d292932f2
 	golang.org/x/exp v0.0.0-20200207192155-f17229e696bd
-	golang.org/x/net v0.0.0-20200625001655-4c5254603344
+	golang.org/x/net v0.0.0-20201021035429-f5854403a974
 	golang.org/x/xerrors v0.0.0-20200804184101-5ec99f83aff1
 )
 

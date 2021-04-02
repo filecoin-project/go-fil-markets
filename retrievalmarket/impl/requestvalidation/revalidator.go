@@ -131,7 +131,7 @@ func (pr *ProviderRevalidator) Revalidate(channelID datatransfer.ChannelID, vouc
 	}
 
 	response, err := pr.processPayment(channel.dealID, payment)
-	if err == nil {
+	if err == nil || err == datatransfer.ErrResume {
 		channel.reload = true
 	}
 	return finalResponse(response, legacyProtocol), err
@@ -178,13 +178,21 @@ func (pr *ProviderRevalidator) processPayment(dealID rm.ProviderDealIdentifier, 
 
 	// resume deal
 	_ = pr.env.SendEvent(dealID, rm.ProviderEventPaymentReceived, received)
+
 	if deal.Status == rm.DealStatusFundsNeededLastPayment {
 		return &rm.DealResponse{
 			ID:     deal.ID,
 			Status: rm.DealStatusCompleted,
-		}, nil
+		}, datatransfer.ErrResume
 	}
-	return nil, nil
+
+	// We shouldn't resume the data transfer if we haven't finished unsealing/reading the unsealed data into the
+	// local block-store.
+	if deal.Status == rm.DealStatusUnsealing || deal.Status == rm.DealStatusFundsNeededUnseal {
+		return nil, nil
+	}
+
+	return nil, datatransfer.ErrResume
 }
 
 func errorDealResponse(dealID rm.ProviderDealIdentifier, err error) *rm.DealResponse {
