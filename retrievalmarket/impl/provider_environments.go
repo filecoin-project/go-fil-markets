@@ -78,6 +78,13 @@ func (pve *providerValidationEnvironment) BeginTracking(pds retrievalmarket.Prov
 	return pve.p.stateMachines.Send(pds.Identifier(), retrievalmarket.ProviderEventOpen)
 }
 
+// Returns the deal state/proposal if we already have it in the SM.
+func (pve *providerValidationEnvironment) GetDeal(dealID retrievalmarket.ProviderDealIdentifier) (retrievalmarket.ProviderDealState, error) {
+	var deal retrievalmarket.ProviderDealState
+	err := pve.p.stateMachines.GetSync(context.TODO(), dealID, &deal)
+	return deal, err
+}
+
 // NextStoreID allocates a store for this deal
 func (pve *providerValidationEnvironment) NextStoreID() (multistore.StoreID, error) {
 	storeID := pve.p.multiStore.Next()

@@ -2,9 +2,11 @@ package retrievalmarket_test
 
 import (
 	"context"
+	"fmt"
 	"testing"
 	"time"
 
+	"github.com/filecoin-project/go-multistore"
 	"github.com/ipfs/go-cid"
 	"github.com/ipfs/go-datastore"
 	"github.com/ipfs/go-datastore/namespace"
@@ -80,52 +82,12 @@ func TestStorageRetrieval(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			sh := testharness.NewHarness(t, bgCtx, true, testnodes.DelayFakeCommonNode{},
 				testnodes.DelayFakeCommonNode{}, false)
-			shared_testutil.StartAndWaitForReady(bgCtx, t, sh.Client)
-			shared_testutil.StartAndWaitForReady(bgCtx, t, sh.Provider)
 
-			// set up a subscriber
-			providerDealChan := make(chan storagemarket.MinerDeal)
-			subscriber := func(event storagemarket.ProviderEvent, deal storagemarket.MinerDeal) {
-				providerDealChan <- deal
-			}
-			_ = sh.Provider.SubscribeToEvents(subscriber)
-
-			clientDealChan := make(chan storagemarket.ClientDeal)
-			clientSubscriber := func(event storagemarket.ClientEvent, deal storagemarket.ClientDeal) {
-				clientDealChan <- deal
-			}
-			_ = sh.Client.SubscribeToEvents(clientSubscriber)
-
-			// set ask price where we'll accept any price
-			err := sh.Provider.SetAsk(big.NewInt(0), big.NewInt(0), 50000)
-			assert.NoError(t, err)
-
-			result := sh.ProposeStorageDeal(t, &storagemarket.DataRef{TransferType: storagemarket.TTGraphsync, Root: sh.PayloadCid}, false, false)
-			require.False(t, result.ProposalCid.Equals(cid.Undef))
-
-			time.Sleep(time.Millisecond * 200)
-
+			storageProviderSeenDeal := doStorage(t, bgCtx, sh)
 			ctxTimeout, canc := context.WithTimeout(bgCtx, 25*time.Second)
 			defer canc()
 
-			var storageProviderSeenDeal storagemarket.MinerDeal
-			var storageClientSeenDeal storagemarket.ClientDeal
-			for storageProviderSeenDeal.State != storagemarket.StorageDealExpired ||
-				storageClientSeenDeal.State != storagemarket.StorageDealExpired {
-				select {
-				case storageProviderSeenDeal = <-providerDealChan:
-				case storageClientSeenDeal = <-clientDealChan:
-				case <-ctxTimeout.Done():
-					t.Fatalf("never saw completed deal, client deal state: %s (%d), provider deal state: %s (%d)",
-						storagemarket.DealStates[storageClientSeenDeal.State],
-						storageClientSeenDeal.State,
-						storagemarket.DealStates[storageProviderSeenDeal.State],
-						storageProviderSeenDeal.State,
-					)
-				}
-			}
-
-			rh := newRetrievalHarness(ctxTimeout, t, sh, storageClientSeenDeal, retrievalmarket.Params{
+			rh := newRetrievalHarness(ctxTimeout, t, sh, storageProviderSeenDeal, retrievalmarket.Params{
 				UnsealPrice:             tc.unSealPrice,
 				PricePerByte:            tc.pricePerByte,
 				PaymentInterval:         tc.paymentInterval,
@@ -175,37 +137,7 @@ func TestStorageRetrieval(t *testing.T) {
 				}
 			})
 
-			// **** Send the query for the Piece
-			// set up retrieval params
-			peers := rh.Client.FindProviders(sh.PayloadCid)
-			require.Len(t, peers, 1)
-			retrievalPeer := peers[0]
-			require.NotNil(t, retrievalPeer.PieceCID)
-
-			rh.ClientNode.ExpectKnownAddresses(retrievalPeer, nil)
-
-			resp, err := rh.Client.Query(bgCtx, retrievalPeer, sh.PayloadCid, retrievalmarket.QueryParams{})
-			require.NoError(t, err)
-			require.Equal(t, retrievalmarket.QueryResponseAvailable, resp.Status)
-
-			// testing V1 only
-			rmParams, err := retrievalmarket.NewParamsV1(rh.RetrievalParams.PricePerByte, rh.RetrievalParams.PaymentInterval, rh.RetrievalParams.PaymentIntervalIncrease, shared.AllSelector(), nil,
-				rh.RetrievalParams.UnsealPrice)
-			require.NoError(t, err)
-
-			proof := []byte("")
-			for _, voucherAmt := range tc.voucherAmts {
-				require.NoError(t, rh.ProviderNode.ExpectVoucher(*rh.ExpPaych, rh.ExpVoucher, proof, voucherAmt, voucherAmt, nil))
-			}
-			// just make sure there is enough to cover the transfer
-			fsize := 19000 // this is the known file size of the test file lorem.txt
-			expectedTotal := big.Add(big.Mul(rh.RetrievalParams.PricePerByte, abi.NewTokenAmount(int64(fsize*2))), rh.RetrievalParams.UnsealPrice)
-
-			// *** Retrieve the piece
-
-			clientStoreID := sh.TestData.MultiStore1.Next()
-			_, err = rh.Client.Retrieve(bgCtx, sh.PayloadCid, rmParams, expectedTotal, retrievalPeer, *rh.ExpPaych, retrievalPeer.Address, &clientStoreID)
-			require.NoError(t, err)
+			fsize, clientStoreID := doRetrieve(t, bgCtx, rh, sh, tc.voucherAmts)
 
 			ctxTimeout, cancel := context.WithTimeout(bgCtx, 10*time.Second)
 			defer cancel()
@@ -252,6 +184,8 @@ type retrievalHarness struct {
 	ExpPaychAmt, ActualPaychAmt *abi.TokenAmount
 	ExpVoucher, ActualVoucher   *paych.SignedVoucher
 	RetrievalParams             retrievalmarket.Params
+
+	TestDataNet *shared_testutil.Libp2pTestData
 }
 
 func newRetrievalHarness(ctx context.Context, t *testing.T, sh *testharness.StorageHarness, deal storagemarket.ClientDeal,
@@ -369,6 +303,7 @@ func newRetrievalHarness(ctx context.Context, t *testing.T, sh *testharness.Stor
 		ProviderNode:    providerNode,
 		PieceStore:      sh.PieceStore,
 		RetrievalParams: p,
+		TestDataNet:     sh.TestData,
 	}
 }
 
@@ -378,6 +313,95 @@ func (v *fakeDTValidator) ValidatePush(sender peer.ID, voucher datatransfer.Vouc
 	return nil, nil
 }
 
-func (v *fakeDTValidator) ValidatePull(receiver peer.ID, voucher datatransfer.Voucher, baseCid cid.Cid, selector ipld.Node) (datatransfer.VoucherResult, error) {
+func (v *fakeDTValidator) ValidatePull(_ bool, receiver peer.ID, voucher datatransfer.Voucher, baseCid cid.Cid, selector ipld.Node) (datatransfer.VoucherResult, error) {
 	return nil, nil
+}
+
+func doStorage(t *testing.T, ctx context.Context, sh *testharness.StorageHarness) storagemarket.ClientDeal {
+	shared_testutil.StartAndWaitForReady(ctx, t, sh.Client)
+	shared_testutil.StartAndWaitForReady(ctx, t, sh.Provider)
+
+	// set up a subscriber
+	providerDealChan := make(chan storagemarket.MinerDeal)
+	subscriber := func(event storagemarket.ProviderEvent, deal storagemarket.MinerDeal) {
+		providerDealChan <- deal
+	}
+	_ = sh.Provider.SubscribeToEvents(subscriber)
+
+	clientDealChan := make(chan storagemarket.ClientDeal)
+	clientSubscriber := func(event storagemarket.ClientEvent, deal storagemarket.ClientDeal) {
+		clientDealChan <- deal
+	}
+	_ = sh.Client.SubscribeToEvents(clientSubscriber)
+
+	// set ask price where we'll accept any price
+	err := sh.Provider.SetAsk(big.NewInt(0), big.NewInt(0), 50000)
+	assert.NoError(t, err)
+
+	result := sh.ProposeStorageDeal(t, &storagemarket.DataRef{TransferType: storagemarket.TTGraphsync, Root: sh.PayloadCid}, false, false)
+	require.False(t, result.ProposalCid.Equals(cid.Undef))
+
+	time.Sleep(time.Millisecond * 200)
+
+	ctxTimeout, canc := context.WithTimeout(ctx, 25*time.Second)
+	defer canc()
+
+	var storageProviderSeenDeal storagemarket.MinerDeal
+	var storageClientSeenDeal storagemarket.ClientDeal
+	for storageProviderSeenDeal.State != storagemarket.StorageDealExpired ||
+		storageClientSeenDeal.State != storagemarket.StorageDealExpired {
+		select {
+		case storageProviderSeenDeal = <-providerDealChan:
+		case storageClientSeenDeal = <-clientDealChan:
+		case <-ctxTimeout.Done():
+			t.Fatalf("never saw completed deal, client deal state: %s (%d), provider deal state: %s (%d)",
+				storagemarket.DealStates[storageClientSeenDeal.State],
+				storageClientSeenDeal.State,
+				storagemarket.DealStates[storageProviderSeenDeal.State],
+				storageProviderSeenDeal.State,
+			)
+		}
+	}
+	// ---------------
+	fmt.Println("\n Storage is complete")
+
+	return storageClientSeenDeal
+}
+
+func doRetrieve(t *testing.T, ctx context.Context, rh *retrievalHarness, sh *testharness.StorageHarness,
+	voucherAmts []abi.TokenAmount) (int, multistore.StoreID) {
+
+	proof := []byte("")
+	for _, voucherAmt := range voucherAmts {
+		require.NoError(t, rh.ProviderNode.ExpectVoucher(*rh.ExpPaych, rh.ExpVoucher, proof, voucherAmt, voucherAmt, nil))
+	}
+
+	peers := rh.Client.FindProviders(sh.PayloadCid)
+	require.Len(t, peers, 1)
+	retrievalPeer := peers[0]
+	require.NotNil(t, retrievalPeer.PieceCID)
+
+	rh.ClientNode.ExpectKnownAddresses(retrievalPeer, nil)
+
+	resp, err := rh.Client.Query(ctx, retrievalPeer, sh.PayloadCid, retrievalmarket.QueryParams{})
+	require.NoError(t, err)
+	require.Equal(t, retrievalmarket.QueryResponseAvailable, resp.Status)
+
+	// testing V1 only
+	rmParams, err := retrievalmarket.NewParamsV1(rh.RetrievalParams.PricePerByte, rh.RetrievalParams.PaymentInterval, rh.RetrievalParams.PaymentIntervalIncrease,
+		shared.AllSelector(), nil,
+		rh.RetrievalParams.UnsealPrice)
+	require.NoError(t, err)
+
+	// just make sure there is enough to cover the transfer
+	fsize := 19000 // this is the known file size of the test file lorem.txt
+	expectedTotal := big.Add(big.Mul(rh.RetrievalParams.PricePerByte, abi.NewTokenAmount(int64(fsize*2))), rh.RetrievalParams.UnsealPrice)
+
+	// *** Retrieve the piece
+
+	clientStoreID := sh.TestData.MultiStore1.Next()
+	_, err = rh.Client.Retrieve(ctx, sh.PayloadCid, rmParams, expectedTotal, retrievalPeer, *rh.ExpPaych, retrievalPeer.Address, &clientStoreID)
+	require.NoError(t, err)
+
+	return fsize, clientStoreID
 }

@@ -34,6 +34,8 @@ func TestValidatePush(t *testing.T) {
 	require.Error(t, err)
 }
 
+// TODO TestValidatePullRestart
+
 func TestValidatePull(t *testing.T) {
 	proposal := shared_testutil.MakeTestDealProposal()
 	legacyProposal := migrations.DealProposal0{
@@ -198,7 +200,7 @@ func TestValidatePull(t *testing.T) {
 	for testCase, data := range testCases {
 		t.Run(testCase, func(t *testing.T) {
 			requestValidator := requestvalidation.NewProviderRequestValidator(&data.fve)
-			voucherResult, err := requestValidator.ValidatePull(data.sender, data.voucher, data.baseCid, data.selector)
+			voucherResult, err := requestValidator.ValidatePull(false, data.sender, data.voucher, data.baseCid, data.selector)
 			require.Equal(t, data.expectedVoucherResult, voucherResult)
 			if data.expectedError == nil {
 				require.NoError(t, err)
@@ -220,6 +222,14 @@ type fakeValidationEnvironment struct {
 	BeginTrackingError                error
 	NextStoreIDValue                  multistore.StoreID
 	NextStoreIDError                  error
+
+	GetDealError error
+	GetDealState retrievalmarket.ProviderDealState
+}
+
+func (fve *fakeValidationEnvironment) GetDeal(dealID retrievalmarket.ProviderDealIdentifier) (retrievalmarket.ProviderDealState, error) {
+	return fve.GetDealState, fve.GetDealError
+
 }
 
 func (fve *fakeValidationEnvironment) GetPiece(c cid.Cid, pieceCID *cid.Cid) (piecestore.PieceInfo, error) {
