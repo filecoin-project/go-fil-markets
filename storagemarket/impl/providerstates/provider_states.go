@@ -40,7 +40,7 @@ type ProviderDealEnvironment interface {
 	Node() storagemarket.StorageProviderNode
 	Ask() storagemarket.StorageAsk
 	DeleteStore(storeID multistore.StoreID) error
-	GeneratePieceCommitment(storeID *multistore.StoreID, payloadCid cid.Cid, selector ipld.Node) (cid.Cid, filestore.Path, error)
+	GeneratePieceCommitment(storeID *multistore.StoreID, payloadCid cid.Cid, selector ipld.Node, psize abi.PaddedPieceSize) (cid.Cid, filestore.Path, error)
 	GeneratePieceReader(storeID *multistore.StoreID, payloadCid cid.Cid, selector ipld.Node) (io.ReadCloser, uint64, error, <-chan error)
 	SendSignedResponse(ctx context.Context, response *network.Response) error
 	Disconnect(proposalCid cid.Cid) error
@@ -197,7 +197,7 @@ func DecideOnProposal(ctx fsm.Context, environment ProviderDealEnvironment, deal
 // VerifyData verifies that data received for a deal matches the pieceCID
 // in the proposal
 func VerifyData(ctx fsm.Context, environment ProviderDealEnvironment, deal storagemarket.MinerDeal) error {
-	pieceCid, metadataPath, err := environment.GeneratePieceCommitment(deal.StoreID, deal.Ref.Root, shared.AllSelector())
+	pieceCid, metadataPath, err := environment.GeneratePieceCommitment(deal.StoreID, deal.Ref.Root, shared.AllSelector(), deal.Proposal.PieceSize)
 	if err != nil {
 		return ctx.Trigger(storagemarket.ProviderEventDataVerificationFailed, xerrors.Errorf("error generating CommP: %w", err), filestore.Path(""), filestore.Path(""))
 	}
