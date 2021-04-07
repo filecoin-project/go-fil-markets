@@ -11,7 +11,10 @@ import (
 	"golang.org/x/xerrors"
 
 	"github.com/filecoin-project/go-address"
+	commcid "github.com/filecoin-project/go-fil-commcid"
+	commp "github.com/filecoin-project/go-fil-commp-hashhash"
 	"github.com/filecoin-project/go-multistore"
+	"github.com/filecoin-project/go-state-types/abi"
 
 	"github.com/filecoin-project/go-fil-markets/filestore"
 	"github.com/filecoin-project/go-fil-markets/piecestore"
@@ -49,16 +52,40 @@ func (p *providerDealEnvironment) DeleteStore(storeID multistore.StoreID) error 
 	return p.p.multiStore.Delete(storeID)
 }
 
-func (p *providerDealEnvironment) GeneratePieceCommitment(storeID *multistore.StoreID, payloadCid cid.Cid, selector ipld.Node) (cid.Cid, filestore.Path, error) {
+func (p *providerDealEnvironment) GeneratePieceCommitment(storeID *multistore.StoreID, payloadCid cid.Cid, selector ipld.Node, pieceSize abi.PaddedPieceSize) (cid.Cid, filestore.Path, error) {
 	proofType, err := p.p.spn.GetProofType(context.TODO(), p.p.actor, nil)
 	if err != nil {
 		return cid.Undef, "", err
 	}
+
+	var pieceCid cid.Cid
+	var path filestore.Path
+	var psize abi.UnpaddedPieceSize
+
 	if p.p.universalRetrievalEnabled {
-		return providerutils.GeneratePieceCommitmentWithMetadata(p.p.fs, p.p.pio.GeneratePieceCommitment, proofType, payloadCid, selector, storeID)
+		pieceCid, psize, path, err = providerutils.GeneratePieceCommitmentWithMetadata(p.p.fs, p.p.pio.GeneratePieceCommitment, proofType, payloadCid, selector, storeID)
+	} else {
+		pieceCid, psize, err = p.p.pio.GeneratePieceCommitment(proofType, payloadCid, selector, storeID)
 	}
-	pieceCid, _, err := p.p.pio.GeneratePieceCommitment(proofType, payloadCid, selector, storeID)
-	return pieceCid, filestore.Path(""), err
+	if err != nil {
+		return cid.Undef, "", err
+	}
+
+	if psize.Padded() < pieceSize {
+		// Need to pad up!
+		rawPaddedCommp, err := commp.PadCommP(
+			// We know how long a pieceCid "hash" is, just blindly extract the trailing 32 bytes
+			pieceCid.Hash()[len(pieceCid.Hash())-32:],
+			uint64(psize.Padded()),
+			uint64(pieceSize),
+		)
+		if err != nil {
+			return cid.Undef, "", err
+		}
+		pieceCid, _ = commcid.DataCommitmentV1ToCID(rawPaddedCommp)
+	}
+
+	return pieceCid, path, nil
 }
 
 func (p *providerDealEnvironment) GeneratePieceReader(storeID *multistore.StoreID, payloadCid cid.Cid, selector ipld.Node) (io.ReadCloser, uint64, error, <-chan error) {
