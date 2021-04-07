@@ -8,6 +8,7 @@ require (
 	github.com/filecoin-project/go-commp-utils v0.0.0-20201119054358-b88f7a96a434
 	github.com/filecoin-project/go-data-transfer v1.2.7
 	github.com/filecoin-project/go-ds-versioning v0.1.0
+	github.com/filecoin-project/go-fil-commp-hashhash v0.1.0
 	github.com/filecoin-project/go-multistore v0.0.3
 	github.com/filecoin-project/go-padreader v0.0.0-20200903213702-ed5fae088b20
 	github.com/filecoin-project/go-state-types v0.0.0-20201102161440-c8033295a1fc
@@ -41,6 +42,7 @@ require (
 	github.com/libp2p/go-libp2p-core v0.7.0
 	github.com/multiformats/go-multiaddr v0.3.1
 	github.com/multiformats/go-multibase v0.0.3
+	github.com/multiformats/go-multihash v0.0.14
 	github.com/stretchr/testify v1.6.1
 	github.com/whyrusleeping/cbor-gen v0.0.0-20210219115102-f37d292932f2
 	golang.org/x/exp v0.0.0-20200207192155-f17229e696bd

@@ -1,6 +1,7 @@
 package providerstates
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"io"
@@ -11,6 +12,7 @@ import (
 	"golang.org/x/xerrors"
 
 	"github.com/filecoin-project/go-address"
+	commp "github.com/filecoin-project/go-fil-commp-hashhash"
 	"github.com/filecoin-project/go-multistore"
 	padreader "github.com/filecoin-project/go-padreader"
 	"github.com/filecoin-project/go-state-types/abi"
@@ -19,6 +21,7 @@ import (
 	"github.com/filecoin-project/go-statemachine/fsm"
 	"github.com/filecoin-project/specs-actors/actors/builtin/market"
 	market2 "github.com/filecoin-project/specs-actors/v2/actors/builtin/market"
+	"github.com/multiformats/go-multihash"
 
 	"github.com/filecoin-project/go-fil-markets/filestore"
 	"github.com/filecoin-project/go-fil-markets/piecestore"
@@ -204,6 +207,24 @@ func VerifyData(ctx fsm.Context, environment ProviderDealEnvironment, deal stora
 
 	// Verify CommP matches
 	if pieceCid != deal.Proposal.PieceCID {
+
+		// START HACK!!!
+		//
+		// GeneratePieceCommitment() knows the actual size of the dag internally but does not return it
+		// Instead of trying to change function signatures and be overall invasive run a binary search
+		// through the ( rather constrained ) space of what is possible, and declare win if we find a match
+		//
+		dataCommP, _ := multihash.Decode(pieceCid.Hash())
+		targetCommP, _ := multihash.Decode(deal.Proposal.PieceCID.Hash())
+		targetSize := uint64(deal.Proposal.PieceSize)
+		for sourceSize := uint64(128); sourceSize < targetSize; sourceSize *= 2 {
+			if paddedCommP, _ := commp.PadCommP(dataCommP.Digest, sourceSize, targetSize); bytes.Equal(paddedCommP, targetCommP.Digest) {
+				return ctx.Trigger(storagemarket.ProviderEventVerifiedData, filestore.Path(""), metadataPath)
+			}
+		}
+		//
+		// END HACK
+
 		return ctx.Trigger(storagemarket.ProviderEventDataVerificationFailed, xerrors.Errorf("proposal CommP doesn't match calculated CommP"), filestore.Path(""), metadataPath)
 	}
 
@@ -309,14 +330,14 @@ func HandoffDeal(ctx fsm.Context, environment ProviderDealEnvironment, deal stor
 		}
 
 		// Hand the deal off to the process that adds it to a sector
-		packingInfo, err = handoffDeal(ctx.Context(), environment, deal, file, uint64(file.Size()))
+		packingInfo, err = handoffDeal(ctx.Context(), environment, deal, file, uint64(deal.Proposal.PieceSize.Unpadded()))
 		if err != nil {
 			err = xerrors.Errorf("packing piece at path %s: %w", deal.PiecePath, err)
 			return ctx.Trigger(storagemarket.ProviderEventDealHandoffFailed, err)
 		}
 	} else {
 		// Create a reader to read the piece from the blockstore
-		pieceReader, pieceSize, err, writeErrChan := environment.GeneratePieceReader(deal.StoreID, deal.Ref.Root, shared.AllSelector())
+		pieceReader, _, err, writeErrChan := environment.GeneratePieceReader(deal.StoreID, deal.Ref.Root, shared.AllSelector())
 		if err != nil {
 			err := xerrors.Errorf("reading piece %s from store %d: %w", deal.Ref.PieceCid, deal.StoreID, err)
 			return ctx.Trigger(storagemarket.ProviderEventDealHandoffFailed, err)
@@ -324,7 +345,7 @@ func HandoffDeal(ctx fsm.Context, environment ProviderDealEnvironment, deal stor
 
 		// Hand the deal off to the process that adds it to a sector
 		var packingErr error
-		packingInfo, packingErr = handoffDeal(ctx.Context(), environment, deal, pieceReader, pieceSize)
+		packingInfo, packingErr = handoffDeal(ctx.Context(), environment, deal, pieceReader, uint64(deal.Proposal.PieceSize.Unpadded()))
 
 		// Close the read side of the pipe
 		err = pieceReader.Close()
