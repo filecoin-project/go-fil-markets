@@ -85,19 +85,19 @@ func GeneratePieceCommitmentWithMetadata(
 	proofType abi.RegisteredSealProof,
 	payloadCid cid.Cid,
 	selector ipld.Node,
-	storeID *multistore.StoreID) (cid.Cid, filestore.Path, error) {
+	storeID *multistore.StoreID) (cid.Cid, abi.UnpaddedPieceSize, filestore.Path, error) {
 	metadataFile, err := fileStore.CreateTemp()
 	if err != nil {
-		return cid.Cid{}, "", err
+		return cid.Cid{}, 0, "", err
 	}
 	blockRecorder := blockrecorder.RecordEachBlockTo(metadataFile)
-	pieceCid, _, err := commPGenerator(proofType, payloadCid, selector, storeID, blockRecorder)
+	pieceCid, psize, err := commPGenerator(proofType, payloadCid, selector, storeID, blockRecorder)
 	_ = metadataFile.Close()
 	if err != nil {
 		_ = fileStore.Delete(metadataFile.Path())
-		return cid.Cid{}, "", err
+		return cid.Cid{}, 0, "", err
 	}
-	return pieceCid, metadataFile.Path(), err
+	return pieceCid, psize, metadataFile.Path(), err
 }
 
 // LoadBlockLocations loads a metadata file then converts it to a map of cid -> blockLocation

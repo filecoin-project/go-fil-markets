@@ -1473,7 +1473,7 @@ func (fe *fakeEnvironment) GeneratePieceReader(storeID *multistore.StoreID, payl
 	return fe.pieceReader, fe.pieceSize, fe.generatePieceReaderErr, errChan
 }
 
-func (fe *fakeEnvironment) GeneratePieceCommitment(storeID *multistore.StoreID, payloadCid cid.Cid, selector ipld.Node) (cid.Cid, filestore.Path, error) {
+func (fe *fakeEnvironment) GeneratePieceCommitment(storeID *multistore.StoreID, payloadCid cid.Cid, selector ipld.Node, psize abi.PaddedPieceSize) (cid.Cid, filestore.Path, error) {
 	return fe.pieceCid, fe.metadataPath, fe.generateCommPError
 }
 
