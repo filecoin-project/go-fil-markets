@@ -78,8 +78,16 @@ func (pve *providerValidationEnvironment) BeginTracking(pds retrievalmarket.Prov
 	return pve.p.stateMachines.Send(pds.Identifier(), retrievalmarket.ProviderEventOpen)
 }
 
+func (pve *providerValidationEnvironment) MoveToOngoing(dealID retrievalmarket.ProviderDealIdentifier) error {
+	return pve.p.stateMachines.SendSync(context.Background(), dealID, retrievalmarket.ProviderEventMoveToOngoing)
+}
+
+func (pve *providerValidationEnvironment) UpdateSentBytes(dealID retrievalmarket.ProviderDealIdentifier, totalSent uint64) error {
+	return pve.p.stateMachines.SendSync(context.TODO(), dealID, retrievalmarket.ProviderEventPaymentRequested, totalSent)
+}
+
 // Returns the deal state/proposal if we already have it in the SM.
-func (pve *providerValidationEnvironment) GetDeal(dealID retrievalmarket.ProviderDealIdentifier) (retrievalmarket.ProviderDealState, error) {
+func (pve *providerValidationEnvironment) GetDealSync(dealID retrievalmarket.ProviderDealIdentifier) (retrievalmarket.ProviderDealState, error) {
 	var deal retrievalmarket.ProviderDealState
 	err := pve.p.stateMachines.GetSync(context.TODO(), dealID, &deal)
 	return deal, err

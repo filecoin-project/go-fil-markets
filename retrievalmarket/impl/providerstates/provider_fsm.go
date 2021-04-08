@@ -55,11 +55,19 @@ var ProviderEvents = fsm.Events{
 	fsm.Event(rm.ProviderEventBlocksCompleted).
 		FromMany(rm.DealStatusOngoing).To(rm.DealStatusBlocksComplete),
 
+	fsm.Event(rm.ProviderEventDataSentOnWire).
+		FromAny().ToJustRecord().
+		Action(func(deal *rm.ProviderDealState, totalSentOnWire uint64) error {
+			deal.TotalSentOnWire = totalSentOnWire
+			return nil
+		}),
+
 	// request payment
 	fsm.Event(rm.ProviderEventPaymentRequested).
 		FromMany(rm.DealStatusOngoing, rm.DealStatusUnsealed).To(rm.DealStatusFundsNeeded).
 		From(rm.DealStatusBlocksComplete).To(rm.DealStatusFundsNeededLastPayment).
 		From(rm.DealStatusNew).To(rm.DealStatusFundsNeededUnseal).
+		From(rm.DealStatusFundsNeeded).ToNoChange().
 		Action(func(deal *rm.ProviderDealState, totalSent uint64) error {
 			deal.TotalSent = totalSent
 			return nil
@@ -88,6 +96,9 @@ var ProviderEvents = fsm.Events{
 			}
 			return nil
 		}),
+
+	fsm.Event(rm.ProviderEventMoveToOngoing).
+		From(rm.DealStatusFundsNeeded).To(rm.DealStatusOngoing),
 
 	// completing
 	fsm.Event(rm.ProviderEventComplete).FromMany(rm.DealStatusBlocksComplete, rm.DealStatusFinalizing).To(rm.DealStatusCompleting),

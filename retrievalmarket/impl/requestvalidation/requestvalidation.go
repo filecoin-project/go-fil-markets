@@ -4,6 +4,8 @@ import (
 	"bytes"
 	"context"
 	"errors"
+	"fmt"
+	"sync"
 
 	"github.com/ipfs/go-cid"
 	"github.com/ipld/go-ipld-prime"
@@ -40,16 +42,22 @@ type ValidationEnvironment interface {
 	BeginTracking(pds retrievalmarket.ProviderDealState) error
 	// NextStoreID allocates a store for this deal
 	NextStoreID() (multistore.StoreID, error)
+	// GetDealSync applies all pending events and returns the deal state if we are already tracking it.
+	GetDealSync(dealID retrievalmarket.ProviderDealIdentifier) (retrievalmarket.ProviderDealState, error)
+
+	UpdateSentBytes(dealID retrievalmarket.ProviderDealIdentifier, totalSent uint64) error
+	MoveToOngoing(dealID retrievalmarket.ProviderDealIdentifier) error
 }
 
 // ProviderRequestValidator validates incoming requests for the Retrieval Provider
 type ProviderRequestValidator struct {
+	mu  sync.Mutex
 	env ValidationEnvironment
 }
 
 // NewProviderRequestValidator returns a new instance of the ProviderRequestValidator
 func NewProviderRequestValidator(env ValidationEnvironment) *ProviderRequestValidator {
-	return &ProviderRequestValidator{env}
+	return &ProviderRequestValidator{env: env}
 }
 
 // ValidatePush validates a push request received from the peer that will send data
@@ -58,7 +66,7 @@ func (rv *ProviderRequestValidator) ValidatePush(sender peer.ID, voucher datatra
 }
 
 // ValidatePull validates a pull request received from the peer that will receive data
-func (rv *ProviderRequestValidator) ValidatePull(receiver peer.ID, voucher datatransfer.Voucher, baseCid cid.Cid, selector ipld.Node) (datatransfer.VoucherResult, error) {
+func (rv *ProviderRequestValidator) ValidatePull(isRestart bool, receiver peer.ID, voucher datatransfer.Voucher, baseCid cid.Cid, selector ipld.Node) (datatransfer.VoucherResult, error) {
 	proposal, ok := voucher.(*retrievalmarket.DealProposal)
 	var legacyProtocol bool
 	if !ok {
@@ -70,7 +78,15 @@ func (rv *ProviderRequestValidator) ValidatePull(receiver peer.ID, voucher datat
 		proposal = &newProposal
 		legacyProtocol = true
 	}
-	response, err := rv.validatePull(receiver, proposal, legacyProtocol, baseCid, selector)
+
+	var response *retrievalmarket.DealResponse
+	var err error
+	if isRestart {
+		response, err = rv.validatePullRestart(receiver, proposal, baseCid, selector)
+	} else {
+		response, err = rv.validatePull(receiver, proposal, legacyProtocol, baseCid, selector)
+	}
+
 	if response == nil {
 		return nil, err
 	}
@@ -86,8 +102,100 @@ func (rv *ProviderRequestValidator) ValidatePull(receiver peer.ID, voucher datat
 	return response, err
 }
 
-func (rv *ProviderRequestValidator) validatePull(receiver peer.ID, proposal *retrievalmarket.DealProposal, legacyProtocol bool, baseCid cid.Cid, selector ipld.Node) (*retrievalmarket.DealResponse, error) {
+func (rv *ProviderRequestValidator) validatePullRestart(receiver peer.ID, proposal *retrievalmarket.DealProposal, baseCid cid.Cid, selector ipld.Node) (*retrievalmarket.DealResponse, error) {
+	// TODO Striped Locking
 
+	rv.mu.Lock()
+	defer rv.mu.Unlock()
+
+	if proposal.PayloadCID != baseCid {
+		return nil, errors.New("incorrect CID for this proposal")
+	}
+
+	buf := new(bytes.Buffer)
+	err := dagcbor.Encoder(selector, buf)
+	if err != nil {
+		return nil, err
+	}
+	bytesCompare := allSelectorBytes
+	if proposal.SelectorSpecified() {
+		bytesCompare = proposal.Selector.Raw
+	}
+	if !bytes.Equal(buf.Bytes(), bytesCompare) {
+		return nil, errors.New("incorrect selector for this proposal")
+	}
+
+	dealId := retrievalmarket.ProviderDealIdentifier{
+		Receiver: receiver,
+		DealID:   proposal.ID,
+	}
+
+	// ensure we already have this deal in the SM.
+	deal, err := rv.env.GetDealSync(dealId)
+	if err != nil {
+		return nil, err
+	}
+	fmt.Printf("\n got validate restart req, deal.TotalSent=%d, bytesOnWire=%d", deal.TotalSent, deal.TotalSentOnWire)
+
+	switch deal.Status {
+	case retrievalmarket.DealStatusOngoing:
+		fmt.Println("\n restarting in DealStatusOngoing\n")
+		// DealStatusOngoing means that no payment is pending and we shouldn't be pausing the responder here.
+		return nil, nil
+
+	case retrievalmarket.DealStatusFundsNeeded:
+		fmt.Println("\nrestarting in DealStatusFundsNeeded")
+		response := retrievalmarket.DealResponse{
+			ID: proposal.ID,
+		}
+		totalPaidFor := big.Div(big.Max(big.Sub(deal.FundsReceived, deal.UnsealPrice), big.Zero()), deal.PricePerByte).Uint64()
+
+		// reset the number of bytes sent on the wire
+		if deal.TotalSentOnWire != 0 {
+			//fmt.Printf("\n deal.TotalSent=%d, bytesOnWire=%d", deal.TotalSent, bytesSentOnWire)
+			if err := rv.env.UpdateSentBytes(dealId, deal.TotalSentOnWire); err != nil {
+				return nil, err
+			}
+			deal, err = rv.env.GetDealSync(dealId)
+			if err != nil {
+				return nil, err
+			}
+		}
+
+		if deal.TotalSent-totalPaidFor < deal.CurrentInterval {
+			// go back to ongoing state and resume transfer
+			//fmt.Printf("\n moving to ongoing, deal state is now %+v", deal)
+			if err := rv.env.MoveToOngoing(dealId); err != nil {
+				fmt.Println("\n failed to move to ongoing state")
+				return nil, err
+			}
+			return nil, nil
+		}
+
+		// ask for the right amount of money
+		response.Status = retrievalmarket.DealStatusFundsNeeded
+		response.PaymentOwed = big.Mul(abi.NewTokenAmount(int64(deal.TotalSent-totalPaidFor)), deal.PricePerByte)
+
+		fmt.Printf("\n in restarting from DealStatusFundsNeeded, totalPaidFor=%d, PaymentOwed=%d, cuurentInterval=%d, totalSent=%d,", totalPaidFor, response.PaymentOwed,
+			deal.CurrentInterval, deal.TotalSentOnWire)
+
+		return &response, datatransfer.ErrPause
+
+	case retrievalmarket.DealStatusFundsNeededLastPayment:
+		panic(errors.New("panic DealStatusFundsNeededLastPayment"))
+		fmt.Println("\n failing in DealStatusFundsNeededLastPayment\n")
+		// we are waiting to receive the last payment
+		return nil, errors.New("retreival restarts NOT supported for deals in state DealStatusFundsNeededLastPayment")
+
+	default:
+		panic(errors.New("panic default"))
+		fmt.Println("\n failing in arbitary state\n")
+		return nil, fmt.Errorf("retreival restarts NOT supported for deals in state %s",
+			retrievalmarket.DealStatuses[deal.Status])
+	}
+}
+
+func (rv *ProviderRequestValidator) validatePull(receiver peer.ID, proposal *retrievalmarket.DealProposal, legacyProtocol bool, baseCid cid.Cid, selector ipld.Node) (*retrievalmarket.DealResponse, error) {
 	if proposal.PayloadCID != baseCid {
 		return nil, errors.New("incorrect CID for this proposal")
 	}

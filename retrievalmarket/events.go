@@ -230,6 +230,11 @@ const (
 
 	// ProviderEventClientCancelled happens when the provider gets a cancel message from the client's data transfer
 	ProviderEventClientCancelled
+
+	// ProviderEventMoveToOngoing moves the deal to ongoing state
+	ProviderEventMoveToOngoing
+
+	ProviderEventDataSentOnWire
 )
 
 // ProviderEvents is a human readable map of provider event name -> event description

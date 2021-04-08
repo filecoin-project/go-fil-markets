@@ -225,9 +225,17 @@ type fakeValidationEnvironment struct {
 
 	GetDealError error
 	GetDealState retrievalmarket.ProviderDealState
+
+	UpdateSentBytesError error
+
+	MoveToOngoingError error
 }
 
-func (fve *fakeValidationEnvironment) GetDeal(dealID retrievalmarket.ProviderDealIdentifier) (retrievalmarket.ProviderDealState, error) {
+func (fve *fakeValidationEnvironment) UpdateSentBytes(dealID retrievalmarket.ProviderDealIdentifier, totalSent uint64) error {
+	return fve.UpdateSentBytesError
+}
+
+func (fve *fakeValidationEnvironment) GetDealSync(dealID retrievalmarket.ProviderDealIdentifier) (retrievalmarket.ProviderDealState, error) {
 	return fve.GetDealState, fve.GetDealError
 
 }
@@ -244,6 +252,10 @@ func (fve *fakeValidationEnvironment) CheckDealParams(pricePerByte abi.TokenAmou
 // RunDealDecisioningLogic runs custom deal decision logic to decide if a deal is accepted, if present
 func (fve *fakeValidationEnvironment) RunDealDecisioningLogic(ctx context.Context, state retrievalmarket.ProviderDealState) (bool, string, error) {
 	return fve.RunDealDecisioningLogicAccepted, fve.RunDealDecisioningLogicFailReason, fve.RunDealDecisioningLogicError
+}
+
+func (fve *fakeValidationEnvironment) MoveToOngoing(dealID retrievalmarket.ProviderDealIdentifier) error {
+	return fve.MoveToOngoingError
 }
 
 // StateMachines returns the FSM Group to begin tracking with

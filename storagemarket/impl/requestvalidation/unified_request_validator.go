@@ -61,7 +61,8 @@ func (v *UnifiedRequestValidator) ValidatePush(sender peer.ID, voucher datatrans
 // ValidatePull implements the ValidatePull method of a data transfer request validator.
 // If no pullStore exists, it rejects the request
 // Otherwise, it calls the ValidatePull function to validate the deal
-func (v *UnifiedRequestValidator) ValidatePull(_ bool, receiver peer.ID, voucher datatransfer.Voucher, baseCid cid.Cid, selector ipld.Node) (datatransfer.VoucherResult, error) {
+func (v *UnifiedRequestValidator) ValidatePull(_ bool, receiver peer.ID, voucher datatransfer.Voucher, baseCid cid.Cid, selector ipld.Node,
+	_ uint64) (datatransfer.VoucherResult, error) {
 	if v.pullDeals == nil {
 		return nil, ErrNoPullAccepted
 	}

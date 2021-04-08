@@ -1987,7 +1987,7 @@ func (t *ProviderDealState) MarshalCBOR(w io.Writer) error {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	if _, err := w.Write([]byte{171}); err != nil {
+	if _, err := w.Write([]byte{172}); err != nil {
 		return err
 	}
 
@@ -2109,6 +2109,22 @@ func (t *ProviderDealState) MarshalCBOR(w io.Writer) error {
 	}
 
 	if err := cbg.WriteMajorTypeHeaderBuf(scratch, w, cbg.MajUnsignedInt, uint64(t.TotalSent)); err != nil {
+		return err
+	}
+
+	// t.TotalSentOnWire (uint64) (uint64)
+	if len("TotalSentOnWire") > cbg.MaxLength {
+		return xerrors.Errorf("Value in field \"TotalSentOnWire\" was too long")
+	}
+
+	if err := cbg.WriteMajorTypeHeaderBuf(scratch, w, cbg.MajTextString, uint64(len("TotalSentOnWire"))); err != nil {
+		return err
+	}
+	if _, err := io.WriteString(w, string("TotalSentOnWire")); err != nil {
+		return err
+	}
+
+	if err := cbg.WriteMajorTypeHeaderBuf(scratch, w, cbg.MajUnsignedInt, uint64(t.TotalSentOnWire)); err != nil {
 		return err
 	}
 
@@ -2322,6 +2338,21 @@ func (t *ProviderDealState) UnmarshalCBOR(r io.Reader) error {
 					return fmt.Errorf("wrong type for uint64 field")
 				}
 				t.TotalSent = uint64(extra)
+
+			}
+			// t.TotalSentOnWire (uint64) (uint64)
+		case "TotalSentOnWire":
+
+			{
+
+				maj, extra, err = cbg.CborReadHeaderBuf(br, scratch)
+				if err != nil {
+					return err
+				}
+				if maj != cbg.MajUnsignedInt {
+					return fmt.Errorf("wrong type for uint64 field")
+				}
+				t.TotalSentOnWire = uint64(extra)
 
 			}
 			// t.FundsReceived (big.Int) (struct)

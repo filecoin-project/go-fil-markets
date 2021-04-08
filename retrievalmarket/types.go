@@ -79,6 +79,7 @@ type ProviderDealState struct {
 	Status          DealStatus
 	Receiver        peer.ID
 	TotalSent       uint64
+	TotalSentOnWire uint64
 	FundsReceived   abi.TokenAmount
 	Message         string
 	CurrentInterval uint64

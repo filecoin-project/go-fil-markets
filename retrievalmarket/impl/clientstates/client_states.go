@@ -2,6 +2,7 @@ package clientstates
 
 import (
 	"context"
+	"fmt"
 
 	peer "github.com/libp2p/go-libp2p-core/peer"
 
@@ -103,6 +104,10 @@ func SendFunds(ctx fsm.Context, environment ClientDealEnvironment, deal rm.Clien
 	// check that paymentRequest <= (totalReceived - bytesPaidFor) * pricePerByte + (unsealPrice - unsealFundsPaid), or fail
 	retrievalPrice := big.Mul(abi.NewTokenAmount(int64(deal.TotalReceived-deal.BytesPaidFor)), deal.PricePerByte)
 	unsealPrice := big.Sub(deal.UnsealPrice, deal.UnsealFundsPaid)
+
+	fmt.Printf("\n deal.TotalReceived=%d, deal.BytesPaidFor=%d, unsealPrice=%d, paymentrequested=%d\n",
+		deal.TotalReceived, deal.BytesPaidFor, deal.UnsealPrice, deal.PaymentRequested)
+
 	if deal.PaymentRequested.GreaterThan(big.Add(retrievalPrice, unsealPrice)) {
 		return ctx.Trigger(rm.ClientEventBadPaymentRequested, "too much money requested for bytes sent")
 	}

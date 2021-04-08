@@ -211,6 +211,7 @@ var ClientEvents = fsm.Events{
 	fsm.Event(rm.ClientEventBlocksReceived).
 		FromMany(rm.DealStatusOngoing,
 			rm.DealStatusFundsNeeded,
+			rm.DealStatusSendFunds,
 			rm.DealStatusFundsNeededLastPayment,
 			rm.DealStatusCheckComplete,
 			rm.DealStatusClientWaitingForLastBlocks).ToNoChange().

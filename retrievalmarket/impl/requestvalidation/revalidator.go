@@ -27,13 +27,14 @@ type RevalidatorEnvironment interface {
 }
 
 type channelData struct {
-	dealID         rm.ProviderDealIdentifier
-	totalSent      uint64
-	totalPaidFor   uint64
-	interval       uint64
-	pricePerByte   abi.TokenAmount
-	reload         bool
-	legacyProtocol bool
+	dealID          rm.ProviderDealIdentifier
+	totalSent       uint64
+	totalSentOnWire uint64
+	totalPaidFor    uint64
+	interval        uint64
+	pricePerByte    abi.TokenAmount
+	reload          bool
+	legacyProtocol  bool
 }
 
 // ProviderRevalidator defines data transfer revalidation logic in the context of
@@ -85,9 +86,9 @@ func (pr *ProviderRevalidator) UntrackChannel(deal rm.ProviderDealState) {
 }
 
 func (pr *ProviderRevalidator) loadDealState(channel *channelData) error {
-	if !channel.reload {
+	/*if !channel.reload {
 		return nil
-	}
+	}*/
 	deal, err := pr.env.Get(channel.dealID)
 	if err != nil {
 		return err
@@ -106,6 +107,7 @@ func (pr *ProviderRevalidator) writeDealState(deal rm.ProviderDealState) {
 	channel.interval = deal.CurrentInterval
 	channel.pricePerByte = deal.PricePerByte
 	channel.legacyProtocol = deal.LegacyProtocol
+	channel.totalSentOnWire = deal.TotalSentOnWire
 }
 
 // Revalidate revalidates a request with a new voucher
@@ -237,6 +239,24 @@ func (pr *ProviderRevalidator) OnPullDataSent(chid datatransfer.ChannelID, addit
 	}, channel.legacyProtocol), datatransfer.ErrPause
 }
 
+func (pr *ProviderRevalidator) OnPullDataSentOnWire(chid datatransfer.ChannelID, additionalBytesSent uint64) (bool, error) {
+	pr.trackedChannelsLk.RLock()
+	defer pr.trackedChannelsLk.RUnlock()
+	channel, ok := pr.trackedChannels[chid]
+	if !ok {
+		return false, nil
+	}
+
+	err := pr.loadDealState(channel)
+	if err != nil {
+		return true, err
+	}
+
+	channel.totalSentOnWire += additionalBytesSent
+
+	return true, pr.env.SendEvent(channel.dealID, rm.ProviderEventDataSentOnWire, channel.totalSentOnWire)
+}
+
 // OnPushDataReceived is called on the responder side when more bytes are received
 // for a given push request.  It should return a VoucherResult + ErrPause to
 // request revalidation or nil to continue uninterrupted,
@@ -311,6 +331,10 @@ func (lrv *legacyRevalidator) Revalidate(channelID datatransfer.ChannelID, vouch
 
 func (lrv *legacyRevalidator) OnPullDataSent(chid datatransfer.ChannelID, additionalBytesSent uint64) (bool, datatransfer.VoucherResult, error) {
 	return false, nil, nil
+}
+
+func (lrv *legacyRevalidator) OnPullDataSentOnWire(chid datatransfer.ChannelID, additionalBytesSent uint64) (bool, error) {
+	return false, nil
 }
 
 func (lrv *legacyRevalidator) OnPushDataReceived(chid datatransfer.ChannelID, additionalBytesReceived uint64) (bool, datatransfer.VoucherResult, error) {
