@@ -108,6 +108,9 @@ func (trpn *TestRetrievalProviderNode) SavePaymentVoucher(
 	tok shared.TipSetToken) (abi.TokenAmount, error) {
 
 	fmt.Printf("\n SavePaymentVoucher called with amount %d\n", expectedAmount)
+
+	// TODO Modify the TestRetrievalProviderNode to ensure the total payments matches in the end
+	// not individual vouchers
 	return expectedAmount, nil
 
 	key, err := trpn.toExpectedVoucherKey(paymentChannel, voucher, proof, expectedAmount)
