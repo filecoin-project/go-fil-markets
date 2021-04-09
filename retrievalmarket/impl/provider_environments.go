@@ -64,6 +64,16 @@ func (pve *providerValidationEnvironment) RunDealDecisioningLogic(ctx context.Co
 	return pve.p.dealDecider(ctx, state)
 }
 
+func (pve *providerValidationEnvironment) GetDealSync(dealID retrievalmarket.ProviderDealIdentifier) (retrievalmarket.ProviderDealState, error) {
+	var deal retrievalmarket.ProviderDealState
+	err := pve.p.stateMachines.GetSync(context.TODO(), dealID, &deal)
+	return deal, err
+}
+
+func (pve *providerValidationEnvironment) SendRestartSync(dealID retrievalmarket.ProviderDealIdentifier) error {
+	return pve.p.stateMachines.SendSync(context.TODO(), dealID, retrievalmarket.ProviderEventRestart)
+}
+
 // StateMachines returns the FSM Group to begin tracking with
 func (pve *providerValidationEnvironment) BeginTracking(pds retrievalmarket.ProviderDealState) error {
 	err := pve.p.stateMachines.Begin(pds.Identifier(), &pds)

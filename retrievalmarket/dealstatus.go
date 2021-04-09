@@ -118,6 +118,8 @@ const (
 	// exists from an earlier deal between client and provider, but we need
 	// to add funds to the channel for this particular deal
 	DealStatusPaymentChannelAddingInitialFunds
+
+	DealStatusProviderRestarted
 )
 
 // DealStatuses maps deal status to a human readable representation
@@ -153,4 +155,5 @@ var DealStatuses = map[DealStatus]string{
 	DealStatusWaitForAcceptanceLegacy:          "DealStatusWaitForAcceptanceLegacy",
 	DealStatusClientWaitingForLastBlocks:       "DealStatusWaitingForLastBlocks",
 	DealStatusPaymentChannelAddingInitialFunds: "DealStatusPaymentChannelAddingInitialFunds",
+	DealStatusProviderRestarted:                "DealStatusProviderRestarted",
 }

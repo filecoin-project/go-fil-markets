@@ -49,6 +49,8 @@ func providerEvent(event datatransfer.Event, channelState datatransfer.ChannelSt
 // event or moving to error if a data transfer error occurs
 func ProviderDataTransferSubscriber(deals EventReceiver) datatransfer.Subscriber {
 	return func(event datatransfer.Event, channelState datatransfer.ChannelState) {
+		fmt.Printf("\n provider-- dt-event=%s, dt-state=%s", datatransfer.Events[event.Code], datatransfer.Statuses[channelState.Status()])
+
 		dealProposal, ok := dealProposalFromVoucher(channelState.Voucher())
 		// if this event is for a transfer not related to storage, ignore
 		if !ok {
@@ -100,7 +102,7 @@ const noEvent = rm.ClientEvent(math.MaxUint64)
 
 func clientEvent(event datatransfer.Event, channelState datatransfer.ChannelState) (rm.ClientEvent, []interface{}) {
 	switch event.Code {
-	case datatransfer.DataReceived:
+	case datatransfer.DataReceivedProgress:
 		return rm.ClientEventBlocksReceived, []interface{}{channelState.Received()}
 	case datatransfer.FinishTransfer:
 		return rm.ClientEventAllBlocksReceived, nil
@@ -133,6 +135,8 @@ func clientEvent(event datatransfer.Event, channelState datatransfer.ChannelStat
 // an event to the appropriate state machine
 func ClientDataTransferSubscriber(deals EventReceiver) datatransfer.Subscriber {
 	return func(event datatransfer.Event, channelState datatransfer.ChannelState) {
+		fmt.Printf("\n client-- dt-event=%s, dt-state=%s", datatransfer.Events[event.Code], datatransfer.Statuses[channelState.Status()])
+
 		dealProposal, ok := dealProposalFromVoucher(channelState.Voucher())
 
 		// if this event is for a transfer not related to retrieval, ignore

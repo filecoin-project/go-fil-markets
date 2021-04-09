@@ -204,6 +204,7 @@ var ClientEvents = fsm.Events{
 		FromMany(rm.DealStatusSendFunds, rm.DealStatusFundsNeeded).ToJustRecord().
 		From(rm.DealStatusFundsNeededLastPayment).To(rm.DealStatusSendFundsLastPayment).
 		From(rm.DealStatusClientWaitingForLastBlocks).To(rm.DealStatusCompleted).
+		From(rm.DealStatusCheckComplete).To(rm.DealStatusCompleted).
 		Action(func(deal *rm.ClientDealState) error {
 			deal.AllBlocksReceived = true
 			return nil
@@ -213,7 +214,8 @@ var ClientEvents = fsm.Events{
 			rm.DealStatusFundsNeeded,
 			rm.DealStatusFundsNeededLastPayment,
 			rm.DealStatusCheckComplete,
-			rm.DealStatusClientWaitingForLastBlocks).ToNoChange().
+			rm.DealStatusClientWaitingForLastBlocks,
+			rm.DealStatusSendFunds).ToNoChange().
 		FromMany(paymentChannelCreationStates...).ToJustRecord().
 		Action(recordReceived),
 
@@ -297,7 +299,8 @@ var ClientEvents = fsm.Events{
 	// should wait for the last blocks to arrive (only needed when price
 	// per byte is zero)
 	fsm.Event(rm.ClientEventWaitForLastBlocks).
-		From(rm.DealStatusCheckComplete).To(rm.DealStatusClientWaitingForLastBlocks),
+		From(rm.DealStatusCheckComplete).To(rm.DealStatusClientWaitingForLastBlocks).
+		From(rm.DealStatusCompleted).ToNoChange(),
 
 	// after cancelling a deal is complete
 	fsm.Event(rm.ClientEventCancelComplete).

@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/base64"
 	"errors"
+	"fmt"
 	"io"
 	"io/ioutil"
 	"testing"
@@ -105,6 +106,10 @@ func (trpn *TestRetrievalProviderNode) SavePaymentVoucher(
 	proof []byte,
 	expectedAmount abi.TokenAmount,
 	tok shared.TipSetToken) (abi.TokenAmount, error) {
+
+	fmt.Printf("\n SavePaymentVoucher called with amount %d\n", expectedAmount)
+	return expectedAmount, nil
+
 	key, err := trpn.toExpectedVoucherKey(paymentChannel, voucher, proof, expectedAmount)
 	if err != nil {
 		return abi.TokenAmount{}, err
@@ -114,6 +119,8 @@ func (trpn *TestRetrievalProviderNode) SavePaymentVoucher(
 		trpn.receivedVouchers[key] = struct{}{}
 		return result.amount, result.err
 	}
+
+	fmt.Println("\n will fail")
 	return abi.TokenAmount{}, errors.New("SavePaymentVoucher failed")
 }
 
@@ -161,5 +168,6 @@ func (trpn *TestRetrievalProviderNode) ExpectVoucher(
 		return err
 	}
 	trpn.expectedVouchers[key] = voucherResult{actualAmount, expectedErr}
+
 	return nil
 }

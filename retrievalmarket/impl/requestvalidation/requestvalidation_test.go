@@ -198,7 +198,7 @@ func TestValidatePull(t *testing.T) {
 	for testCase, data := range testCases {
 		t.Run(testCase, func(t *testing.T) {
 			requestValidator := requestvalidation.NewProviderRequestValidator(&data.fve)
-			voucherResult, err := requestValidator.ValidatePull(data.sender, data.voucher, data.baseCid, data.selector)
+			voucherResult, err := requestValidator.ValidatePull(false, data.sender, data.voucher, data.baseCid, data.selector)
 			require.Equal(t, data.expectedVoucherResult, voucherResult)
 			if data.expectedError == nil {
 				require.NoError(t, err)
@@ -243,4 +243,12 @@ func (fve *fakeValidationEnvironment) BeginTracking(pds retrievalmarket.Provider
 
 func (fve *fakeValidationEnvironment) NextStoreID() (multistore.StoreID, error) {
 	return fve.NextStoreIDValue, fve.NextStoreIDError
+}
+
+func (fve *fakeValidationEnvironment) GetDealSync(dealID retrievalmarket.ProviderDealIdentifier) (retrievalmarket.ProviderDealState, error) {
+	return retrievalmarket.ProviderDealState{}, nil
+}
+
+func (fve *fakeValidationEnvironment) SendRestartSync(dealID retrievalmarket.ProviderDealIdentifier) error {
+	return nil
 }

@@ -230,6 +230,10 @@ const (
 
 	// ProviderEventClientCancelled happens when the provider gets a cancel message from the client's data transfer
 	ProviderEventClientCancelled
+
+	ProviderEventRestart
+
+	ProviderEventDuplicateTraversed
 )
 
 // ProviderEvents is a human readable map of provider event name -> event description
@@ -252,4 +256,6 @@ var ProviderEvents = map[ProviderEvent]string{
 	ProviderEventCleanupComplete:        "ProviderEventCleanupComplete",
 	ProviderEventMultiStoreError:        "ProviderEventMultiStoreError",
 	ProviderEventClientCancelled:        "ProviderEventClientCancelled",
+	ProviderEventRestart:                "ProviderEventRestart",
+	ProviderEventDuplicateTraversed:     "ProviderEventDuplicateTraversed",
 }

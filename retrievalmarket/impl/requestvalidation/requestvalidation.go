@@ -4,6 +4,8 @@ import (
 	"bytes"
 	"context"
 	"errors"
+	"fmt"
+	"sync"
 
 	"github.com/ipfs/go-cid"
 	"github.com/ipld/go-ipld-prime"
@@ -40,16 +42,21 @@ type ValidationEnvironment interface {
 	BeginTracking(pds retrievalmarket.ProviderDealState) error
 	// NextStoreID allocates a store for this deal
 	NextStoreID() (multistore.StoreID, error)
+
+	GetDealSync(dealID retrievalmarket.ProviderDealIdentifier) (retrievalmarket.ProviderDealState, error)
+
+	SendRestartSync(dealID retrievalmarket.ProviderDealIdentifier) error
 }
 
 // ProviderRequestValidator validates incoming requests for the Retrieval Provider
 type ProviderRequestValidator struct {
-	env ValidationEnvironment
+	env     ValidationEnvironment
+	restart sync.Once
 }
 
 // NewProviderRequestValidator returns a new instance of the ProviderRequestValidator
 func NewProviderRequestValidator(env ValidationEnvironment) *ProviderRequestValidator {
-	return &ProviderRequestValidator{env}
+	return &ProviderRequestValidator{env: env}
 }
 
 // ValidatePush validates a push request received from the peer that will send data
@@ -58,7 +65,8 @@ func (rv *ProviderRequestValidator) ValidatePush(sender peer.ID, voucher datatra
 }
 
 // ValidatePull validates a pull request received from the peer that will receive data
-func (rv *ProviderRequestValidator) ValidatePull(receiver peer.ID, voucher datatransfer.Voucher, baseCid cid.Cid, selector ipld.Node) (datatransfer.VoucherResult, error) {
+func (rv *ProviderRequestValidator) ValidatePull(isRestart bool, receiver peer.ID, voucher datatransfer.Voucher, baseCid cid.Cid, selector ipld.Node) (datatransfer.VoucherResult, error) {
+	fmt.Println("\n got ValidatePull")
 	proposal, ok := voucher.(*retrievalmarket.DealProposal)
 	var legacyProtocol bool
 	if !ok {
@@ -70,7 +78,15 @@ func (rv *ProviderRequestValidator) ValidatePull(receiver peer.ID, voucher datat
 		proposal = &newProposal
 		legacyProtocol = true
 	}
-	response, err := rv.validatePull(receiver, proposal, legacyProtocol, baseCid, selector)
+
+	var response *retrievalmarket.DealResponse
+	var err error
+	if isRestart {
+		response, err = rv.validatePullRestart(receiver, proposal, baseCid, selector)
+	} else {
+		response, err = rv.validatePull(receiver, proposal, legacyProtocol, baseCid, selector)
+	}
+
 	if response == nil {
 		return nil, err
 	}
@@ -84,6 +100,49 @@ func (rv *ProviderRequestValidator) ValidatePull(receiver peer.ID, voucher datat
 		return &downgradedResponse, err
 	}
 	return response, err
+}
+
+func (rv *ProviderRequestValidator) validatePullRestart(receiver peer.ID, proposal *retrievalmarket.DealProposal, baseCid cid.Cid, selector ipld.Node) (*retrievalmarket.DealResponse, error) {
+	fmt.Println("\n got validatePullRestart")
+
+	// TODO Fix this later -> This is only for testing
+
+	// Validation
+	if proposal.PayloadCID != baseCid {
+		return nil, errors.New("incorrect CID for this proposal")
+	}
+
+	buf := new(bytes.Buffer)
+	err := dagcbor.Encoder(selector, buf)
+	if err != nil {
+		return nil, err
+	}
+	bytesCompare := allSelectorBytes
+	if proposal.SelectorSpecified() {
+		bytesCompare = proposal.Selector.Raw
+	}
+	if !bytes.Equal(buf.Bytes(), bytesCompare) {
+		return nil, errors.New("incorrect selector for this proposal")
+	}
+
+	// fetch deal and ensure it exists
+	dealId := retrievalmarket.ProviderDealIdentifier{
+		Receiver: receiver,
+		DealID:   proposal.ID,
+	}
+	_, err = rv.env.GetDealSync(dealId)
+	if err != nil {
+		return nil, err
+	}
+
+	// Emit a Restart event
+	if err := rv.env.SendRestartSync(dealId); err != nil {
+		return nil, err
+	}
+
+	// pause for now, State-Machine will take care of the other stuff.
+	// TODO Can this raise with the SM later ?
+	return nil, nil
 }
 
 func (rv *ProviderRequestValidator) validatePull(receiver peer.ID, proposal *retrievalmarket.DealProposal, legacyProtocol bool, baseCid cid.Cid, selector ipld.Node) (*retrievalmarket.DealResponse, error) {

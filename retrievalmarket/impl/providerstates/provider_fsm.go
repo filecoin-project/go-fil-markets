@@ -1,6 +1,8 @@
 package providerstates
 
 import (
+	"fmt"
+
 	datatransfer "github.com/filecoin-project/go-data-transfer"
 	"github.com/filecoin-project/go-state-types/abi"
 	"github.com/filecoin-project/go-state-types/big"
@@ -44,11 +46,41 @@ var ProviderEvents = fsm.Events{
 	fsm.Event(rm.ProviderEventUnsealComplete).
 		From(rm.DealStatusUnsealing).To(rm.DealStatusUnsealed),
 
+	// restart
+	fsm.Event(rm.ProviderEventRestart).
+		FromMany(rm.DealStatusOngoing, rm.DealStatusFundsNeeded).To(rm.DealStatusProviderRestarted).
+		// TODO What's the right thing to do here ?
+		From(rm.DealStatusProviderRestarted).ToNoChange().
+		// TODO Support other states later here
+		FromAny().To(rm.DealStatusErrored).
+		Action(func(deal *rm.ProviderDealState) error {
+			// set TotalSent to zero and update as we queue blocks we've already sent
+			deal.TotalSent = 0
+			// how do we update the current interval here ?
+
+			return nil
+		}),
+
+	// duplicate block traversed during restart
+	fsm.Event(rm.ProviderEventDuplicateTraversed).
+		From(rm.DealStatusProviderRestarted).ToNoChange().
+		// we should NOT see a duplicate if we're not in the restart state.
+		FromAny().To(rm.DealStatusErrored).
+		Action(func(deal *rm.ProviderDealState, totalSent uint64) error {
+			deal.TotalSent = totalSent
+			return nil
+		}),
+
 	// receiving blocks
 	fsm.Event(rm.ProviderEventBlockSent).
+		From(rm.DealStatusProviderRestarted).To(rm.DealStatusOngoing).
 		FromMany(rm.DealStatusOngoing).ToNoChange().
 		From(rm.DealStatusUnsealed).To(rm.DealStatusOngoing).
 		Action(func(deal *rm.ProviderDealState, totalSent uint64) error {
+			if deal.Status == rm.DealStatusProviderRestarted {
+				fmt.Printf("\n provider caught up at totalSent=%d", deal.TotalSent)
+			}
+
 			deal.TotalSent = totalSent
 			return nil
 		}),
@@ -57,6 +89,7 @@ var ProviderEvents = fsm.Events{
 
 	// request payment
 	fsm.Event(rm.ProviderEventPaymentRequested).
+		From(rm.DealStatusProviderRestarted).To(rm.DealStatusFundsNeeded).
 		FromMany(rm.DealStatusOngoing, rm.DealStatusUnsealed).To(rm.DealStatusFundsNeeded).
 		From(rm.DealStatusBlocksComplete).To(rm.DealStatusFundsNeededLastPayment).
 		From(rm.DealStatusNew).To(rm.DealStatusFundsNeededUnseal).

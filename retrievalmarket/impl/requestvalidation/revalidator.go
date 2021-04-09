@@ -3,6 +3,7 @@ package requestvalidation
 import (
 	"context"
 	"errors"
+	"fmt"
 	"sync"
 
 	logging "github.com/ipfs/go-log/v2"
@@ -85,9 +86,6 @@ func (pr *ProviderRevalidator) UntrackChannel(deal rm.ProviderDealState) {
 }
 
 func (pr *ProviderRevalidator) loadDealState(channel *channelData) error {
-	if !channel.reload {
-		return nil
-	}
 	deal, err := pr.env.Get(channel.dealID)
 	if err != nil {
 		return err
@@ -153,6 +151,7 @@ func (pr *ProviderRevalidator) processPayment(dealID rm.ProviderDealIdentifier, 
 	// attempt to redeem voucher
 	// (totalSent * pricePerByte + unsealPrice) - fundsReceived
 	paymentOwed := big.Sub(big.Add(big.Mul(abi.NewTokenAmount(int64(deal.TotalSent)), deal.PricePerByte), deal.UnsealPrice), deal.FundsReceived)
+	fmt.Printf("\n calling SavePaymentVoucher with paymentOwed=%d", paymentOwed)
 	received, err := pr.env.Node().SavePaymentVoucher(context.TODO(), payment.PaymentChannel, payment.PaymentVoucher, nil, paymentOwed, tok)
 	if err != nil {
 		_ = pr.env.SendEvent(dealID, rm.ProviderEventSaveVoucherFailed, err)
@@ -168,6 +167,7 @@ func (pr *ProviderRevalidator) processPayment(dealID rm.ProviderDealIdentifier, 
 
 	// check if all payments are received to continue the deal, or send updated required payment
 	if received.LessThan(paymentOwed) {
+		fmt.Println("\n will call ProviderEventPartialPaymentReceived now")
 		_ = pr.env.SendEvent(dealID, rm.ProviderEventPartialPaymentReceived, received)
 		return &rm.DealResponse{
 			ID:          deal.ID,
@@ -203,6 +203,35 @@ func errorDealResponse(dealID rm.ProviderDealIdentifier, err error) *rm.DealResp
 	}
 }
 
+func (pr *ProviderRevalidator) OnPullDuplicateTraversed(chid datatransfer.ChannelID, additionalBytesSent uint64) (bool, error) {
+	// TODO Put in validations here to ensure the duplicate traversal & total sent matches payments to prevent DDOS
+
+	// If client sends fewer cids that actually recieved as do not send -> we send data again without asking for payment as funds receieved will
+	// reflect the cids the client has already actually recieved
+
+	// If client sends more cids than actually recieved as do not send -> we do unncessary traversal without getting any payment here
+
+	pr.trackedChannelsLk.RLock()
+	defer pr.trackedChannelsLk.RUnlock()
+	channel, ok := pr.trackedChannels[chid]
+	if !ok {
+		return false, nil
+	}
+
+	err := pr.loadDealState(channel)
+	if err != nil {
+		return true, err
+	}
+
+	channel.totalSent += additionalBytesSent
+	err = pr.env.SendEvent(channel.dealID, rm.ProviderEventDuplicateTraversed, channel.totalSent)
+	if err != nil {
+		return true, err
+	}
+
+	return true, nil
+}
+
 // OnPullDataSent is called on the responder side when more bytes are sent
 // for a given pull request. It should return a VoucherResult + ErrPause to
 // request revalidation or nil to continue uninterrupted,
@@ -221,11 +250,13 @@ func (pr *ProviderRevalidator) OnPullDataSent(chid datatransfer.ChannelID, addit
 	}
 
 	channel.totalSent += additionalBytesSent
+	fmt.Printf("\n channel.totalSent=%d", channel.totalSent)
 	if channel.pricePerByte.IsZero() || channel.totalSent-channel.totalPaidFor < channel.interval {
 		return true, nil, pr.env.SendEvent(channel.dealID, rm.ProviderEventBlockSent, channel.totalSent)
 	}
 
 	paymentOwed := big.Mul(abi.NewTokenAmount(int64(channel.totalSent-channel.totalPaidFor)), channel.pricePerByte)
+	fmt.Println("\n sending ProviderEventPaymentRequested with amt=%d", paymentOwed)
 	err = pr.env.SendEvent(channel.dealID, rm.ProviderEventPaymentRequested, channel.totalSent)
 	if err != nil {
 		return true, nil, err
@@ -274,6 +305,7 @@ func (pr *ProviderRevalidator) OnComplete(chid datatransfer.ChannelID) (bool, da
 			Status: rm.DealStatusCompleted,
 		}, channel.legacyProtocol), nil
 	}
+
 	err = pr.env.SendEvent(channel.dealID, rm.ProviderEventPaymentRequested, channel.totalSent)
 	if err != nil {
 		return true, nil, err
@@ -319,6 +351,10 @@ func (lrv *legacyRevalidator) OnPushDataReceived(chid datatransfer.ChannelID, ad
 
 func (lrv *legacyRevalidator) OnComplete(chid datatransfer.ChannelID) (bool, datatransfer.VoucherResult, error) {
 	return false, nil, nil
+}
+
+func (lrv *legacyRevalidator) OnPullDuplicateTraversed(chid datatransfer.ChannelID, additionalBytesSent uint64) (bool, error) {
+	return false, nil
 }
 
 // NewLegacyRevalidator adds a revalidator that will capture revalidation requests for the legacy protocol but
