@@ -167,6 +167,8 @@ var ClientEvents = fsm.Events{
 			rm.DealStatusOngoing,
 			rm.DealStatusFundsNeededLastPayment,
 			rm.DealStatusFundsNeeded).To(rm.DealStatusFundsNeededLastPayment).
+		From(rm.DealStatusSendFunds).To(rm.DealStatusOngoing).
+		From(rm.DealStatusCheckComplete).ToNoChange().
 		From(rm.DealStatusBlocksComplete).To(rm.DealStatusSendFundsLastPayment).
 		FromMany(
 			paymentChannelCreationStates...).ToJustRecord().
@@ -179,7 +181,10 @@ var ClientEvents = fsm.Events{
 		FromMany(
 			rm.DealStatusOngoing,
 			rm.DealStatusBlocksComplete,
-			rm.DealStatusFundsNeeded).To(rm.DealStatusFundsNeeded).
+			rm.DealStatusFundsNeeded,
+			rm.DealStatusFundsNeededLastPayment).To(rm.DealStatusFundsNeeded).
+		From(rm.DealStatusSendFunds).To(rm.DealStatusOngoing).
+		From(rm.DealStatusCheckComplete).ToNoChange().
 		FromMany(
 			paymentChannelCreationStates...).ToJustRecord().
 		Action(func(deal *rm.ClientDealState, paymentOwed abi.TokenAmount) error {
@@ -201,9 +206,11 @@ var ClientEvents = fsm.Events{
 			rm.DealStatusBlocksComplete,
 		).To(rm.DealStatusBlocksComplete).
 		FromMany(paymentChannelCreationStates...).ToJustRecord().
-		FromMany(rm.DealStatusSendFunds, rm.DealStatusFundsNeeded).ToJustRecord().
+		FromMany(rm.DealStatusSendFunds, rm.DealStatusSendFundsLastPayment).To(rm.DealStatusOngoing).
+		From(rm.DealStatusFundsNeeded).ToNoChange().
 		From(rm.DealStatusFundsNeededLastPayment).To(rm.DealStatusSendFundsLastPayment).
 		From(rm.DealStatusClientWaitingForLastBlocks).To(rm.DealStatusCompleted).
+		From(rm.DealStatusCheckComplete).To(rm.DealStatusCompleted).
 		Action(func(deal *rm.ClientDealState) error {
 			deal.AllBlocksReceived = true
 			return nil
@@ -214,10 +221,12 @@ var ClientEvents = fsm.Events{
 			rm.DealStatusFundsNeededLastPayment,
 			rm.DealStatusCheckComplete,
 			rm.DealStatusClientWaitingForLastBlocks).ToNoChange().
+		FromMany(rm.DealStatusSendFunds, rm.DealStatusSendFundsLastPayment).To(rm.DealStatusOngoing).
 		FromMany(paymentChannelCreationStates...).ToJustRecord().
 		Action(recordReceived),
 
 	fsm.Event(rm.ClientEventSendFunds).
+		FromMany(rm.DealStatusSendFunds, rm.DealStatusSendFundsLastPayment).To(rm.DealStatusOngoing).
 		From(rm.DealStatusFundsNeeded).To(rm.DealStatusSendFunds).
 		From(rm.DealStatusFundsNeededLastPayment).To(rm.DealStatusSendFundsLastPayment),
 
@@ -252,35 +261,68 @@ var ClientEvents = fsm.Events{
 			deal.Message = xerrors.Errorf("writing deal payment: %w", err).Error()
 			return nil
 		}),
-	fsm.Event(rm.ClientEventPaymentSent).
+
+	// Payment was requested, but there was not actually any payment due, so
+	// no payment voucher was actually sent
+	fsm.Event(rm.ClientEventPaymentNotSent).
+		From(rm.DealStatusOngoing).ToJustRecord().
 		From(rm.DealStatusSendFunds).To(rm.DealStatusOngoing).
+		From(rm.DealStatusSendFundsLastPayment).To(rm.DealStatusFinalizing),
+
+	fsm.Event(rm.ClientEventPaymentSent).
+		From(rm.DealStatusOngoing).ToJustRecord().
+		From(rm.DealStatusBlocksComplete).To(rm.DealStatusCheckComplete).
+		From(rm.DealStatusCheckComplete).ToNoChange().
+		FromMany(
+			rm.DealStatusFundsNeeded,
+			rm.DealStatusFundsNeededLastPayment,
+			rm.DealStatusSendFunds).To(rm.DealStatusOngoing).
 		From(rm.DealStatusSendFundsLastPayment).To(rm.DealStatusFinalizing).
-		Action(func(deal *rm.ClientDealState) error {
-			// paymentRequested = 0
-			// fundsSpent = fundsSpent + paymentRequested
-			// if paymentRequested / pricePerByte >= currentInterval
-			// currentInterval = currentInterval + proposal.intervalIncrease
-			// bytesPaidFor = bytesPaidFor + (paymentRequested / pricePerByte)
-			deal.FundsSpent = big.Add(deal.FundsSpent, deal.PaymentRequested)
+		Action(func(deal *rm.ClientDealState, voucherAmt abi.TokenAmount) error {
+			// Reduce the payment requested by the amount of funds sent.
+			// Note that it may not be reduced to zero, if a new payment
+			// request came in while this one was being processed.
+			sentAmt := big.Sub(voucherAmt, deal.FundsSpent)
+			deal.PaymentRequested = big.Sub(deal.PaymentRequested, sentAmt)
 
-			paymentForUnsealing := big.Min(deal.PaymentRequested, big.Sub(deal.UnsealPrice, deal.UnsealFundsPaid))
-			deal.UnsealFundsPaid = big.Add(deal.UnsealFundsPaid, paymentForUnsealing)
+			// Update the total funds sent to the provider
+			deal.FundsSpent = voucherAmt
 
-			// If the price per bytes is zero, we ONLY need to account for the Unsealing payments here.
-			if !deal.PricePerByte.IsZero() {
-				bytesPaidFor := big.Div(big.Sub(deal.PaymentRequested, paymentForUnsealing), deal.PricePerByte).Uint64()
-				if bytesPaidFor >= deal.CurrentInterval {
-					deal.CurrentInterval += deal.DealProposal.PaymentIntervalIncrease
-				}
-				deal.BytesPaidFor += bytesPaidFor
+			// If the unseal price hasn't yet been met, set the unseal funds
+			// paid to the amount sent to the provider
+			if deal.UnsealPrice.GreaterThanEqual(deal.FundsSpent) {
+				deal.UnsealFundsPaid = deal.FundsSpent
+				return nil
+			}
+			// The unseal funds have been fully paid
+			deal.UnsealFundsPaid = deal.UnsealPrice
+
+			// If the price per byte is zero, no further accounting needed
+			if deal.PricePerByte.IsZero() {
+				return nil
 			}
 
-			deal.PaymentRequested = abi.NewTokenAmount(0)
+			// Calculate the amount spent on transferring data, and update the
+			// bytes paid for accordingly
+			paidSoFarForTransfer := big.Sub(deal.FundsSpent, deal.UnsealFundsPaid)
+			deal.BytesPaidFor = big.Div(paidSoFarForTransfer, deal.PricePerByte).Uint64()
+
+			// If the number of bytes paid for is above the current interval,
+			// increase the interval
+			if deal.BytesPaidFor >= deal.CurrentInterval {
+				deal.CurrentInterval = deal.NextInterval()
+			}
+
 			return nil
 		}),
 
 	// completing deals
 	fsm.Event(rm.ClientEventComplete).
+		FromMany(
+			rm.DealStatusSendFunds,
+			rm.DealStatusSendFundsLastPayment,
+			rm.DealStatusFundsNeeded,
+			rm.DealStatusFundsNeededLastPayment).To(rm.DealStatusCheckComplete).
 		From(rm.DealStatusOngoing).To(rm.DealStatusCheckComplete).
 		From(rm.DealStatusBlocksComplete).To(rm.DealStatusCheckComplete).
 		From(rm.DealStatusFinalizing).To(rm.DealStatusCompleted),
@@ -297,7 +339,8 @@ var ClientEvents = fsm.Events{
 	// should wait for the last blocks to arrive (only needed when price
 	// per byte is zero)
 	fsm.Event(rm.ClientEventWaitForLastBlocks).
-		From(rm.DealStatusCheckComplete).To(rm.DealStatusClientWaitingForLastBlocks),
+		From(rm.DealStatusCheckComplete).To(rm.DealStatusClientWaitingForLastBlocks).
+		From(rm.DealStatusCompleted).ToJustRecord(),
 
 	// after cancelling a deal is complete
 	fsm.Event(rm.ClientEventCancelComplete).

@@ -50,7 +50,7 @@ func (v *UnifiedRequestValidator) SetPullDeals(pullDeals PullDeals) {
 // ValidatePush implements the ValidatePush method of a data transfer request validator.
 // If no pushStore exists, it rejects the request
 // Otherwise, it calls the ValidatePush function to validate the deal
-func (v *UnifiedRequestValidator) ValidatePush(sender peer.ID, voucher datatransfer.Voucher, baseCid cid.Cid, selector ipld.Node) (datatransfer.VoucherResult, error) {
+func (v *UnifiedRequestValidator) ValidatePush(isRestart bool, sender peer.ID, voucher datatransfer.Voucher, baseCid cid.Cid, selector ipld.Node) (datatransfer.VoucherResult, error) {
 	if v.pushDeals == nil {
 		return nil, ErrNoPushAccepted
 	}
@@ -61,7 +61,7 @@ func (v *UnifiedRequestValidator) ValidatePush(sender peer.ID, voucher datatrans
 // ValidatePull implements the ValidatePull method of a data transfer request validator.
 // If no pullStore exists, it rejects the request
 // Otherwise, it calls the ValidatePull function to validate the deal
-func (v *UnifiedRequestValidator) ValidatePull(receiver peer.ID, voucher datatransfer.Voucher, baseCid cid.Cid, selector ipld.Node) (datatransfer.VoucherResult, error) {
+func (v *UnifiedRequestValidator) ValidatePull(isRestart bool, receiver peer.ID, voucher datatransfer.Voucher, baseCid cid.Cid, selector ipld.Node) (datatransfer.VoucherResult, error) {
 	if v.pullDeals == nil {
 		return nil, ErrNoPullAccepted
 	}

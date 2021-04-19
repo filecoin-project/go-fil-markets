@@ -1,5 +1,7 @@
 package retrievalmarket
 
+import "fmt"
+
 // DealStatus is the status of a retrieval deal returned by a provider
 // in a DealResponse
 type DealStatus uint64
@@ -153,4 +155,12 @@ var DealStatuses = map[DealStatus]string{
 	DealStatusWaitForAcceptanceLegacy:          "DealStatusWaitForAcceptanceLegacy",
 	DealStatusClientWaitingForLastBlocks:       "DealStatusWaitingForLastBlocks",
 	DealStatusPaymentChannelAddingInitialFunds: "DealStatusPaymentChannelAddingInitialFunds",
+}
+
+func (s DealStatus) String() string {
+	str, ok := DealStatuses[s]
+	if ok {
+		return str
+	}
+	return fmt.Sprintf("DealStatusUnknown - %d", s)
 }

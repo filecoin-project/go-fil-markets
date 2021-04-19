@@ -82,7 +82,7 @@ func TestOnPullDataSent(t *testing.T) {
 			expectedResult: &rm.DealResponse{
 				ID:          deal.ID,
 				Status:      rm.DealStatusFundsNeeded,
-				PaymentOwed: defaultPaymentPerInterval,
+				PaymentOwed: big.Mul(abi.NewTokenAmount(int64(defaultCurrentInterval)), defaultPricePerByte),
 			},
 			expectedHandled: true,
 		},
@@ -97,7 +97,7 @@ func TestOnPullDataSent(t *testing.T) {
 			expectedResult: &migrations.DealResponse0{
 				ID:          legacyDeal.ID,
 				Status:      rm.DealStatusFundsNeeded,
-				PaymentOwed: defaultPaymentPerInterval,
+				PaymentOwed: big.Mul(abi.NewTokenAmount(int64(defaultCurrentInterval)), defaultPricePerByte),
 			},
 			expectedHandled: true,
 		},
@@ -291,22 +291,36 @@ func TestOnComplete(t *testing.T) {
 
 func TestRevalidate(t *testing.T) {
 	payCh := address.TestAddress
+
 	voucher := shared_testutil.MakeTestSignedVoucher()
 	voucher.Amount = big.Add(defaultFundsReceived, defaultPaymentPerInterval)
 
+	smallerPaymentAmt := abi.NewTokenAmount(int64(defaultPaymentInterval / 2))
+	smallerVoucher := shared_testutil.MakeTestSignedVoucher()
+	smallerVoucher.Amount = big.Add(defaultFundsReceived, smallerPaymentAmt)
+
 	deal := *makeDealState(rm.DealStatusFundsNeeded)
-	deal.TotalSent = defaultTotalSent + defaultCurrentInterval
+	deal.TotalSent = defaultTotalSent + defaultPaymentInterval + defaultPaymentInterval/2
 	channelID := *deal.ChannelID
-	smallerPayment := abi.NewTokenAmount(400000)
 	payment := &retrievalmarket.DealPayment{
 		ID:             deal.ID,
 		PaymentChannel: payCh,
 		PaymentVoucher: voucher,
 	}
+	smallerPayment := &retrievalmarket.DealPayment{
+		ID:             deal.ID,
+		PaymentChannel: payCh,
+		PaymentVoucher: smallerVoucher,
+	}
 	legacyPayment := &migrations.DealPayment0{
 		ID:             deal.ID,
 		PaymentChannel: payCh,
 		PaymentVoucher: voucher,
+	}
+	legacySmallerPayment := &migrations.DealPayment0{
+		ID:             deal.ID,
+		PaymentChannel: payCh,
+		PaymentVoucher: smallerVoucher,
 	}
 	lastPaymentDeal := deal
 	lastPaymentDeal.Status = rm.DealStatusFundsNeededLastPayment
@@ -370,7 +384,7 @@ func TestRevalidate(t *testing.T) {
 		},
 		"payment voucher error": {
 			configureTestNode: func(tn *testnodes.TestRetrievalProviderNode) {
-				_ = tn.ExpectVoucher(payCh, voucher, nil, defaultPaymentPerInterval, abi.NewTokenAmount(0), errors.New("your money's no good here"))
+				_ = tn.ExpectVoucher(payCh, voucher, nil, voucher.Amount, abi.NewTokenAmount(0), errors.New("your money's no good here"))
 			},
 			deal:          deal,
 			channelID:     channelID,
@@ -387,7 +401,7 @@ func TestRevalidate(t *testing.T) {
 		},
 		"payment voucher error, legacy payment": {
 			configureTestNode: func(tn *testnodes.TestRetrievalProviderNode) {
-				_ = tn.ExpectVoucher(payCh, voucher, nil, defaultPaymentPerInterval, abi.NewTokenAmount(0), errors.New("your money's no good here"))
+				_ = tn.ExpectVoucher(payCh, voucher, nil, voucher.Amount, abi.NewTokenAmount(0), errors.New("your money's no good here"))
 			},
 			deal:          deal,
 			channelID:     channelID,
@@ -403,43 +417,34 @@ func TestRevalidate(t *testing.T) {
 			},
 		},
 		"not enough funds send": {
-			configureTestNode: func(tn *testnodes.TestRetrievalProviderNode) {
-				_ = tn.ExpectVoucher(payCh, voucher, nil, defaultPaymentPerInterval, smallerPayment, nil)
-			},
 			deal:          deal,
 			channelID:     channelID,
-			voucher:       payment,
+			voucher:       smallerPayment,
 			expectedError: datatransfer.ErrPause,
 			expectedID:    deal.Identifier(),
 			expectedEvent: rm.ProviderEventPartialPaymentReceived,
-			expectedArgs:  []interface{}{smallerPayment},
+			expectedArgs:  []interface{}{smallerPaymentAmt},
 			expectedResult: &rm.DealResponse{
 				ID:          deal.ID,
 				Status:      deal.Status,
-				PaymentOwed: big.Sub(defaultPaymentPerInterval, smallerPayment),
+				PaymentOwed: big.Sub(defaultPaymentPerInterval, smallerPaymentAmt),
 			},
 		},
 		"not enough funds send, legacyPayment": {
-			configureTestNode: func(tn *testnodes.TestRetrievalProviderNode) {
-				_ = tn.ExpectVoucher(payCh, voucher, nil, defaultPaymentPerInterval, smallerPayment, nil)
-			},
 			deal:          deal,
 			channelID:     channelID,
-			voucher:       legacyPayment,
+			voucher:       legacySmallerPayment,
 			expectedError: datatransfer.ErrPause,
 			expectedID:    deal.Identifier(),
 			expectedEvent: rm.ProviderEventPartialPaymentReceived,
-			expectedArgs:  []interface{}{smallerPayment},
+			expectedArgs:  []interface{}{smallerPaymentAmt},
 			expectedResult: &migrations.DealResponse0{
 				ID:          deal.ID,
 				Status:      deal.Status,
-				PaymentOwed: big.Sub(defaultPaymentPerInterval, smallerPayment),
+				PaymentOwed: big.Sub(defaultPaymentPerInterval, smallerPaymentAmt),
 			},
 		},
 		"it works": {
-			configureTestNode: func(tn *testnodes.TestRetrievalProviderNode) {
-				_ = tn.ExpectVoucher(payCh, voucher, nil, defaultPaymentPerInterval, defaultPaymentPerInterval, nil)
-			},
 			deal:          deal,
 			channelID:     channelID,
 			voucher:       payment,
@@ -450,9 +455,6 @@ func TestRevalidate(t *testing.T) {
 		},
 
 		"it completes": {
-			configureTestNode: func(tn *testnodes.TestRetrievalProviderNode) {
-				_ = tn.ExpectVoucher(payCh, voucher, nil, defaultPaymentPerInterval, defaultPaymentPerInterval, nil)
-			},
 			deal:          lastPaymentDeal,
 			channelID:     channelID,
 			voucher:       payment,
@@ -466,9 +468,6 @@ func TestRevalidate(t *testing.T) {
 			},
 		},
 		"it completes, legacy payment": {
-			configureTestNode: func(tn *testnodes.TestRetrievalProviderNode) {
-				_ = tn.ExpectVoucher(payCh, voucher, nil, defaultPaymentPerInterval, defaultPaymentPerInterval, nil)
-			},
 			deal:          lastPaymentDeal,
 			channelID:     channelID,
 			voucher:       legacyPayment,
@@ -482,9 +481,6 @@ func TestRevalidate(t *testing.T) {
 			},
 		},
 		"voucher already saved": {
-			configureTestNode: func(tn *testnodes.TestRetrievalProviderNode) {
-				_ = tn.ExpectVoucher(payCh, voucher, nil, defaultPaymentPerInterval, big.Zero(), nil)
-			},
 			deal:          deal,
 			channelID:     channelID,
 			voucher:       payment,
@@ -497,6 +493,7 @@ func TestRevalidate(t *testing.T) {
 	for testCase, data := range testCases {
 		t.Run(testCase, func(t *testing.T) {
 			tn := testnodes.NewTestRetrievalProviderNode()
+			tn.AddReceivedVoucher(deal.FundsReceived)
 			if data.configureTestNode != nil {
 				data.configureTestNode(tn)
 			}
@@ -524,7 +521,6 @@ func TestRevalidate(t *testing.T) {
 			} else {
 				require.Len(t, fre.sentEvents, 0)
 			}
-			tn.VerifyExpectations(t)
 		})
 	}
 }
@@ -556,12 +552,13 @@ func (fre *fakeRevalidatorEnvironment) Get(dealID rm.ProviderDealIdentifier) (rm
 }
 
 var dealID = retrievalmarket.DealID(10)
-var defaultCurrentInterval = uint64(1000)
-var defaultIntervalIncrease = uint64(500)
-var defaultPricePerByte = abi.NewTokenAmount(500)
-var defaultPaymentPerInterval = big.Mul(defaultPricePerByte, abi.NewTokenAmount(int64(defaultCurrentInterval)))
-var defaultTotalSent = uint64(5000)
-var defaultFundsReceived = abi.NewTokenAmount(2500000)
+var defaultCurrentInterval = uint64(3000)
+var defaultPaymentInterval = uint64(1000)
+var defaultIntervalIncrease = uint64(0)
+var defaultPricePerByte = abi.NewTokenAmount(1000)
+var defaultPaymentPerInterval = big.Mul(defaultPricePerByte, abi.NewTokenAmount(int64(defaultPaymentInterval)))
+var defaultTotalSent = defaultPaymentInterval
+var defaultFundsReceived = big.Mul(defaultPricePerByte, abi.NewTokenAmount(int64(defaultTotalSent)))
 
 func makeDealState(status retrievalmarket.DealStatus) *retrievalmarket.ProviderDealState {
 	channelID := shared_testutil.MakeTestChannelID()
@@ -574,7 +571,7 @@ func makeDealState(status retrievalmarket.DealStatus) *retrievalmarket.ProviderD
 		Receiver:        channelID.Initiator,
 		DealProposal: retrievalmarket.DealProposal{
 			ID:     dealID,
-			Params: retrievalmarket.NewParamsV0(defaultPricePerByte, defaultCurrentInterval, defaultIntervalIncrease),
+			Params: retrievalmarket.NewParamsV0(defaultPricePerByte, defaultPaymentInterval, defaultIntervalIncrease),
 		},
 	}
 }

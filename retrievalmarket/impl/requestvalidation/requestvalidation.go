@@ -53,12 +53,12 @@ func NewProviderRequestValidator(env ValidationEnvironment) *ProviderRequestVali
 }
 
 // ValidatePush validates a push request received from the peer that will send data
-func (rv *ProviderRequestValidator) ValidatePush(sender peer.ID, voucher datatransfer.Voucher, baseCid cid.Cid, selector ipld.Node) (datatransfer.VoucherResult, error) {
+func (rv *ProviderRequestValidator) ValidatePush(isRestart bool, sender peer.ID, voucher datatransfer.Voucher, baseCid cid.Cid, selector ipld.Node) (datatransfer.VoucherResult, error) {
 	return nil, errors.New("No pushes accepted")
 }
 
 // ValidatePull validates a pull request received from the peer that will receive data
-func (rv *ProviderRequestValidator) ValidatePull(receiver peer.ID, voucher datatransfer.Voucher, baseCid cid.Cid, selector ipld.Node) (datatransfer.VoucherResult, error) {
+func (rv *ProviderRequestValidator) ValidatePull(isRestart bool, receiver peer.ID, voucher datatransfer.Voucher, baseCid cid.Cid, selector ipld.Node) (datatransfer.VoucherResult, error) {
 	proposal, ok := voucher.(*retrievalmarket.DealProposal)
 	var legacyProtocol bool
 	if !ok {
@@ -70,7 +70,7 @@ func (rv *ProviderRequestValidator) ValidatePull(receiver peer.ID, voucher datat
 		proposal = &newProposal
 		legacyProtocol = true
 	}
-	response, err := rv.validatePull(receiver, proposal, legacyProtocol, baseCid, selector)
+	response, err := rv.validatePull(isRestart, receiver, proposal, legacyProtocol, baseCid, selector)
 	if response == nil {
 		return nil, err
 	}
@@ -86,12 +86,13 @@ func (rv *ProviderRequestValidator) ValidatePull(receiver peer.ID, voucher datat
 	return response, err
 }
 
-func (rv *ProviderRequestValidator) validatePull(receiver peer.ID, proposal *retrievalmarket.DealProposal, legacyProtocol bool, baseCid cid.Cid, selector ipld.Node) (*retrievalmarket.DealResponse, error) {
-
+func (rv *ProviderRequestValidator) validatePull(isRestart bool, receiver peer.ID, proposal *retrievalmarket.DealProposal, legacyProtocol bool, baseCid cid.Cid, selector ipld.Node) (*retrievalmarket.DealResponse, error) {
+	// Check the proposal CID matches
 	if proposal.PayloadCID != baseCid {
 		return nil, errors.New("incorrect CID for this proposal")
 	}
 
+	// Check the proposal selector matches
 	buf := new(bytes.Buffer)
 	err := dagcbor.Encoder(selector, buf)
 	if err != nil {
@@ -103,6 +104,12 @@ func (rv *ProviderRequestValidator) validatePull(receiver peer.ID, proposal *ret
 	}
 	if !bytes.Equal(buf.Bytes(), bytesCompare) {
 		return nil, errors.New("incorrect selector for this proposal")
+	}
+
+	// If the validation is for a restart request, the state is already being
+	// tracked so no further action is required
+	if isRestart {
+		return nil, nil
 	}
 
 	pds := retrievalmarket.ProviderDealState{
