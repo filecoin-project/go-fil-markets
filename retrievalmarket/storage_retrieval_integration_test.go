@@ -1,7 +1,9 @@
 package retrievalmarket_test
 
 import (
+	"bytes"
 	"context"
+	"sync"
 	"testing"
 	"time"
 
@@ -15,6 +17,8 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/filecoin-project/go-address"
+	"github.com/filecoin-project/go-commp-utils/pieceio"
+	"github.com/filecoin-project/go-commp-utils/pieceio/cario"
 	datatransfer "github.com/filecoin-project/go-data-transfer"
 	"github.com/filecoin-project/go-state-types/abi"
 	"github.com/filecoin-project/go-state-types/big"
@@ -132,14 +136,153 @@ func TestStorageRetrieval(t *testing.T) {
 				PaymentIntervalIncrease: tc.paymentIntervalIncrease,
 			})
 
-			clientDealStateChan := make(chan retrievalmarket.ClientDealState)
+			checkRetrieve(t, bgCtx, rh, sh, tc.voucherAmts)
+		})
+	}
+}
 
-			rh.Client.SubscribeToEvents(func(event retrievalmarket.ClientEvent, state retrievalmarket.ClientDealState) {
-				switch state.Status {
-				case retrievalmarket.DealStatusCompleted:
-					clientDealStateChan <- state
-				default:
-					msg := `
+func TestOfflineStorageRetrieval(t *testing.T) {
+	bgCtx := context.Background()
+
+	tcs := map[string]struct {
+		unSealPrice             abi.TokenAmount
+		pricePerByte            abi.TokenAmount
+		paymentInterval         uint64
+		paymentIntervalIncrease uint64
+		voucherAmts             []abi.TokenAmount
+	}{
+
+		"non-zero unseal, zero price per byte": {
+			unSealPrice:  abi.NewTokenAmount(1000),
+			pricePerByte: big.Zero(),
+			voucherAmts:  []abi.TokenAmount{abi.NewTokenAmount(1000)},
+		},
+
+		"zero unseal, non-zero price per byte": {
+			unSealPrice:             big.Zero(),
+			pricePerByte:            abi.NewTokenAmount(1000),
+			paymentInterval:         uint64(10000),
+			paymentIntervalIncrease: uint64(1000),
+			voucherAmts:             []abi.TokenAmount{abi.NewTokenAmount(10136000), abi.NewTokenAmount(9784000)},
+		},
+
+		"zero unseal, zero price per byte": {
+			unSealPrice:             big.Zero(),
+			pricePerByte:            big.Zero(),
+			paymentInterval:         uint64(0),
+			paymentIntervalIncrease: uint64(0),
+			voucherAmts:             nil,
+		},
+
+		"non-zero unseal, non zero prices per byte": {
+			unSealPrice:             abi.NewTokenAmount(1000),
+			pricePerByte:            abi.NewTokenAmount(1000),
+			paymentInterval:         uint64(10000),
+			paymentIntervalIncrease: uint64(1000),
+			voucherAmts:             []abi.TokenAmount{abi.NewTokenAmount(1000), abi.NewTokenAmount(10136000), abi.NewTokenAmount(9784000)},
+		},
+	}
+
+	for name, tc := range tcs {
+		t.Run(name, func(t *testing.T) {
+			// offline storage
+			sh := testharness.NewHarness(t, bgCtx, true, testnodes.DelayFakeCommonNode{},
+				testnodes.DelayFakeCommonNode{}, false)
+
+			// start and wait for client/provider
+			ctx, cancel := context.WithTimeout(bgCtx, 5*time.Second)
+			defer cancel()
+			shared_testutil.StartAndWaitForReady(ctx, t, sh.Provider)
+			shared_testutil.StartAndWaitForReady(ctx, t, sh.Client)
+
+			// calculate ComP
+			store, err := sh.TestData.MultiStore1.Get(*sh.StoreID)
+			require.NoError(t, err)
+			cio := cario.NewCarIO()
+			pio := pieceio.NewPieceIO(cio, store.Bstore, sh.TestData.MultiStore1)
+			commP, size, err := pio.GeneratePieceCommitment(abi.RegisteredSealProof_StackedDrg2KiBV1, sh.PayloadCid, shared.AllSelector(), sh.StoreID)
+			assert.NoError(t, err)
+
+			// propose deal
+			dataRef := &storagemarket.DataRef{
+				TransferType: storagemarket.TTManual,
+				Root:         sh.PayloadCid,
+				PieceCid:     &commP,
+				PieceSize:    size,
+			}
+			result := sh.ProposeStorageDeal(t, dataRef, false, false)
+			proposalCid := result.ProposalCid
+
+			wg := sync.WaitGroup{}
+			sh.WaitForClientEvent(&wg, storagemarket.ClientEventDataTransferComplete)
+			sh.WaitForProviderEvent(&wg, storagemarket.ProviderEventDataRequested)
+			waitGroupWait(ctx, &wg)
+
+			cd, err := sh.Client.GetLocalDeal(ctx, proposalCid)
+			assert.NoError(t, err)
+			require.Eventually(t, func() bool {
+				cd, _ = sh.Client.GetLocalDeal(ctx, proposalCid)
+				return cd.State == storagemarket.StorageDealCheckForAcceptance
+			}, 1*time.Second, 100*time.Millisecond, "actual deal status is %s", storagemarket.DealStates[cd.State])
+
+			providerDeals, err := sh.Provider.ListLocalDeals()
+			assert.NoError(t, err)
+			pd := providerDeals[0]
+			assert.True(t, pd.ProposalCid.Equals(proposalCid))
+			shared_testutil.AssertDealState(t, storagemarket.StorageDealWaitingForData, pd.State)
+
+			// provider imports deal
+			carBuf := new(bytes.Buffer)
+			err = cio.WriteCar(ctx, store.Bstore, sh.PayloadCid, shared.AllSelector(), carBuf)
+			require.NoError(t, err)
+			require.NoError(t, err)
+			err = sh.Provider.ImportDataForDeal(ctx, pd.ProposalCid, carBuf)
+			require.NoError(t, err)
+
+			// wait for event signalling deal completion.
+			sh.WaitForClientEvent(&wg, storagemarket.ClientEventDealExpired)
+			sh.WaitForProviderEvent(&wg, storagemarket.ProviderEventDealExpired)
+			waitGroupWait(ctx, &wg)
+
+			// client asserts expiry
+			require.Eventually(t, func() bool {
+				cd, _ = sh.Client.GetLocalDeal(ctx, proposalCid)
+				return cd.State == storagemarket.StorageDealExpired
+			}, 5*time.Second, 100*time.Millisecond)
+
+			// provider asserts expiry
+			require.Eventually(t, func() bool {
+				providerDeals, _ = sh.Provider.ListLocalDeals()
+				pd = providerDeals[0]
+				return pd.State == storagemarket.StorageDealExpired
+			}, 5*time.Second, 100*time.Millisecond)
+
+			t.Log("Offline storage complete")
+
+			// Retrieve
+			ctxTimeout, canc := context.WithTimeout(bgCtx, 25*time.Second)
+			defer canc()
+			rh := newRetrievalHarness(ctxTimeout, t, sh, cd, retrievalmarket.Params{
+				UnsealPrice:             tc.unSealPrice,
+				PricePerByte:            tc.pricePerByte,
+				PaymentInterval:         tc.paymentInterval,
+				PaymentIntervalIncrease: tc.paymentIntervalIncrease,
+			})
+
+			checkRetrieve(t, bgCtx, rh, sh, tc.voucherAmts)
+		})
+	}
+}
+
+func checkRetrieve(t *testing.T, bgCtx context.Context, rh *retrievalHarness, sh *testharness.StorageHarness, vAmts []abi.TokenAmount) {
+	clientDealStateChan := make(chan retrievalmarket.ClientDealState)
+
+	rh.Client.SubscribeToEvents(func(event retrievalmarket.ClientEvent, state retrievalmarket.ClientDealState) {
+		switch state.Status {
+		case retrievalmarket.DealStatusCompleted:
+			clientDealStateChan <- state
+		default:
+			msg := `
 					Client:
 					Event:           %s
 					Status:          %s
@@ -150,18 +293,18 @@ func TestStorageRetrieval(t *testing.T) {
 					Message:         %s
 					`
 
-					t.Logf(msg, retrievalmarket.ClientEvents[event], retrievalmarket.DealStatuses[state.Status], state.TotalReceived, state.BytesPaidFor, state.CurrentInterval,
-						state.TotalFunds.String(), state.Message)
-				}
-			})
+			t.Logf(msg, retrievalmarket.ClientEvents[event], retrievalmarket.DealStatuses[state.Status], state.TotalReceived, state.BytesPaidFor, state.CurrentInterval,
+				state.TotalFunds.String(), state.Message)
+		}
+	})
 
-			providerDealStateChan := make(chan retrievalmarket.ProviderDealState)
-			rh.Provider.SubscribeToEvents(func(event retrievalmarket.ProviderEvent, state retrievalmarket.ProviderDealState) {
-				switch state.Status {
-				case retrievalmarket.DealStatusCompleted:
-					providerDealStateChan <- state
-				default:
-					msg := `
+	providerDealStateChan := make(chan retrievalmarket.ProviderDealState)
+	rh.Provider.SubscribeToEvents(func(event retrievalmarket.ProviderEvent, state retrievalmarket.ProviderDealState) {
+		switch state.Status {
+		case retrievalmarket.DealStatusCompleted:
+			providerDealStateChan <- state
+		default:
+			msg := `
 			Provider:
 			Event:           %s
 			Status:          %s
@@ -170,71 +313,83 @@ func TestStorageRetrieval(t *testing.T) {
 			Message:		 %s
 			CurrentInterval: %d
 			`
-					t.Logf(msg, retrievalmarket.ProviderEvents[event], retrievalmarket.DealStatuses[state.Status], state.TotalSent, state.FundsReceived.String(), state.Message,
-						state.CurrentInterval)
-				}
-			})
+			t.Logf(msg, retrievalmarket.ProviderEvents[event], retrievalmarket.DealStatuses[state.Status], state.TotalSent, state.FundsReceived.String(), state.Message,
+				state.CurrentInterval)
+		}
+	})
 
-			// **** Send the query for the Piece
-			// set up retrieval params
-			peers := rh.Client.FindProviders(sh.PayloadCid)
-			require.Len(t, peers, 1)
-			retrievalPeer := peers[0]
-			require.NotNil(t, retrievalPeer.PieceCID)
+	// **** Send the query for the Piece
+	// set up retrieval params
+	peers := rh.Client.FindProviders(sh.PayloadCid)
+	require.Len(t, peers, 1)
+	retrievalPeer := peers[0]
+	require.NotNil(t, retrievalPeer.PieceCID)
 
-			rh.ClientNode.ExpectKnownAddresses(retrievalPeer, nil)
+	rh.ClientNode.ExpectKnownAddresses(retrievalPeer, nil)
 
-			resp, err := rh.Client.Query(bgCtx, retrievalPeer, sh.PayloadCid, retrievalmarket.QueryParams{})
-			require.NoError(t, err)
-			require.Equal(t, retrievalmarket.QueryResponseAvailable, resp.Status)
+	resp, err := rh.Client.Query(bgCtx, retrievalPeer, sh.PayloadCid, retrievalmarket.QueryParams{})
+	require.NoError(t, err)
+	require.Equal(t, retrievalmarket.QueryResponseAvailable, resp.Status)
 
-			// testing V1 only
-			rmParams, err := retrievalmarket.NewParamsV1(rh.RetrievalParams.PricePerByte, rh.RetrievalParams.PaymentInterval, rh.RetrievalParams.PaymentIntervalIncrease, shared.AllSelector(), nil,
-				rh.RetrievalParams.UnsealPrice)
-			require.NoError(t, err)
+	// testing V1 only
+	rmParams, err := retrievalmarket.NewParamsV1(rh.RetrievalParams.PricePerByte, rh.RetrievalParams.PaymentInterval, rh.RetrievalParams.PaymentIntervalIncrease, shared.AllSelector(), nil,
+		rh.RetrievalParams.UnsealPrice)
+	require.NoError(t, err)
 
-			proof := []byte("")
-			for _, voucherAmt := range tc.voucherAmts {
-				require.NoError(t, rh.ProviderNode.ExpectVoucher(*rh.ExpPaych, rh.ExpVoucher, proof, voucherAmt, voucherAmt, nil))
-			}
-			// just make sure there is enough to cover the transfer
-			fsize := 19000 // this is the known file size of the test file lorem.txt
-			expectedTotal := big.Add(big.Mul(rh.RetrievalParams.PricePerByte, abi.NewTokenAmount(int64(fsize*2))), rh.RetrievalParams.UnsealPrice)
+	proof := []byte("")
+	for _, voucherAmt := range vAmts {
+		require.NoError(t, rh.ProviderNode.ExpectVoucher(*rh.ExpPaych, rh.ExpVoucher, proof, voucherAmt, voucherAmt, nil))
+	}
+	// just make sure there is enough to cover the transfer
+	fsize := 19000 // this is the known file size of the test file lorem.txt
+	expectedTotal := big.Add(big.Mul(rh.RetrievalParams.PricePerByte, abi.NewTokenAmount(int64(fsize*2))), rh.RetrievalParams.UnsealPrice)
 
-			// *** Retrieve the piece
+	// *** Retrieve the piece
 
-			clientStoreID := sh.TestData.MultiStore1.Next()
-			_, err = rh.Client.Retrieve(bgCtx, sh.PayloadCid, rmParams, expectedTotal, retrievalPeer, *rh.ExpPaych, retrievalPeer.Address, &clientStoreID)
-			require.NoError(t, err)
+	clientStoreID := sh.TestData.MultiStore1.Next()
+	_, err = rh.Client.Retrieve(bgCtx, sh.PayloadCid, rmParams, expectedTotal, retrievalPeer, *rh.ExpPaych, retrievalPeer.Address, &clientStoreID)
+	require.NoError(t, err)
 
-			ctxTimeout, cancel := context.WithTimeout(bgCtx, 10*time.Second)
-			defer cancel()
+	ctxTimeout, cancel := context.WithTimeout(bgCtx, 10*time.Second)
+	defer cancel()
 
-			// verify that client subscribers will be notified of state changes
-			var clientDealState retrievalmarket.ClientDealState
-			select {
-			case <-ctxTimeout.Done():
-				t.Error("deal never completed")
-				t.FailNow()
-			case clientDealState = <-clientDealStateChan:
-			}
+	// verify that client subscribers will be notified of state changes
+	var clientDealState retrievalmarket.ClientDealState
+	select {
+	case <-ctxTimeout.Done():
+		t.Error("deal never completed")
+		t.FailNow()
+	case clientDealState = <-clientDealStateChan:
+	}
 
-			ctxTimeout, cancel = context.WithTimeout(bgCtx, 10*time.Second)
-			defer cancel()
-			var providerDealState retrievalmarket.ProviderDealState
-			select {
-			case <-ctxTimeout.Done():
-				t.Error("provider never saw completed deal")
-				t.FailNow()
-			case providerDealState = <-providerDealStateChan:
-			}
+	ctxTimeout, cancel = context.WithTimeout(bgCtx, 10*time.Second)
+	defer cancel()
+	var providerDealState retrievalmarket.ProviderDealState
+	select {
+	case <-ctxTimeout.Done():
+		t.Error("provider never saw completed deal")
+		t.FailNow()
+	case providerDealState = <-providerDealStateChan:
+	}
 
-			require.Equal(t, retrievalmarket.DealStatusCompleted, providerDealState.Status)
-			require.Equal(t, retrievalmarket.DealStatusCompleted, clientDealState.Status)
+	require.Equal(t, retrievalmarket.DealStatusCompleted, providerDealState.Status)
+	require.Equal(t, retrievalmarket.DealStatusCompleted, clientDealState.Status)
 
-			rh.ClientNode.VerifyExpectations(t)
-			sh.TestData.VerifyFileTransferredIntoStore(t, cidlink.Link{Cid: sh.PayloadCid}, clientStoreID, false, uint64(fsize))
-		})
+	rh.ClientNode.VerifyExpectations(t)
+	sh.TestData.VerifyFileTransferredIntoStore(t, cidlink.Link{Cid: sh.PayloadCid}, clientStoreID, false, uint64(fsize))
+}
+
+// waitGroupWait calls wg.Wait while respecting context cancellation
+func waitGroupWait(ctx context.Context, wg *sync.WaitGroup) {
+	done := make(chan struct{})
+	go func() {
+		wg.Wait()
+		close(done)
+	}()
+
+	select {
+	case <-ctx.Done():
+	case <-done:
 	}
 }
 
