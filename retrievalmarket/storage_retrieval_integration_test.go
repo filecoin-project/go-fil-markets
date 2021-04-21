@@ -136,108 +136,7 @@ func TestStorageRetrieval(t *testing.T) {
 				PaymentIntervalIncrease: tc.paymentIntervalIncrease,
 			})
 
-			clientDealStateChan := make(chan retrievalmarket.ClientDealState)
-
-			rh.Client.SubscribeToEvents(func(event retrievalmarket.ClientEvent, state retrievalmarket.ClientDealState) {
-				switch state.Status {
-				case retrievalmarket.DealStatusCompleted:
-					clientDealStateChan <- state
-				default:
-					msg := `
-					Client:
-					Event:           %s
-					Status:          %s
-					TotalReceived:   %d
-					BytesPaidFor:    %d
-					CurrentInterval: %d
-					TotalFunds:      %s
-					Message:         %s
-					`
-
-					t.Logf(msg, retrievalmarket.ClientEvents[event], retrievalmarket.DealStatuses[state.Status], state.TotalReceived, state.BytesPaidFor, state.CurrentInterval,
-						state.TotalFunds.String(), state.Message)
-				}
-			})
-
-			providerDealStateChan := make(chan retrievalmarket.ProviderDealState)
-			rh.Provider.SubscribeToEvents(func(event retrievalmarket.ProviderEvent, state retrievalmarket.ProviderDealState) {
-				switch state.Status {
-				case retrievalmarket.DealStatusCompleted:
-					providerDealStateChan <- state
-				default:
-					msg := `
-			Provider:
-			Event:           %s
-			Status:          %s
-			TotalSent:       %d
-			FundsReceived:   %s
-			Message:		 %s
-			CurrentInterval: %d
-			`
-					t.Logf(msg, retrievalmarket.ProviderEvents[event], retrievalmarket.DealStatuses[state.Status], state.TotalSent, state.FundsReceived.String(), state.Message,
-						state.CurrentInterval)
-				}
-			})
-
-			// **** Send the query for the Piece
-			// set up retrieval params
-			peers := rh.Client.FindProviders(sh.PayloadCid)
-			require.Len(t, peers, 1)
-			retrievalPeer := peers[0]
-			require.NotNil(t, retrievalPeer.PieceCID)
-
-			rh.ClientNode.ExpectKnownAddresses(retrievalPeer, nil)
-
-			resp, err := rh.Client.Query(bgCtx, retrievalPeer, sh.PayloadCid, retrievalmarket.QueryParams{})
-			require.NoError(t, err)
-			require.Equal(t, retrievalmarket.QueryResponseAvailable, resp.Status)
-
-			// testing V1 only
-			rmParams, err := retrievalmarket.NewParamsV1(rh.RetrievalParams.PricePerByte, rh.RetrievalParams.PaymentInterval, rh.RetrievalParams.PaymentIntervalIncrease, shared.AllSelector(), nil,
-				rh.RetrievalParams.UnsealPrice)
-			require.NoError(t, err)
-
-			proof := []byte("")
-			for _, voucherAmt := range tc.voucherAmts {
-				require.NoError(t, rh.ProviderNode.ExpectVoucher(*rh.ExpPaych, rh.ExpVoucher, proof, voucherAmt, voucherAmt, nil))
-			}
-			// just make sure there is enough to cover the transfer
-			fsize := 19000 // this is the known file size of the test file lorem.txt
-			expectedTotal := big.Add(big.Mul(rh.RetrievalParams.PricePerByte, abi.NewTokenAmount(int64(fsize*2))), rh.RetrievalParams.UnsealPrice)
-
-			// *** Retrieve the piece
-
-			clientStoreID := sh.TestData.MultiStore1.Next()
-			_, err = rh.Client.Retrieve(bgCtx, sh.PayloadCid, rmParams, expectedTotal, retrievalPeer, *rh.ExpPaych, retrievalPeer.Address, &clientStoreID)
-			require.NoError(t, err)
-
-			ctxTimeout, cancel := context.WithTimeout(bgCtx, 10*time.Second)
-			defer cancel()
-
-			// verify that client subscribers will be notified of state changes
-			var clientDealState retrievalmarket.ClientDealState
-			select {
-			case <-ctxTimeout.Done():
-				t.Error("deal never completed")
-				t.FailNow()
-			case clientDealState = <-clientDealStateChan:
-			}
-
-			ctxTimeout, cancel = context.WithTimeout(bgCtx, 10*time.Second)
-			defer cancel()
-			var providerDealState retrievalmarket.ProviderDealState
-			select {
-			case <-ctxTimeout.Done():
-				t.Error("provider never saw completed deal")
-				t.FailNow()
-			case providerDealState = <-providerDealStateChan:
-			}
-
-			require.Equal(t, retrievalmarket.DealStatusCompleted, providerDealState.Status)
-			require.Equal(t, retrievalmarket.DealStatusCompleted, clientDealState.Status)
-
-			rh.ClientNode.VerifyExpectations(t)
-			sh.TestData.VerifyFileTransferredIntoStore(t, cidlink.Link{Cid: sh.PayloadCid}, clientStoreID, false, uint64(fsize))
+			checkRetrieve(t, bgCtx, rh, sh, tc.voucherAmts)
 		})
 	}
 }
@@ -370,14 +269,20 @@ func TestOfflineStorageRetrieval(t *testing.T) {
 				PaymentIntervalIncrease: tc.paymentIntervalIncrease,
 			})
 
-			clientDealStateChan := make(chan retrievalmarket.ClientDealState)
+			checkRetrieve(t, bgCtx, rh, sh, tc.voucherAmts)
+		})
+	}
+}
 
-			rh.Client.SubscribeToEvents(func(event retrievalmarket.ClientEvent, state retrievalmarket.ClientDealState) {
-				switch state.Status {
-				case retrievalmarket.DealStatusCompleted:
-					clientDealStateChan <- state
-				default:
-					msg := `
+func checkRetrieve(t *testing.T, bgCtx context.Context, rh *retrievalHarness, sh *testharness.StorageHarness, vAmts []abi.TokenAmount) {
+	clientDealStateChan := make(chan retrievalmarket.ClientDealState)
+
+	rh.Client.SubscribeToEvents(func(event retrievalmarket.ClientEvent, state retrievalmarket.ClientDealState) {
+		switch state.Status {
+		case retrievalmarket.DealStatusCompleted:
+			clientDealStateChan <- state
+		default:
+			msg := `
 					Client:
 					Event:           %s
 					Status:          %s
@@ -388,18 +293,18 @@ func TestOfflineStorageRetrieval(t *testing.T) {
 					Message:         %s
 					`
 
-					t.Logf(msg, retrievalmarket.ClientEvents[event], retrievalmarket.DealStatuses[state.Status], state.TotalReceived, state.BytesPaidFor, state.CurrentInterval,
-						state.TotalFunds.String(), state.Message)
-				}
-			})
+			t.Logf(msg, retrievalmarket.ClientEvents[event], retrievalmarket.DealStatuses[state.Status], state.TotalReceived, state.BytesPaidFor, state.CurrentInterval,
+				state.TotalFunds.String(), state.Message)
+		}
+	})
 
-			providerDealStateChan := make(chan retrievalmarket.ProviderDealState)
-			rh.Provider.SubscribeToEvents(func(event retrievalmarket.ProviderEvent, state retrievalmarket.ProviderDealState) {
-				switch state.Status {
-				case retrievalmarket.DealStatusCompleted:
-					providerDealStateChan <- state
-				default:
-					msg := `
+	providerDealStateChan := make(chan retrievalmarket.ProviderDealState)
+	rh.Provider.SubscribeToEvents(func(event retrievalmarket.ProviderEvent, state retrievalmarket.ProviderDealState) {
+		switch state.Status {
+		case retrievalmarket.DealStatusCompleted:
+			providerDealStateChan <- state
+		default:
+			msg := `
 			Provider:
 			Event:           %s
 			Status:          %s
@@ -408,72 +313,70 @@ func TestOfflineStorageRetrieval(t *testing.T) {
 			Message:		 %s
 			CurrentInterval: %d
 			`
-					t.Logf(msg, retrievalmarket.ProviderEvents[event], retrievalmarket.DealStatuses[state.Status], state.TotalSent, state.FundsReceived.String(), state.Message,
-						state.CurrentInterval)
-				}
-			})
+			t.Logf(msg, retrievalmarket.ProviderEvents[event], retrievalmarket.DealStatuses[state.Status], state.TotalSent, state.FundsReceived.String(), state.Message,
+				state.CurrentInterval)
+		}
+	})
 
-			// **** Send the query for the Piece
-			// set up retrieval params
-			peers := rh.Client.FindProviders(sh.PayloadCid)
-			require.Len(t, peers, 1)
-			retrievalPeer := peers[0]
-			require.NotNil(t, retrievalPeer.PieceCID)
+	// **** Send the query for the Piece
+	// set up retrieval params
+	peers := rh.Client.FindProviders(sh.PayloadCid)
+	require.Len(t, peers, 1)
+	retrievalPeer := peers[0]
+	require.NotNil(t, retrievalPeer.PieceCID)
 
-			rh.ClientNode.ExpectKnownAddresses(retrievalPeer, nil)
+	rh.ClientNode.ExpectKnownAddresses(retrievalPeer, nil)
 
-			resp, err := rh.Client.Query(bgCtx, retrievalPeer, sh.PayloadCid, retrievalmarket.QueryParams{})
-			require.NoError(t, err)
-			require.Equal(t, retrievalmarket.QueryResponseAvailable, resp.Status)
+	resp, err := rh.Client.Query(bgCtx, retrievalPeer, sh.PayloadCid, retrievalmarket.QueryParams{})
+	require.NoError(t, err)
+	require.Equal(t, retrievalmarket.QueryResponseAvailable, resp.Status)
 
-			// testing V1 only
-			rmParams, err := retrievalmarket.NewParamsV1(rh.RetrievalParams.PricePerByte, rh.RetrievalParams.PaymentInterval, rh.RetrievalParams.PaymentIntervalIncrease, shared.AllSelector(), nil,
-				rh.RetrievalParams.UnsealPrice)
-			require.NoError(t, err)
+	// testing V1 only
+	rmParams, err := retrievalmarket.NewParamsV1(rh.RetrievalParams.PricePerByte, rh.RetrievalParams.PaymentInterval, rh.RetrievalParams.PaymentIntervalIncrease, shared.AllSelector(), nil,
+		rh.RetrievalParams.UnsealPrice)
+	require.NoError(t, err)
 
-			proof := []byte("")
-			for _, voucherAmt := range tc.voucherAmts {
-				require.NoError(t, rh.ProviderNode.ExpectVoucher(*rh.ExpPaych, rh.ExpVoucher, proof, voucherAmt, voucherAmt, nil))
-			}
-			// just make sure there is enough to cover the transfer
-			fsize := 19000 // this is the known file size of the test file lorem.txt
-			expectedTotal := big.Add(big.Mul(rh.RetrievalParams.PricePerByte, abi.NewTokenAmount(int64(fsize*2))), rh.RetrievalParams.UnsealPrice)
-
-			// *** Retrieve the piece
-
-			clientStoreID := sh.TestData.MultiStore1.Next()
-			_, err = rh.Client.Retrieve(bgCtx, sh.PayloadCid, rmParams, expectedTotal, retrievalPeer, *rh.ExpPaych, retrievalPeer.Address, &clientStoreID)
-			require.NoError(t, err)
-
-			ctxTimeout, cancel = context.WithTimeout(bgCtx, 10*time.Second)
-			defer cancel()
-
-			// verify that client subscribers will be notified of state changes
-			var clientDealState retrievalmarket.ClientDealState
-			select {
-			case <-ctxTimeout.Done():
-				t.Error("deal never completed")
-				t.FailNow()
-			case clientDealState = <-clientDealStateChan:
-			}
-
-			ctxTimeout, cancel = context.WithTimeout(bgCtx, 10*time.Second)
-			defer cancel()
-			var providerDealState retrievalmarket.ProviderDealState
-			select {
-			case <-ctxTimeout.Done():
-				t.Error("provider never saw completed deal")
-				t.FailNow()
-			case providerDealState = <-providerDealStateChan:
-			}
-
-			require.Equal(t, retrievalmarket.DealStatusCompleted, providerDealState.Status)
-			require.Equal(t, retrievalmarket.DealStatusCompleted, clientDealState.Status)
-
-			rh.ClientNode.VerifyExpectations(t)
-			sh.TestData.VerifyFileTransferredIntoStore(t, cidlink.Link{Cid: sh.PayloadCid}, clientStoreID, false, uint64(fsize))
-		})
+	proof := []byte("")
+	for _, voucherAmt := range vAmts {
+		require.NoError(t, rh.ProviderNode.ExpectVoucher(*rh.ExpPaych, rh.ExpVoucher, proof, voucherAmt, voucherAmt, nil))
 	}
+	// just make sure there is enough to cover the transfer
+	fsize := 19000 // this is the known file size of the test file lorem.txt
+	expectedTotal := big.Add(big.Mul(rh.RetrievalParams.PricePerByte, abi.NewTokenAmount(int64(fsize*2))), rh.RetrievalParams.UnsealPrice)
+
+	// *** Retrieve the piece
+
+	clientStoreID := sh.TestData.MultiStore1.Next()
+	_, err = rh.Client.Retrieve(bgCtx, sh.PayloadCid, rmParams, expectedTotal, retrievalPeer, *rh.ExpPaych, retrievalPeer.Address, &clientStoreID)
+	require.NoError(t, err)
+
+	ctxTimeout, cancel := context.WithTimeout(bgCtx, 10*time.Second)
+	defer cancel()
+
+	// verify that client subscribers will be notified of state changes
+	var clientDealState retrievalmarket.ClientDealState
+	select {
+	case <-ctxTimeout.Done():
+		t.Error("deal never completed")
+		t.FailNow()
+	case clientDealState = <-clientDealStateChan:
+	}
+
+	ctxTimeout, cancel = context.WithTimeout(bgCtx, 10*time.Second)
+	defer cancel()
+	var providerDealState retrievalmarket.ProviderDealState
+	select {
+	case <-ctxTimeout.Done():
+		t.Error("provider never saw completed deal")
+		t.FailNow()
+	case providerDealState = <-providerDealStateChan:
+	}
+
+	require.Equal(t, retrievalmarket.DealStatusCompleted, providerDealState.Status)
+	require.Equal(t, retrievalmarket.DealStatusCompleted, clientDealState.Status)
+
+	rh.ClientNode.VerifyExpectations(t)
+	sh.TestData.VerifyFileTransferredIntoStore(t, cidlink.Link{Cid: sh.PayloadCid}, clientStoreID, false, uint64(fsize))
 }
 
 // waitGroupWait calls wg.Wait while respecting context cancellation
