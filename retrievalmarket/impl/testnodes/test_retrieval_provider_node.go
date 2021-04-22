@@ -46,6 +46,8 @@ type TestRetrievalProviderNode struct {
 	received         map[sectorKey]struct{}
 	expectedVouchers map[expectedVoucherKey]voucherResult
 	receivedVouchers map[expectedVoucherKey]struct{}
+
+	unsealed map[sectorKey]struct{}
 }
 
 var _ retrievalmarket.RetrievalProviderNode = &TestRetrievalProviderNode{}
@@ -58,7 +60,22 @@ func NewTestRetrievalProviderNode() *TestRetrievalProviderNode {
 		received:         make(map[sectorKey]struct{}),
 		expectedVouchers: make(map[expectedVoucherKey]voucherResult),
 		receivedVouchers: make(map[expectedVoucherKey]struct{}),
+
+		unsealed: make(map[sectorKey]struct{}),
 	}
+}
+
+func (trpn *TestRetrievalProviderNode) IsUnsealed(ctx context.Context, sectorID abi.SectorNumber, offset abi.UnpaddedPieceSize, length abi.UnpaddedPieceSize) (bool, error) {
+	_, ok := trpn.unsealed[sectorKey{sectorID, offset, length}]
+	return ok, nil
+}
+
+func (trpn *TestRetrievalProviderNode) MarkUnsealed(ctx context.Context, sectorID abi.SectorNumber, offset abi.UnpaddedPieceSize, length abi.UnpaddedPieceSize) {
+	trpn.unsealed[sectorKey{sectorID, offset, length}] = struct{}{}
+}
+
+func (trpn *TestRetrievalProviderNode) GetDealPricingParams(ctx context.Context, dealID abi.DealID, tok shared.TipSetToken) (retrievalmarket.DealPricingParams, error) {
+	return retrievalmarket.DealPricingParams{}, nil
 }
 
 // StubUnseal stubs a response to attempting to unseal a sector with the given paramters

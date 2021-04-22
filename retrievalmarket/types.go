@@ -382,3 +382,11 @@ type ChannelAvailableFunds struct {
 	// and in the local datastore
 	VoucherReedeemedAmt abi.TokenAmount
 }
+
+// DealPricingParams provides parameters required to price a retrieval deal
+type DealPricingParams struct {
+	Client        peer.ID
+	FastRetrieval bool
+	Unsealed      bool
+	VerifiedDeal  bool
+}

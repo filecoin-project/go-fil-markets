@@ -43,12 +43,18 @@ func TestHandleQueryStream(t *testing.T) {
 	payloadCID := tut.GenerateCids(1)[0]
 	expectedPeer := peer.ID("somepeer")
 	expectedSize := uint64(1234)
+	expectedSize2 := uint64(2234)
 
 	expectedPieceCID := tut.GenerateCids(1)[0]
+	expectedPieceCID2 := tut.GenerateCids(1)[0]
+
 	expectedCIDInfo := piecestore.CIDInfo{
 		PieceBlockLocations: []piecestore.PieceBlockLocation{
 			{
 				PieceCID: expectedPieceCID,
+			},
+			{
+				PieceCID: expectedPieceCID2,
 			},
 		},
 	}
@@ -59,10 +65,20 @@ func TestHandleQueryStream(t *testing.T) {
 			},
 		},
 	}
+
+	expectedPiece2 := piecestore.PieceInfo{
+		Deals: []piecestore.DealInfo{
+			{
+				Length: abi.PaddedPieceSize(expectedSize2),
+			},
+		},
+	}
+
 	expectedAddress := address.TestAddress2
 	expectedPricePerByte := abi.NewTokenAmount(4321)
 	expectedPaymentInterval := uint64(4567)
 	expectedPaymentIntervalIncrease := uint64(100)
+	expectedUnsealPrice := abi.NewTokenAmount(100)
 
 	readWriteQueryStream := func() network.RetrievalQueryStream {
 		qRead, qWrite := tut.QueryReadWriter()
@@ -77,21 +93,24 @@ func TestHandleQueryStream(t *testing.T) {
 		return qs
 	}
 
-	receiveStreamOnProvider := func(t *testing.T, qs network.RetrievalQueryStream, pieceStore piecestore.PieceStore) {
-		node := testnodes.NewTestRetrievalProviderNode()
+	receiveStreamOnProvider := func(t *testing.T, node *testnodes.TestRetrievalProviderNode, qs network.RetrievalQueryStream, pieceStore piecestore.PieceStore) {
 		ds := dss.MutexWrap(datastore.NewMapDatastore())
 		multiStore, err := multistore.NewMultiDstore(ds)
 		require.NoError(t, err)
 		dt := tut.NewTestDataTransfer()
 		net := tut.NewTestRetrievalMarketNetwork(tut.TestNetworkParams{})
-		c, err := retrievalimpl.NewProvider(expectedAddress, node, net, pieceStore, multiStore, dt, ds)
-		require.NoError(t, err)
-		ask := c.GetAsk()
 
-		ask.PricePerByte = expectedPricePerByte
-		ask.PaymentInterval = expectedPaymentInterval
-		ask.PaymentIntervalIncrease = expectedPaymentIntervalIncrease
-		c.SetAsk(ask)
+		priceFunc := func(ctx context.Context, dealPricingParams retrievalmarket.DealPricingParams) (retrievalmarket.Ask, error) {
+			ask := retrievalmarket.Ask{}
+			ask.PricePerByte = expectedPricePerByte
+			ask.PaymentInterval = expectedPaymentInterval
+			ask.PaymentIntervalIncrease = expectedPaymentIntervalIncrease
+			ask.UnsealPrice = expectedUnsealPrice
+			return ask, nil
+		}
+
+		c, err := retrievalimpl.NewProvider(expectedAddress, node, net, pieceStore, multiStore, dt, ds, priceFunc)
+		require.NoError(t, err)
 
 		tut.StartAndWaitForReady(ctx, t, c)
 
@@ -99,16 +118,23 @@ func TestHandleQueryStream(t *testing.T) {
 	}
 
 	testCases := []struct {
-		name    string
-		query   retrievalmarket.Query
-		expResp retrievalmarket.QueryResponse
-		expErr  string
-		expFunc func(t *testing.T, pieceStore *tut.TestPieceStore)
+		name     string
+		query    retrievalmarket.Query
+		expResp  retrievalmarket.QueryResponse
+		expErr   string
+		expFunc  func(t *testing.T, pieceStore *tut.TestPieceStore)
+		nodeFunc func(n *testnodes.TestRetrievalProviderNode)
+
+		expectedPricePerByte            abi.TokenAmount
+		expectedPaymentInterval         uint64
+		expectedPaymentIntervalIncrease uint64
+		expectedUnsealPrice             abi.TokenAmount
 	}{
 		{name: "When PieceCID is not provided and PayloadCID is found",
 			expFunc: func(t *testing.T, pieceStore *tut.TestPieceStore) {
 				pieceStore.ExpectCID(payloadCID, expectedCIDInfo)
 				pieceStore.ExpectPiece(expectedPieceCID, expectedPiece)
+				pieceStore.ExpectPiece(expectedPieceCID2, expectedPiece2)
 			},
 			query: retrievalmarket.Query{PayloadCID: payloadCID},
 			expResp: retrievalmarket.QueryResponse{
@@ -116,7 +142,34 @@ func TestHandleQueryStream(t *testing.T) {
 				PieceCIDFound: retrievalmarket.QueryItemAvailable,
 				Size:          expectedSize,
 			},
+			expectedPricePerByte:            expectedPricePerByte,
+			expectedPaymentInterval:         expectedPaymentInterval,
+			expectedPaymentIntervalIncrease: expectedPaymentIntervalIncrease,
+			expectedUnsealPrice:             expectedUnsealPrice,
 		},
+
+		{name: "When PieceCID is not provided, prefer a piece for which an unsealed sector already exists",
+			nodeFunc: func(n *testnodes.TestRetrievalProviderNode) {
+				p := expectedPiece2.Deals[0]
+				n.MarkUnsealed(context.TODO(), p.SectorID, p.Offset.Unpadded(), p.Length.Unpadded())
+			},
+			expFunc: func(t *testing.T, pieceStore *tut.TestPieceStore) {
+				pieceStore.ExpectCID(payloadCID, expectedCIDInfo)
+				pieceStore.ExpectPiece(expectedPieceCID, expectedPiece)
+				pieceStore.ExpectPiece(expectedPieceCID2, expectedPiece2)
+			},
+			query: retrievalmarket.Query{PayloadCID: payloadCID},
+			expResp: retrievalmarket.QueryResponse{
+				Status:        retrievalmarket.QueryResponseAvailable,
+				PieceCIDFound: retrievalmarket.QueryItemAvailable,
+				Size:          expectedSize2,
+			},
+			expectedPricePerByte:            expectedPricePerByte,
+			expectedPaymentInterval:         expectedPaymentInterval,
+			expectedPaymentIntervalIncrease: expectedPaymentIntervalIncrease,
+			expectedUnsealPrice:             expectedUnsealPrice,
+		},
+
 		{name: "When PieceCID is provided and both PieceCID and PayloadCID are found",
 			expFunc: func(t *testing.T, pieceStore *tut.TestPieceStore) {
 				loadPieceCIDS(t, pieceStore, payloadCID, expectedPieceCID)
@@ -130,12 +183,18 @@ func TestHandleQueryStream(t *testing.T) {
 				PieceCIDFound: retrievalmarket.QueryItemAvailable,
 				Size:          expectedSize,
 			},
+			expectedPricePerByte:            expectedPricePerByte,
+			expectedPaymentInterval:         expectedPaymentInterval,
+			expectedPaymentIntervalIncrease: expectedPaymentIntervalIncrease,
+			expectedUnsealPrice:             expectedUnsealPrice,
 		},
 		{name: "When QueryParams has PieceCID and is missing",
 			expFunc: func(t *testing.T, ps *tut.TestPieceStore) {
 				loadPieceCIDS(t, ps, payloadCID, cid.Undef)
 				ps.ExpectCID(payloadCID, expectedCIDInfo)
 				ps.ExpectMissingPiece(expectedPieceCID)
+				ps.ExpectMissingPiece(expectedPieceCID2)
+
 			},
 			query: retrievalmarket.Query{
 				PayloadCID:  payloadCID,
@@ -145,6 +204,10 @@ func TestHandleQueryStream(t *testing.T) {
 				Status:        retrievalmarket.QueryResponseUnavailable,
 				PieceCIDFound: retrievalmarket.QueryItemUnavailable,
 			},
+			expectedPricePerByte:            big.Zero(),
+			expectedPaymentInterval:         0,
+			expectedPaymentIntervalIncrease: 0,
+			expectedUnsealPrice:             big.Zero(),
 		},
 		{name: "When CID info not found",
 			expFunc: func(t *testing.T, ps *tut.TestPieceStore) {
@@ -158,20 +221,26 @@ func TestHandleQueryStream(t *testing.T) {
 				Status:        retrievalmarket.QueryResponseUnavailable,
 				PieceCIDFound: retrievalmarket.QueryItemUnavailable,
 			},
+			expectedPricePerByte:            big.Zero(),
+			expectedPaymentInterval:         0,
+			expectedPaymentIntervalIncrease: 0,
+			expectedUnsealPrice:             big.Zero(),
 		},
 	}
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
+			node := testnodes.NewTestRetrievalProviderNode()
 			qs := readWriteQueryStream()
 			err := qs.WriteQuery(tc.query)
 			require.NoError(t, err)
 			pieceStore := tut.NewTestPieceStore()
-			pieceStore.ExpectCID(payloadCID, expectedCIDInfo)
-			pieceStore.ExpectMissingPiece(expectedPieceCID)
+			if tc.nodeFunc != nil {
+				tc.nodeFunc(node)
+			}
 
 			tc.expFunc(t, pieceStore)
 
-			receiveStreamOnProvider(t, qs, pieceStore)
+			receiveStreamOnProvider(t, node, qs, pieceStore)
 
 			actualResp, err := qs.ReadQueryResponse()
 			pieceStore.VerifyExpectations(t)
@@ -182,15 +251,17 @@ func TestHandleQueryStream(t *testing.T) {
 			}
 
 			tc.expResp.PaymentAddress = expectedAddress
-			tc.expResp.MinPricePerByte = expectedPricePerByte
-			tc.expResp.MaxPaymentInterval = expectedPaymentInterval
-			tc.expResp.MaxPaymentIntervalIncrease = expectedPaymentIntervalIncrease
-			tc.expResp.UnsealPrice = big.Zero()
+			tc.expResp.MinPricePerByte = tc.expectedPricePerByte
+			tc.expResp.MaxPaymentInterval = tc.expectedPaymentInterval
+			tc.expResp.MaxPaymentIntervalIncrease = tc.expectedPaymentIntervalIncrease
+			tc.expResp.UnsealPrice = tc.expectedUnsealPrice
 			assert.Equal(t, tc.expResp, actualResp)
 		})
 	}
 
 	t.Run("error reading piece", func(t *testing.T) {
+		node := testnodes.NewTestRetrievalProviderNode()
+
 		qs := readWriteQueryStream()
 		err := qs.WriteQuery(retrievalmarket.Query{
 			PayloadCID: payloadCID,
@@ -198,7 +269,7 @@ func TestHandleQueryStream(t *testing.T) {
 		require.NoError(t, err)
 		pieceStore := tut.NewTestPieceStore()
 
-		receiveStreamOnProvider(t, qs, pieceStore)
+		receiveStreamOnProvider(t, node, qs, pieceStore)
 
 		response, err := qs.ReadQueryResponse()
 		require.NoError(t, err)
@@ -207,10 +278,11 @@ func TestHandleQueryStream(t *testing.T) {
 	})
 
 	t.Run("when ReadDealStatusRequest fails", func(t *testing.T) {
+		node := testnodes.NewTestRetrievalProviderNode()
 		qs := readWriteQueryStream()
 		pieceStore := tut.NewTestPieceStore()
 
-		receiveStreamOnProvider(t, qs, pieceStore)
+		receiveStreamOnProvider(t, node, qs, pieceStore)
 
 		response, err := qs.ReadQueryResponse()
 		require.NotNil(t, err)
@@ -218,6 +290,7 @@ func TestHandleQueryStream(t *testing.T) {
 	})
 
 	t.Run("when WriteDealStatusResponse fails", func(t *testing.T) {
+		node := testnodes.NewTestRetrievalProviderNode()
 		qRead, qWrite := tut.QueryReadWriter()
 		qs := tut.NewTestRetrievalQueryStream(tut.TestQueryStreamParams{
 			PeerID:     expectedPeer,
@@ -232,8 +305,9 @@ func TestHandleQueryStream(t *testing.T) {
 		pieceStore := tut.NewTestPieceStore()
 		pieceStore.ExpectCID(payloadCID, expectedCIDInfo)
 		pieceStore.ExpectPiece(expectedPieceCID, expectedPiece)
+		pieceStore.ExpectPiece(expectedPieceCID2, expectedPiece2)
 
-		receiveStreamOnProvider(t, qs, pieceStore)
+		receiveStreamOnProvider(t, node, qs, pieceStore)
 
 		pieceStore.VerifyExpectations(t)
 	})
@@ -245,6 +319,12 @@ func TestProvider_Construct(t *testing.T) {
 	multiStore, err := multistore.NewMultiDstore(ds)
 	require.NoError(t, err)
 	dt := tut.NewTestDataTransfer()
+
+	priceFunc := func(ctx context.Context, dealPricingParams retrievalmarket.DealPricingParams) (retrievalmarket.Ask, error) {
+		ask := retrievalmarket.Ask{}
+		return ask, nil
+	}
+
 	_, err = retrievalimpl.NewProvider(
 		spect.NewIDAddr(t, 2344),
 		testnodes.NewTestRetrievalProviderNode(),
@@ -253,6 +333,7 @@ func TestProvider_Construct(t *testing.T) {
 		multiStore,
 		dt,
 		ds,
+		priceFunc,
 	)
 	require.NoError(t, err)
 	require.Len(t, dt.Subscribers, 1)
@@ -290,6 +371,12 @@ func TestProviderConfigOpts(t *testing.T) {
 	ds := datastore.NewMapDatastore()
 	multiStore, err := multistore.NewMultiDstore(ds)
 	require.NoError(t, err)
+
+	priceFunc := func(ctx context.Context, dealPricingParams retrievalmarket.DealPricingParams) (retrievalmarket.Ask, error) {
+		ask := retrievalmarket.Ask{}
+		return ask, nil
+	}
+
 	p, err := retrievalimpl.NewProvider(
 		spect.NewIDAddr(t, 2344),
 		testnodes.NewTestRetrievalProviderNode(),
@@ -297,7 +384,7 @@ func TestProviderConfigOpts(t *testing.T) {
 		tut.NewTestPieceStore(),
 		multiStore,
 		tut.NewTestDataTransfer(),
-		ds, opt1, opt2,
+		ds, priceFunc, opt1, opt2,
 	)
 	require.NoError(t, err)
 	assert.NotNil(t, p)
@@ -317,7 +404,7 @@ func TestProviderConfigOpts(t *testing.T) {
 		tut.NewTestPieceStore(),
 		multiStore,
 		tut.NewTestDataTransfer(),
-		ds, ddOpt)
+		ds, priceFunc, ddOpt)
 	require.NoError(t, err)
 	require.NotNil(t, p)
 }
@@ -464,6 +551,12 @@ func TestProviderMigrations(t *testing.T) {
 	require.NoError(t, err)
 	err = providerDs.Put(datastore.NewKey("retrieval-ask"), askBuf.Bytes())
 	require.NoError(t, err)
+
+	priceFunc := func(ctx context.Context, dealPricingParams retrievalmarket.DealPricingParams) (retrievalmarket.Ask, error) {
+		ask := retrievalmarket.Ask{}
+		return ask, nil
+	}
+
 	retrievalProvider, err := retrievalimpl.NewProvider(
 		spect.NewIDAddr(t, 2344),
 		testnodes.NewTestRetrievalProviderNode(),
@@ -472,6 +565,7 @@ func TestProviderMigrations(t *testing.T) {
 		multiStore,
 		dt,
 		providerDs,
+		priceFunc,
 	)
 	require.NoError(t, err)
 	tut.StartAndWaitForReady(ctx, t, retrievalProvider)
@@ -518,12 +612,4 @@ func TestProviderMigrations(t *testing.T) {
 		}
 		require.Equal(t, expectedDeal, deal)
 	}
-	ask := retrievalProvider.GetAsk()
-	expectedAsk := &retrievalmarket.Ask{
-		PricePerByte:            oldAsk.PricePerByte,
-		UnsealPrice:             oldAsk.UnsealPrice,
-		PaymentInterval:         oldAsk.PaymentInterval,
-		PaymentIntervalIncrease: oldAsk.PaymentIntervalIncrease,
-	}
-	require.Equal(t, expectedAsk, ask)
 }

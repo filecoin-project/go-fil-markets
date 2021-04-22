@@ -30,17 +30,22 @@ type providerValidationEnvironment struct {
 	p *Provider
 }
 
-func (pve *providerValidationEnvironment) GetPiece(c cid.Cid, pieceCID *cid.Cid) (piecestore.PieceInfo, error) {
+func (pve *providerValidationEnvironment) GetAsk(ctx context.Context, piece piecestore.PieceInfo, isUnsealed bool) (retrievalmarket.Ask, error) {
+	return pve.p.GetAsk(ctx, piece, isUnsealed)
+}
+
+func (pve *providerValidationEnvironment) GetPiece(c cid.Cid, pieceCID *cid.Cid) (piecestore.PieceInfo, bool, error) {
 	inPieceCid := cid.Undef
 	if pieceCID != nil {
 		inPieceCid = *pieceCID
 	}
-	return getPieceInfoFromCid(pve.p.pieceStore, c, inPieceCid)
+
+	pi, isUnsealed, err := getPieceInfoFromCid(context.TODO(), pve.p.node, pve.p.pieceStore, c, inPieceCid)
+	return pi, isUnsealed, err
 }
 
 // CheckDealParams verifies the given deal params are acceptable
-func (pve *providerValidationEnvironment) CheckDealParams(pricePerByte abi.TokenAmount, paymentInterval uint64, paymentIntervalIncrease uint64, unsealPrice abi.TokenAmount) error {
-	ask := pve.p.GetAsk()
+func (pve *providerValidationEnvironment) CheckDealParams(ask retrievalmarket.Ask, pricePerByte abi.TokenAmount, paymentInterval uint64, paymentIntervalIncrease uint64, unsealPrice abi.TokenAmount) error {
 	if pricePerByte.LessThan(ask.PricePerByte) {
 		return errors.New("Price per byte too low")
 	}
@@ -188,25 +193,60 @@ func (pde *providerDealEnvironment) CloseDataTransfer(ctx context.Context, chid 
 func (pde *providerDealEnvironment) DeleteStore(storeID multistore.StoreID) error {
 	return pde.p.multiStore.Delete(storeID)
 }
-func getPieceInfoFromCid(pieceStore piecestore.PieceStore, payloadCID, pieceCID cid.Cid) (piecestore.PieceInfo, error) {
+
+func pieceInUnsealedSector(ctx context.Context, n retrievalmarket.RetrievalProviderNode, pieceInfo piecestore.PieceInfo) bool {
+	for _, di := range pieceInfo.Deals {
+		isUnsealed, err := n.IsUnsealed(ctx, di.SectorID, di.Offset.Unpadded(), di.Length.Unpadded())
+		if err != nil {
+			continue
+		}
+		if isUnsealed {
+			return true
+		}
+	}
+
+	return false
+}
+
+func getPieceInfoFromCid(ctx context.Context, n retrievalmarket.RetrievalProviderNode, pieceStore piecestore.PieceStore, payloadCID, pieceCID cid.Cid) (piecestore.PieceInfo, bool, error) {
 	cidInfo, err := pieceStore.GetCIDInfo(payloadCID)
 	if err != nil {
-		return piecestore.PieceInfoUndefined, xerrors.Errorf("get cid info: %w", err)
+		return piecestore.PieceInfoUndefined, false, xerrors.Errorf("get cid info: %w", err)
 	}
 	var lastErr error
+	var sealedPieceInfo *piecestore.PieceInfo
+
 	for _, pieceBlockLocation := range cidInfo.PieceBlockLocations {
 		pieceInfo, err := pieceStore.GetPieceInfo(pieceBlockLocation.PieceCID)
 		if err == nil {
-			if pieceCID.Equals(cid.Undef) || pieceInfo.PieceCID.Equals(pieceCID) {
-				return pieceInfo, nil
+			// if client wants to retrieve the payload from a specific piece, just return that piece.
+			if !pieceCID.Equals(cid.Undef) && pieceInfo.PieceCID.Equals(pieceCID) {
+				return pieceInfo, pieceInUnsealedSector(ctx, n, pieceInfo), nil
+			}
+
+			// if client dosen't have a preference for a particular piece, prefer a piece
+			// for which an unsealed sector exists.
+			if pieceCID.Equals(cid.Undef) {
+				if pieceInUnsealedSector(ctx, n, pieceInfo) {
+					return pieceInfo, true, nil
+				}
+
+				if sealedPieceInfo == nil {
+					sealedPieceInfo = &pieceInfo
+				}
 			}
 		}
 		lastErr = err
 	}
+
+	if sealedPieceInfo != nil {
+		return *sealedPieceInfo, false, nil
+	}
+
 	if lastErr == nil {
 		lastErr = xerrors.Errorf("unknown pieceCID %s", pieceCID.String())
 	}
-	return piecestore.PieceInfoUndefined, xerrors.Errorf("could not locate piece: %w", lastErr)
+	return piecestore.PieceInfoUndefined, false, xerrors.Errorf("could not locate piece: %w", lastErr)
 }
 
 var _ dtutils.StoreGetter = &providerStoreGetter{}

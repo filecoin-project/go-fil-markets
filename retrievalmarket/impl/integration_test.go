@@ -58,6 +58,10 @@ func TestClientCanMakeQueryToProvider(t *testing.T) {
 		expectedQR.Status = retrievalmarket.QueryResponseUnavailable
 		expectedQR.Size = 0
 		actualQR, err := client.Query(bgCtx, retrievalPeer, missingPiece, retrievalmarket.QueryParams{})
+		actualQR.MaxPaymentInterval = expectedQR.MaxPaymentInterval
+		actualQR.MinPricePerByte = expectedQR.MinPricePerByte
+		actualQR.MaxPaymentIntervalIncrease = expectedQR.MaxPaymentIntervalIncrease
+		actualQR.UnsealPrice = expectedQR.UnsealPrice
 		assert.NoError(t, err)
 		assert.Equal(t, expectedQR, actualQR)
 	})
@@ -68,6 +72,10 @@ func TestClientCanMakeQueryToProvider(t *testing.T) {
 		expectedQR.Message = "get cid info: GetCIDInfo failed"
 		actualQR, err := client.Query(bgCtx, retrievalPeer, unknownPiece, retrievalmarket.QueryParams{})
 		assert.NoError(t, err)
+		actualQR.MaxPaymentInterval = expectedQR.MaxPaymentInterval
+		actualQR.MinPricePerByte = expectedQR.MinPricePerByte
+		actualQR.MaxPaymentIntervalIncrease = expectedQR.MaxPaymentIntervalIncrease
+		actualQR.UnsealPrice = expectedQR.UnsealPrice
 		assert.Equal(t, expectedQR, actualQR)
 	})
 
@@ -148,15 +156,20 @@ func requireSetupTestClientAndProvider(ctx context.Context, t *testing.T, payChA
 	testutil.StartAndWaitForReady(ctx, t, dt2)
 	require.NoError(t, err)
 	providerDs := namespace.Wrap(testData.Ds2, datastore.NewKey("/retrievals/provider"))
-	provider, err := retrievalimpl.NewProvider(paymentAddress, providerNode, nw2, pieceStore, testData.MultiStore2, dt2, providerDs)
+
+	priceFunc := func(ctx context.Context, dealPricingParams retrievalmarket.DealPricingParams) (retrievalmarket.Ask, error) {
+		ask := retrievalmarket.Ask{}
+		ask.PaymentInterval = expectedQR.MaxPaymentInterval
+		ask.PaymentIntervalIncrease = expectedQR.MaxPaymentIntervalIncrease
+		ask.PricePerByte = expectedQR.MinPricePerByte
+		ask.UnsealPrice = expectedQR.UnsealPrice
+		return ask, nil
+	}
+
+	provider, err := retrievalimpl.NewProvider(paymentAddress, providerNode, nw2, pieceStore, testData.MultiStore2, dt2, providerDs,
+		priceFunc)
 	require.NoError(t, err)
 
-	ask := provider.GetAsk()
-	ask.PaymentInterval = expectedQR.MaxPaymentInterval
-	ask.PaymentIntervalIncrease = expectedQR.MaxPaymentIntervalIncrease
-	ask.PricePerByte = expectedQR.MinPricePerByte
-	ask.UnsealPrice = expectedQR.UnsealPrice
-	provider.SetAsk(ask)
 	tut.StartAndWaitForReady(ctx, t, provider)
 	retrievalPeer := retrievalmarket.RetrievalPeer{
 		Address: paymentAddress,
@@ -655,18 +668,21 @@ func setupProvider(
 	if disableNewDeals {
 		opts = append(opts, retrievalimpl.DisableNewDeals())
 	}
+
+	priceFunc := func(ctx context.Context, dealPricingParams retrievalmarket.DealPricingParams) (retrievalmarket.Ask, error) {
+		ask := retrievalmarket.Ask{}
+		ask.PaymentInterval = expectedQR.MaxPaymentInterval
+		ask.PaymentIntervalIncrease = expectedQR.MaxPaymentIntervalIncrease
+		ask.PricePerByte = expectedQR.MinPricePerByte
+		ask.UnsealPrice = expectedQR.UnsealPrice
+		return ask, nil
+	}
+
 	provider, err := retrievalimpl.NewProvider(providerPaymentAddr, providerNode, nw2,
-		pieceStore, testData.MultiStore2, dt2, providerDs,
+		pieceStore, testData.MultiStore2, dt2, providerDs, priceFunc,
 		opts...)
 	require.NoError(t, err)
 
-	ask := provider.GetAsk()
-
-	ask.PaymentInterval = expectedQR.MaxPaymentInterval
-	ask.PaymentIntervalIncrease = expectedQR.MaxPaymentIntervalIncrease
-	ask.PricePerByte = expectedQR.MinPricePerByte
-	ask.UnsealPrice = expectedQR.UnsealPrice
-	provider.SetAsk(ask)
 	return provider
 }
 

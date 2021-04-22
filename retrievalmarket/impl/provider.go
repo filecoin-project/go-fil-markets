@@ -7,7 +7,6 @@ import (
 	"github.com/hannahhoward/go-pubsub"
 	"github.com/ipfs/go-cid"
 	"github.com/ipfs/go-datastore"
-	"github.com/ipfs/go-datastore/namespace"
 	"golang.org/x/xerrors"
 
 	"github.com/filecoin-project/go-address"
@@ -15,11 +14,11 @@ import (
 	versioning "github.com/filecoin-project/go-ds-versioning/pkg"
 	versionedfsm "github.com/filecoin-project/go-ds-versioning/pkg/fsm"
 	"github.com/filecoin-project/go-multistore"
+	"github.com/filecoin-project/go-state-types/big"
 	"github.com/filecoin-project/go-statemachine/fsm"
 
 	"github.com/filecoin-project/go-fil-markets/piecestore"
 	"github.com/filecoin-project/go-fil-markets/retrievalmarket"
-	"github.com/filecoin-project/go-fil-markets/retrievalmarket/impl/askstore"
 	"github.com/filecoin-project/go-fil-markets/retrievalmarket/impl/dtutils"
 	"github.com/filecoin-project/go-fil-markets/retrievalmarket/impl/providerstates"
 	"github.com/filecoin-project/go-fil-markets/retrievalmarket/impl/requestvalidation"
@@ -33,6 +32,8 @@ type RetrievalProviderOption func(p *Provider)
 
 // DealDecider is a function that makes a decision about whether to accept a deal
 type DealDecider func(ctx context.Context, state retrievalmarket.ProviderDealState) (bool, string, error)
+
+type DealPricingFunc func(ctx context.Context, dealPricingParams retrievalmarket.DealPricingParams) (retrievalmarket.Ask, error)
 
 // Provider is the production implementation of the RetrievalProvider interface
 type Provider struct {
@@ -49,8 +50,8 @@ type Provider struct {
 	stateMachines        fsm.Group
 	migrateStateMachines func(context.Context) error
 	dealDecider          DealDecider
-	askStore             retrievalmarket.AskStore
 	disableNewDeals      bool
+	dealPricingFunc      DealPricingFunc
 }
 
 type internalProviderEvent struct {
@@ -95,29 +96,30 @@ func NewProvider(minerAddress address.Address,
 	multiStore *multistore.MultiStore,
 	dataTransfer datatransfer.Manager,
 	ds datastore.Batching,
+	dealPricingFunc DealPricingFunc,
 	opts ...RetrievalProviderOption,
 ) (retrievalmarket.RetrievalProvider, error) {
 
+	if dealPricingFunc == nil {
+		return nil, xerrors.New("dealPricingFunc is nil")
+	}
+
 	p := &Provider{
-		multiStore:   multiStore,
-		dataTransfer: dataTransfer,
-		node:         node,
-		network:      network,
-		minerAddress: minerAddress,
-		pieceStore:   pieceStore,
-		subscribers:  pubsub.New(providerDispatcher),
-		readySub:     pubsub.New(shared.ReadyDispatcher),
+		multiStore:      multiStore,
+		dataTransfer:    dataTransfer,
+		node:            node,
+		network:         network,
+		minerAddress:    minerAddress,
+		pieceStore:      pieceStore,
+		subscribers:     pubsub.New(providerDispatcher),
+		readySub:        pubsub.New(shared.ReadyDispatcher),
+		dealPricingFunc: dealPricingFunc,
 	}
 
 	err := shared.MoveKey(ds, "retrieval-ask", "retrieval-ask/latest")
 	if err != nil {
 		return nil, err
 	}
-	askStore, err := askstore.NewAskStore(namespace.Wrap(ds, datastore.NewKey("retrieval-ask")), datastore.NewKey("latest"))
-	if err != nil {
-		return nil, err
-	}
-	p.askStore = askStore
 
 	retrievalMigrations, err := migrations.ProviderMigrations.Build()
 	if err != nil {
@@ -227,20 +229,6 @@ func (p *Provider) SubscribeToEvents(subscriber retrievalmarket.ProviderSubscrib
 	return retrievalmarket.Unsubscribe(p.subscribers.Subscribe(subscriber))
 }
 
-// GetAsk returns the current deal parameters this provider accepts
-func (p *Provider) GetAsk() *retrievalmarket.Ask {
-	return p.askStore.GetAsk()
-}
-
-// SetAsk sets the deal parameters this provider accepts
-func (p *Provider) SetAsk(ask *retrievalmarket.Ask) {
-	err := p.askStore.SetAsk(ask)
-
-	if err != nil {
-		log.Warnf("Error setting retrieval ask: %w", err)
-	}
-}
-
 // ListDeals lists all known retrieval deals
 func (p *Provider) ListDeals() map[retrievalmarket.ProviderDealIdentifier]retrievalmarket.ProviderDealState {
 	var deals []retrievalmarket.ProviderDealState
@@ -274,15 +262,11 @@ func (p *Provider) HandleQueryStream(stream rmnet.RetrievalQueryStream) {
 		return
 	}
 
-	ask := p.GetAsk()
-
 	answer := retrievalmarket.QueryResponse{
-		Status:                     retrievalmarket.QueryResponseUnavailable,
-		PieceCIDFound:              retrievalmarket.QueryItemUnavailable,
-		MinPricePerByte:            ask.PricePerByte,
-		MaxPaymentInterval:         ask.PaymentInterval,
-		MaxPaymentIntervalIncrease: ask.PaymentIntervalIncrease,
-		UnsealPrice:                ask.UnsealPrice,
+		Status:          retrievalmarket.QueryResponseUnavailable,
+		PieceCIDFound:   retrievalmarket.QueryItemUnavailable,
+		MinPricePerByte: big.Zero(),
+		UnsealPrice:     big.Zero(),
 	}
 
 	ctx := context.TODO()
@@ -305,13 +289,22 @@ func (p *Provider) HandleQueryStream(stream rmnet.RetrievalQueryStream) {
 		if query.PieceCID != nil {
 			pieceCID = *query.PieceCID
 		}
-		pieceInfo, err := getPieceInfoFromCid(p.pieceStore, query.PayloadCID, pieceCID)
-
+		pieceInfo, isUnsealed, err := getPieceInfoFromCid(ctx, p.node, p.pieceStore, query.PayloadCID, pieceCID)
 		if err == nil && len(pieceInfo.Deals) > 0 {
 			answer.Status = retrievalmarket.QueryResponseAvailable
-			// TODO: get price, look for already unsealed ref to reduce work
 			answer.Size = uint64(pieceInfo.Deals[0].Length) // TODO: verify on intermediate
 			answer.PieceCIDFound = retrievalmarket.QueryItemAvailable
+
+			ask, err := p.GetAsk(ctx, pieceInfo, isUnsealed)
+			if err != nil {
+				log.Errorf("Retrieval query: GetAsk: %s", err)
+				return
+			}
+
+			answer.MinPricePerByte = ask.PricePerByte
+			answer.MaxPaymentInterval = ask.PaymentInterval
+			answer.MaxPaymentIntervalIncrease = ask.PaymentIntervalIncrease
+			answer.UnsealPrice = ask.UnsealPrice
 		}
 
 		if err != nil && !xerrors.Is(err, retrievalmarket.ErrNotFound) {
@@ -325,6 +318,26 @@ func (p *Provider) HandleQueryStream(stream rmnet.RetrievalQueryStream) {
 		log.Errorf("Retrieval query: WriteCborRPC: %s", err)
 		return
 	}
+}
+
+func (p *Provider) GetAsk(ctx context.Context, piece piecestore.PieceInfo, isUnsealed bool) (retrievalmarket.Ask, error) {
+	// TODO What should we do here if we have multiple deals ?
+	// How to fetch Verified Deal & Fast Retrieval here ?
+	// What's a correct "DealPricingParam"
+	tok, _, err := p.node.GetChainHead(ctx)
+	if err != nil {
+		return retrievalmarket.Ask{}, xerrors.Errorf("failed to GetChainHead: %s", err)
+	}
+	dp, err := p.node.GetDealPricingParams(ctx, piece.Deals[0].DealID, tok)
+	if err != nil {
+		return retrievalmarket.Ask{}, xerrors.Errorf("GetDealPricingParams: %s", err)
+	}
+	dp.Unsealed = isUnsealed
+	ask, err := p.dealPricingFunc(ctx, dp)
+	if err != nil {
+		return retrievalmarket.Ask{}, xerrors.Errorf("dealPricingFunc: %s", err)
+	}
+	return ask, nil
 }
 
 // Configure reconfigures a provider after initialization

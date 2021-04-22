@@ -31,9 +31,11 @@ func init() {
 
 // ValidationEnvironment contains the dependencies needed to validate deals
 type ValidationEnvironment interface {
-	GetPiece(c cid.Cid, pieceCID *cid.Cid) (piecestore.PieceInfo, error)
+	GetAsk(ctx context.Context, piece piecestore.PieceInfo, isUnsealed bool) (retrievalmarket.Ask, error)
+
+	GetPiece(c cid.Cid, pieceCID *cid.Cid) (piecestore.PieceInfo, bool, error)
 	// CheckDealParams verifies the given deal params are acceptable
-	CheckDealParams(pricePerByte abi.TokenAmount, paymentInterval uint64, paymentIntervalIncrease uint64, unsealPrice abi.TokenAmount) error
+	CheckDealParams(ask retrievalmarket.Ask, pricePerByte abi.TokenAmount, paymentInterval uint64, paymentIntervalIncrease uint64, unsealPrice abi.TokenAmount) error
 	// RunDealDecisioningLogic runs custom deal decision logic to decide if a deal is accepted, if present
 	RunDealDecisioningLogic(ctx context.Context, state retrievalmarket.ProviderDealState) (bool, string, error)
 	// StateMachines returns the FSM Group to begin tracking with
@@ -137,9 +139,22 @@ func (rv *ProviderRequestValidator) validatePull(receiver peer.ID, proposal *ret
 }
 
 func (rv *ProviderRequestValidator) acceptDeal(deal *retrievalmarket.ProviderDealState) (retrievalmarket.DealStatus, error) {
+	pieceInfo, isUnsealed, err := rv.env.GetPiece(deal.PayloadCID, deal.PieceCID)
+	if err != nil {
+		if err == retrievalmarket.ErrNotFound {
+			return retrievalmarket.DealStatusDealNotFound, err
+		}
+		return retrievalmarket.DealStatusErrored, err
+	}
+
+	ask, err := rv.env.GetAsk(context.TODO(), pieceInfo, isUnsealed)
+	if err != nil {
+		return retrievalmarket.DealStatusErrored, err
+	}
+
 	// check that the deal parameters match our required parameters or
 	// reject outright
-	err := rv.env.CheckDealParams(deal.PricePerByte, deal.PaymentInterval, deal.PaymentIntervalIncrease, deal.UnsealPrice)
+	err = rv.env.CheckDealParams(ask, deal.PricePerByte, deal.PaymentInterval, deal.PaymentIntervalIncrease, deal.UnsealPrice)
 	if err != nil {
 		return retrievalmarket.DealStatusRejected, err
 	}
@@ -153,13 +168,6 @@ func (rv *ProviderRequestValidator) acceptDeal(deal *retrievalmarket.ProviderDea
 	}
 
 	// verify we have the piece
-	pieceInfo, err := rv.env.GetPiece(deal.PayloadCID, deal.PieceCID)
-	if err != nil {
-		if err == retrievalmarket.ErrNotFound {
-			return retrievalmarket.DealStatusDealNotFound, err
-		}
-		return retrievalmarket.DealStatusErrored, err
-	}
 
 	deal.PieceInfo = &pieceInfo
 
