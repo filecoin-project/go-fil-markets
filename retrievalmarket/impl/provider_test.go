@@ -80,6 +80,8 @@ func TestHandleQueryStream(t *testing.T) {
 	expectedPaymentIntervalIncrease := uint64(100)
 	expectedUnsealPrice := abi.NewTokenAmount(100)
 
+	expectedUnsealDiscount := abi.NewTokenAmount(1)
+
 	readWriteQueryStream := func() network.RetrievalQueryStream {
 		qRead, qWrite := tut.QueryReadWriter()
 		qrRead, qrWrite := tut.QueryResponseReadWriter()
@@ -105,7 +107,12 @@ func TestHandleQueryStream(t *testing.T) {
 			ask.PricePerByte = expectedPricePerByte
 			ask.PaymentInterval = expectedPaymentInterval
 			ask.PaymentIntervalIncrease = expectedPaymentIntervalIncrease
-			ask.UnsealPrice = expectedUnsealPrice
+
+			if dealPricingParams.Unsealed {
+				ask.UnsealPrice = expectedUnsealDiscount
+			} else {
+				ask.UnsealPrice = expectedUnsealPrice
+			}
 			return ask, nil
 		}
 
@@ -148,7 +155,7 @@ func TestHandleQueryStream(t *testing.T) {
 			expectedUnsealPrice:             expectedUnsealPrice,
 		},
 
-		{name: "When PieceCID is not provided, prefer a piece for which an unsealed sector already exists",
+		{name: "When PieceCID is not provided, prefer a piece for which an unsealed sector already exists and price it accordingly",
 			nodeFunc: func(n *testnodes.TestRetrievalProviderNode) {
 				p := expectedPiece2.Deals[0]
 				n.MarkUnsealed(context.TODO(), p.SectorID, p.Offset.Unpadded(), p.Length.Unpadded())
@@ -167,7 +174,7 @@ func TestHandleQueryStream(t *testing.T) {
 			expectedPricePerByte:            expectedPricePerByte,
 			expectedPaymentInterval:         expectedPaymentInterval,
 			expectedPaymentIntervalIncrease: expectedPaymentIntervalIncrease,
-			expectedUnsealPrice:             expectedUnsealPrice,
+			expectedUnsealPrice:             expectedUnsealDiscount,
 		},
 
 		{name: "When PieceCID is provided and both PieceCID and PayloadCID are found",
