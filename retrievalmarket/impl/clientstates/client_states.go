@@ -140,7 +140,7 @@ func SendFunds(ctx fsm.Context, environment ClientDealEnvironment, deal rm.Clien
 		if totalBytesToPayFor < deal.CurrentInterval {
 			log.Debugf("client: ignoring payment request for %d: total bytes to pay for %d < interval %d",
 				deal.PaymentRequested, totalBytesToPayFor, deal.CurrentInterval)
-			return nil
+			return ctx.Trigger(rm.ClientEventPaymentNotSent)
 		}
 
 		// Otherwise round the number of bytes to pay for down to the current interval

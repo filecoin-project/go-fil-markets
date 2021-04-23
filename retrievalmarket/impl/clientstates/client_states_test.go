@@ -451,7 +451,7 @@ func TestSendFunds(t *testing.T) {
 		require.Equal(t, dealState.FundsSpent, abi.NewTokenAmount(1000))
 		require.EqualValues(t, dealState.BytesPaidFor, 800)
 		require.EqualValues(t, dealState.CurrentInterval, 2000)
-		require.Equal(t, dealState.Status, retrievalmarket.DealStatusSendFunds)
+		require.Equal(t, dealState.Status, retrievalmarket.DealStatusOngoing)
 	})
 
 	t.Run("dont send funds if total price <= funds spent", func(t *testing.T) {
@@ -505,7 +505,7 @@ func TestSendFunds(t *testing.T) {
 		require.Equal(t, dealState.FundsSpent, abi.NewTokenAmount(1000))
 		require.EqualValues(t, dealState.BytesPaidFor, 1000)
 		require.EqualValues(t, dealState.CurrentInterval, 2000)
-		require.Equal(t, dealState.Status, retrievalmarket.DealStatusSendFunds)
+		require.Equal(t, dealState.Status, retrievalmarket.DealStatusOngoing)
 	})
 
 	t.Run("send funds if all blocks received, even if interval not met", func(t *testing.T) {
