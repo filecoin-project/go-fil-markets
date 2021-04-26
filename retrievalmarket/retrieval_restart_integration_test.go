@@ -104,7 +104,7 @@ func TestBounceConnectionDealTransferOngoing(t *testing.T) {
 
 			// do a storage deal
 			storageClientSeenDeal := doStorage(t, bgCtx, sh)
-			ctxTimeout, canc := context.WithTimeout(bgCtx, 25*time.Second)
+			ctxTimeout, canc := context.WithTimeout(bgCtx, 5*time.Second)
 			defer canc()
 
 			// create a retrieval test harness
@@ -168,6 +168,106 @@ func TestBounceConnectionDealTransferOngoing(t *testing.T) {
 
 			checkRetrieve(t, bgCtx, rh, sh, tc.voucherAmts)
 			require.Equal(t, tc.maxVoucherAmt, rh.ProviderNode.MaxReceivedVoucher())
+		})
+	}
+}
+
+// TestBounceConnectionDealTransferUnsealing tests that when the the connection
+// is broken and then restarted during unsealing, the data transfer will resume
+// and the deal will complete successfully.
+func TestBounceConnectionDealTransferUnsealing(t *testing.T) {
+	bgCtx := context.Background()
+	logger.SetLogLevel("dt-chanmon", "debug")
+
+	beforeRestoringConnection := true
+	afterRestoringConnection := !beforeRestoringConnection
+	tcs := []struct {
+		name         string
+		finishUnseal bool
+	}{{
+		name:         "finish unseal before restoring connection",
+		finishUnseal: beforeRestoringConnection,
+	}, {
+		name:         "finish unseal after restoring connection",
+		finishUnseal: afterRestoringConnection,
+	}}
+
+	for _, tc := range tcs {
+		tc := tc
+		t.Run(tc.name, func(t *testing.T) {
+			dtClientNetRetry := dtnet.RetryParameters(time.Second, time.Second, 5, 1)
+			restartConf := dtimpl.ChannelRestartConfig(channelmonitor.Config{
+				AcceptTimeout:          100 * time.Millisecond,
+				RestartBackoff:         100 * time.Millisecond,
+				RestartAckTimeout:      2 * time.Second,
+				RestartDebounce:        100 * time.Millisecond,
+				MaxConsecutiveRestarts: 5,
+				CompleteTimeout:        100 * time.Millisecond,
+			})
+			td := shared_testutil.NewLibp2pTestData(bgCtx, t)
+			td.DTNet1 = dtnet.NewFromLibp2pHost(td.Host1, dtClientNetRetry)
+			depGen := dependencies.NewDepGenerator()
+			depGen.ClientNewDataTransfer = func(ds datastore.Batching, dir string, transferNetwork dtnet.DataTransferNetwork, transport datatransfer.Transport) (datatransfer.Manager, error) {
+				return dtimpl.NewDataTransfer(ds, dir, transferNetwork, transport, restartConf)
+			}
+			deps := depGen.New(t, bgCtx, td, testnodes.NewStorageMarketState(), "", noOpDelay, noOpDelay)
+
+			sh := testharness.NewHarnessWithTestData(t, td, deps, true, false)
+
+			// do a storage deal
+			storageClientSeenDeal := doStorage(t, bgCtx, sh)
+			ctxTimeout, canc := context.WithTimeout(bgCtx, 5*time.Second)
+			defer canc()
+
+			// create a retrieval test harness
+			maxVoucherAmt := abi.NewTokenAmount(19921000)
+			rh := newRetrievalHarness(ctxTimeout, t, sh, storageClientSeenDeal, retrievalmarket.Params{
+				UnsealPrice:             abi.NewTokenAmount(1000),
+				PricePerByte:            abi.NewTokenAmount(1000),
+				PaymentInterval:         uint64(10000),
+				PaymentIntervalIncrease: uint64(1000),
+			})
+			clientHost := rh.TestDataNet.Host1.ID()
+			providerHost := rh.TestDataNet.Host2.ID()
+
+			// Pause unsealing
+			rh.ProviderNode.PauseUnseal()
+
+			firstPayRcvd := false
+			rh.Provider.SubscribeToEvents(func(event retrievalmarket.ProviderEvent, state retrievalmarket.ProviderDealState) {
+				// When the provider receives the first payment from the
+				// client (the payment for unsealing), the provider moves
+				// to the unsealing state
+				if event != retrievalmarket.ProviderEventPaymentReceived || firstPayRcvd {
+					return
+				}
+
+				firstPayRcvd = true
+
+				log.Debugf("breaking connection at %s", retrievalmarket.ProviderEvents[event])
+				rh.TestDataNet.MockNet.DisconnectPeers(clientHost, providerHost)
+				rh.TestDataNet.MockNet.UnlinkPeers(clientHost, providerHost)
+
+				go func() {
+					time.Sleep(50 * time.Millisecond)
+					if tc.finishUnseal == beforeRestoringConnection {
+						log.Debugf("resume unseal")
+						rh.ProviderNode.FinishUnseal()
+						time.Sleep(20 * time.Millisecond)
+					}
+
+					log.Debugf("restoring connection")
+					rh.TestDataNet.MockNet.LinkPeers(clientHost, providerHost)
+
+					if tc.finishUnseal == afterRestoringConnection {
+						log.Debugf("resume unseal")
+						rh.ProviderNode.FinishUnseal()
+					}
+				}()
+			})
+
+			checkRetrieve(t, bgCtx, rh, sh, nil)
+			require.Equal(t, maxVoucherAmt, rh.ProviderNode.MaxReceivedVoucher())
 		})
 	}
 }

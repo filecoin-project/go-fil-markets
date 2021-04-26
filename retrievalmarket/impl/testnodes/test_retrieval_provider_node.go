@@ -54,6 +54,7 @@ type TestRetrievalProviderNode struct {
 	lk               sync.Mutex
 	expectedVouchers map[expectedVoucherKey]voucherResult
 	receivedVouchers []abi.TokenAmount
+	unsealPaused     chan struct{}
 }
 
 var _ retrievalmarket.RetrievalProviderNode = &TestRetrievalProviderNode{}
@@ -86,9 +87,31 @@ func (trpn *TestRetrievalProviderNode) ExpectUnseal(sectorID abi.SectorNumber, o
 	trpn.StubUnseal(sectorID, offset, length, data)
 }
 
+func (trpn *TestRetrievalProviderNode) PauseUnseal() {
+	trpn.lk.Lock()
+	defer trpn.lk.Unlock()
+
+	trpn.unsealPaused = make(chan struct{})
+}
+
+func (trpn *TestRetrievalProviderNode) FinishUnseal() {
+	close(trpn.unsealPaused)
+}
+
 // UnsealSector simulates unsealing a sector by returning a stubbed response
 // or erroring
 func (trpn *TestRetrievalProviderNode) UnsealSector(ctx context.Context, sectorID abi.SectorNumber, offset, length abi.UnpaddedPieceSize) (io.ReadCloser, error) {
+	trpn.lk.Lock()
+	defer trpn.lk.Unlock()
+
+	if trpn.unsealPaused != nil {
+		select {
+		case <-ctx.Done():
+			return nil, ctx.Err()
+		case <-trpn.unsealPaused:
+		}
+	}
+
 	trpn.received[sectorKey{sectorID, offset, length}] = struct{}{}
 	data, ok := trpn.sectorStubs[sectorKey{sectorID, offset, length}]
 	if !ok {
