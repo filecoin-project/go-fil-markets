@@ -56,9 +56,7 @@ func NewProviderRevalidator(env RevalidatorEnvironment) *ProviderRevalidator {
 // a given channel ID with a retrieval deal, so that checks run for data sent
 // on the channel
 func (pr *ProviderRevalidator) TrackChannel(deal rm.ProviderDealState) {
-	// Sanity check
 	if deal.ChannelID == nil {
-		log.Errorf("cannot track deal %s: channel ID is nil", deal.ID)
 		return
 	}
 

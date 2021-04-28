@@ -36,9 +36,10 @@ var noOpDelay = testnodes.DelayFakeCommonNode{}
 // complete successfully.
 func TestBounceConnectionDealTransferOngoing(t *testing.T) {
 	bgCtx := context.Background()
-	//logger.SetLogLevel("restart_test", "debug")
+	logger.SetLogLevel("restart_test", "debug")
 	//logger.SetLogLevel("dt-impl", "debug")
-	logger.SetLogLevel("dt-chanmon", "debug")
+	//logger.SetLogLevel("dt-chanmon", "debug")
+	//logger.SetLogLevel("dt_graphsync", "debug")
 	//logger.SetLogLevel("markets-rtvl", "debug")
 	//logger.SetLogLevel("markets-rtvl-reval", "debug")
 
@@ -177,7 +178,14 @@ func TestBounceConnectionDealTransferOngoing(t *testing.T) {
 // and the deal will complete successfully.
 func TestBounceConnectionDealTransferUnsealing(t *testing.T) {
 	bgCtx := context.Background()
-	logger.SetLogLevel("dt-chanmon", "debug")
+	//logger.SetLogLevel("dt-chanmon", "debug")
+	//logger.SetLogLevel("retrieval", "debug")
+	//logger.SetLogLevel("retrievalmarket_impl", "debug")
+	logger.SetLogLevel("restart_test", "debug")
+	//logger.SetLogLevel("markets-rtvl-reval", "debug")
+	//logger.SetLogLevel("graphsync", "debug")
+	//logger.SetLogLevel("gs-traversal", "debug")
+	//logger.SetLogLevel("gs-executor", "debug")
 
 	beforeRestoringConnection := true
 	afterRestoringConnection := !beforeRestoringConnection
@@ -195,6 +203,11 @@ func TestBounceConnectionDealTransferUnsealing(t *testing.T) {
 	for _, tc := range tcs {
 		tc := tc
 		t.Run(tc.name, func(t *testing.T) {
+			restartComplete := make(chan struct{})
+			onRestartComplete := func(_ datatransfer.ChannelID) {
+				close(restartComplete)
+			}
+
 			dtClientNetRetry := dtnet.RetryParameters(time.Second, time.Second, 5, 1)
 			restartConf := dtimpl.ChannelRestartConfig(channelmonitor.Config{
 				AcceptTimeout:          100 * time.Millisecond,
@@ -203,6 +216,7 @@ func TestBounceConnectionDealTransferUnsealing(t *testing.T) {
 				RestartDebounce:        100 * time.Millisecond,
 				MaxConsecutiveRestarts: 5,
 				CompleteTimeout:        100 * time.Millisecond,
+				OnRestartComplete:      onRestartComplete,
 			})
 			td := shared_testutil.NewLibp2pTestData(bgCtx, t)
 			td.DTNet1 = dtnet.NewFromLibp2pHost(td.Host1, dtClientNetRetry)
@@ -249,18 +263,34 @@ func TestBounceConnectionDealTransferUnsealing(t *testing.T) {
 				rh.TestDataNet.MockNet.UnlinkPeers(clientHost, providerHost)
 
 				go func() {
+					// Simulate unsealing delay
 					time.Sleep(50 * time.Millisecond)
+
+					// If unsealing should finish before restoring the connection
 					if tc.finishUnseal == beforeRestoringConnection {
-						log.Debugf("resume unseal")
+						// Finish unsealing
+						log.Debugf("finish unseal")
 						rh.ProviderNode.FinishUnseal()
 						time.Sleep(20 * time.Millisecond)
 					}
 
+					// Restore the connection
 					log.Debugf("restoring connection")
 					rh.TestDataNet.MockNet.LinkPeers(clientHost, providerHost)
 
+					// If unsealing should finish after restoring the connection
 					if tc.finishUnseal == afterRestoringConnection {
-						log.Debugf("resume unseal")
+						// Wait for the Restart message to be sent and
+						// acknowledged
+						select {
+						case <-ctxTimeout.Done():
+							return
+						case <-restartComplete:
+						}
+
+						// Finish unsealing
+						time.Sleep(50 * time.Millisecond)
+						log.Debugf("finish unseal")
 						rh.ProviderNode.FinishUnseal()
 					}
 				}()

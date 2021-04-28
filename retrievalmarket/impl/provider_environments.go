@@ -217,7 +217,8 @@ type providerStoreGetter struct {
 
 func (psg *providerStoreGetter) Get(otherPeer peer.ID, dealID retrievalmarket.DealID) (*multistore.Store, error) {
 	var deal retrievalmarket.ProviderDealState
-	err := psg.p.stateMachines.GetSync(context.TODO(), retrievalmarket.ProviderDealIdentifier{Receiver: otherPeer, DealID: dealID}, &deal)
+	provDealID := retrievalmarket.ProviderDealIdentifier{Receiver: otherPeer, DealID: dealID}
+	err := psg.p.stateMachines.Get(provDealID).Get(&deal)
 	if err != nil {
 		return nil, err
 	}
