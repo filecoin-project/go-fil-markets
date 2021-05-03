@@ -31,7 +31,7 @@ func init() {
 
 // ValidationEnvironment contains the dependencies needed to validate deals
 type ValidationEnvironment interface {
-	GetAsk(ctx context.Context, piece piecestore.PieceInfo, isUnsealed bool) (retrievalmarket.Ask, error)
+	GetAsk(ctx context.Context, payloadCid cid.Cid, pieceCid *cid.Cid, piece piecestore.PieceInfo, isUnsealed bool, client peer.ID) (retrievalmarket.Ask, error)
 
 	GetPiece(c cid.Cid, pieceCID *cid.Cid) (piecestore.PieceInfo, bool, error)
 	// CheckDealParams verifies the given deal params are acceptable
@@ -147,7 +147,7 @@ func (rv *ProviderRequestValidator) acceptDeal(deal *retrievalmarket.ProviderDea
 		return retrievalmarket.DealStatusErrored, err
 	}
 
-	ask, err := rv.env.GetAsk(context.TODO(), pieceInfo, isUnsealed)
+	ask, err := rv.env.GetAsk(context.TODO(), deal.PayloadCID, deal.PieceCID, pieceInfo, isUnsealed, deal.Receiver)
 	if err != nil {
 		return retrievalmarket.DealStatusErrored, err
 	}

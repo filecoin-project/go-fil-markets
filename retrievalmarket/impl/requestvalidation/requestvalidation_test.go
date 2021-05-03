@@ -225,7 +225,8 @@ type fakeValidationEnvironment struct {
 	Ask retrievalmarket.Ask
 }
 
-func (fve *fakeValidationEnvironment) GetAsk(ctx context.Context, piece piecestore.PieceInfo, isUnsealed bool) (retrievalmarket.Ask, error) {
+func (fve *fakeValidationEnvironment) GetAsk(ctx context.Context, payloadCid cid.Cid, pieceCid *cid.Cid,
+	piece piecestore.PieceInfo, isUnsealed bool, client peer.ID) (retrievalmarket.Ask, error) {
 	return fve.Ask, nil
 }
 

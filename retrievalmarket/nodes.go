@@ -55,5 +55,5 @@ type RetrievalProviderNode interface {
 
 	IsUnsealed(ctx context.Context, sectorID abi.SectorNumber, offset abi.UnpaddedPieceSize, length abi.UnpaddedPieceSize) (bool, error)
 
-	GetDealPricingParams(ctx context.Context, dealID abi.DealID, tok shared.TipSetToken) (DealPricingParams, error)
+	GetDealPricingParams(ctx context.Context, storageDeals []abi.DealID) (DealPricingParams, error)
 }

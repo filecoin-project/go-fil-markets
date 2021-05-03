@@ -47,7 +47,10 @@ type TestRetrievalProviderNode struct {
 	expectedVouchers map[expectedVoucherKey]voucherResult
 	receivedVouchers map[expectedVoucherKey]struct{}
 
-	unsealed map[sectorKey]struct{}
+	expectedPricingParamDeals []abi.DealID
+	recievedPricingParamDeals []abi.DealID
+	unsealed                  map[sectorKey]struct{}
+	isVerified                bool
 }
 
 var _ retrievalmarket.RetrievalProviderNode = &TestRetrievalProviderNode{}
@@ -74,8 +77,19 @@ func (trpn *TestRetrievalProviderNode) MarkUnsealed(ctx context.Context, sectorI
 	trpn.unsealed[sectorKey{sectorID, offset, length}] = struct{}{}
 }
 
-func (trpn *TestRetrievalProviderNode) GetDealPricingParams(ctx context.Context, dealID abi.DealID, tok shared.TipSetToken) (retrievalmarket.DealPricingParams, error) {
-	return retrievalmarket.DealPricingParams{}, nil
+func (trpn *TestRetrievalProviderNode) MarkVerified() {
+	trpn.isVerified = true
+}
+
+func (trpn *TestRetrievalProviderNode) ExpectPricingParamDeals(deals []abi.DealID) {
+	trpn.expectedPricingParamDeals = deals
+}
+
+func (trpn *TestRetrievalProviderNode) GetDealPricingParams(_ context.Context, deals []abi.DealID) (retrievalmarket.DealPricingParams, error) {
+	trpn.recievedPricingParamDeals = deals
+	return retrievalmarket.DealPricingParams{
+		VerifiedDeal: trpn.isVerified,
+	}, nil
 }
 
 // StubUnseal stubs a response to attempting to unseal a sector with the given paramters
@@ -112,6 +126,8 @@ func (trpn *TestRetrievalProviderNode) UnsealSector(ctx context.Context, sectorI
 func (trpn *TestRetrievalProviderNode) VerifyExpectations(t *testing.T) {
 	require.Equal(t, len(trpn.expectedVouchers), len(trpn.receivedVouchers))
 	require.Equal(t, trpn.expectations, trpn.received)
+
+	require.Equal(t, trpn.expectedPricingParamDeals, trpn.recievedPricingParamDeals)
 }
 
 // SavePaymentVoucher simulates saving a payment voucher with a stubbed result

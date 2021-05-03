@@ -7,6 +7,7 @@ import (
 	"github.com/hannahhoward/go-pubsub"
 	"github.com/ipfs/go-cid"
 	"github.com/ipfs/go-datastore"
+	"github.com/libp2p/go-libp2p-core/peer"
 	"golang.org/x/xerrors"
 
 	"github.com/filecoin-project/go-address"
@@ -14,6 +15,7 @@ import (
 	versioning "github.com/filecoin-project/go-ds-versioning/pkg"
 	versionedfsm "github.com/filecoin-project/go-ds-versioning/pkg/fsm"
 	"github.com/filecoin-project/go-multistore"
+	"github.com/filecoin-project/go-state-types/abi"
 	"github.com/filecoin-project/go-state-types/big"
 	"github.com/filecoin-project/go-statemachine/fsm"
 
@@ -295,7 +297,24 @@ func (p *Provider) HandleQueryStream(stream rmnet.RetrievalQueryStream) {
 			answer.Size = uint64(pieceInfo.Deals[0].Length) // TODO: verify on intermediate
 			answer.PieceCIDFound = retrievalmarket.QueryItemAvailable
 
-			ask, err := p.GetAsk(ctx, pieceInfo, isUnsealed)
+			var storageDeals []abi.DealID
+			if pieceCID != cid.Undef {
+				// If the user wants to retrieve the payload from a specific piece, we only need to inspect storage deals
+				// made for that piece to quote a price for retrieval.
+				for _, d := range pieceInfo.Deals {
+					storageDeals = append(storageDeals, d.DealID)
+				}
+			} else {
+				// If the user does NOT want to retrieve the payload from a specific piece, we'll have to inspect all deals
+				// made for that piece to quote a price for retrieval.
+				storageDeals, err = getAllDealsContainingPayload(p.pieceStore, query.PayloadCID)
+				if err != nil {
+					log.Errorf("Retrieval query: getAllDealsContainingPayload: %s", err)
+					return
+				}
+			}
+
+			ask, err := p.GetAsk(ctx, storageDeals, isUnsealed, stream.RemotePeer())
 			if err != nil {
 				log.Errorf("Retrieval query: GetAsk: %s", err)
 				return
@@ -320,19 +339,15 @@ func (p *Provider) HandleQueryStream(stream rmnet.RetrievalQueryStream) {
 	}
 }
 
-func (p *Provider) GetAsk(ctx context.Context, piece piecestore.PieceInfo, isUnsealed bool) (retrievalmarket.Ask, error) {
-	// TODO What should we do here if we have multiple deals ?
-	// How to fetch Verified Deal & Fast Retrieval here ?
-	// What's a correct "DealPricingParam"
-	tok, _, err := p.node.GetChainHead(ctx)
-	if err != nil {
-		return retrievalmarket.Ask{}, xerrors.Errorf("failed to GetChainHead: %s", err)
-	}
-	dp, err := p.node.GetDealPricingParams(ctx, piece.Deals[0].DealID, tok)
+func (p *Provider) GetAsk(ctx context.Context, storageDeals []abi.DealID, isUnsealed bool, client peer.ID) (retrievalmarket.Ask, error) {
+	// TODO How do we fetch the fast-retrieval flag here ?
+	dp, err := p.node.GetDealPricingParams(ctx, storageDeals)
 	if err != nil {
 		return retrievalmarket.Ask{}, xerrors.Errorf("GetDealPricingParams: %s", err)
 	}
 	dp.Unsealed = isUnsealed
+	dp.Client = client
+
 	ask, err := p.dealPricingFunc(ctx, dp)
 	if err != nil {
 		return retrievalmarket.Ask{}, xerrors.Errorf("dealPricingFunc: %s", err)

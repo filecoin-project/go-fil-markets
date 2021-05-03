@@ -385,8 +385,7 @@ type ChannelAvailableFunds struct {
 
 // DealPricingParams provides parameters required to price a retrieval deal
 type DealPricingParams struct {
-	Client        peer.ID
-	FastRetrieval bool
-	Unsealed      bool
-	VerifiedDeal  bool
+	Client       peer.ID
+	VerifiedDeal bool
+	Unsealed     bool
 }
