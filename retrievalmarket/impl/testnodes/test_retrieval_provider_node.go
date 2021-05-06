@@ -9,6 +9,7 @@ import (
 	"io/ioutil"
 	"testing"
 
+	"github.com/ipfs/go-cid"
 	"github.com/stretchr/testify/require"
 
 	"github.com/filecoin-project/go-address"
@@ -48,9 +49,13 @@ type TestRetrievalProviderNode struct {
 	receivedVouchers map[expectedVoucherKey]struct{}
 
 	expectedPricingParamDeals []abi.DealID
-	recievedPricingParamDeals []abi.DealID
-	unsealed                  map[sectorKey]struct{}
-	isVerified                bool
+	receivedPricingParamDeals []abi.DealID
+
+	expectedPricingPieceCID cid.Cid
+	receivedPricingPieceCID cid.Cid
+
+	unsealed   map[sectorKey]struct{}
+	isVerified bool
 }
 
 var _ retrievalmarket.RetrievalProviderNode = &TestRetrievalProviderNode{}
@@ -81,13 +86,16 @@ func (trpn *TestRetrievalProviderNode) MarkVerified() {
 	trpn.isVerified = true
 }
 
-func (trpn *TestRetrievalProviderNode) ExpectPricingParamDeals(deals []abi.DealID) {
+func (trpn *TestRetrievalProviderNode) ExpectPricingParams(pieceCID cid.Cid, deals []abi.DealID) {
+	trpn.expectedPricingPieceCID = pieceCID
 	trpn.expectedPricingParamDeals = deals
 }
 
-func (trpn *TestRetrievalProviderNode) GetDealPricingParams(_ context.Context, deals []abi.DealID) (retrievalmarket.DealPricingParams, error) {
-	trpn.recievedPricingParamDeals = deals
-	return retrievalmarket.DealPricingParams{
+func (trpn *TestRetrievalProviderNode) GetRetrievalPricingInput(_ context.Context, pieceCID cid.Cid, deals []abi.DealID) (retrievalmarket.PricingInput, error) {
+	trpn.receivedPricingParamDeals = deals
+	trpn.receivedPricingPieceCID = pieceCID
+
+	return retrievalmarket.PricingInput{
 		VerifiedDeal: trpn.isVerified,
 	}, nil
 }
@@ -126,8 +134,9 @@ func (trpn *TestRetrievalProviderNode) UnsealSector(ctx context.Context, sectorI
 func (trpn *TestRetrievalProviderNode) VerifyExpectations(t *testing.T) {
 	require.Equal(t, len(trpn.expectedVouchers), len(trpn.receivedVouchers))
 	require.Equal(t, trpn.expectations, trpn.received)
+	require.Equal(t, trpn.expectedPricingPieceCID, trpn.receivedPricingPieceCID)
 
-	require.Equal(t, trpn.expectedPricingParamDeals, trpn.recievedPricingParamDeals)
+	require.Equal(t, trpn.expectedPricingParamDeals, trpn.receivedPricingParamDeals)
 }
 
 // SavePaymentVoucher simulates saving a payment voucher with a stubbed result

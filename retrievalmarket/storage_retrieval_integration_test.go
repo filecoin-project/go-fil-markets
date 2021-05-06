@@ -500,7 +500,7 @@ func newRetrievalHarness(ctx context.Context, t *testing.T, sh *testharness.Stor
 		p = params[0]
 	}
 
-	priceFunc := func(ctx context.Context, dealPricingParams retrievalmarket.DealPricingParams) (retrievalmarket.Ask, error) {
+	priceFunc := func(ctx context.Context, dealPricingParams retrievalmarket.PricingInput) (retrievalmarket.Ask, error) {
 		ask := retrievalmarket.Ask{}
 		ask.PaymentInterval = p.PaymentInterval
 		ask.PaymentIntervalIncrease = p.PaymentIntervalIncrease

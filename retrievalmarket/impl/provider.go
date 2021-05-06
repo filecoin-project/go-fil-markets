@@ -7,26 +7,26 @@ import (
 	"github.com/hannahhoward/go-pubsub"
 	"github.com/ipfs/go-cid"
 	"github.com/ipfs/go-datastore"
-	"github.com/libp2p/go-libp2p-core/peer"
+	"github.com/ipfs/go-datastore/namespace"
 	"golang.org/x/xerrors"
 
 	"github.com/filecoin-project/go-address"
 	datatransfer "github.com/filecoin-project/go-data-transfer"
 	versioning "github.com/filecoin-project/go-ds-versioning/pkg"
 	versionedfsm "github.com/filecoin-project/go-ds-versioning/pkg/fsm"
-	"github.com/filecoin-project/go-multistore"
-	"github.com/filecoin-project/go-state-types/abi"
-	"github.com/filecoin-project/go-state-types/big"
-	"github.com/filecoin-project/go-statemachine/fsm"
-
 	"github.com/filecoin-project/go-fil-markets/piecestore"
 	"github.com/filecoin-project/go-fil-markets/retrievalmarket"
+	"github.com/filecoin-project/go-fil-markets/retrievalmarket/impl/askstore"
 	"github.com/filecoin-project/go-fil-markets/retrievalmarket/impl/dtutils"
 	"github.com/filecoin-project/go-fil-markets/retrievalmarket/impl/providerstates"
 	"github.com/filecoin-project/go-fil-markets/retrievalmarket/impl/requestvalidation"
 	"github.com/filecoin-project/go-fil-markets/retrievalmarket/migrations"
 	rmnet "github.com/filecoin-project/go-fil-markets/retrievalmarket/network"
 	"github.com/filecoin-project/go-fil-markets/shared"
+	"github.com/filecoin-project/go-multistore"
+	"github.com/filecoin-project/go-state-types/abi"
+	"github.com/filecoin-project/go-state-types/big"
+	"github.com/filecoin-project/go-statemachine/fsm"
 )
 
 // RetrievalProviderOption is a function that configures a retrieval provider
@@ -35,7 +35,7 @@ type RetrievalProviderOption func(p *Provider)
 // DealDecider is a function that makes a decision about whether to accept a deal
 type DealDecider func(ctx context.Context, state retrievalmarket.ProviderDealState) (bool, string, error)
 
-type DealPricingFunc func(ctx context.Context, dealPricingParams retrievalmarket.DealPricingParams) (retrievalmarket.Ask, error)
+type DealPricingFunc func(ctx context.Context, dealPricingParams retrievalmarket.PricingInput) (retrievalmarket.Ask, error)
 
 // Provider is the production implementation of the RetrievalProvider interface
 type Provider struct {
@@ -52,6 +52,7 @@ type Provider struct {
 	stateMachines        fsm.Group
 	migrateStateMachines func(context.Context) error
 	dealDecider          DealDecider
+	askStore             retrievalmarket.AskStore
 	disableNewDeals      bool
 	dealPricingFunc      DealPricingFunc
 }
@@ -122,6 +123,12 @@ func NewProvider(minerAddress address.Address,
 	if err != nil {
 		return nil, err
 	}
+
+	askStore, err := askstore.NewAskStore(namespace.Wrap(ds, datastore.NewKey("retrieval-ask")), datastore.NewKey("latest"))
+	if err != nil {
+		return nil, err
+	}
+	p.askStore = askStore
 
 	retrievalMigrations, err := migrations.ProviderMigrations.Build()
 	if err != nil {
@@ -231,6 +238,21 @@ func (p *Provider) SubscribeToEvents(subscriber retrievalmarket.ProviderSubscrib
 	return retrievalmarket.Unsubscribe(p.subscribers.Subscribe(subscriber))
 }
 
+// GetAsk returns the current deal parameters this provider accepts
+func (p *Provider) GetAsk() *retrievalmarket.Ask {
+	return p.askStore.GetAsk()
+}
+
+// SetAsk sets the deal parameters this provider accepts
+func (p *Provider) SetAsk(ask *retrievalmarket.Ask) {
+
+	err := p.askStore.SetAsk(ask)
+
+	if err != nil {
+		log.Warnf("Error setting retrieval ask: %w", err)
+	}
+}
+
 // ListDeals lists all known retrieval deals
 func (p *Provider) ListDeals() map[retrievalmarket.ProviderDealIdentifier]retrievalmarket.ProviderDealState {
 	var deals []retrievalmarket.ProviderDealState
@@ -314,7 +336,16 @@ func (p *Provider) HandleQueryStream(stream rmnet.RetrievalQueryStream) {
 				}
 			}
 
-			ask, err := p.GetAsk(ctx, storageDeals, isUnsealed, stream.RemotePeer())
+			input := retrievalmarket.PricingInput{
+				// piece from which the payload will be retrieved
+				// If user hasn't given a PieceCID, we try to choose an unsealed piece in the call to `getPieceInfoFromCid` above.
+				PieceCID: pieceInfo.PieceCID,
+
+				PayloadCID: query.PayloadCID,
+				Unsealed:   isUnsealed,
+				Client:     stream.RemotePeer(),
+			}
+			ask, err := p.GetDynamicAsk(ctx, input, storageDeals)
 			if err != nil {
 				log.Errorf("Retrieval query: GetAsk: %s", err)
 				return
@@ -339,14 +370,23 @@ func (p *Provider) HandleQueryStream(stream rmnet.RetrievalQueryStream) {
 	}
 }
 
-func (p *Provider) GetAsk(ctx context.Context, storageDeals []abi.DealID, isUnsealed bool, client peer.ID) (retrievalmarket.Ask, error) {
-	// TODO How do we fetch the fast-retrieval flag here ?
-	dp, err := p.node.GetDealPricingParams(ctx, storageDeals)
+func (p *Provider) GetDynamicAsk(ctx context.Context, input retrievalmarket.PricingInput, storageDeals []abi.DealID) (retrievalmarket.Ask, error) {
+	dp, err := p.node.GetRetrievalPricingInput(ctx, input.PieceCID, storageDeals)
 	if err != nil {
 		return retrievalmarket.Ask{}, xerrors.Errorf("GetDealPricingParams: %s", err)
 	}
-	dp.Unsealed = isUnsealed
-	dp.Client = client
+	// currAsk cannot be nil as we initialize the ask store with a default ask.
+	// Users can then change the values in the ask store using SetAsk but not remove it.
+	currAsk := p.GetAsk()
+	if currAsk == nil {
+		return retrievalmarket.Ask{}, xerrors.New("no ask configured in ask-store")
+	}
+
+	dp.PayloadCID = input.PayloadCID
+	dp.PieceCID = input.PieceCID
+	dp.Unsealed = input.Unsealed
+	dp.Client = input.Client
+	dp.CurrentAsk = *currAsk
 
 	ask, err := p.dealPricingFunc(ctx, dp)
 	if err != nil {

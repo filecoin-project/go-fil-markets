@@ -21,8 +21,20 @@ type RetrievalProvider interface {
 	// Stop stops handling incoming requests
 	Stop() error
 
+	// SetAsk sets the retrieval payment parameters that this miner will accept
+	SetAsk(ask *Ask)
+
+	// GetAsk returns the retrieval providers pricing information
+	GetAsk() *Ask
+
 	// SubscribeToEvents listens for events that happen related to client retrievals
 	SubscribeToEvents(subscriber ProviderSubscriber) Unsubscribe
 
 	ListDeals() map[ProviderDealIdentifier]ProviderDealState
+}
+
+// AskStore is an interface which provides access to a persisted retrieval Ask
+type AskStore interface {
+	GetAsk() *Ask
+	SetAsk(ask *Ask) error
 }

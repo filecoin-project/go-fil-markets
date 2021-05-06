@@ -157,7 +157,7 @@ func requireSetupTestClientAndProvider(ctx context.Context, t *testing.T, payChA
 	require.NoError(t, err)
 	providerDs := namespace.Wrap(testData.Ds2, datastore.NewKey("/retrievals/provider"))
 
-	priceFunc := func(ctx context.Context, dealPricingParams retrievalmarket.DealPricingParams) (retrievalmarket.Ask, error) {
+	priceFunc := func(ctx context.Context, dealPricingParams retrievalmarket.PricingInput) (retrievalmarket.Ask, error) {
 		ask := retrievalmarket.Ask{}
 		ask.PaymentInterval = expectedQR.MaxPaymentInterval
 		ask.PaymentIntervalIncrease = expectedQR.MaxPaymentIntervalIncrease
@@ -388,12 +388,14 @@ func TestClientCanMakeDealWithProvider(t *testing.T) {
 				PieceCID: tut.GenerateCids(1)[0],
 				Deals: []piecestore.DealInfo{
 					{
+						DealID:   abi.DealID(100),
 						SectorID: sectorID,
 						Offset:   offset,
 						Length:   abi.UnpaddedPieceSize(len(carData)).Padded(),
 					},
 				},
 			}
+			providerNode.ExpectPricingParams(pieceInfo.PieceCID, []abi.DealID{100})
 			if testCase.failsUnseal {
 				providerNode.ExpectFailedUnseal(sectorID, offset.Unpadded(), abi.UnpaddedPieceSize(len(carData)))
 			} else {
@@ -669,7 +671,7 @@ func setupProvider(
 		opts = append(opts, retrievalimpl.DisableNewDeals())
 	}
 
-	priceFunc := func(ctx context.Context, dealPricingParams retrievalmarket.DealPricingParams) (retrievalmarket.Ask, error) {
+	priceFunc := func(ctx context.Context, dealPricingParams retrievalmarket.PricingInput) (retrievalmarket.Ask, error) {
 		ask := retrievalmarket.Ask{}
 		ask.PaymentInterval = expectedQR.MaxPaymentInterval
 		ask.PaymentIntervalIncrease = expectedQR.MaxPaymentIntervalIncrease

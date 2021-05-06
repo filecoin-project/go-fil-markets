@@ -50,7 +50,16 @@ func (pve *providerValidationEnvironment) GetAsk(ctx context.Context, payloadCid
 		}
 	}
 
-	return pve.p.GetAsk(ctx, storageDeals, isUnsealed, client)
+	input := retrievalmarket.PricingInput{
+		// piece from which the payload will be retrieved
+		PieceCID: piece.PieceCID,
+
+		PayloadCID: payloadCid,
+		Unsealed:   isUnsealed,
+		Client:     client,
+	}
+
+	return pve.p.GetDynamicAsk(ctx, input, storageDeals)
 }
 
 func (pve *providerValidationEnvironment) GetPiece(c cid.Cid, pieceCID *cid.Cid) (piecestore.PieceInfo, bool, error) {

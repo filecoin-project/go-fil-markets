@@ -383,9 +383,20 @@ type ChannelAvailableFunds struct {
 	VoucherReedeemedAmt abi.TokenAmount
 }
 
-// DealPricingParams provides parameters required to price a retrieval deal
-type DealPricingParams struct {
-	Client       peer.ID
+// PricingInput provides input parameters required to price a retrieval deal.
+type PricingInput struct {
+	// PayloadCID is the cid of the payload to retrieve.
+	PayloadCID cid.Cid
+	// PieceCID is the cid of the Piece from which the Payload will be retrieved.
+	PieceCID cid.Cid
+	// PieceSize is the size of the Piece from which the payload will be retrieved.
+	PieceSize abi.UnpaddedPieceSize
+	// Client is the peerID of the retrieval client.
+	Client peer.ID
+	// VerifiedDeal is true if there exists a verified storage deal for the PayloadCID.
 	VerifiedDeal bool
-	Unsealed     bool
+	// Unsealed is true if there exists an unsealed sector from which we can retrieve the given payload.
+	Unsealed bool
+	// CurrentAsk is the current configured ask in the ask-store.
+	CurrentAsk Ask
 }

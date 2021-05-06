@@ -110,45 +110,43 @@ func TestDynamicPricing(t *testing.T) {
 		},
 	}
 
-	receiveStreamOnProvider := func(t *testing.T, node *testnodes.TestRetrievalProviderNode, qs network.RetrievalQueryStream, pieceStore piecestore.PieceStore) {
+	dPriceFunc := func(ctx context.Context, dealPricingParams retrievalmarket.PricingInput) (retrievalmarket.Ask, error) {
+		ask := retrievalmarket.Ask{}
+
+		if dealPricingParams.VerifiedDeal {
+			ask.PricePerByte = expectedppbVerified
+		} else {
+			ask.PricePerByte = expectedppbUnVerified
+		}
+
+		if dealPricingParams.Unsealed {
+			ask.UnsealPrice = expectedUnsealDiscount
+		} else {
+			ask.UnsealPrice = expectedUnsealPrice
+		}
+
+		fmt.Println("\n client is", dealPricingParams.Client.String())
+		if dealPricingParams.Client == peer2 {
+			ask.PaymentInterval = expectedpiPeer2
+		} else {
+			ask.PaymentInterval = expectedpiPeer1
+		}
+		ask.PaymentIntervalIncrease = expectedPaymentIntervalIncrease
+
+		return ask, nil
+	}
+
+	buildProvider := func(t *testing.T, node *testnodes.TestRetrievalProviderNode, qs network.RetrievalQueryStream,
+		pieceStore piecestore.PieceStore, net *tut.TestRetrievalMarketNetwork, pFnc retrievalimpl.DealPricingFunc) retrievalmarket.RetrievalProvider {
 		ds := dss.MutexWrap(datastore.NewMapDatastore())
 		multiStore, err := multistore.NewMultiDstore(ds)
 		require.NoError(t, err)
 		dt := tut.NewTestDataTransfer()
-		net := tut.NewTestRetrievalMarketNetwork(tut.TestNetworkParams{})
 
-		priceFunc := func(ctx context.Context, dealPricingParams retrievalmarket.DealPricingParams) (retrievalmarket.Ask, error) {
-			ask := retrievalmarket.Ask{}
-
-			if dealPricingParams.VerifiedDeal {
-				ask.PricePerByte = expectedppbVerified
-			} else {
-				ask.PricePerByte = expectedppbUnVerified
-			}
-
-			if dealPricingParams.Unsealed {
-				ask.UnsealPrice = expectedUnsealDiscount
-			} else {
-				ask.UnsealPrice = expectedUnsealPrice
-			}
-
-			fmt.Println("\n client is", dealPricingParams.Client.String())
-			if dealPricingParams.Client == peer2 {
-				ask.PaymentInterval = expectedpiPeer2
-			} else {
-				ask.PaymentInterval = expectedpiPeer1
-			}
-			ask.PaymentIntervalIncrease = expectedPaymentIntervalIncrease
-
-			return ask, nil
-		}
-
-		c, err := retrievalimpl.NewProvider(expectedAddress, node, net, pieceStore, multiStore, dt, ds, priceFunc)
+		c, err := retrievalimpl.NewProvider(expectedAddress, node, net, pieceStore, multiStore, dt, ds, pFnc)
 		require.NoError(t, err)
-
 		tut.StartAndWaitForReady(ctx, t, c)
-
-		net.ReceiveQueryStream(qs)
+		return c
 	}
 
 	readWriteQueryStream := func() *tut.TestRetrievalQueryStream {
@@ -164,10 +162,13 @@ func TestDynamicPricing(t *testing.T) {
 	}
 
 	tcs := map[string]struct {
-		query     retrievalmarket.Query
-		expFunc   func(t *testing.T, pieceStore *tut.TestPieceStore)
-		nodeFunc  func(n *testnodes.TestRetrievalProviderNode)
-		peerIdFnc func(stream *tut.TestRetrievalQueryStream)
+		query       retrievalmarket.Query
+		expFunc     func(t *testing.T, pieceStore *tut.TestPieceStore)
+		nodeFunc    func(n *testnodes.TestRetrievalProviderNode)
+		peerIdFnc   func(stream *tut.TestRetrievalQueryStream)
+		providerFnc func(provider retrievalmarket.RetrievalProvider)
+
+		pricingFnc retrievalimpl.DealPricingFunc
 
 		expectedPricePerByte            abi.TokenAmount
 		expectedPaymentInterval         uint64
@@ -182,13 +183,15 @@ func TestDynamicPricing(t *testing.T) {
 				qs.SetRemotePeer(peer1)
 			},
 			nodeFunc: func(n *testnodes.TestRetrievalProviderNode) {
-				n.ExpectPricingParamDeals([]abi.DealID{1, 11, 2, 22, 222})
+				n.ExpectPricingParams(expectedPieceCID1, []abi.DealID{1, 11, 2, 22, 222})
 			},
 			expFunc: func(t *testing.T, pieceStore *tut.TestPieceStore) {
 				pieceStore.ExpectCID(payloadCID, expectedCIDInfo)
 				pieceStore.ExpectPiece(expectedPieceCID1, piece1)
 				pieceStore.ExpectPiece(expectedPieceCID2, piece2)
 			},
+			providerFnc: func(provider retrievalmarket.RetrievalProvider) {},
+			pricingFnc:  dPriceFunc,
 
 			expectedPricePerByte:            expectedppbUnVerified,
 			expectedPaymentInterval:         expectedpiPeer1,
@@ -203,13 +206,15 @@ func TestDynamicPricing(t *testing.T) {
 				qs.SetRemotePeer(peer2)
 			},
 			nodeFunc: func(n *testnodes.TestRetrievalProviderNode) {
-				n.ExpectPricingParamDeals([]abi.DealID{1, 11, 2, 22, 222})
+				n.ExpectPricingParams(expectedPieceCID1, []abi.DealID{1, 11, 2, 22, 222})
 			},
 			expFunc: func(t *testing.T, pieceStore *tut.TestPieceStore) {
 				pieceStore.ExpectCID(payloadCID, expectedCIDInfo)
 				pieceStore.ExpectPiece(expectedPieceCID1, piece1)
 				pieceStore.ExpectPiece(expectedPieceCID2, piece2)
 			},
+			providerFnc: func(provider retrievalmarket.RetrievalProvider) {},
+			pricingFnc:  dPriceFunc,
 
 			expectedPricePerByte:            expectedppbUnVerified,
 			expectedPaymentInterval:         expectedpiPeer2,
@@ -225,13 +230,15 @@ func TestDynamicPricing(t *testing.T) {
 			},
 			nodeFunc: func(n *testnodes.TestRetrievalProviderNode) {
 				n.MarkVerified()
-				n.ExpectPricingParamDeals([]abi.DealID{1, 11, 2, 22, 222})
+				n.ExpectPricingParams(expectedPieceCID1, []abi.DealID{1, 11, 2, 22, 222})
 			},
 			expFunc: func(t *testing.T, pieceStore *tut.TestPieceStore) {
 				pieceStore.ExpectCID(payloadCID, expectedCIDInfo)
 				pieceStore.ExpectPiece(expectedPieceCID1, piece1)
 				pieceStore.ExpectPiece(expectedPieceCID2, piece2)
 			},
+			providerFnc: func(provider retrievalmarket.RetrievalProvider) {},
+			pricingFnc:  dPriceFunc,
 
 			expectedPricePerByte:            expectedppbVerified,
 			expectedPaymentInterval:         expectedpiPeer1,
@@ -248,13 +255,15 @@ func TestDynamicPricing(t *testing.T) {
 			nodeFunc: func(n *testnodes.TestRetrievalProviderNode) {
 				p := piece2.Deals[0]
 				n.MarkUnsealed(context.TODO(), p.SectorID, p.Offset.Unpadded(), p.Length.Unpadded())
-				n.ExpectPricingParamDeals([]abi.DealID{1, 11, 2, 22, 222})
+				n.ExpectPricingParams(expectedPieceCID2, []abi.DealID{1, 11, 2, 22, 222})
 			},
 			expFunc: func(t *testing.T, pieceStore *tut.TestPieceStore) {
 				pieceStore.ExpectCID(payloadCID, expectedCIDInfo)
 				pieceStore.ExpectPiece(expectedPieceCID1, piece1)
 				pieceStore.ExpectPiece(expectedPieceCID2, piece2)
 			},
+			providerFnc: func(provider retrievalmarket.RetrievalProvider) {},
+			pricingFnc:  dPriceFunc,
 
 			expectedPricePerByte:            expectedppbUnVerified,
 			expectedPaymentInterval:         expectedpiPeer1,
@@ -272,13 +281,15 @@ func TestDynamicPricing(t *testing.T) {
 				p := piece2.Deals[0]
 				n.MarkUnsealed(context.TODO(), p.SectorID, p.Offset.Unpadded(), p.Length.Unpadded())
 				n.MarkVerified()
-				n.ExpectPricingParamDeals([]abi.DealID{1, 11, 2, 22, 222})
+				n.ExpectPricingParams(expectedPieceCID2, []abi.DealID{1, 11, 2, 22, 222})
 			},
 			expFunc: func(t *testing.T, pieceStore *tut.TestPieceStore) {
 				pieceStore.ExpectCID(payloadCID, expectedCIDInfo)
 				pieceStore.ExpectPiece(expectedPieceCID1, piece1)
 				pieceStore.ExpectPiece(expectedPieceCID2, piece2)
 			},
+			providerFnc: func(provider retrievalmarket.RetrievalProvider) {},
+			pricingFnc:  dPriceFunc,
 
 			expectedPricePerByte:            expectedppbVerified,
 			expectedPaymentInterval:         expectedpiPeer1,
@@ -287,7 +298,7 @@ func TestDynamicPricing(t *testing.T) {
 			expectedSize:                    piece2Size,
 		},
 
-		// Retrieval request for a payloadCid inside a specific Cid
+		// Retrieval requests for a payloadCid inside a specific piece Cid
 		"specific sealed piece Cid, first piece Cid matches: quote correct price for sealed, unverified, peer1": {
 			query: retrievalmarket.Query{
 				PayloadCID:  payloadCID,
@@ -299,12 +310,14 @@ func TestDynamicPricing(t *testing.T) {
 			nodeFunc: func(n *testnodes.TestRetrievalProviderNode) {
 				p := piece2.Deals[0]
 				n.MarkUnsealed(context.TODO(), p.SectorID, p.Offset.Unpadded(), p.Length.Unpadded())
-				n.ExpectPricingParamDeals([]abi.DealID{1, 11})
+				n.ExpectPricingParams(expectedPieceCID1, []abi.DealID{1, 11})
 			},
 			expFunc: func(t *testing.T, pieceStore *tut.TestPieceStore) {
 				pieceStore.ExpectCID(payloadCID, expectedCIDInfo)
 				pieceStore.ExpectPiece(expectedPieceCID1, piece1)
 			},
+			providerFnc: func(provider retrievalmarket.RetrievalProvider) {},
+			pricingFnc:  dPriceFunc,
 
 			expectedPricePerByte:            expectedppbUnVerified,
 			expectedPaymentInterval:         expectedpiPeer1,
@@ -324,13 +337,15 @@ func TestDynamicPricing(t *testing.T) {
 			nodeFunc: func(n *testnodes.TestRetrievalProviderNode) {
 				p := piece1.Deals[0]
 				n.MarkUnsealed(context.TODO(), p.SectorID, p.Offset.Unpadded(), p.Length.Unpadded())
-				n.ExpectPricingParamDeals([]abi.DealID{2, 22, 222})
+				n.ExpectPricingParams(expectedPieceCID2, []abi.DealID{2, 22, 222})
 			},
 			expFunc: func(t *testing.T, pieceStore *tut.TestPieceStore) {
 				pieceStore.ExpectCID(payloadCID, expectedCIDInfo)
 				pieceStore.ExpectPiece(expectedPieceCID1, piece1)
 				pieceStore.ExpectPiece(expectedPieceCID1, piece2)
 			},
+			providerFnc: func(provider retrievalmarket.RetrievalProvider) {},
+			pricingFnc:  dPriceFunc,
 
 			expectedPricePerByte:            expectedppbUnVerified,
 			expectedPaymentInterval:         expectedpiPeer1,
@@ -350,13 +365,15 @@ func TestDynamicPricing(t *testing.T) {
 			nodeFunc: func(n *testnodes.TestRetrievalProviderNode) {
 				p := piece2.Deals[0]
 				n.MarkUnsealed(context.TODO(), p.SectorID, p.Offset.Unpadded(), p.Length.Unpadded())
-				n.ExpectPricingParamDeals([]abi.DealID{1, 11})
+				n.ExpectPricingParams(expectedPieceCID1, []abi.DealID{1, 11})
 				n.MarkVerified()
 			},
 			expFunc: func(t *testing.T, pieceStore *tut.TestPieceStore) {
 				pieceStore.ExpectCID(payloadCID, expectedCIDInfo)
 				pieceStore.ExpectPiece(expectedPieceCID1, piece1)
 			},
+			providerFnc: func(provider retrievalmarket.RetrievalProvider) {},
+			pricingFnc:  dPriceFunc,
 
 			expectedPricePerByte:            expectedppbVerified,
 			expectedPaymentInterval:         expectedpiPeer1,
@@ -377,12 +394,14 @@ func TestDynamicPricing(t *testing.T) {
 				p := piece1.Deals[0]
 				n.MarkUnsealed(context.TODO(), p.SectorID, p.Offset.Unpadded(), p.Length.Unpadded())
 				n.MarkVerified()
-				n.ExpectPricingParamDeals([]abi.DealID{1, 11})
+				n.ExpectPricingParams(expectedPieceCID1, []abi.DealID{1, 11})
 			},
 			expFunc: func(t *testing.T, pieceStore *tut.TestPieceStore) {
 				pieceStore.ExpectCID(payloadCID, expectedCIDInfo)
 				pieceStore.ExpectPiece(expectedPieceCID1, piece1)
 			},
+			providerFnc: func(provider retrievalmarket.RetrievalProvider) {},
+			pricingFnc:  dPriceFunc,
 
 			expectedPricePerByte:            expectedppbVerified,
 			expectedPaymentInterval:         expectedpiPeer1,
@@ -403,19 +422,55 @@ func TestDynamicPricing(t *testing.T) {
 				p := piece2.Deals[0]
 				n.MarkUnsealed(context.TODO(), p.SectorID, p.Offset.Unpadded(), p.Length.Unpadded())
 				n.MarkVerified()
-				n.ExpectPricingParamDeals([]abi.DealID{2, 22, 222})
+				n.ExpectPricingParams(expectedPieceCID2, []abi.DealID{2, 22, 222})
 			},
 			expFunc: func(t *testing.T, pieceStore *tut.TestPieceStore) {
 				pieceStore.ExpectCID(payloadCID, expectedCIDInfo)
 				pieceStore.ExpectPiece(expectedPieceCID1, piece1)
 				pieceStore.ExpectPiece(expectedPieceCID2, piece2)
 			},
+			providerFnc: func(provider retrievalmarket.RetrievalProvider) {},
+			pricingFnc:  dPriceFunc,
 
 			expectedPricePerByte:            expectedppbVerified,
 			expectedPaymentInterval:         expectedpiPeer2,
 			expectedUnsealPrice:             expectedUnsealDiscount,
 			expectedPaymentIntervalIncrease: expectedPaymentIntervalIncrease,
 			expectedSize:                    piece2Size,
+		},
+		"pieceCid no-op: quote correct price for sealed, unverified, peer1 based on a pre-existing ask": {
+			query: retrievalmarket.Query{PayloadCID: payloadCID},
+			peerIdFnc: func(qs *tut.TestRetrievalQueryStream) {
+				qs.SetRemotePeer(peer1)
+			},
+			nodeFunc: func(n *testnodes.TestRetrievalProviderNode) {
+				n.ExpectPricingParams(expectedPieceCID1, []abi.DealID{1, 11, 2, 22, 222})
+			},
+			expFunc: func(t *testing.T, pieceStore *tut.TestPieceStore) {
+				pieceStore.ExpectCID(payloadCID, expectedCIDInfo)
+				pieceStore.ExpectPiece(expectedPieceCID1, piece1)
+				pieceStore.ExpectPiece(expectedPieceCID2, piece2)
+			},
+			providerFnc: func(provider retrievalmarket.RetrievalProvider) {
+				ask := provider.GetAsk()
+				ask.PricePerByte = expectedppbUnVerified
+				ask.UnsealPrice = expectedUnsealPrice
+				provider.SetAsk(ask)
+			},
+			pricingFnc: func(ctx context.Context, dealPricingParams retrievalmarket.PricingInput) (retrievalmarket.Ask, error) {
+				ask, _ := dPriceFunc(ctx, dealPricingParams)
+				ppb := big.Add(ask.PricePerByte, dealPricingParams.CurrentAsk.PricePerByte)
+				unseal := big.Add(ask.UnsealPrice, dealPricingParams.CurrentAsk.UnsealPrice)
+				ask.PricePerByte = ppb
+				ask.UnsealPrice = unseal
+				return ask, nil
+			},
+
+			expectedPricePerByte:            big.Mul(expectedppbUnVerified, big.NewInt(2)),
+			expectedPaymentInterval:         expectedpiPeer1,
+			expectedUnsealPrice:             big.Mul(expectedUnsealPrice, big.NewInt(2)),
+			expectedPaymentIntervalIncrease: expectedPaymentIntervalIncrease,
+			expectedSize:                    piece1Size,
 		},
 	}
 
@@ -430,9 +485,14 @@ func TestDynamicPricing(t *testing.T) {
 			pieceStore := tut.NewTestPieceStore()
 			tc.nodeFunc(node)
 			tc.expFunc(t, pieceStore)
-			receiveStreamOnProvider(t, node, qs, pieceStore)
+
+			net := tut.NewTestRetrievalMarketNetwork(tut.TestNetworkParams{})
+			p := buildProvider(t, node, qs, pieceStore, net, tc.pricingFnc)
+			tc.providerFnc(p)
+			net.ReceiveQueryStream(qs)
 
 			actualResp, err := qs.ReadQueryResponse()
+			require.NoError(t, err)
 			pieceStore.VerifyExpectations(t)
 			node.VerifyExpectations(t)
 
@@ -514,7 +574,7 @@ func TestHandleQueryStream(t *testing.T) {
 		dt := tut.NewTestDataTransfer()
 		net := tut.NewTestRetrievalMarketNetwork(tut.TestNetworkParams{})
 
-		priceFunc := func(ctx context.Context, dealPricingParams retrievalmarket.DealPricingParams) (retrievalmarket.Ask, error) {
+		priceFunc := func(ctx context.Context, dealPricingParams retrievalmarket.PricingInput) (retrievalmarket.Ask, error) {
 			ask := retrievalmarket.Ask{}
 			ask.PricePerByte = expectedPricePerByte
 			ask.PaymentInterval = expectedPaymentInterval
@@ -739,7 +799,7 @@ func TestProvider_Construct(t *testing.T) {
 	require.NoError(t, err)
 	dt := tut.NewTestDataTransfer()
 
-	priceFunc := func(ctx context.Context, dealPricingParams retrievalmarket.DealPricingParams) (retrievalmarket.Ask, error) {
+	priceFunc := func(ctx context.Context, dealPricingParams retrievalmarket.PricingInput) (retrievalmarket.Ask, error) {
 		ask := retrievalmarket.Ask{}
 		return ask, nil
 	}
@@ -791,7 +851,7 @@ func TestProviderConfigOpts(t *testing.T) {
 	multiStore, err := multistore.NewMultiDstore(ds)
 	require.NoError(t, err)
 
-	priceFunc := func(ctx context.Context, dealPricingParams retrievalmarket.DealPricingParams) (retrievalmarket.Ask, error) {
+	priceFunc := func(ctx context.Context, dealPricingParams retrievalmarket.PricingInput) (retrievalmarket.Ask, error) {
 		ask := retrievalmarket.Ask{}
 		return ask, nil
 	}
@@ -971,7 +1031,7 @@ func TestProviderMigrations(t *testing.T) {
 	err = providerDs.Put(datastore.NewKey("retrieval-ask"), askBuf.Bytes())
 	require.NoError(t, err)
 
-	priceFunc := func(ctx context.Context, dealPricingParams retrievalmarket.DealPricingParams) (retrievalmarket.Ask, error) {
+	priceFunc := func(ctx context.Context, dealPricingParams retrievalmarket.PricingInput) (retrievalmarket.Ask, error) {
 		ask := retrievalmarket.Ask{}
 		return ask, nil
 	}
