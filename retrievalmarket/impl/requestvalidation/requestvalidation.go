@@ -53,12 +53,12 @@ func NewProviderRequestValidator(env ValidationEnvironment) *ProviderRequestVali
 }
 
 // ValidatePush validates a push request received from the peer that will send data
-func (rv *ProviderRequestValidator) ValidatePush(sender peer.ID, voucher datatransfer.Voucher, baseCid cid.Cid, selector ipld.Node) (datatransfer.VoucherResult, error) {
+func (rv *ProviderRequestValidator) ValidatePush(isRestart bool, sender peer.ID, voucher datatransfer.Voucher, baseCid cid.Cid, selector ipld.Node) (datatransfer.VoucherResult, error) {
 	return nil, errors.New("No pushes accepted")
 }
 
 // ValidatePull validates a pull request received from the peer that will receive data
-func (rv *ProviderRequestValidator) ValidatePull(receiver peer.ID, voucher datatransfer.Voucher, baseCid cid.Cid, selector ipld.Node) (datatransfer.VoucherResult, error) {
+func (rv *ProviderRequestValidator) ValidatePull(isRestart bool, receiver peer.ID, voucher datatransfer.Voucher, baseCid cid.Cid, selector ipld.Node) (datatransfer.VoucherResult, error) {
 	proposal, ok := voucher.(*retrievalmarket.DealProposal)
 	var legacyProtocol bool
 	if !ok {
@@ -70,7 +70,7 @@ func (rv *ProviderRequestValidator) ValidatePull(receiver peer.ID, voucher datat
 		proposal = &newProposal
 		legacyProtocol = true
 	}
-	response, err := rv.validatePull(receiver, proposal, legacyProtocol, baseCid, selector)
+	response, err := rv.validatePull(isRestart, receiver, proposal, legacyProtocol, baseCid, selector)
 	if response == nil {
 		return nil, err
 	}
@@ -86,12 +86,19 @@ func (rv *ProviderRequestValidator) ValidatePull(receiver peer.ID, voucher datat
 	return response, err
 }
 
-func (rv *ProviderRequestValidator) validatePull(receiver peer.ID, proposal *retrievalmarket.DealProposal, legacyProtocol bool, baseCid cid.Cid, selector ipld.Node) (*retrievalmarket.DealResponse, error) {
-
+// validatePull is called by the data provider when a new graphsync pull
+// request is created. This can be the initial pull request or a new request
+// created when the data transfer is restarted (eg after a connection failure).
+// By default the graphsync request starts immediately sending data, unless
+// validatePull returns ErrPause or the data-transfer has not yet started
+// (because the provider is still unsealing the data).
+func (rv *ProviderRequestValidator) validatePull(isRestart bool, receiver peer.ID, proposal *retrievalmarket.DealProposal, legacyProtocol bool, baseCid cid.Cid, selector ipld.Node) (*retrievalmarket.DealResponse, error) {
+	// Check the proposal CID matches
 	if proposal.PayloadCID != baseCid {
 		return nil, errors.New("incorrect CID for this proposal")
 	}
 
+	// Check the proposal selector matches
 	buf := new(bytes.Buffer)
 	err := dagcbor.Encoder(selector, buf)
 	if err != nil {
@@ -105,6 +112,13 @@ func (rv *ProviderRequestValidator) validatePull(receiver peer.ID, proposal *ret
 		return nil, errors.New("incorrect selector for this proposal")
 	}
 
+	// If the validation is for a restart request, return nil, which means
+	// the data-transfer should not be explicitly paused or resumed
+	if isRestart {
+		return nil, nil
+	}
+
+	// This is a new graphsync request (not a restart)
 	pds := retrievalmarket.ProviderDealState{
 		DealProposal:    *proposal,
 		Receiver:        receiver,
@@ -112,6 +126,7 @@ func (rv *ProviderRequestValidator) validatePull(receiver peer.ID, proposal *ret
 		CurrentInterval: proposal.PaymentInterval,
 	}
 
+	// Decide whether to accept the deal
 	status, err := rv.acceptDeal(&pds)
 
 	response := retrievalmarket.DealResponse{
@@ -133,6 +148,8 @@ func (rv *ProviderRequestValidator) validatePull(receiver peer.ID, proposal *ret
 		return nil, err
 	}
 
+	// Pause the data transfer while unsealing the data.
+	// The state machine will unpause the transfer when unsealing completes.
 	return &response, datatransfer.ErrPause
 }
 

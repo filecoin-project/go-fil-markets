@@ -131,7 +131,7 @@ func TestUnifiedRequestValidator(t *testing.T) {
 		urv := rv.NewUnifiedRequestValidator(nil, &pullDeals{state})
 
 		t.Run("ValidatePush fails", func(t *testing.T) {
-			_, err := urv.ValidatePush(minerID, wrongDTType{}, block.Cid(), nil)
+			_, err := urv.ValidatePush(false, minerID, wrongDTType{}, block.Cid(), nil)
 			if !xerrors.Is(err, rv.ErrNoPushAccepted) {
 				t.Fatal("Push should fail for the client request validator for storage deals")
 			}
@@ -144,7 +144,7 @@ func TestUnifiedRequestValidator(t *testing.T) {
 		urv := rv.NewUnifiedRequestValidator(&pushDeals{state}, nil)
 
 		t.Run("ValidatePull fails", func(t *testing.T) {
-			_, err := urv.ValidatePull(clientID, wrongDTType{}, block.Cid(), nil)
+			_, err := urv.ValidatePull(false, clientID, wrongDTType{}, block.Cid(), nil)
 			if !xerrors.Is(err, rv.ErrNoPullAccepted) {
 				t.Fatal("Pull should fail for the provider request validator for storage deals")
 			}
@@ -171,7 +171,7 @@ func AssertPushValidator(t *testing.T, validator datatransfer.RequestValidator, 
 		if err != nil {
 			t.Fatal("error serializing proposal")
 		}
-		_, err = validator.ValidatePush(sender, &rv.StorageDataTransferVoucher{proposalNd.Cid()}, proposal.Proposal.PieceCID, nil)
+		_, err = validator.ValidatePush(false, sender, &rv.StorageDataTransferVoucher{proposalNd.Cid()}, proposal.Proposal.PieceCID, nil)
 		if !xerrors.Is(err, rv.ErrNoDeal) {
 			t.Fatal("Push should fail if there is no deal stored")
 		}
@@ -186,7 +186,7 @@ func AssertPushValidator(t *testing.T, validator datatransfer.RequestValidator, 
 			t.Fatal("deal tracking failed")
 		}
 		ref := minerDeal.Ref
-		_, err = validator.ValidatePush(sender, &rv.StorageDataTransferVoucher{minerDeal.ProposalCid}, ref.Root, nil)
+		_, err = validator.ValidatePush(false, sender, &rv.StorageDataTransferVoucher{minerDeal.ProposalCid}, ref.Root, nil)
 		if !xerrors.Is(err, rv.ErrWrongPeer) {
 			t.Fatal("Push should fail if miner address is incorrect")
 		}
@@ -199,7 +199,7 @@ func AssertPushValidator(t *testing.T, validator datatransfer.RequestValidator, 
 		if err := state.Begin(minerDeal.ProposalCid, &minerDeal); err != nil {
 			t.Fatal("deal tracking failed")
 		}
-		_, err = validator.ValidatePush(sender, &rv.StorageDataTransferVoucher{minerDeal.ProposalCid}, blockGenerator.Next().Cid(), nil)
+		_, err = validator.ValidatePush(false, sender, &rv.StorageDataTransferVoucher{minerDeal.ProposalCid}, blockGenerator.Next().Cid(), nil)
 		if !xerrors.Is(err, rv.ErrWrongPiece) {
 			t.Fatal("Push should fail if piece ref is incorrect")
 		}
@@ -213,7 +213,7 @@ func AssertPushValidator(t *testing.T, validator datatransfer.RequestValidator, 
 			t.Fatal("deal tracking failed")
 		}
 		ref := minerDeal.Ref
-		_, err = validator.ValidatePush(sender, &rv.StorageDataTransferVoucher{minerDeal.ProposalCid}, ref.Root, nil)
+		_, err = validator.ValidatePush(false, sender, &rv.StorageDataTransferVoucher{minerDeal.ProposalCid}, ref.Root, nil)
 		if !xerrors.Is(err, rv.ErrInacceptableDealState) {
 			t.Fatal("Push should fail if deal is in a state that cannot be data transferred")
 		}
@@ -227,7 +227,7 @@ func AssertPushValidator(t *testing.T, validator datatransfer.RequestValidator, 
 			t.Fatal("deal tracking failed")
 		}
 		ref := minerDeal.Ref
-		_, err = validator.ValidatePush(sender, &rv.StorageDataTransferVoucher{minerDeal.ProposalCid}, ref.Root, nil)
+		_, err = validator.ValidatePush(false, sender, &rv.StorageDataTransferVoucher{minerDeal.ProposalCid}, ref.Root, nil)
 		if err != nil {
 			t.Fatal("Push should should succeed when all parameters are correct")
 		}
@@ -244,7 +244,7 @@ func AssertValidatesPulls(t *testing.T, validator datatransfer.RequestValidator,
 		if err != nil {
 			t.Fatal("error serializing proposal")
 		}
-		_, err = validator.ValidatePull(receiver, &rv.StorageDataTransferVoucher{proposalNd.Cid()}, proposal.Proposal.PieceCID, nil)
+		_, err = validator.ValidatePull(false, receiver, &rv.StorageDataTransferVoucher{proposalNd.Cid()}, proposal.Proposal.PieceCID, nil)
 		if !xerrors.Is(err, rv.ErrNoDeal) {
 			t.Fatal("Pull should fail if there is no deal stored")
 		}
@@ -259,7 +259,7 @@ func AssertValidatesPulls(t *testing.T, validator datatransfer.RequestValidator,
 			t.Fatal("deal tracking failed")
 		}
 		payloadCid := clientDeal.DataRef.Root
-		_, err = validator.ValidatePull(receiver, &rv.StorageDataTransferVoucher{clientDeal.ProposalCid}, payloadCid, nil)
+		_, err = validator.ValidatePull(false, receiver, &rv.StorageDataTransferVoucher{clientDeal.ProposalCid}, payloadCid, nil)
 		if !xerrors.Is(err, rv.ErrWrongPeer) {
 			t.Fatal("Pull should fail if miner address is incorrect")
 		}
@@ -272,7 +272,7 @@ func AssertValidatesPulls(t *testing.T, validator datatransfer.RequestValidator,
 		if err := state.Begin(clientDeal.ProposalCid, &clientDeal); err != nil {
 			t.Fatal("deal tracking failed")
 		}
-		_, err = validator.ValidatePull(receiver, &rv.StorageDataTransferVoucher{clientDeal.ProposalCid}, blockGenerator.Next().Cid(), nil)
+		_, err = validator.ValidatePull(false, receiver, &rv.StorageDataTransferVoucher{clientDeal.ProposalCid}, blockGenerator.Next().Cid(), nil)
 		if !xerrors.Is(err, rv.ErrWrongPiece) {
 			t.Fatal("Pull should fail if piece ref is incorrect")
 		}
@@ -286,7 +286,7 @@ func AssertValidatesPulls(t *testing.T, validator datatransfer.RequestValidator,
 			t.Fatal("deal tracking failed")
 		}
 		payloadCid := clientDeal.DataRef.Root
-		_, err = validator.ValidatePull(receiver, &rv.StorageDataTransferVoucher{clientDeal.ProposalCid}, payloadCid, nil)
+		_, err = validator.ValidatePull(false, receiver, &rv.StorageDataTransferVoucher{clientDeal.ProposalCid}, payloadCid, nil)
 		if !xerrors.Is(err, rv.ErrInacceptableDealState) {
 			t.Fatal("Pull should fail if deal is in a state that cannot be data transferred")
 		}
@@ -300,7 +300,7 @@ func AssertValidatesPulls(t *testing.T, validator datatransfer.RequestValidator,
 			t.Fatal("deal tracking failed")
 		}
 		payloadCid := clientDeal.DataRef.Root
-		_, err = validator.ValidatePull(receiver, &rv.StorageDataTransferVoucher{clientDeal.ProposalCid}, payloadCid, nil)
+		_, err = validator.ValidatePull(false, receiver, &rv.StorageDataTransferVoucher{clientDeal.ProposalCid}, payloadCid, nil)
 		if err != nil {
 			t.Fatal("Pull should should succeed when all parameters are correct")
 		}

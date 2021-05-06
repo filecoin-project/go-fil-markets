@@ -1,5 +1,7 @@
 package retrievalmarket
 
+import "fmt"
+
 // ClientEvent is an event that occurs in a deal lifecycle on the client
 type ClientEvent uint64
 
@@ -86,7 +88,8 @@ const (
 	// ClientEventPaymentSent indicates a payment was sent to the provider
 	ClientEventPaymentSent
 
-	// ClientEventComplete indicates a deal has completed
+	// ClientEventComplete is fired when the provider sends a message
+	// indicating that a deal has completed
 	ClientEventComplete
 
 	// ClientEventDataTransferError emits when something go wrong at the data transfer level
@@ -123,6 +126,10 @@ const (
 	// ClientEventPaymentChannelSkip is fired when the total deal price is zero
 	// so there's no need to set up a payment channel
 	ClientEventPaymentChannelSkip
+
+	// ClientEventPaymentNotSent indicates that payment was requested, but no
+	// payment was actually due, so a voucher was not sent to the provider
+	ClientEventPaymentNotSent
 )
 
 // ClientEvents is a human readable map of client event name -> event description
@@ -163,6 +170,15 @@ var ClientEvents = map[ClientEvent]string{
 	ClientEventCancel:                        "ClientEventCancel",
 	ClientEventWaitForLastBlocks:             "ClientEventWaitForLastBlocks",
 	ClientEventPaymentChannelSkip:            "ClientEventPaymentChannelSkip",
+	ClientEventPaymentNotSent:                "ClientEventPaymentNotSent",
+}
+
+func (e ClientEvent) String() string {
+	s, ok := ClientEvents[e]
+	if ok {
+		return s
+	}
+	return fmt.Sprintf("ClientEventUnknown: %d", e)
 }
 
 // ProviderEvent is an event that occurs in a deal lifecycle on the provider

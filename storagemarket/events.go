@@ -1,5 +1,7 @@
 package storagemarket
 
+import "fmt"
+
 // ClientEvent is an event that happens in the client's deal state machine
 type ClientEvent uint64
 
@@ -141,6 +143,14 @@ var ClientEvents = map[ClientEvent]string{
 	ClientEventDataTransferRestartFailed:  "ClientEventDataTransferRestartFailed",
 	ClientEventDataTransferStalled:        "ClientEventDataTransferStalled",
 	ClientEventDataTransferCancelled:      "ClientEventDataTransferCancelled",
+}
+
+func (e ClientEvent) String() string {
+	str, ok := ClientEvents[e]
+	if ok {
+		return str
+	}
+	return fmt.Sprintf("ClientEventUnknown - %d", e)
 }
 
 // ProviderEvent is an event that happens in the provider's deal state machine
@@ -317,4 +327,12 @@ var ProviderEvents = map[ProviderEvent]string{
 	ProviderEventDataTransferRestartFailed: "ProviderEventDataTransferRestartFailed",
 	ProviderEventDataTransferStalled:       "ProviderEventDataTransferStalled",
 	ProviderEventDataTransferCancelled:     "ProviderEventDataTransferCancelled",
+}
+
+func (e ProviderEvent) String() string {
+	str, ok := ProviderEvents[e]
+	if ok {
+		return str
+	}
+	return fmt.Sprintf("ProviderEventUnknown - %d", e)
 }
