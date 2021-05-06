@@ -1,5 +1,30 @@
 # go-fil-markets changelog
 
+# go-fil-markets v1.3.0
+
+- github.com/filecoin-project/go-fil-markets:
+  - fix restarts during data transfer for a retrieval deal (#540) ([filecoin-project/go-fil-markets#540](https://github.com/filecoin-project/go-fil-markets/pull/540))
+  - Test Retrieval for offline deals (#541) ([filecoin-project/go-fil-markets#541](https://github.com/filecoin-project/go-fil-markets/pull/541))
+  - Allow anonymous submodule checkout (#535) ([filecoin-project/go-fil-markets#535](https://github.com/filecoin-project/go-fil-markets/pull/535))
+- github.com/filecoin-project/go-data-transfer (v1.4.3 -> v1.5.0):
+  - Add isRestart param to validators (#197) ([filecoin-project/go-data-transfer#197](https://github.com/filecoin-project/go-data-transfer/pull/197))
+  - fix: flaky TestChannelMonitorAutoRestart (#198) ([filecoin-project/go-data-transfer#198](https://github.com/filecoin-project/go-data-transfer/pull/198))
+  - Channel monitor watches for errors instead of measuring data rate (#190) ([filecoin-project/go-data-transfer#190](https://github.com/filecoin-project/go-data-transfer/pull/190))
+  - fix: prevent concurrent restarts for same channel (#195) ([filecoin-project/go-data-transfer#195](https://github.com/filecoin-project/go-data-transfer/pull/195))
+  - fix: channel state machine event handling (#194) ([filecoin-project/go-data-transfer#194](https://github.com/filecoin-project/go-data-transfer/pull/194))
+  - Dont double count data sent (#185) ([filecoin-project/go-data-transfer#185](https://github.com/filecoin-project/go-data-transfer/pull/185))
+- github.com/ipfs/go-graphsync (v0.6.0 -> v0.6.1):
+  - feat: fire network error when network disconnects during request (#164) ([ipfs/go-graphsync#164](https://github.com/ipfs/go-graphsync/pull/164))
+
+Contributors
+
+| Contributor | Commits | Lines ± | Files Changed |
+|-------------|---------|---------|---------------|
+| dirkmc | 9 | +2595/-1346 | 70 |
+| Aarsh Shah | 1 | +226/-71 | 1 |
+| Dirk McCormick | 2 | +32/-0 | 2 |
+| Peter Rabbitson | 1 | +1/-1 | 1 |
+
 # go-fil-markets v1.2.5
 
 - github.com/filecoin-project/go-fil-markets:
