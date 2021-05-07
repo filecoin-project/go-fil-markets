@@ -54,7 +54,7 @@ type Provider struct {
 	dealDecider          DealDecider
 	askStore             retrievalmarket.AskStore
 	disableNewDeals      bool
-	dealPricingFunc      DealPricingFunc
+	retrievalPricingFunc      RetrievalPricingFunc
 }
 
 type internalProviderEvent struct {
@@ -373,7 +373,7 @@ func (p *Provider) HandleQueryStream(stream rmnet.RetrievalQueryStream) {
 func (p *Provider) GetDynamicAsk(ctx context.Context, input retrievalmarket.PricingInput, storageDeals []abi.DealID) (retrievalmarket.Ask, error) {
 	dp, err := p.node.GetRetrievalPricingInput(ctx, input.PieceCID, storageDeals)
 	if err != nil {
-		return retrievalmarket.Ask{}, xerrors.Errorf("GetDealPricingParams: %s", err)
+		return retrievalmarket.Ask{}, xerrors.Errorf("GetRetrievalPricingInput: %s", err)
 	}
 	// currAsk cannot be nil as we initialize the ask store with a default ask.
 	// Users can then change the values in the ask store using SetAsk but not remove it.

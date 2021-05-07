@@ -276,7 +276,7 @@ func getPieceInfoFromCid(ctx context.Context, n retrievalmarket.RetrievalProvide
 		}
 
 		// if client wants to retrieve the payload from a specific piece, just return that piece.
-		if !pieceCID.Equals(cid.Undef) && pieceInfo.PieceCID.Equals(pieceCID) {
+		if pieceCID.Defined() && pieceInfo.PieceCID.Equals(pieceCID) {
 			return pieceInfo, pieceInUnsealedSector(ctx, n, pieceInfo), nil
 		}
 
