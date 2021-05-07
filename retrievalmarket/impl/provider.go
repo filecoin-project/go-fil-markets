@@ -101,12 +101,12 @@ func NewProvider(minerAddress address.Address,
 	multiStore *multistore.MultiStore,
 	dataTransfer datatransfer.Manager,
 	ds datastore.Batching,
-	dealPricingFunc RetrievalPricingFunc,
+	retrievalPricingFunc RetrievalPricingFunc,
 	opts ...RetrievalProviderOption,
 ) (retrievalmarket.RetrievalProvider, error) {
 
 	if retrievalPricingFunc == nil {
-		return nil, xerrors.New("dealPricingFunc is nil")
+		return nil, xerrors.New("retrievalPricingFunc is nil")
 	}
 
 	p := &Provider{
@@ -118,7 +118,7 @@ func NewProvider(minerAddress address.Address,
 		pieceStore:           pieceStore,
 		subscribers:          pubsub.New(providerDispatcher),
 		readySub:             pubsub.New(shared.ReadyDispatcher),
-		retrievalPricingFunc: dealPricingFunc,
+		retrievalPricingFunc: retrievalPricingFunc,
 	}
 
 	err := shared.MoveKey(ds, "retrieval-ask", "retrieval-ask/latest")
