@@ -56,8 +56,7 @@ func (pve *providerValidationEnvironment) GetPiece(c cid.Cid, pieceCID *cid.Cid)
 		inPieceCid = *pieceCID
 	}
 
-	pi, isUnsealed, err := getPieceInfoFromCid(context.TODO(), pve.p.node, pve.p.pieceStore, c, inPieceCid)
-	return pi, isUnsealed, err
+	return getPieceInfoFromCid(context.TODO(), pve.p.node, pve.p.pieceStore, c, inPieceCid)
 }
 
 // CheckDealParams verifies the given deal params are acceptable
@@ -214,7 +213,7 @@ func pieceInUnsealedSector(ctx context.Context, n retrievalmarket.RetrievalProvi
 	for _, di := range pieceInfo.Deals {
 		isUnsealed, err := n.IsUnsealed(ctx, di.SectorID, di.Offset.Unpadded(), di.Length.Unpadded())
 		if err != nil {
-			log.Errorf("failed to find out is sector %s is unsealed, err=%s", di.SectorID, err)
+			log.Errorf("failed to find out if sector %d is unsealed, err=%s", di.SectorID, err)
 			continue
 		}
 		if isUnsealed {
@@ -239,7 +238,7 @@ func storageDealsForPiece(clientSpecificPiece bool, payloadCID cid.Cid, pieceInf
 		// made for that piece to quote a price.
 		storageDeals, err = getAllDealsContainingPayload(pieceStore, payloadCID)
 		if err != nil {
-			return nil, xerrors.Errorf("failed to fetch deals for payload, err=%s", err)
+			return nil, xerrors.Errorf("failed to fetch deals for payload: %w", err)
 		}
 	}
 
@@ -274,7 +273,7 @@ func getAllDealsContainingPayload(pieceStore piecestore.PieceStore, payloadCID c
 	}
 
 	if lastErr != nil && len(dealsIds) == 0 {
-		return nil, xerrors.Errorf("failed to fetch deals containing payload, err=%s", lastErr)
+		return nil, xerrors.Errorf("failed to fetch deals containing payload %s: %w", payloadCID, lastErr)
 	}
 
 	return dealsIds, nil

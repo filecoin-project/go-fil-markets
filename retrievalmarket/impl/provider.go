@@ -105,7 +105,7 @@ func NewProvider(minerAddress address.Address,
 	opts ...RetrievalProviderOption,
 ) (retrievalmarket.RetrievalProvider, error) {
 
-	if dealPricingFunc == nil {
+	if retrievalPricingFunc == nil {
 		return nil, xerrors.New("dealPricingFunc is nil")
 	}
 
@@ -290,7 +290,7 @@ func (p *Provider) HandleQueryStream(stream rmnet.RetrievalQueryStream) {
 
 	sendResp := func(resp retrievalmarket.QueryResponse) {
 		if err := stream.WriteQueryResponse(resp); err != nil {
-			log.Errorf("Retrieval query: WriteCborRPC: %s", err)
+			log.Errorf("Retrieval query: writing query response: %s", err)
 		}
 	}
 
@@ -399,7 +399,7 @@ func (p *Provider) GetDynamicAsk(ctx context.Context, input retrievalmarket.Pric
 
 	ask, err := p.retrievalPricingFunc(ctx, dp)
 	if err != nil {
-		return retrievalmarket.Ask{}, xerrors.Errorf("dealPricingFunc: %s", err)
+		return retrievalmarket.Ask{}, xerrors.Errorf("retrievalPricingFunc: %w", err)
 	}
 	return ask, nil
 }
