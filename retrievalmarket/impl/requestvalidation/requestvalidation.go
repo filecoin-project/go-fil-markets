@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"errors"
+	"time"
 
 	"github.com/ipfs/go-cid"
 	"github.com/ipld/go-ipld-prime"
@@ -22,6 +23,8 @@ import (
 )
 
 var allSelectorBytes []byte
+
+var askTimeout = 5 * time.Second
 
 func init() {
 	buf := new(bytes.Buffer)
@@ -147,7 +150,10 @@ func (rv *ProviderRequestValidator) acceptDeal(deal *retrievalmarket.ProviderDea
 		return retrievalmarket.DealStatusErrored, err
 	}
 
-	ask, err := rv.env.GetAsk(context.TODO(), deal.PayloadCID, deal.PieceCID, pieceInfo, isUnsealed, deal.Receiver)
+	ctx, cancel := context.WithTimeout(context.TODO(), askTimeout)
+	defer cancel()
+
+	ask, err := rv.env.GetAsk(ctx, deal.PayloadCID, deal.PieceCID, pieceInfo, isUnsealed, deal.Receiver)
 	if err != nil {
 		return retrievalmarket.DealStatusErrored, err
 	}

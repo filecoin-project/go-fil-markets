@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"time"
 
 	"github.com/hannahhoward/go-pubsub"
 	"github.com/ipfs/go-cid"
@@ -38,6 +39,8 @@ type RetrievalProviderOption func(p *Provider)
 type DealDecider func(ctx context.Context, state retrievalmarket.ProviderDealState) (bool, string, error)
 
 type RetrievalPricingFunc func(ctx context.Context, dealPricingParams retrievalmarket.PricingInput) (retrievalmarket.Ask, error)
+
+var queryTimeout = 5 * time.Second
 
 // Provider is the production implementation of the RetrievalProvider interface
 type Provider struct {
@@ -282,6 +285,9 @@ A Provider handling a retrieval `Query` does the following:
 The connection is kept open only as long as the query-response exchange.
 */
 func (p *Provider) HandleQueryStream(stream rmnet.RetrievalQueryStream) {
+	ctx, cancel := context.WithTimeout(context.TODO(), queryTimeout)
+	defer cancel()
+
 	defer stream.Close()
 	query, err := stream.ReadQuery()
 	if err != nil {
@@ -302,7 +308,6 @@ func (p *Provider) HandleQueryStream(stream rmnet.RetrievalQueryStream) {
 	}
 
 	// get chain head to query actor states.
-	ctx := context.TODO()
 	tok, _, err := p.node.GetChainHead(ctx)
 	if err != nil {
 		log.Errorf("Retrieval query: GetChainHead: %s", err)
