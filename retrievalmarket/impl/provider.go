@@ -3,6 +3,7 @@ package retrievalimpl
 import (
 	"context"
 	"errors"
+	"fmt"
 
 	"github.com/hannahhoward/go-pubsub"
 	"github.com/ipfs/go-cid"
@@ -14,6 +15,11 @@ import (
 	datatransfer "github.com/filecoin-project/go-data-transfer"
 	versioning "github.com/filecoin-project/go-ds-versioning/pkg"
 	versionedfsm "github.com/filecoin-project/go-ds-versioning/pkg/fsm"
+	"github.com/filecoin-project/go-multistore"
+	"github.com/filecoin-project/go-state-types/abi"
+	"github.com/filecoin-project/go-state-types/big"
+	"github.com/filecoin-project/go-statemachine/fsm"
+
 	"github.com/filecoin-project/go-fil-markets/piecestore"
 	"github.com/filecoin-project/go-fil-markets/retrievalmarket"
 	"github.com/filecoin-project/go-fil-markets/retrievalmarket/impl/askstore"
@@ -23,10 +29,6 @@ import (
 	"github.com/filecoin-project/go-fil-markets/retrievalmarket/migrations"
 	rmnet "github.com/filecoin-project/go-fil-markets/retrievalmarket/network"
 	"github.com/filecoin-project/go-fil-markets/shared"
-	"github.com/filecoin-project/go-multistore"
-	"github.com/filecoin-project/go-state-types/abi"
-	"github.com/filecoin-project/go-state-types/big"
-	"github.com/filecoin-project/go-statemachine/fsm"
 )
 
 // RetrievalProviderOption is a function that configures a retrieval provider
@@ -35,7 +37,7 @@ type RetrievalProviderOption func(p *Provider)
 // DealDecider is a function that makes a decision about whether to accept a deal
 type DealDecider func(ctx context.Context, state retrievalmarket.ProviderDealState) (bool, string, error)
 
-type DealPricingFunc func(ctx context.Context, dealPricingParams retrievalmarket.PricingInput) (retrievalmarket.Ask, error)
+type RetrievalPricingFunc func(ctx context.Context, dealPricingParams retrievalmarket.PricingInput) (retrievalmarket.Ask, error)
 
 // Provider is the production implementation of the RetrievalProvider interface
 type Provider struct {
@@ -54,7 +56,7 @@ type Provider struct {
 	dealDecider          DealDecider
 	askStore             retrievalmarket.AskStore
 	disableNewDeals      bool
-	retrievalPricingFunc      RetrievalPricingFunc
+	retrievalPricingFunc RetrievalPricingFunc
 }
 
 type internalProviderEvent struct {
@@ -99,7 +101,7 @@ func NewProvider(minerAddress address.Address,
 	multiStore *multistore.MultiStore,
 	dataTransfer datatransfer.Manager,
 	ds datastore.Batching,
-	dealPricingFunc DealPricingFunc,
+	dealPricingFunc RetrievalPricingFunc,
 	opts ...RetrievalProviderOption,
 ) (retrievalmarket.RetrievalProvider, error) {
 
@@ -108,15 +110,15 @@ func NewProvider(minerAddress address.Address,
 	}
 
 	p := &Provider{
-		multiStore:      multiStore,
-		dataTransfer:    dataTransfer,
-		node:            node,
-		network:         network,
-		minerAddress:    minerAddress,
-		pieceStore:      pieceStore,
-		subscribers:     pubsub.New(providerDispatcher),
-		readySub:        pubsub.New(shared.ReadyDispatcher),
-		dealPricingFunc: dealPricingFunc,
+		multiStore:           multiStore,
+		dataTransfer:         dataTransfer,
+		node:                 node,
+		network:              network,
+		minerAddress:         minerAddress,
+		pieceStore:           pieceStore,
+		subscribers:          pubsub.New(providerDispatcher),
+		readySub:             pubsub.New(shared.ReadyDispatcher),
+		retrievalPricingFunc: dealPricingFunc,
 	}
 
 	err := shared.MoveKey(ds, "retrieval-ask", "retrieval-ask/latest")
@@ -286,6 +288,12 @@ func (p *Provider) HandleQueryStream(stream rmnet.RetrievalQueryStream) {
 		return
 	}
 
+	sendResp := func(resp retrievalmarket.QueryResponse) {
+		if err := stream.WriteQueryResponse(resp); err != nil {
+			log.Errorf("Retrieval query: WriteCborRPC: %s", err)
+		}
+	}
+
 	answer := retrievalmarket.QueryResponse{
 		Status:          retrievalmarket.QueryResponseUnavailable,
 		PieceCIDFound:   retrievalmarket.QueryItemUnavailable,
@@ -293,83 +301,84 @@ func (p *Provider) HandleQueryStream(stream rmnet.RetrievalQueryStream) {
 		UnsealPrice:     big.Zero(),
 	}
 
+	// get chain head to query actor states.
 	ctx := context.TODO()
-
 	tok, _, err := p.node.GetChainHead(ctx)
 	if err != nil {
 		log.Errorf("Retrieval query: GetChainHead: %s", err)
 		return
 	}
 
+	// fetch the payment address the client should send the payment to.
 	paymentAddress, err := p.node.GetMinerWorkerAddress(ctx, p.minerAddress, tok)
 	if err != nil {
 		log.Errorf("Retrieval query: Lookup Payment Address: %s", err)
 		answer.Status = retrievalmarket.QueryResponseError
-		answer.Message = err.Error()
-	} else {
-		answer.PaymentAddress = paymentAddress
-
-		pieceCID := cid.Undef
-		if query.PieceCID != nil {
-			pieceCID = *query.PieceCID
-		}
-		pieceInfo, isUnsealed, err := getPieceInfoFromCid(ctx, p.node, p.pieceStore, query.PayloadCID, pieceCID)
-		if err == nil && len(pieceInfo.Deals) > 0 {
-			answer.Status = retrievalmarket.QueryResponseAvailable
-			answer.Size = uint64(pieceInfo.Deals[0].Length) // TODO: verify on intermediate
-			answer.PieceCIDFound = retrievalmarket.QueryItemAvailable
-
-			var storageDeals []abi.DealID
-			if pieceCID != cid.Undef {
-				// If the user wants to retrieve the payload from a specific piece, we only need to inspect storage deals
-				// made for that piece to quote a price for retrieval.
-				for _, d := range pieceInfo.Deals {
-					storageDeals = append(storageDeals, d.DealID)
-				}
-			} else {
-				// If the user does NOT want to retrieve the payload from a specific piece, we'll have to inspect all deals
-				// made for that piece to quote a price for retrieval.
-				storageDeals, err = getAllDealsContainingPayload(p.pieceStore, query.PayloadCID)
-				if err != nil {
-					log.Errorf("Retrieval query: getAllDealsContainingPayload: %s", err)
-					return
-				}
-			}
-
-			input := retrievalmarket.PricingInput{
-				// piece from which the payload will be retrieved
-				// If user hasn't given a PieceCID, we try to choose an unsealed piece in the call to `getPieceInfoFromCid` above.
-				PieceCID: pieceInfo.PieceCID,
-
-				PayloadCID: query.PayloadCID,
-				Unsealed:   isUnsealed,
-				Client:     stream.RemotePeer(),
-			}
-			ask, err := p.GetDynamicAsk(ctx, input, storageDeals)
-			if err != nil {
-				log.Errorf("Retrieval query: GetAsk: %s", err)
-				return
-			}
-
-			answer.MinPricePerByte = ask.PricePerByte
-			answer.MaxPaymentInterval = ask.PaymentInterval
-			answer.MaxPaymentIntervalIncrease = ask.PaymentIntervalIncrease
-			answer.UnsealPrice = ask.UnsealPrice
-		}
-
-		if err != nil && !xerrors.Is(err, retrievalmarket.ErrNotFound) {
-			log.Errorf("Retrieval query: GetRefs: %s", err)
-			answer.Status = retrievalmarket.QueryResponseError
-			answer.Message = err.Error()
-		}
-
-	}
-	if err := stream.WriteQueryResponse(answer); err != nil {
-		log.Errorf("Retrieval query: WriteCborRPC: %s", err)
+		answer.Message = fmt.Sprintf("failed to look up payment address: %s", err)
+		sendResp(answer)
 		return
 	}
+	answer.PaymentAddress = paymentAddress
+
+	// fetch the piece from which the payload will be retrieved.
+	// if user has specified the Piece in the request, we use that.
+	// Otherwise, we prefer a Piece which can retrieved from an unsealed sector.
+	pieceCID := cid.Undef
+	if query.PieceCID != nil {
+		pieceCID = *query.PieceCID
+	}
+	pieceInfo, isUnsealed, err := getPieceInfoFromCid(ctx, p.node, p.pieceStore, query.PayloadCID, pieceCID)
+	if err != nil {
+		log.Errorf("Retrieval query: getPieceInfoFromCid: %s", err)
+		if !xerrors.Is(err, retrievalmarket.ErrNotFound) {
+			answer.Status = retrievalmarket.QueryResponseError
+			answer.Message = fmt.Sprintf("failed to fetch piece to retrieve from: %s", err)
+		}
+
+		sendResp(answer)
+		return
+	}
+
+	answer.Status = retrievalmarket.QueryResponseAvailable
+	answer.Size = uint64(pieceInfo.Deals[0].Length) // TODO: verify on intermediate
+	answer.PieceCIDFound = retrievalmarket.QueryItemAvailable
+
+	storageDeals, err := storageDealsForPiece(query.PieceCID != nil, query.PayloadCID, pieceInfo, p.pieceStore)
+	if err != nil {
+		log.Errorf("Retrieval query: storageDealsForPiece: %s", err)
+		answer.Status = retrievalmarket.QueryResponseError
+		answer.Message = fmt.Sprintf("failed to fetch storage deals containing payload: %s", err)
+		sendResp(answer)
+		return
+	}
+
+	input := retrievalmarket.PricingInput{
+		// piece from which the payload will be retrieved
+		// If user hasn't given a PieceCID, we try to choose an unsealed piece in the call to `getPieceInfoFromCid` above.
+		PieceCID: pieceInfo.PieceCID,
+
+		PayloadCID: query.PayloadCID,
+		Unsealed:   isUnsealed,
+		Client:     stream.RemotePeer(),
+	}
+	ask, err := p.GetDynamicAsk(ctx, input, storageDeals)
+	if err != nil {
+		log.Errorf("Retrieval query: GetAsk: %s", err)
+		answer.Status = retrievalmarket.QueryResponseError
+		answer.Message = fmt.Sprintf("failed to price deal: %s", err)
+		sendResp(answer)
+		return
+	}
+
+	answer.MinPricePerByte = ask.PricePerByte
+	answer.MaxPaymentInterval = ask.PaymentInterval
+	answer.MaxPaymentIntervalIncrease = ask.PaymentIntervalIncrease
+	answer.UnsealPrice = ask.UnsealPrice
+	sendResp(answer)
 }
 
+// GetDynamicAsk quotes a dynamic price for the retrieval deal by calling the user configured
+// dynamic pricing function. It passes the static price parameters set in the Ask Store to the pricing function.
 func (p *Provider) GetDynamicAsk(ctx context.Context, input retrievalmarket.PricingInput, storageDeals []abi.DealID) (retrievalmarket.Ask, error) {
 	dp, err := p.node.GetRetrievalPricingInput(ctx, input.PieceCID, storageDeals)
 	if err != nil {
@@ -388,7 +397,7 @@ func (p *Provider) GetDynamicAsk(ctx context.Context, input retrievalmarket.Pric
 	dp.Client = input.Client
 	dp.CurrentAsk = *currAsk
 
-	ask, err := p.dealPricingFunc(ctx, dp)
+	ask, err := p.retrievalPricingFunc(ctx, dp)
 	if err != nil {
 		return retrievalmarket.Ask{}, xerrors.Errorf("dealPricingFunc: %s", err)
 	}

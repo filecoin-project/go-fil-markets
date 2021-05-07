@@ -137,7 +137,7 @@ func TestDynamicPricing(t *testing.T) {
 	}
 
 	buildProvider := func(t *testing.T, node *testnodes.TestRetrievalProviderNode, qs network.RetrievalQueryStream,
-		pieceStore piecestore.PieceStore, net *tut.TestRetrievalMarketNetwork, pFnc retrievalimpl.DealPricingFunc) retrievalmarket.RetrievalProvider {
+		pieceStore piecestore.PieceStore, net *tut.TestRetrievalMarketNetwork, pFnc retrievalimpl.RetrievalPricingFunc) retrievalmarket.RetrievalProvider {
 		ds := dss.MutexWrap(datastore.NewMapDatastore())
 		multiStore, err := multistore.NewMultiDstore(ds)
 		require.NoError(t, err)
@@ -168,7 +168,7 @@ func TestDynamicPricing(t *testing.T) {
 		peerIdFnc   func(stream *tut.TestRetrievalQueryStream)
 		providerFnc func(provider retrievalmarket.RetrievalProvider)
 
-		pricingFnc retrievalimpl.DealPricingFunc
+		pricingFnc retrievalimpl.RetrievalPricingFunc
 
 		expectedPricePerByte            abi.TokenAmount
 		expectedPaymentInterval         uint64

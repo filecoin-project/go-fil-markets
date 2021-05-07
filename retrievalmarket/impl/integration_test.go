@@ -69,7 +69,7 @@ func TestClientCanMakeQueryToProvider(t *testing.T) {
 	t.Run("when there is some other error, returns error", func(t *testing.T) {
 		unknownPiece := tut.GenerateCids(1)[0]
 		expectedQR.Status = retrievalmarket.QueryResponseError
-		expectedQR.Message = "get cid info: GetCIDInfo failed"
+		expectedQR.Message = "failed to fetch piece to retrieve from: get cid info: GetCIDInfo failed"
 		actualQR, err := client.Query(bgCtx, retrievalPeer, unknownPiece, retrievalmarket.QueryParams{})
 		assert.NoError(t, err)
 		actualQR.MaxPaymentInterval = expectedQR.MaxPaymentInterval

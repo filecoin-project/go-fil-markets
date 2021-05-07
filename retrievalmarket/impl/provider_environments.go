@@ -32,22 +32,10 @@ type providerValidationEnvironment struct {
 
 func (pve *providerValidationEnvironment) GetAsk(ctx context.Context, payloadCid cid.Cid, pieceCid *cid.Cid,
 	piece piecestore.PieceInfo, isUnsealed bool, client peer.ID) (retrievalmarket.Ask, error) {
-	var storageDeals []abi.DealID
-	var err error
-	if pieceCid != nil {
-		//  If the user wants to retrieve the payload from a specific piece,
-		//  we only need to inspect storage deals made for that piece to quote a price.
-		for _, d := range piece.Deals {
-			storageDeals = append(storageDeals, d.DealID)
-		}
 
-	} else {
-		// If the user does NOT want to retrieve from a specific piece, we'll have to inspect all storage deals
-		// made for that piece to quote a price.
-		storageDeals, err = getAllDealsContainingPayload(pve.p.pieceStore, payloadCid)
-		if err != nil {
-			return retrievalmarket.Ask{}, xerrors.Errorf("failed to fetch deals for payload, err=%s", err)
-		}
+	storageDeals, err := storageDealsForPiece(pieceCid != nil, payloadCid, piece, pve.p.pieceStore)
+	if err != nil {
+		return retrievalmarket.Ask{}, xerrors.Errorf("failed to fetch deals for payload, err=%s", err)
 	}
 
 	input := retrievalmarket.PricingInput{
@@ -226,6 +214,7 @@ func pieceInUnsealedSector(ctx context.Context, n retrievalmarket.RetrievalProvi
 	for _, di := range pieceInfo.Deals {
 		isUnsealed, err := n.IsUnsealed(ctx, di.SectorID, di.Offset.Unpadded(), di.Length.Unpadded())
 		if err != nil {
+			log.Errorf("failed to find out is sector %s is unsealed, err=%s", di.SectorID, err)
 			continue
 		}
 		if isUnsealed {
@@ -236,16 +225,43 @@ func pieceInUnsealedSector(ctx context.Context, n retrievalmarket.RetrievalProvi
 	return false
 }
 
+func storageDealsForPiece(clientSpecificPiece bool, payloadCID cid.Cid, pieceInfo piecestore.PieceInfo, pieceStore piecestore.PieceStore) ([]abi.DealID, error) {
+	var storageDeals []abi.DealID
+	var err error
+	if clientSpecificPiece {
+		//  If the user wants to retrieve the payload from a specific piece,
+		//  we only need to inspect storage deals made for that piece to quote a price.
+		for _, d := range pieceInfo.Deals {
+			storageDeals = append(storageDeals, d.DealID)
+		}
+	} else {
+		// If the user does NOT want to retrieve from a specific piece, we'll have to inspect all storage deals
+		// made for that piece to quote a price.
+		storageDeals, err = getAllDealsContainingPayload(pieceStore, payloadCID)
+		if err != nil {
+			return nil, xerrors.Errorf("failed to fetch deals for payload, err=%s", err)
+		}
+	}
+
+	if len(storageDeals) == 0 {
+		return nil, xerrors.New("no storage deals found")
+	}
+
+	return storageDeals, nil
+}
+
 func getAllDealsContainingPayload(pieceStore piecestore.PieceStore, payloadCID cid.Cid) ([]abi.DealID, error) {
 	cidInfo, err := pieceStore.GetCIDInfo(payloadCID)
 	if err != nil {
 		return nil, xerrors.Errorf("get cid info: %w", err)
 	}
 	var dealsIds []abi.DealID
+	var lastErr error
 
 	for _, pieceBlockLocation := range cidInfo.PieceBlockLocations {
 		pieceInfo, err := pieceStore.GetPieceInfo(pieceBlockLocation.PieceCID)
 		if err != nil {
+			lastErr = err
 			continue
 		}
 		for _, d := range pieceInfo.Deals {
@@ -253,8 +269,12 @@ func getAllDealsContainingPayload(pieceStore piecestore.PieceStore, payloadCID c
 		}
 	}
 
-	if len(dealsIds) == 0 {
+	if lastErr == nil && len(dealsIds) == 0 {
 		return nil, xerrors.New("no deals found")
+	}
+
+	if lastErr != nil && len(dealsIds) == 0 {
+		return nil, xerrors.Errorf("failed to fetch deals containing payload, err=%s", lastErr)
 	}
 
 	return dealsIds, nil
@@ -301,6 +321,7 @@ func getPieceInfoFromCid(ctx context.Context, n retrievalmarket.RetrievalProvide
 	if lastErr == nil {
 		lastErr = xerrors.Errorf("unknown pieceCID %s", pieceCID.String())
 	}
+
 	return piecestore.PieceInfoUndefined, false, xerrors.Errorf("could not locate piece: %w", lastErr)
 }
 
