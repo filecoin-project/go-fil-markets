@@ -424,3 +424,22 @@ var ProviderFSMParameterSpec = fsm.Parameters{
 	Events:          providerstates.ProviderEvents,
 	StateEntryFuncs: providerstates.ProviderStateEntryFuncs,
 }
+
+// DefaultPricingFunc is the default pricing policy that will be used to price retrieval deals.
+var DefaultPricingFunc = func(VerifiedDealsFreeTransfer bool) func(ctx context.Context, pricingInput retrievalmarket.PricingInput) (retrievalmarket.Ask, error) {
+	return func(ctx context.Context, pricingInput retrievalmarket.PricingInput) (retrievalmarket.Ask, error) {
+		ask := pricingInput.CurrentAsk
+
+		// don't charge for Unsealing if we have an Unsealed copy.
+		if pricingInput.Unsealed {
+			ask.UnsealPrice = big.Zero()
+		}
+
+		// don't charge for data transfer for verified deals if it's been configured to do so.
+		if pricingInput.VerifiedDeal && VerifiedDealsFreeTransfer {
+			ask.PricePerByte = big.Zero()
+		}
+
+		return ask, nil
+	}
+}
