@@ -61,8 +61,8 @@ type TestRetrievalProviderNode struct {
 	expectedPricingPieceCID cid.Cid
 	receivedPricingPieceCID cid.Cid
 
-	unsealed   map[sectorKey]struct{}
-	isVerified bool
+	unsealed         map[sectorKey]struct{}
+	isVerified       bool
 	receivedVouchers []abi.TokenAmount
 	unsealPaused     chan struct{}
 }
@@ -76,7 +76,7 @@ func NewTestRetrievalProviderNode() *TestRetrievalProviderNode {
 		expectations:     make(map[sectorKey]struct{}),
 		received:         make(map[sectorKey]struct{}),
 		expectedVouchers: make(map[expectedVoucherKey]voucherResult),
-		unsealed: make(map[sectorKey]struct{}),
+		unsealed:         make(map[sectorKey]struct{}),
 	}
 }
 

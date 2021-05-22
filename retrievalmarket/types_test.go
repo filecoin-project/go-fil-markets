@@ -43,7 +43,6 @@ func TestParamsMarshalUnmarshal(t *testing.T) {
 	assert.Equal(t, sel, allSelector)
 }
 
-
 func TestPricingInputMarshalUnmarshalJSON(t *testing.T) {
 	pid := test.RandPeerIDFatal(t)
 
@@ -69,9 +68,9 @@ func TestPricingInputMarshalUnmarshalJSON(t *testing.T) {
 	require.NoError(t, json.Unmarshal(bz, &resp2))
 
 	require.Equal(t, in, resp2)
+}
 
-  
-  func TestParamsIntervalBounds(t *testing.T) {
+func TestParamsIntervalBounds(t *testing.T) {
 	testCases := []struct {
 		name             string
 		currentInterval  uint64
