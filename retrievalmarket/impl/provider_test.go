@@ -298,6 +298,104 @@ func TestDynamicPricing(t *testing.T) {
 			expectedSize:                    piece2Size,
 		},
 
+		"pieceCid no-op: quote correct price for unsealed, verified, peer1 using default pricing policy if data transfer fee set to zero for verified deals": {
+			query: retrievalmarket.Query{PayloadCID: payloadCID},
+			peerIdFnc: func(qs *tut.TestRetrievalQueryStream) {
+				qs.SetRemotePeer(peer1)
+			},
+			nodeFunc: func(n *testnodes.TestRetrievalProviderNode) {
+				p := piece2.Deals[0]
+				n.MarkUnsealed(context.TODO(), p.SectorID, p.Offset.Unpadded(), p.Length.Unpadded())
+				n.MarkVerified()
+				n.ExpectPricingParams(expectedPieceCID2, []abi.DealID{1, 11, 2, 22, 222})
+			},
+			expFunc: func(t *testing.T, pieceStore *tut.TestPieceStore) {
+				pieceStore.ExpectCID(payloadCID, expectedCIDInfo)
+				pieceStore.ExpectPiece(expectedPieceCID1, piece1)
+				pieceStore.ExpectPiece(expectedPieceCID2, piece2)
+			},
+
+			providerFnc: func(provider retrievalmarket.RetrievalProvider) {
+				ask := provider.GetAsk()
+				ask.PaymentInterval = expectedpiPeer1
+				ask.PaymentIntervalIncrease = expectedPaymentIntervalIncrease
+				provider.SetAsk(ask)
+			},
+
+			pricingFnc: retrievalimpl.DefaultPricingFunc(true),
+
+			expectedPricePerByte:            big.Zero(),
+			expectedUnsealPrice:             big.Zero(),
+			expectedPaymentInterval:         expectedpiPeer1,
+			expectedPaymentIntervalIncrease: expectedPaymentIntervalIncrease,
+			expectedSize:                    piece2Size,
+		},
+
+		"pieceCid no-op: quote correct price for unsealed, verified, peer1 using default pricing policy if data transfer fee not set to zero for verified deals": {
+			query: retrievalmarket.Query{PayloadCID: payloadCID},
+			peerIdFnc: func(qs *tut.TestRetrievalQueryStream) {
+				qs.SetRemotePeer(peer1)
+			},
+			nodeFunc: func(n *testnodes.TestRetrievalProviderNode) {
+				p := piece2.Deals[0]
+				n.MarkUnsealed(context.TODO(), p.SectorID, p.Offset.Unpadded(), p.Length.Unpadded())
+				n.MarkVerified()
+				n.ExpectPricingParams(expectedPieceCID2, []abi.DealID{1, 11, 2, 22, 222})
+			},
+			expFunc: func(t *testing.T, pieceStore *tut.TestPieceStore) {
+				pieceStore.ExpectCID(payloadCID, expectedCIDInfo)
+				pieceStore.ExpectPiece(expectedPieceCID1, piece1)
+				pieceStore.ExpectPiece(expectedPieceCID2, piece2)
+			},
+
+			providerFnc: func(provider retrievalmarket.RetrievalProvider) {
+				ask := provider.GetAsk()
+				ask.PricePerByte = expectedppbVerified
+				ask.PaymentInterval = expectedpiPeer1
+				ask.PaymentIntervalIncrease = expectedPaymentIntervalIncrease
+				provider.SetAsk(ask)
+			},
+
+			pricingFnc: retrievalimpl.DefaultPricingFunc(false),
+
+			expectedPricePerByte:            expectedppbVerified,
+			expectedUnsealPrice:             big.Zero(),
+			expectedPaymentInterval:         expectedpiPeer1,
+			expectedPaymentIntervalIncrease: expectedPaymentIntervalIncrease,
+			expectedSize:                    piece2Size,
+		},
+
+		"pieceCid no-op: quote correct price for sealed, verified, peer1 using default pricing policy": {
+			query: retrievalmarket.Query{PayloadCID: payloadCID},
+			peerIdFnc: func(qs *tut.TestRetrievalQueryStream) {
+				qs.SetRemotePeer(peer1)
+			},
+			nodeFunc: func(n *testnodes.TestRetrievalProviderNode) {
+				n.MarkVerified()
+				n.ExpectPricingParams(expectedPieceCID1, []abi.DealID{1, 11, 2, 22, 222})
+			},
+			expFunc: func(t *testing.T, pieceStore *tut.TestPieceStore) {
+				pieceStore.ExpectCID(payloadCID, expectedCIDInfo)
+				pieceStore.ExpectPiece(expectedPieceCID1, piece1)
+				pieceStore.ExpectPiece(expectedPieceCID2, piece2)
+			},
+			providerFnc: func(provider retrievalmarket.RetrievalProvider) {
+				ask := provider.GetAsk()
+				ask.PricePerByte = expectedppbVerified
+				ask.PaymentInterval = expectedpiPeer1
+				ask.PaymentIntervalIncrease = expectedPaymentIntervalIncrease
+				ask.UnsealPrice = expectedUnsealPrice
+				provider.SetAsk(ask)
+			},
+			pricingFnc: retrievalimpl.DefaultPricingFunc(false),
+
+			expectedPricePerByte:            expectedppbVerified,
+			expectedPaymentInterval:         expectedpiPeer1,
+			expectedUnsealPrice:             expectedUnsealPrice,
+			expectedPaymentIntervalIncrease: expectedPaymentIntervalIncrease,
+			expectedSize:                    piece1Size,
+		},
+
 		// Retrieval requests for a payloadCid inside a specific piece Cid
 		"specific sealed piece Cid, first piece Cid matches: quote correct price for sealed, unverified, peer1": {
 			query: retrievalmarket.Query{
@@ -498,9 +596,9 @@ func TestDynamicPricing(t *testing.T) {
 
 			require.Equal(t, expectedAddress, actualResp.PaymentAddress)
 			require.Equal(t, tc.expectedPricePerByte, actualResp.MinPricePerByte)
+			require.Equal(t, tc.expectedUnsealPrice, actualResp.UnsealPrice)
 			require.Equal(t, tc.expectedPaymentInterval, actualResp.MaxPaymentInterval)
 			require.Equal(t, tc.expectedPaymentIntervalIncrease, actualResp.MaxPaymentIntervalIncrease)
-			require.Equal(t, tc.expectedUnsealPrice, actualResp.UnsealPrice)
 			require.Equal(t, tc.expectedSize, actualResp.Size)
 		})
 	}
