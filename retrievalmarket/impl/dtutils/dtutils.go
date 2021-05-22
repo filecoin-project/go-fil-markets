@@ -89,10 +89,10 @@ func clientEventForResponse(response *rm.DealResponse) (rm.ClientEvent, []interf
 		return rm.ClientEventLastPaymentRequested, []interface{}{response.PaymentOwed}
 	case rm.DealStatusCompleted:
 		return rm.ClientEventComplete, nil
-	case rm.DealStatusFundsNeeded:
+	case rm.DealStatusFundsNeeded, rm.DealStatusOngoing:
 		return rm.ClientEventPaymentRequested, []interface{}{response.PaymentOwed}
 	default:
-		return rm.ClientEventUnknownResponseReceived, nil
+		return rm.ClientEventUnknownResponseReceived, []interface{}{response.Status}
 	}
 }
 
@@ -100,7 +100,7 @@ const noEvent = rm.ClientEvent(math.MaxUint64)
 
 func clientEvent(event datatransfer.Event, channelState datatransfer.ChannelState) (rm.ClientEvent, []interface{}) {
 	switch event.Code {
-	case datatransfer.DataReceived:
+	case datatransfer.DataReceivedProgress:
 		return rm.ClientEventBlocksReceived, []interface{}{channelState.Received()}
 	case datatransfer.FinishTransfer:
 		return rm.ClientEventAllBlocksReceived, nil

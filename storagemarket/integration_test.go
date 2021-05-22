@@ -299,14 +299,12 @@ func TestRestartOnlyProviderDataTransfer(t *testing.T) {
 
 	// Configure data-transfer to restart after stalling
 	restartConf := dtimpl.ChannelRestartConfig(channelmonitor.Config{
-		MonitorPushChannels:    true,
-		AcceptTimeout:          200 * time.Millisecond,
-		Interval:               100 * time.Millisecond,
-		MinBytesTransferred:    1,
-		ChecksPerInterval:      10,
-		RestartBackoff:         200 * time.Millisecond,
+		AcceptTimeout:          100 * time.Millisecond,
+		RestartBackoff:         100 * time.Millisecond,
+		RestartAckTimeout:      2 * time.Second,
+		RestartDebounce:        100 * time.Millisecond,
 		MaxConsecutiveRestarts: 5,
-		CompleteTimeout:        200 * time.Millisecond,
+		CompleteTimeout:        100 * time.Millisecond,
 	})
 	smState := testnodes.NewStorageMarketState()
 	depGen := dependencies.NewDepGenerator()
@@ -637,12 +635,10 @@ func TestBounceConnectionDataTransfer(t *testing.T) {
 
 	// Configure data-transfer to automatically restart when connection goes down
 	restartConf := dtimpl.ChannelRestartConfig(channelmonitor.Config{
-		MonitorPushChannels:    true,
 		AcceptTimeout:          100 * time.Millisecond,
-		Interval:               100 * time.Millisecond,
-		MinBytesTransferred:    1,
-		ChecksPerInterval:      10,
-		RestartBackoff:         200 * time.Millisecond,
+		RestartBackoff:         100 * time.Millisecond,
+		RestartAckTimeout:      2 * time.Second,
+		RestartDebounce:        100 * time.Millisecond,
 		MaxConsecutiveRestarts: 5,
 		CompleteTimeout:        100 * time.Millisecond,
 	})

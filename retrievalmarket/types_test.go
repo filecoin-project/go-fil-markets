@@ -43,6 +43,7 @@ func TestParamsMarshalUnmarshal(t *testing.T) {
 	assert.Equal(t, sel, allSelector)
 }
 
+
 func TestPricingInputMarshalUnmarshalJSON(t *testing.T) {
 	pid := test.RandPeerIDFatal(t)
 
@@ -68,4 +69,53 @@ func TestPricingInputMarshalUnmarshalJSON(t *testing.T) {
 	require.NoError(t, json.Unmarshal(bz, &resp2))
 
 	require.Equal(t, in, resp2)
+
+  
+  func TestParamsIntervalBounds(t *testing.T) {
+	testCases := []struct {
+		name             string
+		currentInterval  uint64
+		paymentInterval  uint64
+		intervalIncrease uint64
+		expLowerBound    uint64
+		expNextInterval  uint64
+	}{{
+		currentInterval:  0,
+		paymentInterval:  10,
+		intervalIncrease: 5,
+		expLowerBound:    0,
+		expNextInterval:  10,
+	}, {
+		currentInterval:  10,
+		paymentInterval:  10,
+		intervalIncrease: 5,
+		expLowerBound:    0,
+		expNextInterval:  25, // 10 + (10 + 5)
+	}, {
+		currentInterval:  25,
+		paymentInterval:  10,
+		intervalIncrease: 5,
+		expLowerBound:    10,
+		expNextInterval:  45, // 10 + (10 + 5) + (10 + 5 + 5)
+	}, {
+		currentInterval:  45,
+		paymentInterval:  10,
+		intervalIncrease: 5,
+		expLowerBound:    25,
+		expNextInterval:  70, // 10 + (10 + 5) + (10 + 5 + 5) + (10 + 5 + 5 + 5)
+	}}
+
+	for _, tc := range testCases {
+		t.Run("", func(t *testing.T) {
+			params := retrievalmarket.Params{
+				PaymentInterval:         tc.paymentInterval,
+				PaymentIntervalIncrease: tc.intervalIncrease,
+			}
+			lowerBound := params.IntervalLowerBound(tc.currentInterval)
+			nextInterval := params.NextInterval(tc.currentInterval)
+
+			require.Equal(t, tc.expLowerBound, lowerBound)
+			require.Equal(t, tc.expNextInterval, nextInterval)
+		})
+	}
 }

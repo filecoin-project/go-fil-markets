@@ -7,18 +7,25 @@ import (
 	"errors"
 	"io"
 	"io/ioutil"
+	"sort"
+	"sync"
 	"testing"
 
 	"github.com/ipfs/go-cid"
+	logging "github.com/ipfs/go-log/v2"
 	"github.com/stretchr/testify/require"
+	"golang.org/x/xerrors"
 
 	"github.com/filecoin-project/go-address"
 	"github.com/filecoin-project/go-state-types/abi"
+	"github.com/filecoin-project/go-state-types/big"
 	"github.com/filecoin-project/specs-actors/actors/builtin/paych"
 
 	"github.com/filecoin-project/go-fil-markets/retrievalmarket"
 	"github.com/filecoin-project/go-fil-markets/shared"
 )
+
+var log = logging.Logger("retrieval_provnode_test")
 
 type expectedVoucherKey struct {
 	paymentChannel string
@@ -45,8 +52,8 @@ type TestRetrievalProviderNode struct {
 	sectorStubs      map[sectorKey][]byte
 	expectations     map[sectorKey]struct{}
 	received         map[sectorKey]struct{}
+	lk               sync.Mutex
 	expectedVouchers map[expectedVoucherKey]voucherResult
-	receivedVouchers map[expectedVoucherKey]struct{}
 
 	expectedPricingParamDeals []abi.DealID
 	receivedPricingParamDeals []abi.DealID
@@ -56,6 +63,8 @@ type TestRetrievalProviderNode struct {
 
 	unsealed   map[sectorKey]struct{}
 	isVerified bool
+	receivedVouchers []abi.TokenAmount
+	unsealPaused     chan struct{}
 }
 
 var _ retrievalmarket.RetrievalProviderNode = &TestRetrievalProviderNode{}
@@ -67,8 +76,6 @@ func NewTestRetrievalProviderNode() *TestRetrievalProviderNode {
 		expectations:     make(map[sectorKey]struct{}),
 		received:         make(map[sectorKey]struct{}),
 		expectedVouchers: make(map[expectedVoucherKey]voucherResult),
-		receivedVouchers: make(map[expectedVoucherKey]struct{}),
-
 		unsealed: make(map[sectorKey]struct{}),
 	}
 }
@@ -118,9 +125,31 @@ func (trpn *TestRetrievalProviderNode) ExpectUnseal(sectorID abi.SectorNumber, o
 	trpn.StubUnseal(sectorID, offset, length, data)
 }
 
+func (trpn *TestRetrievalProviderNode) PauseUnseal() {
+	trpn.lk.Lock()
+	defer trpn.lk.Unlock()
+
+	trpn.unsealPaused = make(chan struct{})
+}
+
+func (trpn *TestRetrievalProviderNode) FinishUnseal() {
+	close(trpn.unsealPaused)
+}
+
 // UnsealSector simulates unsealing a sector by returning a stubbed response
 // or erroring
 func (trpn *TestRetrievalProviderNode) UnsealSector(ctx context.Context, sectorID abi.SectorNumber, offset, length abi.UnpaddedPieceSize) (io.ReadCloser, error) {
+	trpn.lk.Lock()
+	defer trpn.lk.Unlock()
+
+	if trpn.unsealPaused != nil {
+		select {
+		case <-ctx.Done():
+			return nil, ctx.Err()
+		case <-trpn.unsealPaused:
+		}
+	}
+
 	trpn.received[sectorKey{sectorID, offset, length}] = struct{}{}
 	data, ok := trpn.sectorStubs[sectorKey{sectorID, offset, length}]
 	if !ok {
@@ -147,16 +176,41 @@ func (trpn *TestRetrievalProviderNode) SavePaymentVoucher(
 	proof []byte,
 	expectedAmount abi.TokenAmount,
 	tok shared.TipSetToken) (abi.TokenAmount, error) {
-	key, err := trpn.toExpectedVoucherKey(paymentChannel, voucher, proof, expectedAmount)
+
+	trpn.lk.Lock()
+	defer trpn.lk.Unlock()
+
+	key, err := trpn.toExpectedVoucherKey(paymentChannel, voucher, proof, voucher.Amount)
 	if err != nil {
 		return abi.TokenAmount{}, err
 	}
+
+	max := big.Zero()
+	for _, amt := range trpn.receivedVouchers {
+		max = big.Max(max, amt)
+	}
+	trpn.receivedVouchers = append(trpn.receivedVouchers, voucher.Amount)
+	rcvd := big.Sub(voucher.Amount, max)
+	if rcvd.LessThan(big.Zero()) {
+		rcvd = big.Zero()
+	}
+	if len(trpn.expectedVouchers) == 0 {
+		return rcvd, nil
+	}
+
 	result, ok := trpn.expectedVouchers[key]
 	if ok {
-		trpn.receivedVouchers[key] = struct{}{}
-		return result.amount, result.err
+		return rcvd, result.err
 	}
-	return abi.TokenAmount{}, errors.New("SavePaymentVoucher failed")
+	var amts []abi.TokenAmount
+	for _, vchr := range trpn.expectedVouchers {
+		amts = append(amts, vchr.amount)
+	}
+	sort.Slice(amts, func(i, j int) bool {
+		return amts[i].LessThan(amts[j])
+	})
+	err = xerrors.Errorf("SavePaymentVoucher failed - voucher %d didnt match expected voucher %d in %s", voucher.Amount, expectedAmount, amts)
+	return abi.TokenAmount{}, err
 }
 
 // GetMinerWorkerAddress translates an address
@@ -198,10 +252,24 @@ func (trpn *TestRetrievalProviderNode) ExpectVoucher(
 	expectedAmount abi.TokenAmount,
 	actualAmount abi.TokenAmount, // the actual amount it should have (same unless you want to trigger an error)
 	expectedErr error) error {
-	key, err := trpn.toExpectedVoucherKey(paymentChannel, voucher, proof, expectedAmount)
+	vch := *voucher
+	vch.Amount = expectedAmount
+	key, err := trpn.toExpectedVoucherKey(paymentChannel, &vch, proof, expectedAmount)
 	if err != nil {
 		return err
 	}
 	trpn.expectedVouchers[key] = voucherResult{actualAmount, expectedErr}
 	return nil
+}
+
+func (trpn *TestRetrievalProviderNode) AddReceivedVoucher(amt abi.TokenAmount) {
+	trpn.receivedVouchers = append(trpn.receivedVouchers, amt)
+}
+
+func (trpn *TestRetrievalProviderNode) MaxReceivedVoucher() abi.TokenAmount {
+	max := abi.NewTokenAmount(0)
+	for _, amt := range trpn.receivedVouchers {
+		max = big.Max(max, amt)
+	}
+	return max
 }

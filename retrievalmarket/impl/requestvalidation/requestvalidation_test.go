@@ -29,7 +29,7 @@ func TestValidatePush(t *testing.T) {
 	sender := shared_testutil.GeneratePeers(1)[0]
 	voucher := shared_testutil.MakeTestDealProposal()
 	requestValidator := requestvalidation.NewProviderRequestValidator(fve)
-	voucherResult, err := requestValidator.ValidatePush(sender, &voucher, voucher.PayloadCID, shared.AllSelector())
+	voucherResult, err := requestValidator.ValidatePush(false, sender, &voucher, voucher.PayloadCID, shared.AllSelector())
 	require.Equal(t, nil, voucherResult)
 	require.Error(t, err)
 }
@@ -49,6 +49,7 @@ func TestValidatePull(t *testing.T) {
 		},
 	}
 	testCases := map[string]struct {
+		isRestart             bool
 		fve                   fakeValidationEnvironment
 		sender                peer.ID
 		voucher               datatransfer.Voucher
@@ -194,11 +195,22 @@ func TestValidatePull(t *testing.T) {
 				ID:     proposal.ID,
 			},
 		},
+		"restart": {
+			isRestart: true,
+			fve: fakeValidationEnvironment{
+				RunDealDecisioningLogicAccepted: true,
+			},
+			baseCid:               proposal.PayloadCID,
+			selector:              shared.AllSelector(),
+			voucher:               &proposal,
+			expectedError:         nil,
+			expectedVoucherResult: nil,
+		},
 	}
 	for testCase, data := range testCases {
 		t.Run(testCase, func(t *testing.T) {
 			requestValidator := requestvalidation.NewProviderRequestValidator(&data.fve)
-			voucherResult, err := requestValidator.ValidatePull(data.sender, data.voucher, data.baseCid, data.selector)
+			voucherResult, err := requestValidator.ValidatePull(data.isRestart, data.sender, data.voucher, data.baseCid, data.selector)
 			require.Equal(t, data.expectedVoucherResult, voucherResult)
 			if data.expectedError == nil {
 				require.NoError(t, err)

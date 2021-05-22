@@ -16,7 +16,7 @@ import (
 	"github.com/filecoin-project/go-fil-markets/retrievalmarket/migrations"
 )
 
-var log = logging.Logger("retrieval-revalidator")
+var log = logging.Logger("markets-rtvl-reval")
 
 // RevalidatorEnvironment are the dependencies needed to
 // build the logic of revalidation -- essentially, access to the node at statemachines
@@ -56,9 +56,7 @@ func NewProviderRevalidator(env RevalidatorEnvironment) *ProviderRevalidator {
 // a given channel ID with a retrieval deal, so that checks run for data sent
 // on the channel
 func (pr *ProviderRevalidator) TrackChannel(deal rm.ProviderDealState) {
-	// Sanity check
 	if deal.ChannelID == nil {
-		log.Errorf("cannot track deal %s: channel ID is nil", deal.ID)
 		return
 	}
 
@@ -150,29 +148,28 @@ func (pr *ProviderRevalidator) processPayment(dealID rm.ProviderDealIdentifier, 
 		return errorDealResponse(dealID, err), err
 	}
 
-	// attempt to redeem voucher
-	// (totalSent * pricePerByte + unsealPrice) - fundsReceived
-	paymentOwed := big.Sub(big.Add(big.Mul(abi.NewTokenAmount(int64(deal.TotalSent)), deal.PricePerByte), deal.UnsealPrice), deal.FundsReceived)
-	received, err := pr.env.Node().SavePaymentVoucher(context.TODO(), payment.PaymentChannel, payment.PaymentVoucher, nil, paymentOwed, tok)
+	// Save voucher
+	received, err := pr.env.Node().SavePaymentVoucher(context.TODO(), payment.PaymentChannel, payment.PaymentVoucher, nil, big.Zero(), tok)
 	if err != nil {
 		_ = pr.env.SendEvent(dealID, rm.ProviderEventSaveVoucherFailed, err)
 		return errorDealResponse(dealID, err), err
 	}
 
-	// received = 0 / err = nil indicates that the voucher was already saved, but this may be ok
-	// if we are making a deal with ourself - in this case, we'll instead calculate received
-	// but subtracting from fund sent
-	if big.Cmp(received, big.Zero()) == 0 {
-		received = big.Sub(payment.PaymentVoucher.Amount, deal.FundsReceived)
-	}
+	totalPaid := big.Add(deal.FundsReceived, received)
 
 	// check if all payments are received to continue the deal, or send updated required payment
-	if received.LessThan(paymentOwed) {
+	owed := paymentOwed(deal, totalPaid)
+
+	log.Debugf("provider: owed %d: received voucher for %d, total received %d = received so far %d + newly received %d, total sent %d, unseal price %d, price per byte %d",
+		owed, payment.PaymentVoucher.Amount, totalPaid, deal.FundsReceived, received, deal.TotalSent, deal.UnsealPrice, deal.PricePerByte)
+
+	if owed.GreaterThan(big.Zero()) {
+		log.Debugf("provider: owed %d: sending partial payment request", owed)
 		_ = pr.env.SendEvent(dealID, rm.ProviderEventPartialPaymentReceived, received)
 		return &rm.DealResponse{
 			ID:          deal.ID,
 			Status:      deal.Status,
-			PaymentOwed: big.Sub(paymentOwed, received),
+			PaymentOwed: owed,
 		}, datatransfer.ErrPause
 	}
 
@@ -180,6 +177,7 @@ func (pr *ProviderRevalidator) processPayment(dealID rm.ProviderDealIdentifier, 
 	_ = pr.env.SendEvent(dealID, rm.ProviderEventPaymentReceived, received)
 
 	if deal.Status == rm.DealStatusFundsNeededLastPayment {
+		log.Debugf("provider: funds needed: last payment")
 		return &rm.DealResponse{
 			ID:     deal.ID,
 			Status: rm.DealStatusCompleted,
@@ -193,6 +191,36 @@ func (pr *ProviderRevalidator) processPayment(dealID rm.ProviderDealIdentifier, 
 	}
 
 	return nil, datatransfer.ErrResume
+}
+
+func paymentOwed(deal rm.ProviderDealState, totalPaid big.Int) big.Int {
+	// Check if the payment covers unsealing
+	if totalPaid.LessThan(deal.UnsealPrice) {
+		log.Debugf("provider: total paid %d < unseal price %d", totalPaid, deal.UnsealPrice)
+		return big.Sub(deal.UnsealPrice, totalPaid)
+	}
+
+	// Calculate how much payment has been made for transferred data
+	transferPayment := big.Sub(totalPaid, deal.UnsealPrice)
+
+	// The provider sends data and the client sends payment for the data.
+	// The provider will send a limited amount of extra data before receiving
+	// payment. Given the current limit, check if the client has paid enough
+	// to unlock the next interval.
+	currentLimitLower := deal.IntervalLowerBound()
+
+	log.Debugf("provider: total sent %d bytes, but require payment for interval lower bound %d bytes",
+		deal.TotalSent, currentLimitLower)
+
+	// Calculate the minimum required payment
+	totalPaymentRequired := big.Mul(big.NewInt(int64(currentLimitLower)), deal.PricePerByte)
+
+	// Calculate payment owed
+	owed := big.Sub(totalPaymentRequired, transferPayment)
+	log.Debugf("provider: payment owed %d = payment required %d - transfer paid %d",
+		owed, totalPaymentRequired, transferPayment)
+
+	return owed
 }
 
 func errorDealResponse(dealID rm.ProviderDealIdentifier, err error) *rm.DealResponse {
@@ -220,12 +248,21 @@ func (pr *ProviderRevalidator) OnPullDataSent(chid datatransfer.ChannelID, addit
 		return true, nil, err
 	}
 
+	// Calculate how much data has been sent in total
 	channel.totalSent += additionalBytesSent
-	if channel.pricePerByte.IsZero() || channel.totalSent-channel.totalPaidFor < channel.interval {
+	if channel.pricePerByte.IsZero() || channel.totalSent < channel.interval {
+		if !channel.pricePerByte.IsZero() {
+			log.Debugf("provider: total sent %d < interval %d, sending block", channel.totalSent, channel.interval)
+		}
 		return true, nil, pr.env.SendEvent(channel.dealID, rm.ProviderEventBlockSent, channel.totalSent)
 	}
 
+	// Calculate the payment owed
 	paymentOwed := big.Mul(abi.NewTokenAmount(int64(channel.totalSent-channel.totalPaidFor)), channel.pricePerByte)
+	log.Debugf("provider: owed %d = (total sent %d - paid for %d) * price per byte %d: sending payment request",
+		paymentOwed, channel.totalSent, channel.totalPaidFor, channel.pricePerByte)
+
+	// Request payment
 	err = pr.env.SendEvent(channel.dealID, rm.ProviderEventPaymentRequested, channel.totalSent)
 	if err != nil {
 		return true, nil, err
@@ -267,6 +304,7 @@ func (pr *ProviderRevalidator) OnComplete(chid datatransfer.ChannelID) (bool, da
 		return true, nil, err
 	}
 
+	// Calculate how much payment is owed
 	paymentOwed := big.Mul(abi.NewTokenAmount(int64(channel.totalSent-channel.totalPaidFor)), channel.pricePerByte)
 	if paymentOwed.Equals(big.Zero()) {
 		return true, finalResponse(&rm.DealResponse{
@@ -274,6 +312,10 @@ func (pr *ProviderRevalidator) OnComplete(chid datatransfer.ChannelID) (bool, da
 			Status: rm.DealStatusCompleted,
 		}, channel.legacyProtocol), nil
 	}
+
+	// Send a request for payment
+	log.Debugf("provider: last payment owed %d = (total sent %d - paid for %d) * price per byte %d",
+		paymentOwed, channel.totalSent, channel.totalPaidFor, channel.pricePerByte)
 	err = pr.env.SendEvent(channel.dealID, rm.ProviderEventPaymentRequested, channel.totalSent)
 	if err != nil {
 		return true, nil, err

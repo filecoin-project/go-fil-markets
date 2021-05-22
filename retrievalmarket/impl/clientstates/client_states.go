@@ -3,6 +3,7 @@ package clientstates
 import (
 	"context"
 
+	logging "github.com/ipfs/go-log/v2"
 	peer "github.com/libp2p/go-libp2p-core/peer"
 
 	"github.com/filecoin-project/go-address"
@@ -13,6 +14,8 @@ import (
 
 	rm "github.com/filecoin-project/go-fil-markets/retrievalmarket"
 )
+
+var log = logging.Logger("markets-rtvl")
 
 // ClientDealEnvironment is a bridge to the environment a client deal is executing in.
 // It provides access to relevant functionality on the retrieval client
@@ -89,22 +92,59 @@ func Ongoing(ctx fsm.Context, environment ClientDealEnvironment, deal rm.ClientD
 
 // ProcessPaymentRequested processes a request for payment from the provider
 func ProcessPaymentRequested(ctx fsm.Context, environment ClientDealEnvironment, deal rm.ClientDealState) error {
-	// see if we need to send payment
-	if deal.TotalReceived-deal.BytesPaidFor >= deal.CurrentInterval ||
-		deal.AllBlocksReceived ||
-		deal.UnsealPrice.GreaterThan(deal.UnsealFundsPaid) {
+	// If the unseal payment hasn't been made, we need to send funds
+	if deal.UnsealPrice.GreaterThan(deal.UnsealFundsPaid) {
+		log.Debugf("client: payment needed: unseal price %d > unseal paid %d",
+			deal.UnsealPrice, deal.UnsealFundsPaid)
 		return ctx.Trigger(rm.ClientEventSendFunds)
 	}
+
+	// If all bytes received have been paid for, we don't need to send funds
+	if deal.BytesPaidFor >= deal.TotalReceived {
+		log.Debugf("client: no payment needed: bytes paid for %d >= bytes received %d",
+			deal.BytesPaidFor, deal.TotalReceived)
+		return nil
+	}
+
+	// Not all bytes received have been paid for
+
+	// If all blocks have been received we need to send a final payment
+	if deal.AllBlocksReceived {
+		log.Debugf("client: payment needed: all blocks received, bytes paid for %d < bytes received %d",
+			deal.BytesPaidFor, deal.TotalReceived)
+		return ctx.Trigger(rm.ClientEventSendFunds)
+	}
+
+	// Payments are made in intervals, as bytes are received from the provider.
+	// If the number of bytes received is at or above the size of the current
+	// interval, we need to send a payment.
+	if deal.TotalReceived >= deal.CurrentInterval {
+		log.Debugf("client: payment needed: bytes received %d >= interval %d, bytes paid for %d < bytes received %d",
+			deal.TotalReceived, deal.CurrentInterval, deal.BytesPaidFor, deal.TotalReceived)
+		return ctx.Trigger(rm.ClientEventSendFunds)
+	}
+
+	log.Debugf("client: no payment needed: received %d < interval %d (paid for %d)",
+		deal.TotalReceived, deal.CurrentInterval, deal.BytesPaidFor)
 	return nil
 }
 
 // SendFunds sends the next amount requested by the provider
 func SendFunds(ctx fsm.Context, environment ClientDealEnvironment, deal rm.ClientDealState) error {
-	// check that paymentRequest <= (totalReceived - bytesPaidFor) * pricePerByte + (unsealPrice - unsealFundsPaid), or fail
-	retrievalPrice := big.Mul(abi.NewTokenAmount(int64(deal.TotalReceived-deal.BytesPaidFor)), deal.PricePerByte)
-	unsealPrice := big.Sub(deal.UnsealPrice, deal.UnsealFundsPaid)
-	if deal.PaymentRequested.GreaterThan(big.Add(retrievalPrice, unsealPrice)) {
-		return ctx.Trigger(rm.ClientEventBadPaymentRequested, "too much money requested for bytes sent")
+	totalBytesToPayFor := deal.TotalReceived
+
+	// If unsealing has been paid for, and not all blocks have been received
+	if deal.UnsealFundsPaid.GreaterThanEqual(deal.UnsealPrice) && !deal.AllBlocksReceived {
+		// If the number of bytes received is less than the number required
+		// for the current payment interval, no need to send a payment
+		if totalBytesToPayFor < deal.CurrentInterval {
+			log.Debugf("client: ignoring payment request for %d: total bytes to pay for %d < interval %d",
+				deal.PaymentRequested, totalBytesToPayFor, deal.CurrentInterval)
+			return ctx.Trigger(rm.ClientEventPaymentNotSent)
+		}
+
+		// Otherwise round the number of bytes to pay for down to the current interval
+		totalBytesToPayFor = deal.CurrentInterval
 	}
 
 	tok, _, err := environment.Node().GetChainHead(ctx.Context())
@@ -112,19 +152,37 @@ func SendFunds(ctx fsm.Context, environment ClientDealEnvironment, deal rm.Clien
 		return ctx.Trigger(rm.ClientEventCreateVoucherFailed, err)
 	}
 
-	// create payment voucher with node (or fail) for (fundsSpent + paymentRequested)
-	// use correct payCh + lane
-	// (node will do subtraction back to paymentRequested... slightly odd behavior but... well anyway)
-	voucher, err := environment.Node().CreatePaymentVoucher(ctx.Context(), deal.PaymentInfo.PayCh, big.Add(deal.FundsSpent, deal.PaymentRequested), deal.PaymentInfo.Lane, tok)
+	// Calculate the payment amount due for data received
+	transferPrice := big.Mul(abi.NewTokenAmount(int64(totalBytesToPayFor)), deal.PricePerByte)
+	// Calculate the total amount including the unsealing cost
+	totalPrice := big.Add(transferPrice, deal.UnsealPrice)
+
+	// If we've already sent at or above the amount due, no need to send funds
+	if totalPrice.LessThanEqual(deal.FundsSpent) {
+		log.Debugf("client: not sending voucher: funds spent %d >= total price %d: transfer price %d + unseal price %d (payment requested %d)",
+			deal.FundsSpent, totalPrice, transferPrice, deal.UnsealPrice, deal.PaymentRequested)
+		return ctx.Trigger(rm.ClientEventPaymentNotSent)
+	}
+
+	log.Debugf("client: sending voucher for %d = transfer price %d + unseal price %d (payment requested %d)",
+		totalPrice, transferPrice, deal.UnsealPrice, deal.PaymentRequested)
+
+	// Create a payment voucher
+	voucher, err := environment.Node().CreatePaymentVoucher(ctx.Context(), deal.PaymentInfo.PayCh, totalPrice, deal.PaymentInfo.Lane, tok)
 	if err != nil {
 		shortfallErr, ok := err.(rm.ShortfallError)
 		if ok {
+			// There were not enough funds in the payment channel to create a
+			// voucher of this amount, so the client needs to add more funds to
+			// the payment channel
+			log.Debugf("client: voucher shortfall of %d when creating voucher for %d",
+				shortfallErr.Shortfall(), totalPrice)
 			return ctx.Trigger(rm.ClientEventVoucherShortfall, shortfallErr.Shortfall())
 		}
 		return ctx.Trigger(rm.ClientEventCreateVoucherFailed, err)
 	}
 
-	// send payment voucher (or fail)
+	// Send the payment voucher
 	err = environment.SendDataTransferVoucher(ctx.Context(), *deal.ChannelID, &rm.DealPayment{
 		ID:             deal.DealProposal.ID,
 		PaymentChannel: deal.PaymentInfo.PayCh,
@@ -134,7 +192,7 @@ func SendFunds(ctx fsm.Context, environment ClientDealEnvironment, deal rm.Clien
 		return ctx.Trigger(rm.ClientEventWriteDealPaymentErrored, err)
 	}
 
-	return ctx.Trigger(rm.ClientEventPaymentSent)
+	return ctx.Trigger(rm.ClientEventPaymentSent, totalPrice)
 }
 
 // CheckFunds examines current available funds in a payment channel after a voucher shortfall to determine

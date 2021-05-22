@@ -174,7 +174,7 @@ func TestClientDataTransferSubscriber(t *testing.T) {
 			ignored: true,
 		},
 		"progress": {
-			code: datatransfer.DataReceived,
+			code: datatransfer.DataReceivedProgress,
 			state: shared_testutil.TestChannelParams{
 				Vouchers: []datatransfer.Voucher{&dealProposal},
 				Status:   datatransfer.Ongoing,
@@ -302,6 +302,7 @@ func TestClientDataTransferSubscriber(t *testing.T) {
 				Status: datatransfer.Ongoing},
 			expectedID:    dealProposal.ID,
 			expectedEvent: rm.ClientEventUnknownResponseReceived,
+			expectedArgs:  []interface{}{retrievalmarket.DealStatusPaymentChannelAddingFunds},
 		},
 		"error": {
 			code:    datatransfer.Error,

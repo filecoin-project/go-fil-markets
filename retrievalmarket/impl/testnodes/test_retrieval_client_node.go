@@ -120,7 +120,12 @@ func (trcn *TestRetrievalClientNode) CreatePaymentVoucher(ctx context.Context, p
 	if trcn.intergrationTest && amount.GreaterThan(trcn.channelAvailableFunds.ConfirmedAmt) {
 		return nil, retrievalmarket.NewShortfallError(big.Sub(amount, trcn.channelAvailableFunds.ConfirmedAmt))
 	}
-	return trcn.voucher, trcn.voucherError
+	if trcn.voucherError != nil {
+		return nil, trcn.voucherError
+	}
+	voucher := *trcn.voucher
+	voucher.Amount = amount
+	return &voucher, nil
 }
 
 // GetChainHead returns a mock value for the chain head
