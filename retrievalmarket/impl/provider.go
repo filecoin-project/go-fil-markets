@@ -345,7 +345,7 @@ func (p *Provider) HandleQueryStream(stream rmnet.RetrievalQueryStream) {
 	}
 
 	answer.Status = retrievalmarket.QueryResponseAvailable
-	answer.Size = uint64(pieceInfo.Deals[0].Length) // TODO: verify on intermediate
+	answer.Size = uint64(pieceInfo.Deals[0].Length.Unpadded()) // TODO: verify on intermediate
 	answer.PieceCIDFound = retrievalmarket.QueryItemAvailable
 
 	storageDeals, err := storageDealsForPiece(query.PieceCID != nil, query.PayloadCID, pieceInfo, p.pieceStore)

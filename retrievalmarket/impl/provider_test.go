@@ -64,8 +64,11 @@ func TestDynamicPricing(t *testing.T) {
 	expectedPieceCID2 := tut.GenerateCids(1)[0]
 
 	// sizes
-	piece1Size := uint64(1234)
-	piece2Size := uint64(2234)
+	piece1SizePadded := uint64(1234)
+	piece1Size := uint64(abi.PaddedPieceSize(piece1SizePadded).Unpadded())
+
+	piece2SizePadded := uint64(2234)
+	piece2Size := uint64(abi.PaddedPieceSize(piece2SizePadded).Unpadded())
 
 	expectedCIDInfo := piecestore.CIDInfo{
 		PieceBlockLocations: []piecestore.PieceBlockLocation{
@@ -83,11 +86,11 @@ func TestDynamicPricing(t *testing.T) {
 		Deals: []piecestore.DealInfo{
 			{
 				DealID: abi.DealID(1),
-				Length: abi.PaddedPieceSize(piece1Size),
+				Length: abi.PaddedPieceSize(piece1SizePadded),
 			},
 			{
 				DealID: abi.DealID(11),
-				Length: abi.PaddedPieceSize(piece1Size),
+				Length: abi.PaddedPieceSize(piece1SizePadded),
 			},
 		},
 	}
@@ -97,15 +100,15 @@ func TestDynamicPricing(t *testing.T) {
 		Deals: []piecestore.DealInfo{
 			{
 				DealID: abi.DealID(2),
-				Length: abi.PaddedPieceSize(piece2Size),
+				Length: abi.PaddedPieceSize(piece2SizePadded),
 			},
 			{
 				DealID: abi.DealID(22),
-				Length: abi.PaddedPieceSize(piece2Size),
+				Length: abi.PaddedPieceSize(piece2SizePadded),
 			},
 			{
 				DealID: abi.DealID(222),
-				Length: abi.PaddedPieceSize(piece2Size),
+				Length: abi.PaddedPieceSize(piece2SizePadded),
 			},
 		},
 	}
@@ -609,8 +612,11 @@ func TestHandleQueryStream(t *testing.T) {
 
 	payloadCID := tut.GenerateCids(1)[0]
 	expectedPeer := peer.ID("somepeer")
-	expectedSize := uint64(1234)
-	expectedSize2 := uint64(2234)
+	paddedSize := uint64(1234)
+	expectedSize := uint64(abi.PaddedPieceSize(paddedSize).Unpadded())
+
+	paddedSize2 := uint64(2234)
+	expectedSize2 := uint64(abi.PaddedPieceSize(paddedSize2).Unpadded())
 
 	expectedPieceCID := tut.GenerateCids(1)[0]
 	expectedPieceCID2 := tut.GenerateCids(1)[0]
@@ -629,7 +635,7 @@ func TestHandleQueryStream(t *testing.T) {
 		PieceCID: expectedPieceCID,
 		Deals: []piecestore.DealInfo{
 			{
-				Length: abi.PaddedPieceSize(expectedSize),
+				Length: abi.PaddedPieceSize(paddedSize),
 			},
 		},
 	}
@@ -638,7 +644,7 @@ func TestHandleQueryStream(t *testing.T) {
 		PieceCID: expectedPieceCID2,
 		Deals: []piecestore.DealInfo{
 			{
-				Length: abi.PaddedPieceSize(expectedSize2),
+				Length: abi.PaddedPieceSize(paddedSize2),
 			},
 		},
 	}

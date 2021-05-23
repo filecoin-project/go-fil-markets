@@ -176,6 +176,9 @@ func requireSetupTestClientAndProvider(ctx context.Context, t *testing.T, payChA
 		ID:      testData.Host2.ID(),
 	}
 	rcNode1.ExpectKnownAddresses(retrievalPeer, nil)
+
+	expectedQR.Size = uint64(abi.PaddedPieceSize(expectedQR.Size).Unpadded())
+
 	return client, expectedCIDs, missingCID, expectedQR, retrievalPeer, provider
 }
 
