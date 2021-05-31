@@ -133,18 +133,16 @@ func ProcessPaymentRequested(ctx fsm.Context, environment ClientDealEnvironment,
 func SendFunds(ctx fsm.Context, environment ClientDealEnvironment, deal rm.ClientDealState) error {
 	totalBytesToPayFor := deal.TotalReceived
 
-	// If unsealing has been paid for, and not all blocks have been received
-	if deal.UnsealFundsPaid.GreaterThanEqual(deal.UnsealPrice) && !deal.AllBlocksReceived {
-		// If the number of bytes received is less than the number required
-		// for the current payment interval, no need to send a payment
-		if totalBytesToPayFor < deal.CurrentInterval {
-			log.Debugf("client: ignoring payment request for %d: total bytes to pay for %d < interval %d",
-				deal.PaymentRequested, totalBytesToPayFor, deal.CurrentInterval)
-			return ctx.Trigger(rm.ClientEventPaymentNotSent)
-		}
+	// If unsealing has been paid for, and not all blocks have been received,
+	// and the number of bytes received is less than the number required
+	// for the current payment interval, no need to send a payment
+	if deal.UnsealFundsPaid.GreaterThanEqual(deal.UnsealPrice) &&
+		!deal.AllBlocksReceived &&
+		totalBytesToPayFor < deal.CurrentInterval {
 
-		// Otherwise round the number of bytes to pay for down to the current interval
-		totalBytesToPayFor = deal.CurrentInterval
+		log.Debugf("client: ignoring payment request for %d: total bytes to pay for %d < interval %d",
+			deal.PaymentRequested, totalBytesToPayFor, deal.CurrentInterval)
+		return ctx.Trigger(rm.ClientEventPaymentNotSent)
 	}
 
 	tok, _, err := environment.Node().GetChainHead(ctx.Context())
