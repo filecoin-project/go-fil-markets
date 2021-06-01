@@ -143,7 +143,7 @@ func (gen *DepGenerator) New(
 
 	// create provider and client
 
-	gs1 := graphsyncimpl.New(ctx, network.NewFromLibp2pHost(td.Host1), td.Loader1, td.Storer1)
+	gs1 := graphsyncimpl.New(ctx, network.NewFromLibp2pHost(td.Host1), td.LinkSystem1)
 	dtTransport1 := dtgstransport.NewTransport(td.Host1.ID(), gs1)
 	dt1, err := gen.ClientNewDataTransfer(td.DTStore1, td.DTTmpDir1, td.DTNet1, dtTransport1)
 	require.NoError(t, err)
@@ -153,7 +153,7 @@ func (gen *DepGenerator) New(
 	require.NoError(t, err)
 	shared_testutil.StartAndWaitForReady(ctx, t, discovery)
 
-	gs2 := graphsyncimpl.New(ctx, network.NewFromLibp2pHost(td.Host2), td.Loader2, td.Storer2)
+	gs2 := graphsyncimpl.New(ctx, network.NewFromLibp2pHost(td.Host2), td.LinkSystem2)
 	dtTransport2 := dtgstransport.NewTransport(td.Host2.ID(), gs2)
 	dt2, err := gen.ProviderNewDataTransfer(td.DTStore2, td.DTTmpDir2, td.DTNet2, dtTransport2)
 	require.NoError(t, err)

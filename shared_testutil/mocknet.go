@@ -2,7 +2,6 @@ package shared_testutil
 
 import (
 	"bytes"
-	"errors"
 	"io"
 	"io/ioutil"
 	"os"
@@ -11,11 +10,11 @@ import (
 	"runtime"
 	"testing"
 
-	blocks "github.com/ipfs/go-block-format"
 	"github.com/ipfs/go-blockservice"
 	"github.com/ipfs/go-datastore"
 	"github.com/ipfs/go-datastore/namespace"
 	dss "github.com/ipfs/go-datastore/sync"
+	"github.com/ipfs/go-graphsync/storeutil"
 	bstore "github.com/ipfs/go-ipfs-blockstore"
 	chunk "github.com/ipfs/go-ipfs-chunker"
 	offline "github.com/ipfs/go-ipfs-exchange-offline"
@@ -52,10 +51,8 @@ type Libp2pTestData struct {
 	DTStore2    datastore.Batching
 	DTTmpDir1   string
 	DTTmpDir2   string
-	Loader1     ipld.Loader
-	Loader2     ipld.Loader
-	Storer1     ipld.Storer
-	Storer2     ipld.Storer
+	LinkSystem1 ipld.LinkSystem
+	LinkSystem2 ipld.LinkSystem
 	Host1       host.Host
 	Host2       host.Host
 	OrigBytes   []byte
@@ -66,38 +63,7 @@ type Libp2pTestData struct {
 func NewLibp2pTestData(ctx context.Context, t *testing.T) *Libp2pTestData {
 	testData := &Libp2pTestData{}
 	testData.Ctx = ctx
-	makeLoader := func(bs bstore.Blockstore) ipld.Loader {
-		return func(lnk ipld.Link, lnkCtx ipld.LinkContext) (io.Reader, error) {
-			c, ok := lnk.(cidlink.Link)
-			if !ok {
-				return nil, errors.New("incorrect Link Type")
-			}
-			// read block from one store
-			block, err := bs.Get(c.Cid)
-			if err != nil {
-				return nil, err
-			}
-			return bytes.NewReader(block.RawData()), nil
-		}
-	}
 
-	makeStorer := func(bs bstore.Blockstore) ipld.Storer {
-		return func(lnkCtx ipld.LinkContext) (io.Writer, ipld.StoreCommitter, error) {
-			var buf bytes.Buffer
-			var committer ipld.StoreCommitter = func(lnk ipld.Link) error {
-				c, ok := lnk.(cidlink.Link)
-				if !ok {
-					return errors.New("incorrect Link Type")
-				}
-				block, err := blocks.NewBlockWithCid(buf.Bytes(), c.Cid)
-				if err != nil {
-					return err
-				}
-				return bs.Put(block)
-			}
-			return &buf, committer, nil
-		}
-	}
 	var err error
 
 	testData.Ds1 = dss.MutexWrap(datastore.NewMapDatastore())
@@ -115,13 +81,11 @@ func NewLibp2pTestData(ctx context.Context, t *testing.T) *Libp2pTestData {
 	testData.DagService1 = merkledag.NewDAGService(blockservice.New(testData.Bs1, offline.Exchange(testData.Bs1)))
 	testData.DagService2 = merkledag.NewDAGService(blockservice.New(testData.Bs2, offline.Exchange(testData.Bs2)))
 
-	// setup an IPLD loader/storer for bstore 1
-	testData.Loader1 = makeLoader(testData.Bs1)
-	testData.Storer1 = makeStorer(testData.Bs1)
+	// setup an IPLD link system for bstore 1
+	testData.LinkSystem1 = storeutil.LinkSystemForBlockstore(testData.Bs1)
 
-	// setup an IPLD loader/storer for bstore 2
-	testData.Loader2 = makeLoader(testData.Bs2)
-	testData.Storer2 = makeStorer(testData.Bs2)
+	// setup an IPLD link system for bstore 2
+	testData.LinkSystem2 = storeutil.LinkSystemForBlockstore(testData.Bs2)
 
 	mn := mocknet.New(ctx)
 

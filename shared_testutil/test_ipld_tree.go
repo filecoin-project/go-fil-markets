@@ -45,21 +45,21 @@ type TestIPLDTree struct {
 func NewTestIPLDTree() TestIPLDTree {
 	var storage = make(map[ipld.Link][]byte)
 	encode := func(n ipld.Node) (ipld.Node, ipld.Link) {
-		lb := cidlink.LinkBuilder{Prefix: cid.Prefix{
+		lb := cidlink.LinkPrototype{Prefix: cid.Prefix{
 			Version:  1,
 			Codec:    0x0129,
-			MhType:   0x17,
+			MhType:   0x13,
 			MhLength: 4,
 		}}
-		lnk, err := lb.Build(context.Background(), ipld.LinkContext{}, n,
-			func(ipld.LinkContext) (io.Writer, ipld.StoreCommitter, error) {
-				buf := bytes.Buffer{}
-				return &buf, func(lnk ipld.Link) error {
-					storage[lnk] = buf.Bytes()
-					return nil
-				}, nil
-			},
-		)
+		lsys := cidlink.DefaultLinkSystem()
+		lsys.StorageWriteOpener = func(ipld.LinkContext) (io.Writer, ipld.BlockWriteCommitter, error) {
+			buf := bytes.Buffer{}
+			return &buf, func(lnk ipld.Link) error {
+				storage[lnk] = buf.Bytes()
+				return nil
+			}, nil
+		}
+		lnk, err := lsys.Store(ipld.LinkContext{}, lb, n)
 		if err != nil {
 			panic(err)
 		}
@@ -113,15 +113,6 @@ func NewTestIPLDTree() TestIPLDTree {
 		RootNodeLnk:       rootNodeLnk,
 		RootBlock:         rootBlock,
 	}
-}
-
-// Loader is an IPLD comptabile loader for the "storage" part of the tree
-func (tt TestIPLDTree) Loader(lnk ipld.Link, lnkCtx ipld.LinkContext) (io.Reader, error) {
-	data, ok := tt.Storage[lnk]
-	if !ok {
-		return nil, errors.New("No block found")
-	}
-	return bytes.NewBuffer(data), nil
 }
 
 // Get makes a test tree behave like a block read store

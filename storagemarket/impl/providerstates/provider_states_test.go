@@ -29,7 +29,6 @@ import (
 	"github.com/filecoin-project/specs-actors/actors/builtin"
 	"github.com/filecoin-project/specs-actors/actors/builtin/market"
 	"github.com/filecoin-project/specs-actors/actors/builtin/verifreg"
-	satesting "github.com/filecoin-project/specs-actors/support/testing"
 
 	"github.com/filecoin-project/go-fil-markets/filestore"
 	"github.com/filecoin-project/go-fil-markets/piecestore"
@@ -1086,7 +1085,7 @@ var defaultStoragePricePerEpoch = abi.NewTokenAmount(10000)
 var defaultPieceSize = abi.PaddedPieceSize(1048576)
 var defaultStartEpoch = abi.ChainEpoch(200)
 var defaultEndEpoch = defaultStartEpoch + ((24*3600)/30)*200 // 200 days
-var defaultPieceCid = satesting.MakeCID("piece cid", &market.PieceCIDPrefix)
+var defaultPieceCid = tut.MakeCID("piece cid", &market.PieceCIDPrefix)
 var defaultPath = filestore.Path("file.txt")
 var defaultMetadataPath = filestore.Path("metadataPath.txt")
 var defaultClientAddress = address.TestAddress

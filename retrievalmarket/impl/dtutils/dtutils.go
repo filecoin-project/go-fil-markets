@@ -162,7 +162,7 @@ type StoreGetter interface {
 // StoreConfigurableTransport defines the methods needed to
 // configure a data transfer transport use a unique store for a given request
 type StoreConfigurableTransport interface {
-	UseStore(datatransfer.ChannelID, ipld.Loader, ipld.Storer) error
+	UseStore(datatransfer.ChannelID, ipld.LinkSystem) error
 }
 
 // TransportConfigurer configurers the graphsync transport to use a custom blockstore per deal
@@ -185,7 +185,7 @@ func TransportConfigurer(thisPeer peer.ID, storeGetter StoreGetter) datatransfer
 		if store == nil {
 			return
 		}
-		err = gsTransport.UseStore(channelID, store.Loader, store.Storer)
+		err = gsTransport.UseStore(channelID, store.LinkSystem)
 		if err != nil {
 			log.Errorf("attempting to configure data store: %s", err)
 		}

@@ -393,7 +393,7 @@ func TestMigrations(t *testing.T) {
 	selfPeer := tut.GeneratePeers(1)[0]
 
 	allSelectorBuf := new(bytes.Buffer)
-	err = dagcbor.Encoder(shared.AllSelector(), allSelectorBuf)
+	err = dagcbor.Encode(shared.AllSelector(), allSelectorBuf)
 	require.NoError(t, err)
 	allSelectorBytes := allSelectorBuf.Bytes()
 
