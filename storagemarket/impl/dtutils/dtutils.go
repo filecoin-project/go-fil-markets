@@ -135,7 +135,7 @@ func TransportConfigurer(storeGetter StoreGetter) datatransfer.TransportConfigur
 		}
 		store, err := storeGetter.Get(storageVoucher.Proposal)
 		if err != nil {
-			log.Errorf("attempting to configure data store: %w", err)
+			log.Errorf("attempting to configure data store: %s", err)
 			return
 		}
 		if store == nil {
@@ -143,7 +143,7 @@ func TransportConfigurer(storeGetter StoreGetter) datatransfer.TransportConfigur
 		}
 		err = gsTransport.UseStore(channelID, store.Loader, store.Storer)
 		if err != nil {
-			log.Errorf("attempting to configure data store: %w", err)
+			log.Errorf("attempting to configure data store: %s", err)
 		}
 	}
 }
