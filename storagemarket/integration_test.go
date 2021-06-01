@@ -179,6 +179,7 @@ func TestMakeDealOffline(t *testing.T) {
 	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
 	defer cancel()
 	h := testharness.NewHarness(t, ctx, true, noOpDelay, noOpDelay, false)
+
 	shared_testutil.StartAndWaitForReady(ctx, t, h.Provider)
 	shared_testutil.StartAndWaitForReady(ctx, t, h.Client)
 
@@ -301,7 +302,6 @@ func TestRestartOnlyProviderDataTransfer(t *testing.T) {
 	restartConf := dtimpl.ChannelRestartConfig(channelmonitor.Config{
 		AcceptTimeout:          100 * time.Millisecond,
 		RestartBackoff:         100 * time.Millisecond,
-		RestartAckTimeout:      2 * time.Second,
 		RestartDebounce:        100 * time.Millisecond,
 		MaxConsecutiveRestarts: 5,
 		CompleteTimeout:        100 * time.Millisecond,
@@ -637,7 +637,6 @@ func TestBounceConnectionDataTransfer(t *testing.T) {
 	restartConf := dtimpl.ChannelRestartConfig(channelmonitor.Config{
 		AcceptTimeout:          100 * time.Millisecond,
 		RestartBackoff:         100 * time.Millisecond,
-		RestartAckTimeout:      2 * time.Second,
 		RestartDebounce:        100 * time.Millisecond,
 		MaxConsecutiveRestarts: 5,
 		CompleteTimeout:        100 * time.Millisecond,
