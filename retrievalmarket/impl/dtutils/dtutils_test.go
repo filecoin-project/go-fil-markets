@@ -494,16 +494,14 @@ func (ft *fakeTransport) Shutdown(context.Context) error {
 
 type fakeGsTransport struct {
 	datatransfer.Transport
-	lastChannelID datatransfer.ChannelID
-	lastLoader    ipld.Loader
-	lastStorer    ipld.Storer
-	called        bool
+	lastChannelID  datatransfer.ChannelID
+	lastLinkSystem ipld.LinkSystem
+	called         bool
 }
 
-func (fgt *fakeGsTransport) UseStore(channelID datatransfer.ChannelID, loader ipld.Loader, storer ipld.Storer) error {
+func (fgt *fakeGsTransport) UseStore(channelID datatransfer.ChannelID, lsys ipld.LinkSystem) error {
 	fgt.lastChannelID = channelID
-	fgt.lastLoader = loader
-	fgt.lastStorer = storer
+	fgt.lastLinkSystem = lsys
 	fgt.called = true
 	return nil
 }
