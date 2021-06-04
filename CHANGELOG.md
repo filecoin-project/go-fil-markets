@@ -1,5 +1,19 @@
 # go-fil-markets changelog
 
+# go-fil-markets v1.5.0
+
+Adds Dynamic Retrieval Pricing
+
+- github.com/filecoin-project/go-fil-markets:
+  - Dynamic Retrieval Pricing (#542) ([filecoin-project/go-fil-markets#542](https://github.com/filecoin-project/go-fil-markets/pull/542))
+
+Contributors
+
+| Contributor | Commits | Lines ± | Files Changed |
+|-------------|---------|---------|---------------|
+| Aarsh Shah | 1 | +1224/-130 | 17 |
+| dirkmc | 1 | +18/-0 | 1 |
+
 # go-fil-markets v1.4.0
 
 Generating Changelog for github.com/filecoin-project/go-fil-markets v1.3.0..3511c5617142836e369e31890f544bdd574d970f
