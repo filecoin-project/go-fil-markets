@@ -223,6 +223,7 @@ func TestValidatePull(t *testing.T) {
 }
 
 type fakeValidationEnvironment struct {
+	IsUnsealedPiece                   bool
 	PieceInfo                         piecestore.PieceInfo
 	GetPieceErr                       error
 	CheckDealParamsError              error
@@ -232,14 +233,21 @@ type fakeValidationEnvironment struct {
 	BeginTrackingError                error
 	NextStoreIDValue                  multistore.StoreID
 	NextStoreIDError                  error
+
+	Ask retrievalmarket.Ask
 }
 
-func (fve *fakeValidationEnvironment) GetPiece(c cid.Cid, pieceCID *cid.Cid) (piecestore.PieceInfo, error) {
-	return fve.PieceInfo, fve.GetPieceErr
+func (fve *fakeValidationEnvironment) GetAsk(ctx context.Context, payloadCid cid.Cid, pieceCid *cid.Cid,
+	piece piecestore.PieceInfo, isUnsealed bool, client peer.ID) (retrievalmarket.Ask, error) {
+	return fve.Ask, nil
+}
+
+func (fve *fakeValidationEnvironment) GetPiece(c cid.Cid, pieceCID *cid.Cid) (piecestore.PieceInfo, bool, error) {
+	return fve.PieceInfo, fve.IsUnsealedPiece, fve.GetPieceErr
 }
 
 // CheckDealParams verifies the given deal params are acceptable
-func (fve *fakeValidationEnvironment) CheckDealParams(pricePerByte abi.TokenAmount, paymentInterval uint64, paymentIntervalIncrease uint64, unsealPrice abi.TokenAmount) error {
+func (fve *fakeValidationEnvironment) CheckDealParams(ask retrievalmarket.Ask, pricePerByte abi.TokenAmount, paymentInterval uint64, paymentIntervalIncrease uint64, unsealPrice abi.TokenAmount) error {
 	return fve.CheckDealParamsError
 }
 

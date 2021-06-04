@@ -47,11 +47,17 @@ func TestUnsealData(t *testing.T) {
 	}
 
 	pieceCid := testnet.GenerateCids(1)[0]
+
 	sectorID := abi.SectorNumber(rand.Uint64())
 	offset := abi.PaddedPieceSize(rand.Uint64())
 	length := abi.PaddedPieceSize(rand.Uint64())
+
+	sectorID2 := abi.SectorNumber(rand.Uint64())
+	offset2 := abi.PaddedPieceSize(rand.Uint64())
+	length2 := abi.PaddedPieceSize(rand.Uint64())
+
 	data := testnet.RandomBytes(100)
-	makeDeal := func() *rm.ProviderDealState {
+	makeDeals := func() *rm.ProviderDealState {
 		return &rm.ProviderDealState{
 			DealProposal: proposal,
 			Status:       rm.DealStatusUnsealing,
@@ -64,6 +70,12 @@ func TestUnsealData(t *testing.T) {
 						Offset:   offset,
 						Length:   length,
 					},
+					{
+						DealID:   abi.DealID(rand.Uint64()),
+						SectorID: sectorID2,
+						Offset:   offset2,
+						Length:   length2,
+					},
 				},
 			},
 			TotalSent:     0,
@@ -71,28 +83,52 @@ func TestUnsealData(t *testing.T) {
 		}
 	}
 
-	t.Run("it works", func(t *testing.T) {
+	t.Run("prefers an already unsealed sector", func(t *testing.T) {
 		node := testnodes.NewTestRetrievalProviderNode()
-		node.ExpectUnseal(sectorID, offset.Unpadded(), length.Unpadded(), data)
-		dealState := makeDeal()
+		node.MarkUnsealed(ctx, sectorID2, offset2.Unpadded(), length2.Unpadded())
+		node.ExpectUnseal(sectorID2, offset2.Unpadded(), length2.Unpadded(), data)
+
+		dealState := makeDeals()
 		setupEnv := func(fe *rmtesting.TestProviderDealEnvironment) {}
 		runUnsealData(t, node, setupEnv, dealState)
 		require.Equal(t, dealState.Status, rm.DealStatusUnsealed)
 	})
 
-	t.Run("unseal error", func(t *testing.T) {
+	t.Run("use a non-unsealed sector if there is no unsealed sector", func(t *testing.T) {
+		node := testnodes.NewTestRetrievalProviderNode()
+		node.ExpectUnseal(sectorID, offset.Unpadded(), length.Unpadded(), data)
+		dealState := makeDeals()
+		setupEnv := func(fe *rmtesting.TestProviderDealEnvironment) {}
+		runUnsealData(t, node, setupEnv, dealState)
+		require.Equal(t, dealState.Status, rm.DealStatusUnsealed)
+	})
+
+	t.Run("pick a sector for which unseal does NOT fail", func(t *testing.T) {
 		node := testnodes.NewTestRetrievalProviderNode()
 		node.ExpectFailedUnseal(sectorID, offset.Unpadded(), length.Unpadded())
-		dealState := makeDeal()
+		node.ExpectUnseal(sectorID2, offset2.Unpadded(), length2.Unpadded(), data)
+		dealState := makeDeals()
+		setupEnv := func(fe *rmtesting.TestProviderDealEnvironment) {}
+		runUnsealData(t, node, setupEnv, dealState)
+		require.Equal(t, dealState.Status, rm.DealStatusUnsealed)
+	})
+
+	t.Run("unseal error if all fail", func(t *testing.T) {
+		node := testnodes.NewTestRetrievalProviderNode()
+		node.ExpectFailedUnseal(sectorID, offset.Unpadded(), length.Unpadded())
+		node.ExpectFailedUnseal(sectorID2, offset2.Unpadded(), length2.Unpadded())
+
+		dealState := makeDeals()
 		setupEnv := func(fe *rmtesting.TestProviderDealEnvironment) {}
 		runUnsealData(t, node, setupEnv, dealState)
 		require.Equal(t, dealState.Status, rm.DealStatusFailing)
 		require.Equal(t, dealState.Message, "Could not unseal")
 	})
+
 	t.Run("ReadIntoBlockstore error", func(t *testing.T) {
 		node := testnodes.NewTestRetrievalProviderNode()
 		node.ExpectUnseal(sectorID, offset.Unpadded(), length.Unpadded(), data)
-		dealState := makeDeal()
+		dealState := makeDeals()
 		setupEnv := func(fe *rmtesting.TestProviderDealEnvironment) {
 			fe.ReadIntoBlockstoreError = errors.New("Something went wrong")
 		}

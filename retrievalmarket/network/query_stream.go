@@ -31,6 +31,10 @@ func (qs *queryStream) ReadQuery() (retrievalmarket.Query, error) {
 	return q, nil
 }
 
+func (qs *queryStream) RemotePeer() peer.ID {
+	return qs.p
+}
+
 func (qs *queryStream) WriteQuery(q retrievalmarket.Query) error {
 	return cborutil.WriteCborRPC(qs.rw, &q)
 }

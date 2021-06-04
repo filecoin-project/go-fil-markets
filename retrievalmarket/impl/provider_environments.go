@@ -30,17 +30,37 @@ type providerValidationEnvironment struct {
 	p *Provider
 }
 
-func (pve *providerValidationEnvironment) GetPiece(c cid.Cid, pieceCID *cid.Cid) (piecestore.PieceInfo, error) {
+func (pve *providerValidationEnvironment) GetAsk(ctx context.Context, payloadCid cid.Cid, pieceCid *cid.Cid,
+	piece piecestore.PieceInfo, isUnsealed bool, client peer.ID) (retrievalmarket.Ask, error) {
+
+	storageDeals, err := storageDealsForPiece(pieceCid != nil, payloadCid, piece, pve.p.pieceStore)
+	if err != nil {
+		return retrievalmarket.Ask{}, xerrors.Errorf("failed to fetch deals for payload, err=%s", err)
+	}
+
+	input := retrievalmarket.PricingInput{
+		// piece from which the payload will be retrieved
+		PieceCID: piece.PieceCID,
+
+		PayloadCID: payloadCid,
+		Unsealed:   isUnsealed,
+		Client:     client,
+	}
+
+	return pve.p.GetDynamicAsk(ctx, input, storageDeals)
+}
+
+func (pve *providerValidationEnvironment) GetPiece(c cid.Cid, pieceCID *cid.Cid) (piecestore.PieceInfo, bool, error) {
 	inPieceCid := cid.Undef
 	if pieceCID != nil {
 		inPieceCid = *pieceCID
 	}
-	return getPieceInfoFromCid(pve.p.pieceStore, c, inPieceCid)
+
+	return getPieceInfoFromCid(context.TODO(), pve.p.node, pve.p.pieceStore, c, inPieceCid)
 }
 
 // CheckDealParams verifies the given deal params are acceptable
-func (pve *providerValidationEnvironment) CheckDealParams(pricePerByte abi.TokenAmount, paymentInterval uint64, paymentIntervalIncrease uint64, unsealPrice abi.TokenAmount) error {
-	ask := pve.p.GetAsk()
+func (pve *providerValidationEnvironment) CheckDealParams(ask retrievalmarket.Ask, pricePerByte abi.TokenAmount, paymentInterval uint64, paymentIntervalIncrease uint64, unsealPrice abi.TokenAmount) error {
 	if pricePerByte.LessThan(ask.PricePerByte) {
 		return errors.New("Price per byte too low")
 	}
@@ -188,25 +208,120 @@ func (pde *providerDealEnvironment) CloseDataTransfer(ctx context.Context, chid 
 func (pde *providerDealEnvironment) DeleteStore(storeID multistore.StoreID) error {
 	return pde.p.multiStore.Delete(storeID)
 }
-func getPieceInfoFromCid(pieceStore piecestore.PieceStore, payloadCID, pieceCID cid.Cid) (piecestore.PieceInfo, error) {
+
+func pieceInUnsealedSector(ctx context.Context, n retrievalmarket.RetrievalProviderNode, pieceInfo piecestore.PieceInfo) bool {
+	for _, di := range pieceInfo.Deals {
+		isUnsealed, err := n.IsUnsealed(ctx, di.SectorID, di.Offset.Unpadded(), di.Length.Unpadded())
+		if err != nil {
+			log.Errorf("failed to find out if sector %d is unsealed, err=%s", di.SectorID, err)
+			continue
+		}
+		if isUnsealed {
+			return true
+		}
+	}
+
+	return false
+}
+
+func storageDealsForPiece(clientSpecificPiece bool, payloadCID cid.Cid, pieceInfo piecestore.PieceInfo, pieceStore piecestore.PieceStore) ([]abi.DealID, error) {
+	var storageDeals []abi.DealID
+	var err error
+	if clientSpecificPiece {
+		//  If the user wants to retrieve the payload from a specific piece,
+		//  we only need to inspect storage deals made for that piece to quote a price.
+		for _, d := range pieceInfo.Deals {
+			storageDeals = append(storageDeals, d.DealID)
+		}
+	} else {
+		// If the user does NOT want to retrieve from a specific piece, we'll have to inspect all storage deals
+		// made for that piece to quote a price.
+		storageDeals, err = getAllDealsContainingPayload(pieceStore, payloadCID)
+		if err != nil {
+			return nil, xerrors.Errorf("failed to fetch deals for payload: %w", err)
+		}
+	}
+
+	if len(storageDeals) == 0 {
+		return nil, xerrors.New("no storage deals found")
+	}
+
+	return storageDeals, nil
+}
+
+func getAllDealsContainingPayload(pieceStore piecestore.PieceStore, payloadCID cid.Cid) ([]abi.DealID, error) {
 	cidInfo, err := pieceStore.GetCIDInfo(payloadCID)
 	if err != nil {
-		return piecestore.PieceInfoUndefined, xerrors.Errorf("get cid info: %w", err)
+		return nil, xerrors.Errorf("get cid info: %w", err)
 	}
+	var dealsIds []abi.DealID
 	var lastErr error
+
 	for _, pieceBlockLocation := range cidInfo.PieceBlockLocations {
 		pieceInfo, err := pieceStore.GetPieceInfo(pieceBlockLocation.PieceCID)
-		if err == nil {
-			if pieceCID.Equals(cid.Undef) || pieceInfo.PieceCID.Equals(pieceCID) {
-				return pieceInfo, nil
+		if err != nil {
+			lastErr = err
+			continue
+		}
+		for _, d := range pieceInfo.Deals {
+			dealsIds = append(dealsIds, d.DealID)
+		}
+	}
+
+	if lastErr == nil && len(dealsIds) == 0 {
+		return nil, xerrors.New("no deals found")
+	}
+
+	if lastErr != nil && len(dealsIds) == 0 {
+		return nil, xerrors.Errorf("failed to fetch deals containing payload %s: %w", payloadCID, lastErr)
+	}
+
+	return dealsIds, nil
+}
+
+func getPieceInfoFromCid(ctx context.Context, n retrievalmarket.RetrievalProviderNode, pieceStore piecestore.PieceStore, payloadCID, pieceCID cid.Cid) (piecestore.PieceInfo, bool, error) {
+	cidInfo, err := pieceStore.GetCIDInfo(payloadCID)
+	if err != nil {
+		return piecestore.PieceInfoUndefined, false, xerrors.Errorf("get cid info: %w", err)
+	}
+	var lastErr error
+	var sealedPieceInfo *piecestore.PieceInfo
+
+	for _, pieceBlockLocation := range cidInfo.PieceBlockLocations {
+		pieceInfo, err := pieceStore.GetPieceInfo(pieceBlockLocation.PieceCID)
+		if err != nil {
+			lastErr = err
+			continue
+		}
+
+		// if client wants to retrieve the payload from a specific piece, just return that piece.
+		if pieceCID.Defined() && pieceInfo.PieceCID.Equals(pieceCID) {
+			return pieceInfo, pieceInUnsealedSector(ctx, n, pieceInfo), nil
+		}
+
+		// if client dosen't have a preference for a particular piece, prefer a piece
+		// for which an unsealed sector exists.
+		if pieceCID.Equals(cid.Undef) {
+			if pieceInUnsealedSector(ctx, n, pieceInfo) {
+				return pieceInfo, true, nil
+			}
+
+			if sealedPieceInfo == nil {
+				sealedPieceInfo = &pieceInfo
 			}
 		}
-		lastErr = err
+
 	}
+
+	if sealedPieceInfo != nil {
+		return *sealedPieceInfo, false, nil
+	}
+
 	if lastErr == nil {
 		lastErr = xerrors.Errorf("unknown pieceCID %s", pieceCID.String())
 	}
-	return piecestore.PieceInfoUndefined, xerrors.Errorf("could not locate piece: %w", lastErr)
+
+	return piecestore.PieceInfoUndefined, false, xerrors.Errorf("could not locate piece: %w", lastErr)
 }
 
 var _ dtutils.StoreGetter = &providerStoreGetter{}
