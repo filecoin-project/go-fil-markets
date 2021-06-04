@@ -88,7 +88,6 @@ func TestBounceConnectionDealTransferOngoing(t *testing.T) {
 			restartConf := dtimpl.ChannelRestartConfig(channelmonitor.Config{
 				AcceptTimeout:          100 * time.Millisecond,
 				RestartBackoff:         100 * time.Millisecond,
-				RestartAckTimeout:      2 * time.Second,
 				RestartDebounce:        100 * time.Millisecond,
 				MaxConsecutiveRestarts: 5,
 				CompleteTimeout:        100 * time.Millisecond,
@@ -212,7 +211,6 @@ func TestBounceConnectionDealTransferUnsealing(t *testing.T) {
 			restartConf := dtimpl.ChannelRestartConfig(channelmonitor.Config{
 				AcceptTimeout:          100 * time.Millisecond,
 				RestartBackoff:         100 * time.Millisecond,
-				RestartAckTimeout:      2 * time.Second,
 				RestartDebounce:        100 * time.Millisecond,
 				MaxConsecutiveRestarts: 5,
 				CompleteTimeout:        100 * time.Millisecond,

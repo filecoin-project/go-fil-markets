@@ -179,7 +179,7 @@ func TransportConfigurer(thisPeer peer.ID, storeGetter StoreGetter) datatransfer
 		otherPeer := channelID.OtherParty(thisPeer)
 		store, err := storeGetter.Get(otherPeer, dealProposal.ID)
 		if err != nil {
-			log.Errorf("attempting to configure data store: %w", err)
+			log.Errorf("attempting to configure data store: %s", err)
 			return
 		}
 		if store == nil {
@@ -187,7 +187,7 @@ func TransportConfigurer(thisPeer peer.ID, storeGetter StoreGetter) datatransfer
 		}
 		err = gsTransport.UseStore(channelID, store.Loader, store.Storer)
 		if err != nil {
-			log.Errorf("attempting to configure data store: %w", err)
+			log.Errorf("attempting to configure data store: %s", err)
 		}
 	}
 }

@@ -275,7 +275,7 @@ func TestClientCanMakeDealWithProvider(t *testing.T) {
 		{name: "multi-block file retrieval succeeds",
 			filename:    "lorem.txt",
 			filesize:    19000,
-			voucherAmts: []abi.TokenAmount{abi.NewTokenAmount(10000000), abi.NewTokenAmount(19920000)},
+			voucherAmts: []abi.TokenAmount{abi.NewTokenAmount(10136000), abi.NewTokenAmount(19920000)},
 		},
 		{name: "multi-block file retrieval with zero price per byte succeeds",
 			filename:         "lorem.txt",
@@ -285,7 +285,7 @@ func TestClientCanMakeDealWithProvider(t *testing.T) {
 		{name: "multi-block file retrieval succeeds with V1 params and AllSelector",
 			filename:    "lorem.txt",
 			filesize:    19000,
-			voucherAmts: []abi.TokenAmount{abi.NewTokenAmount(10000000), abi.NewTokenAmount(19920000)},
+			voucherAmts: []abi.TokenAmount{abi.NewTokenAmount(10136000), abi.NewTokenAmount(19920000)},
 			paramsV1:    true,
 			selector:    shared.AllSelector()},
 		{name: "partial file retrieval succeeds with V1 params and selector recursion depth 1",
@@ -306,7 +306,7 @@ func TestClientCanMakeDealWithProvider(t *testing.T) {
 		{name: "succeeds for regular blockstore",
 			filename:    "lorem.txt",
 			filesize:    19000,
-			voucherAmts: []abi.TokenAmount{abi.NewTokenAmount(10000000), abi.NewTokenAmount(19920000)},
+			voucherAmts: []abi.TokenAmount{abi.NewTokenAmount(10136000), abi.NewTokenAmount(19920000)},
 			skipStores:  true,
 		},
 		{
@@ -319,14 +319,14 @@ func TestClientCanMakeDealWithProvider(t *testing.T) {
 		{name: "multi-block file retrieval succeeds, final block exceeds payment interval",
 			filename:                "lorem.txt",
 			filesize:                19000,
-			voucherAmts:             []abi.TokenAmount{abi.NewTokenAmount(9000000), abi.NewTokenAmount(19250000), abi.NewTokenAmount(19920000)},
+			voucherAmts:             []abi.TokenAmount{abi.NewTokenAmount(9112000), abi.NewTokenAmount(19352000), abi.NewTokenAmount(19920000)},
 			paymentInterval:         9000,
 			paymentIntervalIncrease: 1250,
 		},
 		{name: "multi-block file retrieval succeeds, final block lands on payment interval",
 			filename:    "lorem.txt",
 			filesize:    19000,
-			voucherAmts: []abi.TokenAmount{abi.NewTokenAmount(9000000), abi.NewTokenAmount(19920000)},
+			voucherAmts: []abi.TokenAmount{abi.NewTokenAmount(9112000), abi.NewTokenAmount(19920000)},
 			// Total bytes: 19,920
 			// intervals: 9,000 | 9,000 + (9,000 + 1920)
 			paymentInterval:         9000,
@@ -336,7 +336,7 @@ func TestClientCanMakeDealWithProvider(t *testing.T) {
 			filename:        "lorem.txt",
 			filesize:        19000,
 			disableNewDeals: true,
-			voucherAmts:     []abi.TokenAmount{abi.NewTokenAmount(10000000), abi.NewTokenAmount(19920000)},
+			voucherAmts:     []abi.TokenAmount{abi.NewTokenAmount(10136000), abi.NewTokenAmount(19920000)},
 		},
 	}
 

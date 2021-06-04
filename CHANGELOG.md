@@ -1,5 +1,23 @@
 # go-fil-markets changelog
 
+# go-fil-markets v1.4.0
+
+Generating Changelog for github.com/filecoin-project/go-fil-markets v1.3.0..3511c5617142836e369e31890f544bdd574d970f
+- github.com/filecoin-project/go-fil-markets:
+  - Update to go data transfer v1.6.0 (#550) ([filecoin-project/go-fil-markets#550](https://github.com/filecoin-project/go-fil-markets/pull/550))
+  - fix first make error (#548) ([filecoin-project/go-fil-markets#548](https://github.com/filecoin-project/go-fil-markets/pull/548))
+- github.com/filecoin-project/go-data-transfer (v1.5.0 -> v1.6.0):
+  - fix: option to disable accept and complete timeouts
+  - fix: disable restart ack timeout
+
+Contributors
+
+| Contributor | Commits | Lines ± | Files Changed |
+|-------------|---------|---------|---------------|
+| Dirk McCormick | 3 | +53/-105 | 6 |
+| dirkmc | 2 | +53/-33 | 10 |
+| Jack Yao | 1 | +1/-1 | 1 |
+
 # go-fil-markets v1.3.0
 
 - github.com/filecoin-project/go-fil-markets:

@@ -61,7 +61,7 @@ func TestStorageRetrieval(t *testing.T) {
 			pricePerByte:            abi.NewTokenAmount(1000),
 			paymentInterval:         uint64(10000),
 			paymentIntervalIncrease: uint64(1000),
-			voucherAmts:             []abi.TokenAmount{abi.NewTokenAmount(10000000), abi.NewTokenAmount(19920000)},
+			voucherAmts:             []abi.TokenAmount{abi.NewTokenAmount(10136000), abi.NewTokenAmount(19920000)},
 		},
 
 		"zero unseal, zero price per byte": {
@@ -77,7 +77,7 @@ func TestStorageRetrieval(t *testing.T) {
 			pricePerByte:            abi.NewTokenAmount(1000),
 			paymentInterval:         uint64(10000),
 			paymentIntervalIncrease: uint64(1000),
-			voucherAmts:             []abi.TokenAmount{abi.NewTokenAmount(1000), abi.NewTokenAmount(10001000), abi.NewTokenAmount(19921000)},
+			voucherAmts:             []abi.TokenAmount{abi.NewTokenAmount(1000), abi.NewTokenAmount(10137000), abi.NewTokenAmount(19921000)},
 		},
 	}
 
@@ -124,7 +124,7 @@ func TestOfflineStorageRetrieval(t *testing.T) {
 			pricePerByte:            abi.NewTokenAmount(1000),
 			paymentInterval:         uint64(10000),
 			paymentIntervalIncrease: uint64(1000),
-			voucherAmts:             []abi.TokenAmount{abi.NewTokenAmount(10000000), abi.NewTokenAmount(19920000)},
+			voucherAmts:             []abi.TokenAmount{abi.NewTokenAmount(10136000), abi.NewTokenAmount(19920000)},
 		},
 
 		"zero unseal, zero price per byte": {
@@ -140,7 +140,7 @@ func TestOfflineStorageRetrieval(t *testing.T) {
 			pricePerByte:            abi.NewTokenAmount(1000),
 			paymentInterval:         uint64(10000),
 			paymentIntervalIncrease: uint64(1000),
-			voucherAmts:             []abi.TokenAmount{abi.NewTokenAmount(1000), abi.NewTokenAmount(10001000), abi.NewTokenAmount(19921000)},
+			voucherAmts:             []abi.TokenAmount{abi.NewTokenAmount(1000), abi.NewTokenAmount(10137000), abi.NewTokenAmount(19921000)},
 		},
 	}
 
