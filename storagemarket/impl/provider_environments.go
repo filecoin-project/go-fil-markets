@@ -10,9 +10,9 @@ import (
 	"github.com/libp2p/go-libp2p-core/peer"
 	"golang.org/x/xerrors"
 
-	ffi "github.com/filecoin-project/filecoin-ffi"
 	"github.com/filecoin-project/go-address"
-	"github.com/filecoin-project/go-commp-utils/zerocomm"
+	commcid "github.com/filecoin-project/go-fil-commcid"
+	commp "github.com/filecoin-project/go-fil-commp-hashhash"
 	"github.com/filecoin-project/go-multistore"
 	"github.com/filecoin-project/go-state-types/abi"
 
@@ -73,43 +73,19 @@ func (p *providerDealEnvironment) GeneratePieceCommitment(storeID *multistore.St
 
 	if psize.Padded() < pieceSize {
 		// need to pad up!
-		paddedCid, err := ZeroPadPieceCommitment(pieceCid, psize, pieceSize.Unpadded())
+		rawPaddedCommp, err := commp.PadCommP(
+			// we know how long a pieceCid "hash" is, just blindly extract the trailing 32 bytes
+			pieceCid.Hash()[len(pieceCid.Hash())-32:],
+			uint64(psize.Padded()),
+			uint64(pieceSize),
+		)
 		if err != nil {
 			return cid.Undef, "", err
 		}
-
-		pieceCid = paddedCid
+		pieceCid, _ = commcid.DataCommitmentV1ToCID(rawPaddedCommp)
 	}
 
 	return pieceCid, path, nil
-}
-
-// TODO: move this to a proper utility location
-func ZeroPadPieceCommitment(c cid.Cid, curSize abi.UnpaddedPieceSize, toSize abi.UnpaddedPieceSize) (cid.Cid, error) {
-	cur := c
-	for curSize < toSize {
-
-		zc := zerocomm.ZeroPieceCommitment(curSize)
-
-		p, err := ffi.GenerateUnsealedCID(abi.RegisteredSealProof_StackedDrg32GiBV1, []abi.PieceInfo{
-			abi.PieceInfo{
-				Size:     curSize.Padded(),
-				PieceCID: cur,
-			},
-			abi.PieceInfo{
-				Size:     curSize.Padded(),
-				PieceCID: zc,
-			},
-		})
-		if err != nil {
-			return cid.Undef, err
-		}
-
-		cur = p
-		curSize = curSize * 2
-	}
-
-	return cur, nil
 }
 
 func (p *providerDealEnvironment) GeneratePieceReader(storeID *multistore.StoreID, payloadCid cid.Cid, selector ipld.Node) (io.ReadCloser, uint64, error, <-chan error) {
