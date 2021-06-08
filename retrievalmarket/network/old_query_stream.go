@@ -20,6 +20,10 @@ type oldQueryStream struct {
 
 var _ RetrievalQueryStream = (*oldQueryStream)(nil)
 
+func (qs *oldQueryStream) RemotePeer() peer.ID {
+	return qs.p
+}
+
 func (qs *oldQueryStream) ReadQuery() (retrievalmarket.Query, error) {
 	var q migrations.Query0
 
