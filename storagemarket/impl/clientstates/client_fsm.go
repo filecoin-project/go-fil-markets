@@ -130,7 +130,7 @@ var ClientEvents = fsm.Events{
 		}),
 
 	fsm.Event(storagemarket.ClientEventDataTransferStalled).
-		From(storagemarket.StorageDealTransferring).
+		FromMany(storagemarket.StorageDealTransferring, storagemarket.StorageDealTransferQueued).
 		To(storagemarket.StorageDealFailing).
 		Action(func(deal *storagemarket.ClientDeal, err error) error {
 			deal.Message = xerrors.Errorf("could not complete data transfer, could not connect to provider %s", deal.Miner).Error()
