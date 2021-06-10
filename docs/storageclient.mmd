@@ -49,12 +49,13 @@ stateDiagram-v2
 	17 --> 11 : ClientEventDataTransferFailed
 	30 --> 11 : ClientEventDataTransferFailed
 	28 --> 11 : ClientEventDataTransferRestartFailed
-	30 --> 17 : ClientEventDataTransferInitiated
 	16 --> 30 : ClientEventDataTransferQueued
+	30 --> 17 : ClientEventDataTransferInitiated
 	16 --> 17 : ClientEventDataTransferRestarted
 	28 --> 17 : ClientEventDataTransferRestarted
 	30 --> 17 : ClientEventDataTransferRestarted
 	17 --> 11 : ClientEventDataTransferStalled
+	30 --> 11 : ClientEventDataTransferStalled
 	16 --> 11 : ClientEventDataTransferCancelled
 	17 --> 11 : ClientEventDataTransferCancelled
 	28 --> 11 : ClientEventDataTransferCancelled
