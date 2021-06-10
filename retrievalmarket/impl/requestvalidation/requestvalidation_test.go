@@ -29,7 +29,7 @@ func TestValidatePush(t *testing.T) {
 	sender := shared_testutil.GeneratePeers(1)[0]
 	voucher := shared_testutil.MakeTestDealProposal()
 	requestValidator := requestvalidation.NewProviderRequestValidator(fve)
-	voucherResult, err := requestValidator.ValidatePush(false, sender, &voucher, voucher.PayloadCID, shared.AllSelector())
+	voucherResult, err := requestValidator.ValidatePush(false, datatransfer.ChannelID{}, sender, &voucher, voucher.PayloadCID, shared.AllSelector())
 	require.Equal(t, nil, voucherResult)
 	require.Error(t, err)
 }
@@ -210,7 +210,7 @@ func TestValidatePull(t *testing.T) {
 	for testCase, data := range testCases {
 		t.Run(testCase, func(t *testing.T) {
 			requestValidator := requestvalidation.NewProviderRequestValidator(&data.fve)
-			voucherResult, err := requestValidator.ValidatePull(data.isRestart, data.sender, data.voucher, data.baseCid, data.selector)
+			voucherResult, err := requestValidator.ValidatePull(data.isRestart, datatransfer.ChannelID{}, data.sender, data.voucher, data.baseCid, data.selector)
 			require.Equal(t, data.expectedVoucherResult, voucherResult)
 			if data.expectedError == nil {
 				require.NoError(t, err)

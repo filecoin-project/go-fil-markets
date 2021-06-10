@@ -73,6 +73,7 @@ var ClientEvents = fsm.Events{
 			deal.AddLog(deal.Message)
 			return nil
 		}),
+
 	fsm.Event(storagemarket.ClientEventInitiateDataTransfer).
 		From(storagemarket.StorageDealFundsReserved).To(storagemarket.StorageDealStartDataTransfer).
 		Action(func(deal *storagemarket.ClientDeal) error {
@@ -87,7 +88,7 @@ var ClientEvents = fsm.Events{
 			return nil
 		}),
 	fsm.Event(storagemarket.ClientEventDataTransferFailed).
-		FromMany(storagemarket.StorageDealStartDataTransfer, storagemarket.StorageDealTransferring).
+		FromMany(storagemarket.StorageDealStartDataTransfer, storagemarket.StorageDealTransferring, storagemarket.StorageDealTransferQueued).
 		To(storagemarket.StorageDealFailing).
 		Action(func(deal *storagemarket.ClientDeal, err error) error {
 			deal.Message = xerrors.Errorf("failed to complete data transfer: %w", err).Error()
@@ -104,15 +105,22 @@ var ClientEvents = fsm.Events{
 		}),
 
 	fsm.Event(storagemarket.ClientEventDataTransferInitiated).
-		FromMany(storagemarket.StorageDealStartDataTransfer).To(storagemarket.StorageDealTransferring).
+		FromMany(storagemarket.StorageDealTransferQueued).To(storagemarket.StorageDealTransferring).
 		Action(func(deal *storagemarket.ClientDeal, channelId datatransfer.ChannelID) error {
 			deal.TransferChannelID = &channelId
 			deal.AddLog("data transfer initiated on channel id <%s>", channelId)
 			return nil
 		}),
 
+	fsm.Event(storagemarket.ClientEventDataTransferQueued).
+		FromMany(storagemarket.StorageDealStartDataTransfer).To(storagemarket.StorageDealTransferQueued).
+		Action(func(deal *storagemarket.ClientDeal, channelId datatransfer.ChannelID) error {
+			deal.AddLog("data transfer queued on channel id <%s>", channelId)
+			return nil
+		}),
+
 	fsm.Event(storagemarket.ClientEventDataTransferRestarted).
-		FromMany(storagemarket.StorageDealClientTransferRestart, storagemarket.StorageDealStartDataTransfer).To(storagemarket.StorageDealTransferring).
+		FromMany(storagemarket.StorageDealClientTransferRestart, storagemarket.StorageDealStartDataTransfer, storagemarket.StorageDealTransferQueued).To(storagemarket.StorageDealTransferring).
 		From(storagemarket.StorageDealTransferring).ToJustRecord().
 		Action(func(deal *storagemarket.ClientDeal, channelId datatransfer.ChannelID) error {
 			deal.TransferChannelID = &channelId
@@ -135,6 +143,7 @@ var ClientEvents = fsm.Events{
 			storagemarket.StorageDealStartDataTransfer,
 			storagemarket.StorageDealTransferring,
 			storagemarket.StorageDealClientTransferRestart,
+			storagemarket.StorageDealTransferQueued,
 		).
 		To(storagemarket.StorageDealFailing).
 		Action(func(deal *storagemarket.ClientDeal) error {
@@ -144,7 +153,7 @@ var ClientEvents = fsm.Events{
 		}),
 
 	fsm.Event(storagemarket.ClientEventDataTransferComplete).
-		FromMany(storagemarket.StorageDealTransferring, storagemarket.StorageDealStartDataTransfer).
+		FromMany(storagemarket.StorageDealTransferring, storagemarket.StorageDealStartDataTransfer, storagemarket.StorageDealTransferQueued).
 		To(storagemarket.StorageDealCheckForAcceptance),
 	fsm.Event(storagemarket.ClientEventWaitForDealState).
 		From(storagemarket.StorageDealCheckForAcceptance).ToNoChange().
