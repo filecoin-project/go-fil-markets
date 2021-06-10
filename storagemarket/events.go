@@ -107,6 +107,10 @@ const (
 
 	// ClientEventDataTransferCancelled happens when a data transfer is cancelled
 	ClientEventDataTransferCancelled
+
+	// ClientEventDataTransferQueued happens when we queue the provider's request to transfer data to it
+	// in response to the push request we send to the provider.
+	ClientEventDataTransferQueued
 )
 
 // ClientEvents maps client event codes to string names
@@ -143,6 +147,7 @@ var ClientEvents = map[ClientEvent]string{
 	ClientEventDataTransferRestartFailed:  "ClientEventDataTransferRestartFailed",
 	ClientEventDataTransferStalled:        "ClientEventDataTransferStalled",
 	ClientEventDataTransferCancelled:      "ClientEventDataTransferCancelled",
+	ClientEventDataTransferQueued:         "ClientEventDataTransferQueued",
 }
 
 func (e ClientEvent) String() string {

@@ -129,6 +129,7 @@ func TestMakeDeal(t *testing.T) {
 				//storagemarket.StorageDealClientFunding,  // skipped because funds available
 				storagemarket.StorageDealFundsReserved,
 				storagemarket.StorageDealStartDataTransfer,
+				storagemarket.StorageDealTransferQueued,
 				storagemarket.StorageDealTransferring,
 				storagemarket.StorageDealCheckForAcceptance,
 				storagemarket.StorageDealProposalAccepted,

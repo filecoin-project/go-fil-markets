@@ -97,6 +97,8 @@ func ClientDataTransferSubscriber(deals EventReceiver) datatransfer.Subscriber {
 				return deals.Send(voucher.Proposal, storagemarket.ClientEventDataTransferRestarted, channelState.ChannelID())
 			case datatransfer.Disconnected:
 				return deals.Send(voucher.Proposal, storagemarket.ClientEventDataTransferStalled)
+			case datatransfer.TransferRequestQueued:
+				return deals.Send(voucher.Proposal, storagemarket.ClientEventDataTransferQueued, channelState.ChannelID())
 			case datatransfer.Accept:
 				return deals.Send(voucher.Proposal, storagemarket.ClientEventDataTransferInitiated, channelState.ChannelID())
 			case datatransfer.Error:

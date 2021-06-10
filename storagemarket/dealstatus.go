@@ -106,6 +106,9 @@ const (
 
 	// StorageDealAwaitingPreCommit means a deal is ready and must be pre-committed
 	StorageDealAwaitingPreCommit
+
+	// StorageDealTransferQueued means the data transfer request has been queued and will be executed soon.
+	StorageDealTransferQueued
 )
 
 // DealStates maps StorageDealStatus codes to string names
@@ -140,6 +143,7 @@ var DealStates = map[StorageDealStatus]string{
 	StorageDealFinalizing:                   "StorageDealFinalizing",
 	StorageDealClientTransferRestart:        "StorageDealClientTransferRestart",
 	StorageDealProviderTransferAwaitRestart: "StorageDealProviderTransferAwaitRestart",
+	StorageDealTransferQueued:               "StorageDealTransferQueued",
 }
 
 // DealStatesDescriptions maps StorageDealStatus codes to string description for better UX
