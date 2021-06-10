@@ -1,7 +1,6 @@
 package testharness
 
 import (
-	"fmt"
 	"path/filepath"
 	"sync"
 	"testing"
@@ -77,7 +76,6 @@ func NewHarnessWithTestData(t *testing.T, td *shared_testutil.Libp2pTestData, de
 		deps.ClientNode,
 		storageimpl.DealPollingInterval(0),
 	)
-	fmt.Println("\n error is", err)
 	require.NoError(t, err)
 
 	providerDs := namespace.Wrap(td.Ds1, datastore.NewKey("/deals/provider"))

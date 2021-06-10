@@ -104,19 +104,20 @@ var ClientEvents = fsm.Events{
 			return nil
 		}),
 
-	fsm.Event(storagemarket.ClientEventDataTransferInitiated).
-		FromMany(storagemarket.StorageDealTransferQueued).To(storagemarket.StorageDealTransferring).
-		Action(func(deal *storagemarket.ClientDeal, channelId datatransfer.ChannelID) error {
-			deal.TransferChannelID = &channelId
-			deal.AddLog("data transfer initiated on channel id <%s>", channelId)
-			return nil
-		}),
 	// The client has sent a push request to the provider, and in response the provider has
 	// opened a request for data to the client. The transfer is in the client's queue.
 	fsm.Event(storagemarket.ClientEventDataTransferQueued).
 		FromMany(storagemarket.StorageDealStartDataTransfer).To(storagemarket.StorageDealTransferQueued).
 		Action(func(deal *storagemarket.ClientDeal, channelId datatransfer.ChannelID) error {
 			deal.AddLog("provider data transfer request added to client's queue: channel id <%s>", channelId)
+			return nil
+		}),
+
+	fsm.Event(storagemarket.ClientEventDataTransferInitiated).
+		FromMany(storagemarket.StorageDealTransferQueued).To(storagemarket.StorageDealTransferring).
+		Action(func(deal *storagemarket.ClientDeal, channelId datatransfer.ChannelID) error {
+			deal.TransferChannelID = &channelId
+			deal.AddLog("data transfer initiated on channel id <%s>", channelId)
 			return nil
 		}),
 
