@@ -62,7 +62,10 @@ func firstSuccessfulUnseal(ctx context.Context, node rm.RetrievalProviderNode, p
 func UnsealData(ctx fsm.Context, environment ProviderDealEnvironment, deal rm.ProviderDealState, ds dagstore.DAGStore) error {
 	pieceCID := deal.PieceInfo.PieceCID.String()
 
-	// Can the sharded DAG Store serve a retrieval for this Piece.
+	// Can the sharded DAG Store serve a retrieval for this Piece ?
+	// This will be false ONLY if the deal is no longer active because even if the unsealed
+	// file for a deal has been deleted, the dag store can serve the retrieval by unsealing the file again
+	// since it's been told how to do so by calling the unsealing function when the shard is first activated.
 	b, err := ds.IsShardActive(pieceCID)
 	if err != nil {
 		return nil
@@ -70,8 +73,16 @@ func UnsealData(ctx fsm.Context, environment ProviderDealEnvironment, deal rm.Pr
 
 	var rb dagstore.ReadOnlyBlockStore
 	if !b {
-		// If not, we need to activate the shard for this piece in the DAG Store.
-		// will block till the shard is activated i.e. an unsealed copy is fetched and indexed.
+		// This should ideally NEVER happen because the shard will be activated when the storage deal is published
+		// and will be removed ONLY when the storage deal expires.
+
+		// However, if it does happen, we need to activate the shard for this piece in the DAG Store.
+		// This call will block till the shard is activated i.e. an unsealed copy is fetched and indexed.
+		// It is possible that the DAG Store already has the index for this piece from a previous activation
+		// in which case we wont have to index it again.
+		// The one problem with this API and it's usage with the `GetShardReadOnlyBlockstore` call below is that the
+		// DAG Store will never memoize the unsealed file and so each call to `GetShardReadOnlyBlockstore` will result into one more fetch
+		// of the unsealed file but that should probably be okay as it seems to be a (Save space) vs (save time) tradeoff.
 		if err := ds.ActivateShard(pieceCID, &unsealedFetcher{
 			environment.Node(),
 			*deal.PieceInfo,
@@ -86,7 +97,7 @@ func UnsealData(ctx fsm.Context, environment ProviderDealEnvironment, deal rm.Pr
 		return err
 	}
 
-	// TODO Confugure graphsync to use the read ONLY block store we have here and then CLOSE the blockstore when done.
+	// TODO Confugure graphsync to use the read ONLY block store created above and then CLOSE the blockstore when done.
 	err = environment.ReadIntoBlockstore(deal.StoreID, reader)
 	if err != nil {
 		return ctx.Trigger(rm.ProviderEventUnsealError, err)
