@@ -5,6 +5,7 @@ import (
 	"errors"
 	"io"
 
+	dagstore "github.com/filecoin-project/dagstore/store"
 	"golang.org/x/xerrors"
 
 	datatransfer "github.com/filecoin-project/go-data-transfer"
@@ -58,16 +59,53 @@ func firstSuccessfulUnseal(ctx context.Context, node rm.RetrievalProviderNode, p
 }
 
 // UnsealData unseals the piece containing data for retrieval as needed
-func UnsealData(ctx fsm.Context, environment ProviderDealEnvironment, deal rm.ProviderDealState) error {
-	reader, err := firstSuccessfulUnseal(ctx.Context(), environment.Node(), *deal.PieceInfo)
+func UnsealData(ctx fsm.Context, environment ProviderDealEnvironment, deal rm.ProviderDealState, ds dagstore.DAGStore) error {
+	pieceCID := deal.PieceInfo.PieceCID.String()
+
+	// Can the sharded DAG Store serve a retrieval for this Piece.
+	b, err := ds.IsShardActive(pieceCID)
 	if err != nil {
-		return ctx.Trigger(rm.ProviderEventUnsealError, err)
+		return nil
 	}
+
+	var rb dagstore.ReadOnlyBlockStore
+	if !b {
+		// If not, we need to activate the shard for this piece in the DAG Store.
+		// will block till the shard is activated i.e. an unsealed copy is fetched and indexed.
+		if err := ds.ActivateShard(pieceCID, &unsealedFetcher{
+			environment.Node(),
+			*deal.PieceInfo,
+		}); err != nil {
+			return err
+		}
+	}
+
+	// get a read only blockstore that can be used to serve random access for the piece data here.
+	rb, err = ds.GetShardReadOnlyBlockstore(pieceCID)
+	if err != nil || rb == nil {
+		return err
+	}
+
+	// TODO Confugure graphsync to use the read ONLY block store we have here and then CLOSE the blockstore when done.
 	err = environment.ReadIntoBlockstore(deal.StoreID, reader)
 	if err != nil {
 		return ctx.Trigger(rm.ProviderEventUnsealError, err)
 	}
 	return ctx.Trigger(rm.ProviderEventUnsealComplete)
+}
+
+type unsealedFetcher struct {
+	rm        rm.RetrievalProviderNode
+	pieceInfo piecestore.PieceInfo
+}
+
+func (u *unsealedFetcher) Fetch(ctx context.Context) (io.ReadCloser, error) {
+	return firstSuccessfulUnseal(ctx, u.rm, u.pieceInfo)
+}
+
+func (u *unsealedFetcher) FindIfActive() bool {
+	// TODO Is the deal still active ?
+	return true
 }
 
 // TrackTransfer resumes a deal so we can start sending data after its unsealed
