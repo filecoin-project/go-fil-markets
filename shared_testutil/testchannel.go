@@ -144,6 +144,10 @@ func (tc *TestChannel) ReceivedCids() []cid.Cid {
 	return tc.receivedCids
 }
 
+func (tc *TestChannel) ReceivedCidsLen() int {
+	return len(tc.receivedCids)
+}
+
 // Voucher returns the voucher for this data transfer
 func (tc *TestChannel) Voucher() datatransfer.Voucher {
 	return tc.vouchers[0]
