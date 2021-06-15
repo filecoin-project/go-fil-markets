@@ -65,7 +65,8 @@ func UnsealData(ctx fsm.Context, environment ProviderDealEnvironment, deal rm.Pr
 	// Can the sharded DAG Store serve a retrieval for this Piece ?
 	// This will be false ONLY if the deal is no longer active because even if the unsealed
 	// file for a deal has been deleted, the dag store can serve the retrieval by unsealing the file again
-	// since it's been told how to do so by calling the unsealing function when the shard is first activated.
+	// since it's been told how to do so by calling the unsealing function (this "teach how to fetch by unsealing" thing is done when
+	// the shard is first activated either when the storage deal is published or below when we realize we don't have an active shard).
 	b, err := ds.IsShardActive(pieceCID)
 	if err != nil {
 		return nil
@@ -89,6 +90,7 @@ func UnsealData(ctx fsm.Context, environment ProviderDealEnvironment, deal rm.Pr
 		}); err != nil {
 			return err
 		}
+		// TODO We should remove the shard when the storage deal expires but that code probably belongs to the storage markets.
 	}
 
 	// get a read only blockstore that can be used to serve random access for the piece data here.
