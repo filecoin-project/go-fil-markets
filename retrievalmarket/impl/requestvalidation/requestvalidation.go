@@ -63,7 +63,7 @@ func (rv *ProviderRequestValidator) ValidatePush(isRestart bool, _ datatransfer.
 }
 
 // ValidatePull validates a pull request received from the peer that will receive data
-func (rv *ProviderRequestValidator) ValidatePull(isRestart bool, _ datatransfer.ChannelID, receiver peer.ID, voucher datatransfer.Voucher, baseCid cid.Cid, selector ipld.Node) (datatransfer.VoucherResult, error) {
+func (rv *ProviderRequestValidator) ValidatePull(isRestart bool, chid datatransfer.ChannelID, receiver peer.ID, voucher datatransfer.Voucher, baseCid cid.Cid, selector ipld.Node) (datatransfer.VoucherResult, error) {
 	proposal, ok := voucher.(*retrievalmarket.DealProposal)
 	var legacyProtocol bool
 	if !ok {
@@ -75,6 +75,7 @@ func (rv *ProviderRequestValidator) ValidatePull(isRestart bool, _ datatransfer.
 		proposal = &newProposal
 		legacyProtocol = true
 	}
+	log.Infof("validate pull for deal %d for data transfer channel %s", proposal.ID, chid)
 	response, err := rv.validatePull(isRestart, receiver, proposal, legacyProtocol, baseCid, selector)
 	if response == nil {
 		return nil, err
