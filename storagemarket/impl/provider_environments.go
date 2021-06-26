@@ -2,22 +2,21 @@ package storageimpl
 
 import (
 	"context"
-	"errors"
 	"io"
 
+	"github.com/filecoin-project/go-commp-utils/writer"
 	"github.com/ipfs/go-cid"
-	"github.com/ipld/go-ipld-prime"
+	bstore "github.com/ipfs/go-ipfs-blockstore"
+	carv2 "github.com/ipld/go-car/v2"
+	"github.com/ipld/go-car/v2/blockstore"
 	"github.com/libp2p/go-libp2p-core/peer"
 	"golang.org/x/xerrors"
 
 	"github.com/filecoin-project/go-address"
-	"github.com/filecoin-project/go-multistore"
-
 	"github.com/filecoin-project/go-fil-markets/filestore"
 	"github.com/filecoin-project/go-fil-markets/piecestore"
 	"github.com/filecoin-project/go-fil-markets/storagemarket"
 	"github.com/filecoin-project/go-fil-markets/storagemarket/impl/providerstates"
-	"github.com/filecoin-project/go-fil-markets/storagemarket/impl/providerutils"
 	"github.com/filecoin-project/go-fil-markets/storagemarket/network"
 )
 
@@ -27,6 +26,25 @@ import (
 
 type providerDealEnvironment struct {
 	p *Provider
+}
+
+// TODO Uncomment code when DAG Store compiles
+func (p *providerDealEnvironment) ActivateShard(pieceCid cid.Cid) error {
+	/*
+		key := shard.KeyFromCID(pieceCid)
+
+		mt, err := marketdagstore.NewLotusMount(pieceCid, p.p.mountApi)
+		if err != nil {
+			return err
+		}
+
+		return p.p.dagStore.RegisterShard(key, mt)*/
+
+	return nil
+}
+
+func (p *providerDealEnvironment) ReadWriteBlockstoreFor(proposalCid cid.Cid) (*blockstore.ReadWrite, error) {
+	return p.p.readWriteBlockStores.Get(proposalCid.String())
 }
 
 func (p *providerDealEnvironment) Address() address.Address {
@@ -45,24 +63,47 @@ func (p *providerDealEnvironment) Ask() storagemarket.StorageAsk {
 	return *sask.Ask
 }
 
-func (p *providerDealEnvironment) DeleteStore(storeID multistore.StoreID) error {
-	return p.p.multiStore.Delete(storeID)
+func (p *providerDealEnvironment) CleanupBlockstore(proposalCid cid.Cid, carV2FilePath string) error {
+	if err := p.p.readWriteBlockStores.Clean(proposalCid.String()); err != nil {
+		log.Errorf("failed to clean read write blockstore, proposalCid=%s, err=%s", proposalCid, err)
+	}
+
+	// clean up the backing CAR file.
+	return p.p.fs.Delete(filestore.Path(carV2FilePath))
 }
 
-func (p *providerDealEnvironment) GeneratePieceCommitment(storeID *multistore.StoreID, payloadCid cid.Cid, selector ipld.Node) (cid.Cid, filestore.Path, error) {
-	proofType, err := p.p.spn.GetProofType(context.TODO(), p.p.actor, nil)
+func (p *providerDealEnvironment) GeneratePieceCommitment(carV2FilePath string) (cid.Cid, filestore.Path, error) {
+	rd, err := carv2.NewReaderFromCARv2File(carV2FilePath)
 	if err != nil {
-		return cid.Undef, "", err
+		return cid.Undef, "", xerrors.Errorf("failed to get CARv2 reader, err=%s", err)
 	}
-	if p.p.universalRetrievalEnabled {
-		return providerutils.GeneratePieceCommitmentWithMetadata(p.p.fs, p.p.pio.GeneratePieceCommitment, proofType, payloadCid, selector, storeID)
-	}
-	pieceCid, _, err := p.p.pio.GeneratePieceCommitment(proofType, payloadCid, selector, storeID)
-	return pieceCid, filestore.Path(""), err
-}
+	defer func() {
+		if err := rd.Close(); err != nil {
+			log.Errorf("failed to close CARv2 reader, err=%s", err)
+		}
+	}()
 
-func (p *providerDealEnvironment) GeneratePieceReader(storeID *multistore.StoreID, payloadCid cid.Cid, selector ipld.Node) (io.ReadCloser, uint64, error, <-chan error) {
-	return p.p.pio.GeneratePieceReader(payloadCid, selector, storeID)
+	if p.p.universalRetrievalEnabled {
+		// TODO Get this work later = punt on it for now as this is anyways NOT enabled.
+		//return providerutils.GeneratePieceCommitmentWithMetadata(p.p.fs, p.p.pio.GeneratePieceCommitment, proofType, payloadCid, selector, storeID)
+	}
+
+	// dump the CARv1 payload of the CARv2 file to the Commp Writer and get back the CommP.
+	w := &writer.Writer{}
+	written, err := io.Copy(w, rd.CarV1Reader())
+	if err != nil {
+		return cid.Undef, "", xerrors.Errorf("failed to write to CommP writer, err=%w", err)
+	}
+	if written != int64(rd.Header.CarV1Size) {
+		return cid.Undef, "", xerrors.Errorf("number of bytes written not equal to CARv1 payload size")
+	}
+
+	cidAndSize, err := w.Sum()
+	if err != nil {
+		return cid.Undef, "", xerrors.Errorf("failed to get CommP, err=%w", err)
+	}
+
+	return cidAndSize.PieceCID, filestore.Path(""), err
 }
 
 func (p *providerDealEnvironment) FileStore() filestore.FileStore {
@@ -122,7 +163,7 @@ type providerStoreGetter struct {
 	p *Provider
 }
 
-func (psg *providerStoreGetter) Get(proposalCid cid.Cid) (*multistore.Store, error) {
+func (psg *providerStoreGetter) Get(proposalCid cid.Cid) (bstore.Blockstore, error) {
 	// Wait for the provider to be ready
 	err := awaitProviderReady(psg.p)
 	if err != nil {
@@ -132,12 +173,10 @@ func (psg *providerStoreGetter) Get(proposalCid cid.Cid) (*multistore.Store, err
 	var deal storagemarket.MinerDeal
 	err = psg.p.deals.Get(proposalCid).Get(&deal)
 	if err != nil {
-		return nil, err
+		return nil, xerrors.Errorf("failed to get deal state, err=%w", err)
 	}
-	if deal.StoreID == nil {
-		return nil, errors.New("No store for this deal")
-	}
-	return psg.p.multiStore.Get(*deal.StoreID)
+
+	return psg.p.readWriteBlockStores.GetOrCreate(proposalCid.String(), deal.CARv2FilePath, deal.Ref.Root)
 }
 
 type providerPushDeals struct {

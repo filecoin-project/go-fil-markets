@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 
+	"github.com/filecoin-project/go-fil-markets/carstore"
 	"github.com/hannahhoward/go-pubsub"
 	"github.com/ipfs/go-cid"
 	"github.com/ipfs/go-datastore"
@@ -13,12 +14,9 @@ import (
 	"github.com/filecoin-project/go-address"
 	cborutil "github.com/filecoin-project/go-cbor-util"
 	"github.com/filecoin-project/go-commp-utils/ffiwrapper"
-	"github.com/filecoin-project/go-commp-utils/pieceio"
-	"github.com/filecoin-project/go-commp-utils/pieceio/cario"
 	datatransfer "github.com/filecoin-project/go-data-transfer"
 	versioning "github.com/filecoin-project/go-ds-versioning/pkg"
 	versionedfsm "github.com/filecoin-project/go-ds-versioning/pkg/fsm"
-	"github.com/filecoin-project/go-multistore"
 	"github.com/filecoin-project/go-padreader"
 	"github.com/filecoin-project/go-state-types/abi"
 	"github.com/filecoin-project/go-state-types/crypto"
@@ -53,8 +51,6 @@ type Provider struct {
 
 	spn                       storagemarket.StorageProviderNode
 	fs                        filestore.FileStore
-	multiStore                *multistore.MultiStore
-	pio                       pieceio.PieceIO
 	pieceStore                piecestore.PieceStore
 	conns                     *connmanager.ConnManager
 	storedAsk                 StoredAsk
@@ -69,6 +65,12 @@ type Provider struct {
 	migrateDeals func(context.Context) error
 
 	unsubDataTransfer datatransfer.Unsubscribe
+
+	// TODO Uncomment this when DAGStore compiles -> Lotus will inject these deps here.
+	//dagStore dagstore.DAGStore
+	//mountApi marketdagstore.LotusMountAPI
+
+	readWriteBlockStores *carstore.CarReadWriteStoreTracker
 }
 
 // StorageProviderOption allows custom configuration of a storage provider
@@ -102,7 +104,6 @@ func CustomDealDecisionLogic(decider DealDeciderFunc) StorageProviderOption {
 func NewProvider(net network.StorageMarketNetwork,
 	ds datastore.Batching,
 	fs filestore.FileStore,
-	multiStore *multistore.MultiStore,
 	pieceStore piecestore.PieceStore,
 	dataTransfer datatransfer.Manager,
 	spn storagemarket.StorageProviderNode,
@@ -110,22 +111,23 @@ func NewProvider(net network.StorageMarketNetwork,
 	storedAsk StoredAsk,
 	options ...StorageProviderOption,
 ) (storagemarket.StorageProvider, error) {
-	carIO := cario.NewCarIO()
-	pio := pieceio.NewPieceIO(carIO, nil, multiStore)
+	st, err := carstore.NewCarReadWriteStoreTracker()
+	if err != nil {
+		return nil, xerrors.Errorf("failed to create read write store tracker, err=%w", err)
+	}
 
 	h := &Provider{
-		net:          net,
-		spn:          spn,
-		fs:           fs,
-		multiStore:   multiStore,
-		pio:          pio,
-		pieceStore:   pieceStore,
-		conns:        connmanager.NewConnManager(),
-		storedAsk:    storedAsk,
-		actor:        minerAddress,
-		dataTransfer: dataTransfer,
-		pubSub:       pubsub.New(providerDispatcher),
-		readyMgr:     shared.NewReadyManager(),
+		net:                  net,
+		spn:                  spn,
+		fs:                   fs,
+		pieceStore:           pieceStore,
+		conns:                connmanager.NewConnManager(),
+		storedAsk:            storedAsk,
+		actor:                minerAddress,
+		dataTransfer:         dataTransfer,
+		pubSub:               pubsub.New(providerDispatcher),
+		readyMgr:             shared.NewReadyManager(),
+		readWriteBlockStores: st,
 	}
 	storageMigrations, err := migrations.ProviderMigrations.Build()
 	if err != nil {
@@ -237,16 +239,16 @@ func (p *Provider) receiveDeal(s network.StorageDealStream) error {
 		return p.resendProposalResponse(s, &md)
 	}
 
-	var storeIDForDeal *multistore.StoreID
+	var carV2FilePath string
+	// create an empty CARv2 file at a temp location that Graphysnc will rite the incoming blocks to via a ReadWrite blockstore wrapper.
 	if proposal.Piece.TransferType != storagemarket.TTManual {
-		nextStoreID := p.multiStore.Next()
-		// make sure store is initialized, even if we don't use it yet
-		_, err = p.multiStore.Get(nextStoreID)
+		tmp, err := p.fs.CreateTemp()
 		if err != nil {
-			return err
+			return xerrors.Errorf("failed to create an empty temp CARv2 file, err=%s", err)
 		}
-		storeIDForDeal = &nextStoreID
+		carV2FilePath = string(tmp.Path())
 	}
+
 	deal := &storagemarket.MinerDeal{
 		Client:             s.RemotePeer(),
 		Miner:              p.net.ID(),
@@ -255,8 +257,8 @@ func (p *Provider) receiveDeal(s network.StorageDealStream) error {
 		State:              storagemarket.StorageDealUnknown,
 		Ref:                proposal.Piece,
 		FastRetrieval:      proposal.FastRetrieval,
-		StoreID:            storeIDForDeal,
 		CreationTime:       curTime(),
+		CARv2FilePath:      carV2FilePath,
 	}
 
 	err = p.deals.Begin(proposalNd.Cid(), deal)

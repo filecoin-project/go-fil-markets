@@ -9,7 +9,6 @@ import (
 
 	datatransfer "github.com/filecoin-project/go-data-transfer"
 	filestore "github.com/filecoin-project/go-fil-markets/filestore"
-	multistore "github.com/filecoin-project/go-multistore"
 	abi "github.com/filecoin-project/go-state-types/abi"
 	crypto "github.com/filecoin-project/go-state-types/crypto"
 	market "github.com/filecoin-project/specs-actors/actors/builtin/market"
@@ -306,28 +305,6 @@ func (t *ClientDeal) MarshalCBOR(w io.Writer) error {
 		return err
 	}
 
-	// t.StoreID (multistore.StoreID) (uint64)
-	if len("StoreID") > cbg.MaxLength {
-		return xerrors.Errorf("Value in field \"StoreID\" was too long")
-	}
-
-	if err := cbg.WriteMajorTypeHeaderBuf(scratch, w, cbg.MajTextString, uint64(len("StoreID"))); err != nil {
-		return err
-	}
-	if _, err := io.WriteString(w, string("StoreID")); err != nil {
-		return err
-	}
-
-	if t.StoreID == nil {
-		if _, err := w.Write(cbg.CborNull); err != nil {
-			return err
-		}
-	} else {
-		if err := cbg.WriteMajorTypeHeaderBuf(scratch, w, cbg.MajUnsignedInt, uint64(*t.StoreID)); err != nil {
-			return err
-		}
-	}
-
 	// t.FundsReserved (big.Int) (struct)
 	if len("FundsReserved") > cbg.MaxLength {
 		return xerrors.Errorf("Value in field \"FundsReserved\" was too long")
@@ -392,6 +369,28 @@ func (t *ClientDeal) MarshalCBOR(w io.Writer) error {
 		return err
 	}
 
+	// t.CARv2FilePath (string) (string)
+	if len("CARv2FilePath") > cbg.MaxLength {
+		return xerrors.Errorf("Value in field \"CARv2FilePath\" was too long")
+	}
+
+	if err := cbg.WriteMajorTypeHeaderBuf(scratch, w, cbg.MajTextString, uint64(len("CARv2FilePath"))); err != nil {
+		return err
+	}
+	if _, err := io.WriteString(w, string("CARv2FilePath")); err != nil {
+		return err
+	}
+
+	if len(t.CARv2FilePath) > cbg.MaxLength {
+		return xerrors.Errorf("Value in field t.CARv2FilePath was too long")
+	}
+
+	if err := cbg.WriteMajorTypeHeaderBuf(scratch, w, cbg.MajTextString, uint64(len(t.CARv2FilePath))); err != nil {
+		return err
+	}
+	if _, err := io.WriteString(w, string(t.CARv2FilePath)); err != nil {
+		return err
+	}
 	return nil
 }
 
@@ -673,31 +672,6 @@ func (t *ClientDeal) UnmarshalCBOR(r io.Reader) error {
 			default:
 				return fmt.Errorf("booleans are either major type 7, value 20 or 21 (got %d)", extra)
 			}
-			// t.StoreID (multistore.StoreID) (uint64)
-		case "StoreID":
-
-			{
-
-				b, err := br.ReadByte()
-				if err != nil {
-					return err
-				}
-				if b != cbg.CborNull[0] {
-					if err := br.UnreadByte(); err != nil {
-						return err
-					}
-					maj, extra, err = cbg.CborReadHeaderBuf(br, scratch)
-					if err != nil {
-						return err
-					}
-					if maj != cbg.MajUnsignedInt {
-						return fmt.Errorf("wrong type for uint64 field")
-					}
-					typed := multistore.StoreID(extra)
-					t.StoreID = &typed
-				}
-
-			}
 			// t.FundsReserved (big.Int) (struct)
 		case "FundsReserved":
 
@@ -752,6 +726,17 @@ func (t *ClientDeal) UnmarshalCBOR(r io.Reader) error {
 				}
 				t.SectorNumber = abi.SectorNumber(extra)
 
+			}
+			// t.CARv2FilePath (string) (string)
+		case "CARv2FilePath":
+
+			{
+				sval, err := cbg.ReadStringBuf(br, scratch)
+				if err != nil {
+					return err
+				}
+
+				t.CARv2FilePath = string(sval)
 			}
 
 		default:
@@ -1018,28 +1003,6 @@ func (t *MinerDeal) MarshalCBOR(w io.Writer) error {
 		return err
 	}
 
-	// t.StoreID (multistore.StoreID) (uint64)
-	if len("StoreID") > cbg.MaxLength {
-		return xerrors.Errorf("Value in field \"StoreID\" was too long")
-	}
-
-	if err := cbg.WriteMajorTypeHeaderBuf(scratch, w, cbg.MajTextString, uint64(len("StoreID"))); err != nil {
-		return err
-	}
-	if _, err := io.WriteString(w, string("StoreID")); err != nil {
-		return err
-	}
-
-	if t.StoreID == nil {
-		if _, err := w.Write(cbg.CborNull); err != nil {
-			return err
-		}
-	} else {
-		if err := cbg.WriteMajorTypeHeaderBuf(scratch, w, cbg.MajUnsignedInt, uint64(*t.StoreID)); err != nil {
-			return err
-		}
-	}
-
 	// t.FundsReserved (big.Int) (struct)
 	if len("FundsReserved") > cbg.MaxLength {
 		return xerrors.Errorf("Value in field \"FundsReserved\" was too long")
@@ -1152,6 +1115,28 @@ func (t *MinerDeal) MarshalCBOR(w io.Writer) error {
 		return err
 	}
 
+	// t.CARv2FilePath (string) (string)
+	if len("CARv2FilePath") > cbg.MaxLength {
+		return xerrors.Errorf("Value in field \"CARv2FilePath\" was too long")
+	}
+
+	if err := cbg.WriteMajorTypeHeaderBuf(scratch, w, cbg.MajTextString, uint64(len("CARv2FilePath"))); err != nil {
+		return err
+	}
+	if _, err := io.WriteString(w, string("CARv2FilePath")); err != nil {
+		return err
+	}
+
+	if len(t.CARv2FilePath) > cbg.MaxLength {
+		return xerrors.Errorf("Value in field t.CARv2FilePath was too long")
+	}
+
+	if err := cbg.WriteMajorTypeHeaderBuf(scratch, w, cbg.MajTextString, uint64(len(t.CARv2FilePath))); err != nil {
+		return err
+	}
+	if _, err := io.WriteString(w, string(t.CARv2FilePath)); err != nil {
+		return err
+	}
 	return nil
 }
 
@@ -1371,31 +1356,6 @@ func (t *MinerDeal) UnmarshalCBOR(r io.Reader) error {
 
 				t.Message = string(sval)
 			}
-			// t.StoreID (multistore.StoreID) (uint64)
-		case "StoreID":
-
-			{
-
-				b, err := br.ReadByte()
-				if err != nil {
-					return err
-				}
-				if b != cbg.CborNull[0] {
-					if err := br.UnreadByte(); err != nil {
-						return err
-					}
-					maj, extra, err = cbg.CborReadHeaderBuf(br, scratch)
-					if err != nil {
-						return err
-					}
-					if maj != cbg.MajUnsignedInt {
-						return fmt.Errorf("wrong type for uint64 field")
-					}
-					typed := multistore.StoreID(extra)
-					t.StoreID = &typed
-				}
-
-			}
 			// t.FundsReserved (big.Int) (struct)
 		case "FundsReserved":
 
@@ -1503,6 +1463,17 @@ func (t *MinerDeal) UnmarshalCBOR(r io.Reader) error {
 				}
 				t.SectorNumber = abi.SectorNumber(extra)
 
+			}
+			// t.CARv2FilePath (string) (string)
+		case "CARv2FilePath":
+
+			{
+				sval, err := cbg.ReadStringBuf(br, scratch)
+				if err != nil {
+					return err
+				}
+
+				t.CARv2FilePath = string(sval)
 			}
 
 		default:

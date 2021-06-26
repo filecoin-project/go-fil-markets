@@ -7,11 +7,11 @@ import (
 
 	"github.com/ipfs/go-cid"
 	logging "github.com/ipfs/go-log/v2"
-	"github.com/ipld/go-ipld-prime"
+	carv2 "github.com/ipld/go-car/v2"
+	"github.com/ipld/go-car/v2/blockstore"
 	"golang.org/x/xerrors"
 
 	"github.com/filecoin-project/go-address"
-	"github.com/filecoin-project/go-multistore"
 	padreader "github.com/filecoin-project/go-padreader"
 	"github.com/filecoin-project/go-state-types/abi"
 	"github.com/filecoin-project/go-state-types/big"
@@ -22,7 +22,6 @@ import (
 
 	"github.com/filecoin-project/go-fil-markets/filestore"
 	"github.com/filecoin-project/go-fil-markets/piecestore"
-	"github.com/filecoin-project/go-fil-markets/shared"
 	"github.com/filecoin-project/go-fil-markets/storagemarket"
 	"github.com/filecoin-project/go-fil-markets/storagemarket/impl/providerutils"
 	"github.com/filecoin-project/go-fil-markets/storagemarket/network"
@@ -36,12 +35,17 @@ const DealMaxLabelSize = 256
 // ProviderDealEnvironment are the dependencies needed for processing deals
 // with a ProviderStateEntryFunc
 type ProviderDealEnvironment interface {
+	ActivateShard(pieceCid cid.Cid) error
+
+	ReadWriteBlockstoreFor(proposalCid cid.Cid) (*blockstore.ReadWrite, error)
+
+	CleanupBlockstore(proposalCid cid.Cid, carFilePath string) error
+
+	GeneratePieceCommitment(carV2FilePath string) (cid.Cid, filestore.Path, error)
+
 	Address() address.Address
 	Node() storagemarket.StorageProviderNode
 	Ask() storagemarket.StorageAsk
-	DeleteStore(storeID multistore.StoreID) error
-	GeneratePieceCommitment(storeID *multistore.StoreID, payloadCid cid.Cid, selector ipld.Node) (cid.Cid, filestore.Path, error)
-	GeneratePieceReader(storeID *multistore.StoreID, payloadCid cid.Cid, selector ipld.Node) (io.ReadCloser, uint64, error, <-chan error)
 	SendSignedResponse(ctx context.Context, response *network.Response) error
 	Disconnect(proposalCid cid.Cid) error
 	FileStore() filestore.FileStore
@@ -197,7 +201,19 @@ func DecideOnProposal(ctx fsm.Context, environment ProviderDealEnvironment, deal
 // VerifyData verifies that data received for a deal matches the pieceCID
 // in the proposal
 func VerifyData(ctx fsm.Context, environment ProviderDealEnvironment, deal storagemarket.MinerDeal) error {
-	pieceCid, metadataPath, err := environment.GeneratePieceCommitment(deal.StoreID, deal.Ref.Root, shared.AllSelector())
+	// finalize the blockstore as we're done writing deal data to it.
+	rwbs, err := environment.ReadWriteBlockstoreFor(deal.ProposalCid)
+	if err != nil {
+		return xerrors.Errorf("failed to get readWriteBlockstore, proposalCid=%s, err=%w", deal.ProposalCid, err)
+	}
+
+	if err := rwbs.Finalize(); err != nil {
+		return xerrors.Errorf("failed to finalize readWriteBlockstore, proposalCid=%s, err=%w", deal.ProposalCid, err)
+	}
+
+	// TODO Is there a need to call Close on the blockstore after calling Finalize.
+
+	pieceCid, metadataPath, err := environment.GeneratePieceCommitment(deal.CARv2FilePath)
 	if err != nil {
 		return ctx.Trigger(storagemarket.ProviderEventDataVerificationFailed, xerrors.Errorf("error generating CommP: %w", err), filestore.Path(""), filestore.Path(""))
 	}
@@ -289,15 +305,6 @@ func WaitForPublish(ctx fsm.Context, environment ProviderDealEnvironment, deal s
 
 // HandoffDeal hands off a published deal for sealing and commitment in a sector
 func HandoffDeal(ctx fsm.Context, environment ProviderDealEnvironment, deal storagemarket.MinerDeal) error {
-	triggerHandoffFailed := func(err error, packingErr error) error {
-		if packingErr == nil {
-			return ctx.Trigger(storagemarket.ProviderEventDealHandoffFailed, err)
-		}
-		packingErr = xerrors.Errorf("packing error: %w", packingErr)
-		err = xerrors.Errorf("%s: %w", err, packingErr)
-		return ctx.Trigger(storagemarket.ProviderEventDealHandoffFailed, err)
-	}
-
 	var packingInfo *storagemarket.PackingResult
 	if deal.PiecePath != "" {
 		// Data for offline deals is stored on disk, so if PiecePath is set,
@@ -315,34 +322,19 @@ func HandoffDeal(ctx fsm.Context, environment ProviderDealEnvironment, deal stor
 			return ctx.Trigger(storagemarket.ProviderEventDealHandoffFailed, err)
 		}
 	} else {
-		// Create a reader to read the piece from the blockstore
-		pieceReader, pieceSize, err, writeErrChan := environment.GeneratePieceReader(deal.StoreID, deal.Ref.Root, shared.AllSelector())
+		v2r, err := carv2.NewReaderFromCARv2File(deal.CARv2FilePath)
 		if err != nil {
-			err := xerrors.Errorf("reading piece %s from store %d: %w", deal.Ref.PieceCid, deal.StoreID, err)
-			return ctx.Trigger(storagemarket.ProviderEventDealHandoffFailed, err)
+			return ctx.Trigger(storagemarket.ProviderEventDealHandoffFailed, xerrors.Errorf("failed to open CARv2 file, proposalCid=%s, err=%w",
+				deal.ProposalCid, err))
 		}
 
 		// Hand the deal off to the process that adds it to a sector
 		var packingErr error
-		packingInfo, packingErr = handoffDeal(ctx.Context(), environment, deal, pieceReader, pieceSize)
+		packingInfo, packingErr = handoffDeal(ctx.Context(), environment, deal, v2r.CarV1Reader(), v2r.CARv1Size())
 
-		// Close the read side of the pipe
-		err = pieceReader.Close()
-		if err != nil {
-			err = xerrors.Errorf("closing reader for piece %s from store %d: %w", deal.Ref.PieceCid, deal.StoreID, err)
-			return triggerHandoffFailed(err, packingErr)
-		}
-
-		// Wait for the write to complete
-		select {
-		case <-ctx.Context().Done():
-			return ctx.Trigger(storagemarket.ProviderEventDealHandoffFailed,
-				xerrors.Errorf("writing piece %s never finished: %w", deal.Ref.PieceCid, ctx.Context().Err()))
-		case err = <-writeErrChan:
-			if err != nil {
-				err = xerrors.Errorf("writing piece %s: %w", deal.Ref.PieceCid, err)
-				return triggerHandoffFailed(err, packingErr)
-			}
+		// Close the reader as we're done reading from it.
+		if err := v2r.Close(); err != nil {
+			log.Errorf("failed to close CARv2 reader, proposalCid=%s, err=%s", deal.ProposalCid, err)
 		}
 
 		if packingErr != nil {
@@ -356,6 +348,17 @@ func HandoffDeal(ctx fsm.Context, environment ProviderDealEnvironment, deal stor
 		log.Error(err.Error())
 		_ = ctx.Trigger(storagemarket.ProviderEventPieceStoreErrored, err)
 	}
+
+	// activate shard and Index it.
+	// TODO How do I give this the Index I already have ?
+	// Should we be able to call the lower level Index repo here ?
+	if err := environment.ActivateShard(deal.Proposal.PieceCID); err != nil {
+		// TODO What's the right thing to do here ? I think the retrieval market
+		// should have a recovery mechanism in terms of, let "activate the shard if you don't have it".
+		//
+	}
+
+	// TODO Put code in Lotus to expire/destory these shards when deals expire.
 
 	return ctx.Trigger(storagemarket.ProviderEventDealHandedOff)
 }
@@ -425,10 +428,10 @@ func CleanupDeal(ctx fsm.Context, environment ProviderDealEnvironment, deal stor
 			log.Warnf("deleting piece at path %s: %w", deal.MetadataPath, err)
 		}
 	}
-	if deal.StoreID != nil {
-		err := environment.DeleteStore(*deal.StoreID)
-		if err != nil {
-			log.Warnf("deleting store %d: %w", deal.StoreID, err)
+
+	if deal.CARv2FilePath != "" {
+		if err := environment.CleanupBlockstore(deal.ProposalCid, deal.CARv2FilePath); err != nil {
+			log.Warnf("failed to cleanup blockstore, err=%s", err)
 		}
 	}
 
@@ -549,12 +552,13 @@ func FailDeal(ctx fsm.Context, environment ProviderDealEnvironment, deal storage
 			log.Warnf("deleting piece at path %s: %w", deal.MetadataPath, err)
 		}
 	}
-	if deal.StoreID != nil {
-		err := environment.DeleteStore(*deal.StoreID)
-		if err != nil {
-			log.Warnf("deleting store id %d: %w", *deal.StoreID, err)
+
+	if deal.CARv2FilePath != "" {
+		if err := environment.CleanupBlockstore(deal.ProposalCid, deal.CARv2FilePath); err != nil {
+			log.Warnf("deleting store %s: %w", deal.CARv2FilePath, err)
 		}
 	}
+
 	releaseReservedFunds(ctx, environment, deal)
 
 	return ctx.Trigger(storagemarket.ProviderEventFailed)

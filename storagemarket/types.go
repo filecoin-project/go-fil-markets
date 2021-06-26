@@ -12,7 +12,6 @@ import (
 
 	"github.com/filecoin-project/go-address"
 	datatransfer "github.com/filecoin-project/go-data-transfer"
-	"github.com/filecoin-project/go-multistore"
 	"github.com/filecoin-project/go-state-types/abi"
 	"github.com/filecoin-project/go-state-types/crypto"
 	"github.com/filecoin-project/specs-actors/actors/builtin/market"
@@ -102,7 +101,6 @@ type MinerDeal struct {
 	SlashEpoch            abi.ChainEpoch
 	FastRetrieval         bool
 	Message               string
-	StoreID               *multistore.StoreID
 	FundsReserved         abi.TokenAmount
 	Ref                   *DataRef
 	AvailableForRetrieval bool
@@ -112,6 +110,8 @@ type MinerDeal struct {
 
 	TransferChannelId *datatransfer.ChannelID
 	SectorNumber      abi.SectorNumber
+
+	CARv2FilePath string
 }
 
 // NewDealStages creates a new DealStages object ready to be used.
@@ -243,11 +243,11 @@ type ClientDeal struct {
 	PollRetryCount    uint64
 	PollErrorCount    uint64
 	FastRetrieval     bool
-	StoreID           *multistore.StoreID
 	FundsReserved     abi.TokenAmount
 	CreationTime      cbg.CborTime
 	TransferChannelID *datatransfer.ChannelID
 	SectorNumber      abi.SectorNumber
+	CARv2FilePath     string
 }
 
 // StorageProviderInfo describes on chain information about a StorageProvider
@@ -278,7 +278,7 @@ type ProposeStorageDealParams struct {
 	Rt            abi.RegisteredSealProof
 	FastRetrieval bool
 	VerifiedDeal  bool
-	StoreID       *multistore.StoreID
+	CARV2FilePath string
 }
 
 const (

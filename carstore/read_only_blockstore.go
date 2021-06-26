@@ -40,7 +40,6 @@ func (r *CarReadOnlyStoreTracker) GetOrCreate(key string, carFilePath string) (*
 		return bs, nil
 	}
 
-	// TODO Car lib should take both v1 , indexed-unindexed v2 CAR files here.
 	rdOnly, err := blockstore.OpenReadOnly(carFilePath, true)
 	if err != nil {
 		return nil, err
