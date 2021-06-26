@@ -1,12 +1,11 @@
-package dagstore
+package marketdagstore
 
-import (
+/*import (
 	"context"
 	"fmt"
 	"io"
 	"net/url"
 
-	"github.com/filecoin-project/dagstore/mount"
 	"github.com/ipfs/go-cid"
 	"golang.org/x/xerrors"
 )
@@ -42,9 +41,15 @@ func (l *LotusMount) Fetch(ctx context.Context) (io.ReadCloser, error) {
 
 func (l *LotusMount) Info() mount.Info {
 	return mount.Info{
-		Kind: mount.MountKindRemote,
-		URL:  l.URL,
+		Source:   mount.SourceRemote,
+		URL:      l.URL,
+		Seekable: false,
 	}
+}
+
+// TODO Implement this
+func (l *LotusMount) FetchSeek(ctx context.Context) (io.ReadSeekCloser, error) {
+	return nil, nil
 }
 
 func (l *LotusMount) Stat() (mount.Stat, error) {
@@ -58,3 +63,4 @@ func (l *LotusMount) Stat() (mount.Stat, error) {
 		Size:   size,
 	}, nil
 }
+*/

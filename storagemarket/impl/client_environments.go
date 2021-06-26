@@ -5,11 +5,11 @@ import (
 	"time"
 
 	"github.com/ipfs/go-cid"
+	bstore "github.com/ipfs/go-ipfs-blockstore"
 	"github.com/ipld/go-ipld-prime"
 	"github.com/libp2p/go-libp2p-core/peer"
 
 	datatransfer "github.com/filecoin-project/go-data-transfer"
-	"github.com/filecoin-project/go-multistore"
 
 	"github.com/filecoin-project/go-fil-markets/storagemarket"
 	"github.com/filecoin-project/go-fil-markets/storagemarket/network"
@@ -29,6 +29,10 @@ func (c *clientDealEnvironment) NewDealStream(ctx context.Context, p peer.ID) (n
 
 func (c *clientDealEnvironment) Node() storagemarket.StorageClientNode {
 	return c.c.node
+}
+
+func (c *clientDealEnvironment) CleanBlockStore(proposalCid cid.Cid) error {
+	return c.c.readOnlyCARStoreTracker.CleanBlockStore(proposalCid.String())
 }
 
 func (c *clientDealEnvironment) StartDataTransfer(ctx context.Context, to peer.ID, voucher datatransfer.Voucher, baseCid cid.Cid, selector ipld.Node) (datatransfer.ChannelID,
@@ -53,16 +57,14 @@ type clientStoreGetter struct {
 	c *Client
 }
 
-func (csg *clientStoreGetter) Get(proposalCid cid.Cid) (*multistore.Store, error) {
+func (csg *clientStoreGetter) Get(proposalCid cid.Cid) (bstore.Blockstore, error) {
 	var deal storagemarket.ClientDeal
 	err := csg.c.statemachines.Get(proposalCid).Get(&deal)
 	if err != nil {
 		return nil, err
 	}
-	if deal.StoreID == nil {
-		return nil, nil
-	}
-	return csg.c.multiStore.Get(*deal.StoreID)
+
+	return csg.c.readOnlyCARStoreTracker.GetOrCreate(proposalCid.String(), deal.CARv2FilePath)
 }
 
 func (c *clientDealEnvironment) TagPeer(peer peer.ID, tag string) {

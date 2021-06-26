@@ -1,6 +1,6 @@
-package dagstore
+package marketdagstore
 
-import (
+/*import (
 	"context"
 	"io"
 	"net/url"
@@ -45,3 +45,5 @@ func (l *LotusMountFactory) Parse(u *url.URL) (mount.Mount, error) {
 		URL:      u,
 	}, nil
 }
+
+*/

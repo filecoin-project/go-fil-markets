@@ -5,22 +5,19 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/filecoin-project/go-fil-markets/carstore"
 	"github.com/hannahhoward/go-pubsub"
 	"github.com/ipfs/go-cid"
 	"github.com/ipfs/go-datastore"
-	blockstore "github.com/ipfs/go-ipfs-blockstore"
 	logging "github.com/ipfs/go-log/v2"
 	cbg "github.com/whyrusleeping/cbor-gen"
 	"golang.org/x/xerrors"
 
 	"github.com/filecoin-project/go-address"
 	cborutil "github.com/filecoin-project/go-cbor-util"
-	"github.com/filecoin-project/go-commp-utils/pieceio"
-	"github.com/filecoin-project/go-commp-utils/pieceio/cario"
 	datatransfer "github.com/filecoin-project/go-data-transfer"
 	versioning "github.com/filecoin-project/go-ds-versioning/pkg"
 	versionedfsm "github.com/filecoin-project/go-ds-versioning/pkg/fsm"
-	"github.com/filecoin-project/go-multistore"
 	"github.com/filecoin-project/go-state-types/abi"
 	"github.com/filecoin-project/go-state-types/big"
 	"github.com/filecoin-project/go-state-types/exitcode"
@@ -51,9 +48,7 @@ type Client struct {
 	net network.StorageMarketNetwork
 
 	dataTransfer         datatransfer.Manager
-	multiStore           *multistore.MultiStore
 	discovery            *discoveryimpl.Local
-	pio                  pieceio.PieceIO
 	node                 storagemarket.StorageClientNode
 	pubSub               *pubsub.PubSub
 	readySub             *pubsub.PubSub
@@ -62,6 +57,8 @@ type Client struct {
 	pollingInterval      time.Duration
 
 	unsubDataTransfer datatransfer.Unsubscribe
+
+	readOnlyCARStoreTracker *carstore.CarReadOnlyStoreTracker
 }
 
 // StorageClientOption allows custom configuration of a storage client
@@ -78,26 +75,26 @@ func DealPollingInterval(t time.Duration) StorageClientOption {
 // NewClient creates a new storage client
 func NewClient(
 	net network.StorageMarketNetwork,
-	bs blockstore.Blockstore,
-	multiStore *multistore.MultiStore,
 	dataTransfer datatransfer.Manager,
 	discovery *discoveryimpl.Local,
 	ds datastore.Batching,
 	scn storagemarket.StorageClientNode,
 	options ...StorageClientOption,
 ) (*Client, error) {
-	carIO := cario.NewCarIO()
-	pio := pieceio.NewPieceIO(carIO, bs, multiStore)
+	st, err := carstore.NewReadOnlyStoreTracker()
+	if err != nil {
+		return nil, xerrors.Errorf("failed to create Read Only CAR Store tracker, err=%w", err)
+	}
+
 	c := &Client{
-		net:             net,
-		dataTransfer:    dataTransfer,
-		multiStore:      multiStore,
-		discovery:       discovery,
-		node:            scn,
-		pio:             pio,
-		pubSub:          pubsub.New(clientDispatcher),
-		readySub:        pubsub.New(shared.ReadyDispatcher),
-		pollingInterval: DefaultPollingInterval,
+		net:                     net,
+		dataTransfer:            dataTransfer,
+		discovery:               discovery,
+		node:                    scn,
+		pubSub:                  pubsub.New(clientDispatcher),
+		readySub:                pubsub.New(shared.ReadyDispatcher),
+		pollingInterval:         DefaultPollingInterval,
+		readOnlyCARStoreTracker: st,
 	}
 	storageMigrations, err := migrations.ClientMigrations.Build()
 	if err != nil {
@@ -333,7 +330,7 @@ func (c *Client) ProposeStorageDeal(ctx context.Context, params storagemarket.Pr
 		return nil, xerrors.Errorf("looking up addresses: %w", err)
 	}
 
-	commP, pieceSize, err := clientutils.CommP(ctx, c.pio, params.Rt, params.Data, params.StoreID)
+	commP, pieceSize, err := clientutils.CommP(ctx, params.CARV2FilePath, params.Data)
 	if err != nil {
 		return nil, xerrors.Errorf("computing commP failed: %w", err)
 	}
@@ -387,9 +384,9 @@ func (c *Client) ProposeStorageDeal(ctx context.Context, params storagemarket.Pr
 		MinerWorker:        params.Info.Worker,
 		DataRef:            params.Data,
 		FastRetrieval:      params.FastRetrieval,
-		StoreID:            params.StoreID,
 		DealStages:         storagemarket.NewDealStages(),
 		CreationTime:       curTime(),
+		CARv2FilePath:      params.CARV2FilePath,
 	}
 
 	err = c.statemachines.Begin(proposalNd.Cid(), deal)
