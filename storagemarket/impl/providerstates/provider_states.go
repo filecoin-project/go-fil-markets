@@ -8,7 +8,6 @@ import (
 	"github.com/ipfs/go-cid"
 	logging "github.com/ipfs/go-log/v2"
 	carv2 "github.com/ipld/go-car/v2"
-	"github.com/ipld/go-car/v2/blockstore"
 	"golang.org/x/xerrors"
 
 	"github.com/filecoin-project/go-address"
@@ -35,9 +34,11 @@ const DealMaxLabelSize = 256
 // ProviderDealEnvironment are the dependencies needed for processing deals
 // with a ProviderStateEntryFunc
 type ProviderDealEnvironment interface {
+	CARv2Reader(carV2FilePath string) (*carv2.Reader, error)
+
 	ActivateShard(pieceCid cid.Cid) error
 
-	ReadWriteBlockstoreFor(proposalCid cid.Cid) (*blockstore.ReadWrite, error)
+	FinalizeReadWriteBlockstore(proposalCid cid.Cid) error
 
 	CleanReadWriteBlockstore(proposalCid cid.Cid, carFilePath string) error
 
@@ -202,13 +203,8 @@ func DecideOnProposal(ctx fsm.Context, environment ProviderDealEnvironment, deal
 // in the proposal
 func VerifyData(ctx fsm.Context, environment ProviderDealEnvironment, deal storagemarket.MinerDeal) error {
 	// finalize the blockstore as we're done writing deal data to it.
-	rwbs, err := environment.ReadWriteBlockstoreFor(deal.ProposalCid)
-	if err != nil {
-		return xerrors.Errorf("failed to get read-write Blockstore, err=%w", err)
-	}
-
-	if err := rwbs.Finalize(); err != nil {
-		return xerrors.Errorf("failed to finalize read-write blockstore, proposalCid=%s, err=%w", deal.ProposalCid, err)
+	if err := environment.FinalizeReadWriteBlockstore(deal.ProposalCid); err != nil {
+		return ctx.Trigger(storagemarket.ProviderEventDataVerificationFailed, xerrors.Errorf("faild to finalize read-write blockstore: %w", err), filestore.Path(""), filestore.Path(""))
 	}
 
 	pieceCid, metadataPath, err := environment.GeneratePieceCommitment(deal.ProposalCid, deal.CARv2FilePath)
@@ -320,7 +316,7 @@ func HandoffDeal(ctx fsm.Context, environment ProviderDealEnvironment, deal stor
 			return ctx.Trigger(storagemarket.ProviderEventDealHandoffFailed, err)
 		}
 	} else {
-		v2r, err := carv2.NewReaderMmap(deal.CARv2FilePath)
+		v2r, err := environment.CARv2Reader(deal.CARv2FilePath)
 		if err != nil {
 			return ctx.Trigger(storagemarket.ProviderEventDealHandoffFailed, xerrors.Errorf("failed to open CARv2 file, proposalCid=%s, err=%w",
 				deal.ProposalCid, err))
@@ -345,7 +341,6 @@ func HandoffDeal(ctx fsm.Context, environment ProviderDealEnvironment, deal stor
 		_ = ctx.Trigger(storagemarket.ProviderEventPieceStoreErrored, err)
 	}
 
-	// TODO How do I give this the Index I already have ?
 	if err := environment.ActivateShard(deal.Proposal.PieceCID); err != nil {
 		// TODO What's the right thing to do here ? I think the retrieval market
 		// should have a recovery mechanism in terms of, let "activate the shard if you don't have it".

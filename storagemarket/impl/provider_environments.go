@@ -7,7 +7,6 @@ import (
 	"github.com/ipfs/go-cid"
 	bstore "github.com/ipfs/go-ipfs-blockstore"
 	carv2 "github.com/ipld/go-car/v2"
-	"github.com/ipld/go-car/v2/blockstore"
 	"github.com/libp2p/go-libp2p-core/peer"
 	"golang.org/x/xerrors"
 
@@ -44,8 +43,21 @@ func (p *providerDealEnvironment) ActivateShard(pieceCid cid.Cid) error {
 	return nil
 }
 
-func (p *providerDealEnvironment) ReadWriteBlockstoreFor(proposalCid cid.Cid) (*blockstore.ReadWrite, error) {
-	return p.p.readWriteBlockStores.Get(proposalCid.String())
+func (p *providerDealEnvironment) CARv2Reader(carV2FilePath string) (*carv2.Reader, error) {
+	return carv2.NewReaderMmap(carV2FilePath)
+}
+
+func (p *providerDealEnvironment) FinalizeReadWriteBlockstore(proposalCid cid.Cid) error {
+	bs, err := p.p.readWriteBlockStores.Get(proposalCid.String())
+	if err != nil {
+		return xerrors.Errorf("failed to get read-write blockstore, err=%w", err)
+	}
+
+	if err := bs.Finalize(); err != nil {
+		return xerrors.Errorf("failed to finalize read-write blockstore, err=%w", err)
+	}
+
+	return nil
 }
 
 func (p *providerDealEnvironment) Address() address.Address {
