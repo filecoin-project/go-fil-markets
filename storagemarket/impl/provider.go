@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"io"
 
-	"github.com/filecoin-project/go-fil-markets/carstore"
 	"github.com/hannahhoward/go-pubsub"
 	"github.com/ipfs/go-cid"
 	"github.com/ipfs/go-datastore"
@@ -23,6 +22,7 @@ import (
 	"github.com/filecoin-project/go-state-types/exitcode"
 	"github.com/filecoin-project/go-statemachine/fsm"
 
+	"github.com/filecoin-project/go-fil-markets/carstore"
 	"github.com/filecoin-project/go-fil-markets/filestore"
 	"github.com/filecoin-project/go-fil-markets/piecestore"
 	"github.com/filecoin-project/go-fil-markets/shared"
@@ -240,11 +240,11 @@ func (p *Provider) receiveDeal(s network.StorageDealStream) error {
 	}
 
 	var carV2FilePath string
-	// create an empty CARv2 file at a temp location that Graphysnc will rite the incoming blocks to via a ReadWrite blockstore wrapper.
+	// create an empty CARv2 file at a temp location that Graphysnc will write the incoming blocks to via a CARv2 ReadWrite blockstore wrapper.
 	if proposal.Piece.TransferType != storagemarket.TTManual {
 		tmp, err := p.fs.CreateTemp()
 		if err != nil {
-			return xerrors.Errorf("failed to create an empty temp CARv2 file, err=%s", err)
+			return xerrors.Errorf("failed to create an empty temp CARv2 file, err=%w", err)
 		}
 		carV2FilePath = string(tmp.Path())
 	}

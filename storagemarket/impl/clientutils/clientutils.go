@@ -4,7 +4,6 @@ package clientutils
 import (
 	"context"
 
-	"github.com/filecoin-project/go-commp-utils/writer"
 	"github.com/ipfs/go-cid"
 	"github.com/ipld/go-car"
 	"github.com/ipld/go-car/v2/blockstore"
@@ -13,6 +12,7 @@ import (
 
 	"github.com/filecoin-project/go-address"
 	cborutil "github.com/filecoin-project/go-cbor-util"
+	"github.com/filecoin-project/go-commp-utils/writer"
 	"github.com/filecoin-project/go-state-types/abi"
 	"github.com/filecoin-project/go-state-types/crypto"
 
@@ -38,12 +38,12 @@ func CommP(ctx context.Context, CARv2FilePath string, data *storagemarket.DataRe
 	}
 
 	if CARv2FilePath == "" {
-		return cid.Undef, 0, xerrors.New("need Car File Path to get a readOnly blockstore")
+		return cid.Undef, 0, xerrors.New("need Carv2 file path to get a read-only blockstore")
 	}
 
 	rdOnly, err := blockstore.OpenReadOnly(CARv2FilePath, true)
 	if err != nil {
-		return cid.Undef, 0, xerrors.Errorf("failed to open read only blockstore :%w", err)
+		return cid.Undef, 0, xerrors.Errorf("failed to open read-only blockstore :%w", err)
 	}
 	defer rdOnly.Close()
 
@@ -62,7 +62,7 @@ func CommP(ctx context.Context, CARv2FilePath string, data *storagemarket.DataRe
 	}
 	dataCIDSize, err := commpWriter.Sum()
 	if err != nil {
-		return cid.Undef, 0, xerrors.Errorf("commpWriter.Sum, err=%w", err)
+		return cid.Undef, 0, xerrors.Errorf("commpWriter.Sum failed, err=%w", err)
 	}
 
 	return dataCIDSize.PieceCID, dataCIDSize.PieceSize.Unpadded(), nil

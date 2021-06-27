@@ -4,7 +4,6 @@ import (
 	"context"
 	"io"
 
-	"github.com/filecoin-project/go-commp-utils/writer"
 	"github.com/ipfs/go-cid"
 	bstore "github.com/ipfs/go-ipfs-blockstore"
 	carv2 "github.com/ipld/go-car/v2"
@@ -13,6 +12,8 @@ import (
 	"golang.org/x/xerrors"
 
 	"github.com/filecoin-project/go-address"
+	"github.com/filecoin-project/go-commp-utils/writer"
+
 	"github.com/filecoin-project/go-fil-markets/filestore"
 	"github.com/filecoin-project/go-fil-markets/piecestore"
 	"github.com/filecoin-project/go-fil-markets/storagemarket"
@@ -63,23 +64,26 @@ func (p *providerDealEnvironment) Ask() storagemarket.StorageAsk {
 	return *sask.Ask
 }
 
-func (p *providerDealEnvironment) CleanupBlockstore(proposalCid cid.Cid, carV2FilePath string) error {
-	if err := p.p.readWriteBlockStores.Clean(proposalCid.String()); err != nil {
-		log.Errorf("failed to clean read write blockstore, proposalCid=%s, err=%s", proposalCid, err)
+func (p *providerDealEnvironment) CleanReadWriteBlockstore(proposalCid cid.Cid, carV2FilePath string) error {
+	// close the backing CARv2 file and stop tracking the read-write blockstore for the deal with the given proposalCid.
+	if err := p.p.readWriteBlockStores.CleanBlockstore(proposalCid.String()); err != nil {
+		log.Warnf("failed to clean read write blockstore, proposalCid=%s, carV2FilePath=%s, err=%s", proposalCid, carV2FilePath, err)
 	}
 
-	// clean up the backing CAR file.
+	// clean up the backing CARv2 file.
 	return p.p.fs.Delete(filestore.Path(carV2FilePath))
 }
 
-func (p *providerDealEnvironment) GeneratePieceCommitment(carV2FilePath string) (cid.Cid, filestore.Path, error) {
-	rd, err := carv2.NewReaderFromCARv2File(carV2FilePath)
+// GeneratePieceCommitment generates the pieceCid for the CARv1 deal payload in the CARv2 file that already exists at the given path.
+func (p *providerDealEnvironment) GeneratePieceCommitment(proposalCid cid.Cid, carV2FilePath string) (cid.Cid, filestore.Path, error) {
+	rd, err := carv2.NewReaderMmap(carV2FilePath)
 	if err != nil {
-		return cid.Undef, "", xerrors.Errorf("failed to get CARv2 reader, err=%s", err)
+		return cid.Undef, "", xerrors.Errorf("failed to get CARv2 reader, proposalCid=%s, carV2FilePath=%s, err=%w", carV2FilePath, err)
 	}
+
 	defer func() {
 		if err := rd.Close(); err != nil {
-			log.Errorf("failed to close CARv2 reader, err=%s", err)
+			log.Errorf("failed to close CARv2 reader, proposalCid%s, carV2FilePath=%s, err=%s", proposalCid, carV2FilePath, err)
 		}
 	}()
 
@@ -95,7 +99,7 @@ func (p *providerDealEnvironment) GeneratePieceCommitment(carV2FilePath string) 
 		return cid.Undef, "", xerrors.Errorf("failed to write to CommP writer, err=%w", err)
 	}
 	if written != int64(rd.Header.CarV1Size) {
-		return cid.Undef, "", xerrors.Errorf("number of bytes written not equal to CARv1 payload size")
+		return cid.Undef, "", xerrors.Errorf("number of bytes written to CommP writer not equal to the CARv1 payload size")
 	}
 
 	cidAndSize, err := w.Sum()

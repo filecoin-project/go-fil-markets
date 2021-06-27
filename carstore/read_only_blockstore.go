@@ -7,7 +7,7 @@ import (
 	"golang.org/x/xerrors"
 )
 
-// CarReadOnlyStoreTracker tracks the lifecycle of a ReadOnly CAR Blockstore to make it easy to create/get/cleanup the blockstores.
+// CarReadOnlyStoreTracker tracks the lifecycle of a ReadOnly CAR Blockstore and makes it easy to create/get/cleanup the blockstores.
 // It's important to close a CAR Blockstore when done using it so that the backing CAR file can be closed.
 type CarReadOnlyStoreTracker struct {
 	mu     sync.Mutex
@@ -20,7 +20,7 @@ func NewReadOnlyStoreTracker() (*CarReadOnlyStoreTracker, error) {
 	}, nil
 }
 
-func (r *CarReadOnlyStoreTracker) AddBlockStore(key string, bs *blockstore.ReadOnly) (bool, error) {
+func (r *CarReadOnlyStoreTracker) Add(key string, bs *blockstore.ReadOnly) (bool, error) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
@@ -42,14 +42,14 @@ func (r *CarReadOnlyStoreTracker) GetOrCreate(key string, carFilePath string) (*
 
 	rdOnly, err := blockstore.OpenReadOnly(carFilePath, true)
 	if err != nil {
-		return nil, err
+		return nil, xerrors.Errorf("failed to open read-only blockstore, err=%w", err)
 	}
 	r.stores[key] = rdOnly
 
 	return rdOnly, nil
 }
 
-func (r *CarReadOnlyStoreTracker) GetBlockStore(key string) (*blockstore.ReadOnly, error) {
+func (r *CarReadOnlyStoreTracker) Get(key string) (*blockstore.ReadOnly, error) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
@@ -66,7 +66,9 @@ func (r *CarReadOnlyStoreTracker) CleanBlockStore(key string) error {
 
 	if bs, ok := r.stores[key]; ok {
 		delete(r.stores, key)
-		return bs.Close()
+		if err := bs.Close(); err != nil {
+			return xerrors.Errorf("failed to close read-only blockstore, err=%w", err)
+		}
 	}
 
 	return nil

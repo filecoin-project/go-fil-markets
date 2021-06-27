@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/filecoin-project/go-fil-markets/carstore"
 	"github.com/hannahhoward/go-pubsub"
 	"github.com/ipfs/go-cid"
 	"github.com/ipfs/go-datastore"
@@ -24,6 +23,7 @@ import (
 	"github.com/filecoin-project/go-statemachine/fsm"
 	"github.com/filecoin-project/specs-actors/actors/builtin/market"
 
+	"github.com/filecoin-project/go-fil-markets/carstore"
 	discoveryimpl "github.com/filecoin-project/go-fil-markets/discovery/impl"
 	"github.com/filecoin-project/go-fil-markets/retrievalmarket"
 	"github.com/filecoin-project/go-fil-markets/shared"

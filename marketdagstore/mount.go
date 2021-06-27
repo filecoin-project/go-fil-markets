@@ -5,7 +5,6 @@ package marketdagstore
 	"fmt"
 	"io"
 	"net/url"
-
 	"github.com/ipfs/go-cid"
 	"golang.org/x/xerrors"
 )

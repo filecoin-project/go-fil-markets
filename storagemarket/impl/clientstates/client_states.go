@@ -30,6 +30,8 @@ const MaxGraceEpochsForDealAcceptance = 10
 // ClientDealEnvironment is an abstraction for interacting with
 // dependencies from the storage client environment
 type ClientDealEnvironment interface {
+	// CleanBlockStore cleans up the read-only CARv2 blockstore that provides random access on top of client deal data.
+	// It's important to do this when the client deal finishes successfully or errors out.
 	CleanBlockStore(proposalCid cid.Cid) error
 	Node() storagemarket.StorageClientNode
 	NewDealStream(ctx context.Context, p peer.ID) (network.StorageDealStream, error)
@@ -286,7 +288,7 @@ func WaitForDealCompletion(ctx fsm.Context, environment ClientDealEnvironment, d
 
 	// deal is now active, clean up the blockstore.
 	if err := environment.CleanBlockStore(deal.ProposalCid); err != nil {
-		log.Errorf("storage deal active but failed to cleanup readOnly blockstore, proposalCid=%s, err=%s", deal.ProposalCid, err)
+		log.Errorf("storage deal active but failed to cleanup rea-only blockstore, proposalCid=%s, err=%s", deal.ProposalCid, err)
 	}
 
 	// Called when the deal expires
@@ -324,7 +326,7 @@ func FailDeal(ctx fsm.Context, environment ClientDealEnvironment, deal storagema
 	environment.UntagPeer(deal.Miner, deal.ProposalCid.String())
 
 	if err := environment.CleanBlockStore(deal.ProposalCid); err != nil {
-		log.Errorf("failed to clean readOnly blockstore, proposalCid=%s, err=%s", deal.ProposalCid, err)
+		log.Errorf("failed to cleanup read-only blockstore, proposalCid=%s, err=%s", deal.ProposalCid, err)
 	}
 
 	return ctx.Trigger(storagemarket.ClientEventFailed)

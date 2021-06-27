@@ -4,7 +4,6 @@ package marketdagstore
 	"context"
 	"io"
 	"net/url"
-
 	"github.com/filecoin-project/dagstore/mount"
 	"github.com/ipfs/go-cid"
 	"golang.org/x/xerrors"

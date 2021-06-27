@@ -39,9 +39,9 @@ type ProviderDealEnvironment interface {
 
 	ReadWriteBlockstoreFor(proposalCid cid.Cid) (*blockstore.ReadWrite, error)
 
-	CleanupBlockstore(proposalCid cid.Cid, carFilePath string) error
+	CleanReadWriteBlockstore(proposalCid cid.Cid, carFilePath string) error
 
-	GeneratePieceCommitment(carV2FilePath string) (cid.Cid, filestore.Path, error)
+	GeneratePieceCommitment(proposalCid cid.Cid, carV2FilePath string) (cid.Cid, filestore.Path, error)
 
 	Address() address.Address
 	Node() storagemarket.StorageProviderNode
@@ -204,16 +204,14 @@ func VerifyData(ctx fsm.Context, environment ProviderDealEnvironment, deal stora
 	// finalize the blockstore as we're done writing deal data to it.
 	rwbs, err := environment.ReadWriteBlockstoreFor(deal.ProposalCid)
 	if err != nil {
-		return xerrors.Errorf("failed to get readWriteBlockstore, proposalCid=%s, err=%w", deal.ProposalCid, err)
+		return xerrors.Errorf("failed to get read-write Blockstore, err=%w", err)
 	}
 
 	if err := rwbs.Finalize(); err != nil {
-		return xerrors.Errorf("failed to finalize readWriteBlockstore, proposalCid=%s, err=%w", deal.ProposalCid, err)
+		return xerrors.Errorf("failed to finalize read-write blockstore, proposalCid=%s, err=%w", deal.ProposalCid, err)
 	}
 
-	// TODO Is there a need to call Close on the blockstore after calling Finalize.
-
-	pieceCid, metadataPath, err := environment.GeneratePieceCommitment(deal.CARv2FilePath)
+	pieceCid, metadataPath, err := environment.GeneratePieceCommitment(deal.ProposalCid, deal.CARv2FilePath)
 	if err != nil {
 		return ctx.Trigger(storagemarket.ProviderEventDataVerificationFailed, xerrors.Errorf("error generating CommP: %w", err), filestore.Path(""), filestore.Path(""))
 	}
@@ -322,7 +320,7 @@ func HandoffDeal(ctx fsm.Context, environment ProviderDealEnvironment, deal stor
 			return ctx.Trigger(storagemarket.ProviderEventDealHandoffFailed, err)
 		}
 	} else {
-		v2r, err := carv2.NewReaderFromCARv2File(deal.CARv2FilePath)
+		v2r, err := carv2.NewReaderMmap(deal.CARv2FilePath)
 		if err != nil {
 			return ctx.Trigger(storagemarket.ProviderEventDealHandoffFailed, xerrors.Errorf("failed to open CARv2 file, proposalCid=%s, err=%w",
 				deal.ProposalCid, err))
@@ -330,13 +328,11 @@ func HandoffDeal(ctx fsm.Context, environment ProviderDealEnvironment, deal stor
 
 		// Hand the deal off to the process that adds it to a sector
 		var packingErr error
-		packingInfo, packingErr = handoffDeal(ctx.Context(), environment, deal, v2r.CarV1Reader(), v2r.CARv1Size())
-
+		packingInfo, packingErr = handoffDeal(ctx.Context(), environment, deal, v2r.CarV1Reader(), v2r.Header.CarV1Size)
 		// Close the reader as we're done reading from it.
 		if err := v2r.Close(); err != nil {
-			log.Errorf("failed to close CARv2 reader, proposalCid=%s, err=%s", deal.ProposalCid, err)
+			return ctx.Trigger(storagemarket.ProviderEventDealHandoffFailed, xerrors.Errorf("failed to close CARv2 reader, err=%w", err))
 		}
-
 		if packingErr != nil {
 			err = xerrors.Errorf("packing piece %s: %w", deal.Ref.PieceCid, packingErr)
 			return ctx.Trigger(storagemarket.ProviderEventDealHandoffFailed, err)
@@ -349,17 +345,13 @@ func HandoffDeal(ctx fsm.Context, environment ProviderDealEnvironment, deal stor
 		_ = ctx.Trigger(storagemarket.ProviderEventPieceStoreErrored, err)
 	}
 
-	// activate shard and Index it.
 	// TODO How do I give this the Index I already have ?
-	// Should we be able to call the lower level Index repo here ?
 	if err := environment.ActivateShard(deal.Proposal.PieceCID); err != nil {
 		// TODO What's the right thing to do here ? I think the retrieval market
 		// should have a recovery mechanism in terms of, let "activate the shard if you don't have it".
-		//
 	}
 
 	// TODO Put code in Lotus to expire/destory these shards when deals expire.
-
 	return ctx.Trigger(storagemarket.ProviderEventDealHandedOff)
 }
 
@@ -430,8 +422,8 @@ func CleanupDeal(ctx fsm.Context, environment ProviderDealEnvironment, deal stor
 	}
 
 	if deal.CARv2FilePath != "" {
-		if err := environment.CleanupBlockstore(deal.ProposalCid, deal.CARv2FilePath); err != nil {
-			log.Warnf("failed to cleanup blockstore, err=%s", err)
+		if err := environment.CleanReadWriteBlockstore(deal.ProposalCid, deal.CARv2FilePath); err != nil {
+			log.Warnf("failed to cleanup blockstore, CARv2FilePath=%s, err=%s", deal.CARv2FilePath, err)
 		}
 	}
 
@@ -554,8 +546,8 @@ func FailDeal(ctx fsm.Context, environment ProviderDealEnvironment, deal storage
 	}
 
 	if deal.CARv2FilePath != "" {
-		if err := environment.CleanupBlockstore(deal.ProposalCid, deal.CARv2FilePath); err != nil {
-			log.Warnf("deleting store %s: %w", deal.CARv2FilePath, err)
+		if err := environment.CleanReadWriteBlockstore(deal.ProposalCid, deal.CARv2FilePath); err != nil {
+			log.Warnf("error deleting store, CARv2FilePath=%s: err=%s", deal.CARv2FilePath, err)
 		}
 	}
 

@@ -8,7 +8,7 @@ import (
 	"golang.org/x/xerrors"
 )
 
-// CarReadWriteStoreTracker tracks the lifecycle of a ReadWrite CAR Blockstore to make it easy to create/get/cleanup the blockstores.
+// CarReadWriteStoreTracker tracks the lifecycle of a ReadWrite CAR Blockstore and makes it easy to create/get/cleanup the blockstores.
 // It's important to close a CAR Blockstore when done using it so that the backing CAR file can be closed.
 type CarReadWriteStoreTracker struct {
 	mu     sync.Mutex
@@ -21,7 +21,7 @@ func NewCarReadWriteStoreTracker() (*CarReadWriteStoreTracker, error) {
 	}, nil
 }
 
-func (r *CarReadWriteStoreTracker) GetOrCreate(key string, carFilePath string, rootCid cid.Cid) (*blockstore.ReadWrite, error) {
+func (r *CarReadWriteStoreTracker) GetOrCreate(key string, carV2FilePath string, rootCid cid.Cid) (*blockstore.ReadWrite, error) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
@@ -29,9 +29,9 @@ func (r *CarReadWriteStoreTracker) GetOrCreate(key string, carFilePath string, r
 		return bs, nil
 	}
 
-	rwBs, err := blockstore.NewReadWrite(carFilePath, []cid.Cid{rootCid})
+	rwBs, err := blockstore.NewReadWrite(carV2FilePath, []cid.Cid{rootCid})
 	if err != nil {
-		return nil, err
+		return nil, xerrors.Errorf("failed to create read-write blockstore, err=%w", err)
 	}
 	r.stores[key] = rwBs
 
@@ -49,22 +49,17 @@ func (r *CarReadWriteStoreTracker) Get(key string) (*blockstore.ReadWrite, error
 	return nil, xerrors.New("not found")
 }
 
-func (r *CarReadWriteStoreTracker) Clean(key string) error {
+func (r *CarReadWriteStoreTracker) CleanBlockstore(key string) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
 	if bs, ok := r.stores[key]; ok {
 		delete(r.stores, key)
 
-		// CAR team TODO
-		// Should be able to close a ReadOnlyStore.
-		// Should be able to close a ReadWriteBlockstore.
-		// Finalise/Close should be idempotent.
-		// Calling close after finalise shoudln’t return an error.
-
-		// we're cleaning up the blockstore here, so it's okay if finalize fails.
-		_ = bs.Finalize()
-		return bs.Close()
+		// calling a Finalize on a read-write blockstore is equivalent to closing it.
+		if err := bs.Finalize(); err != nil {
+			return xerrors.Errorf("finalize call failed, err=%w", err)
+		}
 	}
 
 	return nil
