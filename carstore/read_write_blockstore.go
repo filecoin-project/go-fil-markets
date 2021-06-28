@@ -46,7 +46,7 @@ func (r *CarReadWriteStoreTracker) Get(key string) (*blockstore.ReadWrite, error
 		return bs, nil
 	}
 
-	return nil, xerrors.Errorf("could not get blockstore for key %s: %w", ErrNotFound)
+	return nil, xerrors.Errorf("could not get blockstore for key %s: %w", key, ErrNotFound)
 }
 
 func (r *CarReadWriteStoreTracker) CleanBlockstore(key string) error {

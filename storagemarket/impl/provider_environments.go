@@ -87,7 +87,7 @@ func (p *providerDealEnvironment) CleanReadWriteBlockstore(proposalCid cid.Cid, 
 }
 
 // GeneratePieceCommitment generates the pieceCid for the CARv1 deal payload in the CARv2 file that already exists at the given path.
-func (p *providerDealEnvironment) GeneratePieceCommitment(proposalCid cid.Cid, carV2FilePath string) (cid.Cid, filestore.Path, error) {
+func (p *providerDealEnvironment) GeneratePieceCommitment(proposalCid cid.Cid, carV2FilePath string) (c cid.Cid, path filestore.Path, finalErr error) {
 	rd, err := carv2.NewReaderMmap(carV2FilePath)
 	if err != nil {
 		return cid.Undef, "", xerrors.Errorf("failed to get CARv2 reader, proposalCid=%s, carV2FilePath=%s: %w", proposalCid, carV2FilePath, err)
@@ -95,7 +95,15 @@ func (p *providerDealEnvironment) GeneratePieceCommitment(proposalCid cid.Cid, c
 
 	defer func() {
 		if err := rd.Close(); err != nil {
-			log.Errorf("failed to close CARv2 reader, proposalCid%s, carV2FilePath=%s, err=%s", proposalCid, carV2FilePath, err)
+			log.Errorf("failed to close CARv2 reader, carV2FilePath=%s, err=%s", carV2FilePath, err)
+
+			if finalErr == nil {
+				c = cid.Undef
+				path = ""
+				finalErr = xerrors.Errorf("failed to close CARv2 reader, proposalCid=%s, carV2FilePath=%s, err=%s",
+					proposalCid, carV2FilePath, err)
+				return
+			}
 		}
 	}()
 
