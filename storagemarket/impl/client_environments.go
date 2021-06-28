@@ -32,8 +32,8 @@ func (c *clientDealEnvironment) Node() storagemarket.StorageClientNode {
 	return c.c.node
 }
 
-func (c *clientDealEnvironment) CleanBlockStore(proposalCid cid.Cid) error {
-	return c.c.readOnlyCARStoreTracker.CleanBlockStore(proposalCid.String())
+func (c *clientDealEnvironment) CleanBlockstore(proposalCid cid.Cid) error {
+	return c.c.readOnlyCARStoreTracker.CleanBlockstore(proposalCid.String())
 }
 
 func (c *clientDealEnvironment) StartDataTransfer(ctx context.Context, to peer.ID, voucher datatransfer.Voucher, baseCid cid.Cid, selector ipld.Node) (datatransfer.ChannelID,

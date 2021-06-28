@@ -111,11 +111,6 @@ func NewProvider(net network.StorageMarketNetwork,
 	storedAsk StoredAsk,
 	options ...StorageProviderOption,
 ) (storagemarket.StorageProvider, error) {
-	st, err := carstore.NewCarReadWriteStoreTracker()
-	if err != nil {
-		return nil, xerrors.Errorf("failed to create read write store tracker, err=%w", err)
-	}
-
 	h := &Provider{
 		net:                  net,
 		spn:                  spn,
@@ -127,7 +122,7 @@ func NewProvider(net network.StorageMarketNetwork,
 		dataTransfer:         dataTransfer,
 		pubSub:               pubsub.New(providerDispatcher),
 		readyMgr:             shared.NewReadyManager(),
-		readWriteBlockStores: st,
+		readWriteBlockStores: carstore.NewCarReadWriteStoreTracker(),
 	}
 	storageMigrations, err := migrations.ProviderMigrations.Build()
 	if err != nil {
