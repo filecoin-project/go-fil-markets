@@ -785,7 +785,7 @@ func (fe *fakeEnvironment) UntagPeer(id peer.ID, ident string) {
 	fe.peerTagger.UntagPeer(id, ident)
 }
 
-func (fe *fakeEnvironment) CleanBlockStore(proposalCid cid.Cid) error {
+func (fe *fakeEnvironment) CleanBlockstore(proposalCid cid.Cid) error {
 	return nil
 }
 

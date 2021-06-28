@@ -11,14 +11,14 @@ import (
 // CarReadWriteStoreTracker tracks the lifecycle of a ReadWrite CAR Blockstore and makes it easy to create/get/cleanup the blockstores.
 // It's important to close a CAR Blockstore when done using it so that the backing CAR file can be closed.
 type CarReadWriteStoreTracker struct {
-	mu     sync.Mutex
+	mu     sync.RWMutex
 	stores map[string]*blockstore.ReadWrite
 }
 
-func NewCarReadWriteStoreTracker() (*CarReadWriteStoreTracker, error) {
+func NewCarReadWriteStoreTracker() *CarReadWriteStoreTracker {
 	return &CarReadWriteStoreTracker{
 		stores: make(map[string]*blockstore.ReadWrite),
-	}, nil
+	}
 }
 
 func (r *CarReadWriteStoreTracker) GetOrCreate(key string, carV2FilePath string, rootCid cid.Cid) (*blockstore.ReadWrite, error) {
@@ -31,7 +31,7 @@ func (r *CarReadWriteStoreTracker) GetOrCreate(key string, carV2FilePath string,
 
 	rwBs, err := blockstore.NewReadWrite(carV2FilePath, []cid.Cid{rootCid})
 	if err != nil {
-		return nil, xerrors.Errorf("failed to create read-write blockstore, err=%w", err)
+		return nil, xerrors.Errorf("failed to create read-write blockstore: %w", err)
 	}
 	r.stores[key] = rwBs
 
@@ -39,14 +39,14 @@ func (r *CarReadWriteStoreTracker) GetOrCreate(key string, carV2FilePath string,
 }
 
 func (r *CarReadWriteStoreTracker) Get(key string) (*blockstore.ReadWrite, error) {
-	r.mu.Lock()
-	defer r.mu.Unlock()
+	r.mu.RLock()
+	defer r.mu.RUnlock()
 
 	if bs, ok := r.stores[key]; ok {
 		return bs, nil
 	}
 
-	return nil, xerrors.New("not found")
+	return nil, xerrors.Errorf("could not get blockstore for key %s: %w", ErrNotFound)
 }
 
 func (r *CarReadWriteStoreTracker) CleanBlockstore(key string) error {
@@ -58,7 +58,7 @@ func (r *CarReadWriteStoreTracker) CleanBlockstore(key string) error {
 
 		// calling a Finalize on a read-write blockstore is equivalent to closing it.
 		if err := bs.Finalize(); err != nil {
-			return xerrors.Errorf("finalize call failed, err=%w", err)
+			return xerrors.Errorf("finalize call failed: %w", err)
 		}
 	}
 

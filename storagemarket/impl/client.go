@@ -81,11 +81,6 @@ func NewClient(
 	scn storagemarket.StorageClientNode,
 	options ...StorageClientOption,
 ) (*Client, error) {
-	st, err := carstore.NewReadOnlyStoreTracker()
-	if err != nil {
-		return nil, xerrors.Errorf("failed to create Read Only CAR Store tracker, err=%w", err)
-	}
-
 	c := &Client{
 		net:                     net,
 		dataTransfer:            dataTransfer,
@@ -94,7 +89,7 @@ func NewClient(
 		pubSub:                  pubsub.New(clientDispatcher),
 		readySub:                pubsub.New(shared.ReadyDispatcher),
 		pollingInterval:         DefaultPollingInterval,
-		readOnlyCARStoreTracker: st,
+		readOnlyCARStoreTracker: carstore.NewReadOnlyStoreTracker(),
 	}
 	storageMigrations, err := migrations.ClientMigrations.Build()
 	if err != nil {

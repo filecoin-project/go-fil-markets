@@ -10,14 +10,14 @@ import (
 // CarReadOnlyStoreTracker tracks the lifecycle of a ReadOnly CAR Blockstore and makes it easy to create/get/cleanup the blockstores.
 // It's important to close a CAR Blockstore when done using it so that the backing CAR file can be closed.
 type CarReadOnlyStoreTracker struct {
-	mu     sync.Mutex
+	mu     sync.RWMutex
 	stores map[string]*blockstore.ReadOnly
 }
 
-func NewReadOnlyStoreTracker() (*CarReadOnlyStoreTracker, error) {
+func NewReadOnlyStoreTracker() *CarReadOnlyStoreTracker {
 	return &CarReadOnlyStoreTracker{
 		stores: make(map[string]*blockstore.ReadOnly),
-	}, nil
+	}
 }
 
 func (r *CarReadOnlyStoreTracker) Add(key string, bs *blockstore.ReadOnly) (bool, error) {
@@ -42,7 +42,7 @@ func (r *CarReadOnlyStoreTracker) GetOrCreate(key string, carFilePath string) (*
 
 	rdOnly, err := blockstore.OpenReadOnly(carFilePath, true)
 	if err != nil {
-		return nil, xerrors.Errorf("failed to open read-only blockstore, err=%w", err)
+		return nil, xerrors.Errorf("failed to open read-only blockstore: %w", err)
 	}
 	r.stores[key] = rdOnly
 
@@ -50,24 +50,24 @@ func (r *CarReadOnlyStoreTracker) GetOrCreate(key string, carFilePath string) (*
 }
 
 func (r *CarReadOnlyStoreTracker) Get(key string) (*blockstore.ReadOnly, error) {
-	r.mu.Lock()
-	defer r.mu.Unlock()
+	r.mu.RLock()
+	defer r.mu.RUnlock()
 
 	if bs, ok := r.stores[key]; ok {
 		return bs, nil
 	}
 
-	return nil, xerrors.New("not found")
+	return nil, xerrors.Errorf("could not get blockstore for key %s: %w", ErrNotFound)
 }
 
-func (r *CarReadOnlyStoreTracker) CleanBlockStore(key string) error {
+func (r *CarReadOnlyStoreTracker) CleanBlockstore(key string) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
 	if bs, ok := r.stores[key]; ok {
 		delete(r.stores, key)
 		if err := bs.Close(); err != nil {
-			return xerrors.Errorf("failed to close read-only blockstore, err=%w", err)
+			return xerrors.Errorf("failed to close read-only blockstore: %w", err)
 		}
 	}
 
