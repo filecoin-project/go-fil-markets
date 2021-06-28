@@ -2,6 +2,7 @@ package retrievalmarket_test
 
 import (
 	"context"
+	"os"
 	"testing"
 	"time"
 
@@ -101,6 +102,7 @@ func TestBounceConnectionDealTransferOngoing(t *testing.T) {
 			deps := depGen.New(t, bgCtx, td, testnodes.NewStorageMarketState(), "", noOpDelay, noOpDelay)
 
 			sh := testharness.NewHarnessWithTestData(t, td, deps, true, false)
+			defer os.Remove(sh.CARv2FilePath)
 
 			// do a storage deal
 			storageClientSeenDeal := doStorage(t, bgCtx, sh)
@@ -225,6 +227,7 @@ func TestBounceConnectionDealTransferUnsealing(t *testing.T) {
 			deps := depGen.New(t, bgCtx, td, testnodes.NewStorageMarketState(), "", noOpDelay, noOpDelay)
 
 			sh := testharness.NewHarnessWithTestData(t, td, deps, true, false)
+			defer os.Remove(sh.CARv2FilePath)
 
 			// do a storage deal
 			storageClientSeenDeal := doStorage(t, bgCtx, sh)

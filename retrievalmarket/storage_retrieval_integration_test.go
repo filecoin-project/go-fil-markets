@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"os"
 	"sync"
 	"testing"
 	"time"
@@ -86,6 +87,8 @@ func TestStorageRetrieval(t *testing.T) {
 			sh := testharness.NewHarness(t, bgCtx, true, testnodes.DelayFakeCommonNode{},
 				testnodes.DelayFakeCommonNode{}, false)
 
+			defer os.Remove(sh.CARv2FilePath)
+
 			storageProviderSeenDeal := doStorage(t, bgCtx, sh)
 			ctxTimeout, canc := context.WithTimeout(bgCtx, 25*time.Second)
 			defer canc()
@@ -150,6 +153,7 @@ func TestOfflineStorageRetrieval(t *testing.T) {
 			sh := testharness.NewHarness(t, bgCtx, true, testnodes.DelayFakeCommonNode{},
 				testnodes.DelayFakeCommonNode{}, false)
 
+			defer os.Remove(sh.CARv2FilePath)
 			// start and wait for client/provider
 			ctx, cancel := context.WithTimeout(bgCtx, 5*time.Second)
 			defer cancel()
