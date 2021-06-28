@@ -326,7 +326,7 @@ func FailDeal(ctx fsm.Context, environment ClientDealEnvironment, deal storagema
 	environment.UntagPeer(deal.Miner, deal.ProposalCid.String())
 
 	if err := environment.CleanBlockstore(deal.ProposalCid); err != nil {
-		log.Errorf("failed to cleanup read-only blockstore, proposalCid=%s, err=%s", deal.ProposalCid, err)
+		log.Errorf("failed to cleanup read-only blockstore, proposalCid=%s: %s", deal.ProposalCid, err)
 	}
 
 	return ctx.Trigger(storagemarket.ClientEventFailed)

@@ -204,7 +204,7 @@ func DecideOnProposal(ctx fsm.Context, environment ProviderDealEnvironment, deal
 func VerifyData(ctx fsm.Context, environment ProviderDealEnvironment, deal storagemarket.MinerDeal) error {
 	// finalize the blockstore as we're done writing deal data to it.
 	if err := environment.FinalizeReadWriteBlockstore(deal.ProposalCid); err != nil {
-		return ctx.Trigger(storagemarket.ProviderEventDataVerificationFailed, xerrors.Errorf("faild to finalize read-write blockstore: %w", err), filestore.Path(""), filestore.Path(""))
+		return ctx.Trigger(storagemarket.ProviderEventDataVerificationFailed, xerrors.Errorf("failed to finalize read-write blockstore: %w", err), filestore.Path(""), filestore.Path(""))
 	}
 
 	pieceCid, metadataPath, err := environment.GeneratePieceCommitment(deal.ProposalCid, deal.CARv2FilePath)
@@ -318,7 +318,7 @@ func HandoffDeal(ctx fsm.Context, environment ProviderDealEnvironment, deal stor
 	} else {
 		v2r, err := environment.CARv2Reader(deal.CARv2FilePath)
 		if err != nil {
-			return ctx.Trigger(storagemarket.ProviderEventDealHandoffFailed, xerrors.Errorf("failed to open CARv2 file, proposalCid=%s, err=%w",
+			return ctx.Trigger(storagemarket.ProviderEventDealHandoffFailed, xerrors.Errorf("failed to open CARv2 file, proposalCid=%s: %w",
 				deal.ProposalCid, err))
 		}
 
@@ -327,7 +327,7 @@ func HandoffDeal(ctx fsm.Context, environment ProviderDealEnvironment, deal stor
 		packingInfo, packingErr = handoffDeal(ctx.Context(), environment, deal, v2r.CarV1Reader(), v2r.Header.CarV1Size)
 		// Close the reader as we're done reading from it.
 		if err := v2r.Close(); err != nil {
-			return ctx.Trigger(storagemarket.ProviderEventDealHandoffFailed, xerrors.Errorf("failed to close CARv2 reader, err=%w", err))
+			return ctx.Trigger(storagemarket.ProviderEventDealHandoffFailed, xerrors.Errorf("failed to close CARv2 reader: %w", err))
 		}
 		if packingErr != nil {
 			err = xerrors.Errorf("packing piece %s: %w", deal.Ref.PieceCid, packingErr)
@@ -418,7 +418,7 @@ func CleanupDeal(ctx fsm.Context, environment ProviderDealEnvironment, deal stor
 
 	if deal.CARv2FilePath != "" {
 		if err := environment.CleanReadWriteBlockstore(deal.ProposalCid, deal.CARv2FilePath); err != nil {
-			log.Warnf("failed to cleanup blockstore, CARv2FilePath=%s, err=%s", deal.CARv2FilePath, err)
+			log.Warnf("failed to cleanup blockstore, CARv2FilePath=%s: %s", deal.CARv2FilePath, err)
 		}
 	}
 
@@ -542,7 +542,7 @@ func FailDeal(ctx fsm.Context, environment ProviderDealEnvironment, deal storage
 
 	if deal.CARv2FilePath != "" {
 		if err := environment.CleanReadWriteBlockstore(deal.ProposalCid, deal.CARv2FilePath); err != nil {
-			log.Warnf("error deleting store, CARv2FilePath=%s: err=%s", deal.CARv2FilePath, err)
+			log.Warnf("error deleting store, CARv2FilePath=%s: %s", deal.CARv2FilePath, err)
 		}
 	}
 

@@ -239,7 +239,7 @@ func (p *Provider) receiveDeal(s network.StorageDealStream) error {
 	if proposal.Piece.TransferType != storagemarket.TTManual {
 		tmp, err := p.fs.CreateTemp()
 		if err != nil {
-			return xerrors.Errorf("failed to create an empty temp CARv2 file, err=%w", err)
+			return xerrors.Errorf("failed to create an empty temp CARv2 file: %w", err)
 		}
 		carV2FilePath = string(tmp.Path())
 	}

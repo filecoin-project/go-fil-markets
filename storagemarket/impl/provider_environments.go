@@ -50,11 +50,11 @@ func (p *providerDealEnvironment) CARv2Reader(carV2FilePath string) (*carv2.Read
 func (p *providerDealEnvironment) FinalizeReadWriteBlockstore(proposalCid cid.Cid) error {
 	bs, err := p.p.readWriteBlockStores.Get(proposalCid.String())
 	if err != nil {
-		return xerrors.Errorf("failed to get read-write blockstore, err=%w", err)
+		return xerrors.Errorf("failed to get read-write blockstore: %w", err)
 	}
 
 	if err := bs.Finalize(); err != nil {
-		return xerrors.Errorf("failed to finalize read-write blockstore, err=%w", err)
+		return xerrors.Errorf("failed to finalize read-write blockstore: %w", err)
 	}
 
 	return nil
@@ -79,7 +79,7 @@ func (p *providerDealEnvironment) Ask() storagemarket.StorageAsk {
 func (p *providerDealEnvironment) CleanReadWriteBlockstore(proposalCid cid.Cid, carV2FilePath string) error {
 	// close the backing CARv2 file and stop tracking the read-write blockstore for the deal with the given proposalCid.
 	if err := p.p.readWriteBlockStores.CleanBlockstore(proposalCid.String()); err != nil {
-		log.Warnf("failed to clean read write blockstore, proposalCid=%s, carV2FilePath=%s, err=%s", proposalCid, carV2FilePath, err)
+		log.Warnf("failed to clean read write blockstore, proposalCid=%s, carV2FilePath=%s: %s", proposalCid, carV2FilePath, err)
 	}
 
 	// clean up the backing CARv2 file.
@@ -90,7 +90,7 @@ func (p *providerDealEnvironment) CleanReadWriteBlockstore(proposalCid cid.Cid, 
 func (p *providerDealEnvironment) GeneratePieceCommitment(proposalCid cid.Cid, carV2FilePath string) (cid.Cid, filestore.Path, error) {
 	rd, err := carv2.NewReaderMmap(carV2FilePath)
 	if err != nil {
-		return cid.Undef, "", xerrors.Errorf("failed to get CARv2 reader, proposalCid=%s, carV2FilePath=%s, err=%w", proposalCid, carV2FilePath, err)
+		return cid.Undef, "", xerrors.Errorf("failed to get CARv2 reader, proposalCid=%s, carV2FilePath=%s: %w", proposalCid, carV2FilePath, err)
 	}
 
 	defer func() {
@@ -108,15 +108,15 @@ func (p *providerDealEnvironment) GeneratePieceCommitment(proposalCid cid.Cid, c
 	w := &writer.Writer{}
 	written, err := io.Copy(w, rd.CarV1Reader())
 	if err != nil {
-		return cid.Undef, "", xerrors.Errorf("failed to write to CommP writer, err=%w", err)
+		return cid.Undef, "", xerrors.Errorf("failed to write to CommP writer: %w", err)
 	}
 	if written != int64(rd.Header.CarV1Size) {
-		return cid.Undef, "", xerrors.Errorf("number of bytes written to CommP writer not equal to the CARv1 payload size")
+		return cid.Undef, "", xerrors.Errorf("number of bytes written to CommP writer %d not equal to the CARv1 payload size %d", written, rd.Header.CarV1Size)
 	}
 
 	cidAndSize, err := w.Sum()
 	if err != nil {
-		return cid.Undef, "", xerrors.Errorf("failed to get CommP, err=%w", err)
+		return cid.Undef, "", xerrors.Errorf("failed to get CommP: %w", err)
 	}
 
 	return cidAndSize.PieceCID, filestore.Path(""), err
@@ -189,7 +189,7 @@ func (psg *providerStoreGetter) Get(proposalCid cid.Cid) (bstore.Blockstore, err
 	var deal storagemarket.MinerDeal
 	err = psg.p.deals.Get(proposalCid).Get(&deal)
 	if err != nil {
-		return nil, xerrors.Errorf("failed to get deal state, err=%w", err)
+		return nil, xerrors.Errorf("failed to get deal state: %w", err)
 	}
 
 	return psg.p.readWriteBlockStores.GetOrCreate(proposalCid.String(), deal.CARv2FilePath, deal.Ref.Root)

@@ -43,7 +43,7 @@ func CommP(ctx context.Context, CARv2FilePath string, data *storagemarket.DataRe
 
 	rdOnly, err := blockstore.OpenReadOnly(CARv2FilePath, true)
 	if err != nil {
-		return cid.Undef, 0, xerrors.Errorf("failed to open read-only blockstore :%w", err)
+		return cid.Undef, 0, xerrors.Errorf("failed to open read-only blockstore: %w", err)
 	}
 	defer rdOnly.Close()
 
@@ -51,18 +51,18 @@ func CommP(ctx context.Context, CARv2FilePath string, data *storagemarket.DataRe
 	sc := car.NewSelectiveCar(ctx, rdOnly, []car.Dag{{Root: data.Root, Selector: shared.AllSelector()}})
 	prepared, err := sc.Prepare()
 	if err != nil {
-		return cid.Undef, 0, xerrors.Errorf("failed to prepare CAR, err=%w", err)
+		return cid.Undef, 0, xerrors.Errorf("failed to prepare CAR: %w", err)
 	}
 
 	// write out the deterministic CARv1 payload to the CommP writer and calculate the CommP.
 	commpWriter := &writer.Writer{}
 	err = prepared.Dump(commpWriter)
 	if err != nil {
-		return cid.Undef, 0, xerrors.Errorf("failed to write CARv1 to commP writer, err=%w", err)
+		return cid.Undef, 0, xerrors.Errorf("failed to write CARv1 to commP writer: %w", err)
 	}
 	dataCIDSize, err := commpWriter.Sum()
 	if err != nil {
-		return cid.Undef, 0, xerrors.Errorf("commpWriter.Sum failed, err=%w", err)
+		return cid.Undef, 0, xerrors.Errorf("commpWriter.Sum failed: %w", err)
 	}
 
 	return dataCIDSize.PieceCID, dataCIDSize.PieceSize.Unpadded(), nil
