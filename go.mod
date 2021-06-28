@@ -32,8 +32,8 @@ require (
 	github.com/ipfs/go-log/v2 v2.1.3
 	github.com/ipfs/go-merkledag v0.3.2
 	github.com/ipfs/go-unixfs v0.2.6
-	github.com/ipld/go-car v0.3.1
-	github.com/ipld/go-car/v2 v2.0.0-20210624210454-07ee8e612036
+	github.com/ipld/go-car v0.1.1-0.20201119040415-11b6074b6d4d
+	github.com/ipld/go-car/v2 v2.0.0-20210625134845-f95db7bc577c
 	github.com/ipld/go-ipld-prime v0.5.1-0.20201021195245-109253e8a018
 	github.com/jbenet/go-random v0.0.0-20190219211222-123a90aedc0c
 	github.com/jpillora/backoff v1.0.0
@@ -50,7 +50,3 @@ require (
 )
 
 replace github.com/filecoin-project/filecoin-ffi => ./extern/filecoin-ffi
-
-replace github.com/ipld/go-car => github.com/ipld/go-car v0.1.1-0.20201119040415-11b6074b6d4d
-
-replace github.com/ipld/go-car/v2 => /Users/aarshshah/go/src/github.com/ipld/go-car/v2

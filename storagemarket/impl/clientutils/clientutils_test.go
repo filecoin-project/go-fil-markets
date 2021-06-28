@@ -2,21 +2,16 @@ package clientutils_test
 
 import (
 	"context"
-	"errors"
-	"fmt"
-	"io"
 	"math/rand"
+	"os"
+	"path/filepath"
 	"testing"
 
 	"github.com/ipfs/go-cid"
-	"github.com/ipld/go-car"
-	"github.com/ipld/go-ipld-prime"
 	"github.com/stretchr/testify/require"
 
-	"github.com/filecoin-project/go-multistore"
 	"github.com/filecoin-project/go-state-types/abi"
 
-	"github.com/filecoin-project/go-fil-markets/shared"
 	"github.com/filecoin-project/go-fil-markets/shared_testutil"
 	"github.com/filecoin-project/go-fil-markets/storagemarket"
 	"github.com/filecoin-project/go-fil-markets/storagemarket/impl/clientutils"
@@ -24,17 +19,15 @@ import (
 
 func TestCommP(t *testing.T) {
 	ctx := context.Background()
-	proofType := abi.RegisteredSealProof_StackedDrg2KiBV1
 	t.Run("when PieceCID is present on data ref", func(t *testing.T) {
 		pieceCid := &shared_testutil.GenerateCids(1)[0]
 		pieceSize := abi.UnpaddedPieceSize(rand.Uint64())
-		var storeID *multistore.StoreID
 		data := &storagemarket.DataRef{
 			TransferType: storagemarket.TTManual,
 			PieceCid:     pieceCid,
 			PieceSize:    pieceSize,
 		}
-		respcid, ressize, err := clientutils.CommP(ctx, nil, proofType, data, storeID)
+		respcid, ressize, err := clientutils.CommP(ctx, "", data)
 		require.NoError(t, err)
 		require.Equal(t, respcid, *pieceCid)
 		require.Equal(t, ressize, pieceSize)
@@ -46,66 +39,42 @@ func TestCommP(t *testing.T) {
 			TransferType: storagemarket.TTGraphsync,
 			Root:         root,
 		}
-		allSelector := shared.AllSelector()
 
-		t.Run("when pieceIO succeeds", func(t *testing.T) {
-			pieceCid := shared_testutil.GenerateCids(1)[0]
-			pieceSize := abi.UnpaddedPieceSize(rand.Uint64())
-			storeID := multistore.StoreID(4)
-			pieceIO := &testPieceIO{t, proofType, root, allSelector, &storeID, pieceCid, pieceSize, nil}
-			respcid, ressize, err := clientutils.CommP(ctx, pieceIO, proofType, data, &storeID)
-			require.NoError(t, err)
-			require.Equal(t, respcid, pieceCid)
-			require.Equal(t, ressize, pieceSize)
+		t.Run("when CARv2 file path is not present", func(t *testing.T) {
+			respcid, ressize, err := clientutils.CommP(ctx, "", data)
+			require.Error(t, err)
+			require.Contains(t, err.Error(), "need Carv2 file path")
+			require.Equal(t, cid.Undef, respcid)
+			require.EqualValues(t, 0, ressize)
 		})
 
-		t.Run("when storeID is not present", func(t *testing.T) {
-			pieceCid := shared_testutil.GenerateCids(1)[0]
-			pieceSize := abi.UnpaddedPieceSize(rand.Uint64())
-			pieceIO := &testPieceIO{t, proofType, root, allSelector, nil, pieceCid, pieceSize, nil}
-			respcid, ressize, err := clientutils.CommP(ctx, pieceIO, proofType, data, nil)
-			require.NoError(t, err)
-			require.Equal(t, respcid, pieceCid)
-			require.Equal(t, ressize, pieceSize)
-		})
-
-		t.Run("when pieceIO fails", func(t *testing.T) {
-			expectedMsg := "something went wrong"
-			storeID := multistore.StoreID(4)
-			pieceIO := &testPieceIO{t, proofType, root, allSelector, &storeID, cid.Undef, 0, errors.New(expectedMsg)}
-			respcid, ressize, err := clientutils.CommP(ctx, pieceIO, proofType, data, &storeID)
-			require.EqualError(t, err, fmt.Sprintf("generating CommP: %s", expectedMsg))
+		t.Run("when file path is not a valid CARv2", func(t *testing.T) {
+			respcid, ressize, err := clientutils.CommP(ctx, "testdata/test.car", data)
+			require.Error(t, err)
+			require.Contains(t, err.Error(), "invalid car version")
 			require.Equal(t, respcid, cid.Undef)
 			require.Equal(t, ressize, abi.UnpaddedPieceSize(0))
 		})
 	})
 }
 
-type testPieceIO struct {
-	t                  *testing.T
-	expectedRt         abi.RegisteredSealProof
-	expectedPayloadCid cid.Cid
-	expectedSelector   ipld.Node
-	expectedStoreID    *multistore.StoreID
-	pieceCID           cid.Cid
-	pieceSize          abi.UnpaddedPieceSize
-	err                error
-}
+func TestCommPGeneration(t *testing.T) {
+	carV1Path := filepath.Join("storagemarket", "fixtures", "test.car")
+	ctx := context.Background()
+	root, CARv2Path := shared_testutil.GenCARV2(t, carV1Path)
+	require.NotEmpty(t, CARv2Path)
+	defer os.Remove(CARv2Path)
 
-func (t *testPieceIO) GeneratePieceCommitment(rt abi.RegisteredSealProof, payloadCid cid.Cid, selector ipld.Node, storeID *multistore.StoreID, userOnNewCarBlocks ...car.OnNewCarBlockFunc) (cid.Cid, abi.UnpaddedPieceSize, error) {
-	require.Equal(t.t, rt, t.expectedRt)
-	require.Equal(t.t, payloadCid, t.expectedPayloadCid)
-	require.Equal(t.t, selector, t.expectedSelector)
-	require.Equal(t.t, storeID, t.expectedStoreID)
-	return t.pieceCID, t.pieceSize, t.err
-}
+	data := &storagemarket.DataRef{
+		TransferType: storagemarket.TTGraphsync,
+		Root:         root,
+	}
 
-func (t *testPieceIO) GeneratePieceReader(cid.Cid, ipld.Node, *multistore.StoreID, ...car.OnNewCarBlockFunc) (io.ReadCloser, uint64, error, <-chan error) {
-	panic("not implemented")
-}
+	respcid, _, err := clientutils.CommP(ctx, CARv2Path, data)
+	require.NoError(t, err)
+	require.NotEqual(t, respcid, cid.Undef)
 
-func (t *testPieceIO) ReadPiece(storeID *multistore.StoreID, r io.Reader) (cid.Cid, error) {
-	panic("not implemented")
+	// TODO Generate CommP with a different file -> should not match.
 }
 
 func TestLabelField(t *testing.T) {

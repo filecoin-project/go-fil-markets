@@ -90,7 +90,7 @@ func (p *providerDealEnvironment) CleanReadWriteBlockstore(proposalCid cid.Cid, 
 func (p *providerDealEnvironment) GeneratePieceCommitment(proposalCid cid.Cid, carV2FilePath string) (cid.Cid, filestore.Path, error) {
 	rd, err := carv2.NewReaderMmap(carV2FilePath)
 	if err != nil {
-		return cid.Undef, "", xerrors.Errorf("failed to get CARv2 reader, proposalCid=%s, carV2FilePath=%s, err=%w", carV2FilePath, err)
+		return cid.Undef, "", xerrors.Errorf("failed to get CARv2 reader, proposalCid=%s, carV2FilePath=%s, err=%w", proposalCid, carV2FilePath, err)
 	}
 
 	defer func() {
@@ -99,10 +99,10 @@ func (p *providerDealEnvironment) GeneratePieceCommitment(proposalCid cid.Cid, c
 		}
 	}()
 
-	if p.p.universalRetrievalEnabled {
-		// TODO Get this work later = punt on it for now as this is anyways NOT enabled.
+	// TODO Get this work later = punt on it for now as this is anyways NOT enabled.
+	/*if p.p.universalRetrievalEnabled {
 		//return providerutils.GeneratePieceCommitmentWithMetadata(p.p.fs, p.p.pio.GeneratePieceCommitment, proofType, payloadCid, selector, storeID)
-	}
+	}*/
 
 	// dump the CARv1 payload of the CARv2 file to the Commp Writer and get back the CommP.
 	w := &writer.Writer{}
