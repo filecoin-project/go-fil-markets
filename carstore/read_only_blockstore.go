@@ -1,26 +1,33 @@
 package carstore
 
 import (
+	"io"
 	"sync"
 
+	bstore "github.com/ipfs/go-ipfs-blockstore"
 	"github.com/ipld/go-car/v2/blockstore"
 	"golang.org/x/xerrors"
 )
+
+type ClosableBlockstore interface {
+	bstore.Blockstore
+	io.Closer
+}
 
 // CarReadOnlyStoreTracker tracks the lifecycle of a ReadOnly CAR Blockstore and makes it easy to create/get/cleanup the blockstores.
 // It's important to close a CAR Blockstore when done using it so that the backing CAR file can be closed.
 type CarReadOnlyStoreTracker struct {
 	mu     sync.RWMutex
-	stores map[string]*blockstore.ReadOnly
+	stores map[string]ClosableBlockstore
 }
 
 func NewReadOnlyStoreTracker() *CarReadOnlyStoreTracker {
 	return &CarReadOnlyStoreTracker{
-		stores: make(map[string]*blockstore.ReadOnly),
+		stores: make(map[string]ClosableBlockstore),
 	}
 }
 
-func (r *CarReadOnlyStoreTracker) Add(key string, bs *blockstore.ReadOnly) (bool, error) {
+func (r *CarReadOnlyStoreTracker) Add(key string, bs ClosableBlockstore) (bool, error) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
@@ -32,7 +39,7 @@ func (r *CarReadOnlyStoreTracker) Add(key string, bs *blockstore.ReadOnly) (bool
 	return true, nil
 }
 
-func (r *CarReadOnlyStoreTracker) GetOrCreate(key string, carFilePath string) (*blockstore.ReadOnly, error) {
+func (r *CarReadOnlyStoreTracker) GetOrCreate(key string, carFilePath string) (ClosableBlockstore, error) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
@@ -49,7 +56,7 @@ func (r *CarReadOnlyStoreTracker) GetOrCreate(key string, carFilePath string) (*
 	return rdOnly, nil
 }
 
-func (r *CarReadOnlyStoreTracker) Get(key string) (*blockstore.ReadOnly, error) {
+func (r *CarReadOnlyStoreTracker) Get(key string) (ClosableBlockstore, error) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 

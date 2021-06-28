@@ -12,7 +12,6 @@ import (
 	peer "github.com/libp2p/go-libp2p-core/peer"
 
 	datatransfer "github.com/filecoin-project/go-data-transfer"
-	"github.com/filecoin-project/go-multistore"
 	"github.com/filecoin-project/go-state-types/abi"
 	"github.com/filecoin-project/go-state-types/big"
 
@@ -43,8 +42,6 @@ type ValidationEnvironment interface {
 	RunDealDecisioningLogic(ctx context.Context, state retrievalmarket.ProviderDealState) (bool, string, error)
 	// StateMachines returns the FSM Group to begin tracking with
 	BeginTracking(pds retrievalmarket.ProviderDealState) error
-	// NextStoreID allocates a store for this deal
-	NextStoreID() (multistore.StoreID, error)
 }
 
 // ProviderRequestValidator validates incoming requests for the Retrieval Provider
@@ -190,14 +187,7 @@ func (rv *ProviderRequestValidator) acceptDeal(deal *retrievalmarket.ProviderDea
 		return retrievalmarket.DealStatusRejected, errors.New(reason)
 	}
 
-	// verify we have the piece
-
 	deal.PieceInfo = &pieceInfo
-
-	deal.StoreID, err = rv.env.NextStoreID()
-	if err != nil {
-		return retrievalmarket.DealStatusErrored, err
-	}
 
 	if deal.UnsealPrice.GreaterThan(big.Zero()) {
 		return retrievalmarket.DealStatusFundsNeededUnseal, nil

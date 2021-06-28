@@ -12,6 +12,8 @@ import (
 	"github.com/ipfs/go-datastore/namespace"
 	graphsyncimpl "github.com/ipfs/go-graphsync/impl"
 	"github.com/ipfs/go-graphsync/network"
+	"github.com/ipld/go-car"
+	"github.com/ipld/go-car/v2/blockstore"
 	"github.com/ipld/go-ipld-prime"
 	cidlink "github.com/ipld/go-ipld-prime/linking/cid"
 	basicnode "github.com/ipld/go-ipld-prime/node/basic"
@@ -20,11 +22,9 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/filecoin-project/go-address"
-	"github.com/filecoin-project/go-commp-utils/pieceio/cario"
 	dtimpl "github.com/filecoin-project/go-data-transfer/impl"
 	"github.com/filecoin-project/go-data-transfer/testutil"
 	dtgstransport "github.com/filecoin-project/go-data-transfer/transport/graphsync"
-	"github.com/filecoin-project/go-multistore"
 	"github.com/filecoin-project/go-state-types/abi"
 	"github.com/filecoin-project/go-state-types/big"
 	"github.com/filecoin-project/specs-actors/actors/builtin/paych"
@@ -37,6 +37,7 @@ import (
 	rmtesting "github.com/filecoin-project/go-fil-markets/retrievalmarket/testing"
 	"github.com/filecoin-project/go-fil-markets/shared"
 	tut "github.com/filecoin-project/go-fil-markets/shared_testutil"
+	"github.com/filecoin-project/go-fil-markets/shared_testutil/dagstore"
 )
 
 func TestClientCanMakeQueryToProvider(t *testing.T) {
@@ -116,7 +117,7 @@ func requireSetupTestClientAndProvider(ctx context.Context, t *testing.T, payChA
 	testutil.StartAndWaitForReady(ctx, t, dt1)
 	require.NoError(t, err)
 	clientDs := namespace.Wrap(testData.Ds1, datastore.NewKey("/retrievals/client"))
-	client, err := retrievalimpl.NewClient(nw1, testData.MultiStore1, dt1, rcNode1, &tut.TestPeerResolver{}, clientDs)
+	client, err := retrievalimpl.NewClient(nw1, testData.CarFileStore, dt1, rcNode1, &tut.TestPeerResolver{}, clientDs)
 	require.NoError(t, err)
 	tut.StartAndWaitForReady(ctx, t, client)
 	nw2 := rmnet.NewFromLibp2pHost(testData.Host2, rmnet.RetryParameters(0, 0, 0, 0))
@@ -166,8 +167,10 @@ func requireSetupTestClientAndProvider(ctx context.Context, t *testing.T, payChA
 		return ask, nil
 	}
 
-	provider, err := retrievalimpl.NewProvider(paymentAddress, providerNode, nw2, pieceStore, testData.MultiStore2, dt2, providerDs,
-		priceFunc)
+	mountApi := dagstore.NewFSMount(pieceStore, providerNode)
+	provider, err := retrievalimpl.NewProvider(
+		paymentAddress, providerNode, nw2, pieceStore, testData.DagStore, dt2, providerDs,
+		priceFunc, mountApi)
 	require.NoError(t, err)
 
 	tut.StartAndWaitForReady(ctx, t, provider)
@@ -183,6 +186,8 @@ func requireSetupTestClientAndProvider(ctx context.Context, t *testing.T, payChA
 }
 
 func TestClientCanMakeDealWithProvider(t *testing.T) {
+	ctx := context.Background()
+
 	// -------- SET UP PROVIDER
 
 	ssb := builder.NewSelectorSpecBuilder(basicnode.Prototype.Any)
@@ -206,7 +211,6 @@ func TestClientCanMakeDealWithProvider(t *testing.T) {
 		zeroPricePerByte        bool
 		paramsV1, addFunds      bool
 		skipStores              bool
-		failsUnseal             bool
 		paymentInterval         uint64
 		paymentIntervalIncrease uint64
 		channelAvailableFunds   retrievalmarket.ChannelAvailableFunds
@@ -309,13 +313,6 @@ func TestClientCanMakeDealWithProvider(t *testing.T) {
 			voucherAmts: []abi.TokenAmount{abi.NewTokenAmount(10136000), abi.NewTokenAmount(19920000)},
 			skipStores:  true,
 		},
-		{
-			name:        "failed unseal",
-			filename:    "lorem.txt",
-			filesize:    19000,
-			voucherAmts: []abi.TokenAmount{},
-			failsUnseal: true,
-		},
 		{name: "multi-block file retrieval succeeds, final block exceeds payment interval",
 			filename:                "lorem.txt",
 			filesize:                19000,
@@ -348,15 +345,14 @@ func TestClientCanMakeDealWithProvider(t *testing.T) {
 
 			testData := tut.NewLibp2pTestData(bgCtx, t)
 
-			// Inject a unixFS file on the provider side to its blockstore
-			// obtained via `ls -laf` on this file
-
+			// Create a CARv2 file from a fixture
 			fpath := filepath.Join("retrievalmarket", "impl", "fixtures", testCase.filename)
-
-			pieceLink, storeID := testData.LoadUnixFSFileToStore(t, fpath, true)
+			pieceLink, carFilePath := testData.LoadUnixFSFileToStore(t, fpath)
 			c, ok := pieceLink.(cidlink.Link)
 			require.True(t, ok)
 			payloadCID := c.Cid
+
+			// Set up retrieval parameters
 			providerPaymentAddr, err := address.NewIDAddress(uint64(i * 99))
 			require.NoError(t, err)
 			paymentInterval := testCase.paymentInterval
@@ -385,19 +381,24 @@ func TestClientCanMakeDealWithProvider(t *testing.T) {
 				UnsealPrice:                unsealPrice,
 			}
 
-			providerNode := testnodes.NewTestRetrievalProviderNode()
-			var pieceInfo piecestore.PieceInfo
-			cio := cario.NewCarIO()
-			var buf bytes.Buffer
-			store, err := testData.MultiStore2.Get(storeID)
+			// Do a Selective CARv1 traversal on the CARv2 file to get a
+			// deterministic CARv1 that we can import on the miner side.
+			rdOnly, err := blockstore.OpenReadOnly(carFilePath, false)
 			require.NoError(t, err)
-			err = cio.WriteCar(bgCtx, store.Bstore, payloadCID, shared.AllSelector(), &buf)
+			sc := car.NewSelectiveCar(ctx, rdOnly, []car.Dag{{Root: payloadCID, Selector: shared.AllSelector()}})
+			prepared, err := sc.Prepare()
 			require.NoError(t, err)
-			carData := buf.Bytes()
+			carBuf := new(bytes.Buffer)
+			require.NoError(t, prepared.Write(carBuf))
+			require.NoError(t, rdOnly.Close())
+
+			// Set up the piece info that will be retrieved by the provider
+			// when the retrieval request is made
+			carData := carBuf.Bytes()
 			sectorID := abi.SectorNumber(100000)
 			offset := abi.PaddedPieceSize(1000)
-			pieceInfo = piecestore.PieceInfo{
-				PieceCID: tut.GenerateCids(1)[0],
+			pieceInfo := piecestore.PieceInfo{
+				PieceCID: payloadCID,
 				Deals: []piecestore.DealInfo{
 					{
 						DealID:   abi.DealID(100),
@@ -407,16 +408,9 @@ func TestClientCanMakeDealWithProvider(t *testing.T) {
 					},
 				},
 			}
+			providerNode := testnodes.NewTestRetrievalProviderNode()
 			providerNode.ExpectPricingParams(pieceInfo.PieceCID, []abi.DealID{100})
-			if testCase.failsUnseal {
-				providerNode.ExpectFailedUnseal(sectorID, offset.Unpadded(), abi.UnpaddedPieceSize(len(carData)))
-			} else {
-				providerNode.ExpectUnseal(sectorID, offset.Unpadded(), abi.UnpaddedPieceSize(len(carData)), carData)
-			}
-
-			// clearout provider blockstore
-			err = testData.MultiStore2.Delete(storeID)
-			require.NoError(t, err)
+			providerNode.ExpectUnseal(sectorID, offset.Unpadded(), abi.UnpaddedPieceSize(len(carData)), carData)
 
 			decider := rmtesting.TrivialTestDecider
 			if testCase.decider != nil {
@@ -518,13 +512,8 @@ CurrentInterval: %d
 				rmParams = retrievalmarket.NewParamsV0(pricePerByte, paymentInterval, paymentIntervalIncrease)
 			}
 
-			var clientStoreID *multistore.StoreID
-			if !testCase.skipStores {
-				id := testData.MultiStore1.Next()
-				clientStoreID = &id
-			}
 			// *** Retrieve the piece
-			_, err = client.Retrieve(bgCtx, payloadCID, rmParams, expectedTotal, retrievalPeer, clientPaymentChannel, retrievalPeer.Address, clientStoreID)
+			rresp, err := client.Retrieve(bgCtx, payloadCID, rmParams, expectedTotal, retrievalPeer, clientPaymentChannel, retrievalPeer.Address)
 			require.NoError(t, err)
 
 			// verify that client subscribers will be notified of state changes
@@ -535,7 +524,7 @@ CurrentInterval: %d
 				t.FailNow()
 			case clientDealState = <-clientDealStateChan:
 			}
-			if testCase.failsUnseal || testCase.cancelled {
+			if testCase.cancelled {
 				assert.Equal(t, retrievalmarket.DealStatusCancelled, clientDealState.Status)
 			} else {
 				if !testCase.zeroPricePerByte {
@@ -560,9 +549,7 @@ CurrentInterval: %d
 			case providerDealState = <-providerDealStateChan:
 			}
 
-			if testCase.failsUnseal {
-				tut.AssertRetrievalDealState(t, retrievalmarket.DealStatusErrored, providerDealState.Status)
-			} else if testCase.cancelled {
+			if testCase.cancelled {
 				tut.AssertRetrievalDealState(t, retrievalmarket.DealStatusCancelled, providerDealState.Status)
 			} else {
 				tut.AssertRetrievalDealState(t, retrievalmarket.DealStatusCompleted, providerDealState.Status)
@@ -576,16 +563,11 @@ CurrentInterval: %d
 			// verify that the nodes we interacted with as expected
 			clientNode.VerifyExpectations(t)
 			providerNode.VerifyExpectations(t)
-			if !testCase.failsUnseal && !testCase.cancelled {
-				if testCase.skipStores {
-					testData.VerifyFileTransferred(t, pieceLink, false, testCase.filesize)
-				} else {
-					testData.VerifyFileTransferredIntoStore(t, pieceLink, *clientStoreID, false, testCase.filesize)
-				}
+			if !testCase.cancelled {
+				testData.VerifyFileTransferredIntoStore(t, pieceLink, rresp.CarFilePath, testCase.filesize)
 			}
 		})
 	}
-
 }
 
 func setupClient(
@@ -641,7 +623,7 @@ func setupClient(
 	require.NoError(t, err)
 	clientDs := namespace.Wrap(testData.Ds1, datastore.NewKey("/retrievals/client"))
 
-	client, err := retrievalimpl.NewClient(nw1, testData.MultiStore1, dt1, clientNode, &tut.TestPeerResolver{}, clientDs)
+	client, err := retrievalimpl.NewClient(nw1, testData.CarFileStore, dt1, clientNode, &tut.TestPeerResolver{}, clientDs)
 	return &createdChan, &newLaneAddr, &createdVoucher, clientNode, client, err
 }
 
@@ -659,7 +641,7 @@ func setupProvider(
 ) retrievalmarket.RetrievalProvider {
 	nw2 := rmnet.NewFromLibp2pHost(testData.Host2, rmnet.RetryParameters(0, 0, 0, 0))
 	pieceStore := tut.NewTestPieceStore()
-	expectedPiece := tut.GenerateCids(1)[0]
+	expectedPiece := payloadCID
 	cidInfo := piecestore.CIDInfo{
 		PieceBlockLocations: []piecestore.PieceBlockLocation{
 			{
@@ -692,8 +674,9 @@ func setupProvider(
 		return ask, nil
 	}
 
+	mountApi := dagstore.NewFSMount(pieceStore, providerNode)
 	provider, err := retrievalimpl.NewProvider(providerPaymentAddr, providerNode, nw2,
-		pieceStore, testData.MultiStore2, dt2, providerDs, priceFunc,
+		pieceStore, testData.DagStore, dt2, providerDs, priceFunc, mountApi,
 		opts...)
 	require.NoError(t, err)
 

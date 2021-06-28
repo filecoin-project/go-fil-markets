@@ -607,6 +607,10 @@ func TestRestartClient(t *testing.T) {
 			if len(providerState) == 0 || providerState[0].State != storagemarket.StorageDealExpired {
 				wg.Add(1)
 				_ = h.Provider.SubscribeToEvents(func(event storagemarket.ProviderEvent, deal storagemarket.MinerDeal) {
+					if deal.State == storagemarket.StorageDealError {
+						t.Errorf("storage deal provider error: %s", deal.Message)
+						wg.Done()
+					}
 					if event == storagemarket.ProviderEventDealExpired {
 						wg.Done()
 					}
@@ -614,6 +618,10 @@ func TestRestartClient(t *testing.T) {
 			}
 			wg.Add(1)
 			_ = h.Client.SubscribeToEvents(func(event storagemarket.ClientEvent, deal storagemarket.ClientDeal) {
+				if deal.State == storagemarket.StorageDealError {
+					t.Errorf("storage deal client error: %s", deal.Message)
+					wg.Done()
+				}
 				if event == storagemarket.ClientEventDealExpired {
 					wg.Done()
 				}

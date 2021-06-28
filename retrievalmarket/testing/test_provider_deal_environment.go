@@ -3,10 +3,10 @@ package testing
 
 import (
 	"context"
-	"io"
+
+	"github.com/ipfs/go-cid"
 
 	datatransfer "github.com/filecoin-project/go-data-transfer"
-	"github.com/filecoin-project/go-multistore"
 
 	rm "github.com/filecoin-project/go-fil-markets/retrievalmarket"
 	retrievalimpl "github.com/filecoin-project/go-fil-markets/retrievalmarket/impl"
@@ -17,7 +17,7 @@ import (
 type TestProviderDealEnvironment struct {
 	node                    rm.RetrievalProviderNode
 	ResumeDataTransferError error
-	ReadIntoBlockstoreError error
+	PrepareBlockstoreError  error
 	TrackTransferError      error
 	UntrackTransferError    error
 	CloseDataTransferError  error
@@ -36,12 +36,12 @@ func (te *TestProviderDealEnvironment) Node() rm.RetrievalProviderNode {
 	return te.node
 }
 
-func (te *TestProviderDealEnvironment) DeleteStore(storeID multistore.StoreID) error {
+func (te *TestProviderDealEnvironment) DeleteStore(dealID rm.DealID) error {
 	return te.DeleteStoreError
 }
 
-func (te *TestProviderDealEnvironment) ReadIntoBlockstore(storeID multistore.StoreID, pieceData io.ReadCloser) error {
-	return te.ReadIntoBlockstoreError
+func (te *TestProviderDealEnvironment) PrepareBlockstore(ctx context.Context, dealID rm.DealID, pieceCid cid.Cid) error {
+	return te.PrepareBlockstoreError
 }
 
 func (te *TestProviderDealEnvironment) TrackTransfer(deal rm.ProviderDealState) error {

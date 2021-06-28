@@ -144,21 +144,6 @@ func TestValidatePull(t *testing.T) {
 				Message: "something went wrong",
 			},
 		},
-		"store ID error": {
-			fve: fakeValidationEnvironment{
-				RunDealDecisioningLogicAccepted: true,
-				NextStoreIDError:                errors.New("something went wrong"),
-			},
-			baseCid:       proposal.PayloadCID,
-			selector:      shared.AllSelector(),
-			voucher:       &proposal,
-			expectedError: errors.New("something went wrong"),
-			expectedVoucherResult: &retrievalmarket.DealResponse{
-				Status:  retrievalmarket.DealStatusErrored,
-				ID:      proposal.ID,
-				Message: "something went wrong",
-			},
-		},
 		"begin tracking error": {
 			fve: fakeValidationEnvironment{
 				BeginTrackingError:              errors.New("everything is awful"),

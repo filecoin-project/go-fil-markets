@@ -3,16 +3,16 @@ package retrievalimpl
 import (
 	"context"
 	"errors"
-	"io"
-	"io/ioutil"
+	"sync"
 
+	blocks "github.com/ipfs/go-block-format"
 	"github.com/ipfs/go-cid"
+	bstore "github.com/ipfs/go-ipfs-blockstore"
 	"github.com/libp2p/go-libp2p-core/peer"
 	"golang.org/x/xerrors"
 
-	"github.com/filecoin-project/go-commp-utils/pieceio/cario"
+	"github.com/filecoin-project/dagstore/shard"
 	datatransfer "github.com/filecoin-project/go-data-transfer"
-	"github.com/filecoin-project/go-multistore"
 	"github.com/filecoin-project/go-state-types/abi"
 	"github.com/filecoin-project/go-state-types/big"
 
@@ -98,13 +98,6 @@ func (pve *providerValidationEnvironment) BeginTracking(pds retrievalmarket.Prov
 	return pve.p.stateMachines.Send(pds.Identifier(), retrievalmarket.ProviderEventOpen)
 }
 
-// NextStoreID allocates a store for this deal
-func (pve *providerValidationEnvironment) NextStoreID() (multistore.StoreID, error) {
-	storeID := pve.p.multiStore.Next()
-	_, err := pve.p.multiStore.Get(storeID)
-	return storeID, err
-}
-
 type providerRevalidatorEnvironment struct {
 	p *Provider
 }
@@ -134,46 +127,15 @@ func (pde *providerDealEnvironment) Node() retrievalmarket.RetrievalProviderNode
 	return pde.p.node
 }
 
-func (pde *providerDealEnvironment) ReadIntoBlockstore(storeID multistore.StoreID, pieceData io.ReadCloser) error {
-	// Get the the destination multistore
-	store, loadErr := pde.p.multiStore.Get(storeID)
-	if loadErr != nil {
-		return xerrors.Errorf("failed to read file into blockstore: failed to get multistore %d: %w", storeID, loadErr)
+func (pde *providerDealEnvironment) PrepareBlockstore(ctx context.Context, dealID retrievalmarket.DealID, pieceCid cid.Cid) error {
+	key := shard.Key(pieceCid.String())
+	bs, err := pde.p.dagStore.LoadShard(ctx, key, pde.p.mountApi)
+	if err != nil {
+		return xerrors.Errorf("failed to load blockstore for piece %s: %w", pieceCid, err)
 	}
 
-	// Load the CAR into the blockstore
-	_, loadErr = cario.NewCarIO().LoadCar(store.Bstore, pieceData)
-	if loadErr != nil {
-		// Just log the error, so we can drain and close the reader before
-		// returning the error
-		loadErr = xerrors.Errorf("failed to load car file into blockstore: %w", loadErr)
-		log.Error(loadErr.Error())
-	}
-
-	// Attempt to drain and close the reader before returning any error
-	_, drainErr := io.Copy(ioutil.Discard, pieceData)
-	closeErr := pieceData.Close()
-
-	// If there was an error loading the CAR file into the blockstore, throw that error
-	if loadErr != nil {
-		return loadErr
-	}
-
-	// If there was an error draining the reader, throw that error
-	if drainErr != nil {
-		err := xerrors.Errorf("failed to read file into blockstore: failed to drain piece reader: %w", drainErr)
-		log.Error(err.Error())
-		return err
-	}
-
-	// If there was an error closing the reader, throw that error
-	if closeErr != nil {
-		err := xerrors.Errorf("failed to read file into blockstore: failed to close reader: %w", closeErr)
-		log.Error(err.Error())
-		return err
-	}
-
-	return nil
+	_, err = pde.p.readOnlyBlockStores.Add(dealID.String(), bs)
+	return err
 }
 
 func (pde *providerDealEnvironment) TrackTransfer(deal retrievalmarket.ProviderDealState) error {
@@ -205,8 +167,13 @@ func (pde *providerDealEnvironment) CloseDataTransfer(ctx context.Context, chid 
 	return err
 }
 
-func (pde *providerDealEnvironment) DeleteStore(storeID multistore.StoreID) error {
-	return pde.p.multiStore.Delete(storeID)
+func (pde *providerDealEnvironment) DeleteStore(dealID retrievalmarket.DealID) error {
+	// close the backing CARv2 file and stop tracking the read-only blockstore for the deal
+	if err := pde.p.readOnlyBlockStores.CleanBlockstore(dealID.String()); err != nil {
+		return xerrors.Errorf("failed to clean read-only blockstore for deal %d: %w", dealID, err)
+	}
+
+	return nil
 }
 
 func pieceInUnsealedSector(ctx context.Context, n retrievalmarket.RetrievalProviderNode, pieceInfo piecestore.PieceInfo) bool {
@@ -330,12 +297,102 @@ type providerStoreGetter struct {
 	p *Provider
 }
 
-func (psg *providerStoreGetter) Get(otherPeer peer.ID, dealID retrievalmarket.DealID) (*multistore.Store, error) {
+func (psg *providerStoreGetter) Get(otherPeer peer.ID, dealID retrievalmarket.DealID) (bstore.Blockstore, error) {
 	var deal retrievalmarket.ProviderDealState
 	provDealID := retrievalmarket.ProviderDealIdentifier{Receiver: otherPeer, DealID: dealID}
 	err := psg.p.stateMachines.Get(provDealID).Get(&deal)
 	if err != nil {
+		return nil, xerrors.Errorf("failed to get deal state: %w", err)
+	}
+	return &lazyBlockstore{
+		load: func() (bstore.Blockstore, error) {
+			return psg.p.readOnlyBlockStores.Get(dealID.String())
+		},
+	}, nil
+}
+
+type lazyBlockstore struct {
+	lk   sync.Mutex
+	bs   bstore.Blockstore
+	load func() (bstore.Blockstore, error)
+}
+
+func (l *lazyBlockstore) DeleteBlock(c cid.Cid) error {
+	bs, err := l.init()
+	if err != nil {
+		return err
+	}
+	return bs.DeleteBlock(c)
+}
+
+func (l *lazyBlockstore) Has(c cid.Cid) (bool, error) {
+	bs, err := l.init()
+	if err != nil {
+		return false, err
+	}
+	return bs.Has(c)
+}
+
+func (l *lazyBlockstore) Get(c cid.Cid) (blocks.Block, error) {
+	bs, err := l.init()
+	if err != nil {
 		return nil, err
 	}
-	return psg.p.multiStore.Get(deal.StoreID)
+	return bs.Get(c)
 }
+
+func (l *lazyBlockstore) GetSize(c cid.Cid) (int, error) {
+	bs, err := l.init()
+	if err != nil {
+		return 0, err
+	}
+	return bs.GetSize(c)
+}
+
+func (l *lazyBlockstore) Put(block blocks.Block) error {
+	bs, err := l.init()
+	if err != nil {
+		return err
+	}
+	return bs.Put(block)
+}
+
+func (l *lazyBlockstore) PutMany(blocks []blocks.Block) error {
+	bs, err := l.init()
+	if err != nil {
+		return err
+	}
+	return bs.PutMany(blocks)
+}
+
+func (l *lazyBlockstore) AllKeysChan(ctx context.Context) (<-chan cid.Cid, error) {
+	bs, err := l.init()
+	if err != nil {
+		return nil, err
+	}
+	return bs.AllKeysChan(ctx)
+}
+
+func (l lazyBlockstore) HashOnRead(enabled bool) {
+	bs, err := l.init()
+	if err != nil {
+		return
+	}
+	bs.HashOnRead(enabled)
+}
+
+func (l *lazyBlockstore) init() (bstore.Blockstore, error) {
+	l.lk.Lock()
+	defer l.lk.Unlock()
+
+	if l.bs == nil {
+		var err error
+		l.bs, err = l.load()
+		if err != nil {
+			return nil, err
+		}
+	}
+	return l.bs, nil
+}
+
+var _ bstore.Blockstore = (*lazyBlockstore)(nil)

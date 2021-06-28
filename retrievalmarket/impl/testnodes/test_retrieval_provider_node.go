@@ -155,7 +155,12 @@ func (trpn *TestRetrievalProviderNode) UnsealSector(ctx context.Context, sectorI
 	if !ok {
 		return nil, errors.New("Could not unseal")
 	}
-	return ioutil.NopCloser(bytes.NewReader(data)), nil
+
+	// The data is the padded piece, so create a reader that only reads the
+	// unpadded part
+	r := bytes.NewReader(data)
+	unpaddedReader := io.LimitReader(r, int64(length))
+	return ioutil.NopCloser(unpaddedReader), nil
 }
 
 // VerifyExpectations verifies that all expected calls were made and no other calls

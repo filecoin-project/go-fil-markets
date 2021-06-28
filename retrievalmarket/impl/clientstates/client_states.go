@@ -25,6 +25,7 @@ type ClientDealEnvironment interface {
 	OpenDataTransfer(ctx context.Context, to peer.ID, proposal *rm.DealProposal, legacy bool) (datatransfer.ChannelID, error)
 	SendDataTransferVoucher(context.Context, datatransfer.ChannelID, *rm.DealPayment, bool) error
 	CloseDataTransfer(context.Context, datatransfer.ChannelID) error
+	FinalizeBlockstore(context.Context, rm.DealID) error
 }
 
 // ProposeDeal sends the proposal to the other party
@@ -252,4 +253,13 @@ func CheckComplete(ctx fsm.Context, environment ClientDealEnvironment, deal rm.C
 	// received. So if they haven't been received the provider is trying
 	// to terminate the deal early.
 	return ctx.Trigger(rm.ClientEventEarlyTermination)
+}
+
+// FinalizeBlockstore is called once all blocks have been received and the
+// blockstore needs to be finalized before completing the deal
+func FinalizeBlockstore(ctx fsm.Context, environment ClientDealEnvironment, deal rm.ClientDealState) error {
+	if err := environment.FinalizeBlockstore(ctx.Context(), deal.ID); err != nil {
+		return ctx.Trigger(rm.ClientEventFinalizeBlockstoreErrored, err)
+	}
+	return ctx.Trigger(rm.ClientEventBlockstoreFinalized)
 }

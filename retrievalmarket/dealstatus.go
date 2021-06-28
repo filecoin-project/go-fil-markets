@@ -120,6 +120,10 @@ const (
 	// exists from an earlier deal between client and provider, but we need
 	// to add funds to the channel for this particular deal
 	DealStatusPaymentChannelAddingInitialFunds
+
+	// DealStatusFinalizingBlockstore means that all blocks have been received,
+	// and the blockstore is being finalized
+	DealStatusFinalizingBlockstore
 )
 
 // DealStatuses maps deal status to a human readable representation
@@ -155,6 +159,7 @@ var DealStatuses = map[DealStatus]string{
 	DealStatusWaitForAcceptanceLegacy:          "DealStatusWaitForAcceptanceLegacy",
 	DealStatusClientWaitingForLastBlocks:       "DealStatusWaitingForLastBlocks",
 	DealStatusPaymentChannelAddingInitialFunds: "DealStatusPaymentChannelAddingInitialFunds",
+	DealStatusFinalizingBlockstore:             "DealStatusFinalizingBlockstore",
 }
 
 func (s DealStatus) String() string {

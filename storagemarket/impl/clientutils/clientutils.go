@@ -37,35 +37,43 @@ func CommP(ctx context.Context, CARv2FilePath string, data *storagemarket.DataRe
 		return cid.Undef, 0, xerrors.New("Piece CID and size must be set for manual transfer")
 	}
 
+	dataCIDSize, err := CommPFromCARV2(ctx, CARv2FilePath, data.Root)
+	if err != nil {
+		return cid.Undef, 0, err
+	}
+	return dataCIDSize.PieceCID, dataCIDSize.PieceSize.Unpadded(), nil
+}
+
+func CommPFromCARV2(ctx context.Context, CARv2FilePath string, root cid.Cid) (writer.DataCIDSize, error) {
 	if CARv2FilePath == "" {
-		return cid.Undef, 0, xerrors.New("need Carv2 file path to get a read-only blockstore")
+		return writer.DataCIDSize{}, xerrors.New("need Carv2 file path to get a read-only blockstore")
 	}
 
 	rdOnly, err := blockstore.OpenReadOnly(CARv2FilePath, true)
 	if err != nil {
-		return cid.Undef, 0, xerrors.Errorf("failed to open read-only blockstore: %w", err)
+		return writer.DataCIDSize{}, xerrors.Errorf("failed to open read-only blockstore: %w", err)
 	}
 	defer rdOnly.Close()
 
 	// do a CARv1 traversal with the DFS selector.
-	sc := car.NewSelectiveCar(ctx, rdOnly, []car.Dag{{Root: data.Root, Selector: shared.AllSelector()}})
+	sc := car.NewSelectiveCar(ctx, rdOnly, []car.Dag{{Root: root, Selector: shared.AllSelector()}})
 	prepared, err := sc.Prepare()
 	if err != nil {
-		return cid.Undef, 0, xerrors.Errorf("failed to prepare CAR: %w", err)
+		return writer.DataCIDSize{}, xerrors.Errorf("failed to prepare CAR: %w", err)
 	}
 
 	// write out the deterministic CARv1 payload to the CommP writer and calculate the CommP.
 	commpWriter := &writer.Writer{}
 	err = prepared.Dump(commpWriter)
 	if err != nil {
-		return cid.Undef, 0, xerrors.Errorf("failed to write CARv1 to commP writer: %w", err)
+		return writer.DataCIDSize{}, xerrors.Errorf("failed to write CARv1 to commP writer: %w", err)
 	}
 	dataCIDSize, err := commpWriter.Sum()
 	if err != nil {
-		return cid.Undef, 0, xerrors.Errorf("commpWriter.Sum failed: %w", err)
+		return writer.DataCIDSize{}, xerrors.Errorf("commpWriter.Sum failed: %w", err)
 	}
 
-	return dataCIDSize.PieceCID, dataCIDSize.PieceSize.Unpadded(), nil
+	return dataCIDSize, nil
 }
 
 // VerifyFunc is a function that can validate a signature for a given address and bytes

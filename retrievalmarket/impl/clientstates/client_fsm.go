@@ -209,8 +209,8 @@ var ClientEvents = fsm.Events{
 		FromMany(rm.DealStatusSendFunds, rm.DealStatusSendFundsLastPayment).To(rm.DealStatusOngoing).
 		From(rm.DealStatusFundsNeeded).ToNoChange().
 		From(rm.DealStatusFundsNeededLastPayment).To(rm.DealStatusSendFundsLastPayment).
-		From(rm.DealStatusClientWaitingForLastBlocks).To(rm.DealStatusCompleted).
-		From(rm.DealStatusCheckComplete).To(rm.DealStatusCompleted).
+		From(rm.DealStatusClientWaitingForLastBlocks).To(rm.DealStatusFinalizingBlockstore).
+		From(rm.DealStatusCheckComplete).To(rm.DealStatusFinalizingBlockstore).
 		Action(func(deal *rm.ClientDealState) error {
 			deal.AllBlocksReceived = true
 			return nil
@@ -325,9 +325,9 @@ var ClientEvents = fsm.Events{
 			rm.DealStatusFundsNeededLastPayment).To(rm.DealStatusCheckComplete).
 		From(rm.DealStatusOngoing).To(rm.DealStatusCheckComplete).
 		From(rm.DealStatusBlocksComplete).To(rm.DealStatusCheckComplete).
-		From(rm.DealStatusFinalizing).To(rm.DealStatusCompleted),
+		From(rm.DealStatusFinalizing).To(rm.DealStatusFinalizingBlockstore),
 	fsm.Event(rm.ClientEventCompleteVerified).
-		From(rm.DealStatusCheckComplete).To(rm.DealStatusCompleted),
+		From(rm.DealStatusCheckComplete).To(rm.DealStatusFinalizingBlockstore),
 	fsm.Event(rm.ClientEventEarlyTermination).
 		From(rm.DealStatusCheckComplete).To(rm.DealStatusErrored).
 		Action(func(deal *rm.ClientDealState) error {
@@ -340,7 +340,20 @@ var ClientEvents = fsm.Events{
 	// per byte is zero)
 	fsm.Event(rm.ClientEventWaitForLastBlocks).
 		From(rm.DealStatusCheckComplete).To(rm.DealStatusClientWaitingForLastBlocks).
-		From(rm.DealStatusCompleted).ToJustRecord(),
+		FromMany(rm.DealStatusFinalizingBlockstore, rm.DealStatusCompleted).ToJustRecord(),
+
+	// Once all blocks have been received and the blockstore has been finalized,
+	// move to the complete state
+	fsm.Event(rm.ClientEventBlockstoreFinalized).
+		From(rm.DealStatusFinalizingBlockstore).To(rm.DealStatusCompleted),
+
+	// An error occurred when finalizing the blockstore
+	fsm.Event(rm.ClientEventFinalizeBlockstoreErrored).
+		FromAny().To(rm.DealStatusErrored).
+		Action(func(deal *rm.ClientDealState, err error) error {
+			deal.Message = xerrors.Errorf("finalizing blockstore: %w", err).Error()
+			return nil
+		}),
 
 	// after cancelling a deal is complete
 	fsm.Event(rm.ClientEventCancelComplete).
@@ -407,4 +420,5 @@ var ClientStateEntryFuncs = fsm.StateEntryFuncs{
 	rm.DealStatusFailing:                          CancelDeal,
 	rm.DealStatusCancelling:                       CancelDeal,
 	rm.DealStatusCheckComplete:                    CheckComplete,
+	rm.DealStatusFinalizingBlockstore:             FinalizeBlockstore,
 }

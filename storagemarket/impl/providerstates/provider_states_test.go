@@ -1544,7 +1544,7 @@ func (fe *fakeEnvironment) UntagPeer(id peer.ID, s string) {
 	fe.peerTagger.UntagPeer(id, s)
 }
 
-func (fe *fakeEnvironment) ActivateShard(pieceCid cid.Cid) error {
+func (fe *fakeEnvironment) ActivateShard(pieceCid cid.Cid, path string) error {
 	return fe.shardActivationError
 }
 

@@ -77,7 +77,8 @@ func (deal *ClientDealState) NextInterval() uint64 {
 // of a retrieval provider
 type ProviderDealState struct {
 	DealProposal
-	StoreID         multistore.StoreID
+	StoreID multistore.StoreID
+
 	ChannelID       *datatransfer.ChannelID
 	PieceInfo       *piecestore.PieceInfo
 	Status          DealStatus

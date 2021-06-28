@@ -35,6 +35,7 @@ import (
 	"github.com/filecoin-project/go-fil-markets/retrievalmarket/network"
 	"github.com/filecoin-project/go-fil-markets/shared"
 	tut "github.com/filecoin-project/go-fil-markets/shared_testutil"
+	"github.com/filecoin-project/go-fil-markets/shared_testutil/dagstore"
 )
 
 func TestDynamicPricing(t *testing.T) {
@@ -142,11 +143,10 @@ func TestDynamicPricing(t *testing.T) {
 	buildProvider := func(t *testing.T, node *testnodes.TestRetrievalProviderNode, qs network.RetrievalQueryStream,
 		pieceStore piecestore.PieceStore, net *tut.TestRetrievalMarketNetwork, pFnc retrievalimpl.RetrievalPricingFunc) retrievalmarket.RetrievalProvider {
 		ds := dss.MutexWrap(datastore.NewMapDatastore())
-		multiStore, err := multistore.NewMultiDstore(ds)
-		require.NoError(t, err)
+		dagStore := dagstore.NewMockDagStore()
 		dt := tut.NewTestDataTransfer()
-
-		c, err := retrievalimpl.NewProvider(expectedAddress, node, net, pieceStore, multiStore, dt, ds, pFnc)
+		mnt := dagstore.NewFSMount(pieceStore, node)
+		c, err := retrievalimpl.NewProvider(expectedAddress, node, net, pieceStore, dagStore, dt, ds, pFnc, mnt)
 		require.NoError(t, err)
 		tut.StartAndWaitForReady(ctx, t, c)
 		return c
@@ -673,8 +673,7 @@ func TestHandleQueryStream(t *testing.T) {
 
 	receiveStreamOnProvider := func(t *testing.T, node *testnodes.TestRetrievalProviderNode, qs network.RetrievalQueryStream, pieceStore piecestore.PieceStore) {
 		ds := dss.MutexWrap(datastore.NewMapDatastore())
-		multiStore, err := multistore.NewMultiDstore(ds)
-		require.NoError(t, err)
+		dagStore := dagstore.NewMockDagStore()
 		dt := tut.NewTestDataTransfer()
 		net := tut.NewTestRetrievalMarketNetwork(tut.TestNetworkParams{})
 
@@ -692,7 +691,8 @@ func TestHandleQueryStream(t *testing.T) {
 			return ask, nil
 		}
 
-		c, err := retrievalimpl.NewProvider(expectedAddress, node, net, pieceStore, multiStore, dt, ds, priceFunc)
+		mnt := dagstore.NewFSMount(pieceStore, node)
+		c, err := retrievalimpl.NewProvider(expectedAddress, node, net, pieceStore, dagStore, dt, ds, priceFunc, mnt)
 		require.NoError(t, err)
 
 		tut.StartAndWaitForReady(ctx, t, c)
@@ -899,8 +899,7 @@ func TestHandleQueryStream(t *testing.T) {
 
 func TestProvider_Construct(t *testing.T) {
 	ds := datastore.NewMapDatastore()
-	multiStore, err := multistore.NewMultiDstore(ds)
-	require.NoError(t, err)
+	dagStore := dagstore.NewMockDagStore()
 	dt := tut.NewTestDataTransfer()
 
 	priceFunc := func(ctx context.Context, dealPricingParams retrievalmarket.PricingInput) (retrievalmarket.Ask, error) {
@@ -908,15 +907,19 @@ func TestProvider_Construct(t *testing.T) {
 		return ask, nil
 	}
 
-	_, err = retrievalimpl.NewProvider(
+	pieceStore := tut.NewTestPieceStore()
+	node := testnodes.NewTestRetrievalProviderNode()
+	mnt := dagstore.NewFSMount(pieceStore, node)
+	_, err := retrievalimpl.NewProvider(
 		spect.NewIDAddr(t, 2344),
-		testnodes.NewTestRetrievalProviderNode(),
+		node,
 		tut.NewTestRetrievalMarketNetwork(tut.TestNetworkParams{}),
-		tut.NewTestPieceStore(),
-		multiStore,
+		pieceStore,
+		dagStore,
 		dt,
 		ds,
 		priceFunc,
+		mnt,
 	)
 	require.NoError(t, err)
 	require.Len(t, dt.Subscribers, 1)
@@ -947,27 +950,30 @@ func TestProvider_Construct(t *testing.T) {
 
 	require.True(t, ok)
 }
+
 func TestProviderConfigOpts(t *testing.T) {
 	var sawOpt int
 	opt1 := func(p *retrievalimpl.Provider) { sawOpt++ }
 	opt2 := func(p *retrievalimpl.Provider) { sawOpt += 2 }
 	ds := datastore.NewMapDatastore()
-	multiStore, err := multistore.NewMultiDstore(ds)
-	require.NoError(t, err)
+	dagStore := dagstore.NewMockDagStore()
 
 	priceFunc := func(ctx context.Context, dealPricingParams retrievalmarket.PricingInput) (retrievalmarket.Ask, error) {
 		ask := retrievalmarket.Ask{}
 		return ask, nil
 	}
 
+	pieceStore := tut.NewTestPieceStore()
+	node := testnodes.NewTestRetrievalProviderNode()
+	mnt := dagstore.NewFSMount(pieceStore, node)
 	p, err := retrievalimpl.NewProvider(
 		spect.NewIDAddr(t, 2344),
-		testnodes.NewTestRetrievalProviderNode(),
+		node,
 		tut.NewTestRetrievalMarketNetwork(tut.TestNetworkParams{}),
-		tut.NewTestPieceStore(),
-		multiStore,
+		pieceStore,
+		dagStore,
 		tut.NewTestDataTransfer(),
-		ds, priceFunc, opt1, opt2,
+		ds, priceFunc, mnt, opt1, opt2,
 	)
 	require.NoError(t, err)
 	assert.NotNil(t, p)
@@ -985,9 +991,9 @@ func TestProviderConfigOpts(t *testing.T) {
 		testnodes.NewTestRetrievalProviderNode(),
 		tut.NewTestRetrievalMarketNetwork(tut.TestNetworkParams{}),
 		tut.NewTestPieceStore(),
-		multiStore,
+		dagStore,
 		tut.NewTestDataTransfer(),
-		ds, priceFunc, ddOpt)
+		ds, priceFunc, mnt, ddOpt)
 	require.NoError(t, err)
 	require.NotNil(t, p)
 }
@@ -1027,8 +1033,7 @@ func TestProviderMigrations(t *testing.T) {
 	ctx, cancel := context.WithTimeout(ctx, 10*time.Second)
 	defer cancel()
 	ds := dss.MutexWrap(datastore.NewMapDatastore())
-	multiStore, err := multistore.NewMultiDstore(ds)
-	require.NoError(t, err)
+	dagStore := dagstore.NewMockDagStore()
 	dt := tut.NewTestDataTransfer()
 
 	providerDs := namespace.Wrap(ds, datastore.NewKey("/retrievals/provider"))
@@ -1054,7 +1059,7 @@ func TestProviderMigrations(t *testing.T) {
 	offsets := make([]abi.PaddedPieceSize, numDeals)
 	lengths := make([]abi.PaddedPieceSize, numDeals)
 	allSelectorBuf := new(bytes.Buffer)
-	err = dagcbor.Encoder(shared.AllSelector(), allSelectorBuf)
+	err := dagcbor.Encoder(shared.AllSelector(), allSelectorBuf)
 	require.NoError(t, err)
 	allSelectorBytes := allSelectorBuf.Bytes()
 
@@ -1140,15 +1145,19 @@ func TestProviderMigrations(t *testing.T) {
 		return ask, nil
 	}
 
+	pieceStore := tut.NewTestPieceStore()
+	node := testnodes.NewTestRetrievalProviderNode()
+	mnt := dagstore.NewFSMount(pieceStore, node)
 	retrievalProvider, err := retrievalimpl.NewProvider(
 		spect.NewIDAddr(t, 2344),
-		testnodes.NewTestRetrievalProviderNode(),
+		node,
 		tut.NewTestRetrievalMarketNetwork(tut.TestNetworkParams{}),
-		tut.NewTestPieceStore(),
-		multiStore,
+		pieceStore,
+		dagStore,
 		dt,
 		providerDs,
 		priceFunc,
+		mnt,
 	)
 	require.NoError(t, err)
 	tut.StartAndWaitForReady(ctx, t, retrievalProvider)

@@ -2,7 +2,6 @@ package migrations
 
 import (
 	"context"
-	"io"
 	"testing"
 
 	"github.com/ipfs/go-cid"
@@ -255,18 +254,24 @@ func (e *mockClientEnv) CloseDataTransfer(_ context.Context, _ datatransfer.Chan
 	return nil
 }
 
+func (e *mockClientEnv) FinalizeBlockstore(ctx context.Context, id retrievalmarket.DealID) error {
+	return nil
+}
+
+var _ clientstates.ClientDealEnvironment = &mockClientEnv{}
+
 type mockProviderEnv struct {
+}
+
+func (te *mockProviderEnv) PrepareBlockstore(ctx context.Context, dealID retrievalmarket.DealID, pieceCid cid.Cid) error {
+	return nil
 }
 
 func (te *mockProviderEnv) Node() retrievalmarket.RetrievalProviderNode {
 	return nil
 }
 
-func (te *mockProviderEnv) DeleteStore(storeID multistore.StoreID) error {
-	return nil
-}
-
-func (te *mockProviderEnv) ReadIntoBlockstore(storeID multistore.StoreID, pieceData io.ReadCloser) error {
+func (te *mockProviderEnv) DeleteStore(dealID retrievalmarket.DealID) error {
 	return nil
 }
 
@@ -285,3 +290,5 @@ func (te *mockProviderEnv) ResumeDataTransfer(_ context.Context, _ datatransfer.
 func (te *mockProviderEnv) CloseDataTransfer(_ context.Context, _ datatransfer.ChannelID) error {
 	return nil
 }
+
+var _ providerstates.ProviderDealEnvironment = &mockProviderEnv{}

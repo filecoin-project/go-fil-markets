@@ -16,11 +16,11 @@ import (
 	datatransfer "github.com/filecoin-project/go-data-transfer"
 	versioning "github.com/filecoin-project/go-ds-versioning/pkg"
 	versionedfsm "github.com/filecoin-project/go-ds-versioning/pkg/fsm"
-	"github.com/filecoin-project/go-multistore"
 	"github.com/filecoin-project/go-state-types/abi"
 	"github.com/filecoin-project/go-state-types/big"
 	"github.com/filecoin-project/go-statemachine/fsm"
 
+	"github.com/filecoin-project/go-fil-markets/carstore"
 	"github.com/filecoin-project/go-fil-markets/piecestore"
 	"github.com/filecoin-project/go-fil-markets/retrievalmarket"
 	"github.com/filecoin-project/go-fil-markets/retrievalmarket/impl/askstore"
@@ -30,6 +30,7 @@ import (
 	"github.com/filecoin-project/go-fil-markets/retrievalmarket/migrations"
 	rmnet "github.com/filecoin-project/go-fil-markets/retrievalmarket/network"
 	"github.com/filecoin-project/go-fil-markets/shared"
+	"github.com/filecoin-project/go-fil-markets/shared_testutil/dagstore"
 )
 
 // RetrievalProviderOption is a function that configures a retrieval provider
@@ -44,7 +45,6 @@ var queryTimeout = 5 * time.Second
 
 // Provider is the production implementation of the RetrievalProvider interface
 type Provider struct {
-	multiStore           *multistore.MultiStore
 	dataTransfer         datatransfer.Manager
 	node                 retrievalmarket.RetrievalProviderNode
 	network              rmnet.RetrievalMarketNetwork
@@ -60,6 +60,9 @@ type Provider struct {
 	askStore             retrievalmarket.AskStore
 	disableNewDeals      bool
 	retrievalPricingFunc RetrievalPricingFunc
+	mountApi             dagstore.MountApi
+	dagStore             dagstore.DagStore
+	readOnlyBlockStores  *carstore.CarReadOnlyStoreTracker
 }
 
 type internalProviderEvent struct {
@@ -101,10 +104,11 @@ func NewProvider(minerAddress address.Address,
 	node retrievalmarket.RetrievalProviderNode,
 	network rmnet.RetrievalMarketNetwork,
 	pieceStore piecestore.PieceStore,
-	multiStore *multistore.MultiStore,
+	dagStore dagstore.DagStore,
 	dataTransfer datatransfer.Manager,
 	ds datastore.Batching,
 	retrievalPricingFunc RetrievalPricingFunc,
+	mountApi dagstore.MountApi,
 	opts ...RetrievalProviderOption,
 ) (retrievalmarket.RetrievalProvider, error) {
 
@@ -113,7 +117,6 @@ func NewProvider(minerAddress address.Address,
 	}
 
 	p := &Provider{
-		multiStore:           multiStore,
 		dataTransfer:         dataTransfer,
 		node:                 node,
 		network:              network,
@@ -122,6 +125,9 @@ func NewProvider(minerAddress address.Address,
 		subscribers:          pubsub.New(providerDispatcher),
 		readySub:             pubsub.New(shared.ReadyDispatcher),
 		retrievalPricingFunc: retrievalPricingFunc,
+		mountApi:             mountApi,
+		dagStore:             dagStore,
+		readOnlyBlockStores:  carstore.NewReadOnlyStoreTracker(),
 	}
 
 	err := shared.MoveKey(ds, "retrieval-ask", "retrieval-ask/latest")

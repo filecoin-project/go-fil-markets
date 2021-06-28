@@ -20,6 +20,7 @@ import (
 	dtimpl "github.com/filecoin-project/go-data-transfer/impl"
 	"github.com/filecoin-project/go-data-transfer/testutil"
 	dtgstransport "github.com/filecoin-project/go-data-transfer/transport/graphsync"
+	"github.com/filecoin-project/go-multistore"
 	"github.com/filecoin-project/go-state-types/abi"
 	"github.com/filecoin-project/go-state-types/big"
 	"github.com/filecoin-project/specs-actors/actors/builtin"
@@ -37,6 +38,7 @@ type StorageHarness struct {
 	PayloadCid    cid.Cid
 	Client        storagemarket.StorageClient
 	Provider      storagemarket.StorageProvider
+	StoreID       *multistore.StoreID
 	CARv2FilePath string
 }
 
@@ -64,7 +66,7 @@ func NewHarnessWithTestData(t *testing.T, td *shared_testutil.Libp2pTestData, de
 	var carV2FilePath string
 	// TODO Both functions here should return the root cid of the UnixFSDag and the carv2 file path.
 	if useStore {
-		rootLink, carV2FilePath = td.LoadUnixFSFileToStore(t, fpath, false)
+		rootLink, carV2FilePath = td.LoadUnixFSFileToStore(t, fpath)
 	} else {
 		rootLink, carV2FilePath = td.LoadUnixFSFile(t, fpath, false)
 	}
@@ -97,6 +99,7 @@ func NewHarnessWithTestData(t *testing.T, td *shared_testutil.Libp2pTestData, de
 		network.NewFromLibp2pHost(td.Host2, networkOptions...),
 		providerDs,
 		deps.Fs,
+		deps.TestData.DagStore,
 		deps.PieceStore,
 		deps.DTProvider,
 		deps.ProviderNode,
@@ -130,6 +133,7 @@ func (h *StorageHarness) CreateNewProvider(t *testing.T, ctx context.Context, td
 		network.NewFromLibp2pHost(td.Host2, network.RetryParameters(0, 0, 0, 0)),
 		providerDs,
 		h.Fs,
+		h.TestData.DagStore,
 		h.PieceStore,
 		dt2,
 		h.ProviderNode,
