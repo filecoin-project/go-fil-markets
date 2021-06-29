@@ -49,17 +49,14 @@ func (r *CarReadWriteStoreTracker) Get(key string) (*blockstore.ReadWrite, error
 	return nil, xerrors.Errorf("could not get blockstore for key %s: %w", key, ErrNotFound)
 }
 
+// Note: Calling `Finalize` on the read-write blockstore has been left to the caller here as it's more of a application semantic operation rather than a "cleanup"
+// operation.
 func (r *CarReadWriteStoreTracker) CleanBlockstore(key string) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
-	if bs, ok := r.stores[key]; ok {
+	if _, ok := r.stores[key]; ok {
 		delete(r.stores, key)
-
-		// calling a Finalize on a read-write blockstore is equivalent to closing it.
-		if err := bs.Finalize(); err != nil {
-			return xerrors.Errorf("finalize call failed: %w", err)
-		}
 	}
 
 	return nil
