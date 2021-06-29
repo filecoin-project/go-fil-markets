@@ -1,6 +1,7 @@
 package storagemarket_test
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"os"
@@ -8,9 +9,11 @@ import (
 	"testing"
 	"time"
 
+	"github.com/filecoin-project/go-fil-markets/shared"
 	"github.com/filecoin-project/go-fil-markets/storagemarket/impl/clientutils"
 	"github.com/ipfs/go-datastore"
-	carv2 "github.com/ipld/go-car/v2"
+	"github.com/ipld/go-car"
+	"github.com/ipld/go-car/v2/blockstore"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -221,12 +224,18 @@ func TestMakeDealOffline(t *testing.T) {
 	assert.True(t, pd.ProposalCid.Equals(proposalCid))
 	shared_testutil.AssertDealState(t, storagemarket.StorageDealWaitingForData, pd.State)
 
-	carv2Reader, err := carv2.NewReaderMmap(h.CARv2FilePath)
+	// Do a Selective CARv1 traversal on the CARv2 file  to get a deterministic CARv1 that we can import on the miner side.
+	rdOnly, err := blockstore.OpenReadOnly(h.CARv2FilePath, false)
 	require.NoError(t, err)
+	sc := car.NewSelectiveCar(ctx, rdOnly, []car.Dag{{Root: h.PayloadCid, Selector: shared.AllSelector()}})
+	prepared, err := sc.Prepare()
+	require.NoError(t, err)
+	carBuf := new(bytes.Buffer)
+	require.NoError(t, prepared.Write(carBuf))
+	require.NoError(t, rdOnly.Close())
 
-	err = h.Provider.ImportDataForDeal(ctx, pd.ProposalCid, carv2Reader.CarV1Reader())
+	err = h.Provider.ImportDataForDeal(ctx, pd.ProposalCid, carBuf)
 	require.NoError(t, err)
-	require.NoError(t, carv2Reader.Close())
 
 	h.WaitForClientEvent(&wg, storagemarket.ClientEventDealExpired)
 	h.WaitForProviderEvent(&wg, storagemarket.ProviderEventDealExpired)
