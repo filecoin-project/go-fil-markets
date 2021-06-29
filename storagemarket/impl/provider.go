@@ -215,6 +215,7 @@ func (p *Provider) HandleDealStream(s network.StorageDealStream) {
 	}
 }
 
+// TODO Write a one time script that registers shards for all Pieces that a miner has.
 func (p *Provider) receiveDeal(s network.StorageDealStream) error {
 	proposal, err := s.ReadDealProposal()
 	if err != nil {
