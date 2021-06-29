@@ -13,6 +13,7 @@ import (
 
 	blocks "github.com/ipfs/go-block-format"
 	"github.com/ipfs/go-blockservice"
+	"github.com/ipfs/go-cid"
 	"github.com/ipfs/go-datastore"
 	"github.com/ipfs/go-datastore/namespace"
 	dss "github.com/ipfs/go-datastore/sync"
@@ -25,6 +26,7 @@ import (
 	unixfile "github.com/ipfs/go-unixfs/file"
 	"github.com/ipfs/go-unixfs/importer/balanced"
 	"github.com/ipfs/go-unixfs/importer/helpers"
+	"github.com/ipld/go-car/v2/blockstore"
 	"github.com/ipld/go-ipld-prime"
 	cidlink "github.com/ipld/go-ipld-prime/linking/cid"
 	"github.com/libp2p/go-libp2p-core/host"
@@ -161,7 +163,7 @@ const unixfsLinksPerLevel = 1024
 // LoadUnixFSFile injects the fixture `filename` into the given blockstore from the
 // fixtures directory. If useSecondNode is true, fixture is injected to the second node;
 // otherwise the first node gets it
-func (ltd *Libp2pTestData) LoadUnixFSFile(t *testing.T, fixturesPath string, useSecondNode bool) ipld.Link {
+func (ltd *Libp2pTestData) LoadUnixFSFile(t *testing.T, fixturesPath string, useSecondNode bool) (ipld.Link, string) {
 	var dagService ipldformat.DAGService
 	if useSecondNode {
 		dagService = ltd.DagService2
@@ -174,7 +176,7 @@ func (ltd *Libp2pTestData) LoadUnixFSFile(t *testing.T, fixturesPath string, use
 // LoadUnixFSFileToStore injects the fixture `filename` from the
 // fixtures directory, creating a new multistore in the process. If useSecondNode is true,
 // fixture is injected to the second node. Otherwise the first node gets it
-func (ltd *Libp2pTestData) LoadUnixFSFileToStore(t *testing.T, fixturesPath string, useSecondNode bool) (ipld.Link, multistore.StoreID) {
+func (ltd *Libp2pTestData) LoadUnixFSFileToStore(t *testing.T, fixturesPath string, useSecondNode bool) (ipld.Link, string) {
 	var storeID multistore.StoreID
 	var dagService ipldformat.DAGService
 	if useSecondNode {
@@ -188,12 +190,11 @@ func (ltd *Libp2pTestData) LoadUnixFSFileToStore(t *testing.T, fixturesPath stri
 		require.NoError(t, err)
 		dagService = store.DAG
 	}
-	link := ltd.loadUnixFSFile(t, fixturesPath, dagService)
-	return link, storeID
+	link, carv2FilePath := ltd.loadUnixFSFile(t, fixturesPath, dagService)
+	return link, carv2FilePath
 }
 
-func (ltd *Libp2pTestData) loadUnixFSFile(t *testing.T, fixturesPath string, dagService ipldformat.DAGService) ipld.Link {
-
+func (ltd *Libp2pTestData) loadUnixFSFile(t *testing.T, fixturesPath string, dagService ipldformat.DAGService) (ipld.Link, string) {
 	// read in a fixture file
 	fpath, err := filepath.Abs(filepath.Join(thisDir(t), "..", fixturesPath))
 	require.NoError(t, err)
@@ -226,8 +227,54 @@ func (ltd *Libp2pTestData) loadUnixFSFile(t *testing.T, fixturesPath string, dag
 
 	// save the original files bytes
 	ltd.OrigBytes = buf.Bytes()
+	require.NoError(t, file.Close())
+	require.NoError(t, f.Close())
 
-	return cidlink.Link{Cid: nd.Cid()}
+	// Create a UnixFS DAG again AND generate a CARv2 file using a CARv2 read-write blockstore now that we have the root.
+	carV2Path := genWithCARv2Blockstore(t, fpath, nd.Cid())
+
+	return cidlink.Link{Cid: nd.Cid()}, carV2Path
+}
+
+func genWithCARv2Blockstore(t *testing.T, fPath string, root cid.Cid) string {
+	ctx := context.Background()
+	tmp, err := os.CreateTemp("", "rand")
+	require.NoError(t, err)
+	require.NoError(t, tmp.Close())
+
+	rw, err := blockstore.NewReadWrite(tmp.Name(), []cid.Cid{root})
+	require.NoError(t, err)
+
+	bsvc := blockservice.New(rw, offline.Exchange(rw))
+	dag := merkledag.NewDAGService(bsvc)
+	// import to UnixFS
+	bufferedDS := ipldformat.NewBufferedDAG(ctx, dag)
+
+	params := helpers.DagBuilderParams{
+		Maxlinks:   unixfsLinksPerLevel,
+		RawLeaves:  true,
+		CidBuilder: nil,
+		Dagserv:    bufferedDS,
+	}
+
+	f, err := os.Open(fPath)
+	require.NoError(t, err)
+
+	db, err := params.New(chunk.NewSizeSplitter(f, int64(unixfsChunkSize)))
+	require.NoError(t, err)
+
+	// TODO: The below lines fail with "not found".
+	nd, err := balanced.Layout(db)
+	require.NoError(t, err)
+
+	err = bufferedDS.Commit()
+	require.NoError(t, err)
+
+	require.NoError(t, rw.Finalize())
+	require.Equal(t, root, nd.Cid())
+
+	// return the path of the CARv2 file.
+	return tmp.Name()
 }
 
 func thisDir(t *testing.T) string {

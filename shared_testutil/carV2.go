@@ -25,7 +25,7 @@ func GenCARV2(t *testing.T, carV1Path string) (root cid.Cid, carV2FilePath strin
 
 	tmp, err := os.CreateTemp("", "rand")
 	require.NoError(t, err)
-	defer tmp.Close()
+	require.NoError(t, tmp.Close())
 
 	ingester, err := blockstore.NewReadWrite(tmp.Name(), r.Header.Roots)
 	require.NoError(t, err)

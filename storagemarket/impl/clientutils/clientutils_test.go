@@ -47,14 +47,6 @@ func TestCommP(t *testing.T) {
 			require.Equal(t, cid.Undef, respcid)
 			require.EqualValues(t, 0, ressize)
 		})
-
-		t.Run("when file path is not a valid CARv2", func(t *testing.T) {
-			respcid, ressize, err := clientutils.CommP(ctx, "testdata/test.car", data)
-			require.Error(t, err)
-			require.Contains(t, err.Error(), "invalid car version")
-			require.Equal(t, respcid, cid.Undef)
-			require.Equal(t, ressize, abi.UnpaddedPieceSize(0))
-		})
 	})
 }
 
@@ -73,6 +65,8 @@ func TestCommPGeneration(t *testing.T) {
 	respcid, _, err := clientutils.CommP(ctx, CARv2Path, data)
 	require.NoError(t, err)
 	require.NotEqual(t, respcid, cid.Undef)
+
+	// TODO Generate CommP with the same file again -> should match.
 
 	// TODO Generate CommP with a different file -> should not match.
 }
