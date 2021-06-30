@@ -41,15 +41,24 @@ type StorageHarness struct {
 }
 
 func NewHarness(t *testing.T, ctx context.Context, useStore bool, cd testnodes.DelayFakeCommonNode, pd testnodes.DelayFakeCommonNode,
-	disableNewDeals bool) *StorageHarness {
+	disableNewDeals bool, fName ...string) *StorageHarness {
 	smState := testnodes.NewStorageMarketState()
 	td := shared_testutil.NewLibp2pTestData(ctx, t)
 	deps := dependencies.NewDependenciesWithTestData(t, ctx, td, smState, "", cd, pd)
-	return NewHarnessWithTestData(t, td, deps, useStore, disableNewDeals)
+
+	return NewHarnessWithTestData(t, td, deps, useStore, disableNewDeals, fName...)
 }
 
-func NewHarnessWithTestData(t *testing.T, td *shared_testutil.Libp2pTestData, deps *dependencies.StorageDependencies, useStore bool, disableNewDeals bool) *StorageHarness {
-	fpath := filepath.Join("storagemarket", "fixtures", "payload.txt")
+func NewHarnessWithTestData(t *testing.T, td *shared_testutil.Libp2pTestData, deps *dependencies.StorageDependencies, useStore bool, disableNewDeals bool,
+	fName ...string) *StorageHarness {
+	var file string
+	if len(fName) == 0 {
+		file = "payload.txt"
+	} else {
+		file = fName[0]
+	}
+
+	fpath := filepath.Join("storagemarket", "fixtures", file)
 	var rootLink ipld.Link
 
 	var carV2FilePath string
