@@ -11,6 +11,7 @@ import (
 	"sync"
 	"testing"
 
+	"github.com/ipfs/go-cid"
 	logging "github.com/ipfs/go-log/v2"
 	"github.com/stretchr/testify/require"
 	"golang.org/x/xerrors"
@@ -53,6 +54,15 @@ type TestRetrievalProviderNode struct {
 	received         map[sectorKey]struct{}
 	lk               sync.Mutex
 	expectedVouchers map[expectedVoucherKey]voucherResult
+
+	expectedPricingParamDeals []abi.DealID
+	receivedPricingParamDeals []abi.DealID
+
+	expectedPricingPieceCID cid.Cid
+	receivedPricingPieceCID cid.Cid
+
+	unsealed         map[sectorKey]struct{}
+	isVerified       bool
 	receivedVouchers []abi.TokenAmount
 	unsealPaused     chan struct{}
 }
@@ -66,7 +76,35 @@ func NewTestRetrievalProviderNode() *TestRetrievalProviderNode {
 		expectations:     make(map[sectorKey]struct{}),
 		received:         make(map[sectorKey]struct{}),
 		expectedVouchers: make(map[expectedVoucherKey]voucherResult),
+		unsealed:         make(map[sectorKey]struct{}),
 	}
+}
+
+func (trpn *TestRetrievalProviderNode) IsUnsealed(ctx context.Context, sectorID abi.SectorNumber, offset abi.UnpaddedPieceSize, length abi.UnpaddedPieceSize) (bool, error) {
+	_, ok := trpn.unsealed[sectorKey{sectorID, offset, length}]
+	return ok, nil
+}
+
+func (trpn *TestRetrievalProviderNode) MarkUnsealed(ctx context.Context, sectorID abi.SectorNumber, offset abi.UnpaddedPieceSize, length abi.UnpaddedPieceSize) {
+	trpn.unsealed[sectorKey{sectorID, offset, length}] = struct{}{}
+}
+
+func (trpn *TestRetrievalProviderNode) MarkVerified() {
+	trpn.isVerified = true
+}
+
+func (trpn *TestRetrievalProviderNode) ExpectPricingParams(pieceCID cid.Cid, deals []abi.DealID) {
+	trpn.expectedPricingPieceCID = pieceCID
+	trpn.expectedPricingParamDeals = deals
+}
+
+func (trpn *TestRetrievalProviderNode) GetRetrievalPricingInput(_ context.Context, pieceCID cid.Cid, deals []abi.DealID) (retrievalmarket.PricingInput, error) {
+	trpn.receivedPricingParamDeals = deals
+	trpn.receivedPricingPieceCID = pieceCID
+
+	return retrievalmarket.PricingInput{
+		VerifiedDeal: trpn.isVerified,
+	}, nil
 }
 
 // StubUnseal stubs a response to attempting to unseal a sector with the given paramters
@@ -125,6 +163,9 @@ func (trpn *TestRetrievalProviderNode) UnsealSector(ctx context.Context, sectorI
 func (trpn *TestRetrievalProviderNode) VerifyExpectations(t *testing.T) {
 	require.Equal(t, len(trpn.expectedVouchers), len(trpn.receivedVouchers))
 	require.Equal(t, trpn.expectations, trpn.received)
+	require.Equal(t, trpn.expectedPricingPieceCID, trpn.receivedPricingPieceCID)
+
+	require.Equal(t, trpn.expectedPricingParamDeals, trpn.receivedPricingParamDeals)
 }
 
 // SavePaymentVoucher simulates saving a payment voucher with a stubbed result

@@ -2,10 +2,12 @@ package retrievalmarket_test
 
 import (
 	"bytes"
+	"encoding/json"
 	"testing"
 
 	"github.com/ipld/go-ipld-prime/codec/dagcbor"
 	basicnode "github.com/ipld/go-ipld-prime/node/basic"
+	"github.com/libp2p/go-libp2p-core/test"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -39,6 +41,33 @@ func TestParamsMarshalUnmarshal(t *testing.T) {
 	assert.NoError(t, err)
 	sel := nb.Build()
 	assert.Equal(t, sel, allSelector)
+}
+
+func TestPricingInputMarshalUnmarshalJSON(t *testing.T) {
+	pid := test.RandPeerIDFatal(t)
+
+	in := retrievalmarket.PricingInput{
+		PayloadCID:   tut.GenerateCids(1)[0],
+		PieceCID:     tut.GenerateCids(1)[0],
+		PieceSize:    abi.UnpaddedPieceSize(100),
+		Client:       pid,
+		VerifiedDeal: true,
+		Unsealed:     true,
+		CurrentAsk: retrievalmarket.Ask{
+			PricePerByte:            big.Zero(),
+			UnsealPrice:             big.Zero(),
+			PaymentInterval:         0,
+			PaymentIntervalIncrease: 0,
+		},
+	}
+
+	bz, err := json.Marshal(in)
+	require.NoError(t, err)
+
+	resp2 := retrievalmarket.PricingInput{}
+	require.NoError(t, json.Unmarshal(bz, &resp2))
+
+	require.Equal(t, in, resp2)
 }
 
 func TestParamsIntervalBounds(t *testing.T) {
