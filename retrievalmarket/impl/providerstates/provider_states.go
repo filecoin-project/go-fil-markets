@@ -30,7 +30,23 @@ type ProviderDealEnvironment interface {
 }
 
 func firstSuccessfulUnseal(ctx context.Context, node rm.RetrievalProviderNode, pieceInfo piecestore.PieceInfo) (io.ReadCloser, error) {
+	// prefer an unsealed sector containing the piece if one exists
+	for _, deal := range pieceInfo.Deals {
+		isUnsealed, err := node.IsUnsealed(ctx, deal.SectorID, deal.Offset.Unpadded(), deal.Length.Unpadded())
+		if err != nil {
+			continue
+		}
+		if isUnsealed {
+			// UnsealSector will NOT unseal a sector if we already have an unsealed copy lying around.
+			reader, err := node.UnsealSector(ctx, deal.SectorID, deal.Offset.Unpadded(), deal.Length.Unpadded())
+			if err == nil {
+				return reader, nil
+			}
+		}
+	}
+
 	lastErr := xerrors.New("no sectors found to unseal from")
+	// if there is no unsealed sector containing the piece, just read the piece from the first sector we are able to unseal.
 	for _, deal := range pieceInfo.Deals {
 		reader, err := node.UnsealSector(ctx, deal.SectorID, deal.Offset.Unpadded(), deal.Length.Unpadded())
 		if err == nil {

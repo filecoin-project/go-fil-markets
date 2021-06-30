@@ -420,9 +420,6 @@ func newRetrievalHarness(ctx context.Context, t *testing.T, sh *testharness.Stor
 	pieceStore.ExpectCID(payloadCID, cidInfo)
 	pieceStore.ExpectPiece(expectedPiece, pieceInfo)
 	providerDs := namespace.Wrap(sh.TestData.Ds2, datastore.NewKey("/retrievals/provider"))
-	provider, err := retrievalimpl.NewProvider(providerPaymentAddr, providerNode, nw2, pieceStore, sh.TestData.MultiStore2, sh.DTProvider, providerDs)
-	require.NoError(t, err)
-	tut.StartAndWaitForReady(ctx, t, provider)
 
 	var p retrievalmarket.Params
 	if len(params) == 0 {
@@ -436,12 +433,20 @@ func newRetrievalHarness(ctx context.Context, t *testing.T, sh *testharness.Stor
 		p = params[0]
 	}
 
-	ask := provider.GetAsk()
-	ask.PaymentInterval = p.PaymentInterval
-	ask.PaymentIntervalIncrease = p.PaymentIntervalIncrease
-	ask.PricePerByte = p.PricePerByte
-	ask.UnsealPrice = p.UnsealPrice
-	provider.SetAsk(ask)
+	priceFunc := func(ctx context.Context, dealPricingParams retrievalmarket.PricingInput) (retrievalmarket.Ask, error) {
+		ask := retrievalmarket.Ask{}
+		ask.PaymentInterval = p.PaymentInterval
+		ask.PaymentIntervalIncrease = p.PaymentIntervalIncrease
+		ask.PricePerByte = p.PricePerByte
+		ask.UnsealPrice = p.UnsealPrice
+
+		return ask, nil
+	}
+
+	provider, err := retrievalimpl.NewProvider(providerPaymentAddr, providerNode, nw2, pieceStore, sh.TestData.MultiStore2, sh.DTProvider, providerDs,
+		priceFunc)
+	require.NoError(t, err)
+	tut.StartAndWaitForReady(ctx, t, provider)
 
 	return &retrievalHarness{
 		Ctx:             ctx,
