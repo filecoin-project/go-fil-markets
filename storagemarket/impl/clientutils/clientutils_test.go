@@ -50,13 +50,29 @@ func TestCommP(t *testing.T) {
 	})
 }
 
-func TestCommPGeneration(t *testing.T) {
-	carV1Path := filepath.Join("storagemarket", "fixtures", "test.car")
+func TestCommPSuccess(t *testing.T) {
 	ctx := context.Background()
-	root, CARv2Path := shared_testutil.GenCARV2(t, carV1Path)
+
+	file1 := filepath.Join("storagemarket", "fixtures", "payload.txt")
+	file2 := filepath.Join("storagemarket", "fixtures", "payload2.txt")
+
+	commp1 := genCommPFromFile(t, ctx, file1)
+	commP2 := genCommPFromFile(t, ctx, file2)
+
+	commP3 := genCommPFromFile(t, ctx, file1)
+	commP4 := genCommPFromFile(t, ctx, file2)
+
+	// commP matches for the same files but is different for different files.
+	require.Equal(t, commp1, commP3)
+	require.Equal(t, commP2, commP4)
+	require.NotEqual(t, commp1, commP2)
+	require.NotEqual(t, commP3, commP4)
+}
+
+func genCommPFromFile(t *testing.T, ctx context.Context, filePath string) cid.Cid {
+	root, CARv2Path := shared_testutil.GenCARv2FromNormalFile(t, filePath)
 	require.NotEmpty(t, CARv2Path)
 	defer os.Remove(CARv2Path)
-
 	data := &storagemarket.DataRef{
 		TransferType: storagemarket.TTGraphsync,
 		Root:         root,
@@ -66,9 +82,7 @@ func TestCommPGeneration(t *testing.T) {
 	require.NoError(t, err)
 	require.NotEqual(t, respcid, cid.Undef)
 
-	// TODO Generate CommP with the same file again -> should match.
-
-	// TODO Generate CommP with a different file -> should not match.
+	return respcid
 }
 
 func TestLabelField(t *testing.T) {

@@ -9,8 +9,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/filecoin-project/go-fil-markets/shared"
-	"github.com/filecoin-project/go-fil-markets/storagemarket/impl/clientutils"
 	"github.com/ipfs/go-datastore"
 	"github.com/ipld/go-car"
 	"github.com/ipld/go-car/v2/blockstore"
@@ -23,8 +21,10 @@ import (
 	dtnet "github.com/filecoin-project/go-data-transfer/network"
 	"github.com/filecoin-project/go-state-types/big"
 
+	"github.com/filecoin-project/go-fil-markets/shared"
 	"github.com/filecoin-project/go-fil-markets/shared_testutil"
 	"github.com/filecoin-project/go-fil-markets/storagemarket"
+	"github.com/filecoin-project/go-fil-markets/storagemarket/impl/clientutils"
 	"github.com/filecoin-project/go-fil-markets/storagemarket/testharness"
 	"github.com/filecoin-project/go-fil-markets/storagemarket/testharness/dependencies"
 	"github.com/filecoin-project/go-fil-markets/storagemarket/testnodes"
@@ -451,6 +451,7 @@ func TestRestartOnlyProviderDataTransfer(t *testing.T) {
 }
 
 // FIXME Gets hung sometimes
+// TODO Get this work after CARv2 blockstore supports resumption.
 func TestRestartClient(t *testing.T) {
 	testCases := map[string]struct {
 		stopAtClientEvent   storagemarket.ClientEvent
