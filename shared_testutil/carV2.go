@@ -22,7 +22,7 @@ import (
 )
 
 // GenCARv2FromNormalFile generates a CARv2 file from a "normal" i.e. non-CAR file and returns the file path.
-func GenCARv2FromNormalFile(t *testing.T, normalFilePath string) (root cid.Cid, carV2FilePath string) {
+func GenCARv2FromNormalFile(t *testing.T, normalFilePath string) (root cid.Cid, carV2FilePath string, blockstore bstore.Blockstore) {
 	ctx := context.Background()
 	// read in a fixture file
 	fpath, err := filepath.Abs(filepath.Join(thisDir(t), "..", normalFilePath))
@@ -56,5 +56,5 @@ func GenCARv2FromNormalFile(t *testing.T, normalFilePath string) (root cid.Cid, 
 	// Create a UnixFS DAG again AND generate a CARv2 file using a CARv2 read-write blockstore now that we have the root.
 	carV2Path := genWithCARv2Blockstore(t, fpath, nd.Cid())
 
-	return nd.Cid(), carV2Path
+	return nd.Cid(), carV2Path, bs
 }

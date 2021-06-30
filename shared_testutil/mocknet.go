@@ -263,7 +263,6 @@ func genWithCARv2Blockstore(t *testing.T, fPath string, root cid.Cid) string {
 	db, err := params.New(chunk.NewSizeSplitter(f, int64(unixfsChunkSize)))
 	require.NoError(t, err)
 
-	// TODO: The below lines fail with "not found".
 	nd, err := balanced.Layout(db)
 	require.NoError(t, err)
 
