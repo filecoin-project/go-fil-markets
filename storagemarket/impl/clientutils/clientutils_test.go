@@ -11,7 +11,6 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/filecoin-project/go-fil-markets/shared"
 	"github.com/ipfs/go-cid"
 	"github.com/ipld/go-car"
 	carv2 "github.com/ipld/go-car/v2"
@@ -20,6 +19,7 @@ import (
 
 	"github.com/filecoin-project/go-state-types/abi"
 
+	"github.com/filecoin-project/go-fil-markets/shared"
 	"github.com/filecoin-project/go-fil-markets/shared_testutil"
 	"github.com/filecoin-project/go-fil-markets/storagemarket"
 	"github.com/filecoin-project/go-fil-markets/storagemarket/impl/clientutils"
