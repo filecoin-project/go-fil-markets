@@ -9,6 +9,8 @@ import (
 	"testing"
 	"time"
 
+	dagstore2 "github.com/filecoin-project/go-fil-markets/dagstore"
+
 	"github.com/ipfs/go-cid"
 	"github.com/ipfs/go-datastore"
 	"github.com/ipfs/go-datastore/namespace"
@@ -34,7 +36,6 @@ import (
 	"github.com/filecoin-project/go-fil-markets/shared"
 	"github.com/filecoin-project/go-fil-markets/shared_testutil"
 	tut "github.com/filecoin-project/go-fil-markets/shared_testutil"
-	"github.com/filecoin-project/go-fil-markets/shared_testutil/dagstore"
 	"github.com/filecoin-project/go-fil-markets/storagemarket"
 	"github.com/filecoin-project/go-fil-markets/storagemarket/impl/clientutils"
 	"github.com/filecoin-project/go-fil-markets/storagemarket/testharness"
@@ -462,7 +463,7 @@ func newRetrievalHarness(ctx context.Context, t *testing.T, sh *testharness.Stor
 		return ask, nil
 	}
 
-	mountApi := dagstore.NewFSMount(pieceStore, providerNode)
+	mountApi := dagstore2.NewMount(pieceStore, providerNode)
 	provider, err := retrievalimpl.NewProvider(
 		providerPaymentAddr, providerNode, nw2, pieceStore, sh.TestData.DagStore, sh.DTProvider, providerDs,
 		priceFunc, mountApi)

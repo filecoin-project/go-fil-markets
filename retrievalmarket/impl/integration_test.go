@@ -29,6 +29,7 @@ import (
 	"github.com/filecoin-project/go-state-types/big"
 	"github.com/filecoin-project/specs-actors/actors/builtin/paych"
 
+	dagstore "github.com/filecoin-project/go-fil-markets/dagstore"
 	"github.com/filecoin-project/go-fil-markets/piecestore"
 	"github.com/filecoin-project/go-fil-markets/retrievalmarket"
 	retrievalimpl "github.com/filecoin-project/go-fil-markets/retrievalmarket/impl"
@@ -37,7 +38,6 @@ import (
 	rmtesting "github.com/filecoin-project/go-fil-markets/retrievalmarket/testing"
 	"github.com/filecoin-project/go-fil-markets/shared"
 	tut "github.com/filecoin-project/go-fil-markets/shared_testutil"
-	"github.com/filecoin-project/go-fil-markets/shared_testutil/dagstore"
 )
 
 func TestClientCanMakeQueryToProvider(t *testing.T) {
@@ -167,7 +167,7 @@ func requireSetupTestClientAndProvider(ctx context.Context, t *testing.T, payChA
 		return ask, nil
 	}
 
-	mountApi := dagstore.NewFSMount(pieceStore, providerNode)
+	mountApi := dagstore.NewMount(pieceStore, providerNode)
 	provider, err := retrievalimpl.NewProvider(
 		paymentAddress, providerNode, nw2, pieceStore, testData.DagStore, dt2, providerDs,
 		priceFunc, mountApi)
@@ -674,7 +674,7 @@ func setupProvider(
 		return ask, nil
 	}
 
-	mountApi := dagstore.NewFSMount(pieceStore, providerNode)
+	mountApi := dagstore.NewMount(pieceStore, providerNode)
 	provider, err := retrievalimpl.NewProvider(providerPaymentAddr, providerNode, nw2,
 		pieceStore, testData.DagStore, dt2, providerDs, priceFunc, mountApi,
 		opts...)

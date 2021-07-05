@@ -17,7 +17,7 @@ type DealInfo struct {
 	DealID   abi.DealID
 	SectorID abi.SectorNumber
 	Offset   abi.PaddedPieceSize
-	Length   abi.PaddedPieceSize
+	Length   abi.UnpaddedPieceSize
 }
 
 // BlockLocation is information about where a given block is relative to the overall piece

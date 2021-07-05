@@ -8,6 +8,8 @@ import (
 	"testing"
 	"time"
 
+	mktdagstore "github.com/filecoin-project/go-fil-markets/dagstore"
+
 	"github.com/ipfs/go-cid"
 	"github.com/ipfs/go-datastore"
 	"github.com/ipfs/go-datastore/namespace"
@@ -145,7 +147,7 @@ func TestDynamicPricing(t *testing.T) {
 		ds := dss.MutexWrap(datastore.NewMapDatastore())
 		dagStore := dagstore.NewMockDagStore()
 		dt := tut.NewTestDataTransfer()
-		mnt := dagstore.NewFSMount(pieceStore, node)
+		mnt := mktdagstore.NewMount(pieceStore, node)
 		c, err := retrievalimpl.NewProvider(expectedAddress, node, net, pieceStore, dagStore, dt, ds, pFnc, mnt)
 		require.NoError(t, err)
 		tut.StartAndWaitForReady(ctx, t, c)
@@ -257,7 +259,7 @@ func TestDynamicPricing(t *testing.T) {
 			},
 			nodeFunc: func(n *testnodes.TestRetrievalProviderNode) {
 				p := piece2.Deals[0]
-				n.MarkUnsealed(context.TODO(), p.SectorID, p.Offset.Unpadded(), p.Length.Unpadded())
+				n.MarkUnsealed(context.TODO(), p.SectorID, p.Offset.Unpadded(), p.Length)
 				n.ExpectPricingParams(expectedPieceCID2, []abi.DealID{1, 11, 2, 22, 222})
 			},
 			expFunc: func(t *testing.T, pieceStore *tut.TestPieceStore) {
@@ -282,7 +284,7 @@ func TestDynamicPricing(t *testing.T) {
 			},
 			nodeFunc: func(n *testnodes.TestRetrievalProviderNode) {
 				p := piece2.Deals[0]
-				n.MarkUnsealed(context.TODO(), p.SectorID, p.Offset.Unpadded(), p.Length.Unpadded())
+				n.MarkUnsealed(context.TODO(), p.SectorID, p.Offset.Unpadded(), p.Length)
 				n.MarkVerified()
 				n.ExpectPricingParams(expectedPieceCID2, []abi.DealID{1, 11, 2, 22, 222})
 			},
@@ -308,7 +310,7 @@ func TestDynamicPricing(t *testing.T) {
 			},
 			nodeFunc: func(n *testnodes.TestRetrievalProviderNode) {
 				p := piece2.Deals[0]
-				n.MarkUnsealed(context.TODO(), p.SectorID, p.Offset.Unpadded(), p.Length.Unpadded())
+				n.MarkUnsealed(context.TODO(), p.SectorID, p.Offset.Unpadded(), p.Length)
 				n.MarkVerified()
 				n.ExpectPricingParams(expectedPieceCID2, []abi.DealID{1, 11, 2, 22, 222})
 			},
@@ -341,7 +343,7 @@ func TestDynamicPricing(t *testing.T) {
 			},
 			nodeFunc: func(n *testnodes.TestRetrievalProviderNode) {
 				p := piece2.Deals[0]
-				n.MarkUnsealed(context.TODO(), p.SectorID, p.Offset.Unpadded(), p.Length.Unpadded())
+				n.MarkUnsealed(context.TODO(), p.SectorID, p.Offset.Unpadded(), p.Length)
 				n.MarkVerified()
 				n.ExpectPricingParams(expectedPieceCID2, []abi.DealID{1, 11, 2, 22, 222})
 			},
@@ -410,7 +412,7 @@ func TestDynamicPricing(t *testing.T) {
 			},
 			nodeFunc: func(n *testnodes.TestRetrievalProviderNode) {
 				p := piece2.Deals[0]
-				n.MarkUnsealed(context.TODO(), p.SectorID, p.Offset.Unpadded(), p.Length.Unpadded())
+				n.MarkUnsealed(context.TODO(), p.SectorID, p.Offset.Unpadded(), p.Length)
 				n.ExpectPricingParams(expectedPieceCID1, []abi.DealID{1, 11})
 			},
 			expFunc: func(t *testing.T, pieceStore *tut.TestPieceStore) {
@@ -437,7 +439,7 @@ func TestDynamicPricing(t *testing.T) {
 			},
 			nodeFunc: func(n *testnodes.TestRetrievalProviderNode) {
 				p := piece1.Deals[0]
-				n.MarkUnsealed(context.TODO(), p.SectorID, p.Offset.Unpadded(), p.Length.Unpadded())
+				n.MarkUnsealed(context.TODO(), p.SectorID, p.Offset.Unpadded(), p.Length)
 				n.ExpectPricingParams(expectedPieceCID2, []abi.DealID{2, 22, 222})
 			},
 			expFunc: func(t *testing.T, pieceStore *tut.TestPieceStore) {
@@ -465,7 +467,7 @@ func TestDynamicPricing(t *testing.T) {
 			},
 			nodeFunc: func(n *testnodes.TestRetrievalProviderNode) {
 				p := piece2.Deals[0]
-				n.MarkUnsealed(context.TODO(), p.SectorID, p.Offset.Unpadded(), p.Length.Unpadded())
+				n.MarkUnsealed(context.TODO(), p.SectorID, p.Offset.Unpadded(), p.Length)
 				n.ExpectPricingParams(expectedPieceCID1, []abi.DealID{1, 11})
 				n.MarkVerified()
 			},
@@ -493,7 +495,7 @@ func TestDynamicPricing(t *testing.T) {
 			},
 			nodeFunc: func(n *testnodes.TestRetrievalProviderNode) {
 				p := piece1.Deals[0]
-				n.MarkUnsealed(context.TODO(), p.SectorID, p.Offset.Unpadded(), p.Length.Unpadded())
+				n.MarkUnsealed(context.TODO(), p.SectorID, p.Offset.Unpadded(), p.Length)
 				n.MarkVerified()
 				n.ExpectPricingParams(expectedPieceCID1, []abi.DealID{1, 11})
 			},
@@ -521,7 +523,7 @@ func TestDynamicPricing(t *testing.T) {
 			},
 			nodeFunc: func(n *testnodes.TestRetrievalProviderNode) {
 				p := piece2.Deals[0]
-				n.MarkUnsealed(context.TODO(), p.SectorID, p.Offset.Unpadded(), p.Length.Unpadded())
+				n.MarkUnsealed(context.TODO(), p.SectorID, p.Offset.Unpadded(), p.Length)
 				n.MarkVerified()
 				n.ExpectPricingParams(expectedPieceCID2, []abi.DealID{2, 22, 222})
 			},
@@ -691,7 +693,7 @@ func TestHandleQueryStream(t *testing.T) {
 			return ask, nil
 		}
 
-		mnt := dagstore.NewFSMount(pieceStore, node)
+		mnt := mktdagstore.NewMount(pieceStore, node)
 		c, err := retrievalimpl.NewProvider(expectedAddress, node, net, pieceStore, dagStore, dt, ds, priceFunc, mnt)
 		require.NoError(t, err)
 
@@ -734,7 +736,7 @@ func TestHandleQueryStream(t *testing.T) {
 		{name: "When PieceCID is not provided, prefer a piece for which an unsealed sector already exists and price it accordingly",
 			nodeFunc: func(n *testnodes.TestRetrievalProviderNode) {
 				p := expectedPiece2.Deals[0]
-				n.MarkUnsealed(context.TODO(), p.SectorID, p.Offset.Unpadded(), p.Length.Unpadded())
+				n.MarkUnsealed(context.TODO(), p.SectorID, p.Offset.Unpadded(), p.Length)
 			},
 			expFunc: func(t *testing.T, pieceStore *tut.TestPieceStore) {
 				pieceStore.ExpectCID(payloadCID, expectedCIDInfo)
@@ -909,7 +911,7 @@ func TestProvider_Construct(t *testing.T) {
 
 	pieceStore := tut.NewTestPieceStore()
 	node := testnodes.NewTestRetrievalProviderNode()
-	mnt := dagstore.NewFSMount(pieceStore, node)
+	mnt := mktdagstore.NewMount(pieceStore, node)
 	_, err := retrievalimpl.NewProvider(
 		spect.NewIDAddr(t, 2344),
 		node,
@@ -965,7 +967,7 @@ func TestProviderConfigOpts(t *testing.T) {
 
 	pieceStore := tut.NewTestPieceStore()
 	node := testnodes.NewTestRetrievalProviderNode()
-	mnt := dagstore.NewFSMount(pieceStore, node)
+	mnt := mktdagstore.NewMount(pieceStore, node)
 	p, err := retrievalimpl.NewProvider(
 		spect.NewIDAddr(t, 2344),
 		node,
@@ -1147,7 +1149,7 @@ func TestProviderMigrations(t *testing.T) {
 
 	pieceStore := tut.NewTestPieceStore()
 	node := testnodes.NewTestRetrievalProviderNode()
-	mnt := dagstore.NewFSMount(pieceStore, node)
+	mnt := mktdagstore.NewMount(pieceStore, node)
 	retrievalProvider, err := retrievalimpl.NewProvider(
 		spect.NewIDAddr(t, 2344),
 		node,

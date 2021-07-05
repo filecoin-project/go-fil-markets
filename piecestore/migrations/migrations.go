@@ -53,7 +53,7 @@ func MigratePieceInfo0To1(oldPi *PieceInfo0) (*piecestore.PieceInfo, error) {
 			DealID:   oldDi.DealID,
 			SectorID: oldDi.SectorID,
 			Offset:   oldDi.Offset,
-			Length:   oldDi.Length,
+			Length:   oldDi.Length.Unpadded(),
 		}
 	}
 	return &piecestore.PieceInfo{

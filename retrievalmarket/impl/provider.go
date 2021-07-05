@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"time"
 
+	mktdagstore "github.com/filecoin-project/go-fil-markets/dagstore"
+
 	"github.com/hannahhoward/go-pubsub"
 	"github.com/ipfs/go-cid"
 	"github.com/ipfs/go-datastore"
@@ -60,7 +62,7 @@ type Provider struct {
 	askStore             retrievalmarket.AskStore
 	disableNewDeals      bool
 	retrievalPricingFunc RetrievalPricingFunc
-	mountApi             dagstore.MountApi
+	mountApi             mktdagstore.MountApi
 	dagStore             dagstore.DagStore
 	readOnlyBlockStores  *carstore.CarReadOnlyStoreTracker
 }
@@ -108,7 +110,7 @@ func NewProvider(minerAddress address.Address,
 	dataTransfer datatransfer.Manager,
 	ds datastore.Batching,
 	retrievalPricingFunc RetrievalPricingFunc,
-	mountApi dagstore.MountApi,
+	mountApi mktdagstore.MountApi,
 	opts ...RetrievalProviderOption,
 ) (retrievalmarket.RetrievalProvider, error) {
 
@@ -351,7 +353,7 @@ func (p *Provider) HandleQueryStream(stream rmnet.RetrievalQueryStream) {
 	}
 
 	answer.Status = retrievalmarket.QueryResponseAvailable
-	answer.Size = uint64(pieceInfo.Deals[0].Length.Unpadded()) // TODO: verify on intermediate
+	answer.Size = uint64(pieceInfo.Deals[0].Length) // TODO: verify on intermediate
 	answer.PieceCIDFound = retrievalmarket.QueryItemAvailable
 
 	storageDeals, err := storageDealsForPiece(query.PieceCID != nil, query.PayloadCID, pieceInfo, p.pieceStore)

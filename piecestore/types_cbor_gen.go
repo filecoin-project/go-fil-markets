@@ -214,7 +214,7 @@ func (t *DealInfo) MarshalCBOR(w io.Writer) error {
 		return err
 	}
 
-	// t.Length (abi.PaddedPieceSize) (uint64)
+	// t.Length (abi.UnpaddedPieceSize) (uint64)
 	if len("Length") > cbg.MaxLength {
 		return xerrors.Errorf("Value in field \"Length\" was too long")
 	}
@@ -311,7 +311,7 @@ func (t *DealInfo) UnmarshalCBOR(r io.Reader) error {
 				t.Offset = abi.PaddedPieceSize(extra)
 
 			}
-			// t.Length (abi.PaddedPieceSize) (uint64)
+			// t.Length (abi.UnpaddedPieceSize) (uint64)
 		case "Length":
 
 			{
@@ -323,7 +323,7 @@ func (t *DealInfo) UnmarshalCBOR(r io.Reader) error {
 				if maj != cbg.MajUnsignedInt {
 					return fmt.Errorf("wrong type for uint64 field")
 				}
-				t.Length = abi.PaddedPieceSize(extra)
+				t.Length = abi.UnpaddedPieceSize(extra)
 
 			}
 

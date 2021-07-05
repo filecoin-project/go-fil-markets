@@ -301,6 +301,7 @@ func WaitForPublish(ctx fsm.Context, environment ProviderDealEnvironment, deal s
 func HandoffDeal(ctx fsm.Context, environment ProviderDealEnvironment, deal storagemarket.MinerDeal) error {
 	var packingInfo *storagemarket.PackingResult
 	var carFilePath string
+	var carFileSize uint64
 	if deal.PiecePath != "" {
 		// Data for offline deals is stored on disk, so if PiecePath is set,
 		// create a Reader from the file path
@@ -309,22 +310,25 @@ func HandoffDeal(ctx fsm.Context, environment ProviderDealEnvironment, deal stor
 			return ctx.Trigger(storagemarket.ProviderEventFileStoreErrored,
 				xerrors.Errorf("reading piece at path %s: %w", deal.PiecePath, err))
 		}
+
 		carFilePath = string(file.OsPath())
+		carFileSize = uint64(file.Size())
 
 		// Hand the deal off to the process that adds it to a sector
-		packingInfo, err = handoffDeal(ctx.Context(), environment, deal, file, uint64(file.Size()))
+		packingInfo, err = handoffDeal(ctx.Context(), environment, deal, file, carFileSize)
 		if err != nil {
 			err = xerrors.Errorf("packing piece at path %s: %w", deal.PiecePath, err)
 			return ctx.Trigger(storagemarket.ProviderEventDealHandoffFailed, err)
 		}
 	} else {
-		carFilePath = deal.CARv2FilePath
-
 		v2r, err := environment.CARv2Reader(deal.CARv2FilePath)
 		if err != nil {
 			return ctx.Trigger(storagemarket.ProviderEventDealHandoffFailed, xerrors.Errorf("failed to open CARv2 file, proposalCid=%s: %w",
 				deal.ProposalCid, err))
 		}
+
+		carFilePath = deal.CARv2FilePath
+		carFileSize = v2r.Header.CarV1Size
 
 		// Hand the deal off to the process that adds it to a sector
 		var packingErr error
@@ -339,7 +343,7 @@ func HandoffDeal(ctx fsm.Context, environment ProviderDealEnvironment, deal stor
 		}
 	}
 
-	if err := recordPiece(environment, deal, packingInfo.SectorNumber, packingInfo.Offset, packingInfo.Size); err != nil {
+	if err := recordPiece(environment, deal, packingInfo.SectorNumber, packingInfo.Offset, carFileSize); err != nil {
 		err = xerrors.Errorf("failed to register deal data for piece %s for retrieval: %w", deal.Ref.PieceCid, err)
 		log.Error(err.Error())
 		_ = ctx.Trigger(storagemarket.ProviderEventPieceStoreErrored, err)
@@ -359,12 +363,10 @@ func HandoffDeal(ctx fsm.Context, environment ProviderDealEnvironment, deal stor
 
 func handoffDeal(ctx context.Context, environment ProviderDealEnvironment, deal storagemarket.MinerDeal, reader io.Reader, size uint64) (*storagemarket.PackingResult, error) {
 	// Note that even though padreader.New returns an UnpaddedPieceSize, it is
-	// *actually* returning the padded piece size cast to UnpaddedPieceSize.
+	// *actually* returning the result of padreader.PaddedSize (see the method
+	// doc for details)
 	paddedReader, paddedSize := padreader.New(reader, size)
 
-	// Note that even though OnDealComplete takes an UnpaddedPieceSize as a
-	// parameter, the sealing code *actually* requires a padded piece size,
-	// which is what we pass here.
 	return environment.Node().OnDealComplete(
 		ctx,
 		storagemarket.MinerDeal{
@@ -382,7 +384,7 @@ func handoffDeal(ctx context.Context, environment ProviderDealEnvironment, deal 
 	)
 }
 
-func recordPiece(environment ProviderDealEnvironment, deal storagemarket.MinerDeal, sectorID abi.SectorNumber, offset, length abi.PaddedPieceSize) error {
+func recordPiece(environment ProviderDealEnvironment, deal storagemarket.MinerDeal, sectorID abi.SectorNumber, offset abi.PaddedPieceSize, length uint64) error {
 
 	var blockLocations map[cid.Cid]piecestore.BlockLocation
 	if deal.MetadataPath != filestore.Path("") {
@@ -405,7 +407,7 @@ func recordPiece(environment ProviderDealEnvironment, deal storagemarket.MinerDe
 		DealID:   deal.DealID,
 		SectorID: sectorID,
 		Offset:   offset,
-		Length:   length,
+		Length:   abi.UnpaddedPieceSize(length),
 	})
 	if err != nil {
 		return xerrors.Errorf("failed to add deal for piece: %s", err)

@@ -6,6 +6,8 @@ import (
 	"io"
 	"os"
 
+	"github.com/filecoin-project/go-fil-markets/dagstore"
+
 	"github.com/ipfs/go-cid"
 	"github.com/ipld/go-car"
 	carv2bs "github.com/ipld/go-car/v2/blockstore"
@@ -19,7 +21,7 @@ import (
 
 type DagStore interface {
 	RegisterShard(key shard.Key, path string) error
-	LoadShard(ctx context.Context, key shard.Key, mount MountApi) (carstore.ClosableBlockstore, error)
+	LoadShard(ctx context.Context, key shard.Key, mount dagstore.MountApi) (carstore.ClosableBlockstore, error)
 }
 
 type MockDagStore struct {
@@ -33,7 +35,7 @@ func (m *MockDagStore) RegisterShard(key shard.Key, path string) error {
 	return nil
 }
 
-func (m *MockDagStore) LoadShard(ctx context.Context, key shard.Key, mount MountApi) (carstore.ClosableBlockstore, error) {
+func (m *MockDagStore) LoadShard(ctx context.Context, key shard.Key, mount dagstore.MountApi) (carstore.ClosableBlockstore, error) {
 	pieceCid, err := cid.Parse(string(key))
 	if err != nil {
 		return nil, xerrors.Errorf("parsing CID %s: %w", key, err)

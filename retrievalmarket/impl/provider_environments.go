@@ -178,7 +178,7 @@ func (pde *providerDealEnvironment) DeleteStore(dealID retrievalmarket.DealID) e
 
 func pieceInUnsealedSector(ctx context.Context, n retrievalmarket.RetrievalProviderNode, pieceInfo piecestore.PieceInfo) bool {
 	for _, di := range pieceInfo.Deals {
-		isUnsealed, err := n.IsUnsealed(ctx, di.SectorID, di.Offset.Unpadded(), di.Length.Unpadded())
+		isUnsealed, err := n.IsUnsealed(ctx, di.SectorID, di.Offset.Unpadded(), di.Length)
 		if err != nil {
 			log.Errorf("failed to find out if sector %d is unsealed, err=%s", di.SectorID, err)
 			continue
