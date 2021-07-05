@@ -15,6 +15,7 @@ stateDiagram-v2
 	state "StorageDealError" as 26
 	state "StorageDealClientTransferRestart" as 28
 	state "StorageDealAwaitingPreCommit" as 29
+	state "StorageDealTransferQueued" as 30
 	3 : On entry runs ValidateDealPublished
 	5 : On entry runs VerifyDealActivated
 	7 : On entry runs WaitForDealCompletion
@@ -46,16 +47,22 @@ stateDiagram-v2
 	12 --> 11 : ClientEventUnexpectedDealState
 	16 --> 11 : ClientEventDataTransferFailed
 	17 --> 11 : ClientEventDataTransferFailed
+	30 --> 11 : ClientEventDataTransferFailed
 	28 --> 11 : ClientEventDataTransferRestartFailed
-	16 --> 17 : ClientEventDataTransferInitiated
+	16 --> 30 : ClientEventDataTransferQueued
+	30 --> 17 : ClientEventDataTransferInitiated
 	16 --> 17 : ClientEventDataTransferRestarted
 	28 --> 17 : ClientEventDataTransferRestarted
+	30 --> 17 : ClientEventDataTransferRestarted
 	17 --> 11 : ClientEventDataTransferStalled
+	30 --> 11 : ClientEventDataTransferStalled
 	16 --> 11 : ClientEventDataTransferCancelled
 	17 --> 11 : ClientEventDataTransferCancelled
 	28 --> 11 : ClientEventDataTransferCancelled
+	30 --> 11 : ClientEventDataTransferCancelled
 	16 --> 13 : ClientEventDataTransferComplete
 	17 --> 13 : ClientEventDataTransferComplete
+	30 --> 13 : ClientEventDataTransferComplete
 	13 --> 13 : ClientEventWaitForDealState
 	13 --> 11 : ClientEventResponseDealDidNotMatch
 	13 --> 11 : ClientEventDealRejected

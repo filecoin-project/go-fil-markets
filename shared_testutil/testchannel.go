@@ -123,6 +123,10 @@ func NewTestChannel(params TestChannelParams) datatransfer.ChannelState {
 	return tc
 }
 
+func (tc *TestChannel) ReceivedCidsLen() int {
+	return len(tc.receivedCids)
+}
+
 // TransferID returns the transfer id for this channel
 func (tc *TestChannel) TransferID() datatransfer.TransferID {
 	return tc.transferID

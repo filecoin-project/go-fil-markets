@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"errors"
+	"time"
 
 	"github.com/ipfs/go-cid"
 	"github.com/ipld/go-ipld-prime"
@@ -23,6 +24,8 @@ import (
 
 var allSelectorBytes []byte
 
+var askTimeout = 5 * time.Second
+
 func init() {
 	buf := new(bytes.Buffer)
 	_ = dagcbor.Encoder(shared.AllSelector(), buf)
@@ -31,9 +34,11 @@ func init() {
 
 // ValidationEnvironment contains the dependencies needed to validate deals
 type ValidationEnvironment interface {
-	GetPiece(c cid.Cid, pieceCID *cid.Cid) (piecestore.PieceInfo, error)
+	GetAsk(ctx context.Context, payloadCid cid.Cid, pieceCid *cid.Cid, piece piecestore.PieceInfo, isUnsealed bool, client peer.ID) (retrievalmarket.Ask, error)
+
+	GetPiece(c cid.Cid, pieceCID *cid.Cid) (piecestore.PieceInfo, bool, error)
 	// CheckDealParams verifies the given deal params are acceptable
-	CheckDealParams(pricePerByte abi.TokenAmount, paymentInterval uint64, paymentIntervalIncrease uint64, unsealPrice abi.TokenAmount) error
+	CheckDealParams(ask retrievalmarket.Ask, pricePerByte abi.TokenAmount, paymentInterval uint64, paymentIntervalIncrease uint64, unsealPrice abi.TokenAmount) error
 	// RunDealDecisioningLogic runs custom deal decision logic to decide if a deal is accepted, if present
 	RunDealDecisioningLogic(ctx context.Context, state retrievalmarket.ProviderDealState) (bool, string, error)
 	// StateMachines returns the FSM Group to begin tracking with
@@ -53,12 +58,12 @@ func NewProviderRequestValidator(env ValidationEnvironment) *ProviderRequestVali
 }
 
 // ValidatePush validates a push request received from the peer that will send data
-func (rv *ProviderRequestValidator) ValidatePush(sender peer.ID, voucher datatransfer.Voucher, baseCid cid.Cid, selector ipld.Node) (datatransfer.VoucherResult, error) {
+func (rv *ProviderRequestValidator) ValidatePush(isRestart bool, _ datatransfer.ChannelID, sender peer.ID, voucher datatransfer.Voucher, baseCid cid.Cid, selector ipld.Node) (datatransfer.VoucherResult, error) {
 	return nil, errors.New("No pushes accepted")
 }
 
 // ValidatePull validates a pull request received from the peer that will receive data
-func (rv *ProviderRequestValidator) ValidatePull(receiver peer.ID, voucher datatransfer.Voucher, baseCid cid.Cid, selector ipld.Node) (datatransfer.VoucherResult, error) {
+func (rv *ProviderRequestValidator) ValidatePull(isRestart bool, _ datatransfer.ChannelID, receiver peer.ID, voucher datatransfer.Voucher, baseCid cid.Cid, selector ipld.Node) (datatransfer.VoucherResult, error) {
 	proposal, ok := voucher.(*retrievalmarket.DealProposal)
 	var legacyProtocol bool
 	if !ok {
@@ -70,7 +75,7 @@ func (rv *ProviderRequestValidator) ValidatePull(receiver peer.ID, voucher datat
 		proposal = &newProposal
 		legacyProtocol = true
 	}
-	response, err := rv.validatePull(receiver, proposal, legacyProtocol, baseCid, selector)
+	response, err := rv.validatePull(isRestart, receiver, proposal, legacyProtocol, baseCid, selector)
 	if response == nil {
 		return nil, err
 	}
@@ -86,12 +91,19 @@ func (rv *ProviderRequestValidator) ValidatePull(receiver peer.ID, voucher datat
 	return response, err
 }
 
-func (rv *ProviderRequestValidator) validatePull(receiver peer.ID, proposal *retrievalmarket.DealProposal, legacyProtocol bool, baseCid cid.Cid, selector ipld.Node) (*retrievalmarket.DealResponse, error) {
-
+// validatePull is called by the data provider when a new graphsync pull
+// request is created. This can be the initial pull request or a new request
+// created when the data transfer is restarted (eg after a connection failure).
+// By default the graphsync request starts immediately sending data, unless
+// validatePull returns ErrPause or the data-transfer has not yet started
+// (because the provider is still unsealing the data).
+func (rv *ProviderRequestValidator) validatePull(isRestart bool, receiver peer.ID, proposal *retrievalmarket.DealProposal, legacyProtocol bool, baseCid cid.Cid, selector ipld.Node) (*retrievalmarket.DealResponse, error) {
+	// Check the proposal CID matches
 	if proposal.PayloadCID != baseCid {
 		return nil, errors.New("incorrect CID for this proposal")
 	}
 
+	// Check the proposal selector matches
 	buf := new(bytes.Buffer)
 	err := dagcbor.Encoder(selector, buf)
 	if err != nil {
@@ -105,6 +117,13 @@ func (rv *ProviderRequestValidator) validatePull(receiver peer.ID, proposal *ret
 		return nil, errors.New("incorrect selector for this proposal")
 	}
 
+	// If the validation is for a restart request, return nil, which means
+	// the data-transfer should not be explicitly paused or resumed
+	if isRestart {
+		return nil, nil
+	}
+
+	// This is a new graphsync request (not a restart)
 	pds := retrievalmarket.ProviderDealState{
 		DealProposal:    *proposal,
 		Receiver:        receiver,
@@ -112,6 +131,7 @@ func (rv *ProviderRequestValidator) validatePull(receiver peer.ID, proposal *ret
 		CurrentInterval: proposal.PaymentInterval,
 	}
 
+	// Decide whether to accept the deal
 	status, err := rv.acceptDeal(&pds)
 
 	response := retrievalmarket.DealResponse{
@@ -133,13 +153,31 @@ func (rv *ProviderRequestValidator) validatePull(receiver peer.ID, proposal *ret
 		return nil, err
 	}
 
+	// Pause the data transfer while unsealing the data.
+	// The state machine will unpause the transfer when unsealing completes.
 	return &response, datatransfer.ErrPause
 }
 
 func (rv *ProviderRequestValidator) acceptDeal(deal *retrievalmarket.ProviderDealState) (retrievalmarket.DealStatus, error) {
+	pieceInfo, isUnsealed, err := rv.env.GetPiece(deal.PayloadCID, deal.PieceCID)
+	if err != nil {
+		if err == retrievalmarket.ErrNotFound {
+			return retrievalmarket.DealStatusDealNotFound, err
+		}
+		return retrievalmarket.DealStatusErrored, err
+	}
+
+	ctx, cancel := context.WithTimeout(context.TODO(), askTimeout)
+	defer cancel()
+
+	ask, err := rv.env.GetAsk(ctx, deal.PayloadCID, deal.PieceCID, pieceInfo, isUnsealed, deal.Receiver)
+	if err != nil {
+		return retrievalmarket.DealStatusErrored, err
+	}
+
 	// check that the deal parameters match our required parameters or
 	// reject outright
-	err := rv.env.CheckDealParams(deal.PricePerByte, deal.PaymentInterval, deal.PaymentIntervalIncrease, deal.UnsealPrice)
+	err = rv.env.CheckDealParams(ask, deal.PricePerByte, deal.PaymentInterval, deal.PaymentIntervalIncrease, deal.UnsealPrice)
 	if err != nil {
 		return retrievalmarket.DealStatusRejected, err
 	}
@@ -153,13 +191,6 @@ func (rv *ProviderRequestValidator) acceptDeal(deal *retrievalmarket.ProviderDea
 	}
 
 	// verify we have the piece
-	pieceInfo, err := rv.env.GetPiece(deal.PayloadCID, deal.PieceCID)
-	if err != nil {
-		if err == retrievalmarket.ErrNotFound {
-			return retrievalmarket.DealStatusDealNotFound, err
-		}
-		return retrievalmarket.DealStatusErrored, err
-	}
 
 	deal.PieceInfo = &pieceInfo
 

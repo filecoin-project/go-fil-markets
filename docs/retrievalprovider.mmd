@@ -1,60 +1,72 @@
 stateDiagram-v2
-	state "DealStatusNew" as 0
-	state "DealStatusUnsealing" as 1
-	state "DealStatusUnsealed" as 2
-	state "DealStatusFundsNeededUnseal" as 7
-	state "DealStatusFailing" as 8
-	state "DealStatusFundsNeeded" as 10
-	state "DealStatusOngoing" as 13
-	state "DealStatusFundsNeededLastPayment" as 14
-	state "DealStatusCompleted" as 15
-	state "DealStatusErrored" as 17
-	state "DealStatusBlocksComplete" as 18
-	state "DealStatusFinalizing" as 19
-	state "DealStatusCompleting" as 20
-	state "DealStatusCancelling" as 25
-	state "DealStatusCancelled" as 26
-	1 : On entry runs UnsealData
-	2 : On entry runs UnpauseDeal
-	7 : On entry runs TrackTransfer
-	8 : On entry runs CancelDeal
-	20 : On entry runs CleanupDeal
-	25 : On entry runs CancelDeal
-	[*] --> 0
-	note right of 0
+	state "DealStatusNew" as DealStatusNew
+	state "DealStatusUnsealing" as DealStatusUnsealing
+	state "DealStatusUnsealed" as DealStatusUnsealed
+	state "DealStatusFundsNeededUnseal" as DealStatusFundsNeededUnseal
+	state "DealStatusFailing" as DealStatusFailing
+	state "DealStatusFundsNeeded" as DealStatusFundsNeeded
+	state "DealStatusOngoing" as DealStatusOngoing
+	state "DealStatusFundsNeededLastPayment" as DealStatusFundsNeededLastPayment
+	state "DealStatusCompleted" as DealStatusCompleted
+	state "DealStatusErrored" as DealStatusErrored
+	state "DealStatusBlocksComplete" as DealStatusBlocksComplete
+	state "DealStatusFinalizing" as DealStatusFinalizing
+	state "DealStatusCompleting" as DealStatusCompleting
+	state "DealStatusCancelling" as DealStatusCancelling
+	state "DealStatusCancelled" as DealStatusCancelled
+	DealStatusUnsealing : On entry runs UnsealData
+	DealStatusUnsealed : On entry runs UnpauseDeal
+	DealStatusFundsNeededUnseal : On entry runs TrackTransfer
+	DealStatusFailing : On entry runs CancelDeal
+	DealStatusCompleting : On entry runs CleanupDeal
+	DealStatusCancelling : On entry runs CancelDeal
+	[*] --> DealStatusNew
+	note right of DealStatusNew
 		The following events are not shown cause they can trigger from any state.
 
 		ProviderEventDataTransferError - transitions state to DealStatusErrored
 		ProviderEventMultiStoreError - transitions state to DealStatusErrored
 		ProviderEventClientCancelled - transitions state to DealStatusCancelling
 	end note
-	0 --> 0 : ProviderEventOpen
-	0 --> 1 : ProviderEventDealAccepted
-	7 --> 7 : ProviderEventDealAccepted
-	1 --> 8 : ProviderEventUnsealError
-	1 --> 2 : ProviderEventUnsealComplete
-	2 --> 13 : ProviderEventBlockSent
-	13 --> 13 : ProviderEventBlockSent
-	13 --> 18 : ProviderEventBlocksCompleted
-	0 --> 7 : ProviderEventPaymentRequested
-	2 --> 10 : ProviderEventPaymentRequested
-	13 --> 10 : ProviderEventPaymentRequested
-	18 --> 14 : ProviderEventPaymentRequested
-	10 --> 8 : ProviderEventSaveVoucherFailed
-	14 --> 8 : ProviderEventSaveVoucherFailed
-	10 --> 10 : ProviderEventPartialPaymentReceived
-	14 --> 14 : ProviderEventPartialPaymentReceived
-	7 --> 1 : ProviderEventPaymentReceived
-	10 --> 13 : ProviderEventPaymentReceived
-	14 --> 19 : ProviderEventPaymentReceived
-	18 --> 20 : ProviderEventComplete
-	19 --> 20 : ProviderEventComplete
-	20 --> 15 : ProviderEventCleanupComplete
-	8 --> 17 : ProviderEventCancelComplete
-	25 --> 26 : ProviderEventCancelComplete
+	DealStatusNew --> DealStatusNew : ProviderEventOpen
+	DealStatusNew --> DealStatusUnsealing : ProviderEventDealAccepted
+	DealStatusFundsNeededUnseal --> DealStatusFundsNeededUnseal : ProviderEventDealAccepted
+	DealStatusUnsealing --> DealStatusFailing : ProviderEventUnsealError
+	DealStatusUnsealing --> DealStatusUnsealed : ProviderEventUnsealComplete
+	DealStatusUnsealed --> DealStatusOngoing : ProviderEventBlockSent
+	DealStatusOngoing --> DealStatusOngoing : ProviderEventBlockSent
+	DealStatusOngoing --> DealStatusBlocksComplete : ProviderEventBlocksCompleted
+	DealStatusNew --> DealStatusFundsNeededUnseal : ProviderEventPaymentRequested
+	DealStatusUnsealed --> DealStatusFundsNeeded : ProviderEventPaymentRequested
+	DealStatusOngoing --> DealStatusFundsNeeded : ProviderEventPaymentRequested
+	DealStatusBlocksComplete --> DealStatusFundsNeededLastPayment : ProviderEventPaymentRequested
+	DealStatusFundsNeeded --> DealStatusFailing : ProviderEventSaveVoucherFailed
+	DealStatusFundsNeededLastPayment --> DealStatusFailing : ProviderEventSaveVoucherFailed
+	DealStatusFundsNeeded --> DealStatusFundsNeeded : ProviderEventPartialPaymentReceived
+	DealStatusFundsNeededLastPayment --> DealStatusFundsNeededLastPayment : ProviderEventPartialPaymentReceived
+	DealStatusFundsNeededUnseal --> DealStatusUnsealing : ProviderEventPaymentReceived
+	DealStatusFundsNeeded --> DealStatusOngoing : ProviderEventPaymentReceived
+	DealStatusFundsNeededLastPayment --> DealStatusFinalizing : ProviderEventPaymentReceived
+	DealStatusBlocksComplete --> DealStatusCompleting : ProviderEventComplete
+	DealStatusFinalizing --> DealStatusCompleting : ProviderEventComplete
+	DealStatusCompleting --> DealStatusCompleted : ProviderEventCleanupComplete
+	DealStatusFailing --> DealStatusErrored : ProviderEventCancelComplete
+	DealStatusCancelling --> DealStatusCancelled : ProviderEventCancelComplete
 
-	note left of 8 : The following events only record in this state.<br><br>ProviderEventClientCancelled
+	note left of DealStatusFailing : The following events only record in this state.<br><br>ProviderEventClientCancelled
 
 
-	note left of 25 : The following events only record in this state.<br><br>ProviderEventClientCancelled
+	note left of DealStatusFundsNeeded : The following events only record in this state.<br><br>ProviderEventPaymentRequested
+
+
+	note left of DealStatusOngoing : The following events only record in this state.<br><br>ProviderEventPaymentReceived
+
+
+	note left of DealStatusBlocksComplete : The following events only record in this state.<br><br>ProviderEventPaymentReceived
+
+
+	note left of DealStatusFinalizing : The following events only record in this state.<br><br>ProviderEventPaymentReceived
+
+
+	note left of DealStatusCancelling : The following events only record in this state.<br><br>ProviderEventClientCancelled
 

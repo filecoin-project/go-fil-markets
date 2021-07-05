@@ -129,6 +129,7 @@ func TestMakeDeal(t *testing.T) {
 				//storagemarket.StorageDealClientFunding,  // skipped because funds available
 				storagemarket.StorageDealFundsReserved,
 				storagemarket.StorageDealStartDataTransfer,
+				storagemarket.StorageDealTransferQueued,
 				storagemarket.StorageDealTransferring,
 				storagemarket.StorageDealCheckForAcceptance,
 				storagemarket.StorageDealProposalAccepted,
@@ -179,6 +180,7 @@ func TestMakeDealOffline(t *testing.T) {
 	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
 	defer cancel()
 	h := testharness.NewHarness(t, ctx, true, noOpDelay, noOpDelay, false)
+
 	shared_testutil.StartAndWaitForReady(ctx, t, h.Provider)
 	shared_testutil.StartAndWaitForReady(ctx, t, h.Client)
 
@@ -299,14 +301,11 @@ func TestRestartOnlyProviderDataTransfer(t *testing.T) {
 
 	// Configure data-transfer to restart after stalling
 	restartConf := dtimpl.ChannelRestartConfig(channelmonitor.Config{
-		MonitorPushChannels:    true,
-		AcceptTimeout:          200 * time.Millisecond,
-		Interval:               100 * time.Millisecond,
-		MinBytesTransferred:    1,
-		ChecksPerInterval:      10,
-		RestartBackoff:         200 * time.Millisecond,
+		AcceptTimeout:          100 * time.Millisecond,
+		RestartBackoff:         100 * time.Millisecond,
+		RestartDebounce:        100 * time.Millisecond,
 		MaxConsecutiveRestarts: 5,
-		CompleteTimeout:        200 * time.Millisecond,
+		CompleteTimeout:        100 * time.Millisecond,
 	})
 	smState := testnodes.NewStorageMarketState()
 	depGen := dependencies.NewDepGenerator()
@@ -637,12 +636,9 @@ func TestBounceConnectionDataTransfer(t *testing.T) {
 
 	// Configure data-transfer to automatically restart when connection goes down
 	restartConf := dtimpl.ChannelRestartConfig(channelmonitor.Config{
-		MonitorPushChannels:    true,
 		AcceptTimeout:          100 * time.Millisecond,
-		Interval:               100 * time.Millisecond,
-		MinBytesTransferred:    1,
-		ChecksPerInterval:      10,
-		RestartBackoff:         200 * time.Millisecond,
+		RestartBackoff:         100 * time.Millisecond,
+		RestartDebounce:        100 * time.Millisecond,
 		MaxConsecutiveRestarts: 5,
 		CompleteTimeout:        100 * time.Millisecond,
 	})

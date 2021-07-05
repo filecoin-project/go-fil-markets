@@ -17,7 +17,7 @@ $(FFI_DEPS): .filecoin-build ;
 	git submodule update --init --recursive
 	@touch $@
 
-build: .filecoin-build .update-modules
+build: .update-modules .filecoin-build
 	go build ./...
 
 test: build

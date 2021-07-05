@@ -29,7 +29,7 @@ func TestValidatePush(t *testing.T) {
 	sender := shared_testutil.GeneratePeers(1)[0]
 	voucher := shared_testutil.MakeTestDealProposal()
 	requestValidator := requestvalidation.NewProviderRequestValidator(fve)
-	voucherResult, err := requestValidator.ValidatePush(sender, &voucher, voucher.PayloadCID, shared.AllSelector())
+	voucherResult, err := requestValidator.ValidatePush(false, datatransfer.ChannelID{}, sender, &voucher, voucher.PayloadCID, shared.AllSelector())
 	require.Equal(t, nil, voucherResult)
 	require.Error(t, err)
 }
@@ -49,6 +49,7 @@ func TestValidatePull(t *testing.T) {
 		},
 	}
 	testCases := map[string]struct {
+		isRestart             bool
 		fve                   fakeValidationEnvironment
 		sender                peer.ID
 		voucher               datatransfer.Voucher
@@ -194,11 +195,22 @@ func TestValidatePull(t *testing.T) {
 				ID:     proposal.ID,
 			},
 		},
+		"restart": {
+			isRestart: true,
+			fve: fakeValidationEnvironment{
+				RunDealDecisioningLogicAccepted: true,
+			},
+			baseCid:               proposal.PayloadCID,
+			selector:              shared.AllSelector(),
+			voucher:               &proposal,
+			expectedError:         nil,
+			expectedVoucherResult: nil,
+		},
 	}
 	for testCase, data := range testCases {
 		t.Run(testCase, func(t *testing.T) {
 			requestValidator := requestvalidation.NewProviderRequestValidator(&data.fve)
-			voucherResult, err := requestValidator.ValidatePull(data.sender, data.voucher, data.baseCid, data.selector)
+			voucherResult, err := requestValidator.ValidatePull(data.isRestart, datatransfer.ChannelID{}, data.sender, data.voucher, data.baseCid, data.selector)
 			require.Equal(t, data.expectedVoucherResult, voucherResult)
 			if data.expectedError == nil {
 				require.NoError(t, err)
@@ -211,6 +223,7 @@ func TestValidatePull(t *testing.T) {
 }
 
 type fakeValidationEnvironment struct {
+	IsUnsealedPiece                   bool
 	PieceInfo                         piecestore.PieceInfo
 	GetPieceErr                       error
 	CheckDealParamsError              error
@@ -220,14 +233,21 @@ type fakeValidationEnvironment struct {
 	BeginTrackingError                error
 	NextStoreIDValue                  multistore.StoreID
 	NextStoreIDError                  error
+
+	Ask retrievalmarket.Ask
 }
 
-func (fve *fakeValidationEnvironment) GetPiece(c cid.Cid, pieceCID *cid.Cid) (piecestore.PieceInfo, error) {
-	return fve.PieceInfo, fve.GetPieceErr
+func (fve *fakeValidationEnvironment) GetAsk(ctx context.Context, payloadCid cid.Cid, pieceCid *cid.Cid,
+	piece piecestore.PieceInfo, isUnsealed bool, client peer.ID) (retrievalmarket.Ask, error) {
+	return fve.Ask, nil
+}
+
+func (fve *fakeValidationEnvironment) GetPiece(c cid.Cid, pieceCID *cid.Cid) (piecestore.PieceInfo, bool, error) {
+	return fve.PieceInfo, fve.IsUnsealedPiece, fve.GetPieceErr
 }
 
 // CheckDealParams verifies the given deal params are acceptable
-func (fve *fakeValidationEnvironment) CheckDealParams(pricePerByte abi.TokenAmount, paymentInterval uint64, paymentIntervalIncrease uint64, unsealPrice abi.TokenAmount) error {
+func (fve *fakeValidationEnvironment) CheckDealParams(ask retrievalmarket.Ask, pricePerByte abi.TokenAmount, paymentInterval uint64, paymentIntervalIncrease uint64, unsealPrice abi.TokenAmount) error {
 	return fve.CheckDealParamsError
 }
 

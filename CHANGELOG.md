@@ -1,5 +1,62 @@
 # go-fil-markets changelog
 
+# go-fil-markets v1.5.0
+
+Adds Dynamic Retrieval Pricing
+
+- github.com/filecoin-project/go-fil-markets:
+  - Dynamic Retrieval Pricing (#542) ([filecoin-project/go-fil-markets#542](https://github.com/filecoin-project/go-fil-markets/pull/542))
+
+Contributors
+
+| Contributor | Commits | Lines ± | Files Changed |
+|-------------|---------|---------|---------------|
+| Aarsh Shah | 1 | +1224/-130 | 17 |
+| dirkmc | 1 | +18/-0 | 1 |
+
+# go-fil-markets v1.4.0
+
+Generating Changelog for github.com/filecoin-project/go-fil-markets v1.3.0..3511c5617142836e369e31890f544bdd574d970f
+- github.com/filecoin-project/go-fil-markets:
+  - Update to go data transfer v1.6.0 (#550) ([filecoin-project/go-fil-markets#550](https://github.com/filecoin-project/go-fil-markets/pull/550))
+  - fix first make error (#548) ([filecoin-project/go-fil-markets#548](https://github.com/filecoin-project/go-fil-markets/pull/548))
+- github.com/filecoin-project/go-data-transfer (v1.5.0 -> v1.6.0):
+  - fix: option to disable accept and complete timeouts
+  - fix: disable restart ack timeout
+
+Contributors
+
+| Contributor | Commits | Lines ± | Files Changed |
+|-------------|---------|---------|---------------|
+| Dirk McCormick | 3 | +53/-105 | 6 |
+| dirkmc | 2 | +53/-33 | 10 |
+| Jack Yao | 1 | +1/-1 | 1 |
+
+# go-fil-markets v1.3.0
+
+- github.com/filecoin-project/go-fil-markets:
+  - fix restarts during data transfer for a retrieval deal (#540) ([filecoin-project/go-fil-markets#540](https://github.com/filecoin-project/go-fil-markets/pull/540))
+  - Test Retrieval for offline deals (#541) ([filecoin-project/go-fil-markets#541](https://github.com/filecoin-project/go-fil-markets/pull/541))
+  - Allow anonymous submodule checkout (#535) ([filecoin-project/go-fil-markets#535](https://github.com/filecoin-project/go-fil-markets/pull/535))
+- github.com/filecoin-project/go-data-transfer (v1.4.3 -> v1.5.0):
+  - Add isRestart param to validators (#197) ([filecoin-project/go-data-transfer#197](https://github.com/filecoin-project/go-data-transfer/pull/197))
+  - fix: flaky TestChannelMonitorAutoRestart (#198) ([filecoin-project/go-data-transfer#198](https://github.com/filecoin-project/go-data-transfer/pull/198))
+  - Channel monitor watches for errors instead of measuring data rate (#190) ([filecoin-project/go-data-transfer#190](https://github.com/filecoin-project/go-data-transfer/pull/190))
+  - fix: prevent concurrent restarts for same channel (#195) ([filecoin-project/go-data-transfer#195](https://github.com/filecoin-project/go-data-transfer/pull/195))
+  - fix: channel state machine event handling (#194) ([filecoin-project/go-data-transfer#194](https://github.com/filecoin-project/go-data-transfer/pull/194))
+  - Dont double count data sent (#185) ([filecoin-project/go-data-transfer#185](https://github.com/filecoin-project/go-data-transfer/pull/185))
+- github.com/ipfs/go-graphsync (v0.6.0 -> v0.6.1):
+  - feat: fire network error when network disconnects during request (#164) ([ipfs/go-graphsync#164](https://github.com/ipfs/go-graphsync/pull/164))
+
+Contributors
+
+| Contributor | Commits | Lines ± | Files Changed |
+|-------------|---------|---------|---------------|
+| dirkmc | 9 | +2595/-1346 | 70 |
+| Aarsh Shah | 1 | +226/-71 | 1 |
+| Dirk McCormick | 2 | +32/-0 | 2 |
+| Peter Rabbitson | 1 | +1/-1 | 1 |
+
 # go-fil-markets v1.2.5
 
 - github.com/filecoin-project/go-fil-markets:

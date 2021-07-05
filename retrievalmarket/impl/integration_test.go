@@ -58,6 +58,10 @@ func TestClientCanMakeQueryToProvider(t *testing.T) {
 		expectedQR.Status = retrievalmarket.QueryResponseUnavailable
 		expectedQR.Size = 0
 		actualQR, err := client.Query(bgCtx, retrievalPeer, missingPiece, retrievalmarket.QueryParams{})
+		actualQR.MaxPaymentInterval = expectedQR.MaxPaymentInterval
+		actualQR.MinPricePerByte = expectedQR.MinPricePerByte
+		actualQR.MaxPaymentIntervalIncrease = expectedQR.MaxPaymentIntervalIncrease
+		actualQR.UnsealPrice = expectedQR.UnsealPrice
 		assert.NoError(t, err)
 		assert.Equal(t, expectedQR, actualQR)
 	})
@@ -65,9 +69,13 @@ func TestClientCanMakeQueryToProvider(t *testing.T) {
 	t.Run("when there is some other error, returns error", func(t *testing.T) {
 		unknownPiece := tut.GenerateCids(1)[0]
 		expectedQR.Status = retrievalmarket.QueryResponseError
-		expectedQR.Message = "get cid info: GetCIDInfo failed"
+		expectedQR.Message = "failed to fetch piece to retrieve from: get cid info: GetCIDInfo failed"
 		actualQR, err := client.Query(bgCtx, retrievalPeer, unknownPiece, retrievalmarket.QueryParams{})
 		assert.NoError(t, err)
+		actualQR.MaxPaymentInterval = expectedQR.MaxPaymentInterval
+		actualQR.MinPricePerByte = expectedQR.MinPricePerByte
+		actualQR.MaxPaymentIntervalIncrease = expectedQR.MaxPaymentIntervalIncrease
+		actualQR.UnsealPrice = expectedQR.UnsealPrice
 		assert.Equal(t, expectedQR, actualQR)
 	})
 
@@ -148,21 +156,29 @@ func requireSetupTestClientAndProvider(ctx context.Context, t *testing.T, payChA
 	testutil.StartAndWaitForReady(ctx, t, dt2)
 	require.NoError(t, err)
 	providerDs := namespace.Wrap(testData.Ds2, datastore.NewKey("/retrievals/provider"))
-	provider, err := retrievalimpl.NewProvider(paymentAddress, providerNode, nw2, pieceStore, testData.MultiStore2, dt2, providerDs)
+
+	priceFunc := func(ctx context.Context, dealPricingParams retrievalmarket.PricingInput) (retrievalmarket.Ask, error) {
+		ask := retrievalmarket.Ask{}
+		ask.PaymentInterval = expectedQR.MaxPaymentInterval
+		ask.PaymentIntervalIncrease = expectedQR.MaxPaymentIntervalIncrease
+		ask.PricePerByte = expectedQR.MinPricePerByte
+		ask.UnsealPrice = expectedQR.UnsealPrice
+		return ask, nil
+	}
+
+	provider, err := retrievalimpl.NewProvider(paymentAddress, providerNode, nw2, pieceStore, testData.MultiStore2, dt2, providerDs,
+		priceFunc)
 	require.NoError(t, err)
 
-	ask := provider.GetAsk()
-	ask.PaymentInterval = expectedQR.MaxPaymentInterval
-	ask.PaymentIntervalIncrease = expectedQR.MaxPaymentIntervalIncrease
-	ask.PricePerByte = expectedQR.MinPricePerByte
-	ask.UnsealPrice = expectedQR.UnsealPrice
-	provider.SetAsk(ask)
 	tut.StartAndWaitForReady(ctx, t, provider)
 	retrievalPeer := retrievalmarket.RetrievalPeer{
 		Address: paymentAddress,
 		ID:      testData.Host2.ID(),
 	}
 	rcNode1.ExpectKnownAddresses(retrievalPeer, nil)
+
+	expectedQR.Size = uint64(abi.PaddedPieceSize(expectedQR.Size).Unpadded())
+
 	return client, expectedCIDs, missingCID, expectedQR, retrievalPeer, provider
 }
 
@@ -208,7 +224,7 @@ func TestClientCanMakeDealWithProvider(t *testing.T) {
 			filename:    "lorem_under_1_block.txt",
 			filesize:    410,
 			unsealPrice: abi.NewTokenAmount(100),
-			voucherAmts: []abi.TokenAmount{abi.NewTokenAmount(100), abi.NewTokenAmount(410000)},
+			voucherAmts: []abi.TokenAmount{abi.NewTokenAmount(100), abi.NewTokenAmount(410100)},
 			selector:    shared.AllSelector(),
 			paramsV1:    true,
 		},
@@ -259,7 +275,7 @@ func TestClientCanMakeDealWithProvider(t *testing.T) {
 		{name: "multi-block file retrieval succeeds",
 			filename:    "lorem.txt",
 			filesize:    19000,
-			voucherAmts: []abi.TokenAmount{abi.NewTokenAmount(10136000), abi.NewTokenAmount(9784000)},
+			voucherAmts: []abi.TokenAmount{abi.NewTokenAmount(10136000), abi.NewTokenAmount(19920000)},
 		},
 		{name: "multi-block file retrieval with zero price per byte succeeds",
 			filename:         "lorem.txt",
@@ -269,7 +285,7 @@ func TestClientCanMakeDealWithProvider(t *testing.T) {
 		{name: "multi-block file retrieval succeeds with V1 params and AllSelector",
 			filename:    "lorem.txt",
 			filesize:    19000,
-			voucherAmts: []abi.TokenAmount{abi.NewTokenAmount(10136000), abi.NewTokenAmount(9784000)},
+			voucherAmts: []abi.TokenAmount{abi.NewTokenAmount(10136000), abi.NewTokenAmount(19920000)},
 			paramsV1:    true,
 			selector:    shared.AllSelector()},
 		{name: "partial file retrieval succeeds with V1 params and selector recursion depth 1",
@@ -290,7 +306,7 @@ func TestClientCanMakeDealWithProvider(t *testing.T) {
 		{name: "succeeds for regular blockstore",
 			filename:    "lorem.txt",
 			filesize:    19000,
-			voucherAmts: []abi.TokenAmount{abi.NewTokenAmount(10136000), abi.NewTokenAmount(9784000)},
+			voucherAmts: []abi.TokenAmount{abi.NewTokenAmount(10136000), abi.NewTokenAmount(19920000)},
 			skipStores:  true,
 		},
 		{
@@ -300,18 +316,27 @@ func TestClientCanMakeDealWithProvider(t *testing.T) {
 			voucherAmts: []abi.TokenAmount{},
 			failsUnseal: true,
 		},
-		{name: "multi-block file retrieval succeeds, final block lands on payment interval",
+		{name: "multi-block file retrieval succeeds, final block exceeds payment interval",
 			filename:                "lorem.txt",
 			filesize:                19000,
-			voucherAmts:             []abi.TokenAmount{abi.NewTokenAmount(9112000), abi.NewTokenAmount(10808000)},
+			voucherAmts:             []abi.TokenAmount{abi.NewTokenAmount(9112000), abi.NewTokenAmount(19352000), abi.NewTokenAmount(19920000)},
 			paymentInterval:         9000,
 			paymentIntervalIncrease: 1250,
+		},
+		{name: "multi-block file retrieval succeeds, final block lands on payment interval",
+			filename:    "lorem.txt",
+			filesize:    19000,
+			voucherAmts: []abi.TokenAmount{abi.NewTokenAmount(9112000), abi.NewTokenAmount(19920000)},
+			// Total bytes: 19,920
+			// intervals: 9,000 | 9,000 + (9,000 + 1920)
+			paymentInterval:         9000,
+			paymentIntervalIncrease: 1920,
 		},
 		{name: "multi-block file retrieval succeeds, with provider only accepting legacy deals",
 			filename:        "lorem.txt",
 			filesize:        19000,
 			disableNewDeals: true,
-			voucherAmts:     []abi.TokenAmount{abi.NewTokenAmount(10136000), abi.NewTokenAmount(9784000)},
+			voucherAmts:     []abi.TokenAmount{abi.NewTokenAmount(10136000), abi.NewTokenAmount(19920000)},
 		},
 	}
 
@@ -375,12 +400,14 @@ func TestClientCanMakeDealWithProvider(t *testing.T) {
 				PieceCID: tut.GenerateCids(1)[0],
 				Deals: []piecestore.DealInfo{
 					{
+						DealID:   abi.DealID(100),
 						SectorID: sectorID,
 						Offset:   offset,
 						Length:   abi.UnpaddedPieceSize(len(carData)).Padded(),
 					},
 				},
 			}
+			providerNode.ExpectPricingParams(pieceInfo.PieceCID, []abi.DealID{100})
 			if testCase.failsUnseal {
 				providerNode.ExpectFailedUnseal(sectorID, offset.Unpadded(), abi.UnpaddedPieceSize(len(carData)))
 			} else {
@@ -655,18 +682,21 @@ func setupProvider(
 	if disableNewDeals {
 		opts = append(opts, retrievalimpl.DisableNewDeals())
 	}
+
+	priceFunc := func(ctx context.Context, dealPricingParams retrievalmarket.PricingInput) (retrievalmarket.Ask, error) {
+		ask := retrievalmarket.Ask{}
+		ask.PaymentInterval = expectedQR.MaxPaymentInterval
+		ask.PaymentIntervalIncrease = expectedQR.MaxPaymentIntervalIncrease
+		ask.PricePerByte = expectedQR.MinPricePerByte
+		ask.UnsealPrice = expectedQR.UnsealPrice
+		return ask, nil
+	}
+
 	provider, err := retrievalimpl.NewProvider(providerPaymentAddr, providerNode, nw2,
-		pieceStore, testData.MultiStore2, dt2, providerDs,
+		pieceStore, testData.MultiStore2, dt2, providerDs, priceFunc,
 		opts...)
 	require.NoError(t, err)
 
-	ask := provider.GetAsk()
-
-	ask.PaymentInterval = expectedQR.MaxPaymentInterval
-	ask.PaymentIntervalIncrease = expectedQR.MaxPaymentIntervalIncrease
-	ask.PricePerByte = expectedQR.MinPricePerByte
-	ask.UnsealPrice = expectedQR.UnsealPrice
-	provider.SetAsk(ask)
 	return provider
 }
 

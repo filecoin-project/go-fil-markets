@@ -51,7 +51,7 @@ type TestQueryStreamParams struct {
 
 // NewTestRetrievalQueryStream returns a new TestRetrievalQueryStream with the
 // behavior specified by the paramaters, or default behaviors if not specified.
-func NewTestRetrievalQueryStream(params TestQueryStreamParams) rmnet.RetrievalQueryStream {
+func NewTestRetrievalQueryStream(params TestQueryStreamParams) *TestRetrievalQueryStream {
 	stream := TestRetrievalQueryStream{
 		p:          params.PeerID,
 		reader:     TrivialQueryReader,
@@ -72,6 +72,14 @@ func NewTestRetrievalQueryStream(params TestQueryStreamParams) rmnet.RetrievalQu
 		stream.respWriter = params.RespWriter
 	}
 	return &stream
+}
+
+func (trqs *TestRetrievalQueryStream) SetRemotePeer(rp peer.ID) {
+	trqs.p = rp
+}
+
+func (trqs *TestRetrievalQueryStream) RemotePeer() peer.ID {
+	return trqs.p
 }
 
 // ReadDealStatusRequest calls the mocked query reader.

@@ -18,6 +18,7 @@ type RetrievalQueryStream interface {
 	ReadQueryResponse() (retrievalmarket.QueryResponse, error)
 	WriteQueryResponse(retrievalmarket.QueryResponse) error
 	Close() error
+	RemotePeer() peer.ID
 }
 
 // RetrievalReceiver is the API for handling data coming in on

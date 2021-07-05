@@ -1,5 +1,7 @@
 package storagemarket
 
+import "fmt"
+
 // ClientEvent is an event that happens in the client's deal state machine
 type ClientEvent uint64
 
@@ -105,6 +107,10 @@ const (
 
 	// ClientEventDataTransferCancelled happens when a data transfer is cancelled
 	ClientEventDataTransferCancelled
+
+	// ClientEventDataTransferQueued happens when we queue the provider's request to transfer data to it
+	// in response to the push request we send to the provider.
+	ClientEventDataTransferQueued
 )
 
 // ClientEvents maps client event codes to string names
@@ -141,6 +147,15 @@ var ClientEvents = map[ClientEvent]string{
 	ClientEventDataTransferRestartFailed:  "ClientEventDataTransferRestartFailed",
 	ClientEventDataTransferStalled:        "ClientEventDataTransferStalled",
 	ClientEventDataTransferCancelled:      "ClientEventDataTransferCancelled",
+	ClientEventDataTransferQueued:         "ClientEventDataTransferQueued",
+}
+
+func (e ClientEvent) String() string {
+	str, ok := ClientEvents[e]
+	if ok {
+		return str
+	}
+	return fmt.Sprintf("ClientEventUnknown - %d", e)
 }
 
 // ProviderEvent is an event that happens in the provider's deal state machine
@@ -317,4 +332,12 @@ var ProviderEvents = map[ProviderEvent]string{
 	ProviderEventDataTransferRestartFailed: "ProviderEventDataTransferRestartFailed",
 	ProviderEventDataTransferStalled:       "ProviderEventDataTransferStalled",
 	ProviderEventDataTransferCancelled:     "ProviderEventDataTransferCancelled",
+}
+
+func (e ProviderEvent) String() string {
+	str, ok := ProviderEvents[e]
+	if ok {
+		return str
+	}
+	return fmt.Sprintf("ProviderEventUnknown - %d", e)
 }

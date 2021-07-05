@@ -69,6 +69,10 @@ type ClientDealState struct {
 	LegacyProtocol       bool
 }
 
+func (deal *ClientDealState) NextInterval() uint64 {
+	return deal.Params.NextInterval(deal.CurrentInterval)
+}
+
 // ProviderDealState is the current state of a deal from the point of view
 // of a retrieval provider
 type ProviderDealState struct {
@@ -83,6 +87,14 @@ type ProviderDealState struct {
 	Message         string
 	CurrentInterval uint64
 	LegacyProtocol  bool
+}
+
+func (deal *ProviderDealState) IntervalLowerBound() uint64 {
+	return deal.Params.IntervalLowerBound(deal.CurrentInterval)
+}
+
+func (deal *ProviderDealState) NextInterval() uint64 {
+	return deal.Params.NextInterval(deal.CurrentInterval)
 }
 
 // Identifier provides a unique id for this provider deal
@@ -244,6 +256,28 @@ func (p Params) SelectorSpecified() bool {
 	return p.Selector != nil && !bytes.Equal(p.Selector.Raw, cbg.CborNull)
 }
 
+func (p Params) IntervalLowerBound(currentInterval uint64) uint64 {
+	intervalSize := p.PaymentInterval
+	var lowerBound uint64
+	var target uint64
+	for target < currentInterval {
+		lowerBound = target
+		target += intervalSize
+		intervalSize += p.PaymentIntervalIncrease
+	}
+	return lowerBound
+}
+
+func (p Params) NextInterval(currentInterval uint64) uint64 {
+	intervalSize := p.PaymentInterval
+	var nextInterval uint64
+	for nextInterval <= currentInterval {
+		nextInterval += intervalSize
+		intervalSize += p.PaymentIntervalIncrease
+	}
+	return nextInterval
+}
+
 // NewParamsV0 generates parameters for a retrieval deal, which is always a whole piece deal
 func NewParamsV0(pricePerByte abi.TokenAmount, paymentInterval uint64, paymentIntervalIncrease uint64) Params {
 	return Params{
@@ -381,4 +415,22 @@ type ChannelAvailableFunds struct {
 	// VoucherRedeemedAmt is the amount that is redeemed by vouchers on-chain
 	// and in the local datastore
 	VoucherReedeemedAmt abi.TokenAmount
+}
+
+// PricingInput provides input parameters required to price a retrieval deal.
+type PricingInput struct {
+	// PayloadCID is the cid of the payload to retrieve.
+	PayloadCID cid.Cid
+	// PieceCID is the cid of the Piece from which the Payload will be retrieved.
+	PieceCID cid.Cid
+	// PieceSize is the size of the Piece from which the payload will be retrieved.
+	PieceSize abi.UnpaddedPieceSize
+	// Client is the peerID of the retrieval client.
+	Client peer.ID
+	// VerifiedDeal is true if there exists a verified storage deal for the PayloadCID.
+	VerifiedDeal bool
+	// Unsealed is true if there exists an unsealed sector from which we can retrieve the given payload.
+	Unsealed bool
+	// CurrentAsk is the current configured ask in the ask-store.
+	CurrentAsk Ask
 }
