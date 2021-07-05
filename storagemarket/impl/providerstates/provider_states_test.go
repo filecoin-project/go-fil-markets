@@ -1393,7 +1393,7 @@ func makeExecutor(ctx context.Context,
 			environment.ask = defaultAsk
 		}
 		if environment.pieceSize == 0 {
-			environment.pieceSize = uint64(defaultPieceSize)
+			environment.pieceSize = uint64(defaultPieceSize.Unpadded())
 		}
 		if environment.pieceReader == nil {
 			environment.pieceReader = newStubbedReadCloser(nil)

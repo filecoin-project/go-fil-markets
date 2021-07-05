@@ -361,7 +361,14 @@ func HandoffDeal(ctx fsm.Context, environment ProviderDealEnvironment, deal stor
 }
 
 func handoffDeal(ctx context.Context, environment ProviderDealEnvironment, deal storagemarket.MinerDeal, reader io.Reader, payloadSize uint64, pieceSize abi.PaddedPieceSize) (*storagemarket.PackingResult, error) {
-	paddedReader, _ := padreader.New(reader, payloadSize)
+	// because we use the PadReader directly during AP we need to produce the
+	// correct amount of zeroes
+	// (alternative would be to keep precise track of sector offsets for each
+	// piece which is just too much work for a seldom used feature)
+	paddedReader, err := padreader.NewInflator(reader, payloadSize, pieceSize.Unpadded())
+	if err != nil {
+		return nil, err
+	}
 	return environment.Node().OnDealComplete(
 		ctx,
 		storagemarket.MinerDeal{
