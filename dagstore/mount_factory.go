@@ -1,20 +1,15 @@
-package marketdagstore
+package dagstore
 
-/*import (
-	"context"
-	"io"
+import (
 	"net/url"
-	"github.com/filecoin-project/dagstore/mount"
+
 	"github.com/ipfs/go-cid"
 	"golang.org/x/xerrors"
+
+	"github.com/filecoin-project/dagstore/mount"
 )
 
-var _ mount.MountFactory = (*LotusMountFactory)(nil)
-
-type LotusMountAPI interface {
-	FetchUnsealedPiece(ctx context.Context, pieceCid cid.Cid) (io.ReadCloser, error)
-	GetUnpaddedCARSize(pieceCid cid.Cid) (uint64, error)
-}
+var _ mount.Type = (*LotusMountFactory)(nil)
 
 type LotusMountFactory struct {
 	Api LotusMountAPI
@@ -26,8 +21,8 @@ func NewLotusMountFactory(api LotusMountAPI) (*LotusMountFactory, error) {
 	}, nil
 }
 
-// Parse parses the shard specific state from the URL and returns a Mount for
-//  the Shard represented by the URL.
+// Parse parses the shard specific state from the URL and returns a Lotus Mount for
+// the Shard represented by the URL.
 func (l *LotusMountFactory) Parse(u *url.URL) (mount.Mount, error) {
 	if u.Scheme != lotusScheme {
 		return nil, xerrors.New("scheme does not match")
@@ -35,7 +30,7 @@ func (l *LotusMountFactory) Parse(u *url.URL) (mount.Mount, error) {
 
 	pieceCid, err := cid.Decode(u.Host)
 	if err != nil {
-		return nil, xerrors.Errorf("failed to parse PieceCid from host, err=%s", err)
+		return nil, xerrors.Errorf("failed to parse PieceCid from host: %w", err)
 	}
 
 	return &LotusMount{
@@ -44,5 +39,3 @@ func (l *LotusMountFactory) Parse(u *url.URL) (mount.Mount, error) {
 		URL:      u,
 	}, nil
 }
-
-*/

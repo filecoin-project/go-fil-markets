@@ -167,7 +167,7 @@ func requireSetupTestClientAndProvider(ctx context.Context, t *testing.T, payChA
 		return ask, nil
 	}
 
-	mountApi := mktdagstore.NewMount(pieceStore, providerNode)
+	mountApi := mktdagstore.NewLotusMountAPI(pieceStore, providerNode)
 	provider, err := retrievalimpl.NewProvider(
 		paymentAddress, providerNode, nw2, pieceStore, testData.DagStore, dt2, providerDs,
 		priceFunc, mountApi)
@@ -689,7 +689,7 @@ func setupProvider(
 		return ask, nil
 	}
 
-	mountApi := mktdagstore.NewMount(pieceStore, providerNode)
+	mountApi := mktdagstore.NewLotusMountAPI(pieceStore, providerNode)
 	provider, err := retrievalimpl.NewProvider(providerPaymentAddr, providerNode, nw2,
 		pieceStore, testData.DagStore, dt2, providerDs, priceFunc, mountApi,
 		opts...)

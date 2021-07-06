@@ -457,7 +457,7 @@ func newRetrievalHarness(ctx context.Context, t *testing.T, sh *testharness.Stor
 		return ask, nil
 	}
 
-	mountApi := mktdagstore.NewMount(pieceStore, providerNode)
+	mountApi := mktdagstore.NewLotusMountAPI(pieceStore, providerNode)
 	provider, err := retrievalimpl.NewProvider(
 		providerPaymentAddr, providerNode, nw2, pieceStore, sh.TestData.DagStore, sh.DTProvider, providerDs,
 		priceFunc, mountApi)

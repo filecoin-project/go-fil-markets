@@ -146,7 +146,7 @@ func TestDynamicPricing(t *testing.T) {
 		ds := dss.MutexWrap(datastore.NewMapDatastore())
 		dagStore := dagstore.NewMockDagStore()
 		dt := tut.NewTestDataTransfer()
-		mnt := mktdagstore.NewMount(pieceStore, node)
+		mnt := mktdagstore.NewLotusMountAPI(pieceStore, node)
 		c, err := retrievalimpl.NewProvider(expectedAddress, node, net, pieceStore, dagStore, dt, ds, pFnc, mnt)
 		require.NoError(t, err)
 		tut.StartAndWaitForReady(ctx, t, c)
@@ -692,7 +692,7 @@ func TestHandleQueryStream(t *testing.T) {
 			return ask, nil
 		}
 
-		mnt := mktdagstore.NewMount(pieceStore, node)
+		mnt := mktdagstore.NewLotusMountAPI(pieceStore, node)
 		c, err := retrievalimpl.NewProvider(expectedAddress, node, net, pieceStore, dagStore, dt, ds, priceFunc, mnt)
 		require.NoError(t, err)
 
@@ -910,7 +910,7 @@ func TestProvider_Construct(t *testing.T) {
 
 	pieceStore := tut.NewTestPieceStore()
 	node := testnodes.NewTestRetrievalProviderNode()
-	mnt := mktdagstore.NewMount(pieceStore, node)
+	mnt := mktdagstore.NewLotusMountAPI(pieceStore, node)
 	_, err := retrievalimpl.NewProvider(
 		spect.NewIDAddr(t, 2344),
 		node,
@@ -966,7 +966,7 @@ func TestProviderConfigOpts(t *testing.T) {
 
 	pieceStore := tut.NewTestPieceStore()
 	node := testnodes.NewTestRetrievalProviderNode()
-	mnt := mktdagstore.NewMount(pieceStore, node)
+	mnt := mktdagstore.NewLotusMountAPI(pieceStore, node)
 	p, err := retrievalimpl.NewProvider(
 		spect.NewIDAddr(t, 2344),
 		node,
@@ -1148,7 +1148,7 @@ func TestProviderMigrations(t *testing.T) {
 
 	pieceStore := tut.NewTestPieceStore()
 	node := testnodes.NewTestRetrievalProviderNode()
-	mnt := mktdagstore.NewMount(pieceStore, node)
+	mnt := mktdagstore.NewLotusMountAPI(pieceStore, node)
 	retrievalProvider, err := retrievalimpl.NewProvider(
 		spect.NewIDAddr(t, 2344),
 		node,

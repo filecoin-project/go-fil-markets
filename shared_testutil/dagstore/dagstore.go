@@ -20,7 +20,7 @@ import (
 
 type DagStore interface {
 	RegisterShard(key shard.Key, path string) error
-	LoadShard(ctx context.Context, key shard.Key, mount dagstore.MountApi) (carstore.ClosableBlockstore, error)
+	LoadShard(ctx context.Context, key shard.Key, mount dagstore.LotusMountAPI) (carstore.ClosableBlockstore, error)
 }
 
 type MockDagStore struct {
@@ -34,8 +34,8 @@ func (m *MockDagStore) RegisterShard(key shard.Key, path string) error {
 	return nil
 }
 
-func (m *MockDagStore) LoadShard(ctx context.Context, key shard.Key, mount dagstore.MountApi) (carstore.ClosableBlockstore, error) {
-	pieceCid, err := cid.Parse(string(key))
+func (m *MockDagStore) LoadShard(ctx context.Context, key shard.Key, mount dagstore.LotusMountAPI) (carstore.ClosableBlockstore, error) {
+	pieceCid, err := cid.Parse(key.String())
 	if err != nil {
 		return nil, xerrors.Errorf("parsing CID %s: %w", key, err)
 	}

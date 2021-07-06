@@ -2,81 +2,86 @@ package dagstore
 
 import (
 	"context"
+	"fmt"
 	"io"
+	"net/url"
 
 	"github.com/ipfs/go-cid"
 	"golang.org/x/xerrors"
 
-	"github.com/filecoin-project/go-fil-markets/piecestore"
-	"github.com/filecoin-project/go-fil-markets/retrievalmarket"
+	"github.com/filecoin-project/dagstore/mount"
 )
 
-type MountApi interface {
-	FetchUnsealedPiece(ctx context.Context, pieceCid cid.Cid) (io.ReadCloser, error)
+const lotusScheme = "lotus"
+const lotusMountURL = "%s://%s"
+
+var _ mount.Mount = (*LotusMount)(nil)
+
+// LotusMount is the Lotus implementation of a Sharded DAG Store Mount.
+// A Filecoin Piece is treated as a Shard by this implementation.
+type LotusMount struct {
+	PieceCid cid.Cid
+	Api      LotusMountAPI
+	URL      *url.URL
 }
 
-type mount struct {
-	pieceStore piecestore.PieceStore
-	rm         retrievalmarket.RetrievalProviderNode
-}
-
-var _ MountApi = (*mount)(nil)
-
-func NewMount(store piecestore.PieceStore, rm retrievalmarket.RetrievalProviderNode) *mount {
-	return &mount{
-		pieceStore: store,
-		rm:         rm,
-	}
-}
-
-func (m *mount) FetchUnsealedPiece(ctx context.Context, pieceCid cid.Cid) (io.ReadCloser, error) {
-	pieceInfo, err := m.pieceStore.GetPieceInfo(pieceCid)
+func NewLotusMount(pieceCid cid.Cid, api LotusMountAPI) (*LotusMount, error) {
+	u := fmt.Sprintf(lotusMountURL, lotusScheme, pieceCid.String())
+	url, err := url.Parse(u)
 	if err != nil {
-		return nil, xerrors.Errorf("failed to fetch pieceInfo: %w", err)
+		return nil, xerrors.Errorf("failed to parse URL, err=%s", err)
 	}
 
-	if len(pieceInfo.Deals) <= 0 {
-		return nil, xerrors.New("no storage deals for Piece")
-	}
-
-	// prefer an unsealed sector containing the piece if one exists
-	for _, deal := range pieceInfo.Deals {
-		isUnsealed, err := m.rm.IsUnsealed(ctx, deal.SectorID, deal.Offset.Unpadded(), deal.Length.Unpadded())
-		if err != nil {
-			continue
-		}
-		if isUnsealed {
-			// UnsealSector will NOT unseal a sector if we already have an unsealed copy lying around.
-			reader, err := m.rm.UnsealSector(ctx, deal.SectorID, deal.Offset.Unpadded(), deal.Length.Unpadded())
-			if err == nil {
-				return reader, nil
-			}
-		}
-	}
-
-	lastErr := xerrors.New("no sectors found to unseal from")
-	// if there is no unsealed sector containing the piece, just read the piece from the first sector we are able to unseal.
-	for _, deal := range pieceInfo.Deals {
-		reader, err := m.rm.UnsealSector(ctx, deal.SectorID, deal.Offset.Unpadded(), deal.Length.Unpadded())
-		if err == nil {
-			return reader, nil
-		}
-		lastErr = err
-	}
-	return nil, lastErr
+	return &LotusMount{
+		PieceCid: pieceCid,
+		Api:      api,
+		URL:      url,
+	}, nil
 }
 
-func (m *mount) GetUnpaddedCARSize(pieceCid cid.Cid) (uint64, error) {
-	pieceInfo, err := m.pieceStore.GetPieceInfo(pieceCid)
+func (l *LotusMount) Fetch(ctx context.Context) (mount.Reader, error) {
+	r, err := l.Api.FetchUnsealedPiece(ctx, l.PieceCid)
 	if err != nil {
-		return 0, xerrors.Errorf("failed to fetch pieceInfo, err=%w", err)
+		return nil, xerrors.Errorf("failed to fetch unsealed piece: %w", err)
+	}
+	return &readCloser{r}, nil
+}
+
+func (l *LotusMount) Info() mount.Info {
+	return mount.Info{
+		Kind:             mount.KindRemote,
+		URL:              l.URL,
+		AccessSequential: true,
+		AccessSeek:       false,
+		AccessRandom:     false,
+	}
+}
+
+func (l *LotusMount) Close() error {
+	return nil
+}
+
+func (l *LotusMount) Stat(_ context.Context) (mount.Stat, error) {
+	size, err := l.Api.GetUnpaddedCARSize(l.PieceCid)
+	if err != nil {
+		return mount.Stat{}, xerrors.Errorf("failed to fetch piece size, err=%s", err)
 	}
 
-	if len(pieceInfo.Deals) <= 0 {
-		return 0, xerrors.New("no storage deals for piece")
-	}
+	// TODO Mark false when storage deal expires.
+	return mount.Stat{
+		Exists: true,
+		Size:   int64(size),
+	}, nil
+}
 
-	len := pieceInfo.Deals[0].Length
+type readCloser struct {
+	io.ReadCloser
+}
 
-	return uint64(len), nil
+func (r *readCloser) ReadAt(p []byte, off int64) (n int, err error) {
+	panic("not implemented")
+}
+
+func (r *readCloser) Seek(offset int64, whence int) (int64, error) {
+	panic("not implemented")
 }

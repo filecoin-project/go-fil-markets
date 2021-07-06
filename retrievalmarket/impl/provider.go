@@ -61,7 +61,7 @@ type Provider struct {
 	askStore             retrievalmarket.AskStore
 	disableNewDeals      bool
 	retrievalPricingFunc RetrievalPricingFunc
-	mountApi             mktdagstore.MountApi
+	mountApi             mktdagstore.LotusMountAPI
 	dagStore             dagstore.DagStore
 	readOnlyBlockStores  *carstore.CarReadOnlyStoreTracker
 }
@@ -109,7 +109,7 @@ func NewProvider(minerAddress address.Address,
 	dataTransfer datatransfer.Manager,
 	ds datastore.Batching,
 	retrievalPricingFunc RetrievalPricingFunc,
-	mountApi mktdagstore.MountApi,
+	mountApi mktdagstore.LotusMountAPI,
 	opts ...RetrievalProviderOption,
 ) (retrievalmarket.RetrievalProvider, error) {
 

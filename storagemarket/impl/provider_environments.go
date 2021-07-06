@@ -32,7 +32,7 @@ type providerDealEnvironment struct {
 
 // TODO Uncomment code when DAG Store compiles
 func (p *providerDealEnvironment) ActivateShard(pieceCid cid.Cid, path string) error {
-	key := shard.Key(pieceCid.String())
+	key := shard.KeyFromCID(pieceCid)
 	//
 	//mt, err := marketdagstore.NewLotusMount(pieceCid, p.p.mountApi)
 	//if err != nil {
