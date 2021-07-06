@@ -26,6 +26,7 @@ import (
 	"github.com/filecoin-project/go-state-types/big"
 	"github.com/filecoin-project/specs-actors/actors/builtin/paych"
 
+	mktdagstore "github.com/filecoin-project/go-fil-markets/dagstore"
 	"github.com/filecoin-project/go-fil-markets/piecestore"
 	"github.com/filecoin-project/go-fil-markets/retrievalmarket"
 	retrievalimpl "github.com/filecoin-project/go-fil-markets/retrievalmarket/impl"
@@ -34,7 +35,6 @@ import (
 	"github.com/filecoin-project/go-fil-markets/shared"
 	"github.com/filecoin-project/go-fil-markets/shared_testutil"
 	tut "github.com/filecoin-project/go-fil-markets/shared_testutil"
-	"github.com/filecoin-project/go-fil-markets/shared_testutil/dagstore"
 	"github.com/filecoin-project/go-fil-markets/storagemarket"
 	"github.com/filecoin-project/go-fil-markets/storagemarket/impl/clientutils"
 	"github.com/filecoin-project/go-fil-markets/storagemarket/testharness"
@@ -462,7 +462,7 @@ func newRetrievalHarness(ctx context.Context, t *testing.T, sh *testharness.Stor
 		return ask, nil
 	}
 
-	mountApi := dagstore.NewFSMount(pieceStore, providerNode)
+	mountApi := mktdagstore.NewMount(pieceStore, providerNode)
 	provider, err := retrievalimpl.NewProvider(
 		providerPaymentAddr, providerNode, nw2, pieceStore, sh.TestData.DagStore, sh.DTProvider, providerDs,
 		priceFunc, mountApi)

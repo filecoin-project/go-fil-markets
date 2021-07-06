@@ -21,6 +21,7 @@ import (
 	"github.com/filecoin-project/go-statemachine/fsm"
 
 	"github.com/filecoin-project/go-fil-markets/carstore"
+	mktdagstore "github.com/filecoin-project/go-fil-markets/dagstore"
 	"github.com/filecoin-project/go-fil-markets/piecestore"
 	"github.com/filecoin-project/go-fil-markets/retrievalmarket"
 	"github.com/filecoin-project/go-fil-markets/retrievalmarket/impl/askstore"
@@ -60,7 +61,7 @@ type Provider struct {
 	askStore             retrievalmarket.AskStore
 	disableNewDeals      bool
 	retrievalPricingFunc RetrievalPricingFunc
-	mountApi             dagstore.MountApi
+	mountApi             mktdagstore.MountApi
 	dagStore             dagstore.DagStore
 	readOnlyBlockStores  *carstore.CarReadOnlyStoreTracker
 }
@@ -108,7 +109,7 @@ func NewProvider(minerAddress address.Address,
 	dataTransfer datatransfer.Manager,
 	ds datastore.Batching,
 	retrievalPricingFunc RetrievalPricingFunc,
-	mountApi dagstore.MountApi,
+	mountApi mktdagstore.MountApi,
 	opts ...RetrievalProviderOption,
 ) (retrievalmarket.RetrievalProvider, error) {
 

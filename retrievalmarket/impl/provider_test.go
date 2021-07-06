@@ -25,6 +25,7 @@ import (
 	"github.com/filecoin-project/go-state-types/big"
 	spect "github.com/filecoin-project/specs-actors/support/testing"
 
+	mktdagstore "github.com/filecoin-project/go-fil-markets/dagstore"
 	"github.com/filecoin-project/go-fil-markets/piecestore"
 	piecemigrations "github.com/filecoin-project/go-fil-markets/piecestore/migrations"
 	"github.com/filecoin-project/go-fil-markets/retrievalmarket"
@@ -145,7 +146,7 @@ func TestDynamicPricing(t *testing.T) {
 		ds := dss.MutexWrap(datastore.NewMapDatastore())
 		dagStore := dagstore.NewMockDagStore()
 		dt := tut.NewTestDataTransfer()
-		mnt := dagstore.NewFSMount(pieceStore, node)
+		mnt := mktdagstore.NewMount(pieceStore, node)
 		c, err := retrievalimpl.NewProvider(expectedAddress, node, net, pieceStore, dagStore, dt, ds, pFnc, mnt)
 		require.NoError(t, err)
 		tut.StartAndWaitForReady(ctx, t, c)
@@ -691,7 +692,7 @@ func TestHandleQueryStream(t *testing.T) {
 			return ask, nil
 		}
 
-		mnt := dagstore.NewFSMount(pieceStore, node)
+		mnt := mktdagstore.NewMount(pieceStore, node)
 		c, err := retrievalimpl.NewProvider(expectedAddress, node, net, pieceStore, dagStore, dt, ds, priceFunc, mnt)
 		require.NoError(t, err)
 
@@ -909,7 +910,7 @@ func TestProvider_Construct(t *testing.T) {
 
 	pieceStore := tut.NewTestPieceStore()
 	node := testnodes.NewTestRetrievalProviderNode()
-	mnt := dagstore.NewFSMount(pieceStore, node)
+	mnt := mktdagstore.NewMount(pieceStore, node)
 	_, err := retrievalimpl.NewProvider(
 		spect.NewIDAddr(t, 2344),
 		node,
@@ -965,7 +966,7 @@ func TestProviderConfigOpts(t *testing.T) {
 
 	pieceStore := tut.NewTestPieceStore()
 	node := testnodes.NewTestRetrievalProviderNode()
-	mnt := dagstore.NewFSMount(pieceStore, node)
+	mnt := mktdagstore.NewMount(pieceStore, node)
 	p, err := retrievalimpl.NewProvider(
 		spect.NewIDAddr(t, 2344),
 		node,
@@ -1147,7 +1148,7 @@ func TestProviderMigrations(t *testing.T) {
 
 	pieceStore := tut.NewTestPieceStore()
 	node := testnodes.NewTestRetrievalProviderNode()
-	mnt := dagstore.NewFSMount(pieceStore, node)
+	mnt := mktdagstore.NewMount(pieceStore, node)
 	retrievalProvider, err := retrievalimpl.NewProvider(
 		spect.NewIDAddr(t, 2344),
 		node,
