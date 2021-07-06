@@ -162,7 +162,7 @@ func TestOfflineStorageRetrieval(t *testing.T) {
 			shared_testutil.StartAndWaitForReady(ctx, t, sh.Client)
 
 			// Do a Selective CARv1 traversal on the CARv2 file  to get a deterministic CARv1 that we can import on the miner side.
-			rdOnly, err := blockstore.OpenReadOnly(sh.CARv2FilePath, false)
+			rdOnly, err := blockstore.OpenReadOnly(sh.CARv2FilePath)
 			require.NoError(t, err)
 			sc := car.NewSelectiveCar(ctx, rdOnly, []car.Dag{{Root: sh.PayloadCid, Selector: shared.AllSelector()}})
 			prepared, err := sc.Prepare()

@@ -1476,7 +1476,6 @@ type fakeEnvironment struct {
 	rejectDeal              bool
 	rejectReason            string
 	decisionError           error
-	deleteStoreError        error
 	fs                      filestore.FileStore
 	pieceStore              piecestore.PieceStore
 	expectedTags            map[string]struct{}

@@ -49,7 +49,7 @@ func CommPFromCARV2(ctx context.Context, CARv2FilePath string, root cid.Cid) (wr
 		return writer.DataCIDSize{}, xerrors.New("need Carv2 file path to get a read-only blockstore")
 	}
 
-	rdOnly, err := blockstore.OpenReadOnly(CARv2FilePath, true)
+	rdOnly, err := blockstore.OpenReadOnly(CARv2FilePath)
 	if err != nil {
 		return writer.DataCIDSize{}, xerrors.Errorf("failed to open read-only blockstore: %w", err)
 	}

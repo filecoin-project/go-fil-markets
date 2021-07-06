@@ -242,7 +242,7 @@ func genWithCARv2Blockstore(t *testing.T, fPath string, root cid.Cid) string {
 	require.NoError(t, err)
 	require.NoError(t, tmp.Close())
 
-	rw, err := blockstore.NewReadWrite(tmp.Name(), []cid.Cid{root})
+	rw, err := blockstore.NewReadWrite(tmp.Name(), []cid.Cid{root}, blockstore.WithCidDeduplication)
 	require.NoError(t, err)
 
 	bsvc := blockservice.New(rw, offline.Exchange(rw))
@@ -307,7 +307,7 @@ func (ltd *Libp2pTestData) VerifyFileTransferredIntoStore(t *testing.T, link ipl
 	//	dagService = store.DAG
 	//}
 
-	bstore, err := blockstore.OpenReadOnly(carFilePath, true)
+	bstore, err := blockstore.OpenReadOnly(carFilePath)
 	require.NoError(t, err)
 	bsvc := blockservice.New(bstore, offline.Exchange(bstore))
 	dagService := merkledag.NewDAGService(bsvc)

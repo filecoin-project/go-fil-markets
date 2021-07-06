@@ -54,7 +54,6 @@ func (m *MockDagStore) LoadShard(ctx context.Context, key shard.Key, mount Mount
 	_, err = io.Copy(tmpFile, r)
 	if err != nil {
 		return nil, xerrors.Errorf("copying read stream to temp file for piece CID %s: %w", key, err)
-		return nil, err
 	}
 
 	err = tmpFile.Close()
@@ -66,6 +65,7 @@ func (m *MockDagStore) LoadShard(ctx context.Context, key shard.Key, mount Mount
 	return getBlockstore(tmpFile.Name())
 }
 
+// TODO: The actual implementation will have to return a Closer here that closes the actual file handle as well.
 func getBlockstore(path string) (carstore.ClosableBlockstore, error) {
 	f, err := os.Open(path)
 	if err != nil {
@@ -78,6 +78,11 @@ func getBlockstore(path string) (carstore.ClosableBlockstore, error) {
 		return nil, xerrors.Errorf("failed to read CAR header: %w", err)
 	}
 
+	// we read the file above to read the header -> seek to the start to be able to read he file again.
+	if _, err := f.Seek(0, io.SeekStart); err != nil {
+		return nil, xerrors.Errorf("failed to seek: %w", err)
+	}
+
 	// Get the CAR file, depending on the version
 	switch hd.Version {
 	case 1:
@@ -85,11 +90,14 @@ func getBlockstore(path string) (carstore.ClosableBlockstore, error) {
 		if err != nil {
 			return nil, xerrors.Errorf("failed to generate index from %s: %w", path, err)
 		}
-
-		return carv2bs.ReadOnlyOf(f, idx), nil
+		// we read the file above to generate the Index -> seek to the start to be able to read he file again.
+		if _, err := f.Seek(0, io.SeekStart); err != nil {
+			return nil, xerrors.Errorf("failed to seek: %w", err)
+		}
+		return carv2bs.NewReadOnly(f, idx)
 
 	case 2:
-		return carv2bs.OpenReadOnly(path, true)
+		return carv2bs.OpenReadOnly(path)
 	}
 
 	return nil, xerrors.Errorf("unrecognized version %d", hd.Version)

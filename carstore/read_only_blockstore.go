@@ -47,7 +47,7 @@ func (r *CarReadOnlyStoreTracker) GetOrCreate(key string, carFilePath string) (C
 		return bs, nil
 	}
 
-	rdOnly, err := blockstore.OpenReadOnly(carFilePath, true)
+	rdOnly, err := blockstore.OpenReadOnly(carFilePath)
 	if err != nil {
 		return nil, xerrors.Errorf("failed to open read-only blockstore: %w", err)
 	}

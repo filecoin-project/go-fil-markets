@@ -373,7 +373,7 @@ func (l *lazyBlockstore) AllKeysChan(ctx context.Context) (<-chan cid.Cid, error
 	return bs.AllKeysChan(ctx)
 }
 
-func (l lazyBlockstore) HashOnRead(enabled bool) {
+func (l *lazyBlockstore) HashOnRead(enabled bool) {
 	bs, err := l.init()
 	if err != nil {
 		return

@@ -383,7 +383,7 @@ func TestClientCanMakeDealWithProvider(t *testing.T) {
 
 			// Do a Selective CARv1 traversal on the CARv2 file to get a
 			// deterministic CARv1 that we can import on the miner side.
-			rdOnly, err := blockstore.OpenReadOnly(carFilePath, false)
+			rdOnly, err := blockstore.OpenReadOnly(carFilePath)
 			require.NoError(t, err)
 			sc := car.NewSelectiveCar(ctx, rdOnly, []car.Dag{{Root: payloadCID, Selector: shared.AllSelector()}})
 			prepared, err := sc.Prepare()

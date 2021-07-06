@@ -67,3 +67,5 @@ require (
 )
 
 replace github.com/filecoin-project/filecoin-ffi => ./extern/filecoin-ffi
+
+replace github.com/ipld/go-car/v2 => github.com/mvdan/go-car/v2 v2.0.0-20210705214709-67212dfac7af
