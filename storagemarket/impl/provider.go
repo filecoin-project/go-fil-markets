@@ -68,9 +68,8 @@ type Provider struct {
 	unsubDataTransfer datatransfer.Unsubscribe
 
 	// TODO Uncomment this when DAGStore compiles -> Lotus will inject these deps here.
-	dagStore dagstore.DagStore
 	//mountApi marketdagstore.LotusMountAPI
-
+	dagStore             dagstore.DagStore
 	readWriteBlockStores *carstore.CarReadWriteStoreTracker
 }
 

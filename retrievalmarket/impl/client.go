@@ -318,10 +318,6 @@ func (c *Client) checkForActiveDeal(payloadCID cid.Cid, pid peer.ID) error {
 	return nil
 }
 
-func (c *Client) GetBlockstore(dealID retrievalmarket.DealID) (bstore.Blockstore, error) {
-	return c.readWriteBlockstores.Get(dealID.String())
-}
-
 func (c *Client) notifySubscribers(eventName fsm.EventName, state fsm.StateType) {
 	evt := eventName.(retrievalmarket.ClientEvent)
 	ds := state.(retrievalmarket.ClientDealState)
@@ -463,6 +459,7 @@ func (c *clientDealEnvironment) CloseDataTransfer(ctx context.Context, channelID
 	return err
 }
 
+// FinalizeBlockstore is called when all blocks have been received
 func (c *clientDealEnvironment) FinalizeBlockstore(ctx context.Context, dealID retrievalmarket.DealID) error {
 	bs, err := c.c.readWriteBlockstores.Get(dealID.String())
 	if err != nil {

@@ -396,11 +396,6 @@ func newRetrievalHarness(ctx context.Context, t *testing.T, sh *testharness.Stor
 	providerPaymentAddr := deal.MinerWorker
 	providerNode := testnodes2.NewTestRetrievalProviderNode()
 
-	// Work out the payload size of the data
-	dataCIDSize, err := clientutils.CommPFromCARV2(ctx, sh.CARv2FilePath, sh.PayloadCid)
-	require.NoError(t, err)
-	payloadSize := dataCIDSize.PayloadSize
-
 	// Get the data passed to the sealing code when the last deal completed.
 	// This is the padded CAR file.
 	carData := sh.ProviderNode.LastOnDealCompleteBytes
@@ -413,11 +408,11 @@ func newRetrievalHarness(ctx context.Context, t *testing.T, sh *testharness.Stor
 			{
 				SectorID: sectorID,
 				Offset:   offset,
-				Length:   abi.UnpaddedPieceSize(uint64(payloadSize)).Padded(),
+				Length:   abi.UnpaddedPieceSize(uint64(len(carData))).Padded(),
 			},
 		},
 	}
-	providerNode.ExpectUnseal(sectorID, offset.Unpadded(), abi.UnpaddedPieceSize(uint64(payloadSize)), carData)
+	providerNode.ExpectUnseal(sectorID, offset.Unpadded(), abi.UnpaddedPieceSize(uint64(len(carData))), carData)
 
 	// clear out provider blockstore
 	allCids, err := sh.TestData.Bs2.AllKeysChan(sh.Ctx)

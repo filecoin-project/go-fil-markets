@@ -35,7 +35,6 @@ import (
 	"golang.org/x/net/context"
 
 	dtnet "github.com/filecoin-project/go-data-transfer/network"
-	"github.com/filecoin-project/go-multistore"
 
 	"github.com/filecoin-project/go-fil-markets/filestore"
 	"github.com/filecoin-project/go-fil-markets/shared_testutil/dagstore"
@@ -47,8 +46,6 @@ type Libp2pTestData struct {
 	Ds2          datastore.Batching
 	Bs1          bstore.Blockstore
 	Bs2          bstore.Blockstore
-	MultiStore1  *multistore.MultiStore
-	MultiStore2  *multistore.MultiStore
 	DagStore     dagstore.DagStore
 	CarFileStore filestore.CarFileStore
 	DagService1  ipldformat.DAGService
@@ -114,11 +111,6 @@ func NewLibp2pTestData(ctx context.Context, t *testing.T) *Libp2pTestData {
 	testData.Bs1 = bstore.NewBlockstore(testData.Ds1)
 	testData.Bs2 = bstore.NewBlockstore(testData.Ds2)
 
-	testData.MultiStore1, err = multistore.NewMultiDstore(testData.Ds1)
-	require.NoError(t, err)
-	testData.MultiStore2, err = multistore.NewMultiDstore(testData.Ds2)
-	require.NoError(t, err)
-
 	testData.DagStore = dagstore.NewMockDagStore()
 
 	testData.CarFileStore, err = filestore.NewLocalCarStore(t.TempDir())
@@ -183,9 +175,7 @@ func (ltd *Libp2pTestData) LoadUnixFSFile(t *testing.T, fixturesPath string, use
 	return ltd.loadUnixFSFile(t, fixturesPath, dagService)
 }
 
-// LoadUnixFSFileToStore injects the fixture `filename` from the
-// fixtures directory, creating a new multistore in the process. If useSecondNode is true,
-// fixture is injected to the second node. Otherwise the first node gets it
+// LoadUnixFSFileToStore creates a CAR file from the fixture at `fixturesPath`
 func (ltd *Libp2pTestData) LoadUnixFSFileToStore(t *testing.T, fixturesPath string) (ipld.Link, string) {
 	dstore := dss.MutexWrap(datastore.NewMapDatastore())
 	bs := bstore.NewBlockstore(dstore)
@@ -293,20 +283,9 @@ func (ltd *Libp2pTestData) VerifyFileTransferred(t *testing.T, link ipld.Link, u
 	ltd.verifyFileTransferred(t, link, dagService, readLen)
 }
 
-// VerifyFileTransferredIntoStore checks that the fixture file was sent from one node to the other, into the store specified by
-// storeID
+// VerifyFileTransferredIntoStore checks that the fixture file was sent from
+// one node to the other, and stored in the given CAR file
 func (ltd *Libp2pTestData) VerifyFileTransferredIntoStore(t *testing.T, link ipld.Link, carFilePath string, readLen uint64) {
-	//var dagService ipldformat.DAGService
-	//if useSecondNode {
-	//	store, err := ltd.MultiStore2.Get(bstore)
-	//	require.NoError(t, err)
-	//	dagService = store.DAG
-	//} else {
-	//	store, err := ltd.MultiStore1.Get(bstore)
-	//	require.NoError(t, err)
-	//	dagService = store.DAG
-	//}
-
 	bstore, err := blockstore.OpenReadOnly(carFilePath)
 	require.NoError(t, err)
 	bsvc := blockservice.New(bstore, offline.Exchange(bstore))

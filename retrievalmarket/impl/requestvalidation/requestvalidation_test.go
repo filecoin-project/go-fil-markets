@@ -13,7 +13,6 @@ import (
 	"github.com/stretchr/testify/require"
 
 	datatransfer "github.com/filecoin-project/go-data-transfer"
-	"github.com/filecoin-project/go-multistore"
 	"github.com/filecoin-project/go-state-types/abi"
 
 	"github.com/filecoin-project/go-fil-markets/piecestore"
@@ -216,8 +215,6 @@ type fakeValidationEnvironment struct {
 	RunDealDecisioningLogicFailReason string
 	RunDealDecisioningLogicError      error
 	BeginTrackingError                error
-	NextStoreIDValue                  multistore.StoreID
-	NextStoreIDError                  error
 
 	Ask retrievalmarket.Ask
 }
@@ -244,8 +241,4 @@ func (fve *fakeValidationEnvironment) RunDealDecisioningLogic(ctx context.Contex
 // StateMachines returns the FSM Group to begin tracking with
 func (fve *fakeValidationEnvironment) BeginTracking(pds retrievalmarket.ProviderDealState) error {
 	return fve.BeginTrackingError
-}
-
-func (fve *fakeValidationEnvironment) NextStoreID() (multistore.StoreID, error) {
-	return fve.NextStoreIDValue, fve.NextStoreIDError
 }

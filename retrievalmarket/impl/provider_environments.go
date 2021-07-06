@@ -125,7 +125,10 @@ func (pde *providerDealEnvironment) Node() retrievalmarket.RetrievalProviderNode
 	return pde.p.node
 }
 
+// PrepareBlockstore is called when the deal data has been unsealed and we need
+// to add all blocks to a blockstore that is used to serve retrieval
 func (pde *providerDealEnvironment) PrepareBlockstore(ctx context.Context, dealID retrievalmarket.DealID, pieceCid cid.Cid) error {
+	// Load the blockstore that has the deal data
 	key := shard.Key(pieceCid.String())
 	bs, err := pde.p.dagStore.LoadShard(ctx, key, pde.p.mountApi)
 	if err != nil {
@@ -302,6 +305,17 @@ func (psg *providerStoreGetter) Get(otherPeer peer.ID, dealID retrievalmarket.De
 	if err != nil {
 		return nil, xerrors.Errorf("failed to get deal state: %w", err)
 	}
+
+	//
+	// When a request for data is received
+	// 1. The data transfer layer calls Get to get the blockstore
+	// 2. The data for the deal is unsealed
+	// 3. The unsealed data is put into the blockstore
+	// 4. The data is served from the blockstore (using blockstore.Get)
+	//
+	// So we use a "lazy" blockstore that can be returned in step 1
+	// but is only accessed in step 4 after the data has been unsealed.
+	//
 	return newLazyBlockstore(func() (bstore.Blockstore, error) {
 		return psg.p.readOnlyBlockStores.Get(dealID.String())
 	}), nil

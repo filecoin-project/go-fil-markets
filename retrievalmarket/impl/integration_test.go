@@ -211,6 +211,7 @@ func TestClientCanMakeDealWithProvider(t *testing.T) {
 		zeroPricePerByte        bool
 		paramsV1, addFunds      bool
 		skipStores              bool
+		failsUnseal             bool
 		paymentInterval         uint64
 		paymentIntervalIncrease uint64
 		channelAvailableFunds   retrievalmarket.ChannelAvailableFunds
@@ -313,6 +314,13 @@ func TestClientCanMakeDealWithProvider(t *testing.T) {
 			voucherAmts: []abi.TokenAmount{abi.NewTokenAmount(10136000), abi.NewTokenAmount(19920000)},
 			skipStores:  true,
 		},
+		{
+			name:        "failed unseal",
+			filename:    "lorem.txt",
+			filesize:    19000,
+			voucherAmts: []abi.TokenAmount{},
+			failsUnseal: true,
+		},
 		{name: "multi-block file retrieval succeeds, final block exceeds payment interval",
 			filename:                "lorem.txt",
 			filesize:                19000,
@@ -410,7 +418,12 @@ func TestClientCanMakeDealWithProvider(t *testing.T) {
 			}
 			providerNode := testnodes.NewTestRetrievalProviderNode()
 			providerNode.ExpectPricingParams(pieceInfo.PieceCID, []abi.DealID{100})
-			providerNode.ExpectUnseal(sectorID, offset.Unpadded(), abi.UnpaddedPieceSize(len(carData)), carData)
+
+			if testCase.failsUnseal {
+				providerNode.ExpectFailedUnseal(sectorID, offset.Unpadded(), abi.UnpaddedPieceSize(len(carData)))
+			} else {
+				providerNode.ExpectUnseal(sectorID, offset.Unpadded(), abi.UnpaddedPieceSize(len(carData)), carData)
+			}
 
 			decider := rmtesting.TrivialTestDecider
 			if testCase.decider != nil {
@@ -524,7 +537,7 @@ CurrentInterval: %d
 				t.FailNow()
 			case clientDealState = <-clientDealStateChan:
 			}
-			if testCase.cancelled {
+			if testCase.failsUnseal || testCase.cancelled {
 				assert.Equal(t, retrievalmarket.DealStatusCancelled, clientDealState.Status)
 			} else {
 				if !testCase.zeroPricePerByte {
@@ -549,7 +562,9 @@ CurrentInterval: %d
 			case providerDealState = <-providerDealStateChan:
 			}
 
-			if testCase.cancelled {
+			if testCase.failsUnseal {
+				tut.AssertRetrievalDealState(t, retrievalmarket.DealStatusErrored, providerDealState.Status)
+			} else if testCase.cancelled {
 				tut.AssertRetrievalDealState(t, retrievalmarket.DealStatusCancelled, providerDealState.Status)
 			} else {
 				tut.AssertRetrievalDealState(t, retrievalmarket.DealStatusCompleted, providerDealState.Status)
@@ -563,7 +578,7 @@ CurrentInterval: %d
 			// verify that the nodes we interacted with as expected
 			clientNode.VerifyExpectations(t)
 			providerNode.VerifyExpectations(t)
-			if !testCase.cancelled {
+			if !testCase.failsUnseal && !testCase.cancelled {
 				testData.VerifyFileTransferredIntoStore(t, pieceLink, rresp.CarFilePath, testCase.filesize)
 			}
 		})
