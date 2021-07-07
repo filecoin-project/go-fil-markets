@@ -29,7 +29,7 @@ func NewLotusMount(pieceCid cid.Cid, api LotusMountAPI) (*LotusMount, error) {
 	u := fmt.Sprintf(lotusMountURL, lotusScheme, pieceCid.String())
 	url, err := url.Parse(u)
 	if err != nil {
-		return nil, xerrors.Errorf("failed to parse URL, err=%s", err)
+		return nil, xerrors.Errorf("failed to parse mount URL '%s': %w", u, err)
 	}
 
 	return &LotusMount{
@@ -42,7 +42,7 @@ func NewLotusMount(pieceCid cid.Cid, api LotusMountAPI) (*LotusMount, error) {
 func (l *LotusMount) Fetch(ctx context.Context) (mount.Reader, error) {
 	r, err := l.Api.FetchUnsealedPiece(ctx, l.PieceCid)
 	if err != nil {
-		return nil, xerrors.Errorf("failed to fetch unsealed piece: %w", err)
+		return nil, xerrors.Errorf("failed to fetch unsealed piece %s: %w", l.PieceCid, err)
 	}
 	return &readCloser{r}, nil
 }
@@ -64,7 +64,7 @@ func (l *LotusMount) Close() error {
 func (l *LotusMount) Stat(_ context.Context) (mount.Stat, error) {
 	size, err := l.Api.GetUnpaddedCARSize(l.PieceCid)
 	if err != nil {
-		return mount.Stat{}, xerrors.Errorf("failed to fetch piece size, err=%s", err)
+		return mount.Stat{}, xerrors.Errorf("failed to fetch piece size for piece %s: %w", l.PieceCid, err)
 	}
 
 	// TODO Mark false when storage deal expires.
@@ -77,6 +77,8 @@ func (l *LotusMount) Stat(_ context.Context) (mount.Stat, error) {
 type readCloser struct {
 	io.ReadCloser
 }
+
+var _ mount.Reader = (*readCloser)(nil)
 
 func (r *readCloser) ReadAt(p []byte, off int64) (n int, err error) {
 	panic("not implemented")

@@ -39,7 +39,7 @@ func TestLotusMountFactory(t *testing.T) {
 	mnt, err = l.Parse(u)
 	require.Error(t, err)
 	require.Nil(t, mnt)
-	require.Contains(t, err.Error(), "scheme does not match")
+	require.Contains(t, err.Error(), "does not match")
 
 	// fails if cid is not valid
 	us = fmt.Sprintf(lotusMountURL, lotusScheme, "rand")

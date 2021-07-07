@@ -6,10 +6,11 @@ import (
 	"strings"
 	"testing"
 
-	mock_dagstore "github.com/filecoin-project/go-fil-markets/dagstore/mocks"
 	"github.com/golang/mock/gomock"
 	blocksutil "github.com/ipfs/go-ipfs-blocksutil"
 	"github.com/stretchr/testify/require"
+
+	mock_dagstore "github.com/filecoin-project/go-fil-markets/dagstore/mocks"
 )
 
 func TestLotusMount(t *testing.T) {

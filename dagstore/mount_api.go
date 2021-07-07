@@ -33,11 +33,11 @@ func NewLotusMountAPI(store piecestore.PieceStore, rm retrievalmarket.RetrievalP
 func (m *lotusMountApiImpl) FetchUnsealedPiece(ctx context.Context, pieceCid cid.Cid) (io.ReadCloser, error) {
 	pieceInfo, err := m.pieceStore.GetPieceInfo(pieceCid)
 	if err != nil {
-		return nil, xerrors.Errorf("failed to fetch pieceInfo: %w", err)
+		return nil, xerrors.Errorf("failed to fetch pieceInfo for piece %s: %w", pieceCid, err)
 	}
 
 	if len(pieceInfo.Deals) <= 0 {
-		return nil, xerrors.New("no storage deals for Piece")
+		return nil, xerrors.Errorf("no storage deals found for Piece %s", pieceCid)
 	}
 
 	// prefer an unsealed sector containing the piece if one exists
@@ -70,11 +70,11 @@ func (m *lotusMountApiImpl) FetchUnsealedPiece(ctx context.Context, pieceCid cid
 func (m *lotusMountApiImpl) GetUnpaddedCARSize(pieceCid cid.Cid) (uint64, error) {
 	pieceInfo, err := m.pieceStore.GetPieceInfo(pieceCid)
 	if err != nil {
-		return 0, xerrors.Errorf("failed to fetch pieceInfo, err=%w", err)
+		return 0, xerrors.Errorf("failed to fetch pieceInfo for piece %s: %w", pieceCid, err)
 	}
 
 	if len(pieceInfo.Deals) <= 0 {
-		return 0, xerrors.New("no storage deals for piece")
+		return 0, xerrors.Errorf("no storage deals found for piece %s", pieceCid)
 	}
 
 	len := pieceInfo.Deals[0].Length
