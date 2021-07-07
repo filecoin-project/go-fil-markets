@@ -12,61 +12,48 @@ import (
 	"github.com/ipld/go-car/v2/index"
 	"golang.org/x/xerrors"
 
-	"github.com/filecoin-project/dagstore/shard"
-
 	"github.com/filecoin-project/go-fil-markets/carstore"
-	"github.com/filecoin-project/go-fil-markets/dagstore"
 )
 
-type DagStore interface {
-	RegisterShard(key shard.Key, path string) error
-	LoadShard(ctx context.Context, key shard.Key, mount dagstore.LotusMountAPI) (carstore.ClosableBlockstore, error)
+type MockDagStoreWrapper struct {
+	api LotusMountAPI
 }
 
-type MockDagStore struct {
+func NewMockDagStoreWrapper(api LotusMountAPI) *MockDagStoreWrapper {
+	return &MockDagStoreWrapper{api: api}
 }
 
-func NewMockDagStore() *MockDagStore {
-	return &MockDagStore{}
-}
-
-func (m *MockDagStore) RegisterShard(key shard.Key, path string) error {
+func (m *MockDagStoreWrapper) RegisterShard(ctx context.Context, pieceCid cid.Cid, carPath string) error {
 	return nil
 }
 
-func (m *MockDagStore) LoadShard(ctx context.Context, key shard.Key, mount dagstore.LotusMountAPI) (carstore.ClosableBlockstore, error) {
-	pieceCid, err := cid.Parse(key.String())
-	if err != nil {
-		return nil, xerrors.Errorf("parsing CID %s: %w", key, err)
-	}
-
+func (m *MockDagStoreWrapper) LoadShard(ctx context.Context, pieceCid cid.Cid) (carstore.ClosableBlockstore, error) {
 	// Fetch the unsealed piece
-	r, err := mount.FetchUnsealedPiece(ctx, pieceCid)
+	r, err := m.api.FetchUnsealedPiece(ctx, pieceCid)
 	if err != nil {
-		return nil, xerrors.Errorf("fetching unsealed piece with CID %s: %w", key, err)
+		return nil, xerrors.Errorf("fetching unsealed piece with CID %s: %w", pieceCid, err)
 	}
 
 	// Write the piece to a file
 	tmpFile, err := os.CreateTemp("", "dagstoretmp")
 	if err != nil {
-		return nil, xerrors.Errorf("creating temp file for piece CID %s: %w", key, err)
+		return nil, xerrors.Errorf("creating temp file for piece CID %s: %w", pieceCid, err)
 	}
 
 	_, err = io.Copy(tmpFile, r)
 	if err != nil {
-		return nil, xerrors.Errorf("copying read stream to temp file for piece CID %s: %w", key, err)
+		return nil, xerrors.Errorf("copying read stream to temp file for piece CID %s: %w", pieceCid, err)
 	}
 
 	err = tmpFile.Close()
 	if err != nil {
-		return nil, xerrors.Errorf("closing temp file for piece CID %s: %w", key, err)
+		return nil, xerrors.Errorf("closing temp file for piece CID %s: %w", pieceCid, err)
 	}
 
 	// Get a blockstore from the CAR file
 	return getBlockstore(tmpFile.Name())
 }
 
-// TODO: The actual implementation will have to return a Closer here that closes the actual file handle as well.
 func getBlockstore(path string) (carstore.ClosableBlockstore, error) {
 	f, err := os.Open(path)
 	if err != nil {
@@ -104,4 +91,4 @@ func getBlockstore(path string) (carstore.ClosableBlockstore, error) {
 	return nil, xerrors.Errorf("unrecognized version %d", hd.Version)
 }
 
-var _ DagStore = (*MockDagStore)(nil)
+var _ DagStoreWrapper = (*MockDagStoreWrapper)(nil)

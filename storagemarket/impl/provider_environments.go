@@ -11,7 +11,6 @@ import (
 	"github.com/libp2p/go-libp2p-core/peer"
 	"golang.org/x/xerrors"
 
-	"github.com/filecoin-project/dagstore/shard"
 	"github.com/filecoin-project/go-address"
 	"github.com/filecoin-project/go-commp-utils/writer"
 
@@ -30,17 +29,8 @@ type providerDealEnvironment struct {
 	p *Provider
 }
 
-// TODO Uncomment code when DAG Store compiles
-func (p *providerDealEnvironment) ActivateShard(pieceCid cid.Cid, path string) error {
-	key := shard.KeyFromCID(pieceCid)
-	//
-	//mt, err := marketdagstore.NewLotusMount(pieceCid, p.p.mountApi)
-	//if err != nil {
-	//	return err
-	//}
-	//
-	//return p.p.dagStore.RegisterShard(key, mt)
-	return p.p.dagStore.RegisterShard(key, path)
+func (p *providerDealEnvironment) RegisterShard(ctx context.Context, pieceCid cid.Cid, carPath string) error {
+	return p.p.dagStore.RegisterShard(ctx, pieceCid, carPath)
 }
 
 func (p *providerDealEnvironment) CARv2Reader(carV2FilePath string) (*carv2.Reader, error) {
