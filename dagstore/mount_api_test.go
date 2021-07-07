@@ -110,6 +110,7 @@ func TestLotusMountApiGetUnpaddedCARSize(t *testing.T) {
 
 	// Check that the data length is correct
 	len, err := api.GetUnpaddedCARSize(cid1)
+	require.NoError(t, err)
 	require.EqualValues(t, 10, len)
 }
 

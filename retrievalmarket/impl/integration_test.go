@@ -3,6 +3,7 @@ package retrievalimpl_test
 import (
 	"bytes"
 	"context"
+	"os"
 	"path/filepath"
 	"testing"
 	"time"
@@ -10,6 +11,7 @@ import (
 	"github.com/ipfs/go-cid"
 	"github.com/ipfs/go-datastore"
 	"github.com/ipfs/go-datastore/namespace"
+	ds_sync "github.com/ipfs/go-datastore/sync"
 	graphsyncimpl "github.com/ipfs/go-graphsync/impl"
 	"github.com/ipfs/go-graphsync/network"
 	"github.com/ipld/go-car"
@@ -21,6 +23,8 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/filecoin-project/dagstore"
+	"github.com/filecoin-project/dagstore/mount"
 	"github.com/filecoin-project/go-address"
 	dtimpl "github.com/filecoin-project/go-data-transfer/impl"
 	"github.com/filecoin-project/go-data-transfer/testutil"
@@ -167,10 +171,22 @@ func requireSetupTestClientAndProvider(ctx context.Context, t *testing.T, payChA
 		return ask, nil
 	}
 
+	// Set up a DAG store
+	registry := mount.NewRegistry()
+	dagStore, err := dagstore.NewDAGStore(dagstore.Config{
+		TransientsDir: t.TempDir(),
+		IndexDir:      t.TempDir(),
+		Datastore:     ds_sync.MutexWrap(datastore.NewMapDatastore()),
+		MountRegistry: registry,
+	})
+	require.NoError(t, err)
 	mountApi := mktdagstore.NewLotusMountAPI(pieceStore, providerNode)
+	dagStoreWrapper, err := mktdagstore.NewDagStoreWrapper(registry, dagStore, mountApi)
+	require.NoError(t, err)
+
 	provider, err := retrievalimpl.NewProvider(
-		paymentAddress, providerNode, nw2, pieceStore, testData.DagStore, dt2, providerDs,
-		priceFunc, mountApi)
+		paymentAddress, providerNode, nw2, pieceStore, dagStoreWrapper, dt2, providerDs,
+		priceFunc)
 	require.NoError(t, err)
 
 	tut.StartAndWaitForReady(ctx, t, provider)
@@ -434,7 +450,7 @@ func TestClientCanMakeDealWithProvider(t *testing.T) {
 			ctx, cancel := context.WithTimeout(bgCtx, 10*time.Second)
 			defer cancel()
 
-			provider := setupProvider(bgCtx, t, testData, payloadCID, pieceInfo, expectedQR,
+			provider := setupProvider(bgCtx, t, testData, payloadCID, pieceInfo, carFilePath, expectedQR,
 				providerPaymentAddr, providerNode, decider, testCase.disableNewDeals)
 			tut.StartAndWaitForReady(ctx, t, provider)
 
@@ -648,6 +664,7 @@ func setupProvider(
 	testData *tut.Libp2pTestData,
 	payloadCID cid.Cid,
 	pieceInfo piecestore.PieceInfo,
+	carFilePath string,
 	expectedQR retrievalmarket.QueryResponse,
 	providerPaymentAddr address.Address,
 	providerNode retrievalmarket.RetrievalProviderNode,
@@ -689,10 +706,30 @@ func setupProvider(
 		return ask, nil
 	}
 
+	// Create a DAG store
+	registry := mount.NewRegistry()
+	dagStore, err := dagstore.NewDAGStore(dagstore.Config{
+		TransientsDir: t.TempDir(),
+		IndexDir:      t.TempDir(),
+		Datastore:     ds_sync.MutexWrap(datastore.NewMapDatastore()),
+		MountRegistry: registry,
+	})
+	require.NoError(t, err)
 	mountApi := mktdagstore.NewLotusMountAPI(pieceStore, providerNode)
+	dagStoreWrapper, err := mktdagstore.NewDagStoreWrapper(registry, dagStore, mountApi)
+	require.NoError(t, err)
+
+	// Register the piece with the DAG store
+	err = dagStoreWrapper.RegisterShard(ctx, pieceInfo.PieceCID, carFilePath)
+	require.NoError(t, err)
+
+	// Remove the CAR file so that the provider is forced to unseal the data
+	// (instead of using the cached CAR file)
+	err = os.Remove(carFilePath)
+	require.NoError(t, err)
+
 	provider, err := retrievalimpl.NewProvider(providerPaymentAddr, providerNode, nw2,
-		pieceStore, testData.DagStore, dt2, providerDs, priceFunc, mountApi,
-		opts...)
+		pieceStore, dagStoreWrapper, dt2, providerDs, priceFunc, opts...)
 	require.NoError(t, err)
 
 	return provider

@@ -9,7 +9,7 @@ import (
 	"github.com/libp2p/go-libp2p-core/peer"
 	"golang.org/x/xerrors"
 
-	"github.com/filecoin-project/dagstore/shard"
+	"github.com/filecoin-project/dagstore"
 	datatransfer "github.com/filecoin-project/go-data-transfer"
 	"github.com/filecoin-project/go-state-types/abi"
 	"github.com/filecoin-project/go-state-types/big"
@@ -129,8 +129,7 @@ func (pde *providerDealEnvironment) Node() retrievalmarket.RetrievalProviderNode
 // to add all blocks to a blockstore that is used to serve retrieval
 func (pde *providerDealEnvironment) PrepareBlockstore(ctx context.Context, dealID retrievalmarket.DealID, pieceCid cid.Cid) error {
 	// Load the blockstore that has the deal data
-	key := shard.KeyFromCID(pieceCid)
-	bs, err := pde.p.dagStore.LoadShard(ctx, key, pde.p.mountApi)
+	bs, err := pde.p.dagStore.LoadShard(ctx, pieceCid)
 	if err != nil {
 		return xerrors.Errorf("failed to load blockstore for piece %s: %w", pieceCid, err)
 	}
@@ -310,13 +309,13 @@ func (psg *providerStoreGetter) Get(otherPeer peer.ID, dealID retrievalmarket.De
 	// When a request for data is received
 	// 1. The data transfer layer calls Get to get the blockstore
 	// 2. The data for the deal is unsealed
-	// 3. The unsealed data is put into the blockstore
+	// 3. The unsealed data is put into the blockstore (in this case a CAR file)
 	// 4. The data is served from the blockstore (using blockstore.Get)
 	//
 	// So we use a "lazy" blockstore that can be returned in step 1
 	// but is only accessed in step 4 after the data has been unsealed.
 	//
-	return newLazyBlockstore(func() (bstore.Blockstore, error) {
+	return newLazyBlockstore(func() (dagstore.ReadBlockstore, error) {
 		return psg.p.readOnlyBlockStores.Get(dealID.String())
 	}), nil
 }

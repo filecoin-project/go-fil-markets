@@ -4,7 +4,7 @@ go 1.13
 
 require (
 	github.com/cpuguy83/go-md2man/v2 v2.0.0 // indirect
-	github.com/filecoin-project/dagstore v0.0.0-20210705182902-c6fcf8675538
+	github.com/filecoin-project/dagstore v0.0.0-20210708130647-e413e3ad83df
 	github.com/filecoin-project/go-address v0.0.5
 	github.com/filecoin-project/go-amt-ipld/v2 v2.1.1-0.20201006184820-924ee87a1349 // indirect
 	github.com/filecoin-project/go-bitfield v0.2.4 // indirect
@@ -40,7 +40,7 @@ require (
 	github.com/ipfs/go-merkledag v0.3.2
 	github.com/ipfs/go-unixfs v0.2.6
 	github.com/ipld/go-car v0.1.1-0.20201119040415-11b6074b6d4d
-	github.com/ipld/go-car/v2 v2.0.0-20210706083137-aa61149042cd
+	github.com/ipld/go-car/v2 v2.0.0-20210708104948-d79de78d9567
 	github.com/ipld/go-ipld-prime v0.5.1-0.20201021195245-109253e8a018
 	github.com/jbenet/go-random v0.0.0-20190219211222-123a90aedc0c
 	github.com/jpillora/backoff v1.0.0
