@@ -3,6 +3,8 @@ package retrievalimpl_test
 import (
 	"bytes"
 	"context"
+	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"testing"
@@ -18,8 +20,6 @@ import (
 	"github.com/ipld/go-car/v2/blockstore"
 	"github.com/ipld/go-ipld-prime"
 	cidlink "github.com/ipld/go-ipld-prime/linking/cid"
-	basicnode "github.com/ipld/go-ipld-prime/node/basic"
-	"github.com/ipld/go-ipld-prime/traversal/selector/builder"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -206,13 +206,13 @@ func TestClientCanMakeDealWithProvider(t *testing.T) {
 
 	// -------- SET UP PROVIDER
 
-	ssb := builder.NewSelectorSpecBuilder(basicnode.Prototype.Any)
-
-	partialSelector := ssb.ExploreFields(func(specBuilder builder.ExploreFieldsSpecBuilder) {
-		specBuilder.Insert("Links", ssb.ExploreIndex(0, ssb.ExploreFields(func(specBuilder builder.ExploreFieldsSpecBuilder) {
-			specBuilder.Insert("Hash", ssb.Matcher())
-		})))
-	}).Node()
+	//ssb := builder.NewSelectorSpecBuilder(basicnode.Prototype.Any)
+	//
+	//partialSelector := ssb.ExploreFields(func(specBuilder builder.ExploreFieldsSpecBuilder) {
+	//	specBuilder.Insert("Links", ssb.ExploreIndex(0, ssb.ExploreFields(func(specBuilder builder.ExploreFieldsSpecBuilder) {
+	//		specBuilder.Insert("Hash", ssb.Matcher())
+	//	})))
+	//}).Node()
 
 	var customDeciderRan bool
 
@@ -235,130 +235,130 @@ func TestClientCanMakeDealWithProvider(t *testing.T) {
 		cancelled               bool
 		disableNewDeals         bool
 	}{
-		{name: "1 block file retrieval succeeds",
-			filename:    "lorem_under_1_block.txt",
-			filesize:    410,
-			voucherAmts: []abi.TokenAmount{abi.NewTokenAmount(410000)},
-			addFunds:    false,
-		},
-		{name: "1 block file retrieval succeeds with unseal price",
-			filename:    "lorem_under_1_block.txt",
-			filesize:    410,
-			unsealPrice: abi.NewTokenAmount(100),
-			voucherAmts: []abi.TokenAmount{abi.NewTokenAmount(100), abi.NewTokenAmount(410100)},
-			selector:    shared.AllSelector(),
-			paramsV1:    true,
-		},
-		{name: "1 block file retrieval succeeds with existing payment channel",
-			filename:    "lorem_under_1_block.txt",
-			filesize:    410,
-			voucherAmts: []abi.TokenAmount{abi.NewTokenAmount(410000)},
-			addFunds:    true},
-		{name: "1 block file retrieval succeeds, but waits for other payment channel funds to land",
-			filename:    "lorem_under_1_block.txt",
-			filesize:    410,
-			voucherAmts: []abi.TokenAmount{abi.NewTokenAmount(410000)},
-			channelAvailableFunds: retrievalmarket.ChannelAvailableFunds{
-				// this is bit contrived, but we're simulating other deals expending the funds by setting the initial confirmed to negative
-				// when funds get added on initial create, it will reset to zero
-				// which will trigger a later voucher shortfall and then waiting for both
-				// the pending and then the queued amounts
-				ConfirmedAmt:        abi.NewTokenAmount(-410000),
-				PendingAmt:          abi.NewTokenAmount(200000),
-				PendingWaitSentinel: &tut.GenerateCids(1)[0],
-				QueuedAmt:           abi.NewTokenAmount(210000),
-			},
-		},
-		{name: "1 block file retrieval succeeds, after insufficient funds and restart",
-			filename:    "lorem_under_1_block.txt",
-			filesize:    410,
-			voucherAmts: []abi.TokenAmount{abi.NewTokenAmount(410000)},
-			channelAvailableFunds: retrievalmarket.ChannelAvailableFunds{
-				// this is bit contrived, but we're simulating other deals expending the funds by setting the initial confirmed to negative
-				// when funds get added on initial create, it will reset to zero
-				// which will trigger a later voucher shortfall
-				ConfirmedAmt: abi.NewTokenAmount(-410000),
-			},
-			fundsReplenish: abi.NewTokenAmount(410000),
-		},
-		{name: "1 block file retrieval cancelled after insufficient funds",
-			filename:    "lorem_under_1_block.txt",
-			filesize:    410,
-			voucherAmts: []abi.TokenAmount{},
-			channelAvailableFunds: retrievalmarket.ChannelAvailableFunds{
-				// this is bit contrived, but we're simulating other deals expending the funds by setting the initial confirmed to negative
-				// when funds get added on initial create, it will reset to zero
-				// which will trigger a later voucher shortfall
-				ConfirmedAmt: abi.NewTokenAmount(-410000),
-			},
-			cancelled: true,
-		},
+		//{name: "1 block file retrieval succeeds",
+		//	filename:    "lorem_under_1_block.txt",
+		//	filesize:    410,
+		//	voucherAmts: []abi.TokenAmount{abi.NewTokenAmount(410000)},
+		//	addFunds:    false,
+		//},
+		//{name: "1 block file retrieval succeeds with unseal price",
+		//	filename:    "lorem_under_1_block.txt",
+		//	filesize:    410,
+		//	unsealPrice: abi.NewTokenAmount(100),
+		//	voucherAmts: []abi.TokenAmount{abi.NewTokenAmount(100), abi.NewTokenAmount(410100)},
+		//	selector:    shared.AllSelector(),
+		//	paramsV1:    true,
+		//},
+		//{name: "1 block file retrieval succeeds with existing payment channel",
+		//	filename:    "lorem_under_1_block.txt",
+		//	filesize:    410,
+		//	voucherAmts: []abi.TokenAmount{abi.NewTokenAmount(410000)},
+		//	addFunds:    true},
+		//{name: "1 block file retrieval succeeds, but waits for other payment channel funds to land",
+		//	filename:    "lorem_under_1_block.txt",
+		//	filesize:    410,
+		//	voucherAmts: []abi.TokenAmount{abi.NewTokenAmount(410000)},
+		//	channelAvailableFunds: retrievalmarket.ChannelAvailableFunds{
+		//		// this is bit contrived, but we're simulating other deals expending the funds by setting the initial confirmed to negative
+		//		// when funds get added on initial create, it will reset to zero
+		//		// which will trigger a later voucher shortfall and then waiting for both
+		//		// the pending and then the queued amounts
+		//		ConfirmedAmt:        abi.NewTokenAmount(-410000),
+		//		PendingAmt:          abi.NewTokenAmount(200000),
+		//		PendingWaitSentinel: &tut.GenerateCids(1)[0],
+		//		QueuedAmt:           abi.NewTokenAmount(210000),
+		//	},
+		//},
+		//{name: "1 block file retrieval succeeds, after insufficient funds and restart",
+		//	filename:    "lorem_under_1_block.txt",
+		//	filesize:    410,
+		//	voucherAmts: []abi.TokenAmount{abi.NewTokenAmount(410000)},
+		//	channelAvailableFunds: retrievalmarket.ChannelAvailableFunds{
+		//		// this is bit contrived, but we're simulating other deals expending the funds by setting the initial confirmed to negative
+		//		// when funds get added on initial create, it will reset to zero
+		//		// which will trigger a later voucher shortfall
+		//		ConfirmedAmt: abi.NewTokenAmount(-410000),
+		//	},
+		//	fundsReplenish: abi.NewTokenAmount(410000),
+		//},
+		//{name: "1 block file retrieval cancelled after insufficient funds",
+		//	filename:    "lorem_under_1_block.txt",
+		//	filesize:    410,
+		//	voucherAmts: []abi.TokenAmount{},
+		//	channelAvailableFunds: retrievalmarket.ChannelAvailableFunds{
+		//		// this is bit contrived, but we're simulating other deals expending the funds by setting the initial confirmed to negative
+		//		// when funds get added on initial create, it will reset to zero
+		//		// which will trigger a later voucher shortfall
+		//		ConfirmedAmt: abi.NewTokenAmount(-410000),
+		//	},
+		//	cancelled: true,
+		//},
 		{name: "multi-block file retrieval succeeds",
 			filename:    "lorem.txt",
 			filesize:    19000,
 			voucherAmts: []abi.TokenAmount{abi.NewTokenAmount(10136000), abi.NewTokenAmount(19920000)},
 		},
-		{name: "multi-block file retrieval with zero price per byte succeeds",
-			filename:         "lorem.txt",
-			filesize:         19000,
-			zeroPricePerByte: true,
-		},
-		{name: "multi-block file retrieval succeeds with V1 params and AllSelector",
-			filename:    "lorem.txt",
-			filesize:    19000,
-			voucherAmts: []abi.TokenAmount{abi.NewTokenAmount(10136000), abi.NewTokenAmount(19920000)},
-			paramsV1:    true,
-			selector:    shared.AllSelector()},
-		{name: "partial file retrieval succeeds with V1 params and selector recursion depth 1",
-			filename:    "lorem.txt",
-			filesize:    1024,
-			voucherAmts: []abi.TokenAmount{abi.NewTokenAmount(1944000)},
-			paramsV1:    true,
-			selector:    partialSelector},
-		{name: "succeeds when using a custom decider function",
-			decider: func(ctx context.Context, state retrievalmarket.ProviderDealState) (bool, string, error) {
-				customDeciderRan = true
-				return true, "", nil
-			},
-			filename:    "lorem_under_1_block.txt",
-			filesize:    410,
-			voucherAmts: []abi.TokenAmount{abi.NewTokenAmount(410000)},
-		},
-		{name: "succeeds for regular blockstore",
-			filename:    "lorem.txt",
-			filesize:    19000,
-			voucherAmts: []abi.TokenAmount{abi.NewTokenAmount(10136000), abi.NewTokenAmount(19920000)},
-			skipStores:  true,
-		},
-		{
-			name:        "failed unseal",
-			filename:    "lorem.txt",
-			filesize:    19000,
-			voucherAmts: []abi.TokenAmount{},
-			failsUnseal: true,
-		},
-		{name: "multi-block file retrieval succeeds, final block exceeds payment interval",
-			filename:                "lorem.txt",
-			filesize:                19000,
-			voucherAmts:             []abi.TokenAmount{abi.NewTokenAmount(9112000), abi.NewTokenAmount(19352000), abi.NewTokenAmount(19920000)},
-			paymentInterval:         9000,
-			paymentIntervalIncrease: 1250,
-		},
-		{name: "multi-block file retrieval succeeds, final block lands on payment interval",
-			filename:    "lorem.txt",
-			filesize:    19000,
-			voucherAmts: []abi.TokenAmount{abi.NewTokenAmount(9112000), abi.NewTokenAmount(19920000)},
-			// Total bytes: 19,920
-			// intervals: 9,000 | 9,000 + (9,000 + 1920)
-			paymentInterval:         9000,
-			paymentIntervalIncrease: 1920,
-		},
-		{name: "multi-block file retrieval succeeds, with provider only accepting legacy deals",
-			filename:        "lorem.txt",
-			filesize:        19000,
-			disableNewDeals: true,
-			voucherAmts:     []abi.TokenAmount{abi.NewTokenAmount(10136000), abi.NewTokenAmount(19920000)},
-		},
+		//{name: "multi-block file retrieval with zero price per byte succeeds",
+		//	filename:         "lorem.txt",
+		//	filesize:         19000,
+		//	zeroPricePerByte: true,
+		//},
+		//{name: "multi-block file retrieval succeeds with V1 params and AllSelector",
+		//	filename:    "lorem.txt",
+		//	filesize:    19000,
+		//	voucherAmts: []abi.TokenAmount{abi.NewTokenAmount(10136000), abi.NewTokenAmount(19920000)},
+		//	paramsV1:    true,
+		//	selector:    shared.AllSelector()},
+		//{name: "partial file retrieval succeeds with V1 params and selector recursion depth 1",
+		//	filename:    "lorem.txt",
+		//	filesize:    1024,
+		//	voucherAmts: []abi.TokenAmount{abi.NewTokenAmount(1944000)},
+		//	paramsV1:    true,
+		//	selector:    partialSelector},
+		//{name: "succeeds when using a custom decider function",
+		//	decider: func(ctx context.Context, state retrievalmarket.ProviderDealState) (bool, string, error) {
+		//		customDeciderRan = true
+		//		return true, "", nil
+		//	},
+		//	filename:    "lorem_under_1_block.txt",
+		//	filesize:    410,
+		//	voucherAmts: []abi.TokenAmount{abi.NewTokenAmount(410000)},
+		//},
+		//{name: "succeeds for regular blockstore",
+		//	filename:    "lorem.txt",
+		//	filesize:    19000,
+		//	voucherAmts: []abi.TokenAmount{abi.NewTokenAmount(10136000), abi.NewTokenAmount(19920000)},
+		//	skipStores:  true,
+		//},
+		//{
+		//	name:        "failed unseal",
+		//	filename:    "lorem.txt",
+		//	filesize:    19000,
+		//	voucherAmts: []abi.TokenAmount{},
+		//	failsUnseal: true,
+		//},
+		//{name: "multi-block file retrieval succeeds, final block exceeds payment interval",
+		//	filename:                "lorem.txt",
+		//	filesize:                19000,
+		//	voucherAmts:             []abi.TokenAmount{abi.NewTokenAmount(9112000), abi.NewTokenAmount(19352000), abi.NewTokenAmount(19920000)},
+		//	paymentInterval:         9000,
+		//	paymentIntervalIncrease: 1250,
+		//},
+		//{name: "multi-block file retrieval succeeds, final block lands on payment interval",
+		//	filename:    "lorem.txt",
+		//	filesize:    19000,
+		//	voucherAmts: []abi.TokenAmount{abi.NewTokenAmount(9112000), abi.NewTokenAmount(19920000)},
+		//	// Total bytes: 19,920
+		//	// intervals: 9,000 | 9,000 + (9,000 + 1920)
+		//	paymentInterval:         9000,
+		//	paymentIntervalIncrease: 1920,
+		//},
+		//{name: "multi-block file retrieval succeeds, with provider only accepting legacy deals",
+		//	filename:        "lorem.txt",
+		//	filesize:        19000,
+		//	disableNewDeals: true,
+		//	voucherAmts:     []abi.TokenAmount{abi.NewTokenAmount(10136000), abi.NewTokenAmount(19920000)},
+		//},
 	}
 
 	for i, testCase := range testCases {
@@ -725,8 +725,7 @@ func setupProvider(
 
 	// Remove the CAR file so that the provider is forced to unseal the data
 	// (instead of using the cached CAR file)
-	err = os.Remove(carFilePath)
-	require.NoError(t, err)
+	_ = os.Remove(carFilePath)
 
 	provider, err := retrievalimpl.NewProvider(providerPaymentAddr, providerNode, nw2,
 		pieceStore, dagStoreWrapper, dt2, providerDs, priceFunc, opts...)
@@ -738,4 +737,72 @@ func setupProvider(
 type pmtChan struct {
 	client, miner address.Address
 	amt           abi.TokenAmount
+}
+
+func TestCarIndexBug(t *testing.T) {
+	ctx := context.Background()
+	testData := tut.NewLibp2pTestData(ctx, t)
+
+	fpath := filepath.Join("retrievalmarket", "impl", "fixtures", "lorem.txt")
+	pieceLink, carFilePath := testData.LoadUnixFSFileToStore(t, fpath)
+	c, ok := pieceLink.(cidlink.Link)
+	require.True(t, ok)
+	payloadCID := c.Cid
+
+	// Do a Selective CARv1 traversal on the CARv2 file to get a
+	// deterministic CARv1 that we can import on the miner side.
+	rdOnly, err := blockstore.OpenReadOnly(carFilePath)
+	require.NoError(t, err)
+	sc := car.NewSelectiveCar(ctx, rdOnly, []car.Dag{{Root: payloadCID, Selector: shared.AllSelector()}})
+	prepared, err := sc.Prepare()
+	require.NoError(t, err)
+	carBuf := new(bytes.Buffer)
+	require.NoError(t, prepared.Write(carBuf))
+	require.NoError(t, rdOnly.Close())
+
+	carData := carBuf.Bytes()
+	registry := mount.NewRegistry()
+	dagStore, err := dagstore.NewDAGStore(dagstore.Config{
+		TransientsDir: t.TempDir(),
+		IndexDir:      t.TempDir(),
+		Datastore:     ds_sync.MutexWrap(datastore.NewMapDatastore()),
+		MountRegistry: registry,
+	})
+	require.NoError(t, err)
+	mountApi := newMockMountAPI(carData)
+	dagStoreWrapper, err := mktdagstore.NewDagStoreWrapper(registry, dagStore, mountApi)
+	require.NoError(t, err)
+
+	err = dagStoreWrapper.RegisterShard(ctx, payloadCID, carFilePath)
+	require.NoError(t, err)
+	bs, err := dagStoreWrapper.LoadShard(ctx, payloadCID)
+	require.NoError(t, err)
+
+	ch, err := bs.AllKeysChan(ctx)
+	require.NoError(t, err)
+
+	for c := range ch {
+		t.Logf("Get %s", c)
+		k, err := bs.Get(c)
+		require.NoError(t, err)
+		fmt.Println(k)
+	}
+}
+
+type mockMountAPI struct {
+	data []byte
+}
+
+var _ mktdagstore.LotusMountAPI = (*mockMountAPI)(nil)
+
+func (m *mockMountAPI) FetchUnsealedPiece(ctx context.Context, pieceCid cid.Cid) (io.ReadCloser, error) {
+	return io.NopCloser(bytes.NewBuffer(m.data)), nil
+}
+
+func (m *mockMountAPI) GetUnpaddedCARSize(pieceCid cid.Cid) (uint64, error) {
+	return uint64(len(m.data)), nil
+}
+
+func newMockMountAPI(data []byte) *mockMountAPI {
+	return &mockMountAPI{data: data}
 }
