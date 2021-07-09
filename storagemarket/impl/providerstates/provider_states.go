@@ -36,7 +36,7 @@ const DealMaxLabelSize = 256
 type ProviderDealEnvironment interface {
 	CARv2Reader(carV2FilePath string) (*carv2.Reader, error)
 
-	ActivateShard(pieceCid cid.Cid, path string) error
+	RegisterShard(ctx context.Context, pieceCid cid.Cid, path string) error
 
 	FinalizeReadWriteBlockstore(proposalCid cid.Cid) error
 
@@ -345,7 +345,7 @@ func HandoffDeal(ctx fsm.Context, environment ProviderDealEnvironment, deal stor
 		_ = ctx.Trigger(storagemarket.ProviderEventPieceStoreErrored, err)
 	}
 
-	if err := environment.ActivateShard(deal.Proposal.PieceCID, carFilePath); err != nil {
+	if err := environment.RegisterShard(ctx.Context(), deal.Proposal.PieceCID, carFilePath); err != nil {
 		// TODO What's the right thing to do here ? I think the retrieval market
 		// should have a recovery mechanism in terms of, let "activate the shard if you don't have it".
 		err = xerrors.Errorf("failed to activate shard: %w", err)
@@ -353,7 +353,7 @@ func HandoffDeal(ctx fsm.Context, environment ProviderDealEnvironment, deal stor
 		//return ctx.Trigger(storagemarket.ProviderEventDealHandoffFailed, err)
 	}
 
-	// TODO Put code in Lotus to expire/destory these shards when deals expire.
+	// TODO Put code in Lotus to expire/destroy these shards when deals expire.
 	return ctx.Trigger(storagemarket.ProviderEventDealHandedOff)
 }
 

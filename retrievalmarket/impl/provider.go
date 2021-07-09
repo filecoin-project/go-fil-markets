@@ -31,7 +31,6 @@ import (
 	"github.com/filecoin-project/go-fil-markets/retrievalmarket/migrations"
 	rmnet "github.com/filecoin-project/go-fil-markets/retrievalmarket/network"
 	"github.com/filecoin-project/go-fil-markets/shared"
-	"github.com/filecoin-project/go-fil-markets/shared_testutil/dagstore"
 )
 
 // RetrievalProviderOption is a function that configures a retrieval provider
@@ -61,8 +60,7 @@ type Provider struct {
 	askStore             retrievalmarket.AskStore
 	disableNewDeals      bool
 	retrievalPricingFunc RetrievalPricingFunc
-	mountApi             mktdagstore.LotusMountAPI
-	dagStore             dagstore.DagStore
+	dagStore             mktdagstore.DagStoreWrapper
 	readOnlyBlockStores  *carstore.CarReadOnlyStoreTracker
 }
 
@@ -105,11 +103,10 @@ func NewProvider(minerAddress address.Address,
 	node retrievalmarket.RetrievalProviderNode,
 	network rmnet.RetrievalMarketNetwork,
 	pieceStore piecestore.PieceStore,
-	dagStore dagstore.DagStore,
+	dagStore mktdagstore.DagStoreWrapper,
 	dataTransfer datatransfer.Manager,
 	ds datastore.Batching,
 	retrievalPricingFunc RetrievalPricingFunc,
-	mountApi mktdagstore.LotusMountAPI,
 	opts ...RetrievalProviderOption,
 ) (retrievalmarket.RetrievalProvider, error) {
 
@@ -126,7 +123,6 @@ func NewProvider(minerAddress address.Address,
 		subscribers:          pubsub.New(providerDispatcher),
 		readySub:             pubsub.New(shared.ReadyDispatcher),
 		retrievalPricingFunc: retrievalPricingFunc,
-		mountApi:             mountApi,
 		dagStore:             dagStore,
 		readOnlyBlockStores:  carstore.NewReadOnlyStoreTracker(),
 	}

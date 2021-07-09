@@ -4,13 +4,14 @@ import (
 	"io"
 	"sync"
 
-	bstore "github.com/ipfs/go-ipfs-blockstore"
 	"github.com/ipld/go-car/v2/blockstore"
 	"golang.org/x/xerrors"
+
+	"github.com/filecoin-project/dagstore"
 )
 
 type ClosableBlockstore interface {
-	bstore.Blockstore
+	dagstore.ReadBlockstore
 	io.Closer
 }
 

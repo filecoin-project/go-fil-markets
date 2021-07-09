@@ -13,36 +13,57 @@ import (
 )
 
 const lotusScheme = "lotus"
-const lotusMountURL = "%s://%s"
+const mountURLTemplate = "%s://%s"
 
 var _ mount.Mount = (*LotusMount)(nil)
 
 // LotusMount is the Lotus implementation of a Sharded DAG Store Mount.
 // A Filecoin Piece is treated as a Shard by this implementation.
 type LotusMount struct {
-	PieceCid cid.Cid
-	Api      LotusMountAPI
-	URL      *url.URL
+	api      LotusMountAPI
+	pieceCid cid.Cid
+}
+
+func NewLotusMountTemplate(api LotusMountAPI) *LotusMount {
+	return &LotusMount{api: api}
 }
 
 func NewLotusMount(pieceCid cid.Cid, api LotusMountAPI) (*LotusMount, error) {
-	u := fmt.Sprintf(lotusMountURL, lotusScheme, pieceCid.String())
-	url, err := url.Parse(u)
-	if err != nil {
-		return nil, xerrors.Errorf("failed to parse mount URL '%s': %w", u, err)
-	}
-
 	return &LotusMount{
-		PieceCid: pieceCid,
-		Api:      api,
-		URL:      url,
+		pieceCid: pieceCid,
+		api:      api,
 	}, nil
 }
 
-func (l *LotusMount) Fetch(ctx context.Context) (mount.Reader, error) {
-	r, err := l.Api.FetchUnsealedPiece(ctx, l.PieceCid)
+func (l *LotusMount) Serialize() *url.URL {
+	u := fmt.Sprintf(mountURLTemplate, lotusScheme, l.pieceCid.String())
+	url, err := url.Parse(u)
 	if err != nil {
-		return nil, xerrors.Errorf("failed to fetch unsealed piece %s: %w", l.PieceCid, err)
+		// Should never happen
+		panic(xerrors.Errorf("failed to parse mount URL '%s': %w", u, err))
+	}
+
+	return url
+}
+
+func (l *LotusMount) Deserialize(u *url.URL) error {
+	if u.Scheme != lotusScheme {
+		return xerrors.Errorf("scheme '%s' for URL '%s' does not match required scheme '%s'", u.Scheme, u, lotusScheme)
+	}
+
+	pieceCid, err := cid.Decode(u.Host)
+	if err != nil {
+		return xerrors.Errorf("failed to parse PieceCid from host '%s': %w", u.Host, err)
+	}
+
+	l.pieceCid = pieceCid
+	return nil
+}
+
+func (l *LotusMount) Fetch(ctx context.Context) (mount.Reader, error) {
+	r, err := l.api.FetchUnsealedPiece(ctx, l.pieceCid)
+	if err != nil {
+		return nil, xerrors.Errorf("failed to fetch unsealed piece %s: %w", l.pieceCid, err)
 	}
 	return &readCloser{r}, nil
 }
@@ -50,7 +71,6 @@ func (l *LotusMount) Fetch(ctx context.Context) (mount.Reader, error) {
 func (l *LotusMount) Info() mount.Info {
 	return mount.Info{
 		Kind:             mount.KindRemote,
-		URL:              l.URL,
 		AccessSequential: true,
 		AccessSeek:       false,
 		AccessRandom:     false,
@@ -62,9 +82,9 @@ func (l *LotusMount) Close() error {
 }
 
 func (l *LotusMount) Stat(_ context.Context) (mount.Stat, error) {
-	size, err := l.Api.GetUnpaddedCARSize(l.PieceCid)
+	size, err := l.api.GetUnpaddedCARSize(l.pieceCid)
 	if err != nil {
-		return mount.Stat{}, xerrors.Errorf("failed to fetch piece size for piece %s: %w", l.PieceCid, err)
+		return mount.Stat{}, xerrors.Errorf("failed to fetch piece size for piece %s: %w", l.pieceCid, err)
 	}
 
 	// TODO Mark false when storage deal expires.

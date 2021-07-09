@@ -5,9 +5,10 @@ import (
 	"path/filepath"
 	"testing"
 
-	blockstore2 "github.com/ipfs/go-ipfs-blockstore"
 	"github.com/ipld/go-car/v2/blockstore"
 	"github.com/stretchr/testify/require"
+
+	"github.com/filecoin-project/dagstore"
 
 	"github.com/filecoin-project/go-fil-markets/carstore"
 	tut "github.com/filecoin-project/go-fil-markets/shared_testutil"
@@ -72,7 +73,7 @@ func TestReadOnlyStoreTracker(t *testing.T) {
 	require.True(t, carstore.IsNotFound(err))
 }
 
-func getBstoreLen(ctx context.Context, t *testing.T, bs blockstore2.Blockstore) int {
+func getBstoreLen(ctx context.Context, t *testing.T, bs dagstore.ReadBlockstore) int {
 	ch, err := bs.AllKeysChan(ctx)
 	require.NoError(t, err)
 	var len int
