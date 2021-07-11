@@ -23,10 +23,10 @@ import (
 	"github.com/filecoin-project/go-statemachine/fsm"
 
 	"github.com/filecoin-project/go-fil-markets/carstore"
+	mktdagstore "github.com/filecoin-project/go-fil-markets/dagstore"
 	"github.com/filecoin-project/go-fil-markets/filestore"
 	"github.com/filecoin-project/go-fil-markets/piecestore"
 	"github.com/filecoin-project/go-fil-markets/shared"
-	"github.com/filecoin-project/go-fil-markets/shared_testutil/dagstore"
 	"github.com/filecoin-project/go-fil-markets/storagemarket"
 	"github.com/filecoin-project/go-fil-markets/storagemarket/impl/connmanager"
 	"github.com/filecoin-project/go-fil-markets/storagemarket/impl/dtutils"
@@ -67,9 +67,7 @@ type Provider struct {
 
 	unsubDataTransfer datatransfer.Unsubscribe
 
-	// TODO Uncomment this when DAGStore compiles -> Lotus will inject these deps here.
-	//mountApi marketdagstore.LotusMountAPI
-	dagStore             dagstore.DagStore
+	dagStore             mktdagstore.DagStoreWrapper
 	readWriteBlockStores *carstore.CarReadWriteStoreTracker
 }
 
@@ -104,7 +102,7 @@ func CustomDealDecisionLogic(decider DealDeciderFunc) StorageProviderOption {
 func NewProvider(net network.StorageMarketNetwork,
 	ds datastore.Batching,
 	fs filestore.FileStore,
-	dagStore dagstore.DagStore,
+	dagStore mktdagstore.DagStoreWrapper,
 	pieceStore piecestore.PieceStore,
 	dataTransfer datatransfer.Manager,
 	spn storagemarket.StorageProviderNode,

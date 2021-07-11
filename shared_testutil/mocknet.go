@@ -37,7 +37,6 @@ import (
 	dtnet "github.com/filecoin-project/go-data-transfer/network"
 
 	"github.com/filecoin-project/go-fil-markets/filestore"
-	"github.com/filecoin-project/go-fil-markets/shared_testutil/dagstore"
 )
 
 type Libp2pTestData struct {
@@ -46,7 +45,6 @@ type Libp2pTestData struct {
 	Ds2          datastore.Batching
 	Bs1          bstore.Blockstore
 	Bs2          bstore.Blockstore
-	DagStore     dagstore.DagStore
 	CarFileStore filestore.CarFileStore
 	DagService1  ipldformat.DAGService
 	DagService2  ipldformat.DAGService
@@ -110,8 +108,6 @@ func NewLibp2pTestData(ctx context.Context, t *testing.T) *Libp2pTestData {
 	// make a bstore and dag service
 	testData.Bs1 = bstore.NewBlockstore(testData.Ds1)
 	testData.Bs2 = bstore.NewBlockstore(testData.Ds2)
-
-	testData.DagStore = dagstore.NewMockDagStore()
 
 	testData.CarFileStore, err = filestore.NewLocalCarStore(t.TempDir())
 	require.NoError(t, err)

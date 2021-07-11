@@ -12,6 +12,7 @@ import (
 	"github.com/ipfs/go-cid"
 	"github.com/ipfs/go-datastore"
 	"github.com/ipfs/go-datastore/namespace"
+	ds_sync "github.com/ipfs/go-datastore/sync"
 	"github.com/ipld/go-car"
 	"github.com/ipld/go-car/v2/blockstore"
 	"github.com/ipld/go-ipld-prime"
@@ -20,6 +21,8 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/filecoin-project/dagstore"
+	"github.com/filecoin-project/dagstore/mount"
 	"github.com/filecoin-project/go-address"
 	datatransfer "github.com/filecoin-project/go-data-transfer"
 	"github.com/filecoin-project/go-state-types/abi"
@@ -38,6 +41,7 @@ import (
 	"github.com/filecoin-project/go-fil-markets/storagemarket"
 	"github.com/filecoin-project/go-fil-markets/storagemarket/impl/clientutils"
 	"github.com/filecoin-project/go-fil-markets/storagemarket/testharness"
+	"github.com/filecoin-project/go-fil-markets/storagemarket/testharness/dependencies"
 	"github.com/filecoin-project/go-fil-markets/storagemarket/testnodes"
 )
 
@@ -85,8 +89,10 @@ func TestStorageRetrieval(t *testing.T) {
 
 	for name, tc := range tcs {
 		t.Run(name, func(t *testing.T) {
-			sh := testharness.NewHarness(t, bgCtx, true, testnodes.DelayFakeCommonNode{},
-				testnodes.DelayFakeCommonNode{}, false)
+			providerNode := testnodes2.NewTestRetrievalProviderNode()
+			pieceStore := tut.NewTestPieceStore()
+			deps := setupDepsWithDagStore(bgCtx, t, providerNode, pieceStore)
+			sh := testharness.NewHarnessWithTestData(t, deps.TestData, deps, true, false)
 
 			defer os.Remove(sh.CARv2FilePath)
 
@@ -94,12 +100,13 @@ func TestStorageRetrieval(t *testing.T) {
 			ctxTimeout, canc := context.WithTimeout(bgCtx, 25*time.Second)
 			defer canc()
 
-			rh := newRetrievalHarness(ctxTimeout, t, sh, storageProviderSeenDeal, retrievalmarket.Params{
+			params := retrievalmarket.Params{
 				UnsealPrice:             tc.unSealPrice,
 				PricePerByte:            tc.pricePerByte,
 				PaymentInterval:         tc.paymentInterval,
 				PaymentIntervalIncrease: tc.paymentIntervalIncrease,
-			})
+			}
+			rh := newRetrievalHarnessWithDeps(ctxTimeout, t, sh, storageProviderSeenDeal, providerNode, pieceStore, params)
 
 			checkRetrieve(t, bgCtx, rh, sh, tc.voucherAmts)
 		})
@@ -151,8 +158,10 @@ func TestOfflineStorageRetrieval(t *testing.T) {
 	for name, tc := range tcs {
 		t.Run(name, func(t *testing.T) {
 			// offline storage
-			sh := testharness.NewHarness(t, bgCtx, true, testnodes.DelayFakeCommonNode{},
-				testnodes.DelayFakeCommonNode{}, false)
+			providerNode := testnodes2.NewTestRetrievalProviderNode()
+			pieceStore := tut.NewTestPieceStore()
+			deps := setupDepsWithDagStore(bgCtx, t, providerNode, pieceStore)
+			sh := testharness.NewHarnessWithTestData(t, deps.TestData, deps, true, false)
 
 			defer os.Remove(sh.CARv2FilePath)
 			// start and wait for client/provider
@@ -233,12 +242,13 @@ func TestOfflineStorageRetrieval(t *testing.T) {
 			// Retrieve
 			ctxTimeout, canc := context.WithTimeout(bgCtx, 25*time.Second)
 			defer canc()
-			rh := newRetrievalHarness(ctxTimeout, t, sh, cd, retrievalmarket.Params{
+			params := retrievalmarket.Params{
 				UnsealPrice:             tc.unSealPrice,
 				PricePerByte:            tc.pricePerByte,
 				PaymentInterval:         tc.paymentInterval,
 				PaymentIntervalIncrease: tc.paymentIntervalIncrease,
-			})
+			}
+			rh := newRetrievalHarnessWithDeps(ctxTimeout, t, sh, cd, providerNode, pieceStore, params)
 
 			checkRetrieve(t, bgCtx, rh, sh, tc.voucherAmts)
 		})
@@ -353,8 +363,48 @@ type retrievalHarness struct {
 	TestDataNet *shared_testutil.Libp2pTestData
 }
 
-func newRetrievalHarness(ctx context.Context, t *testing.T, sh *testharness.StorageHarness, deal storagemarket.ClientDeal,
-	params ...retrievalmarket.Params) *retrievalHarness {
+func setupDepsWithDagStore(ctx context.Context, t *testing.T, providerNode *testnodes2.TestRetrievalProviderNode, pieceStore *tut.TestPieceStore) *dependencies.StorageDependencies {
+	smState := testnodes.NewStorageMarketState()
+	td := shared_testutil.NewLibp2pTestData(ctx, t)
+	deps := dependencies.NewDependenciesWithTestData(t, ctx, td, smState, "", testnodes.DelayFakeCommonNode{}, testnodes.DelayFakeCommonNode{})
+
+	registry := mount.NewRegistry()
+	dagStore, err := dagstore.NewDAGStore(dagstore.Config{
+		TransientsDir: t.TempDir(),
+		IndexDir:      t.TempDir(),
+		Datastore:     ds_sync.MutexWrap(datastore.NewMapDatastore()),
+		MountRegistry: registry,
+	})
+	require.NoError(t, err)
+	mountApi := mktdagstore.NewLotusMountAPI(pieceStore, providerNode)
+	dagStoreWrapper, err := mktdagstore.NewDagStoreWrapper(registry, dagStore, mountApi)
+	require.NoError(t, err)
+
+	deps.DagStore = dagStoreWrapper
+	return deps
+}
+
+func newRetrievalHarness(
+	ctx context.Context,
+	t *testing.T,
+	sh *testharness.StorageHarness,
+	deal storagemarket.ClientDeal,
+	params ...retrievalmarket.Params,
+) *retrievalHarness {
+	providerNode := testnodes2.NewTestRetrievalProviderNode()
+	pieceStore := tut.NewTestPieceStore()
+	return newRetrievalHarnessWithDeps(ctx, t, sh, deal, providerNode, pieceStore, params...)
+}
+
+func newRetrievalHarnessWithDeps(
+	ctx context.Context,
+	t *testing.T,
+	sh *testharness.StorageHarness,
+	deal storagemarket.ClientDeal,
+	providerNode *testnodes2.TestRetrievalProviderNode,
+	pieceStore *tut.TestPieceStore,
+	params ...retrievalmarket.Params,
+) *retrievalHarness {
 	var newPaychAmt abi.TokenAmount
 	paymentChannelRecorder := func(client, miner address.Address, amt abi.TokenAmount) {
 		newPaychAmt = amt
@@ -394,7 +444,6 @@ func newRetrievalHarness(ctx context.Context, t *testing.T, sh *testharness.Stor
 	tut.StartAndWaitForReady(ctx, t, client)
 	payloadCID := deal.DataRef.Root
 	providerPaymentAddr := deal.MinerWorker
-	providerNode := testnodes2.NewTestRetrievalProviderNode()
 
 	// Get the data passed to the sealing code when the last deal completed.
 	// This is the padded CAR file.
@@ -423,7 +472,6 @@ func newRetrievalHarness(ctx context.Context, t *testing.T, sh *testharness.Stor
 	}
 
 	nw2 := rmnet.NewFromLibp2pHost(sh.TestData.Host2, rmnet.RetryParameters(0, 0, 0, 0))
-	pieceStore := tut.NewTestPieceStore()
 	cidInfo := piecestore.CIDInfo{
 		PieceBlockLocations: []piecestore.PieceBlockLocation{
 			{
@@ -457,10 +505,9 @@ func newRetrievalHarness(ctx context.Context, t *testing.T, sh *testharness.Stor
 		return ask, nil
 	}
 
-	mountApi := mktdagstore.NewMount(pieceStore, providerNode)
 	provider, err := retrievalimpl.NewProvider(
-		providerPaymentAddr, providerNode, nw2, pieceStore, sh.TestData.DagStore, sh.DTProvider, providerDs,
-		priceFunc, mountApi)
+		providerPaymentAddr, providerNode, nw2, pieceStore, sh.DagStore, sh.DTProvider, providerDs,
+		priceFunc)
 	require.NoError(t, err)
 	tut.StartAndWaitForReady(ctx, t, provider)
 
