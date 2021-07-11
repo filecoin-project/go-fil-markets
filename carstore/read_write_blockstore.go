@@ -55,6 +55,10 @@ func (r *CarReadWriteStoreTracker) CleanBlockstore(key string) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
+	if rw, ok := r.stores[key]; ok {
+		_ = rw.Finalize()
+	}
+
 	delete(r.stores, key)
 
 	return nil

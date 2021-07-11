@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"os"
 
 	"github.com/hannahhoward/go-pubsub"
 	"github.com/ipfs/go-cid"
@@ -242,7 +243,11 @@ func (p *Provider) receiveDeal(s network.StorageDealStream) error {
 		if err != nil {
 			return xerrors.Errorf("failed to create an empty temp CARv2 file: %w", err)
 		}
-		carV2FilePath = string(tmp.Path())
+		if err := tmp.Close(); err != nil {
+			_ = os.Remove(string(tmp.OsPath()))
+			return xerrors.Errorf("failed to close temp file: %w", err)
+		}
+		carV2FilePath = string(tmp.OsPath())
 	}
 
 	deal := &storagemarket.MinerDeal{
