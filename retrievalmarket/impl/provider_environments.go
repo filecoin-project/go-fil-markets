@@ -168,7 +168,7 @@ func (pde *providerDealEnvironment) CloseDataTransfer(ctx context.Context, chid 
 }
 
 func (pde *providerDealEnvironment) DeleteStore(dealID retrievalmarket.DealID) error {
-	// close the backing CARv2 file and stop tracking the read-only blockstore for the deal
+	// close the read-only blockstore and stop tracking it for the deal
 	if err := pde.p.readOnlyBlockStores.CleanBlockstore(dealID.String()); err != nil {
 		return xerrors.Errorf("failed to clean read-only blockstore for deal %d: %w", dealID, err)
 	}
