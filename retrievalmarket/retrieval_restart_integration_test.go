@@ -230,6 +230,9 @@ func TestBounceConnectionDealTransferUnsealing(t *testing.T) {
 				return dtimpl.NewDataTransfer(ds, dir, transferNetwork, transport, restartConf)
 			}
 			deps := depGen.New(t, bgCtx, td, testnodes.NewStorageMarketState(), "", noOpDelay, noOpDelay)
+			providerNode := testnodes2.NewTestRetrievalProviderNode()
+			pieceStore := shared_testutil.NewTestPieceStore()
+			deps.DagStore = newDagStore(t, providerNode, pieceStore)
 
 			sh := testharness.NewHarnessWithTestData(t, td, deps, true, false)
 			defer os.Remove(sh.CARv2FilePath)
@@ -241,12 +244,13 @@ func TestBounceConnectionDealTransferUnsealing(t *testing.T) {
 
 			// create a retrieval test harness
 			maxVoucherAmt := abi.NewTokenAmount(19921000)
-			rh := newRetrievalHarness(ctxTimeout, t, sh, storageClientSeenDeal, retrievalmarket.Params{
+			params := retrievalmarket.Params{
 				UnsealPrice:             abi.NewTokenAmount(1000),
 				PricePerByte:            abi.NewTokenAmount(1000),
 				PaymentInterval:         uint64(10000),
 				PaymentIntervalIncrease: uint64(1000),
-			})
+			}
+			rh := newRetrievalHarnessWithDeps(ctxTimeout, t, sh, storageClientSeenDeal, providerNode, pieceStore, params)
 			clientHost := rh.TestDataNet.Host1.ID()
 			providerHost := rh.TestDataNet.Host2.ID()
 
