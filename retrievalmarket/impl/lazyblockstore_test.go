@@ -91,3 +91,29 @@ func TestLazyBlockstoreGetSize(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, 1024, sz)
 }
+
+func TestLazyBlockstoreMultipleInvocations(t *testing.T) {
+	b := shared_testutil.GenerateBlocksOfSize(1, 1024)[0]
+
+	ds := ds.NewMapDatastore()
+	bs := bstore.NewBlockstore(ds)
+	err := bs.Put(b)
+	require.NoError(t, err)
+
+	// Count the number of times that the init function is invoked
+	var invokedCount int
+	lbs := newLazyBlockstore(func() (dagstore.ReadBlockstore, error) {
+		invokedCount++
+		return bs, nil
+	})
+
+	// Invoke Get twice
+	_, err = lbs.Get(b.Cid())
+	require.NoError(t, err)
+
+	_, err = lbs.Get(b.Cid())
+	require.NoError(t, err)
+
+	// Verify that the init function is only invoked once
+	require.Equal(t, 1, invokedCount)
+}
