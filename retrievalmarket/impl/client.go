@@ -463,15 +463,20 @@ func (c *clientDealEnvironment) CloseDataTransfer(ctx context.Context, channelID
 func (c *clientDealEnvironment) FinalizeBlockstore(ctx context.Context, dealID retrievalmarket.DealID) error {
 	bs, err := c.c.readWriteBlockstores.Get(dealID.String())
 	if err != nil {
-		return err
+		return xerrors.Errorf("getting deal with ID %s to finalize it: %w", dealID, err)
 	}
 
 	err = bs.Finalize()
 	if err != nil {
-		return err
+		return xerrors.Errorf("failed to finalize blockstore for deal with ID %s: %w", dealID, err)
 	}
 
-	return c.c.readWriteBlockstores.CleanBlockstore(dealID.String())
+	err = c.c.readWriteBlockstores.CleanBlockstore(dealID.String())
+	if err != nil {
+		return xerrors.Errorf("failed to clean blockstore for deal with ID %s: %w", dealID, err)
+	}
+
+	return nil
 }
 
 type clientStoreGetter struct {
