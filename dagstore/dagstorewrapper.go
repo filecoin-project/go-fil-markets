@@ -50,7 +50,7 @@ func (ds *dagStoreWrapper) LoadShard(ctx context.Context, pieceCid cid.Cid) (car
 	resch := make(chan dagstore.ShardResult, 1)
 	err := ds.dagStore.AcquireShard(ctx, key, resch, dagstore.AcquireOpts{})
 	if err != nil {
-		return nil, err
+		return nil, xerrors.Errorf("failed to schedule acquire shard for piece CID %s: %w", pieceCid, err)
 	}
 
 	// TODO: Can I rely on AcquireShard to return an error if the context times out?
@@ -63,7 +63,7 @@ func (ds *dagStoreWrapper) LoadShard(ctx context.Context, pieceCid cid.Cid) (car
 
 	res := <-resch
 	if res.Error != nil {
-		return nil, res.Error
+		return nil, xerrors.Errorf("failed to acquire shard for piece CID %s: %w", pieceCid, err)
 	}
 
 	bs, err := res.Accessor.Blockstore()
@@ -78,14 +78,14 @@ func (ds *dagStoreWrapper) RegisterShard(ctx context.Context, pieceCid cid.Cid, 
 	key := shard.KeyFromCID(pieceCid)
 	mt, err := NewLotusMount(pieceCid, ds.mountApi)
 	if err != nil {
-		return err
+		return xerrors.Errorf("failed to create lotus mount for piece CID %s: %w", pieceCid, err)
 	}
 
 	opts := dagstore.RegisterOpts{ExistingTransient: carPath}
 	resch := make(chan dagstore.ShardResult, 1)
 	err = ds.dagStore.RegisterShard(ctx, key, mt, resch, opts)
 	if err != nil {
-		return xerrors.Errorf("failed to register shard for piece %s: %w", pieceCid, err)
+		return xerrors.Errorf("failed to schedule register shard for piece CID %s: %w", pieceCid, err)
 	}
 
 	// TODO: Can I rely on RegisterShard to return an error if the context times out?
@@ -97,5 +97,8 @@ func (ds *dagStoreWrapper) RegisterShard(ctx context.Context, pieceCid cid.Cid, 
 	//}
 
 	res := <-resch
-	return res.Error
+	if res.Error != nil {
+		return xerrors.Errorf("failed to register shard for piece CID %s: %w", pieceCid, res.Error)
+	}
+	return nil
 }
