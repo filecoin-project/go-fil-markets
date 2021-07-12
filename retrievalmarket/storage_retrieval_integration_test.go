@@ -368,6 +368,13 @@ func setupDepsWithDagStore(ctx context.Context, t *testing.T, providerNode *test
 	td := shared_testutil.NewLibp2pTestData(ctx, t)
 	deps := dependencies.NewDependenciesWithTestData(t, ctx, td, smState, "", testnodes.DelayFakeCommonNode{}, testnodes.DelayFakeCommonNode{})
 
+	dagStoreWrapper := newDagStore(t, providerNode, pieceStore)
+
+	deps.DagStore = dagStoreWrapper
+	return deps
+}
+
+func newDagStore(t *testing.T, providerNode *testnodes2.TestRetrievalProviderNode, pieceStore *tut.TestPieceStore) mktdagstore.DagStoreWrapper {
 	registry := mount.NewRegistry()
 	dagStore, err := dagstore.NewDAGStore(dagstore.Config{
 		TransientsDir: t.TempDir(),
@@ -379,9 +386,7 @@ func setupDepsWithDagStore(ctx context.Context, t *testing.T, providerNode *test
 	mountApi := mktdagstore.NewLotusMountAPI(pieceStore, providerNode)
 	dagStoreWrapper, err := mktdagstore.NewDagStoreWrapper(registry, dagStore, mountApi)
 	require.NoError(t, err)
-
-	deps.DagStore = dagStoreWrapper
-	return deps
+	return dagStoreWrapper
 }
 
 func newRetrievalHarness(

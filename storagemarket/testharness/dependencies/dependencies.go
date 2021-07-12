@@ -143,8 +143,6 @@ func (gen *DepGenerator) New(
 	fs, err := filestore.NewLocalFileStore(filestore.OsPath(tempPath))
 	assert.NoError(t, err)
 
-	// We dont actually need to use the mount API in the mock DAG store
-	// for the provider
 	dagStore := shared_testutil.NewMockDagStoreWrapper()
 
 	// create provider and client
