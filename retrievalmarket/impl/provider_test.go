@@ -25,7 +25,6 @@ import (
 	"github.com/filecoin-project/go-state-types/big"
 	spect "github.com/filecoin-project/specs-actors/support/testing"
 
-	mktdagstore "github.com/filecoin-project/go-fil-markets/dagstore"
 	"github.com/filecoin-project/go-fil-markets/piecestore"
 	piecemigrations "github.com/filecoin-project/go-fil-markets/piecestore/migrations"
 	"github.com/filecoin-project/go-fil-markets/retrievalmarket"
@@ -143,8 +142,7 @@ func TestDynamicPricing(t *testing.T) {
 	buildProvider := func(t *testing.T, node *testnodes.TestRetrievalProviderNode, qs network.RetrievalQueryStream,
 		pieceStore piecestore.PieceStore, net *tut.TestRetrievalMarketNetwork, pFnc retrievalimpl.RetrievalPricingFunc) retrievalmarket.RetrievalProvider {
 		ds := dss.MutexWrap(datastore.NewMapDatastore())
-		mnt := mktdagstore.NewLotusMountAPI(pieceStore, node)
-		dagStore := mktdagstore.NewMockDagStoreWrapper(mnt)
+		dagStore := tut.NewMockDagStoreWrapper()
 		dt := tut.NewTestDataTransfer()
 		c, err := retrievalimpl.NewProvider(expectedAddress, node, net, pieceStore, dagStore, dt, ds, pFnc)
 		require.NoError(t, err)
@@ -673,8 +671,7 @@ func TestHandleQueryStream(t *testing.T) {
 
 	receiveStreamOnProvider := func(t *testing.T, node *testnodes.TestRetrievalProviderNode, qs network.RetrievalQueryStream, pieceStore piecestore.PieceStore) {
 		ds := dss.MutexWrap(datastore.NewMapDatastore())
-		mnt := mktdagstore.NewLotusMountAPI(pieceStore, node)
-		dagStore := mktdagstore.NewMockDagStoreWrapper(mnt)
+		dagStore := tut.NewMockDagStoreWrapper()
 		dt := tut.NewTestDataTransfer()
 		net := tut.NewTestRetrievalMarketNetwork(tut.TestNetworkParams{})
 
@@ -901,8 +898,7 @@ func TestProvider_Construct(t *testing.T) {
 	ds := datastore.NewMapDatastore()
 	pieceStore := tut.NewTestPieceStore()
 	node := testnodes.NewTestRetrievalProviderNode()
-	mnt := mktdagstore.NewLotusMountAPI(pieceStore, node)
-	dagStore := mktdagstore.NewMockDagStoreWrapper(mnt)
+	dagStore := tut.NewMockDagStoreWrapper()
 	dt := tut.NewTestDataTransfer()
 
 	priceFunc := func(ctx context.Context, dealPricingParams retrievalmarket.PricingInput) (retrievalmarket.Ask, error) {
@@ -957,8 +953,7 @@ func TestProviderConfigOpts(t *testing.T) {
 	ds := datastore.NewMapDatastore()
 	pieceStore := tut.NewTestPieceStore()
 	node := testnodes.NewTestRetrievalProviderNode()
-	mnt := mktdagstore.NewLotusMountAPI(pieceStore, node)
-	dagStore := mktdagstore.NewMockDagStoreWrapper(mnt)
+	dagStore := tut.NewMockDagStoreWrapper()
 
 	priceFunc := func(ctx context.Context, dealPricingParams retrievalmarket.PricingInput) (retrievalmarket.Ask, error) {
 		ask := retrievalmarket.Ask{}
@@ -1034,8 +1029,7 @@ func TestProviderMigrations(t *testing.T) {
 	ds := dss.MutexWrap(datastore.NewMapDatastore())
 	pieceStore := tut.NewTestPieceStore()
 	node := testnodes.NewTestRetrievalProviderNode()
-	mnt := mktdagstore.NewLotusMountAPI(pieceStore, node)
-	dagStore := mktdagstore.NewMockDagStoreWrapper(mnt)
+	dagStore := tut.NewMockDagStoreWrapper()
 	dt := tut.NewTestDataTransfer()
 
 	providerDs := namespace.Wrap(ds, datastore.NewKey("/retrievals/provider"))

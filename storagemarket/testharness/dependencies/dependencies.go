@@ -145,7 +145,7 @@ func (gen *DepGenerator) New(
 
 	// We dont actually need to use the mount API in the mock DAG store
 	// for the provider
-	dagStore := dagstore.NewMockDagStoreWrapper(nil)
+	dagStore := shared_testutil.NewMockDagStoreWrapper()
 
 	// create provider and client
 
