@@ -345,15 +345,13 @@ func HandoffDeal(ctx fsm.Context, environment ProviderDealEnvironment, deal stor
 		_ = ctx.Trigger(storagemarket.ProviderEventPieceStoreErrored, err)
 	}
 
+	// Register the deal data as a "shard" with the DAG store. Later it can be
+	// fetched from the DAG store during retrieval.
 	if err := environment.RegisterShard(ctx.Context(), deal.Proposal.PieceCID, carFilePath); err != nil {
-		// TODO What's the right thing to do here ? I think the retrieval market
-		// should have a recovery mechanism in terms of, let "activate the shard if you don't have it".
 		err = xerrors.Errorf("failed to activate shard: %w", err)
 		log.Error(err)
-		//return ctx.Trigger(storagemarket.ProviderEventDealHandoffFailed, err)
 	}
 
-	// TODO Put code in Lotus to expire/destroy these shards when deals expire.
 	return ctx.Trigger(storagemarket.ProviderEventDealHandedOff)
 }
 
