@@ -5,6 +5,7 @@ import (
 	"io"
 
 	"github.com/ipfs/go-cid"
+	bstore "github.com/ipfs/go-ipfs-blockstore"
 	"golang.org/x/xerrors"
 
 	"github.com/filecoin-project/dagstore"
@@ -41,7 +42,7 @@ func NewDagStoreWrapper(dsRegistry *mount.Registry, dagStore *dagstore.DAGStore,
 }
 
 type closableBlockstore struct {
-	dagstore.ReadBlockstore
+	bstore.Blockstore
 	io.Closer
 }
 
@@ -71,7 +72,7 @@ func (ds *dagStoreWrapper) LoadShard(ctx context.Context, pieceCid cid.Cid) (car
 		return nil, err
 	}
 
-	return &closableBlockstore{ReadBlockstore: bs, Closer: res.Accessor}, nil
+	return &closableBlockstore{Blockstore: NewReadOnlyBlockstore(bs), Closer: res.Accessor}, nil
 }
 
 func (ds *dagStoreWrapper) RegisterShard(ctx context.Context, pieceCid cid.Cid, carPath string) error {

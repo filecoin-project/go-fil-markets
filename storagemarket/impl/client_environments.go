@@ -12,7 +12,6 @@ import (
 
 	datatransfer "github.com/filecoin-project/go-data-transfer"
 
-	mktdagstore "github.com/filecoin-project/go-fil-markets/dagstore"
 	"github.com/filecoin-project/go-fil-markets/storagemarket"
 	"github.com/filecoin-project/go-fil-markets/storagemarket/network"
 )
@@ -63,7 +62,7 @@ func (csg *clientStoreGetter) Get(proposalCid cid.Cid) (bstore.Blockstore, error
 	var deal storagemarket.ClientDeal
 	err := csg.c.statemachines.Get(proposalCid).Get(&deal)
 	if err != nil {
-		return nil, xerrors.Errorf("failed to get client deal state, err=%w", err)
+		return nil, xerrors.Errorf("failed to get client deal state: %w", err)
 	}
 
 	// get a read Only CARv2 blockstore that provides random access on top of
@@ -71,15 +70,9 @@ func (csg *clientStoreGetter) Get(proposalCid cid.Cid) (bstore.Blockstore, error
 	// transferred as part of the deal.
 	bs, err := csg.c.readOnlyCARStoreTracker.GetOrCreate(proposalCid.String(), deal.CARv2FilePath)
 	if err != nil {
-		return nil, err
+		return nil, xerrors.Errorf("failed to get blockstore from tracker: %w", err)
 	}
-
-	// Wrap the ReadBlockstore with a Blockstore implementation that panics
-	// if any write methods are called (eg Put, Delete).
-	// We need to do this because the Get interface returns a
-	// blockstore.Blockstore, however we know that for the storage market
-	// client we will only ever be doing reads from the blockstore.
-	return mktdagstore.NewReadOnlyBlockstore(bs), err
+	return bs, nil
 }
 
 func (c *clientDealEnvironment) TagPeer(peer peer.ID, tag string) {
