@@ -24,6 +24,11 @@ type LotusMount struct {
 	pieceCid cid.Cid
 }
 
+// This method is called when registering a mount with the DAG store registry.
+// The DAG store registry receives an instance of the mount (a "template").
+// When the registry needs to deserialize a mount it clones the template then
+// calls Deserialize on the cloned instance, which will have a reference to the
+// lotus mount API supplied here.
 func NewLotusMountTemplate(api LotusMountAPI) *LotusMount {
 	return &LotusMount{api: api}
 }
