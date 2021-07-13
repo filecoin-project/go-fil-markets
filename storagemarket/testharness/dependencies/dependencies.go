@@ -10,6 +10,7 @@ import (
 
 	"github.com/ipfs/go-datastore"
 	"github.com/ipfs/go-datastore/namespace"
+	ds_sync "github.com/ipfs/go-datastore/sync"
 	graphsyncimpl "github.com/ipfs/go-graphsync/impl"
 	"github.com/ipfs/go-graphsync/network"
 	"github.com/stretchr/testify/assert"
@@ -31,6 +32,7 @@ import (
 	piecestoreimpl "github.com/filecoin-project/go-fil-markets/piecestore/impl"
 	"github.com/filecoin-project/go-fil-markets/shared_testutil"
 	"github.com/filecoin-project/go-fil-markets/storagemarket"
+	storageimpl "github.com/filecoin-project/go-fil-markets/storagemarket/impl"
 	"github.com/filecoin-project/go-fil-markets/storagemarket/impl/storedask"
 	"github.com/filecoin-project/go-fil-markets/storagemarket/testnodes"
 )
@@ -49,6 +51,7 @@ type StorageDependencies struct {
 	TestData                          *shared_testutil.Libp2pTestData
 	PieceStore                        piecestore.PieceStore
 	DagStore                          dagstore.DagStoreWrapper
+	ShardReg                          *storageimpl.ShardRegistration
 	DTClient                          datatransfer.Manager
 	DTProvider                        datatransfer.Manager
 	PeerResolver                      *discoveryimpl.Local
@@ -144,6 +147,8 @@ func (gen *DepGenerator) New(
 	assert.NoError(t, err)
 
 	dagStore := shared_testutil.NewMockDagStoreWrapper()
+	shardRegDS := ds_sync.MutexWrap(datastore.NewMapDatastore())
+	shardReg := storageimpl.NewShardRegistration(shardRegDS, dagStore)
 
 	// create provider and client
 
@@ -191,6 +196,7 @@ func (gen *DepGenerator) New(
 		ClientDelayFakeCommonNode:         cd,
 		ProviderClientDelayFakeCommonNode: pd,
 		DagStore:                          dagStore,
+		ShardReg:                          shardReg,
 		DTClient:                          dt1,
 		DTProvider:                        dt2,
 		PeerResolver:                      discovery,
