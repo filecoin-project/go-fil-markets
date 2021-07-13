@@ -26,6 +26,9 @@ stateDiagram-v2
 	state "DealStatusWaitForAcceptanceLegacy" as DealStatusWaitForAcceptanceLegacy
 	state "DealStatusWaitingForLastBlocks" as DealStatusWaitingForLastBlocks
 	state "DealStatusPaymentChannelAddingInitialFunds" as DealStatusPaymentChannelAddingInitialFunds
+	state "DealStatusErroring" as DealStatusErroring
+	state "DealStatusRejecting" as DealStatusRejecting
+	state "DealStatusDealNotFoundCleanup" as DealStatusDealNotFoundCleanup
 	state "DealStatusFinalizingBlockstore" as DealStatusFinalizingBlockstore
 	DealStatusNew : On entry runs ProposeDeal
 	DealStatusPaymentChannelCreating : On entry runs WaitPaymentChannelReady
@@ -43,16 +46,18 @@ stateDiagram-v2
 	DealStatusCancelling : On entry runs CancelDeal
 	DealStatusRetryLegacy : On entry runs ProposeDeal
 	DealStatusPaymentChannelAddingInitialFunds : On entry runs WaitPaymentChannelReady
+	DealStatusErroring : On entry runs FailsafeFinalizeBlockstore
+	DealStatusRejecting : On entry runs FailsafeFinalizeBlockstore
+	DealStatusDealNotFoundCleanup : On entry runs FailsafeFinalizeBlockstore
 	DealStatusFinalizingBlockstore : On entry runs FinalizeBlockstore
 	[*] --> DealStatusNew
 	note right of DealStatusNew
 		The following events are not shown cause they can trigger from any state.
 
-		ClientEventWriteDealProposalErrored - transitions state to DealStatusErrored
+		ClientEventWriteDealProposalErrored - transitions state to DealStatusErroring
 		ClientEventUnknownResponseReceived - transitions state to DealStatusFailing
-		ClientEventDataTransferError - transitions state to DealStatusErrored
-		ClientEventWriteDealPaymentErrored - transitions state to DealStatusErrored
-		ClientEventFinalizeBlockstoreErrored - transitions state to DealStatusErrored
+		ClientEventDataTransferError - transitions state to DealStatusErroring
+		ClientEventWriteDealPaymentErrored - transitions state to DealStatusErroring
 		ClientEventProviderCancelled - transitions state to DealStatusCancelling
 		ClientEventCancel - transitions state to DealStatusCancelling
 	end note
@@ -60,9 +65,9 @@ stateDiagram-v2
 	DealStatusNew --> DealStatusWaitForAcceptance : ClientEventDealProposed
 	DealStatusRetryLegacy --> DealStatusWaitForAcceptanceLegacy : ClientEventDealProposed
 	DealStatusWaitForAcceptance --> DealStatusRetryLegacy : ClientEventDealRejected
-	DealStatusWaitForAcceptanceLegacy --> DealStatusRejected : ClientEventDealRejected
-	DealStatusWaitForAcceptance --> DealStatusDealNotFound : ClientEventDealNotFound
-	DealStatusWaitForAcceptanceLegacy --> DealStatusDealNotFound : ClientEventDealNotFound
+	DealStatusWaitForAcceptanceLegacy --> DealStatusRejecting : ClientEventDealRejected
+	DealStatusWaitForAcceptance --> DealStatusDealNotFoundCleanup : ClientEventDealNotFound
+	DealStatusWaitForAcceptanceLegacy --> DealStatusDealNotFoundCleanup : ClientEventDealNotFound
 	DealStatusWaitForAcceptance --> DealStatusAccepted : ClientEventDealAccepted
 	DealStatusWaitForAcceptanceLegacy --> DealStatusAccepted : ClientEventDealAccepted
 	DealStatusPaymentChannelCreating --> DealStatusFailing : ClientEventPaymentChannelErrored
@@ -134,9 +139,13 @@ stateDiagram-v2
 	DealStatusBlocksComplete --> DealStatusCheckComplete : ClientEventComplete
 	DealStatusFinalizing --> DealStatusFinalizingBlockstore : ClientEventComplete
 	DealStatusCheckComplete --> DealStatusFinalizingBlockstore : ClientEventCompleteVerified
-	DealStatusCheckComplete --> DealStatusErrored : ClientEventEarlyTermination
+	DealStatusCheckComplete --> DealStatusErroring : ClientEventEarlyTermination
 	DealStatusCheckComplete --> DealStatusWaitingForLastBlocks : ClientEventWaitForLastBlocks
+	DealStatusErroring --> DealStatusErrored : ClientEventBlockstoreFinalized
+	DealStatusRejecting --> DealStatusRejected : ClientEventBlockstoreFinalized
+	DealStatusDealNotFoundCleanup --> DealStatusDealNotFound : ClientEventBlockstoreFinalized
 	DealStatusFinalizingBlockstore --> DealStatusCompleted : ClientEventBlockstoreFinalized
+	DealStatusFinalizingBlockstore --> DealStatusErrored : ClientEventFinalizeBlockstoreErrored
 	DealStatusFailing --> DealStatusErrored : ClientEventCancelComplete
 	DealStatusCancelling --> DealStatusCancelled : ClientEventCancelComplete
 	DealStatusInsufficientFunds --> DealStatusCheckFunds : ClientEventRecheckFunds

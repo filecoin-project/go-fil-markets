@@ -552,6 +552,10 @@ func FailDeal(ctx fsm.Context, environment ProviderDealEnvironment, deal storage
 	}
 
 	if deal.CARv2FilePath != "" {
+		if err := environment.FinalizeReadWriteBlockstore(deal.ProposalCid); err != nil {
+			log.Warnf("error finalizing read-write store, CARv2FilePath=%s: %s", deal.CARv2FilePath, err)
+		}
+
 		if err := environment.CleanReadWriteBlockstore(deal.ProposalCid, deal.CARv2FilePath); err != nil {
 			log.Warnf("error deleting store, CARv2FilePath=%s: %s", deal.CARv2FilePath, err)
 		}

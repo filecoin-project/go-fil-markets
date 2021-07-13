@@ -169,7 +169,6 @@ func requireSetupTestClientAndProvider(ctx context.Context, t *testing.T, payChA
 	}
 
 	// Set up a DAG store
-	require.NoError(t, err)
 	mountApi := mktdagstore.NewLotusMountAPI(pieceStore, providerNode)
 	dagStoreWrapper, err := mktdagstore.NewDagStoreWrapper(mktdagstore.MarketDAGStoreConfig{
 		TransientsDir: t.TempDir(),
@@ -693,7 +692,6 @@ func setupProvider(
 	}
 
 	// Create a DAG store
-	require.NoError(t, err)
 	mountApi := mktdagstore.NewLotusMountAPI(pieceStore, providerNode)
 	dagStoreWrapper, err := mktdagstore.NewDagStoreWrapper(mktdagstore.MarketDAGStoreConfig{
 		TransientsDir: t.TempDir(),
