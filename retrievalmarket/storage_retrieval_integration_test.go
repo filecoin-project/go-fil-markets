@@ -21,8 +21,6 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/filecoin-project/dagstore"
-	"github.com/filecoin-project/dagstore/mount"
 	"github.com/filecoin-project/go-address"
 	datatransfer "github.com/filecoin-project/go-data-transfer"
 	"github.com/filecoin-project/go-state-types/abi"
@@ -375,16 +373,12 @@ func setupDepsWithDagStore(ctx context.Context, t *testing.T, providerNode *test
 }
 
 func newDagStore(t *testing.T, providerNode *testnodes2.TestRetrievalProviderNode, pieceStore *tut.TestPieceStore) mktdagstore.DagStoreWrapper {
-	registry := mount.NewRegistry()
-	dagStore, err := dagstore.NewDAGStore(dagstore.Config{
+	mountApi := mktdagstore.NewLotusMountAPI(pieceStore, providerNode)
+	dagStoreWrapper, err := mktdagstore.NewDagStoreWrapper(mktdagstore.MarketDAGStoreConfig{
 		TransientsDir: t.TempDir(),
 		IndexDir:      t.TempDir(),
 		Datastore:     ds_sync.MutexWrap(datastore.NewMapDatastore()),
-		MountRegistry: registry,
-	})
-	require.NoError(t, err)
-	mountApi := mktdagstore.NewLotusMountAPI(pieceStore, providerNode)
-	dagStoreWrapper, err := mktdagstore.NewDagStoreWrapper(registry, dagStore, mountApi)
+	}, mountApi)
 	require.NoError(t, err)
 	return dagStoreWrapper
 }

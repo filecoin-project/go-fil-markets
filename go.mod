@@ -4,7 +4,7 @@ go 1.13
 
 require (
 	github.com/cpuguy83/go-md2man/v2 v2.0.0 // indirect
-	github.com/filecoin-project/dagstore v0.0.0-20210708130647-e413e3ad83df
+	github.com/filecoin-project/dagstore v0.0.0-20210712192849-023b49675340
 	github.com/filecoin-project/go-address v0.0.5
 	github.com/filecoin-project/go-amt-ipld/v2 v2.1.1-0.20201006184820-924ee87a1349 // indirect
 	github.com/filecoin-project/go-bitfield v0.2.4 // indirect
