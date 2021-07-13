@@ -29,8 +29,8 @@ type providerDealEnvironment struct {
 	p *Provider
 }
 
-func (p *providerDealEnvironment) RegisterShard(ctx context.Context, pieceCid cid.Cid, carPath string) error {
-	return p.p.dagStore.RegisterShard(ctx, pieceCid, carPath)
+func (p *providerDealEnvironment) RegisterShard(ctx context.Context, pieceCid cid.Cid, carPath string, eagerInit bool) error {
+	return p.p.dagStore.RegisterShard(ctx, pieceCid, carPath, eagerInit)
 }
 
 func (p *providerDealEnvironment) CARv2Reader(carV2FilePath string) (*carv2.Reader, error) {

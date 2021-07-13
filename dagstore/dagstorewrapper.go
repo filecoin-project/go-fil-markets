@@ -33,7 +33,7 @@ type MarketDAGStoreConfig struct {
 // the other parts of go-fil-markets
 type DagStoreWrapper interface {
 	// RegisterShard loads a CAR file into the DAG store and builds an index for it
-	RegisterShard(ctx context.Context, pieceCid cid.Cid, carPath string) error
+	RegisterShard(ctx context.Context, pieceCid cid.Cid, carPath string, eagerInit bool) error
 	// LoadShard fetches the data for a shard and provides a blockstore interface to it
 	LoadShard(ctx context.Context, pieceCid cid.Cid) (carstore.ClosableBlockstore, error)
 	// Close closes the dag store wrapper.
@@ -54,6 +54,8 @@ type dagStoreWrapper struct {
 	mountApi LotusMountAPI
 }
 
+var _ DagStoreWrapper = (*dagStoreWrapper)(nil)
+
 func NewDagStoreWrapper(cfg MarketDAGStoreConfig, mountApi LotusMountAPI) (*dagStoreWrapper, error) {
 	// construct the DAG Store.
 	registry := mount.NewRegistry()
@@ -69,6 +71,7 @@ func NewDagStoreWrapper(cfg MarketDAGStoreConfig, mountApi LotusMountAPI) (*dagS
 		FailureCh:     failureCh,
 	}
 	dagStore, err := dagstore.NewDAGStore(dcfg)
+
 	if err != nil {
 		return nil, xerrors.Errorf("failed to create dagStore:%w", err)
 	}
@@ -119,7 +122,7 @@ func (ds *dagStoreWrapper) LoadShard(ctx context.Context, pieceCid cid.Cid) (car
 
 		// if the DAGStore does not know about the Shard -> register it and then try to acquire it again.
 		log.Infow("ErrShardUnknown during LoadShard, will re-register", "pieceCID", pieceCid)
-		if err := ds.RegisterShard(ctx, pieceCid, ""); err != nil {
+		if err := ds.RegisterShard(ctx, pieceCid, "", false); err != nil {
 			return nil, xerrors.Errorf("failed to re-register shard during loading piece CID %s: %w", pieceCid, err)
 		}
 		log.Infow("Successfully re-registered Shard in LoadShard", "pieceCID", pieceCid)
@@ -151,14 +154,17 @@ func (ds *dagStoreWrapper) LoadShard(ctx context.Context, pieceCid cid.Cid) (car
 	return &closableBlockstore{Blockstore: NewReadOnlyBlockstore(bs), Closer: res.Accessor}, nil
 }
 
-func (ds *dagStoreWrapper) RegisterShard(ctx context.Context, pieceCid cid.Cid, carPath string) error {
+func (ds *dagStoreWrapper) RegisterShard(ctx context.Context, pieceCid cid.Cid, carPath string, eagerInit bool) error {
 	key := shard.KeyFromCID(pieceCid)
 	mt, err := NewLotusMount(pieceCid, ds.mountApi)
 	if err != nil {
 		return xerrors.Errorf("failed to create lotus mount for piece CID %s: %w", pieceCid, err)
 	}
 
-	opts := dagstore.RegisterOpts{ExistingTransient: carPath}
+	opts := dagstore.RegisterOpts{
+		ExistingTransient:  carPath,
+		LazyInitialization: !eagerInit,
+	}
 	resch := make(chan dagstore.ShardResult, 1)
 	err = ds.dagStore.RegisterShard(ctx, key, mt, resch, opts)
 	if err != nil {
