@@ -24,4 +24,8 @@ func (m *MockDagStoreWrapper) LoadShard(ctx context.Context, pieceCid cid.Cid) (
 	return nil, nil
 }
 
+func (m *MockDagStoreWrapper) Close() error {
+	return nil
+}
+
 var _ dagstore.DagStoreWrapper = (*MockDagStoreWrapper)(nil)
