@@ -142,11 +142,9 @@ func TestDynamicPricing(t *testing.T) {
 	buildProvider := func(t *testing.T, node *testnodes.TestRetrievalProviderNode, qs network.RetrievalQueryStream,
 		pieceStore piecestore.PieceStore, net *tut.TestRetrievalMarketNetwork, pFnc retrievalimpl.RetrievalPricingFunc) retrievalmarket.RetrievalProvider {
 		ds := dss.MutexWrap(datastore.NewMapDatastore())
-		multiStore, err := multistore.NewMultiDstore(ds)
-		require.NoError(t, err)
+		dagStore := tut.NewMockDagStoreWrapper()
 		dt := tut.NewTestDataTransfer()
-
-		c, err := retrievalimpl.NewProvider(expectedAddress, node, net, pieceStore, multiStore, dt, ds, pFnc)
+		c, err := retrievalimpl.NewProvider(expectedAddress, node, net, pieceStore, dagStore, dt, ds, pFnc)
 		require.NoError(t, err)
 		tut.StartAndWaitForReady(ctx, t, c)
 		return c
@@ -673,8 +671,7 @@ func TestHandleQueryStream(t *testing.T) {
 
 	receiveStreamOnProvider := func(t *testing.T, node *testnodes.TestRetrievalProviderNode, qs network.RetrievalQueryStream, pieceStore piecestore.PieceStore) {
 		ds := dss.MutexWrap(datastore.NewMapDatastore())
-		multiStore, err := multistore.NewMultiDstore(ds)
-		require.NoError(t, err)
+		dagStore := tut.NewMockDagStoreWrapper()
 		dt := tut.NewTestDataTransfer()
 		net := tut.NewTestRetrievalMarketNetwork(tut.TestNetworkParams{})
 
@@ -692,7 +689,7 @@ func TestHandleQueryStream(t *testing.T) {
 			return ask, nil
 		}
 
-		c, err := retrievalimpl.NewProvider(expectedAddress, node, net, pieceStore, multiStore, dt, ds, priceFunc)
+		c, err := retrievalimpl.NewProvider(expectedAddress, node, net, pieceStore, dagStore, dt, ds, priceFunc)
 		require.NoError(t, err)
 
 		tut.StartAndWaitForReady(ctx, t, c)
@@ -899,8 +896,9 @@ func TestHandleQueryStream(t *testing.T) {
 
 func TestProvider_Construct(t *testing.T) {
 	ds := datastore.NewMapDatastore()
-	multiStore, err := multistore.NewMultiDstore(ds)
-	require.NoError(t, err)
+	pieceStore := tut.NewTestPieceStore()
+	node := testnodes.NewTestRetrievalProviderNode()
+	dagStore := tut.NewMockDagStoreWrapper()
 	dt := tut.NewTestDataTransfer()
 
 	priceFunc := func(ctx context.Context, dealPricingParams retrievalmarket.PricingInput) (retrievalmarket.Ask, error) {
@@ -908,12 +906,12 @@ func TestProvider_Construct(t *testing.T) {
 		return ask, nil
 	}
 
-	_, err = retrievalimpl.NewProvider(
+	_, err := retrievalimpl.NewProvider(
 		spect.NewIDAddr(t, 2344),
-		testnodes.NewTestRetrievalProviderNode(),
+		node,
 		tut.NewTestRetrievalMarketNetwork(tut.TestNetworkParams{}),
-		tut.NewTestPieceStore(),
-		multiStore,
+		pieceStore,
+		dagStore,
 		dt,
 		ds,
 		priceFunc,
@@ -947,13 +945,15 @@ func TestProvider_Construct(t *testing.T) {
 
 	require.True(t, ok)
 }
+
 func TestProviderConfigOpts(t *testing.T) {
 	var sawOpt int
 	opt1 := func(p *retrievalimpl.Provider) { sawOpt++ }
 	opt2 := func(p *retrievalimpl.Provider) { sawOpt += 2 }
 	ds := datastore.NewMapDatastore()
-	multiStore, err := multistore.NewMultiDstore(ds)
-	require.NoError(t, err)
+	pieceStore := tut.NewTestPieceStore()
+	node := testnodes.NewTestRetrievalProviderNode()
+	dagStore := tut.NewMockDagStoreWrapper()
 
 	priceFunc := func(ctx context.Context, dealPricingParams retrievalmarket.PricingInput) (retrievalmarket.Ask, error) {
 		ask := retrievalmarket.Ask{}
@@ -962,10 +962,10 @@ func TestProviderConfigOpts(t *testing.T) {
 
 	p, err := retrievalimpl.NewProvider(
 		spect.NewIDAddr(t, 2344),
-		testnodes.NewTestRetrievalProviderNode(),
+		node,
 		tut.NewTestRetrievalMarketNetwork(tut.TestNetworkParams{}),
-		tut.NewTestPieceStore(),
-		multiStore,
+		pieceStore,
+		dagStore,
 		tut.NewTestDataTransfer(),
 		ds, priceFunc, opt1, opt2,
 	)
@@ -985,7 +985,7 @@ func TestProviderConfigOpts(t *testing.T) {
 		testnodes.NewTestRetrievalProviderNode(),
 		tut.NewTestRetrievalMarketNetwork(tut.TestNetworkParams{}),
 		tut.NewTestPieceStore(),
-		multiStore,
+		dagStore,
 		tut.NewTestDataTransfer(),
 		ds, priceFunc, ddOpt)
 	require.NoError(t, err)
@@ -1027,8 +1027,9 @@ func TestProviderMigrations(t *testing.T) {
 	ctx, cancel := context.WithTimeout(ctx, 10*time.Second)
 	defer cancel()
 	ds := dss.MutexWrap(datastore.NewMapDatastore())
-	multiStore, err := multistore.NewMultiDstore(ds)
-	require.NoError(t, err)
+	pieceStore := tut.NewTestPieceStore()
+	node := testnodes.NewTestRetrievalProviderNode()
+	dagStore := tut.NewMockDagStoreWrapper()
 	dt := tut.NewTestDataTransfer()
 
 	providerDs := namespace.Wrap(ds, datastore.NewKey("/retrievals/provider"))
@@ -1054,7 +1055,7 @@ func TestProviderMigrations(t *testing.T) {
 	offsets := make([]abi.PaddedPieceSize, numDeals)
 	lengths := make([]abi.PaddedPieceSize, numDeals)
 	allSelectorBuf := new(bytes.Buffer)
-	err = dagcbor.Encoder(shared.AllSelector(), allSelectorBuf)
+	err := dagcbor.Encoder(shared.AllSelector(), allSelectorBuf)
 	require.NoError(t, err)
 	allSelectorBytes := allSelectorBuf.Bytes()
 
@@ -1142,10 +1143,10 @@ func TestProviderMigrations(t *testing.T) {
 
 	retrievalProvider, err := retrievalimpl.NewProvider(
 		spect.NewIDAddr(t, 2344),
-		testnodes.NewTestRetrievalProviderNode(),
+		node,
 		tut.NewTestRetrievalMarketNetwork(tut.TestNetworkParams{}),
-		tut.NewTestPieceStore(),
-		multiStore,
+		pieceStore,
+		dagStore,
 		dt,
 		providerDs,
 		priceFunc,

@@ -41,7 +41,7 @@ func CommP(ctx context.Context, CARv2FilePath string, data *storagemarket.DataRe
 		return cid.Undef, 0, xerrors.New("need Carv2 file path to get a read-only blockstore")
 	}
 
-	rdOnly, err := blockstore.OpenReadOnly(CARv2FilePath, true)
+	rdOnly, err := blockstore.OpenReadOnly(CARv2FilePath)
 	if err != nil {
 		return cid.Undef, 0, xerrors.Errorf("failed to open read-only blockstore: %w", err)
 	}

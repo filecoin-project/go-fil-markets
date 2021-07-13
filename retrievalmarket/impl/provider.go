@@ -16,11 +16,12 @@ import (
 	datatransfer "github.com/filecoin-project/go-data-transfer"
 	versioning "github.com/filecoin-project/go-ds-versioning/pkg"
 	versionedfsm "github.com/filecoin-project/go-ds-versioning/pkg/fsm"
-	"github.com/filecoin-project/go-multistore"
 	"github.com/filecoin-project/go-state-types/abi"
 	"github.com/filecoin-project/go-state-types/big"
 	"github.com/filecoin-project/go-statemachine/fsm"
 
+	"github.com/filecoin-project/go-fil-markets/carstore"
+	mktdagstore "github.com/filecoin-project/go-fil-markets/dagstore"
 	"github.com/filecoin-project/go-fil-markets/piecestore"
 	"github.com/filecoin-project/go-fil-markets/retrievalmarket"
 	"github.com/filecoin-project/go-fil-markets/retrievalmarket/impl/askstore"
@@ -44,7 +45,6 @@ var queryTimeout = 5 * time.Second
 
 // Provider is the production implementation of the RetrievalProvider interface
 type Provider struct {
-	multiStore           *multistore.MultiStore
 	dataTransfer         datatransfer.Manager
 	node                 retrievalmarket.RetrievalProviderNode
 	network              rmnet.RetrievalMarketNetwork
@@ -60,6 +60,8 @@ type Provider struct {
 	askStore             retrievalmarket.AskStore
 	disableNewDeals      bool
 	retrievalPricingFunc RetrievalPricingFunc
+	dagStore             mktdagstore.DagStoreWrapper
+	readOnlyBlockStores  *carstore.CarReadOnlyStoreTracker
 }
 
 type internalProviderEvent struct {
@@ -101,7 +103,7 @@ func NewProvider(minerAddress address.Address,
 	node retrievalmarket.RetrievalProviderNode,
 	network rmnet.RetrievalMarketNetwork,
 	pieceStore piecestore.PieceStore,
-	multiStore *multistore.MultiStore,
+	dagStore mktdagstore.DagStoreWrapper,
 	dataTransfer datatransfer.Manager,
 	ds datastore.Batching,
 	retrievalPricingFunc RetrievalPricingFunc,
@@ -113,7 +115,6 @@ func NewProvider(minerAddress address.Address,
 	}
 
 	p := &Provider{
-		multiStore:           multiStore,
 		dataTransfer:         dataTransfer,
 		node:                 node,
 		network:              network,
@@ -122,6 +123,8 @@ func NewProvider(minerAddress address.Address,
 		subscribers:          pubsub.New(providerDispatcher),
 		readySub:             pubsub.New(shared.ReadyDispatcher),
 		retrievalPricingFunc: retrievalPricingFunc,
+		dagStore:             dagStore,
+		readOnlyBlockStores:  carstore.NewReadOnlyStoreTracker(),
 	}
 
 	err := shared.MoveKey(ds, "retrieval-ask", "retrieval-ask/latest")

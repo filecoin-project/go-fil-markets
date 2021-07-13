@@ -102,7 +102,6 @@ func TestLabelField(t *testing.T) {
 	require.True(t, payloadCID.Equals(resultCid))
 }
 
-// TODO This test fails right now but should be green when the CARv2 bug is fixed.
 func TestNoDuplicatesInCARv2(t *testing.T) {
 	// The CARv2 file for a UnixFS DAG that has duplicates should NOT have duplicates.
 	file1 := filepath.Join("storagemarket", "fixtures", "duplicate_blocks.txt")
@@ -142,7 +141,7 @@ func TestNoDuplicatesInCARv2(t *testing.T) {
 		},
 	})
 
-	sc.Write(ioutil.Discard, func(b car.Block) error {
+	require.NoError(t, sc.Write(ioutil.Discard, func(b car.Block) error {
 		mu.Lock()
 		defer mu.Unlock()
 
@@ -153,7 +152,7 @@ func TestNoDuplicatesInCARv2(t *testing.T) {
 		seen2[b.BlockCID] = struct{}{}
 
 		return nil
-	})
+	}))
 
 	mu.Lock()
 	defer mu.Unlock()

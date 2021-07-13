@@ -36,7 +36,7 @@ const DealMaxLabelSize = 256
 type ProviderDealEnvironment interface {
 	CARv2Reader(carV2FilePath string) (*carv2.Reader, error)
 
-	ActivateShard(pieceCid cid.Cid) error
+	RegisterShard(ctx context.Context, pieceCid cid.Cid, path string) error
 
 	FinalizeReadWriteBlockstore(proposalCid cid.Cid) error
 
@@ -300,6 +300,7 @@ func WaitForPublish(ctx fsm.Context, environment ProviderDealEnvironment, deal s
 // HandoffDeal hands off a published deal for sealing and commitment in a sector
 func HandoffDeal(ctx fsm.Context, environment ProviderDealEnvironment, deal storagemarket.MinerDeal) error {
 	var packingInfo *storagemarket.PackingResult
+	var carFilePath string
 	if deal.PiecePath != "" {
 		// Data for offline deals is stored on disk, so if PiecePath is set,
 		// create a Reader from the file path
@@ -308,6 +309,7 @@ func HandoffDeal(ctx fsm.Context, environment ProviderDealEnvironment, deal stor
 			return ctx.Trigger(storagemarket.ProviderEventFileStoreErrored,
 				xerrors.Errorf("reading piece at path %s: %w", deal.PiecePath, err))
 		}
+		carFilePath = string(file.OsPath())
 
 		// Hand the deal off to the process that adds it to a sector
 		packingInfo, err = handoffDeal(ctx.Context(), environment, deal, file, uint64(file.Size()))
@@ -316,6 +318,8 @@ func HandoffDeal(ctx fsm.Context, environment ProviderDealEnvironment, deal stor
 			return ctx.Trigger(storagemarket.ProviderEventDealHandoffFailed, err)
 		}
 	} else {
+		carFilePath = deal.CARv2FilePath
+
 		v2r, err := environment.CARv2Reader(deal.CARv2FilePath)
 		if err != nil {
 			return ctx.Trigger(storagemarket.ProviderEventDealHandoffFailed, xerrors.Errorf("failed to open CARv2 file, proposalCid=%s: %w",
@@ -341,17 +345,24 @@ func HandoffDeal(ctx fsm.Context, environment ProviderDealEnvironment, deal stor
 		_ = ctx.Trigger(storagemarket.ProviderEventPieceStoreErrored, err)
 	}
 
-	if err := environment.ActivateShard(deal.Proposal.PieceCID); err != nil {
-		// TODO What's the right thing to do here ? I think the retrieval market
-		// should have a recovery mechanism in terms of, let "activate the shard if you don't have it".
+	// Register the deal data as a "shard" with the DAG store. Later it can be
+	// fetched from the DAG store during retrieval.
+	if err := environment.RegisterShard(ctx.Context(), deal.Proposal.PieceCID, carFilePath); err != nil {
+		err = xerrors.Errorf("failed to activate shard: %w", err)
+		log.Error(err)
 	}
 
-	// TODO Put code in Lotus to expire/destory these shards when deals expire.
 	return ctx.Trigger(storagemarket.ProviderEventDealHandedOff)
 }
 
 func handoffDeal(ctx context.Context, environment ProviderDealEnvironment, deal storagemarket.MinerDeal, reader io.Reader, size uint64) (*storagemarket.PackingResult, error) {
+	// Note that even though padreader.New returns an UnpaddedPieceSize, it is
+	// *actually* returning the padded piece size cast to UnpaddedPieceSize.
 	paddedReader, paddedSize := padreader.New(reader, size)
+
+	// Note that even though OnDealComplete takes an UnpaddedPieceSize as a
+	// parameter, the sealing code *actually* requires a padded piece size,
+	// which is what we pass here.
 	return environment.Node().OnDealComplete(
 		ctx,
 		storagemarket.MinerDeal{

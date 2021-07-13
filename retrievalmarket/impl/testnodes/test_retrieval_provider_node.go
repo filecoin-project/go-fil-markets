@@ -155,6 +155,7 @@ func (trpn *TestRetrievalProviderNode) UnsealSector(ctx context.Context, sectorI
 	if !ok {
 		return nil, errors.New("Could not unseal")
 	}
+
 	return ioutil.NopCloser(bytes.NewReader(data)), nil
 }
 

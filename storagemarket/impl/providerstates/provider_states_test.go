@@ -1476,7 +1476,6 @@ type fakeEnvironment struct {
 	rejectDeal              bool
 	rejectReason            string
 	decisionError           error
-	deleteStoreError        error
 	fs                      filestore.FileStore
 	pieceStore              piecestore.PieceStore
 	expectedTags            map[string]struct{}
@@ -1544,7 +1543,7 @@ func (fe *fakeEnvironment) UntagPeer(id peer.ID, s string) {
 	fe.peerTagger.UntagPeer(id, s)
 }
 
-func (fe *fakeEnvironment) ActivateShard(pieceCid cid.Cid) error {
+func (fe *fakeEnvironment) RegisterShard(ctx context.Context, pieceCid cid.Cid, path string) error {
 	return fe.shardActivationError
 }
 

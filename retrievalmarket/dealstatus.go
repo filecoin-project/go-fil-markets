@@ -120,6 +120,22 @@ const (
 	// exists from an earlier deal between client and provider, but we need
 	// to add funds to the channel for this particular deal
 	DealStatusPaymentChannelAddingInitialFunds
+
+	// DealStatusErroring means that there was an error and we need to
+	// do some cleanup before moving to the error state
+	DealStatusErroring
+
+	// DealStatusRejecting means that the deal was rejected and we need to do
+	// some cleanup before moving to the rejected state
+	DealStatusRejecting
+
+	// DealStatusDealNotFoundCleanup means that the deal was not found and we
+	// need to do some cleanup before moving to the not found state
+	DealStatusDealNotFoundCleanup
+
+	// DealStatusFinalizingBlockstore means that all blocks have been received,
+	// and the blockstore is being finalized
+	DealStatusFinalizingBlockstore
 )
 
 // DealStatuses maps deal status to a human readable representation
@@ -155,6 +171,10 @@ var DealStatuses = map[DealStatus]string{
 	DealStatusWaitForAcceptanceLegacy:          "DealStatusWaitForAcceptanceLegacy",
 	DealStatusClientWaitingForLastBlocks:       "DealStatusWaitingForLastBlocks",
 	DealStatusPaymentChannelAddingInitialFunds: "DealStatusPaymentChannelAddingInitialFunds",
+	DealStatusErroring:                         "DealStatusErroring",
+	DealStatusRejecting:                        "DealStatusRejecting",
+	DealStatusDealNotFoundCleanup:              "DealStatusDealNotFoundCleanup",
+	DealStatusFinalizingBlockstore:             "DealStatusFinalizingBlockstore",
 }
 
 func (s DealStatus) String() string {

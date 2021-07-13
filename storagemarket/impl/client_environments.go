@@ -62,12 +62,17 @@ func (csg *clientStoreGetter) Get(proposalCid cid.Cid) (bstore.Blockstore, error
 	var deal storagemarket.ClientDeal
 	err := csg.c.statemachines.Get(proposalCid).Get(&deal)
 	if err != nil {
-		return nil, xerrors.Errorf("failed to get client deal state, err=%w", err)
+		return nil, xerrors.Errorf("failed to get client deal state: %w", err)
 	}
 
-	// get a read Only CARv2 blockstore that provides random access on top of the client's CARv2 file containing the CARv1 payload
-	// that needs to be transferred as part of the deal.
-	return csg.c.readOnlyCARStoreTracker.GetOrCreate(proposalCid.String(), deal.CARv2FilePath)
+	// get a read Only CARv2 blockstore that provides random access on top of
+	// the client's CARv2 file containing the CARv1 payload that needs to be
+	// transferred as part of the deal.
+	bs, err := csg.c.readOnlyCARStoreTracker.GetOrCreate(proposalCid.String(), deal.CARv2FilePath)
+	if err != nil {
+		return nil, xerrors.Errorf("failed to get blockstore from tracker: %w", err)
+	}
+	return bs, nil
 }
 
 func (c *clientDealEnvironment) TagPeer(peer peer.ID, tag string) {

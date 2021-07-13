@@ -29,7 +29,7 @@ func (r *CarReadWriteStoreTracker) GetOrCreate(key string, carV2FilePath string,
 		return bs, nil
 	}
 
-	rwBs, err := blockstore.NewReadWrite(carV2FilePath, []cid.Cid{rootCid})
+	rwBs, err := blockstore.NewReadWrite(carV2FilePath, []cid.Cid{rootCid}, blockstore.WithCidDeduplication)
 	if err != nil {
 		return nil, xerrors.Errorf("failed to create read-write blockstore: %w", err)
 	}
@@ -55,9 +55,11 @@ func (r *CarReadWriteStoreTracker) CleanBlockstore(key string) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
-	if _, ok := r.stores[key]; ok {
-		delete(r.stores, key)
+	if rw, ok := r.stores[key]; ok {
+		_ = rw.Finalize()
 	}
+
+	delete(r.stores, key)
 
 	return nil
 }

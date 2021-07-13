@@ -64,7 +64,7 @@ func NewHarnessWithTestData(t *testing.T, td *shared_testutil.Libp2pTestData, de
 	var carV2FilePath string
 	// TODO Both functions here should return the root cid of the UnixFSDag and the carv2 file path.
 	if useStore {
-		rootLink, carV2FilePath = td.LoadUnixFSFileToStore(t, fpath, false)
+		rootLink, carV2FilePath = td.LoadUnixFSFileToStore(t, fpath)
 	} else {
 		rootLink, carV2FilePath = td.LoadUnixFSFile(t, fpath, false)
 	}
@@ -97,6 +97,7 @@ func NewHarnessWithTestData(t *testing.T, td *shared_testutil.Libp2pTestData, de
 		network.NewFromLibp2pHost(td.Host2, networkOptions...),
 		providerDs,
 		deps.Fs,
+		deps.DagStore,
 		deps.PieceStore,
 		deps.DTProvider,
 		deps.ProviderNode,
@@ -130,6 +131,7 @@ func (h *StorageHarness) CreateNewProvider(t *testing.T, ctx context.Context, td
 		network.NewFromLibp2pHost(td.Host2, network.RetryParameters(0, 0, 0, 0)),
 		providerDs,
 		h.Fs,
+		h.DagStore,
 		h.PieceStore,
 		dt2,
 		h.ProviderNode,

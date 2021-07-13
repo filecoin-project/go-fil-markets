@@ -1,6 +1,8 @@
 package filestore
 
-import "io"
+import (
+	"io"
+)
 
 // Path represents an abstract path to a file
 type Path string
@@ -33,4 +35,10 @@ type FileStore interface {
 	Delete(p Path) error
 
 	CreateTemp() (File, error)
+}
+
+// CarFileStore provides the path at which to store CAR files created during
+// storage or retrieval
+type CarFileStore interface {
+	Path(key string) string
 }

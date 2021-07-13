@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"os"
 
 	"github.com/hannahhoward/go-pubsub"
 	"github.com/ipfs/go-cid"
@@ -23,6 +24,7 @@ import (
 	"github.com/filecoin-project/go-statemachine/fsm"
 
 	"github.com/filecoin-project/go-fil-markets/carstore"
+	mktdagstore "github.com/filecoin-project/go-fil-markets/dagstore"
 	"github.com/filecoin-project/go-fil-markets/filestore"
 	"github.com/filecoin-project/go-fil-markets/piecestore"
 	"github.com/filecoin-project/go-fil-markets/shared"
@@ -66,10 +68,7 @@ type Provider struct {
 
 	unsubDataTransfer datatransfer.Unsubscribe
 
-	// TODO Uncomment this when DAGStore compiles -> Lotus will inject these deps here.
-	//dagStore dagstore.DAGStore
-	//mountApi marketdagstore.LotusMountAPI
-
+	dagStore             mktdagstore.DagStoreWrapper
 	readWriteBlockStores *carstore.CarReadWriteStoreTracker
 }
 
@@ -104,6 +103,7 @@ func CustomDealDecisionLogic(decider DealDeciderFunc) StorageProviderOption {
 func NewProvider(net network.StorageMarketNetwork,
 	ds datastore.Batching,
 	fs filestore.FileStore,
+	dagStore mktdagstore.DagStoreWrapper,
 	pieceStore piecestore.PieceStore,
 	dataTransfer datatransfer.Manager,
 	spn storagemarket.StorageProviderNode,
@@ -122,6 +122,7 @@ func NewProvider(net network.StorageMarketNetwork,
 		dataTransfer:         dataTransfer,
 		pubSub:               pubsub.New(providerDispatcher),
 		readyMgr:             shared.NewReadyManager(),
+		dagStore:             dagStore,
 		readWriteBlockStores: carstore.NewCarReadWriteStoreTracker(),
 	}
 	storageMigrations, err := migrations.ProviderMigrations.Build()
@@ -242,7 +243,11 @@ func (p *Provider) receiveDeal(s network.StorageDealStream) error {
 		if err != nil {
 			return xerrors.Errorf("failed to create an empty temp CARv2 file: %w", err)
 		}
-		carV2FilePath = string(tmp.Path())
+		if err := tmp.Close(); err != nil {
+			_ = os.Remove(string(tmp.OsPath()))
+			return xerrors.Errorf("failed to close temp file: %w", err)
+		}
+		carV2FilePath = string(tmp.OsPath())
 	}
 
 	deal := &storagemarket.MinerDeal{
