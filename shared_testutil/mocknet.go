@@ -13,6 +13,7 @@ import (
 
 	blocks "github.com/ipfs/go-block-format"
 	"github.com/ipfs/go-blockservice"
+	"github.com/ipfs/go-cid"
 	"github.com/ipfs/go-datastore"
 	"github.com/ipfs/go-datastore/namespace"
 	dss "github.com/ipfs/go-datastore/sync"
@@ -25,6 +26,7 @@ import (
 	unixfile "github.com/ipfs/go-unixfs/file"
 	"github.com/ipfs/go-unixfs/importer/balanced"
 	"github.com/ipfs/go-unixfs/importer/helpers"
+	"github.com/ipld/go-car/v2/blockstore"
 	"github.com/ipld/go-ipld-prime"
 	cidlink "github.com/ipld/go-ipld-prime/linking/cid"
 	"github.com/libp2p/go-libp2p-core/host"
@@ -33,32 +35,32 @@ import (
 	"golang.org/x/net/context"
 
 	dtnet "github.com/filecoin-project/go-data-transfer/network"
-	"github.com/filecoin-project/go-multistore"
+
+	"github.com/filecoin-project/go-fil-markets/filestore"
 )
 
 type Libp2pTestData struct {
-	Ctx         context.Context
-	Ds1         datastore.Batching
-	Ds2         datastore.Batching
-	Bs1         bstore.Blockstore
-	Bs2         bstore.Blockstore
-	MultiStore1 *multistore.MultiStore
-	MultiStore2 *multistore.MultiStore
-	DagService1 ipldformat.DAGService
-	DagService2 ipldformat.DAGService
-	DTNet1      dtnet.DataTransferNetwork
-	DTNet2      dtnet.DataTransferNetwork
-	DTStore1    datastore.Batching
-	DTStore2    datastore.Batching
-	DTTmpDir1   string
-	DTTmpDir2   string
-	Loader1     ipld.Loader
-	Loader2     ipld.Loader
-	Storer1     ipld.Storer
-	Storer2     ipld.Storer
-	Host1       host.Host
-	Host2       host.Host
-	OrigBytes   []byte
+	Ctx          context.Context
+	Ds1          datastore.Batching
+	Ds2          datastore.Batching
+	Bs1          bstore.Blockstore
+	Bs2          bstore.Blockstore
+	CarFileStore filestore.CarFileStore
+	DagService1  ipldformat.DAGService
+	DagService2  ipldformat.DAGService
+	DTNet1       dtnet.DataTransferNetwork
+	DTNet2       dtnet.DataTransferNetwork
+	DTStore1     datastore.Batching
+	DTStore2     datastore.Batching
+	DTTmpDir1    string
+	DTTmpDir2    string
+	Loader1      ipld.Loader
+	Loader2      ipld.Loader
+	Storer1      ipld.Storer
+	Storer2      ipld.Storer
+	Host1        host.Host
+	Host2        host.Host
+	OrigBytes    []byte
 
 	MockNet mocknet.Mocknet
 }
@@ -107,9 +109,7 @@ func NewLibp2pTestData(ctx context.Context, t *testing.T) *Libp2pTestData {
 	testData.Bs1 = bstore.NewBlockstore(testData.Ds1)
 	testData.Bs2 = bstore.NewBlockstore(testData.Ds2)
 
-	testData.MultiStore1, err = multistore.NewMultiDstore(testData.Ds1)
-	require.NoError(t, err)
-	testData.MultiStore2, err = multistore.NewMultiDstore(testData.Ds2)
+	testData.CarFileStore, err = filestore.NewLocalCarStore(t.TempDir())
 	require.NoError(t, err)
 
 	testData.DagService1 = merkledag.NewDAGService(blockservice.New(testData.Bs1, offline.Exchange(testData.Bs1)))
@@ -161,7 +161,7 @@ const unixfsLinksPerLevel = 1024
 // LoadUnixFSFile injects the fixture `filename` into the given blockstore from the
 // fixtures directory. If useSecondNode is true, fixture is injected to the second node;
 // otherwise the first node gets it
-func (ltd *Libp2pTestData) LoadUnixFSFile(t *testing.T, fixturesPath string, useSecondNode bool) ipld.Link {
+func (ltd *Libp2pTestData) LoadUnixFSFile(t *testing.T, fixturesPath string, useSecondNode bool) (ipld.Link, string) {
 	var dagService ipldformat.DAGService
 	if useSecondNode {
 		dagService = ltd.DagService2
@@ -171,29 +171,16 @@ func (ltd *Libp2pTestData) LoadUnixFSFile(t *testing.T, fixturesPath string, use
 	return ltd.loadUnixFSFile(t, fixturesPath, dagService)
 }
 
-// LoadUnixFSFileToStore injects the fixture `filename` from the
-// fixtures directory, creating a new multistore in the process. If useSecondNode is true,
-// fixture is injected to the second node. Otherwise the first node gets it
-func (ltd *Libp2pTestData) LoadUnixFSFileToStore(t *testing.T, fixturesPath string, useSecondNode bool) (ipld.Link, multistore.StoreID) {
-	var storeID multistore.StoreID
-	var dagService ipldformat.DAGService
-	if useSecondNode {
-		storeID = ltd.MultiStore2.Next()
-		store, err := ltd.MultiStore2.Get(storeID)
-		require.NoError(t, err)
-		dagService = store.DAG
-	} else {
-		storeID = ltd.MultiStore1.Next()
-		store, err := ltd.MultiStore1.Get(storeID)
-		require.NoError(t, err)
-		dagService = store.DAG
-	}
-	link := ltd.loadUnixFSFile(t, fixturesPath, dagService)
-	return link, storeID
+// LoadUnixFSFileToStore creates a CAR file from the fixture at `fixturesPath`
+func (ltd *Libp2pTestData) LoadUnixFSFileToStore(t *testing.T, fixturesPath string) (ipld.Link, string) {
+	dstore := dss.MutexWrap(datastore.NewMapDatastore())
+	bs := bstore.NewBlockstore(dstore)
+	dagService := merkledag.NewDAGService(blockservice.New(bs, offline.Exchange(bs)))
+
+	return ltd.loadUnixFSFile(t, fixturesPath, dagService)
 }
 
-func (ltd *Libp2pTestData) loadUnixFSFile(t *testing.T, fixturesPath string, dagService ipldformat.DAGService) ipld.Link {
-
+func (ltd *Libp2pTestData) loadUnixFSFile(t *testing.T, fixturesPath string, dagService ipldformat.DAGService) (ipld.Link, string) {
 	// read in a fixture file
 	fpath, err := filepath.Abs(filepath.Join(thisDir(t), "..", fixturesPath))
 	require.NoError(t, err)
@@ -226,8 +213,53 @@ func (ltd *Libp2pTestData) loadUnixFSFile(t *testing.T, fixturesPath string, dag
 
 	// save the original files bytes
 	ltd.OrigBytes = buf.Bytes()
+	require.NoError(t, file.Close())
+	require.NoError(t, f.Close())
 
-	return cidlink.Link{Cid: nd.Cid()}
+	// Create a UnixFS DAG again AND generate a CARv2 file using a CARv2 read-write blockstore now that we have the root.
+	carV2Path := genWithCARv2Blockstore(t, fpath, nd.Cid())
+
+	return cidlink.Link{Cid: nd.Cid()}, carV2Path
+}
+
+func genWithCARv2Blockstore(t *testing.T, fPath string, root cid.Cid) string {
+	ctx := context.Background()
+	tmp, err := os.CreateTemp("", "rand")
+	require.NoError(t, err)
+	require.NoError(t, tmp.Close())
+
+	rw, err := blockstore.NewReadWrite(tmp.Name(), []cid.Cid{root}, blockstore.WithCidDeduplication)
+	require.NoError(t, err)
+
+	bsvc := blockservice.New(rw, offline.Exchange(rw))
+	dag := merkledag.NewDAGService(bsvc)
+	// import to UnixFS
+	bufferedDS := ipldformat.NewBufferedDAG(ctx, dag)
+
+	params := helpers.DagBuilderParams{
+		Maxlinks:   unixfsLinksPerLevel,
+		RawLeaves:  true,
+		CidBuilder: nil,
+		Dagserv:    bufferedDS,
+	}
+
+	f, err := os.Open(fPath)
+	require.NoError(t, err)
+
+	db, err := params.New(chunk.NewSizeSplitter(f, int64(unixfsChunkSize)))
+	require.NoError(t, err)
+
+	nd, err := balanced.Layout(db)
+	require.NoError(t, err)
+
+	err = bufferedDS.Commit()
+	require.NoError(t, err)
+
+	require.NoError(t, rw.Finalize())
+	require.Equal(t, root, nd.Cid())
+
+	// return the path of the CARv2 file.
+	return tmp.Name()
 }
 
 func thisDir(t *testing.T) string {
@@ -247,19 +279,13 @@ func (ltd *Libp2pTestData) VerifyFileTransferred(t *testing.T, link ipld.Link, u
 	ltd.verifyFileTransferred(t, link, dagService, readLen)
 }
 
-// VerifyFileTransferredIntoStore checks that the fixture file was sent from one node to the other, into the store specified by
-// storeID
-func (ltd *Libp2pTestData) VerifyFileTransferredIntoStore(t *testing.T, link ipld.Link, storeID multistore.StoreID, useSecondNode bool, readLen uint64) {
-	var dagService ipldformat.DAGService
-	if useSecondNode {
-		store, err := ltd.MultiStore2.Get(storeID)
-		require.NoError(t, err)
-		dagService = store.DAG
-	} else {
-		store, err := ltd.MultiStore1.Get(storeID)
-		require.NoError(t, err)
-		dagService = store.DAG
-	}
+// VerifyFileTransferredIntoStore checks that the fixture file was sent from
+// one node to the other, and stored in the given CAR file
+func (ltd *Libp2pTestData) VerifyFileTransferredIntoStore(t *testing.T, link ipld.Link, carFilePath string, readLen uint64) {
+	bstore, err := blockstore.OpenReadOnly(carFilePath)
+	require.NoError(t, err)
+	bsvc := blockservice.New(bstore, offline.Exchange(bstore))
+	dagService := merkledag.NewDAGService(bsvc)
 	ltd.verifyFileTransferred(t, link, dagService, readLen)
 }
 

@@ -187,7 +187,6 @@ func MigrateClientDeal0To1(oldCd *ClientDeal0) (*storagemarket.ClientDeal, error
 		PollRetryCount:     oldCd.PollRetryCount,
 		PollErrorCount:     oldCd.PollErrorCount,
 		FastRetrieval:      oldCd.FastRetrieval,
-		StoreID:            oldCd.StoreID,
 		FundsReserved:      oldCd.FundsReserved,
 		CreationTime:       oldCd.CreationTime,
 	}, nil
@@ -208,7 +207,6 @@ func MigrateMinerDeal0To1(oldCd *MinerDeal0) (*storagemarket.MinerDeal, error) {
 		SlashEpoch:            oldCd.SlashEpoch,
 		FastRetrieval:         oldCd.FastRetrieval,
 		Message:               oldCd.Message,
-		StoreID:               oldCd.StoreID,
 		FundsReserved:         oldCd.FundsReserved,
 		Ref:                   MigrateDataRef0To1(oldCd.Ref),
 		AvailableForRetrieval: oldCd.AvailableForRetrieval,

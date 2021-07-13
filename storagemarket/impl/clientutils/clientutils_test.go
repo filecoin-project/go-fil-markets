@@ -2,18 +2,21 @@ package clientutils_test
 
 import (
 	"context"
-	"errors"
-	"fmt"
 	"io"
+	"io/ioutil"
 	"math/rand"
+	"os"
+	"path/filepath"
+	"reflect"
+	"sync"
 	"testing"
 
 	"github.com/ipfs/go-cid"
 	"github.com/ipld/go-car"
-	"github.com/ipld/go-ipld-prime"
+	carv2 "github.com/ipld/go-car/v2"
 	"github.com/stretchr/testify/require"
+	"golang.org/x/xerrors"
 
-	"github.com/filecoin-project/go-multistore"
 	"github.com/filecoin-project/go-state-types/abi"
 
 	"github.com/filecoin-project/go-fil-markets/shared"
@@ -24,17 +27,15 @@ import (
 
 func TestCommP(t *testing.T) {
 	ctx := context.Background()
-	proofType := abi.RegisteredSealProof_StackedDrg2KiBV1
 	t.Run("when PieceCID is present on data ref", func(t *testing.T) {
 		pieceCid := &shared_testutil.GenerateCids(1)[0]
 		pieceSize := abi.UnpaddedPieceSize(rand.Uint64())
-		var storeID *multistore.StoreID
 		data := &storagemarket.DataRef{
 			TransferType: storagemarket.TTManual,
 			PieceCid:     pieceCid,
 			PieceSize:    pieceSize,
 		}
-		respcid, ressize, err := clientutils.CommP(ctx, nil, proofType, data, storeID)
+		respcid, ressize, err := clientutils.CommP(ctx, "", data)
 		require.NoError(t, err)
 		require.Equal(t, respcid, *pieceCid)
 		require.Equal(t, ressize, pieceSize)
@@ -46,66 +47,50 @@ func TestCommP(t *testing.T) {
 			TransferType: storagemarket.TTGraphsync,
 			Root:         root,
 		}
-		allSelector := shared.AllSelector()
 
-		t.Run("when pieceIO succeeds", func(t *testing.T) {
-			pieceCid := shared_testutil.GenerateCids(1)[0]
-			pieceSize := abi.UnpaddedPieceSize(rand.Uint64())
-			storeID := multistore.StoreID(4)
-			pieceIO := &testPieceIO{t, proofType, root, allSelector, &storeID, pieceCid, pieceSize, nil}
-			respcid, ressize, err := clientutils.CommP(ctx, pieceIO, proofType, data, &storeID)
-			require.NoError(t, err)
-			require.Equal(t, respcid, pieceCid)
-			require.Equal(t, ressize, pieceSize)
-		})
-
-		t.Run("when storeID is not present", func(t *testing.T) {
-			pieceCid := shared_testutil.GenerateCids(1)[0]
-			pieceSize := abi.UnpaddedPieceSize(rand.Uint64())
-			pieceIO := &testPieceIO{t, proofType, root, allSelector, nil, pieceCid, pieceSize, nil}
-			respcid, ressize, err := clientutils.CommP(ctx, pieceIO, proofType, data, nil)
-			require.NoError(t, err)
-			require.Equal(t, respcid, pieceCid)
-			require.Equal(t, ressize, pieceSize)
-		})
-
-		t.Run("when pieceIO fails", func(t *testing.T) {
-			expectedMsg := "something went wrong"
-			storeID := multistore.StoreID(4)
-			pieceIO := &testPieceIO{t, proofType, root, allSelector, &storeID, cid.Undef, 0, errors.New(expectedMsg)}
-			respcid, ressize, err := clientutils.CommP(ctx, pieceIO, proofType, data, &storeID)
-			require.EqualError(t, err, fmt.Sprintf("generating CommP: %s", expectedMsg))
-			require.Equal(t, respcid, cid.Undef)
-			require.Equal(t, ressize, abi.UnpaddedPieceSize(0))
+		t.Run("when CARv2 file path is not present", func(t *testing.T) {
+			respcid, ressize, err := clientutils.CommP(ctx, "", data)
+			require.Error(t, err)
+			require.Contains(t, err.Error(), "need Carv2 file path")
+			require.Equal(t, cid.Undef, respcid)
+			require.EqualValues(t, 0, ressize)
 		})
 	})
 }
 
-type testPieceIO struct {
-	t                  *testing.T
-	expectedRt         abi.RegisteredSealProof
-	expectedPayloadCid cid.Cid
-	expectedSelector   ipld.Node
-	expectedStoreID    *multistore.StoreID
-	pieceCID           cid.Cid
-	pieceSize          abi.UnpaddedPieceSize
-	err                error
+func TestCommPSuccess(t *testing.T) {
+	ctx := context.Background()
+
+	file1 := filepath.Join("storagemarket", "fixtures", "payload.txt")
+	file2 := filepath.Join("storagemarket", "fixtures", "payload2.txt")
+
+	commp1 := genCommPFromFile(t, ctx, file1)
+	commP2 := genCommPFromFile(t, ctx, file2)
+
+	commP3 := genCommPFromFile(t, ctx, file1)
+	commP4 := genCommPFromFile(t, ctx, file2)
+
+	// commP matches for the same files but is different for different files.
+	require.Equal(t, commp1, commP3)
+	require.Equal(t, commP2, commP4)
+	require.NotEqual(t, commp1, commP2)
+	require.NotEqual(t, commP3, commP4)
 }
 
-func (t *testPieceIO) GeneratePieceCommitment(rt abi.RegisteredSealProof, payloadCid cid.Cid, selector ipld.Node, storeID *multistore.StoreID, userOnNewCarBlocks ...car.OnNewCarBlockFunc) (cid.Cid, abi.UnpaddedPieceSize, error) {
-	require.Equal(t.t, rt, t.expectedRt)
-	require.Equal(t.t, payloadCid, t.expectedPayloadCid)
-	require.Equal(t.t, selector, t.expectedSelector)
-	require.Equal(t.t, storeID, t.expectedStoreID)
-	return t.pieceCID, t.pieceSize, t.err
-}
+func genCommPFromFile(t *testing.T, ctx context.Context, filePath string) cid.Cid {
+	root, CARv2Path, _ := shared_testutil.GenCARv2FromNormalFile(t, filePath)
+	require.NotEmpty(t, CARv2Path)
+	defer os.Remove(CARv2Path)
+	data := &storagemarket.DataRef{
+		TransferType: storagemarket.TTGraphsync,
+		Root:         root,
+	}
 
-func (t *testPieceIO) GeneratePieceReader(cid.Cid, ipld.Node, *multistore.StoreID, ...car.OnNewCarBlockFunc) (io.ReadCloser, uint64, error, <-chan error) {
-	panic("not implemented")
-}
+	respcid, _, err := clientutils.CommP(ctx, CARv2Path, data)
+	require.NoError(t, err)
+	require.NotEqual(t, respcid, cid.Undef)
 
-func (t *testPieceIO) ReadPiece(storeID *multistore.StoreID, r io.Reader) (cid.Cid, error) {
-	panic("not implemented")
+	return respcid
 }
 
 func TestLabelField(t *testing.T) {
@@ -115,4 +100,63 @@ func TestLabelField(t *testing.T) {
 	resultCid, err := cid.Decode(label)
 	require.NoError(t, err)
 	require.True(t, payloadCID.Equals(resultCid))
+}
+
+func TestNoDuplicatesInCARv2(t *testing.T) {
+	// The CARv2 file for a UnixFS DAG that has duplicates should NOT have duplicates.
+	file1 := filepath.Join("storagemarket", "fixtures", "duplicate_blocks.txt")
+	root, CARv2Path, bstore := shared_testutil.GenCARv2FromNormalFile(t, file1)
+	require.NotEmpty(t, CARv2Path)
+	defer os.Remove(CARv2Path)
+
+	v2r, err := carv2.NewReaderMmap(CARv2Path)
+	require.NoError(t, err)
+	defer v2r.Close()
+
+	// Get a reader over the CARv1 payload of the CARv2 file.
+	cr, err := car.NewCarReader(v2r.CarV1Reader())
+	require.NoError(t, err)
+
+	seen := make(map[cid.Cid]struct{})
+	for {
+		b, err := cr.Next()
+		if err == io.EOF {
+			break
+		}
+		require.NoError(t, err)
+
+		_, ok := seen[b.Cid()]
+		require.Falsef(t, ok, "already seen cid %s", b.Cid())
+		seen[b.Cid()] = struct{}{}
+	}
+
+	// A CARv1 traversal over the UnixFS DAG wll return all the de-duped blocks -> should be the same as what the CARv1 reader above returned.
+	seen2 := make(map[cid.Cid]struct{})
+	var mu sync.Mutex
+
+	sc := car.NewSelectiveCar(context.Background(), bstore, []car.Dag{
+		{
+			Root:     root,
+			Selector: shared.AllSelector(),
+		},
+	})
+
+	require.NoError(t, sc.Write(ioutil.Discard, func(b car.Block) error {
+		mu.Lock()
+		defer mu.Unlock()
+
+		if _, ok := seen2[b.BlockCID]; ok {
+			err = xerrors.Errorf("already seen cid %s", b.BlockCID)
+		}
+
+		seen2[b.BlockCID] = struct{}{}
+
+		return nil
+	}))
+
+	mu.Lock()
+	defer mu.Unlock()
+
+	require.NoError(t, err)
+	require.True(t, reflect.DeepEqual(seen, seen2))
 }

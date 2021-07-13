@@ -6,7 +6,6 @@ import (
 	"github.com/ipfs/go-cid"
 
 	"github.com/filecoin-project/go-address"
-	"github.com/filecoin-project/go-multistore"
 	"github.com/filecoin-project/go-state-types/abi"
 
 	"github.com/filecoin-project/go-fil-markets/shared"
@@ -14,6 +13,11 @@ import (
 
 // ClientSubscriber is a callback that is registered to listen for retrieval events
 type ClientSubscriber func(event ClientEvent, state ClientDealState)
+
+type RetrieveResponse struct {
+	DealID      DealID
+	CarFilePath string
+}
 
 // RetrievalClient is a client interface for making retrieval deals
 type RetrievalClient interface {
@@ -44,8 +48,7 @@ type RetrievalClient interface {
 		p RetrievalPeer,
 		clientWallet address.Address,
 		minerWallet address.Address,
-		storeID *multistore.StoreID,
-	) (DealID, error)
+	) (*RetrieveResponse, error)
 
 	// SubscribeToEvents listens for events that happen related to client retrievals
 	SubscribeToEvents(subscriber ClientSubscriber) Unsubscribe

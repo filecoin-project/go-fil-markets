@@ -30,6 +30,9 @@ const MaxGraceEpochsForDealAcceptance = 10
 // ClientDealEnvironment is an abstraction for interacting with
 // dependencies from the storage client environment
 type ClientDealEnvironment interface {
+	// CleanBlockstore cleans up the read-only CARv2 blockstore that provides random access on top of client deal data.
+	// It's important to do this when the client deal finishes successfully or errors out.
+	CleanBlockstore(proposalCid cid.Cid) error
 	Node() storagemarket.StorageClientNode
 	NewDealStream(ctx context.Context, p peer.ID) (network.StorageDealStream, error)
 	StartDataTransfer(ctx context.Context, to peer.ID, voucher datatransfer.Voucher, baseCid cid.Cid, selector ipld.Node) (datatransfer.ChannelID, error)
@@ -267,6 +270,7 @@ func VerifyDealActivated(ctx fsm.Context, environment ClientDealEnvironment, dea
 		if err != nil {
 			_ = ctx.Trigger(storagemarket.ClientEventDealActivationFailed, err)
 		} else {
+
 			_ = ctx.Trigger(storagemarket.ClientEventDealActivated)
 		}
 	}
@@ -281,6 +285,11 @@ func VerifyDealActivated(ctx fsm.Context, environment ClientDealEnvironment, dea
 // WaitForDealCompletion waits for the deal to be slashed or to expire
 func WaitForDealCompletion(ctx fsm.Context, environment ClientDealEnvironment, deal storagemarket.ClientDeal) error {
 	node := environment.Node()
+
+	// deal is now active, clean up the blockstore.
+	if err := environment.CleanBlockstore(deal.ProposalCid); err != nil {
+		log.Errorf("storage deal active but failed to cleanup rea-only blockstore, proposalCid=%s, err=%s", deal.ProposalCid, err)
+	}
 
 	// Called when the deal expires
 	expiredCb := func(err error) {
@@ -315,6 +324,10 @@ func FailDeal(ctx fsm.Context, environment ClientDealEnvironment, deal storagema
 	log.Errorf("deal %s failed: %s", deal.ProposalCid, deal.Message)
 
 	environment.UntagPeer(deal.Miner, deal.ProposalCid.String())
+
+	if err := environment.CleanBlockstore(deal.ProposalCid); err != nil {
+		log.Errorf("failed to cleanup read-only blockstore, proposalCid=%s: %s", deal.ProposalCid, err)
+	}
 
 	return ctx.Trigger(storagemarket.ClientEventFailed)
 }

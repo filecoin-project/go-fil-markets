@@ -6,12 +6,13 @@ import (
 	"testing"
 
 	"github.com/ipfs/go-cid"
+	ds "github.com/ipfs/go-datastore"
+	bs "github.com/ipfs/go-ipfs-blockstore"
 	"github.com/ipld/go-ipld-prime"
 	peer "github.com/libp2p/go-libp2p-core/peer"
 	"github.com/stretchr/testify/require"
 
 	datatransfer "github.com/filecoin-project/go-data-transfer"
-	"github.com/filecoin-project/go-multistore"
 	"github.com/filecoin-project/go-statemachine/fsm"
 
 	"github.com/filecoin-project/go-fil-markets/shared_testutil"
@@ -244,7 +245,7 @@ func TestTransportConfigurer(t *testing.T) {
 	testCases := map[string]struct {
 		voucher          datatransfer.Voucher
 		transport        datatransfer.Transport
-		returnedStore    *multistore.Store
+		returnedStore    bs.Blockstore
 		returnedStoreErr error
 		getterCalled     bool
 		useStoreCalled   bool
@@ -277,7 +278,7 @@ func TestTransportConfigurer(t *testing.T) {
 			transport:        &fakeGsTransport{Transport: &fakeTransport{}},
 			getterCalled:     true,
 			useStoreCalled:   true,
-			returnedStore:    &multistore.Store{},
+			returnedStore:    bs.NewBlockstore(ds.NewMapDatastore()),
 			returnedStoreErr: nil,
 		},
 	}
@@ -323,11 +324,11 @@ func (fdg *fakeDealGroup) Send(id interface{}, name fsm.EventName, args ...inter
 type fakeStoreGetter struct {
 	lastProposalCid cid.Cid
 	returnedErr     error
-	returnedStore   *multistore.Store
+	returnedStore   bs.Blockstore
 	called          bool
 }
 
-func (fsg *fakeStoreGetter) Get(proposalCid cid.Cid) (*multistore.Store, error) {
+func (fsg *fakeStoreGetter) Get(proposalCid cid.Cid) (bs.Blockstore, error) {
 	fsg.lastProposalCid = proposalCid
 	fsg.called = true
 	return fsg.returnedStore, fsg.returnedErr

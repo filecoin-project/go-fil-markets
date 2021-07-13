@@ -24,6 +24,7 @@ import (
 	"github.com/filecoin-project/go-state-types/abi"
 	"github.com/filecoin-project/specs-actors/actors/builtin/market"
 
+	"github.com/filecoin-project/go-fil-markets/dagstore"
 	discoveryimpl "github.com/filecoin-project/go-fil-markets/discovery/impl"
 	"github.com/filecoin-project/go-fil-markets/filestore"
 	"github.com/filecoin-project/go-fil-markets/piecestore"
@@ -47,6 +48,7 @@ type StorageDependencies struct {
 	ProviderInfo                      storagemarket.StorageProviderInfo
 	TestData                          *shared_testutil.Libp2pTestData
 	PieceStore                        piecestore.PieceStore
+	DagStore                          dagstore.DagStoreWrapper
 	DTClient                          datatransfer.Manager
 	DTProvider                        datatransfer.Manager
 	PeerResolver                      *discoveryimpl.Local
@@ -141,6 +143,8 @@ func (gen *DepGenerator) New(
 	fs, err := filestore.NewLocalFileStore(filestore.OsPath(tempPath))
 	assert.NoError(t, err)
 
+	dagStore := shared_testutil.NewMockDagStoreWrapper()
+
 	// create provider and client
 
 	gs1 := graphsyncimpl.New(ctx, network.NewFromLibp2pHost(td.Host1), td.Loader1, td.Storer1)
@@ -186,6 +190,7 @@ func (gen *DepGenerator) New(
 		TempFilePath:                      tempPath,
 		ClientDelayFakeCommonNode:         cd,
 		ProviderClientDelayFakeCommonNode: pd,
+		DagStore:                          dagStore,
 		DTClient:                          dt1,
 		DTProvider:                        dt2,
 		PeerResolver:                      discovery,

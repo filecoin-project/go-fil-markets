@@ -138,6 +138,7 @@ var ProviderEvents = fsm.Events{
 			deal.Message = xerrors.Errorf("accessing file store: %w", err).Error()
 			return nil
 		}),
+
 	fsm.Event(storagemarket.ProviderEventMultistoreErrored).
 		FromMany(storagemarket.StorageDealStaged).To(storagemarket.StorageDealFailing).
 		Action(func(deal *storagemarket.MinerDeal, err error) error {
@@ -185,7 +186,7 @@ var ProviderEvents = fsm.Events{
 	fsm.Event(storagemarket.ProviderEventFinalized).
 		From(storagemarket.StorageDealFinalizing).To(storagemarket.StorageDealActive).
 		Action(func(deal *storagemarket.MinerDeal) error {
-			deal.StoreID = nil
+			deal.CARv2FilePath = ""
 			return nil
 		}),
 	fsm.Event(storagemarket.ProviderEventDealSlashed).
