@@ -5,31 +5,24 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/filecoin-project/dagstore/mount"
-
-	"github.com/filecoin-project/dagstore"
-
-	"github.com/filecoin-project/dagstore/shard"
-
-	"github.com/filecoin-project/go-fil-markets/retrievalmarket/impl/testnodes"
-
-	tut "github.com/filecoin-project/go-fil-markets/shared_testutil"
-
-	mktdagstore "github.com/filecoin-project/go-fil-markets/dagstore"
-
-	"github.com/filecoin-project/go-fil-markets/storagemarket"
+	"github.com/ipfs/go-datastore"
+	ds_sync "github.com/ipfs/go-datastore/sync"
 	"github.com/stretchr/testify/require"
 
+	"github.com/filecoin-project/dagstore"
+	"github.com/filecoin-project/dagstore/mount"
+	"github.com/filecoin-project/dagstore/shard"
+	"github.com/filecoin-project/go-address"
 	"github.com/filecoin-project/go-state-types/abi"
 	"github.com/filecoin-project/lotus/chain/actors/builtin/miner"
 	"github.com/filecoin-project/lotus/chain/types"
 	"github.com/filecoin-project/lotus/extern/sector-storage/storiface"
 	"github.com/filecoin-project/specs-storage/storage"
 
-	"github.com/filecoin-project/go-address"
-
-	"github.com/ipfs/go-datastore"
-	ds_sync "github.com/ipfs/go-datastore/sync"
+	mktdagstore "github.com/filecoin-project/go-fil-markets/dagstore"
+	"github.com/filecoin-project/go-fil-markets/retrievalmarket/impl/testnodes"
+	tut "github.com/filecoin-project/go-fil-markets/shared_testutil"
+	"github.com/filecoin-project/go-fil-markets/storagemarket"
 )
 
 func TestShardRegistration(t *testing.T) {

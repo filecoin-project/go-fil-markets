@@ -189,33 +189,34 @@ func (ds *dagStoreWrapper) RegisterShard(ctx context.Context, pieceCid cid.Cid, 
 }
 
 func (ds *dagStoreWrapper) RegisterShardAsync(ctx context.Context, pieceCid cid.Cid, carPath string, eagerInit bool, resch chan dagstore.ShardResult) {
+	err := ds.registerShardAsync(ctx, pieceCid, carPath, eagerInit, resch)
+	if err != nil {
+		select {
+		case <-ctx.Done():
+		case resch <- dagstore.ShardResult{Error: err}:
+		}
+	}
+}
+
+func (ds *dagStoreWrapper) registerShardAsync(ctx context.Context, pieceCid cid.Cid, carPath string, eagerInit bool, resch chan dagstore.ShardResult) error {
+	// Create a lotus mount with the piece CID
 	key := shard.KeyFromCID(pieceCid)
 	mt, err := NewLotusMount(pieceCid, ds.mountApi)
 	if err != nil {
-		res := dagstore.ShardResult{
-			Error: xerrors.Errorf("failed to create lotus mount for piece CID %s: %w", pieceCid, err),
-		}
-		select {
-		case <-ctx.Done():
-		case resch <- res:
-		}
-		return
+		return xerrors.Errorf("failed to create lotus mount for piece CID %s: %w", pieceCid, err)
 	}
 
+	// Register the shard
 	opts := dagstore.RegisterOpts{
 		ExistingTransient:  carPath,
 		LazyInitialization: !eagerInit,
 	}
 	err = ds.dagStore.RegisterShard(ctx, key, mt, resch, opts)
 	if err != nil {
-		res := dagstore.ShardResult{
-			Error: xerrors.Errorf("failed to schedule register shard for piece CID %s: %w", pieceCid, err),
-		}
-		select {
-		case <-ctx.Done():
-		case resch <- res:
-		}
+		return xerrors.Errorf("failed to schedule register shard for piece CID %s: %w", pieceCid, err)
 	}
+
+	return nil
 }
 
 func (ds *dagStoreWrapper) Close() error {
