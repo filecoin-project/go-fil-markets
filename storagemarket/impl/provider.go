@@ -68,7 +68,7 @@ type Provider struct {
 
 	unsubDataTransfer datatransfer.Unsubscribe
 
-	shardReg             *ShardRegistration
+	shardReg             *ShardMigrator
 	dagStore             mktdagstore.DagStoreWrapper
 	readWriteBlockStores *carstore.CarReadWriteStoreTracker
 }
@@ -110,7 +110,7 @@ func NewProvider(net network.StorageMarketNetwork,
 	spn storagemarket.StorageProviderNode,
 	minerAddress address.Address,
 	storedAsk StoredAsk,
-	shardReg *ShardRegistration,
+	shardReg *ShardMigrator,
 	options ...StorageProviderOption,
 ) (storagemarket.StorageProvider, error) {
 	h := &Provider{

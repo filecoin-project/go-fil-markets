@@ -55,7 +55,7 @@ type StorageDependencies struct {
 	TestData                          *shared_testutil.Libp2pTestData
 	PieceStore                        piecestore.PieceStore
 	DagStore                          dagstore.DagStoreWrapper
-	ShardReg                          *storageimpl.ShardRegistration
+	ShardReg                          *storageimpl.ShardMigrator
 	DTClient                          datatransfer.Manager
 	DTProvider                        datatransfer.Manager
 	PeerResolver                      *discoveryimpl.Local
@@ -152,7 +152,7 @@ func (gen *DepGenerator) New(
 
 	dagStore := shared_testutil.NewMockDagStoreWrapper()
 	shardRegDS := ds_sync.MutexWrap(datastore.NewMapDatastore())
-	shardReg := storageimpl.NewShardRegistration(providerAddr, shardRegDS, dagStore, &mockSectorState{})
+	shardReg := storageimpl.NewShardMigrator(providerAddr, shardRegDS, dagStore, &mockSectorState{})
 
 	// create provider and client
 
@@ -221,4 +221,4 @@ func (m mockSectorState) IsUnsealed(ctx context.Context, sector storage.SectorRe
 	return true, nil
 }
 
-var _ storageimpl.SectorState = (*mockSectorState)(nil)
+var _ storageimpl.SectorStateAccessor = (*mockSectorState)(nil)

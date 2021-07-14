@@ -21,33 +21,37 @@ import (
 
 var shardRegKey = datastore.NewKey("shards-registered")
 
-type SectorState interface {
+type SectorStateAccessor interface {
 	StateSectorGetInfo(context.Context, address.Address, abi.SectorNumber, types.TipSetKey) (*miner.SectorOnChainInfo, error)
 	IsUnsealed(ctx context.Context, sector storage.SectorRef, offset storiface.UnpaddedByteIndex, size abi.UnpaddedPieceSize) (bool, error)
 }
 
-type ShardRegistration struct {
-	maddr       address.Address
-	ds          datastore.Datastore
-	dagStore    mktdagstore.DagStoreWrapper
-	sectorState SectorState
+// ShardMigrator is used to register all deals that are in the sealing / sealed
+// state with the DAG store as shards.
+// It will only run once on startup, from that point forward deals will be
+// registered as shards as part of the deals FSM.
+type ShardMigrator struct {
+	providerAddr address.Address
+	ds           datastore.Datastore
+	dagStore     mktdagstore.DagStoreWrapper
+	sectorState  SectorStateAccessor
 }
 
-func NewShardRegistration(
+func NewShardMigrator(
 	maddr address.Address,
 	ds datastore.Datastore,
 	dagStore mktdagstore.DagStoreWrapper,
-	sectorState SectorState,
-) *ShardRegistration {
-	return &ShardRegistration{
-		maddr:       maddr,
-		ds:          ds,
-		dagStore:    dagStore,
-		sectorState: sectorState,
+	sectorState SectorStateAccessor,
+) *ShardMigrator {
+	return &ShardMigrator{
+		providerAddr: maddr,
+		ds:           ds,
+		dagStore:     dagStore,
+		sectorState:  sectorState,
 	}
 }
 
-func (r *ShardRegistration) registerShards(ctx context.Context, deals []storagemarket.MinerDeal) error {
+func (r *ShardMigrator) registerShards(ctx context.Context, deals []storagemarket.MinerDeal) error {
 	// Check if all deals have already been registered as shards
 	has, err := r.ds.Has(shardRegKey)
 	if err != nil {
@@ -63,6 +67,7 @@ func (r *ShardRegistration) registerShards(ctx context.Context, deals []storagem
 	// don't need to call RegisterShard in this migration; RegisterShard will
 	// be called in the new code once the deal reaches the state where it's
 	// handed off to the sealing subsystem.
+	var registered int
 	resch := make(chan dagstore.ShardResult, len(deals))
 	for _, deal := range deals {
 		if deal.Ref.PieceCid == nil {
@@ -70,20 +75,21 @@ func (r *ShardRegistration) registerShards(ctx context.Context, deals []storagem
 		}
 
 		// Check if the deal has been handed off to the sealing subsystem
-		var sealing bool
-		for _, state := range providerstates.ProviderSealingStates {
+		var inSealingSubsystem bool
+		for _, state := range providerstates.StatesKnownBySealingSubsystem {
 			if deal.State == state {
-				sealing = true
+				inSealingSubsystem = true
 				break
 			}
 		}
-		if !sealing {
+		if !inSealingSubsystem {
 			continue
 		}
 
 		// Check if the deal is in an unsealed state
 		isUnsealed, err := r.isUnsealed(ctx, deal.SectorNumber)
 		if err != nil {
+			isUnsealed = false
 			log.Errorf("failed to get unsealed state of deal with piece CID %s: %s", deal.Ref.PieceCid, err)
 		}
 
@@ -92,13 +98,15 @@ func (r *ShardRegistration) registerShards(ctx context.Context, deals []storagem
 		// unsealed it will be initialized "lazily" once it's unsealed during
 		// retrieval)
 		r.dagStore.RegisterShardAsync(ctx, *deal.Ref.PieceCid, deal.CARv2FilePath, isUnsealed, resch)
+		registered++
 	}
 
 	// If there are any problems registering shards, just log an error
 	go func() {
-		for res := range resch {
+		for i := 0; i < registered; i++ {
+			res := <-resch
 			if res.Error != nil {
-				log.Errorf("failed to register shard: %s", res.Error)
+				log.Warnf("dagstore migration: failed to register shard: %s", res.Error)
 			}
 		}
 	}()
@@ -109,19 +117,24 @@ func (r *ShardRegistration) registerShards(ctx context.Context, deals []storagem
 		log.Errorf("failed to mark shards as registered: %s", err)
 	}
 
+	err = r.ds.Sync(shardRegKey)
+	if err != nil {
+		log.Errorf("failed to sync shards as registered: %s", err)
+	}
+
 	return nil
 }
 
-func (r *ShardRegistration) isUnsealed(ctx context.Context, sectorID abi.SectorNumber) (bool, error) {
+func (r *ShardMigrator) isUnsealed(ctx context.Context, sectorID abi.SectorNumber) (bool, error) {
 	// Get the sector seal proof
-	secInfo, err := r.sectorState.StateSectorGetInfo(ctx, r.maddr, sectorID, types.EmptyTSK)
+	secInfo, err := r.sectorState.StateSectorGetInfo(ctx, r.providerAddr, sectorID, types.EmptyTSK)
 	if err != nil {
 		return false, xerrors.Errorf("failed to get sector %d info: %w", sectorID, err)
 	}
 
-	mid, err := address.IDFromAddress(r.maddr)
+	mid, err := address.IDFromAddress(r.providerAddr)
 	if err != nil {
-		return false, xerrors.Errorf("failed to convert addr %s to ID address: %w", r.maddr, err)
+		return false, xerrors.Errorf("failed to convert addr %s to ID address: %w", r.providerAddr, err)
 	}
 
 	ref := storage.SectorRef{

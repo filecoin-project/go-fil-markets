@@ -263,9 +263,9 @@ var ProviderFinalityStates = []fsm.StateKey{
 	storagemarket.StorageDealExpired,
 }
 
-// ProviderSealingStates are the states on the happy path after hand-off to
+// StatesKnownBySealingSubsystem are the states on the happy path after hand-off to
 // the sealing subsystem
-var ProviderSealingStates = []fsm.StateKey{
+var StatesKnownBySealingSubsystem = []fsm.StateKey{
 	storagemarket.StorageDealStaged,
 	storagemarket.StorageDealAwaitingPreCommit,
 	storagemarket.StorageDealSealing,

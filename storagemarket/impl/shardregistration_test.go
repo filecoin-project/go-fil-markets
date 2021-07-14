@@ -49,7 +49,7 @@ func TestShardRegistration(t *testing.T) {
 	providerAddr, err := address.NewIDAddress(1)
 	require.NoError(t, err)
 	shardRegDS := ds_sync.MutexWrap(datastore.NewMapDatastore())
-	shardReg := NewShardRegistration(providerAddr, shardRegDS, dagStoreWrapper, &mockSectorState{
+	shardReg := NewShardMigrator(providerAddr, shardRegDS, dagStoreWrapper, &mockSectorStateAccessor{
 		sealed: map[abi.SectorNumber]bool{
 			sealedSector:    true,
 			unsealedSector:  false,
@@ -119,21 +119,21 @@ func TestShardRegistration(t *testing.T) {
 	require.Equal(t, 0, dagStore.lenRegistrations())
 }
 
-type mockSectorState struct {
+type mockSectorStateAccessor struct {
 	lk     sync.Mutex
 	sealed map[abi.SectorNumber]bool
 }
 
-var _ SectorState = (*mockSectorState)(nil)
+var _ SectorStateAccessor = (*mockSectorStateAccessor)(nil)
 
-func (m *mockSectorState) StateSectorGetInfo(ctx context.Context, a address.Address, number abi.SectorNumber, key types.TipSetKey) (*miner.SectorOnChainInfo, error) {
+func (m *mockSectorStateAccessor) StateSectorGetInfo(ctx context.Context, a address.Address, number abi.SectorNumber, key types.TipSetKey) (*miner.SectorOnChainInfo, error) {
 	m.lk.Lock()
 	defer m.lk.Unlock()
 
 	return &miner.SectorOnChainInfo{SealProof: abi.RegisteredSealProof_StackedDrg2KiBV1}, nil
 }
 
-func (m *mockSectorState) IsUnsealed(ctx context.Context, sector storage.SectorRef, offset storiface.UnpaddedByteIndex, size abi.UnpaddedPieceSize) (bool, error) {
+func (m *mockSectorStateAccessor) IsUnsealed(ctx context.Context, sector storage.SectorRef, offset storiface.UnpaddedByteIndex, size abi.UnpaddedPieceSize) (bool, error) {
 	m.lk.Lock()
 	defer m.lk.Unlock()
 

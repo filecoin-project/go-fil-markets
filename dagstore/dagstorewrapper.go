@@ -152,16 +152,14 @@ func (ds *dagStoreWrapper) LoadShard(ctx context.Context, pieceCid cid.Cid) (car
 	}
 
 	// TODO: Can I rely on AcquireShard to return an error if the context times out?
-	//select {
-	//case <-ctx.Done():
-	//	return ctx.Err()
-	//case res := <-resch:
-	//	return nil, res.Error
-	//}
-
-	res := <-resch
-	if res.Error != nil {
-		return nil, xerrors.Errorf("failed to acquire shard for piece CID %s: %w", pieceCid, err)
+	var res dagstore.ShardResult
+	select {
+	case <-ctx.Done():
+		return nil, ctx.Err()
+	case res = <-resch:
+		if res.Error != nil {
+			return nil, xerrors.Errorf("failed to acquire shard for piece CID %s: %w", pieceCid, res.Error)
+		}
 	}
 
 	bs, err := res.Accessor.Blockstore()
@@ -177,15 +175,12 @@ func (ds *dagStoreWrapper) RegisterShard(ctx context.Context, pieceCid cid.Cid, 
 	ds.RegisterShardAsync(ctx, pieceCid, carPath, eagerInit, resch)
 
 	// TODO: Can I rely on RegisterShard to return an error if the context times out?
-	//select {
-	//case <-ctx.Done():
-	//	return ctx.Err()
-	//case res := <-resch:
-	//	return res.Error
-	//}
-
-	res := <-resch
-	return res.Error
+	select {
+	case <-ctx.Done():
+		return ctx.Err()
+	case res := <-resch:
+		return res.Error
+	}
 }
 
 func (ds *dagStoreWrapper) RegisterShardAsync(ctx context.Context, pieceCid cid.Cid, carPath string, eagerInit bool, resch chan dagstore.ShardResult) {
