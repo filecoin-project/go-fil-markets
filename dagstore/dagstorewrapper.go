@@ -3,9 +3,13 @@ package dagstore
 import (
 	"context"
 	"io"
+	"sync"
+	"time"
 
 	"github.com/ipfs/go-cid"
+	ds "github.com/ipfs/go-datastore"
 	bstore "github.com/ipfs/go-ipfs-blockstore"
+	logging "github.com/ipfs/go-log/v2"
 	"golang.org/x/xerrors"
 
 	"github.com/filecoin-project/dagstore"
@@ -15,6 +19,16 @@ import (
 	"github.com/filecoin-project/go-fil-markets/carstore"
 )
 
+var log = logging.Logger("dagStoreWrapper")
+var gcInterval = 5 * time.Minute
+
+// MarketDAGStoreConfig is the config the market needs to then construct a DAG Store.
+type MarketDAGStoreConfig struct {
+	TransientsDir string
+	IndexDir      string
+	Datastore     ds.Datastore
+}
+
 // DagStoreWrapper hides the details of the DAG store implementation from
 // the other parts of go-fil-markets
 type DagStoreWrapper interface {
@@ -22,28 +36,74 @@ type DagStoreWrapper interface {
 	RegisterShard(ctx context.Context, pieceCid cid.Cid, carPath string) error
 	// LoadShard fetches the data for a shard and provides a blockstore interface to it
 	LoadShard(ctx context.Context, pieceCid cid.Cid) (carstore.ClosableBlockstore, error)
-}
-
-type dagStoreWrapper struct {
-	dagStore *dagstore.DAGStore
-	mountApi LotusMountAPI
-}
-
-func NewDagStoreWrapper(dsRegistry *mount.Registry, dagStore *dagstore.DAGStore, mountApi LotusMountAPI) (*dagStoreWrapper, error) {
-	err := dsRegistry.Register(lotusScheme, NewLotusMountTemplate(mountApi))
-	if err != nil {
-		return nil, err
-	}
-
-	return &dagStoreWrapper{
-		dagStore: dagStore,
-		mountApi: mountApi,
-	}, nil
+	// Close closes the dag store wrapper.
+	Close() error
 }
 
 type closableBlockstore struct {
 	bstore.Blockstore
 	io.Closer
+}
+
+type dagStoreWrapper struct {
+	ctx    context.Context
+	cancel context.CancelFunc
+	wg     sync.WaitGroup
+
+	dagStore *dagstore.DAGStore
+	mountApi LotusMountAPI
+}
+
+func NewDagStoreWrapper(cfg MarketDAGStoreConfig, mountApi LotusMountAPI) (*dagStoreWrapper, error) {
+	// construct the DAG Store.
+	registry := mount.NewRegistry()
+	if err := registry.Register(lotusScheme, NewLotusMountTemplate(mountApi)); err != nil {
+		return nil, xerrors.Errorf("failed to create registry: %w", err)
+	}
+	failureCh := make(chan dagstore.ShardResult, 1)
+	dcfg := dagstore.Config{
+		TransientsDir: cfg.TransientsDir,
+		IndexDir:      cfg.IndexDir,
+		Datastore:     cfg.Datastore,
+		MountRegistry: registry,
+		FailureCh:     failureCh,
+	}
+	dagStore, err := dagstore.NewDAGStore(dcfg)
+	if err != nil {
+		return nil, xerrors.Errorf("failed to create dagStore:%w", err)
+	}
+
+	ctx, cancel := context.WithCancel(context.Background())
+	dw := &dagStoreWrapper{
+		ctx:    ctx,
+		cancel: cancel,
+
+		dagStore: dagStore,
+		mountApi: mountApi,
+	}
+
+	dw.wg.Add(1)
+	go dw.handleFailures(failureCh)
+
+	return dw, nil
+}
+
+func (ds *dagStoreWrapper) handleFailures(failureCh chan dagstore.ShardResult) {
+	defer ds.wg.Done()
+	ticker := time.NewTicker(gcInterval)
+	defer ticker.Stop()
+
+	select {
+	case <-ticker.C:
+		_, _ = ds.dagStore.GC(ds.ctx)
+	case f := <-failureCh:
+		log.Errorw("shard failed", "shard-key", f.Key.String(), "error", f.Error)
+		if err := ds.dagStore.RecoverShard(ds.ctx, f.Key, nil, dagstore.RecoverOpts{}); err != nil {
+			log.Warnw("shard recovery failed", "shard-key", f.Key.String(), "error", err)
+		}
+	case <-ds.ctx.Done():
+		return
+	}
 }
 
 func (ds *dagStoreWrapper) LoadShard(ctx context.Context, pieceCid cid.Cid) (carstore.ClosableBlockstore, error) {
@@ -101,5 +161,16 @@ func (ds *dagStoreWrapper) RegisterShard(ctx context.Context, pieceCid cid.Cid, 
 	if res.Error != nil {
 		return xerrors.Errorf("failed to register shard for piece CID %s: %w", pieceCid, res.Error)
 	}
+	return nil
+}
+
+func (ds *dagStoreWrapper) Close() error {
+	if err := ds.dagStore.Close(); err != nil {
+		return err
+	}
+
+	ds.cancel()
+	ds.wg.Wait()
+
 	return nil
 }

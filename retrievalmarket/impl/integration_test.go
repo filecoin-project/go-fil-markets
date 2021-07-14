@@ -22,8 +22,6 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/filecoin-project/dagstore"
-	"github.com/filecoin-project/dagstore/mount"
 	"github.com/filecoin-project/go-address"
 	dtimpl "github.com/filecoin-project/go-data-transfer/impl"
 	"github.com/filecoin-project/go-data-transfer/testutil"
@@ -171,16 +169,12 @@ func requireSetupTestClientAndProvider(ctx context.Context, t *testing.T, payChA
 	}
 
 	// Set up a DAG store
-	registry := mount.NewRegistry()
-	dagStore, err := dagstore.NewDAGStore(dagstore.Config{
+	mountApi := mktdagstore.NewLotusMountAPI(pieceStore, providerNode)
+	dagStoreWrapper, err := mktdagstore.NewDagStoreWrapper(mktdagstore.MarketDAGStoreConfig{
 		TransientsDir: t.TempDir(),
 		IndexDir:      t.TempDir(),
 		Datastore:     ds_sync.MutexWrap(datastore.NewMapDatastore()),
-		MountRegistry: registry,
-	})
-	require.NoError(t, err)
-	mountApi := mktdagstore.NewLotusMountAPI(pieceStore, providerNode)
-	dagStoreWrapper, err := mktdagstore.NewDagStoreWrapper(registry, dagStore, mountApi)
+	}, mountApi)
 	require.NoError(t, err)
 
 	provider, err := retrievalimpl.NewProvider(
@@ -698,16 +692,12 @@ func setupProvider(
 	}
 
 	// Create a DAG store
-	registry := mount.NewRegistry()
-	dagStore, err := dagstore.NewDAGStore(dagstore.Config{
+	mountApi := mktdagstore.NewLotusMountAPI(pieceStore, providerNode)
+	dagStoreWrapper, err := mktdagstore.NewDagStoreWrapper(mktdagstore.MarketDAGStoreConfig{
 		TransientsDir: t.TempDir(),
 		IndexDir:      t.TempDir(),
 		Datastore:     ds_sync.MutexWrap(datastore.NewMapDatastore()),
-		MountRegistry: registry,
-	})
-	require.NoError(t, err)
-	mountApi := mktdagstore.NewLotusMountAPI(pieceStore, providerNode)
-	dagStoreWrapper, err := mktdagstore.NewDagStoreWrapper(registry, dagStore, mountApi)
+	}, mountApi)
 	require.NoError(t, err)
 
 	// Register the piece with the DAG store
