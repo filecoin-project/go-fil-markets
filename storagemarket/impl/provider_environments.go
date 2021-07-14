@@ -37,8 +37,8 @@ func (p *providerDealEnvironment) CARv2Reader(carV2FilePath string) (*carv2.Read
 	return carv2.NewReaderMmap(carV2FilePath)
 }
 
-func (p *providerDealEnvironment) FinalizeReadWriteBlockstore(proposalCid cid.Cid) error {
-	bs, err := p.p.readWriteBlockStores.Get(proposalCid.String())
+func (p *providerDealEnvironment) FinalizeReadWriteBlockstore(proposalCid cid.Cid, carPath string, rootCid cid.Cid) error {
+	bs, err := p.p.readWriteBlockStores.GetOrCreate(proposalCid.String(), carPath, rootCid)
 	if err != nil {
 		return xerrors.Errorf("failed to get read-write blockstore: %w", err)
 	}
