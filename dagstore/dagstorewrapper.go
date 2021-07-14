@@ -83,6 +83,7 @@ func NewDagStoreWrapper(cfg MarketDAGStoreConfig, mountApi LotusMountAPI) (*dagS
 	}
 
 	dw.wg.Add(1)
+	// the dagstore will write Shard failures to the `failureCh` here. Run a go-routine to handle them.
 	go dw.handleFailures(failureCh)
 
 	return dw, nil
@@ -110,8 +111,23 @@ func (ds *dagStoreWrapper) LoadShard(ctx context.Context, pieceCid cid.Cid) (car
 	key := shard.KeyFromCID(pieceCid)
 	resch := make(chan dagstore.ShardResult, 1)
 	err := ds.dagStore.AcquireShard(ctx, key, resch, dagstore.AcquireOpts{})
+
 	if err != nil {
-		return nil, xerrors.Errorf("failed to schedule acquire shard for piece CID %s: %w", pieceCid, err)
+		if xerrors.Unwrap(err) != dagstore.ErrShardUnknown {
+			return nil, xerrors.Errorf("failed to schedule acquire shard for piece CID %s: %w", pieceCid, err)
+		}
+
+		// if the DAGStore does not know about the Shard -> register it and then try to acquire it again.
+		log.Infow("ErrShardUnknown during LoadShard, will re-register", "pieceCID", pieceCid)
+		if err := ds.RegisterShard(ctx, pieceCid, ""); err != nil {
+			return nil, xerrors.Errorf("failed to re-register shard during loading piece CID %s: %w", pieceCid, err)
+		}
+		log.Infow("Successfully re-registered Shard in LoadShard", "pieceCID", pieceCid)
+
+		resch = make(chan dagstore.ShardResult, 1)
+		if err := ds.dagStore.AcquireShard(ctx, key, resch, dagstore.AcquireOpts{}); err != nil {
+			return nil, xerrors.Errorf("failed to acquire Shard for piece CID %s after re-registering: %w", pieceCid, err)
+		}
 	}
 
 	// TODO: Can I rely on AcquireShard to return an error if the context times out?

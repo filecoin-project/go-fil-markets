@@ -401,6 +401,7 @@ func TestClientCanMakeDealWithProvider(t *testing.T) {
 			r, err := car2.NewReaderMmap(carFilePath)
 			require.NoError(t, err)
 			carData, err := io.ReadAll(r.CarV1Reader())
+			require.NoError(t, err)
 
 			// Set up the piece info that will be retrieved by the provider
 			// when the retrieval request is made
