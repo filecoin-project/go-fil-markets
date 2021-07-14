@@ -43,6 +43,16 @@ type DagStoreWrapper interface {
 	Close() error
 }
 
+// DagStore provides an interface to the concrete DAG store that can be mocked
+// out by tests
+type DagStore interface {
+	RegisterShard(ctx context.Context, key shard.Key, mnt mount.Mount, out chan dagstore.ShardResult, opts dagstore.RegisterOpts) error
+	AcquireShard(ctx context.Context, key shard.Key, out chan dagstore.ShardResult, _ dagstore.AcquireOpts) error
+	RecoverShard(ctx context.Context, key shard.Key, out chan dagstore.ShardResult, _ dagstore.RecoverOpts) error
+	GC(ctx context.Context) (map[shard.Key]error, error)
+	Close() error
+}
+
 type closableBlockstore struct {
 	bstore.Blockstore
 	io.Closer
@@ -53,7 +63,7 @@ type dagStoreWrapper struct {
 	cancel context.CancelFunc
 	wg     sync.WaitGroup
 
-	dagStore *dagstore.DAGStore
+	dagStore DagStore
 	mountApi LotusMountAPI
 }
 
@@ -79,6 +89,11 @@ func NewDagStoreWrapper(cfg MarketDAGStoreConfig, mountApi LotusMountAPI) (*dagS
 		return nil, xerrors.Errorf("failed to create DAG store: %w", err)
 	}
 
+	return NewDagStoreWrapperWithDeps(dagStore, mountApi, failureCh)
+}
+
+// Used by the tests
+func NewDagStoreWrapperWithDeps(dagStore DagStore, mountApi LotusMountAPI, failureCh chan dagstore.ShardResult) (*dagStoreWrapper, error) {
 	ctx, cancel := context.WithCancel(context.Background())
 	dw := &dagStoreWrapper{
 		ctx:    ctx,

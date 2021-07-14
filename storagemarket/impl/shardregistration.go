@@ -49,15 +49,13 @@ func NewShardRegistration(
 
 func (r *ShardRegistration) registerShards(ctx context.Context, deals []storagemarket.MinerDeal) error {
 	// Check if all deals have already been registered as shards
-	_, err := r.ds.Get(shardRegKey)
-	if err == nil {
+	has, err := r.ds.Has(shardRegKey)
+	if err != nil {
+		return xerrors.Errorf("failed to get shard registration status: %w", err)
+	}
+	if has {
 		// All deals have been registered as shards, bail out
 		return nil
-	}
-	// Expect ErrNotFound if deals have not been registered as shards
-	if !xerrors.Is(err, datastore.ErrNotFound) {
-		// There was some other error (not ErrNotFound)
-		return xerrors.Errorf("failed to get shard registration status: %w", err)
 	}
 
 	// Filter for deals that are currently sealing.
