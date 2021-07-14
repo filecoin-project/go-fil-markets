@@ -383,18 +383,6 @@ func newDagStore(t *testing.T, providerNode *testnodes2.TestRetrievalProviderNod
 	return dagStoreWrapper
 }
 
-func newRetrievalHarness(
-	ctx context.Context,
-	t *testing.T,
-	sh *testharness.StorageHarness,
-	deal storagemarket.ClientDeal,
-	params ...retrievalmarket.Params,
-) *retrievalHarness {
-	providerNode := testnodes2.NewTestRetrievalProviderNode()
-	pieceStore := tut.NewTestPieceStore()
-	return newRetrievalHarnessWithDeps(ctx, t, sh, deal, providerNode, pieceStore, params...)
-}
-
 func newRetrievalHarnessWithDeps(
 	ctx context.Context,
 	t *testing.T,
