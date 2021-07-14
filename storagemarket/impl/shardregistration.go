@@ -3,19 +3,18 @@ package storageimpl
 import (
 	"context"
 
-	"github.com/filecoin-project/lotus/chain/actors/builtin/miner"
-
-	"github.com/filecoin-project/go-address"
-	"github.com/filecoin-project/lotus/chain/types"
-
-	"github.com/filecoin-project/go-state-types/abi"
-	"github.com/filecoin-project/lotus/extern/sector-storage/storiface"
-	"github.com/filecoin-project/specs-storage/storage"
-
 	"github.com/ipfs/go-datastore"
 	"golang.org/x/xerrors"
 
-	"github.com/filecoin-project/go-fil-markets/dagstore"
+	"github.com/filecoin-project/dagstore"
+	"github.com/filecoin-project/go-address"
+	"github.com/filecoin-project/go-state-types/abi"
+	"github.com/filecoin-project/lotus/chain/actors/builtin/miner"
+	"github.com/filecoin-project/lotus/chain/types"
+	"github.com/filecoin-project/lotus/extern/sector-storage/storiface"
+	"github.com/filecoin-project/specs-storage/storage"
+
+	mktdagstore "github.com/filecoin-project/go-fil-markets/dagstore"
 	"github.com/filecoin-project/go-fil-markets/storagemarket"
 	"github.com/filecoin-project/go-fil-markets/storagemarket/impl/providerstates"
 )
@@ -30,14 +29,14 @@ type SectorState interface {
 type ShardRegistration struct {
 	maddr       address.Address
 	ds          datastore.Datastore
-	dagStore    dagstore.DagStoreWrapper
+	dagStore    mktdagstore.DagStoreWrapper
 	sectorState SectorState
 }
 
 func NewShardRegistration(
 	maddr address.Address,
 	ds datastore.Datastore,
-	dagStore dagstore.DagStoreWrapper,
+	dagStore mktdagstore.DagStoreWrapper,
 	sectorState SectorState,
 ) *ShardRegistration {
 	return &ShardRegistration{
@@ -66,6 +65,7 @@ func (r *ShardRegistration) registerShards(ctx context.Context, deals []storagem
 	// don't need to call RegisterShard in this migration; RegisterShard will
 	// be called in the new code once the deal reaches the state where it's
 	// handed off to the sealing subsystem.
+	resch := make(chan dagstore.ShardResult, len(deals))
 	for _, deal := range deals {
 		if deal.Ref.PieceCid == nil {
 			continue
@@ -86,20 +86,29 @@ func (r *ShardRegistration) registerShards(ctx context.Context, deals []storagem
 		// Check if the deal is in an unsealed state
 		isUnsealed, err := r.isUnsealed(ctx, deal.SectorNumber)
 		if err != nil {
-			log.Errorf("failed to get unsealed state of deal with piece CID %s: %w", deal.Ref.PieceCid, err)
+			log.Errorf("failed to get unsealed state of deal with piece CID %s: %s", deal.Ref.PieceCid, err)
 		}
 
 		// Register the deal as a shard with the DAG store, initializing the
 		// index immediately if the deal is unsealed (if the deal is not
 		// unsealed it will be initialized "lazily" once it's unsealed during
 		// retrieval)
-		r.dagStore.RegisterShard(ctx, *deal.Ref.PieceCid, deal.CARv2FilePath, isUnsealed)
+		r.dagStore.RegisterShardAsync(ctx, *deal.Ref.PieceCid, deal.CARv2FilePath, isUnsealed, resch)
 	}
+
+	// If there are any problems registering shards, just log an error
+	go func() {
+		for res := range resch {
+			if res.Error != nil {
+				log.Errorf("failed to register shard: %s", res.Error)
+			}
+		}
+	}()
 
 	// Completed registering all shards, so mark the migration as complete
 	err = r.ds.Put(shardRegKey, []byte{1})
 	if err != nil {
-		log.Errorf("failed to mark shards as registered: %w", err)
+		log.Errorf("failed to mark shards as registered: %s", err)
 	}
 
 	return nil
