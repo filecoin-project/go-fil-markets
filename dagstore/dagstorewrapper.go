@@ -2,7 +2,6 @@ package dagstore
 
 import (
 	"context"
-	"errors"
 	"io"
 	"sync"
 	"time"
@@ -114,7 +113,7 @@ func (ds *dagStoreWrapper) LoadShard(ctx context.Context, pieceCid cid.Cid) (car
 	err := ds.dagStore.AcquireShard(ctx, key, resch, dagstore.AcquireOpts{})
 
 	if err != nil {
-		if errors.Unwrap(err) != dagstore.ErrShardUnknown {
+		if xerrors.Unwrap(err) != dagstore.ErrShardUnknown {
 			return nil, xerrors.Errorf("failed to schedule acquire shard for piece CID %s: %w", pieceCid, err)
 		}
 
