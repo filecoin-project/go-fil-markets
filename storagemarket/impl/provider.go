@@ -68,6 +68,7 @@ type Provider struct {
 
 	unsubDataTransfer datatransfer.Unsubscribe
 
+	shardReg             *ShardMigrator
 	dagStore             mktdagstore.DagStoreWrapper
 	readWriteBlockStores *carstore.CarReadWriteStoreTracker
 }
@@ -109,6 +110,7 @@ func NewProvider(net network.StorageMarketNetwork,
 	spn storagemarket.StorageProviderNode,
 	minerAddress address.Address,
 	storedAsk StoredAsk,
+	shardReg *ShardMigrator,
 	options ...StorageProviderOption,
 ) (storagemarket.StorageProvider, error) {
 	h := &Provider{
@@ -122,6 +124,7 @@ func NewProvider(net network.StorageMarketNetwork,
 		dataTransfer:         dataTransfer,
 		pubSub:               pubsub.New(providerDispatcher),
 		readyMgr:             shared.NewReadyManager(),
+		shardReg:             shardReg,
 		dagStore:             dagStore,
 		readWriteBlockStores: carstore.NewCarReadWriteStoreTracker(),
 	}
@@ -581,25 +584,28 @@ func (p *Provider) start(ctx context.Context) error {
 	if err != nil {
 		return fmt.Errorf("Migrating storage provider state machines: %w", err)
 	}
-	if err := p.restartDeals(); err != nil {
+
+	var deals []storagemarket.MinerDeal
+	err = p.deals.List(&deals)
+	if err != nil {
+		return xerrors.Errorf("failed to fetch deals during startup: %w", err)
+	}
+	if err := p.shardReg.registerShards(ctx, deals); err != nil {
+		return fmt.Errorf("Failed to restart deals: %w", err)
+	}
+	if err := p.restartDeals(deals); err != nil {
 		return fmt.Errorf("Failed to restart deals: %w", err)
 	}
 	return nil
 }
 
-func (p *Provider) restartDeals() error {
-	var deals []storagemarket.MinerDeal
-	err := p.deals.List(&deals)
-	if err != nil {
-		return err
-	}
-
+func (p *Provider) restartDeals(deals []storagemarket.MinerDeal) error {
 	for _, deal := range deals {
 		if p.deals.IsTerminated(deal) {
 			continue
 		}
 
-		err = p.deals.Send(deal.ProposalCid, storagemarket.ProviderEventRestart)
+		err := p.deals.Send(deal.ProposalCid, storagemarket.ProviderEventRestart)
 		if err != nil {
 			return err
 		}

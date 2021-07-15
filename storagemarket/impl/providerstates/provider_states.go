@@ -36,7 +36,7 @@ const DealMaxLabelSize = 256
 type ProviderDealEnvironment interface {
 	CARv2Reader(carV2FilePath string) (*carv2.Reader, error)
 
-	RegisterShard(ctx context.Context, pieceCid cid.Cid, path string) error
+	RegisterShard(ctx context.Context, pieceCid cid.Cid, path string, eagerInit bool) error
 
 	FinalizeReadWriteBlockstore(proposalCid cid.Cid, carPath string, root cid.Cid) error
 
@@ -347,7 +347,7 @@ func HandoffDeal(ctx fsm.Context, environment ProviderDealEnvironment, deal stor
 
 	// Register the deal data as a "shard" with the DAG store. Later it can be
 	// fetched from the DAG store during retrieval.
-	if err := environment.RegisterShard(ctx.Context(), deal.Proposal.PieceCID, carFilePath); err != nil {
+	if err := environment.RegisterShard(ctx.Context(), deal.Proposal.PieceCID, carFilePath, true); err != nil {
 		err = xerrors.Errorf("failed to activate shard: %w", err)
 		log.Error(err)
 	}

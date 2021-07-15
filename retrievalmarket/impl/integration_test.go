@@ -702,7 +702,7 @@ func setupProvider(
 	require.NoError(t, err)
 
 	// Register the piece with the DAG store
-	err = dagStoreWrapper.RegisterShard(ctx, pieceInfo.PieceCID, carFilePath)
+	err = mktdagstore.RegisterShardSync(ctx, dagStoreWrapper, pieceInfo.PieceCID, carFilePath, true)
 	require.NoError(t, err)
 
 	// Remove the CAR file so that the provider is forced to unseal the data
