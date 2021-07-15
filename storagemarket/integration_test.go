@@ -487,8 +487,7 @@ func TestRestartOnlyProviderDataTransfer(t *testing.T) {
 }
 
 // FIXME Gets hung sometimes
-// TODO Get this work after CARv2 blockstore supports resumption.
-/*func TestRestartClient(t *testing.T) {
+func TestRestartClient(t *testing.T) {
 	testCases := map[string]struct {
 		stopAtClientEvent   storagemarket.ClientEvent
 		stopAtProviderEvent storagemarket.ProviderEvent
@@ -675,7 +674,7 @@ func TestRestartOnlyProviderDataTransfer(t *testing.T) {
 			shared_testutil.AssertDealState(t, storagemarket.StorageDealExpired, pd.State)
 		})
 	}
-}*/
+}
 
 // TestBounceConnectionDataTransfer tests that when the the connection is
 // broken and then restarted, the data transfer will resume and the deal will
