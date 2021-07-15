@@ -103,6 +103,7 @@ func NewHarnessWithTestData(t *testing.T, td *shared_testutil.Libp2pTestData, de
 		deps.ProviderNode,
 		deps.ProviderAddr,
 		deps.StoredAsk,
+		deps.ShardReg,
 	)
 	assert.NoError(t, err)
 
@@ -137,6 +138,7 @@ func (h *StorageHarness) CreateNewProvider(t *testing.T, ctx context.Context, td
 		h.ProviderNode,
 		h.ProviderAddr,
 		h.StoredAsk,
+		h.ShardReg,
 	)
 	require.NoError(t, err)
 	return provider

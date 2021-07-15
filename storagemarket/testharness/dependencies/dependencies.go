@@ -10,6 +10,7 @@ import (
 
 	"github.com/ipfs/go-datastore"
 	"github.com/ipfs/go-datastore/namespace"
+	ds_sync "github.com/ipfs/go-datastore/sync"
 	graphsyncimpl "github.com/ipfs/go-graphsync/impl"
 	"github.com/ipfs/go-graphsync/network"
 	"github.com/stretchr/testify/assert"
@@ -22,7 +23,11 @@ import (
 	"github.com/filecoin-project/go-data-transfer/testutil"
 	dtgstransport "github.com/filecoin-project/go-data-transfer/transport/graphsync"
 	"github.com/filecoin-project/go-state-types/abi"
+	"github.com/filecoin-project/lotus/chain/actors/builtin/miner"
+	"github.com/filecoin-project/lotus/chain/types"
+	"github.com/filecoin-project/lotus/extern/sector-storage/storiface"
 	"github.com/filecoin-project/specs-actors/actors/builtin/market"
+	"github.com/filecoin-project/specs-storage/storage"
 
 	"github.com/filecoin-project/go-fil-markets/dagstore"
 	discoveryimpl "github.com/filecoin-project/go-fil-markets/discovery/impl"
@@ -31,6 +36,7 @@ import (
 	piecestoreimpl "github.com/filecoin-project/go-fil-markets/piecestore/impl"
 	"github.com/filecoin-project/go-fil-markets/shared_testutil"
 	"github.com/filecoin-project/go-fil-markets/storagemarket"
+	storageimpl "github.com/filecoin-project/go-fil-markets/storagemarket/impl"
 	"github.com/filecoin-project/go-fil-markets/storagemarket/impl/storedask"
 	"github.com/filecoin-project/go-fil-markets/storagemarket/testnodes"
 )
@@ -49,6 +55,7 @@ type StorageDependencies struct {
 	TestData                          *shared_testutil.Libp2pTestData
 	PieceStore                        piecestore.PieceStore
 	DagStore                          dagstore.DagStoreWrapper
+	ShardReg                          *storageimpl.ShardMigrator
 	DTClient                          datatransfer.Manager
 	DTProvider                        datatransfer.Manager
 	PeerResolver                      *discoveryimpl.Local
@@ -144,6 +151,8 @@ func (gen *DepGenerator) New(
 	assert.NoError(t, err)
 
 	dagStore := shared_testutil.NewMockDagStoreWrapper()
+	shardRegDS := ds_sync.MutexWrap(datastore.NewMapDatastore())
+	shardReg := storageimpl.NewShardMigrator(providerAddr, shardRegDS, dagStore, &mockSectorState{})
 
 	// create provider and client
 
@@ -191,6 +200,7 @@ func (gen *DepGenerator) New(
 		ClientDelayFakeCommonNode:         cd,
 		ProviderClientDelayFakeCommonNode: pd,
 		DagStore:                          dagStore,
+		ShardReg:                          shardReg,
 		DTClient:                          dt1,
 		DTProvider:                        dt2,
 		PeerResolver:                      discovery,
@@ -199,3 +209,16 @@ func (gen *DepGenerator) New(
 		StoredAsk:                         storedAsk,
 	}
 }
+
+type mockSectorState struct {
+}
+
+func (m mockSectorState) StateSectorGetInfo(ctx context.Context, a address.Address, number abi.SectorNumber, key types.TipSetKey) (*miner.SectorOnChainInfo, error) {
+	return &miner.SectorOnChainInfo{SealProof: abi.RegisteredSealProof_StackedDrg2KiBV1}, nil
+}
+
+func (m mockSectorState) IsUnsealed(ctx context.Context, sector storage.SectorRef, offset storiface.UnpaddedByteIndex, size abi.UnpaddedPieceSize) (bool, error) {
+	return true, nil
+}
+
+var _ storageimpl.SectorStateAccessor = (*mockSectorState)(nil)

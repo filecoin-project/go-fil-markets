@@ -32,11 +32,22 @@ type MarketDAGStoreConfig struct {
 // DagStoreWrapper hides the details of the DAG store implementation from
 // the other parts of go-fil-markets
 type DagStoreWrapper interface {
-	// RegisterShard loads a CAR file into the DAG store and builds an index for it
-	RegisterShard(ctx context.Context, pieceCid cid.Cid, carPath string) error
+	// RegisterShard loads a CAR file into the DAG store and builds an
+	// index for it, sending the result on the supplied channel on completion
+	RegisterShard(ctx context.Context, pieceCid cid.Cid, carPath string, eagerInit bool, resch chan dagstore.ShardResult) error
 	// LoadShard fetches the data for a shard and provides a blockstore interface to it
 	LoadShard(ctx context.Context, pieceCid cid.Cid) (carstore.ClosableBlockstore, error)
 	// Close closes the dag store wrapper.
+	Close() error
+}
+
+// DagStore provides an interface to the concrete DAG store that can be mocked
+// out by tests
+type DagStore interface {
+	RegisterShard(ctx context.Context, key shard.Key, mnt mount.Mount, out chan dagstore.ShardResult, opts dagstore.RegisterOpts) error
+	AcquireShard(ctx context.Context, key shard.Key, out chan dagstore.ShardResult, _ dagstore.AcquireOpts) error
+	RecoverShard(ctx context.Context, key shard.Key, out chan dagstore.ShardResult, _ dagstore.RecoverOpts) error
+	GC(ctx context.Context) (map[shard.Key]error, error)
 	Close() error
 }
 
@@ -50,9 +61,11 @@ type dagStoreWrapper struct {
 	cancel context.CancelFunc
 	wg     sync.WaitGroup
 
-	dagStore *dagstore.DAGStore
+	dagStore DagStore
 	mountApi LotusMountAPI
 }
+
+var _ DagStoreWrapper = (*dagStoreWrapper)(nil)
 
 func NewDagStoreWrapper(cfg MarketDAGStoreConfig, mountApi LotusMountAPI) (*dagStoreWrapper, error) {
 	// construct the DAG Store.
@@ -60,6 +73,7 @@ func NewDagStoreWrapper(cfg MarketDAGStoreConfig, mountApi LotusMountAPI) (*dagS
 	if err := registry.Register(lotusScheme, NewLotusMountTemplate(mountApi)); err != nil {
 		return nil, xerrors.Errorf("failed to create registry: %w", err)
 	}
+
 	failureCh := make(chan dagstore.ShardResult, 1)
 	dcfg := dagstore.Config{
 		TransientsDir: cfg.TransientsDir,
@@ -70,9 +84,14 @@ func NewDagStoreWrapper(cfg MarketDAGStoreConfig, mountApi LotusMountAPI) (*dagS
 	}
 	dagStore, err := dagstore.NewDAGStore(dcfg)
 	if err != nil {
-		return nil, xerrors.Errorf("failed to create dagStore:%w", err)
+		return nil, xerrors.Errorf("failed to create DAG store: %w", err)
 	}
 
+	return NewDagStoreWrapperWithDeps(dagStore, mountApi, failureCh)
+}
+
+// Used by the tests
+func NewDagStoreWrapperWithDeps(dagStore DagStore, mountApi LotusMountAPI, failureCh chan dagstore.ShardResult) (*dagStoreWrapper, error) {
 	ctx, cancel := context.WithCancel(context.Background())
 	dw := &dagStoreWrapper{
 		ctx:    ctx,
@@ -119,7 +138,7 @@ func (ds *dagStoreWrapper) LoadShard(ctx context.Context, pieceCid cid.Cid) (car
 
 		// if the DAGStore does not know about the Shard -> register it and then try to acquire it again.
 		log.Infow("ErrShardUnknown during LoadShard, will re-register", "pieceCID", pieceCid)
-		if err := ds.RegisterShard(ctx, pieceCid, ""); err != nil {
+		if err := RegisterShardSync(ctx, ds, pieceCid, "", false); err != nil {
 			return nil, xerrors.Errorf("failed to re-register shard during loading piece CID %s: %w", pieceCid, err)
 		}
 		log.Infow("Successfully re-registered Shard in LoadShard", "pieceCID", pieceCid)
@@ -131,16 +150,14 @@ func (ds *dagStoreWrapper) LoadShard(ctx context.Context, pieceCid cid.Cid) (car
 	}
 
 	// TODO: Can I rely on AcquireShard to return an error if the context times out?
-	//select {
-	//case <-ctx.Done():
-	//	return ctx.Err()
-	//case res := <-resch:
-	//	return nil, res.Error
-	//}
-
-	res := <-resch
-	if res.Error != nil {
-		return nil, xerrors.Errorf("failed to acquire shard for piece CID %s: %w", pieceCid, err)
+	var res dagstore.ShardResult
+	select {
+	case <-ctx.Done():
+		return nil, ctx.Err()
+	case res = <-resch:
+		if res.Error != nil {
+			return nil, xerrors.Errorf("failed to acquire shard for piece CID %s: %w", pieceCid, res.Error)
+		}
 	}
 
 	bs, err := res.Accessor.Blockstore()
@@ -151,32 +168,24 @@ func (ds *dagStoreWrapper) LoadShard(ctx context.Context, pieceCid cid.Cid) (car
 	return &closableBlockstore{Blockstore: NewReadOnlyBlockstore(bs), Closer: res.Accessor}, nil
 }
 
-func (ds *dagStoreWrapper) RegisterShard(ctx context.Context, pieceCid cid.Cid, carPath string) error {
+func (ds *dagStoreWrapper) RegisterShard(ctx context.Context, pieceCid cid.Cid, carPath string, eagerInit bool, resch chan dagstore.ShardResult) error {
+	// Create a lotus mount with the piece CID
 	key := shard.KeyFromCID(pieceCid)
 	mt, err := NewLotusMount(pieceCid, ds.mountApi)
 	if err != nil {
 		return xerrors.Errorf("failed to create lotus mount for piece CID %s: %w", pieceCid, err)
 	}
 
-	opts := dagstore.RegisterOpts{ExistingTransient: carPath}
-	resch := make(chan dagstore.ShardResult, 1)
+	// Register the shard
+	opts := dagstore.RegisterOpts{
+		ExistingTransient:  carPath,
+		LazyInitialization: !eagerInit,
+	}
 	err = ds.dagStore.RegisterShard(ctx, key, mt, resch, opts)
 	if err != nil {
 		return xerrors.Errorf("failed to schedule register shard for piece CID %s: %w", pieceCid, err)
 	}
 
-	// TODO: Can I rely on RegisterShard to return an error if the context times out?
-	//select {
-	//case <-ctx.Done():
-	//	return ctx.Err()
-	//case res := <-resch:
-	//	return res.Error
-	//}
-
-	res := <-resch
-	if res.Error != nil {
-		return xerrors.Errorf("failed to register shard for piece CID %s: %w", pieceCid, res.Error)
-	}
 	return nil
 }
 
@@ -189,4 +198,22 @@ func (ds *dagStoreWrapper) Close() error {
 	ds.wg.Wait()
 
 	return nil
+}
+
+// RegisterShardSync calls the DAGStore RegisterShard method and waits
+// synchronously in a dedicated channel until the registration has completed
+// fully.
+func RegisterShardSync(ctx context.Context, ds DagStoreWrapper, pieceCid cid.Cid, carPath string, eagerInit bool) error {
+	resch := make(chan dagstore.ShardResult, 1)
+	if err := ds.RegisterShard(ctx, pieceCid, carPath, eagerInit, resch); err != nil {
+		return err
+	}
+
+	// TODO: Can I rely on RegisterShard to return an error if the context times out?
+	select {
+	case <-ctx.Done():
+		return ctx.Err()
+	case res := <-resch:
+		return res.Error
+	}
 }

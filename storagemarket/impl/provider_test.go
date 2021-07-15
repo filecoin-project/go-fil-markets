@@ -137,6 +137,7 @@ func TestProvider_Migrations(t *testing.T) {
 		deps.ProviderNode,
 		deps.ProviderAddr,
 		deps.StoredAsk,
+		deps.ShardReg,
 	)
 	require.NoError(t, err)
 
@@ -227,6 +228,7 @@ func TestHandleDealStream(t *testing.T) {
 			deps.ProviderNode,
 			deps.ProviderAddr,
 			deps.StoredAsk,
+			deps.ShardReg,
 		)
 		require.NoError(t, err)
 

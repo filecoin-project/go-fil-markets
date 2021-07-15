@@ -1543,7 +1543,7 @@ func (fe *fakeEnvironment) UntagPeer(id peer.ID, s string) {
 	fe.peerTagger.UntagPeer(id, s)
 }
 
-func (fe *fakeEnvironment) RegisterShard(ctx context.Context, pieceCid cid.Cid, path string) error {
+func (fe *fakeEnvironment) RegisterShard(ctx context.Context, pieceCid cid.Cid, path string, eagerInit bool) error {
 	return fe.shardActivationError
 }
 
