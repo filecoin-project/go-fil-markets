@@ -327,7 +327,7 @@ func (c *Client) ProposeStorageDeal(ctx context.Context, params storagemarket.Pr
 		return nil, xerrors.Errorf("looking up addresses: %w", err)
 	}
 
-	commP, pieceSize, err := clientutils.CommP(ctx, params.CARV2FilePath, params.Data)
+	commP, pieceSize, err := clientutils.CommP(ctx, params.FilestoreCARv2FilePath, params.Data)
 	if err != nil {
 		return nil, xerrors.Errorf("computing commP failed: %w", err)
 	}
@@ -374,16 +374,16 @@ func (c *Client) ProposeStorageDeal(ctx context.Context, params storagemarket.Pr
 	}
 
 	deal := &storagemarket.ClientDeal{
-		ProposalCid:        proposalNd.Cid(),
-		ClientDealProposal: *clientDealProposal,
-		State:              storagemarket.StorageDealUnknown,
-		Miner:              params.Info.PeerID,
-		MinerWorker:        params.Info.Worker,
-		DataRef:            params.Data,
-		FastRetrieval:      params.FastRetrieval,
-		DealStages:         storagemarket.NewDealStages(),
-		CreationTime:       curTime(),
-		CARv2FilePath:      params.CARV2FilePath,
+		ProposalCid:            proposalNd.Cid(),
+		ClientDealProposal:     *clientDealProposal,
+		State:                  storagemarket.StorageDealUnknown,
+		Miner:                  params.Info.PeerID,
+		MinerWorker:            params.Info.Worker,
+		DataRef:                params.Data,
+		FastRetrieval:          params.FastRetrieval,
+		DealStages:             storagemarket.NewDealStages(),
+		CreationTime:           curTime(),
+		FilestoreCARv2FilePath: params.FilestoreCARv2FilePath,
 	}
 
 	err = c.statemachines.Begin(proposalNd.Cid(), deal)

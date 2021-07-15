@@ -1,8 +1,10 @@
 package retrievalimpl_test
 
 import (
+	"bytes"
 	"context"
 	"io"
+	"io/ioutil"
 	"os"
 	"path/filepath"
 	"testing"
@@ -14,7 +16,7 @@ import (
 	ds_sync "github.com/ipfs/go-datastore/sync"
 	graphsyncimpl "github.com/ipfs/go-graphsync/impl"
 	"github.com/ipfs/go-graphsync/network"
-	car2 "github.com/ipld/go-car/v2"
+	"github.com/ipld/go-car"
 	"github.com/ipld/go-ipld-prime"
 	cidlink "github.com/ipld/go-ipld-prime/linking/cid"
 	basicnode "github.com/ipld/go-ipld-prime/node/basic"
@@ -31,6 +33,7 @@ import (
 	"github.com/filecoin-project/specs-actors/actors/builtin/paych"
 
 	mktdagstore "github.com/filecoin-project/go-fil-markets/dagstore"
+	"github.com/filecoin-project/go-fil-markets/filestorecaradapter"
 	"github.com/filecoin-project/go-fil-markets/piecestore"
 	"github.com/filecoin-project/go-fil-markets/retrievalmarket"
 	retrievalimpl "github.com/filecoin-project/go-fil-markets/retrievalmarket/impl"
@@ -287,7 +290,7 @@ func TestClientCanMakeDealWithProvider(t *testing.T) {
 		{name: "multi-block file retrieval succeeds",
 			filename:    "lorem.txt",
 			filesize:    19000,
-			voucherAmts: []abi.TokenAmount{abi.NewTokenAmount(10136000), abi.NewTokenAmount(19920000)},
+			voucherAmts: []abi.TokenAmount{abi.NewTokenAmount(10174000), abi.NewTokenAmount(19958000)},
 		},
 		{name: "multi-block file retrieval with zero price per byte succeeds",
 			filename:         "lorem.txt",
@@ -297,13 +300,13 @@ func TestClientCanMakeDealWithProvider(t *testing.T) {
 		{name: "multi-block file retrieval succeeds with V1 params and AllSelector",
 			filename:    "lorem.txt",
 			filesize:    19000,
-			voucherAmts: []abi.TokenAmount{abi.NewTokenAmount(10136000), abi.NewTokenAmount(19920000)},
+			voucherAmts: []abi.TokenAmount{abi.NewTokenAmount(10174000), abi.NewTokenAmount(19958000)},
 			paramsV1:    true,
 			selector:    shared.AllSelector()},
 		{name: "partial file retrieval succeeds with V1 params and selector recursion depth 1",
 			filename:    "lorem.txt",
 			filesize:    1024,
-			voucherAmts: []abi.TokenAmount{abi.NewTokenAmount(1944000)},
+			voucherAmts: []abi.TokenAmount{abi.NewTokenAmount(1982000)},
 			paramsV1:    true,
 			selector:    partialSelector},
 		{name: "succeeds when using a custom decider function",
@@ -318,7 +321,7 @@ func TestClientCanMakeDealWithProvider(t *testing.T) {
 		{name: "succeeds for regular blockstore",
 			filename:    "lorem.txt",
 			filesize:    19000,
-			voucherAmts: []abi.TokenAmount{abi.NewTokenAmount(10136000), abi.NewTokenAmount(19920000)},
+			voucherAmts: []abi.TokenAmount{abi.NewTokenAmount(10174000), abi.NewTokenAmount(19958000)},
 			skipStores:  true,
 		},
 		{
@@ -328,27 +331,30 @@ func TestClientCanMakeDealWithProvider(t *testing.T) {
 			voucherAmts: []abi.TokenAmount{},
 			failsUnseal: true,
 		},
+
 		{name: "multi-block file retrieval succeeds, final block exceeds payment interval",
 			filename:                "lorem.txt",
 			filesize:                19000,
-			voucherAmts:             []abi.TokenAmount{abi.NewTokenAmount(9112000), abi.NewTokenAmount(19352000), abi.NewTokenAmount(19920000)},
+			voucherAmts:             []abi.TokenAmount{abi.NewTokenAmount(9150000), abi.NewTokenAmount(19390000), abi.NewTokenAmount(19958000)},
 			paymentInterval:         9000,
 			paymentIntervalIncrease: 1250,
 		},
+
 		{name: "multi-block file retrieval succeeds, final block lands on payment interval",
 			filename:    "lorem.txt",
 			filesize:    19000,
-			voucherAmts: []abi.TokenAmount{abi.NewTokenAmount(9112000), abi.NewTokenAmount(19920000)},
+			voucherAmts: []abi.TokenAmount{abi.NewTokenAmount(9150000), abi.NewTokenAmount(19958000)},
 			// Total bytes: 19,920
 			// intervals: 9,000 | 9,000 + (9,000 + 1920)
 			paymentInterval:         9000,
 			paymentIntervalIncrease: 1920,
 		},
+
 		{name: "multi-block file retrieval succeeds, with provider only accepting legacy deals",
 			filename:        "lorem.txt",
 			filesize:        19000,
 			disableNewDeals: true,
-			voucherAmts:     []abi.TokenAmount{abi.NewTokenAmount(10136000), abi.NewTokenAmount(19920000)},
+			voucherAmts:     []abi.TokenAmount{abi.NewTokenAmount(10174000), abi.NewTokenAmount(19958000)},
 		},
 	}
 
@@ -362,10 +368,29 @@ func TestClientCanMakeDealWithProvider(t *testing.T) {
 
 			// Create a CARv2 file from a fixture
 			fpath := filepath.Join("retrievalmarket", "impl", "fixtures", testCase.filename)
-			pieceLink, carFilePath := testData.LoadUnixFSFileToStore(t, fpath)
+			pieceLink, fileStoreCARv2FilePath := testData.LoadUnixFSFileToStore(t, fpath)
 			c, ok := pieceLink.(cidlink.Link)
 			require.True(t, ok)
 			payloadCID := c.Cid
+
+			carFile, err := os.CreateTemp(t.TempDir(), "rand")
+			require.NoError(t, err)
+			fs, err := filestorecaradapter.NewReadOnlyFileStore(fileStoreCARv2FilePath)
+			require.NoError(t, err)
+			sc := car.NewSelectiveCar(bgCtx, fs, []car.Dag{{Root: payloadCID, Selector: shared.AllSelector()}})
+			prepared, err := sc.Prepare()
+			require.NoError(t, err)
+			carBuf := new(bytes.Buffer)
+			require.NoError(t, prepared.Dump(carBuf))
+			require.NoError(t, fs.Close())
+			_, err = io.Copy(carFile, carBuf)
+			require.NoError(t, err)
+			_, err = carFile.Seek(0, io.SeekStart)
+			require.NoError(t, err)
+			carData, err := ioutil.ReadAll(carFile)
+			require.NoError(t, err)
+			require.NotEmpty(t, carData)
+			require.NoError(t, carFile.Close())
 
 			// Set up retrieval parameters
 			providerPaymentAddr, err := address.NewIDAddress(uint64(i * 99))
@@ -395,13 +420,6 @@ func TestClientCanMakeDealWithProvider(t *testing.T) {
 				MaxPaymentIntervalIncrease: paymentIntervalIncrease,
 				UnsealPrice:                unsealPrice,
 			}
-
-			// Get the CAR file as a CARv1 to simulate what would be returned
-			// by the unsealer
-			r, err := car2.NewReaderMmap(carFilePath)
-			require.NoError(t, err)
-			carData, err := io.ReadAll(r.CarV1Reader())
-			require.NoError(t, err)
 
 			// Set up the piece info that will be retrieved by the provider
 			// when the retrieval request is made
@@ -436,7 +454,7 @@ func TestClientCanMakeDealWithProvider(t *testing.T) {
 			ctx, cancel := context.WithTimeout(bgCtx, 10*time.Second)
 			defer cancel()
 
-			provider := setupProvider(bgCtx, t, testData, payloadCID, pieceInfo, carFilePath, expectedQR,
+			provider := setupProvider(bgCtx, t, testData, payloadCID, pieceInfo, carFile.Name(), expectedQR,
 				providerPaymentAddr, providerNode, decider, testCase.disableNewDeals)
 			tut.StartAndWaitForReady(ctx, t, provider)
 

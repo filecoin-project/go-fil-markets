@@ -247,7 +247,9 @@ type ClientDeal struct {
 	CreationTime      cbg.CborTime
 	TransferChannelID *datatransfer.ChannelID
 	SectorNumber      abi.SectorNumber
-	CARv2FilePath     string
+
+	// path of the CARv2 file containing the entire UnixFSDAG OR a CARv2 file that can be used as backing store for a FileStore.
+	FilestoreCARv2FilePath string
 }
 
 // StorageProviderInfo describes on chain information about a StorageProvider
@@ -278,7 +280,9 @@ type ProposeStorageDealParams struct {
 	Rt            abi.RegisteredSealProof
 	FastRetrieval bool
 	VerifiedDeal  bool
-	CARV2FilePath string
+
+	// path of the CARv2 file containing the entire UnixFSDAG OR a CARv2 file that can be used as backing store for a FileStore.
+	FilestoreCARv2FilePath string
 }
 
 const (

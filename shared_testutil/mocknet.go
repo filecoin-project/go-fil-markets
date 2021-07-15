@@ -13,19 +13,15 @@ import (
 
 	blocks "github.com/ipfs/go-block-format"
 	"github.com/ipfs/go-blockservice"
-	"github.com/ipfs/go-cid"
 	"github.com/ipfs/go-datastore"
 	"github.com/ipfs/go-datastore/namespace"
 	dss "github.com/ipfs/go-datastore/sync"
 	bstore "github.com/ipfs/go-ipfs-blockstore"
-	chunk "github.com/ipfs/go-ipfs-chunker"
 	offline "github.com/ipfs/go-ipfs-exchange-offline"
 	files "github.com/ipfs/go-ipfs-files"
 	ipldformat "github.com/ipfs/go-ipld-format"
 	"github.com/ipfs/go-merkledag"
 	unixfile "github.com/ipfs/go-unixfs/file"
-	"github.com/ipfs/go-unixfs/importer/balanced"
-	"github.com/ipfs/go-unixfs/importer/helpers"
 	"github.com/ipld/go-car/v2/blockstore"
 	"github.com/ipld/go-ipld-prime"
 	cidlink "github.com/ipld/go-ipld-prime/linking/cid"
@@ -181,85 +177,23 @@ func (ltd *Libp2pTestData) LoadUnixFSFileToStore(t *testing.T, fixturesPath stri
 }
 
 func (ltd *Libp2pTestData) loadUnixFSFile(t *testing.T, fixturesPath string, dagService ipldformat.DAGService) (ipld.Link, string) {
-	// read in a fixture file
-	fpath, err := filepath.Abs(filepath.Join(thisDir(t), "..", fixturesPath))
-	require.NoError(t, err)
-
-	f, err := os.Open(fpath)
-	require.NoError(t, err)
-
-	var buf bytes.Buffer
-	tr := io.TeeReader(f, &buf)
-	file := files.NewReaderFile(tr)
-
-	// import to UnixFS
-	bufferedDS := ipldformat.NewBufferedDAG(ltd.Ctx, dagService)
-
-	params := helpers.DagBuilderParams{
-		Maxlinks:   unixfsLinksPerLevel,
-		RawLeaves:  true,
-		CidBuilder: nil,
-		Dagserv:    bufferedDS,
-	}
-
-	db, err := params.New(chunk.NewSizeSplitter(file, int64(unixfsChunkSize)))
-	require.NoError(t, err)
-
-	nd, err := balanced.Layout(db)
-	require.NoError(t, err)
-
-	err = bufferedDS.Commit()
-	require.NoError(t, err)
+	ctx := context.Background()
 
 	// save the original files bytes
-	ltd.OrigBytes = buf.Bytes()
-	require.NoError(t, file.Close())
-	require.NoError(t, f.Close())
-
-	// Create a UnixFS DAG again AND generate a CARv2 file using a CARv2 read-write blockstore now that we have the root.
-	carV2Path := genWithCARv2Blockstore(t, fpath, nd.Cid())
-
-	return cidlink.Link{Cid: nd.Cid()}, carV2Path
-}
-
-func genWithCARv2Blockstore(t *testing.T, fPath string, root cid.Cid) string {
-	ctx := context.Background()
-	tmp, err := os.CreateTemp("", "rand")
+	fpath, err := filepath.Abs(filepath.Join(thisDir(t), "..", fixturesPath))
 	require.NoError(t, err)
-	require.NoError(t, tmp.Close())
-
-	rw, err := blockstore.NewReadWrite(tmp.Name(), []cid.Cid{root}, blockstore.WithCidDeduplication)
+	f, err := os.Open(fpath)
 	require.NoError(t, err)
-
-	bsvc := blockservice.New(rw, offline.Exchange(rw))
-	dag := merkledag.NewDAGService(bsvc)
-	// import to UnixFS
-	bufferedDS := ipldformat.NewBufferedDAG(ctx, dag)
-
-	params := helpers.DagBuilderParams{
-		Maxlinks:   unixfsLinksPerLevel,
-		RawLeaves:  true,
-		CidBuilder: nil,
-		Dagserv:    bufferedDS,
-	}
-
-	f, err := os.Open(fPath)
+	ltd.OrigBytes, err = ioutil.ReadAll(f)
 	require.NoError(t, err)
+	require.NotEmpty(t, ltd.OrigBytes)
 
-	db, err := params.New(chunk.NewSizeSplitter(f, int64(unixfsChunkSize)))
-	require.NoError(t, err)
+	// generate a unixfs dag using the given dagService to get the root.
+	root := genUnixfsDAG(t, ctx, fixturesPath, dagService)
 
-	nd, err := balanced.Layout(db)
-	require.NoError(t, err)
-
-	err = bufferedDS.Commit()
-	require.NoError(t, err)
-
-	require.NoError(t, rw.Finalize())
-	require.Equal(t, root, nd.Cid())
-
-	// return the path of the CARv2 file.
-	return tmp.Name()
+	// Create a UnixFS DAG again AND generate a CARv2 file that can be used to back a filestore.
+	carV2Path := genFileStoreCARv2File(t, ctx, fixturesPath, root)
+	return cidlink.Link{Cid: root}, carV2Path
 }
 
 func thisDir(t *testing.T) string {

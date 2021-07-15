@@ -14,7 +14,6 @@ import (
 	"github.com/ipfs/go-datastore/namespace"
 	ds_sync "github.com/ipfs/go-datastore/sync"
 	"github.com/ipld/go-car"
-	"github.com/ipld/go-car/v2/blockstore"
 	"github.com/ipld/go-ipld-prime"
 	cidlink "github.com/ipld/go-ipld-prime/linking/cid"
 	"github.com/libp2p/go-libp2p-core/peer"
@@ -28,6 +27,7 @@ import (
 	"github.com/filecoin-project/specs-actors/actors/builtin/paych"
 
 	mktdagstore "github.com/filecoin-project/go-fil-markets/dagstore"
+	"github.com/filecoin-project/go-fil-markets/filestorecaradapter"
 	"github.com/filecoin-project/go-fil-markets/piecestore"
 	"github.com/filecoin-project/go-fil-markets/retrievalmarket"
 	retrievalimpl "github.com/filecoin-project/go-fil-markets/retrievalmarket/impl"
@@ -65,7 +65,7 @@ func TestStorageRetrieval(t *testing.T) {
 			pricePerByte:            abi.NewTokenAmount(1000),
 			paymentInterval:         uint64(10000),
 			paymentIntervalIncrease: uint64(1000),
-			voucherAmts:             []abi.TokenAmount{abi.NewTokenAmount(10136000), abi.NewTokenAmount(19920000)},
+			voucherAmts:             []abi.TokenAmount{abi.NewTokenAmount(10174000), abi.NewTokenAmount(19958000)},
 		},
 
 		"zero unseal, zero price per byte": {
@@ -81,7 +81,7 @@ func TestStorageRetrieval(t *testing.T) {
 			pricePerByte:            abi.NewTokenAmount(1000),
 			paymentInterval:         uint64(10000),
 			paymentIntervalIncrease: uint64(1000),
-			voucherAmts:             []abi.TokenAmount{abi.NewTokenAmount(1000), abi.NewTokenAmount(10137000), abi.NewTokenAmount(19921000)},
+			voucherAmts:             []abi.TokenAmount{abi.NewTokenAmount(1000), abi.NewTokenAmount(10175000), abi.NewTokenAmount(19959000)},
 		},
 	}
 
@@ -92,7 +92,7 @@ func TestStorageRetrieval(t *testing.T) {
 			deps := setupDepsWithDagStore(bgCtx, t, providerNode, pieceStore)
 			sh := testharness.NewHarnessWithTestData(t, deps.TestData, deps, true, false)
 
-			defer os.Remove(sh.CARv2FilePath)
+			defer os.Remove(sh.FileStoreCARv2FilePath)
 
 			storageProviderSeenDeal := doStorage(t, bgCtx, sh)
 			ctxTimeout, canc := context.WithTimeout(bgCtx, 25*time.Second)
@@ -133,7 +133,7 @@ func TestOfflineStorageRetrieval(t *testing.T) {
 			pricePerByte:            abi.NewTokenAmount(1000),
 			paymentInterval:         uint64(10000),
 			paymentIntervalIncrease: uint64(1000),
-			voucherAmts:             []abi.TokenAmount{abi.NewTokenAmount(10136000), abi.NewTokenAmount(19920000)},
+			voucherAmts:             []abi.TokenAmount{abi.NewTokenAmount(10174000), abi.NewTokenAmount(19958000)},
 		},
 
 		"zero unseal, zero price per byte": {
@@ -149,7 +149,7 @@ func TestOfflineStorageRetrieval(t *testing.T) {
 			pricePerByte:            abi.NewTokenAmount(1000),
 			paymentInterval:         uint64(10000),
 			paymentIntervalIncrease: uint64(1000),
-			voucherAmts:             []abi.TokenAmount{abi.NewTokenAmount(1000), abi.NewTokenAmount(10137000), abi.NewTokenAmount(19921000)},
+			voucherAmts:             []abi.TokenAmount{abi.NewTokenAmount(1000), abi.NewTokenAmount(10175000), abi.NewTokenAmount(19959000)},
 		},
 	}
 
@@ -161,7 +161,7 @@ func TestOfflineStorageRetrieval(t *testing.T) {
 			deps := setupDepsWithDagStore(bgCtx, t, providerNode, pieceStore)
 			sh := testharness.NewHarnessWithTestData(t, deps.TestData, deps, true, false)
 
-			defer os.Remove(sh.CARv2FilePath)
+			defer os.Remove(sh.FileStoreCARv2FilePath)
 			// start and wait for client/provider
 			ctx, cancel := context.WithTimeout(bgCtx, 5*time.Second)
 			defer cancel()
@@ -169,7 +169,7 @@ func TestOfflineStorageRetrieval(t *testing.T) {
 			shared_testutil.StartAndWaitForReady(ctx, t, sh.Client)
 
 			// Do a Selective CARv1 traversal on the CARv2 file  to get a deterministic CARv1 that we can import on the miner side.
-			rdOnly, err := blockstore.OpenReadOnly(sh.CARv2FilePath)
+			rdOnly, err := filestorecaradapter.NewReadOnlyFileStore(sh.FileStoreCARv2FilePath)
 			require.NoError(t, err)
 			sc := car.NewSelectiveCar(ctx, rdOnly, []car.Dag{{Root: sh.PayloadCid, Selector: shared.AllSelector()}})
 			prepared, err := sc.Prepare()
@@ -178,7 +178,7 @@ func TestOfflineStorageRetrieval(t *testing.T) {
 			require.NoError(t, prepared.Write(carBuf))
 			require.NoError(t, rdOnly.Close())
 
-			commP, size, err := clientutils.CommP(ctx, sh.CARv2FilePath, &storagemarket.DataRef{
+			commP, size, err := clientutils.CommP(ctx, sh.FileStoreCARv2FilePath, &storagemarket.DataRef{
 				// hacky but need it for now because if it's manual, we wont get a CommP.
 				TransferType: storagemarket.TTGraphsync,
 				Root:         sh.PayloadCid,

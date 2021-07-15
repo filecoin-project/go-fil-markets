@@ -369,26 +369,26 @@ func (t *ClientDeal) MarshalCBOR(w io.Writer) error {
 		return err
 	}
 
-	// t.CARv2FilePath (string) (string)
-	if len("CARv2FilePath") > cbg.MaxLength {
-		return xerrors.Errorf("Value in field \"CARv2FilePath\" was too long")
+	// t.FilestoreCARv2FilePath (string) (string)
+	if len("FilestoreCARv2FilePath") > cbg.MaxLength {
+		return xerrors.Errorf("Value in field \"FilestoreCARv2FilePath\" was too long")
 	}
 
-	if err := cbg.WriteMajorTypeHeaderBuf(scratch, w, cbg.MajTextString, uint64(len("CARv2FilePath"))); err != nil {
+	if err := cbg.WriteMajorTypeHeaderBuf(scratch, w, cbg.MajTextString, uint64(len("FilestoreCARv2FilePath"))); err != nil {
 		return err
 	}
-	if _, err := io.WriteString(w, string("CARv2FilePath")); err != nil {
+	if _, err := io.WriteString(w, string("FilestoreCARv2FilePath")); err != nil {
 		return err
 	}
 
-	if len(t.CARv2FilePath) > cbg.MaxLength {
-		return xerrors.Errorf("Value in field t.CARv2FilePath was too long")
+	if len(t.FilestoreCARv2FilePath) > cbg.MaxLength {
+		return xerrors.Errorf("Value in field t.FilestoreCARv2FilePath was too long")
 	}
 
-	if err := cbg.WriteMajorTypeHeaderBuf(scratch, w, cbg.MajTextString, uint64(len(t.CARv2FilePath))); err != nil {
+	if err := cbg.WriteMajorTypeHeaderBuf(scratch, w, cbg.MajTextString, uint64(len(t.FilestoreCARv2FilePath))); err != nil {
 		return err
 	}
-	if _, err := io.WriteString(w, string(t.CARv2FilePath)); err != nil {
+	if _, err := io.WriteString(w, string(t.FilestoreCARv2FilePath)); err != nil {
 		return err
 	}
 	return nil
@@ -727,8 +727,8 @@ func (t *ClientDeal) UnmarshalCBOR(r io.Reader) error {
 				t.SectorNumber = abi.SectorNumber(extra)
 
 			}
-			// t.CARv2FilePath (string) (string)
-		case "CARv2FilePath":
+			// t.FilestoreCARv2FilePath (string) (string)
+		case "FilestoreCARv2FilePath":
 
 			{
 				sval, err := cbg.ReadStringBuf(br, scratch)
@@ -736,7 +736,7 @@ func (t *ClientDeal) UnmarshalCBOR(r io.Reader) error {
 					return err
 				}
 
-				t.CARv2FilePath = string(sval)
+				t.FilestoreCARv2FilePath = string(sval)
 			}
 
 		default:
