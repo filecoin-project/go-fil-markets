@@ -81,7 +81,7 @@ func (r *ShardMigrator) registerShards(ctx context.Context, deals []storagemarke
 	go func() {
 		var total = math.MaxInt64
 		var res dagstore.ShardResult
-		for rcvd := 0; rcvd < total; rcvd++ {
+		for rcvd := 0; rcvd < total; {
 			select {
 			case total = <-totalCh:
 				// we now know the total number of registered shards
@@ -89,6 +89,7 @@ func (r *ShardMigrator) registerShards(ctx context.Context, deals []storagemarke
 				close(totalCh)
 				totalCh = nil
 			case res = <-resch:
+				rcvd++
 				if res.Error != nil {
 					log.Warnf("dagstore migration: failed to register shard: %s", res.Error)
 				}
