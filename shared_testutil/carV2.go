@@ -112,7 +112,7 @@ func genUnixfsDAG(t *testing.T, ctx context.Context, normalFilePath string, dag 
 
 	bufferedDS := ipldformat.NewBufferedDAG(ctx, dag)
 	params := ihelper.DagBuilderParams{
-		Maxlinks:  1024,
+		Maxlinks:  unixfsLinksPerLevel,
 		RawLeaves: true,
 		CidBuilder: cidutil.InlineBuilder{
 			Builder: prefix,
