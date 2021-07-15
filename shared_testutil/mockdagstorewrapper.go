@@ -3,12 +3,12 @@ package shared_testutil
 import (
 	"context"
 
-	mktdagstore "github.com/filecoin-project/go-fil-markets/dagstore"
 	"github.com/ipfs/go-cid"
 
 	"github.com/filecoin-project/dagstore"
 
 	"github.com/filecoin-project/go-fil-markets/carstore"
+	mktdagstore "github.com/filecoin-project/go-fil-markets/dagstore"
 )
 
 type MockDagStoreWrapper struct {
