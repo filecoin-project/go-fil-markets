@@ -558,7 +558,7 @@ func TestRestartClient(t *testing.T) {
 			ctx, cancel := context.WithTimeout(ctx, 50*time.Second)
 			defer cancel()
 			h := testharness.NewHarness(t, ctx, true, tc.clientDelay, tc.providerDelay, false)
-			defer os.Remove(h.CARv2FilePath)
+			defer os.Remove(h.FileStoreCARv2FilePath)
 			host1 := h.TestData.Host1
 			host2 := h.TestData.Host2
 
@@ -620,7 +620,7 @@ func TestRestartClient(t *testing.T) {
 
 			deps := dependencies.NewDependenciesWithTestData(t, ctx, h.TestData, h.SMState, "", noOpDelay, noOpDelay)
 			h = testharness.NewHarnessWithTestData(t, h.TestData, deps, true, false)
-			defer os.Remove(h.CARv2FilePath)
+			defer os.Remove(h.FileStoreCARv2FilePath)
 
 			if len(providerState) == 0 {
 				t.Log("no deal created on provider after stopping")
