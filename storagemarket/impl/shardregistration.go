@@ -123,7 +123,11 @@ func (r *ShardMigrator) registerShards(ctx context.Context, deals []storagemarke
 		// index immediately if the deal is unsealed (if the deal is not
 		// unsealed it will be initialized "lazily" once it's unsealed during
 		// retrieval)
-		r.dagStore.RegisterShard(ctx, *deal.Ref.PieceCid, deal.CARv2FilePath, isUnsealed, resch)
+		err = r.dagStore.RegisterShard(ctx, *deal.Ref.PieceCid, deal.CARv2FilePath, isUnsealed, resch)
+		if err != nil {
+			log.Warnf("failed to register shard for deal with piece CID %s: %s", deal.Ref.PieceCid, err)
+			continue
+		}
 		registered++
 	}
 

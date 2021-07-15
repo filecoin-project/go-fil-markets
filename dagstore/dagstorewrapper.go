@@ -34,7 +34,7 @@ type MarketDAGStoreConfig struct {
 type DagStoreWrapper interface {
 	// RegisterShard loads a CAR file into the DAG store and builds an
 	// index for it, sending the result on the supplied channel on completion
-	RegisterShard(ctx context.Context, pieceCid cid.Cid, carPath string, eagerInit bool, resch chan dagstore.ShardResult)
+	RegisterShard(ctx context.Context, pieceCid cid.Cid, carPath string, eagerInit bool, resch chan dagstore.ShardResult) error
 	// LoadShard fetches the data for a shard and provides a blockstore interface to it
 	LoadShard(ctx context.Context, pieceCid cid.Cid) (carstore.ClosableBlockstore, error)
 	// Close closes the dag store wrapper.
@@ -168,17 +168,7 @@ func (ds *dagStoreWrapper) LoadShard(ctx context.Context, pieceCid cid.Cid) (car
 	return &closableBlockstore{Blockstore: NewReadOnlyBlockstore(bs), Closer: res.Accessor}, nil
 }
 
-func (ds *dagStoreWrapper) RegisterShard(ctx context.Context, pieceCid cid.Cid, carPath string, eagerInit bool, resch chan dagstore.ShardResult) {
-	err := ds.registerShard(ctx, pieceCid, carPath, eagerInit, resch)
-	if err != nil {
-		select {
-		case <-ctx.Done():
-		case resch <- dagstore.ShardResult{Error: err}:
-		}
-	}
-}
-
-func (ds *dagStoreWrapper) registerShard(ctx context.Context, pieceCid cid.Cid, carPath string, eagerInit bool, resch chan dagstore.ShardResult) error {
+func (ds *dagStoreWrapper) RegisterShard(ctx context.Context, pieceCid cid.Cid, carPath string, eagerInit bool, resch chan dagstore.ShardResult) error {
 	// Create a lotus mount with the piece CID
 	key := shard.KeyFromCID(pieceCid)
 	mt, err := NewLotusMount(pieceCid, ds.mountApi)
@@ -210,10 +200,14 @@ func (ds *dagStoreWrapper) Close() error {
 	return nil
 }
 
-// RegisterShard loads a CAR file into the DAG store and builds an index for it
+// RegisterShardSync calls the DAGStore RegisterShard method and waits
+// synchronously in a dedicated channel until the registration has completed
+// fully.
 func RegisterShardSync(ctx context.Context, ds DagStoreWrapper, pieceCid cid.Cid, carPath string, eagerInit bool) error {
 	resch := make(chan dagstore.ShardResult, 1)
-	ds.RegisterShard(ctx, pieceCid, carPath, eagerInit, resch)
+	if err := ds.RegisterShard(ctx, pieceCid, carPath, eagerInit, resch); err != nil {
+		return err
+	}
 
 	// TODO: Can I rely on RegisterShard to return an error if the context times out?
 	select {
