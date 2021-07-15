@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"context"
 	"io"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"testing"
@@ -373,6 +372,7 @@ func TestClientCanMakeDealWithProvider(t *testing.T) {
 			require.True(t, ok)
 			payloadCID := c.Cid
 
+			// Get the CARv1 payload of the UnixFS DAG that the (Filestore backed by the CARv2) contains.
 			carFile, err := os.CreateTemp(t.TempDir(), "rand")
 			require.NoError(t, err)
 			fs, err := filestorecaradapter.NewReadOnlyFileStore(fileStoreCARv2FilePath)
@@ -382,15 +382,13 @@ func TestClientCanMakeDealWithProvider(t *testing.T) {
 			require.NoError(t, err)
 			carBuf := new(bytes.Buffer)
 			require.NoError(t, prepared.Dump(carBuf))
+			carDataBuf := new(bytes.Buffer)
+			tr := io.TeeReader(carBuf, carDataBuf)
 			require.NoError(t, fs.Close())
-			_, err = io.Copy(carFile, carBuf)
+			_, err = io.Copy(carFile, tr)
 			require.NoError(t, err)
-			_, err = carFile.Seek(0, io.SeekStart)
-			require.NoError(t, err)
-			carData, err := ioutil.ReadAll(carFile)
-			require.NoError(t, err)
-			require.NotEmpty(t, carData)
 			require.NoError(t, carFile.Close())
+			carData := carDataBuf.Bytes()
 
 			// Set up retrieval parameters
 			providerPaymentAddr, err := address.NewIDAddress(uint64(i * 99))
