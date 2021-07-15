@@ -3,14 +3,13 @@ package storageimpl
 import (
 	"context"
 
-	"github.com/filecoin-project/go-statemachine/fsm"
-
 	"github.com/ipfs/go-datastore"
 	"golang.org/x/xerrors"
 
 	"github.com/filecoin-project/dagstore"
 	"github.com/filecoin-project/go-address"
 	"github.com/filecoin-project/go-state-types/abi"
+	"github.com/filecoin-project/go-statemachine/fsm"
 	"github.com/filecoin-project/lotus/chain/actors/builtin/miner"
 	"github.com/filecoin-project/lotus/chain/types"
 	"github.com/filecoin-project/lotus/extern/sector-storage/storiface"
@@ -97,7 +96,7 @@ func (r *ShardMigrator) registerShards(ctx context.Context, deals []storagemarke
 		// index immediately if the deal is unsealed (if the deal is not
 		// unsealed it will be initialized "lazily" once it's unsealed during
 		// retrieval)
-		r.dagStore.RegisterShardAsync(ctx, *deal.Ref.PieceCid, deal.CARv2FilePath, isUnsealed, resch)
+		r.dagStore.RegisterShard(ctx, *deal.Ref.PieceCid, deal.CARv2FilePath, isUnsealed, resch)
 		registered++
 	}
 

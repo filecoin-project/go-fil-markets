@@ -18,11 +18,7 @@ func NewMockDagStoreWrapper() *MockDagStoreWrapper {
 	return &MockDagStoreWrapper{}
 }
 
-func (m *MockDagStoreWrapper) RegisterShard(ctx context.Context, pieceCid cid.Cid, carPath string, eagerInit bool) error {
-	return nil
-}
-
-func (m *MockDagStoreWrapper) RegisterShardAsync(ctx context.Context, pieceCid cid.Cid, carPath string, eagerInit bool, resch chan dagstore.ShardResult) {
+func (m *MockDagStoreWrapper) RegisterShard(ctx context.Context, pieceCid cid.Cid, carPath string, eagerInit bool, resch chan dagstore.ShardResult) {
 	resch <- dagstore.ShardResult{}
 }
 
