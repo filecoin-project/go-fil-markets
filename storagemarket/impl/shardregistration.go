@@ -3,6 +3,8 @@ package storageimpl
 import (
 	"context"
 
+	"github.com/filecoin-project/go-statemachine/fsm"
+
 	"github.com/ipfs/go-datastore"
 	"golang.org/x/xerrors"
 
@@ -62,6 +64,11 @@ func (r *ShardMigrator) registerShards(ctx context.Context, deals []storagemarke
 		return nil
 	}
 
+	inSealingSubsystem := make(map[fsm.StateKey]struct{}, len(providerstates.StatesKnownBySealingSubsystem))
+	for _, s := range providerstates.StatesKnownBySealingSubsystem {
+		inSealingSubsystem[s] = struct{}{}
+	}
+
 	// Filter for deals that are currently sealing.
 	// If the deal has not yet been handed off to the sealing subsystem, we
 	// don't need to call RegisterShard in this migration; RegisterShard will
@@ -74,15 +81,8 @@ func (r *ShardMigrator) registerShards(ctx context.Context, deals []storagemarke
 			continue
 		}
 
-		// Check if the deal has been handed off to the sealing subsystem
-		var inSealingSubsystem bool
-		for _, state := range providerstates.StatesKnownBySealingSubsystem {
-			if deal.State == state {
-				inSealingSubsystem = true
-				break
-			}
-		}
-		if !inSealingSubsystem {
+		// Filter for deals that have been handed off to the sealing subsystem
+		if _, ok := inSealingSubsystem[deal.State]; !ok {
 			continue
 		}
 
