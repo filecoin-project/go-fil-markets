@@ -49,13 +49,14 @@ func (r *CarReadWriteStoreTracker) Get(key string) (*blockstore.ReadWrite, error
 	return nil, xerrors.Errorf("could not get blockstore for key %s: %w", key, ErrNotFound)
 }
 
-// Note: Calling `Finalize` on the read-write blockstore has been left to the caller here as it's more of a application semantic operation rather than a "cleanup"
-// operation.
 func (r *CarReadWriteStoreTracker) CleanBlockstore(key string) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
 	if rw, ok := r.stores[key]; ok {
+		// If the blockstore has already been finalized, calling Finalize again
+		// will return an error. For our purposes it's simplest if Finalize is
+		// idempotent so we just ignore any error.
 		_ = rw.Finalize()
 	}
 

@@ -1555,7 +1555,7 @@ func (fe *fakeEnvironment) GeneratePieceCommitment(proposalCid cid.Cid, carV2Fil
 	return fe.pieceCid, fe.metadataPath, fe.generateCommPError
 }
 
-func (fe *fakeEnvironment) FinalizeReadWriteBlockstore(proposalCid cid.Cid) error {
+func (fe *fakeEnvironment) FinalizeReadWriteBlockstore(proposalCid cid.Cid, carPath string, root cid.Cid) error {
 	return fe.finalizeBlockstoreErr
 }
 

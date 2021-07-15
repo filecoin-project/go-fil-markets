@@ -38,7 +38,7 @@ type ProviderDealEnvironment interface {
 
 	RegisterShard(ctx context.Context, pieceCid cid.Cid, path string) error
 
-	FinalizeReadWriteBlockstore(proposalCid cid.Cid) error
+	FinalizeReadWriteBlockstore(proposalCid cid.Cid, carPath string, root cid.Cid) error
 
 	CleanReadWriteBlockstore(proposalCid cid.Cid, carFilePath string) error
 
@@ -203,7 +203,7 @@ func DecideOnProposal(ctx fsm.Context, environment ProviderDealEnvironment, deal
 // in the proposal
 func VerifyData(ctx fsm.Context, environment ProviderDealEnvironment, deal storagemarket.MinerDeal) error {
 	// finalize the blockstore as we're done writing deal data to it.
-	if err := environment.FinalizeReadWriteBlockstore(deal.ProposalCid); err != nil {
+	if err := environment.FinalizeReadWriteBlockstore(deal.ProposalCid, deal.CARv2FilePath, deal.Ref.Root); err != nil {
 		return ctx.Trigger(storagemarket.ProviderEventDataVerificationFailed, xerrors.Errorf("failed to finalize read-write blockstore: %w", err), filestore.Path(""), filestore.Path(""))
 	}
 
@@ -552,7 +552,7 @@ func FailDeal(ctx fsm.Context, environment ProviderDealEnvironment, deal storage
 	}
 
 	if deal.CARv2FilePath != "" {
-		if err := environment.FinalizeReadWriteBlockstore(deal.ProposalCid); err != nil {
+		if err := environment.FinalizeReadWriteBlockstore(deal.ProposalCid, deal.CARv2FilePath, deal.Ref.Root); err != nil {
 			log.Warnf("error finalizing read-write store, CARv2FilePath=%s: %s", deal.CARv2FilePath, err)
 		}
 
