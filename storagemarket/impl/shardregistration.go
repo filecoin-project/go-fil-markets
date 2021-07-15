@@ -2,6 +2,7 @@ package storageimpl
 
 import (
 	"context"
+	"math"
 
 	"github.com/ipfs/go-datastore"
 	"golang.org/x/xerrors"
@@ -68,13 +69,39 @@ func (r *ShardMigrator) registerShards(ctx context.Context, deals []storagemarke
 		inSealingSubsystem[s] = struct{}{}
 	}
 
+	// channel where results will be received, and channel where the total
+	// number of registered shards will be sent.
+	resch := make(chan dagstore.ShardResult, 32)
+	totalCh := make(chan int)
+
+	// Start making progress consuming results. We won't know how many to
+	// actually consume until we register all shards.
+	//
+	// If there are any problems registering shards, just log an error
+	go func() {
+		var total = math.MaxInt64
+		var res dagstore.ShardResult
+		for rcvd := 0; rcvd < total; rcvd++ {
+			select {
+			case total = <-totalCh:
+				// we now know the total number of registered shards
+				// nullify so that we no longer consume from it after closed.
+				close(totalCh)
+				totalCh = nil
+			case res = <-resch:
+				if res.Error != nil {
+					log.Warnf("dagstore migration: failed to register shard: %s", res.Error)
+				}
+			}
+		}
+	}()
+
 	// Filter for deals that are currently sealing.
 	// If the deal has not yet been handed off to the sealing subsystem, we
 	// don't need to call RegisterShard in this migration; RegisterShard will
 	// be called in the new code once the deal reaches the state where it's
 	// handed off to the sealing subsystem.
 	var registered int
-	resch := make(chan dagstore.ShardResult, len(deals))
 	for _, deal := range deals {
 		if deal.Ref.PieceCid == nil {
 			continue
@@ -100,15 +127,7 @@ func (r *ShardMigrator) registerShards(ctx context.Context, deals []storagemarke
 		registered++
 	}
 
-	// If there are any problems registering shards, just log an error
-	go func() {
-		for i := 0; i < registered; i++ {
-			res := <-resch
-			if res.Error != nil {
-				log.Warnf("dagstore migration: failed to register shard: %s", res.Error)
-			}
-		}
-	}()
+	totalCh <- registered
 
 	// Completed registering all shards, so mark the migration as complete
 	err = r.ds.Put(shardRegKey, []byte{1})
