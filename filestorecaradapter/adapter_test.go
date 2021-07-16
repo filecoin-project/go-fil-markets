@@ -51,14 +51,7 @@ func TestReadOnlyFilstoreWithPosInfoCARFile(t *testing.T) {
 	require.NoError(t, fs.Close())
 	require.Equal(t, root, root2)
 
-	// assert that attempting to regenerate the original file using just a CAR blockstore file fails because of Posinfo nodes.
-	rdOnly, err := blockstore.OpenReadOnly(tmpCARv2.Name())
-	require.NoError(t, err)
-	_, err = dagToNormalFile(t, ctx, root, rdOnly)
-	require.Error(t, err)
-	require.NoError(t, rdOnly.Close())
-
-	// however, it works if we use a Filestore backed by the given CAR file
+	// it works if we use a Filestore backed by the given CAR file
 	rofs, err := NewReadOnlyFileStore(tmpCARv2.Name())
 	require.NoError(t, err)
 	fbz, err := dagToNormalFile(t, ctx, root, rofs)
