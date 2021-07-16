@@ -12,9 +12,9 @@ import (
 )
 
 func TestGeneratePieceCommitment(t *testing.T) {
-	_, carV2File1, _ := shared_testutil.GenCARv2FromNormalFile(t, filepath.Join("storagemarket", "fixtures", "payload.txt"))
+	_, carV2File1 := shared_testutil.GenFullCARv2FromNormalFile(t, filepath.Join("storagemarket", "fixtures", "payload.txt"))
 	defer os.Remove(carV2File1)
-	_, carV2File2, _ := shared_testutil.GenCARv2FromNormalFile(t, filepath.Join("storagemarket", "fixtures", "payload2.txt"))
+	_, carV2File2 := shared_testutil.GenFullCARv2FromNormalFile(t, filepath.Join("storagemarket", "fixtures", "payload2.txt"))
 	defer os.Remove(carV2File2)
 
 	commP1 := genProviderCommP(t, carV2File1)

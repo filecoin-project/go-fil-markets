@@ -12,6 +12,7 @@ import (
 
 	datatransfer "github.com/filecoin-project/go-data-transfer"
 
+	"github.com/filecoin-project/go-fil-markets/filestorecaradapter"
 	"github.com/filecoin-project/go-fil-markets/storagemarket"
 	"github.com/filecoin-project/go-fil-markets/storagemarket/network"
 )
@@ -68,11 +69,17 @@ func (csg *clientStoreGetter) Get(proposalCid cid.Cid) (bstore.Blockstore, error
 	// get a read Only CARv2 blockstore that provides random access on top of
 	// the client's CARv2 file containing the CARv1 payload that needs to be
 	// transferred as part of the deal.
-	bs, err := csg.c.readOnlyCARStoreTracker.GetOrCreate(proposalCid.String(), deal.CARv2FilePath)
+
+	fs, err := filestorecaradapter.NewReadOnlyFileStore(deal.FilestoreCARv2FilePath)
 	if err != nil {
 		return nil, xerrors.Errorf("failed to get blockstore from tracker: %w", err)
 	}
-	return bs, nil
+
+	_, err = csg.c.readOnlyCARStoreTracker.Add(proposalCid.String(), fs)
+	if err != nil {
+		return nil, xerrors.Errorf("failed to get blockstore from tracker: %w", err)
+	}
+	return fs, nil
 }
 
 func (c *clientDealEnvironment) TagPeer(peer peer.ID, tag string) {
