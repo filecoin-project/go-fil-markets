@@ -57,7 +57,7 @@ func NewReadOnlyFileStore(carFilePath string) (*FileStore, error) {
 // Note that if the client does NOT write any `PosInfo` nodes to the Filestore, the backing CARv2 file will contain
 // all blocks as is i.e. in such a case, the Filestore will simply act as a pass-through read-write CAR Blockstore.
 func NewReadWriteFileStore(carV2FilePath string, roots []cid.Cid) (*FileStore, error) {
-	rw, err := blockstore.NewReadWrite(carV2FilePath, roots)
+	rw, err := blockstore.OpenReadWrite(carV2FilePath, roots)
 	if err != nil {
 		return nil, xerrors.Errorf("failed to open read-write blockstore: %w", err)
 	}

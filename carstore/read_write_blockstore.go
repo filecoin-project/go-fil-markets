@@ -29,7 +29,7 @@ func (r *CarReadWriteStoreTracker) GetOrCreate(key string, carV2FilePath string,
 		return bs, nil
 	}
 
-	rwBs, err := blockstore.NewReadWrite(carV2FilePath, []cid.Cid{rootCid}, blockstore.WithCidDeduplication)
+	rwBs, err := blockstore.OpenReadWrite(carV2FilePath, []cid.Cid{rootCid})
 	if err != nil {
 		return nil, xerrors.Errorf("failed to create read-write blockstore: %w", err)
 	}

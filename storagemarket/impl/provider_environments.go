@@ -35,7 +35,7 @@ func (p *providerDealEnvironment) RegisterShard(ctx context.Context, pieceCid ci
 }
 
 func (p *providerDealEnvironment) CARv2Reader(carV2FilePath string) (*carv2.Reader, error) {
-	return carv2.NewReaderMmap(carV2FilePath)
+	return carv2.OpenReader(carV2FilePath)
 }
 
 func (p *providerDealEnvironment) FinalizeReadWriteBlockstore(proposalCid cid.Cid, carPath string, rootCid cid.Cid) error {
@@ -80,7 +80,7 @@ func (p *providerDealEnvironment) CleanReadWriteBlockstore(proposalCid cid.Cid, 
 
 // GeneratePieceCommitment generates the pieceCid for the CARv1 deal payload in the CARv2 file that already exists at the given path.
 func (p *providerDealEnvironment) GeneratePieceCommitment(proposalCid cid.Cid, carV2FilePath string) (c cid.Cid, path filestore.Path, finalErr error) {
-	rd, err := carv2.NewReaderMmap(carV2FilePath)
+	rd, err := carv2.OpenReader(carV2FilePath)
 	if err != nil {
 		return cid.Undef, "", xerrors.Errorf("failed to get CARv2 reader, proposalCid=%s, carV2FilePath=%s: %w", proposalCid, carV2FilePath, err)
 	}

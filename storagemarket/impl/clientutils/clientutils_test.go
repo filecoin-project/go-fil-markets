@@ -151,7 +151,7 @@ func TestNoDuplicatesInCARv2(t *testing.T) {
 	require.NotEmpty(t, CARv2Path)
 	defer os.Remove(CARv2Path)
 
-	v2r, err := carv2.NewReaderMmap(CARv2Path)
+	v2r, err := carv2.OpenReader(CARv2Path)
 	require.NoError(t, err)
 	defer v2r.Close()
 
