@@ -68,20 +68,20 @@ func (a *bsToDSBatchingAdapter) Batch() (datastore.Batch, error) {
 	return datastore.NewBasicBatch(a), nil
 }
 
-func (a *bsToDSBatchingAdapter) GetSize(key datastore.Key) (size int, err error) {
-	panic("implement me")
+func (a *bsToDSBatchingAdapter) GetSize(_ datastore.Key) (size int, err error) {
+	return 0, xerrors.New("operation NOT supported: GetSize")
 }
 
-func (a *bsToDSBatchingAdapter) Query(q query.Query) (query.Results, error) {
-	panic("implement me")
+func (a *bsToDSBatchingAdapter) Query(_ query.Query) (query.Results, error) {
+	return nil, xerrors.New("operation NOT supported: Query")
 }
 
-func (a *bsToDSBatchingAdapter) Delete(key datastore.Key) error {
-	panic("implement me")
+func (a *bsToDSBatchingAdapter) Delete(_ datastore.Key) error {
+	return xerrors.New("operation NOT supported: Delete")
 }
 
-func (a *bsToDSBatchingAdapter) Sync(prefix datastore.Key) error {
-	panic("implement me")
+func (a *bsToDSBatchingAdapter) Sync(_ datastore.Key) error {
+	return xerrors.New("operation NOT supported: Sync")
 }
 
 func (a *bsToDSBatchingAdapter) Close() error {
