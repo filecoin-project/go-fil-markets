@@ -31,32 +31,30 @@ import (
 	"golang.org/x/net/context"
 
 	dtnet "github.com/filecoin-project/go-data-transfer/network"
-
-	"github.com/filecoin-project/go-fil-markets/filestore"
 )
 
 type Libp2pTestData struct {
-	Ctx          context.Context
-	Ds1          datastore.Batching
-	Ds2          datastore.Batching
-	Bs1          bstore.Blockstore
-	Bs2          bstore.Blockstore
-	CarFileStore filestore.CarFileStore
-	DagService1  ipldformat.DAGService
-	DagService2  ipldformat.DAGService
-	DTNet1       dtnet.DataTransferNetwork
-	DTNet2       dtnet.DataTransferNetwork
-	DTStore1     datastore.Batching
-	DTStore2     datastore.Batching
-	DTTmpDir1    string
-	DTTmpDir2    string
-	Loader1      ipld.Loader
-	Loader2      ipld.Loader
-	Storer1      ipld.Storer
-	Storer2      ipld.Storer
-	Host1        host.Host
-	Host2        host.Host
-	OrigBytes    []byte
+	Ctx         context.Context
+	Ds1         datastore.Batching
+	Ds2         datastore.Batching
+	Bs1         bstore.Blockstore
+	Bs2         bstore.Blockstore
+	CarFilePath string
+	DagService1 ipldformat.DAGService
+	DagService2 ipldformat.DAGService
+	DTNet1      dtnet.DataTransferNetwork
+	DTNet2      dtnet.DataTransferNetwork
+	DTStore1    datastore.Batching
+	DTStore2    datastore.Batching
+	DTTmpDir1   string
+	DTTmpDir2   string
+	Loader1     ipld.Loader
+	Loader2     ipld.Loader
+	Storer1     ipld.Storer
+	Storer2     ipld.Storer
+	Host1       host.Host
+	Host2       host.Host
+	OrigBytes   []byte
 
 	MockNet mocknet.Mocknet
 }
@@ -105,8 +103,7 @@ func NewLibp2pTestData(ctx context.Context, t *testing.T) *Libp2pTestData {
 	testData.Bs1 = bstore.NewBlockstore(testData.Ds1)
 	testData.Bs2 = bstore.NewBlockstore(testData.Ds2)
 
-	testData.CarFileStore, err = filestore.NewLocalCarStore(t.TempDir())
-	require.NoError(t, err)
+	testData.CarFilePath = t.TempDir()
 
 	testData.DagService1 = merkledag.NewDAGService(blockservice.New(testData.Bs1, offline.Exchange(testData.Bs1)))
 	testData.DagService2 = merkledag.NewDAGService(blockservice.New(testData.Bs2, offline.Exchange(testData.Bs2)))

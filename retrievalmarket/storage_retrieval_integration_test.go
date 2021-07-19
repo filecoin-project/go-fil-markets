@@ -426,7 +426,7 @@ func newRetrievalHarnessWithDeps(
 
 	nw1 := rmnet.NewFromLibp2pHost(sh.TestData.Host1, rmnet.RetryParameters(0, 0, 0, 0))
 	clientDs := namespace.Wrap(sh.TestData.Ds1, datastore.NewKey("/retrievals/client"))
-	client, err := retrievalimpl.NewClient(nw1, sh.TestData.CarFileStore, sh.DTClient, clientNode, sh.PeerResolver, clientDs)
+	client, err := retrievalimpl.NewClient(nw1, sh.TestData.CarFilePath, sh.DTClient, clientNode, sh.PeerResolver, clientDs)
 	require.NoError(t, err)
 	tut.StartAndWaitForReady(ctx, t, client)
 	payloadCID := deal.DataRef.Root

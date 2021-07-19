@@ -36,9 +36,3 @@ type FileStore interface {
 
 	CreateTemp() (File, error)
 }
-
-// CarFileStore provides the path at which to store CAR files created during
-// storage or retrieval
-type CarFileStore interface {
-	Path(key string) string
-}

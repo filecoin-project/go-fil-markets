@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"path/filepath"
 	"sync"
 
 	"github.com/hannahhoward/go-pubsub"
@@ -23,7 +24,6 @@ import (
 
 	"github.com/filecoin-project/go-fil-markets/carstore"
 	"github.com/filecoin-project/go-fil-markets/discovery"
-	"github.com/filecoin-project/go-fil-markets/filestore"
 	"github.com/filecoin-project/go-fil-markets/retrievalmarket"
 	"github.com/filecoin-project/go-fil-markets/retrievalmarket/impl/clientstates"
 	"github.com/filecoin-project/go-fil-markets/retrievalmarket/impl/dtutils"
@@ -46,7 +46,7 @@ type Client struct {
 	resolver             discovery.PeerResolver
 	stateMachines        fsm.Group
 	migrateStateMachines func(context.Context) error
-	carStore             filestore.CarFileStore
+	carPath              string
 	readWriteBlockstores *carstore.CarReadWriteStoreTracker
 
 	// Guards concurrent access to Retrieve method
@@ -74,7 +74,7 @@ func dispatcher(evt pubsub.Event, subscriberFn pubsub.SubscriberFn) error {
 var _ retrievalmarket.RetrievalClient = &Client{}
 
 // NewClient creates a new retrieval client
-func NewClient(network rmnet.RetrievalMarketNetwork, carStore filestore.CarFileStore, dataTransfer datatransfer.Manager, node retrievalmarket.RetrievalClientNode, resolver discovery.PeerResolver, ds datastore.Batching) (retrievalmarket.RetrievalClient, error) {
+func NewClient(network rmnet.RetrievalMarketNetwork, carPath string, dataTransfer datatransfer.Manager, node retrievalmarket.RetrievalClientNode, resolver discovery.PeerResolver, ds datastore.Batching) (retrievalmarket.RetrievalClient, error) {
 	c := &Client{
 		network:              network,
 		dataTransfer:         dataTransfer,
@@ -83,7 +83,7 @@ func NewClient(network rmnet.RetrievalMarketNetwork, carStore filestore.CarFileS
 		dealIDGen:            shared.NewTimeCounter(),
 		subscribers:          pubsub.New(dispatcher),
 		readySub:             pubsub.New(shared.ReadyDispatcher),
-		carStore:             carStore,
+		carPath:              carPath,
 		readWriteBlockstores: carstore.NewCarReadWriteStoreTracker(),
 	}
 	retrievalMigrations, err := migrations.ClientMigrations.Build()
@@ -251,7 +251,7 @@ func (c *Client) Retrieve(ctx context.Context, payloadCID cid.Cid, params retrie
 	// will be written to
 	next := c.dealIDGen.Next()
 	dealID := retrievalmarket.DealID(next)
-	carFilePath := c.carStore.Path(dealID.String())
+	carFilePath := filepath.Join(c.carPath, dealID.String())
 	_, err = c.readWriteBlockstores.GetOrCreate(dealID.String(), carFilePath, payloadCID)
 	if err != nil {
 		return nil, xerrors.Errorf("failed to create retrieval client blockstore: %w", err)

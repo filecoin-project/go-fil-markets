@@ -120,7 +120,7 @@ func requireSetupTestClientAndProvider(ctx context.Context, t *testing.T, payChA
 	testutil.StartAndWaitForReady(ctx, t, dt1)
 	require.NoError(t, err)
 	clientDs := namespace.Wrap(testData.Ds1, datastore.NewKey("/retrievals/client"))
-	client, err := retrievalimpl.NewClient(nw1, testData.CarFileStore, dt1, rcNode1, &tut.TestPeerResolver{}, clientDs)
+	client, err := retrievalimpl.NewClient(nw1, testData.CarFilePath, dt1, rcNode1, &tut.TestPeerResolver{}, clientDs)
 	require.NoError(t, err)
 	tut.StartAndWaitForReady(ctx, t, client)
 	nw2 := rmnet.NewFromLibp2pHost(testData.Host2, rmnet.RetryParameters(0, 0, 0, 0))
@@ -656,7 +656,7 @@ func setupClient(
 	require.NoError(t, err)
 	clientDs := namespace.Wrap(testData.Ds1, datastore.NewKey("/retrievals/client"))
 
-	client, err := retrievalimpl.NewClient(nw1, testData.CarFileStore, dt1, clientNode, &tut.TestPeerResolver{}, clientDs)
+	client, err := retrievalimpl.NewClient(nw1, testData.CarFilePath, dt1, clientNode, &tut.TestPeerResolver{}, clientDs)
 	return &createdChan, &newLaneAddr, &createdVoucher, clientNode, client, err
 }
 

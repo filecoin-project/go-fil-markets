@@ -25,7 +25,6 @@ import (
 	"github.com/filecoin-project/go-state-types/abi"
 	"github.com/filecoin-project/go-state-types/big"
 
-	"github.com/filecoin-project/go-fil-markets/filestore"
 	"github.com/filecoin-project/go-fil-markets/retrievalmarket"
 	retrievalimpl "github.com/filecoin-project/go-fil-markets/retrievalmarket/impl"
 	"github.com/filecoin-project/go-fil-markets/retrievalmarket/impl/testnodes"
@@ -40,11 +39,9 @@ import (
 func TestClient_Construction(t *testing.T) {
 
 	ds := dss.MutexWrap(datastore.NewMapDatastore())
-	cs, err := filestore.NewLocalCarStore(t.TempDir())
-	require.NoError(t, err)
 	dt := tut.NewTestDataTransfer()
 	net := tut.NewTestRetrievalMarketNetwork(tut.TestNetworkParams{})
-	_, err = retrievalimpl.NewClient(net, cs, dt, testnodes.NewTestRetrievalClientNode(testnodes.TestRetrievalClientNodeParams{}), &tut.TestPeerResolver{}, ds)
+	_, err := retrievalimpl.NewClient(net, t.TempDir(), dt, testnodes.NewTestRetrievalClientNode(testnodes.TestRetrievalClientNodeParams{}), &tut.TestPeerResolver{}, ds)
 	require.NoError(t, err)
 
 	require.Len(t, dt.Subscribers, 1)
@@ -72,8 +69,7 @@ func TestClient_Query(t *testing.T) {
 	ctx := context.Background()
 
 	ds := dss.MutexWrap(datastore.NewMapDatastore())
-	cs, err := filestore.NewLocalCarStore(t.TempDir())
-	require.NoError(t, err)
+	carPath := t.TempDir()
 	dt := tut.NewTestDataTransfer()
 
 	pcid := tut.GenerateCids(1)[0]
@@ -108,7 +104,7 @@ func TestClient_Query(t *testing.T) {
 		})
 		node := testnodes.NewTestRetrievalClientNode(testnodes.TestRetrievalClientNodeParams{})
 		node.ExpectKnownAddresses(rpeer, nil)
-		c, err := retrievalimpl.NewClient(net, cs, dt, node, &tut.TestPeerResolver{}, ds)
+		c, err := retrievalimpl.NewClient(net, carPath, dt, node, &tut.TestPeerResolver{}, ds)
 		require.NoError(t, err)
 
 		resp, err := c.Query(ctx, rpeer, pcid, retrievalmarket.QueryParams{})
@@ -124,7 +120,7 @@ func TestClient_Query(t *testing.T) {
 		})
 		node := testnodes.NewTestRetrievalClientNode(testnodes.TestRetrievalClientNodeParams{})
 		node.ExpectKnownAddresses(rpeer, nil)
-		c, err := retrievalimpl.NewClient(net, cs, dt, node, &tut.TestPeerResolver{}, ds)
+		c, err := retrievalimpl.NewClient(net, carPath, dt, node, &tut.TestPeerResolver{}, ds)
 		require.NoError(t, err)
 
 		_, err = c.Query(ctx, rpeer, pcid, retrievalmarket.QueryParams{})
@@ -147,7 +143,7 @@ func TestClient_Query(t *testing.T) {
 		})
 		node := testnodes.NewTestRetrievalClientNode(testnodes.TestRetrievalClientNodeParams{})
 		node.ExpectKnownAddresses(rpeer, nil)
-		c, err := retrievalimpl.NewClient(net, cs, dt, node, &tut.TestPeerResolver{}, ds)
+		c, err := retrievalimpl.NewClient(net, carPath, dt, node, &tut.TestPeerResolver{}, ds)
 		require.NoError(t, err)
 
 		statusCode, err := c.Query(ctx, rpeer, pcid, retrievalmarket.QueryParams{})
@@ -169,7 +165,7 @@ func TestClient_Query(t *testing.T) {
 		})
 		node := testnodes.NewTestRetrievalClientNode(testnodes.TestRetrievalClientNodeParams{})
 		node.ExpectKnownAddresses(rpeer, nil)
-		c, err := retrievalimpl.NewClient(net, cs, dt, node, &tut.TestPeerResolver{}, ds)
+		c, err := retrievalimpl.NewClient(net, carPath, dt, node, &tut.TestPeerResolver{}, ds)
 		require.NoError(t, err)
 
 		statusCode, err := c.Query(ctx, rpeer, pcid, retrievalmarket.QueryParams{})
@@ -181,8 +177,7 @@ func TestClient_Query(t *testing.T) {
 
 func TestClient_FindProviders(t *testing.T) {
 	ds := dss.MutexWrap(datastore.NewMapDatastore())
-	cs, err := filestore.NewLocalCarStore(t.TempDir())
-	require.NoError(t, err)
+	carPath := t.TempDir()
 	dt := tut.NewTestDataTransfer()
 	expectedPeer := peer.ID("somevalue")
 
@@ -200,7 +195,7 @@ func TestClient_FindProviders(t *testing.T) {
 		peers := tut.RequireGenerateRetrievalPeers(t, 3)
 		testResolver := tut.TestPeerResolver{Peers: peers}
 
-		c, err := retrievalimpl.NewClient(net, cs, dt, &testnodes.TestRetrievalClientNode{}, &testResolver, ds)
+		c, err := retrievalimpl.NewClient(net, carPath, dt, &testnodes.TestRetrievalClientNode{}, &testResolver, ds)
 		require.NoError(t, err)
 
 		testCid := tut.GenerateCids(1)[0]
@@ -209,7 +204,7 @@ func TestClient_FindProviders(t *testing.T) {
 
 	t.Run("when there is an error, returns empty provider list", func(t *testing.T) {
 		testResolver := tut.TestPeerResolver{Peers: []retrievalmarket.RetrievalPeer{}, ResolverError: errors.New("boom")}
-		c, err := retrievalimpl.NewClient(net, cs, dt, &testnodes.TestRetrievalClientNode{}, &testResolver, ds)
+		c, err := retrievalimpl.NewClient(net, carPath, dt, &testnodes.TestRetrievalClientNode{}, &testResolver, ds)
 		require.NoError(t, err)
 
 		badCid := tut.GenerateCids(1)[0]
@@ -218,7 +213,7 @@ func TestClient_FindProviders(t *testing.T) {
 
 	t.Run("when there are no providers", func(t *testing.T) {
 		testResolver := tut.TestPeerResolver{Peers: []retrievalmarket.RetrievalPeer{}}
-		c, err := retrievalimpl.NewClient(net, cs, dt, &testnodes.TestRetrievalClientNode{}, &testResolver, ds)
+		c, err := retrievalimpl.NewClient(net, carPath, dt, &testnodes.TestRetrievalClientNode{}, &testResolver, ds)
 		require.NoError(t, err)
 
 		testCid := tut.GenerateCids(1)[0]
@@ -285,8 +280,7 @@ func TestClient_DuplicateRetrieve(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			// Set up a retrieval client node with mocks
 			ds := dss.MutexWrap(datastore.NewMapDatastore())
-			cs, err := filestore.NewLocalCarStore(t.TempDir())
-			require.NoError(t, err)
+			carPath := t.TempDir()
 			dt := tut.NewTestDataTransfer()
 			net := tut.NewTestRetrievalMarketNetwork(tut.TestNetworkParams{})
 			node := testnodes.NewTestRetrievalClientNode(testnodes.TestRetrievalClientNodeParams{})
@@ -294,7 +288,7 @@ func TestClient_DuplicateRetrieve(t *testing.T) {
 			node.ExpectKnownAddresses(tc.rpeer2, nil)
 
 			// Create the client
-			client, err := retrievalimpl.NewClient(net, cs, dt, node, &tut.TestPeerResolver{}, ds)
+			client, err := retrievalimpl.NewClient(net, carPath, dt, node, &tut.TestPeerResolver{}, ds)
 			require.NoError(t, err)
 
 			// Start the client and wait till it's ready
@@ -362,8 +356,7 @@ func TestMigrations(t *testing.T) {
 	ctx, cancel := context.WithTimeout(ctx, 10*time.Second)
 	defer cancel()
 	ds := dss.MutexWrap(datastore.NewMapDatastore())
-	cs, err := filestore.NewLocalCarStore(t.TempDir())
-	require.NoError(t, err)
+	carPath := t.TempDir()
 	dt := tut.NewTestDataTransfer()
 	net := tut.NewTestRetrievalMarketNetwork(tut.TestNetworkParams{})
 	retrievalDs := namespace.Wrap(ds, datastore.NewKey("/retrievals/client"))
@@ -394,7 +387,7 @@ func TestMigrations(t *testing.T) {
 	selfPeer := tut.GeneratePeers(1)[0]
 
 	allSelectorBuf := new(bytes.Buffer)
-	err = dagcbor.Encoder(shared.AllSelector(), allSelectorBuf)
+	err := dagcbor.Encoder(shared.AllSelector(), allSelectorBuf)
 	require.NoError(t, err)
 	allSelectorBytes := allSelectorBuf.Bytes()
 
@@ -471,7 +464,7 @@ func TestMigrations(t *testing.T) {
 		err = retrievalDs.Put(datastore.NewKey(fmt.Sprint(deal.ID)), buf.Bytes())
 		require.NoError(t, err)
 	}
-	retrievalClient, err := retrievalimpl.NewClient(net, cs, dt, testnodes.NewTestRetrievalClientNode(testnodes.TestRetrievalClientNodeParams{}), &tut.TestPeerResolver{}, retrievalDs)
+	retrievalClient, err := retrievalimpl.NewClient(net, carPath, dt, testnodes.NewTestRetrievalClientNode(testnodes.TestRetrievalClientNodeParams{}), &tut.TestPeerResolver{}, retrievalDs)
 	require.NoError(t, err)
 	shared_testutil.StartAndWaitForReady(ctx, t, retrievalClient)
 	deals, err := retrievalClient.ListDeals()
