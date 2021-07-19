@@ -113,7 +113,7 @@ func (r *ShardMigrator) registerShards(ctx context.Context, deals []storagemarke
 		if err != nil {
 			return xerrors.Errorf("failed to get piece info for a deal piece %s: %w", pcid, err)
 		}
-		if len(pinfo.Deals) <= 0 {
+		if len(pinfo.Deals) == 0 {
 			return xerrors.Errorf("no storage deals found for Piece %s", pcid)
 		}
 
