@@ -6,7 +6,6 @@ import (
 
 	"github.com/ipfs/go-cid"
 	"github.com/ipld/go-car"
-	"github.com/ipld/go-car/v2/blockstore"
 	"github.com/multiformats/go-multibase"
 	"golang.org/x/xerrors"
 
@@ -16,6 +15,7 @@ import (
 	"github.com/filecoin-project/go-state-types/abi"
 	"github.com/filecoin-project/go-state-types/crypto"
 
+	"github.com/filecoin-project/go-fil-markets/filestorecaradapter"
 	"github.com/filecoin-project/go-fil-markets/shared"
 	"github.com/filecoin-project/go-fil-markets/storagemarket"
 	"github.com/filecoin-project/go-fil-markets/storagemarket/network"
@@ -26,7 +26,7 @@ import (
 // We can't rely on the CARv1 payload in the given CARv2 file being deterministic as the client could have
 // written a "non-deterministic/unordered" CARv2 file.
 // So, we need to do a CARv1 traversal here by giving the traverser a random access CARv2 blockstore that wraps the given CARv2 file.
-func CommP(ctx context.Context, CARv2FilePath string, data *storagemarket.DataRef) (cid.Cid, abi.UnpaddedPieceSize, error) {
+func CommP(ctx context.Context, FileStoreCARv2FilePath string, data *storagemarket.DataRef) (cid.Cid, abi.UnpaddedPieceSize, error) {
 	// if we already have the PieceCid, there's no need to do anything here.
 	if data.PieceCid != nil {
 		return *data.PieceCid, data.PieceSize, nil
@@ -37,18 +37,18 @@ func CommP(ctx context.Context, CARv2FilePath string, data *storagemarket.DataRe
 		return cid.Undef, 0, xerrors.New("Piece CID and size must be set for manual transfer")
 	}
 
-	if CARv2FilePath == "" {
+	if FileStoreCARv2FilePath == "" {
 		return cid.Undef, 0, xerrors.New("need Carv2 file path to get a read-only blockstore")
 	}
 
-	rdOnly, err := blockstore.OpenReadOnly(CARv2FilePath)
+	fs, err := filestorecaradapter.NewReadOnlyFileStore(FileStoreCARv2FilePath)
 	if err != nil {
-		return cid.Undef, 0, xerrors.Errorf("failed to open read-only blockstore: %w", err)
+		return cid.Undef, 0, xerrors.Errorf("failed to create read-only filestore: %w", err)
 	}
-	defer rdOnly.Close()
+	defer fs.Close()
 
 	// do a CARv1 traversal with the DFS selector.
-	sc := car.NewSelectiveCar(ctx, rdOnly, []car.Dag{{Root: data.Root, Selector: shared.AllSelector()}})
+	sc := car.NewSelectiveCar(ctx, fs, []car.Dag{{Root: data.Root, Selector: shared.AllSelector()}})
 	prepared, err := sc.Prepare()
 	if err != nil {
 		return cid.Undef, 0, xerrors.Errorf("failed to prepare CAR: %w", err)

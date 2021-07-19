@@ -7,19 +7,15 @@ import (
 	"math/rand"
 	"os"
 	"path/filepath"
-	"reflect"
-	"sync"
 	"testing"
 
 	"github.com/ipfs/go-cid"
 	"github.com/ipld/go-car"
 	carv2 "github.com/ipld/go-car/v2"
 	"github.com/stretchr/testify/require"
-	"golang.org/x/xerrors"
 
 	"github.com/filecoin-project/go-state-types/abi"
 
-	"github.com/filecoin-project/go-fil-markets/shared"
 	"github.com/filecoin-project/go-fil-markets/shared_testutil"
 	"github.com/filecoin-project/go-fil-markets/storagemarket"
 	"github.com/filecoin-project/go-fil-markets/storagemarket/impl/clientutils"
@@ -64,29 +60,75 @@ func TestCommPSuccess(t *testing.T) {
 	file1 := filepath.Join("storagemarket", "fixtures", "payload.txt")
 	file2 := filepath.Join("storagemarket", "fixtures", "payload2.txt")
 
-	commp1 := genCommPFromFile(t, ctx, file1)
-	commP2 := genCommPFromFile(t, ctx, file2)
+	// ----------------
+	// commP for file 1.
+	root1, f1FullCAR := shared_testutil.GenFullCARv2FromNormalFile(t, file1)
+	defer os.Remove(f1FullCAR)
 
-	commP3 := genCommPFromFile(t, ctx, file1)
-	commP4 := genCommPFromFile(t, ctx, file2)
+	root2, f1FileStoreCAR := shared_testutil.GenFileStoreCARv2FromNormalFile(t, file1)
+	defer os.Remove(f1FileStoreCAR)
 
-	// commP matches for the same files but is different for different files.
-	require.Equal(t, commp1, commP3)
-	require.Equal(t, commP2, commP4)
-	require.NotEqual(t, commp1, commP2)
-	require.NotEqual(t, commP3, commP4)
+	// assert the two files have different contents
+	assertFileDifferent(t, f1FullCAR, f1FileStoreCAR)
+
+	// but the same DAG Root.
+	require.Equal(t, root1, root2)
+
+	// commPs match for both since it's the same Unixfs DAG.
+	commpf1Full := genCommPFromCARFile(t, ctx, root1, f1FullCAR)
+	commpf1Filestore := genCommPFromCARFile(t, ctx, root2, f1FileStoreCAR)
+	require.EqualValues(t, commpf1Full, commpf1Filestore)
+
+	// ------------
+	// commP for file2.
+	root1, f2FullCAR := shared_testutil.GenFullCARv2FromNormalFile(t, file2)
+	defer os.Remove(f2FullCAR)
+
+	root2, f2FileStoreCAR := shared_testutil.GenFileStoreCARv2FromNormalFile(t, file2)
+	defer os.Remove(f2FileStoreCAR)
+
+	// assert the two files have different contents
+	assertFileDifferent(t, f2FullCAR, f2FileStoreCAR)
+
+	// but the same DAG Root.
+	require.Equal(t, root1, root2)
+
+	// commPs match for both since it's the same Unixfs DAG.
+	commpf2Full := genCommPFromCARFile(t, ctx, root1, f2FullCAR)
+	commpf2Filestore := genCommPFromCARFile(t, ctx, root2, f2FileStoreCAR)
+	require.EqualValues(t, commpf2Full, commpf2Filestore)
+
+	// However -> commP's are different across different files/DAGs.
+	require.NotEqualValues(t, commpf1Full, commpf2Full)
+	require.NotEqualValues(t, commpf1Filestore, commpf2Filestore)
+
 }
 
-func genCommPFromFile(t *testing.T, ctx context.Context, filePath string) cid.Cid {
-	root, CARv2Path, _ := shared_testutil.GenCARv2FromNormalFile(t, filePath)
-	require.NotEmpty(t, CARv2Path)
-	defer os.Remove(CARv2Path)
+func assertFileDifferent(t *testing.T, f1Path string, f2Path string) {
+	f1, err := os.Open(f1Path)
+	require.NoError(t, err)
+	defer f1.Close()
+
+	f2, err := os.Open(f2Path)
+	require.NoError(t, err)
+	defer f2.Close()
+
+	bzf1, err := ioutil.ReadAll(f1)
+	require.NoError(t, err)
+
+	bzf2, err := ioutil.ReadAll(f2)
+	require.NoError(t, err)
+
+	require.NotEqualValues(t, bzf1, bzf2)
+}
+
+func genCommPFromCARFile(t *testing.T, ctx context.Context, root cid.Cid, carFilePath string) cid.Cid {
 	data := &storagemarket.DataRef{
 		TransferType: storagemarket.TTGraphsync,
 		Root:         root,
 	}
 
-	respcid, _, err := clientutils.CommP(ctx, CARv2Path, data)
+	respcid, _, err := clientutils.CommP(ctx, carFilePath, data)
 	require.NoError(t, err)
 	require.NotEqual(t, respcid, cid.Undef)
 
@@ -105,11 +147,11 @@ func TestLabelField(t *testing.T) {
 func TestNoDuplicatesInCARv2(t *testing.T) {
 	// The CARv2 file for a UnixFS DAG that has duplicates should NOT have duplicates.
 	file1 := filepath.Join("storagemarket", "fixtures", "duplicate_blocks.txt")
-	root, CARv2Path, bstore := shared_testutil.GenCARv2FromNormalFile(t, file1)
+	_, CARv2Path := shared_testutil.GenFullCARv2FromNormalFile(t, file1)
 	require.NotEmpty(t, CARv2Path)
 	defer os.Remove(CARv2Path)
 
-	v2r, err := carv2.NewReaderMmap(CARv2Path)
+	v2r, err := carv2.OpenReader(CARv2Path)
 	require.NoError(t, err)
 	defer v2r.Close()
 
@@ -129,34 +171,4 @@ func TestNoDuplicatesInCARv2(t *testing.T) {
 		require.Falsef(t, ok, "already seen cid %s", b.Cid())
 		seen[b.Cid()] = struct{}{}
 	}
-
-	// A CARv1 traversal over the UnixFS DAG wll return all the de-duped blocks -> should be the same as what the CARv1 reader above returned.
-	seen2 := make(map[cid.Cid]struct{})
-	var mu sync.Mutex
-
-	sc := car.NewSelectiveCar(context.Background(), bstore, []car.Dag{
-		{
-			Root:     root,
-			Selector: shared.AllSelector(),
-		},
-	})
-
-	require.NoError(t, sc.Write(ioutil.Discard, func(b car.Block) error {
-		mu.Lock()
-		defer mu.Unlock()
-
-		if _, ok := seen2[b.BlockCID]; ok {
-			err = xerrors.Errorf("already seen cid %s", b.BlockCID)
-		}
-
-		seen2[b.BlockCID] = struct{}{}
-
-		return nil
-	}))
-
-	mu.Lock()
-	defer mu.Unlock()
-
-	require.NoError(t, err)
-	require.True(t, reflect.DeepEqual(seen, seen2))
 }

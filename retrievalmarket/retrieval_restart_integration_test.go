@@ -58,7 +58,7 @@ func TestBounceConnectionDealTransferOngoing(t *testing.T) {
 			pricePerByte:            abi.NewTokenAmount(1000),
 			paymentInterval:         uint64(10000),
 			paymentIntervalIncrease: uint64(1000),
-			maxVoucherAmt:           abi.NewTokenAmount(19921000),
+			maxVoucherAmt:           abi.NewTokenAmount(19959000),
 		},
 
 		"zero unseal, non-zero price per byte": {
@@ -66,7 +66,7 @@ func TestBounceConnectionDealTransferOngoing(t *testing.T) {
 			pricePerByte:            abi.NewTokenAmount(1000),
 			paymentInterval:         uint64(10000),
 			paymentIntervalIncrease: uint64(1000),
-			maxVoucherAmt:           abi.NewTokenAmount(19920000),
+			maxVoucherAmt:           abi.NewTokenAmount(19958000),
 		},
 
 		"zero unseal, zero price per byte": {
@@ -106,7 +106,7 @@ func TestBounceConnectionDealTransferOngoing(t *testing.T) {
 			deps.DagStore = newDagStore(t, providerNode, pieceStore)
 
 			sh := testharness.NewHarnessWithTestData(t, deps.TestData, deps, true, false)
-			defer os.Remove(sh.CARv2FilePath)
+			defer os.Remove(sh.FileStoreCARv2FilePath)
 
 			// do a storage deal
 			storageClientSeenDeal := doStorage(t, bgCtx, sh)
@@ -235,7 +235,7 @@ func TestBounceConnectionDealTransferUnsealing(t *testing.T) {
 			deps.DagStore = newDagStore(t, providerNode, pieceStore)
 
 			sh := testharness.NewHarnessWithTestData(t, td, deps, true, false)
-			defer os.Remove(sh.CARv2FilePath)
+			defer os.Remove(sh.FileStoreCARv2FilePath)
 
 			// do a storage deal
 			storageClientSeenDeal := doStorage(t, bgCtx, sh)
@@ -243,7 +243,7 @@ func TestBounceConnectionDealTransferUnsealing(t *testing.T) {
 			defer canc()
 
 			// create a retrieval test harness
-			maxVoucherAmt := abi.NewTokenAmount(19921000)
+			maxVoucherAmt := abi.NewTokenAmount(19959000)
 			params := retrievalmarket.Params{
 				UnsealPrice:             abi.NewTokenAmount(1000),
 				PricePerByte:            abi.NewTokenAmount(1000),
