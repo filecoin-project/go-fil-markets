@@ -5,8 +5,6 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/ipfs/go-datastore"
-	ds_sync "github.com/ipfs/go-datastore/sync"
 	"github.com/stretchr/testify/require"
 
 	"github.com/filecoin-project/dagstore"
@@ -46,7 +44,6 @@ func TestShardRegistration(t *testing.T) {
 
 	providerAddr, err := address.NewIDAddress(1)
 	require.NoError(t, err)
-	shardRegDS := ds_sync.MutexWrap(datastore.NewMapDatastore())
 
 	spn := &testnodes2.FakeProviderNode{
 		Sealed: map[abi.SectorNumber]bool{
@@ -74,7 +71,7 @@ func TestShardRegistration(t *testing.T) {
 		},
 	})
 
-	shardReg := NewShardMigrator(providerAddr, shardRegDS, dagStoreWrapper, ps, spn)
+	shardReg := NewShardMigrator(providerAddr, t.TempDir(), dagStoreWrapper, ps, spn)
 
 	deals := []storagemarket.MinerDeal{{
 		// Should be registered

@@ -3,8 +3,9 @@ package storageimpl
 import (
 	"context"
 	"math"
+	"os"
+	"path/filepath"
 
-	"github.com/ipfs/go-datastore"
 	"golang.org/x/xerrors"
 
 	"github.com/filecoin-project/dagstore"
@@ -17,16 +18,16 @@ import (
 	"github.com/filecoin-project/go-fil-markets/storagemarket/impl/providerstates"
 )
 
-var shardRegKey = datastore.NewKey("shards-registered")
+var shardRegMarker = ".shard-registration-complete"
 
 // ShardMigrator is used to register all deals that are in the sealing / sealed
 // state with the DAG store as shards.
 // It will only run once on startup, from that point forward deals will be
 // registered as shards as part of the deals FSM.
 type ShardMigrator struct {
-	providerAddr address.Address
-	ds           datastore.Datastore
-	dagStore     mktdagstore.DagStoreWrapper
+	providerAddr   address.Address
+	markerFilePath string
+	dagStore       mktdagstore.DagStoreWrapper
 
 	pieceStore piecestore.PieceStore
 	spn        storagemarket.StorageProviderNode
@@ -34,27 +35,27 @@ type ShardMigrator struct {
 
 func NewShardMigrator(
 	maddr address.Address,
-	ds datastore.Datastore,
+	dagStorePath string,
 	dagStore mktdagstore.DagStoreWrapper,
 	pieceStore piecestore.PieceStore,
 	spn storagemarket.StorageProviderNode,
 ) *ShardMigrator {
 	return &ShardMigrator{
-		providerAddr: maddr,
-		ds:           ds,
-		dagStore:     dagStore,
-		pieceStore:   pieceStore,
-		spn:          spn,
+		providerAddr:   maddr,
+		markerFilePath: filepath.Join(dagStorePath, shardRegMarker),
+		dagStore:       dagStore,
+		pieceStore:     pieceStore,
+		spn:            spn,
 	}
 }
 
 func (r *ShardMigrator) registerShards(ctx context.Context, deals []storagemarket.MinerDeal) error {
 	// Check if all deals have already been registered as shards
-	has, err := r.ds.Has(shardRegKey)
+	isComplete, err := r.registrationComplete()
 	if err != nil {
 		return xerrors.Errorf("failed to get shard registration status: %w", err)
 	}
-	if has {
+	if isComplete {
 		// All deals have been registered as shards, bail out
 		return nil
 	}
@@ -145,15 +146,32 @@ func (r *ShardMigrator) registerShards(ctx context.Context, deals []storagemarke
 	totalCh <- registered
 
 	// Completed registering all shards, so mark the migration as complete
-	err = r.ds.Put(shardRegKey, []byte{1})
+	err = r.markRegistrationComplete()
 	if err != nil {
 		log.Errorf("failed to mark shards as registered: %s", err)
 	}
 
-	err = r.ds.Sync(shardRegKey)
-	if err != nil {
-		log.Errorf("failed to sync shards as registered: %s", err)
-	}
-
 	return nil
+}
+
+// Check for the existence of a "marker" file indicating that the migration
+// has completed
+func (r *ShardMigrator) registrationComplete() (bool, error) {
+	_, err := os.Stat(r.markerFilePath)
+	if os.IsNotExist(err) {
+		return false, nil
+	}
+	if err != nil {
+		return false, err
+	}
+	return true, nil
+}
+
+// Create a "marker" file indicating that the migration has completed
+func (r *ShardMigrator) markRegistrationComplete() error {
+	file, err := os.Create(r.markerFilePath)
+	if err != nil {
+		return err
+	}
+	return file.Close()
 }

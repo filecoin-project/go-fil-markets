@@ -10,7 +10,6 @@ import (
 
 	"github.com/ipfs/go-datastore"
 	"github.com/ipfs/go-datastore/namespace"
-	ds_sync "github.com/ipfs/go-datastore/sync"
 	graphsyncimpl "github.com/ipfs/go-graphsync/impl"
 	"github.com/ipfs/go-graphsync/network"
 	"github.com/stretchr/testify/assert"
@@ -147,8 +146,7 @@ func (gen *DepGenerator) New(
 	assert.NoError(t, err)
 
 	dagStore := shared_testutil.NewMockDagStoreWrapper()
-	shardRegDS := ds_sync.MutexWrap(datastore.NewMapDatastore())
-	shardReg := storageimpl.NewShardMigrator(providerAddr, shardRegDS, dagStore, ps, providerNode)
+	shardReg := storageimpl.NewShardMigrator(providerAddr, t.TempDir(), dagStore, ps, providerNode)
 
 	// create provider and client
 
