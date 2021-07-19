@@ -12,7 +12,6 @@ import (
 	"github.com/ipfs/go-cid"
 	"github.com/ipfs/go-datastore"
 	"github.com/ipfs/go-datastore/namespace"
-	ds_sync "github.com/ipfs/go-datastore/sync"
 	"github.com/ipld/go-car"
 	"github.com/ipld/go-ipld-prime"
 	cidlink "github.com/ipld/go-ipld-prime/linking/cid"
@@ -26,7 +25,6 @@ import (
 	"github.com/filecoin-project/go-state-types/big"
 	"github.com/filecoin-project/specs-actors/actors/builtin/paych"
 
-	mktdagstore "github.com/filecoin-project/go-fil-markets/dagstore"
 	"github.com/filecoin-project/go-fil-markets/filestorecaradapter"
 	"github.com/filecoin-project/go-fil-markets/piecestore"
 	"github.com/filecoin-project/go-fil-markets/retrievalmarket"
@@ -365,22 +363,8 @@ func setupDepsWithDagStore(ctx context.Context, t *testing.T, providerNode *test
 	smState := testnodes.NewStorageMarketState()
 	td := shared_testutil.NewLibp2pTestData(ctx, t)
 	deps := dependencies.NewDependenciesWithTestData(t, ctx, td, smState, "", testnodes.DelayFakeCommonNode{}, testnodes.DelayFakeCommonNode{})
-
-	dagStoreWrapper := newDagStore(t, providerNode, pieceStore)
-
-	deps.DagStore = dagStoreWrapper
+	deps.DagStore = tut.NewMockDagStoreWrapper(pieceStore, providerNode)
 	return deps
-}
-
-func newDagStore(t *testing.T, providerNode *testnodes2.TestRetrievalProviderNode, pieceStore *tut.TestPieceStore) mktdagstore.DagStoreWrapper {
-	mountApi := mktdagstore.NewLotusMountAPI(pieceStore, providerNode)
-	dagStoreWrapper, err := mktdagstore.NewDagStoreWrapper(mktdagstore.MarketDAGStoreConfig{
-		TransientsDir: t.TempDir(),
-		IndexDir:      t.TempDir(),
-		Datastore:     ds_sync.MutexWrap(datastore.NewMapDatastore()),
-	}, mountApi)
-	require.NoError(t, err)
-	return dagStoreWrapper
 }
 
 func newRetrievalHarnessWithDeps(

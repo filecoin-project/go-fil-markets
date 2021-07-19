@@ -24,7 +24,6 @@ import (
 	"github.com/filecoin-project/go-statemachine/fsm"
 
 	"github.com/filecoin-project/go-fil-markets/carstore"
-	mktdagstore "github.com/filecoin-project/go-fil-markets/dagstore"
 	"github.com/filecoin-project/go-fil-markets/filestore"
 	"github.com/filecoin-project/go-fil-markets/piecestore"
 	"github.com/filecoin-project/go-fil-markets/shared"
@@ -69,7 +68,7 @@ type Provider struct {
 	unsubDataTransfer datatransfer.Unsubscribe
 
 	shardReg             *ShardMigrator
-	dagStore             mktdagstore.DagStoreWrapper
+	dagStore             shared.DagStoreWrapper
 	readWriteBlockStores *carstore.CarReadWriteStoreTracker
 }
 
@@ -104,7 +103,7 @@ func CustomDealDecisionLogic(decider DealDeciderFunc) StorageProviderOption {
 func NewProvider(net network.StorageMarketNetwork,
 	ds datastore.Batching,
 	fs filestore.FileStore,
-	dagStore mktdagstore.DagStoreWrapper,
+	dagStore shared.DagStoreWrapper,
 	pieceStore piecestore.PieceStore,
 	dataTransfer datatransfer.Manager,
 	spn storagemarket.StorageProviderNode,
