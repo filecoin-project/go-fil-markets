@@ -3,7 +3,6 @@ package storageimpl
 import (
 	"context"
 	"io"
-	"os"
 
 	"github.com/ipfs/go-cid"
 	bstore "github.com/ipfs/go-ipfs-blockstore"
@@ -75,7 +74,7 @@ func (p *providerDealEnvironment) CleanReadWriteBlockstore(proposalCid cid.Cid, 
 
 	// clean up the backing CARv2 file as it was a temporary file we created for this Storage deal and the deal dag has
 	// now either been sealed into a Sector or the storage deal has failed.
-	return os.Remove(carV2FilePath)
+	return p.FileStore().Delete(filestore.Path(carV2FilePath))
 }
 
 // GeneratePieceCommitment generates the pieceCid for the CARv1 deal payload in the CARv2 file that already exists at the given path.
