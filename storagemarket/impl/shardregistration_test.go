@@ -14,21 +14,19 @@ import (
 	"github.com/filecoin-project/dagstore/shard"
 	"github.com/filecoin-project/go-address"
 	"github.com/filecoin-project/go-state-types/abi"
-	"github.com/filecoin-project/lotus/chain/actors/builtin/miner"
-	"github.com/filecoin-project/lotus/chain/types"
-	"github.com/filecoin-project/lotus/extern/sector-storage/storiface"
-	"github.com/filecoin-project/specs-storage/storage"
 
 	mktdagstore "github.com/filecoin-project/go-fil-markets/dagstore"
+	"github.com/filecoin-project/go-fil-markets/piecestore"
 	"github.com/filecoin-project/go-fil-markets/retrievalmarket/impl/testnodes"
 	tut "github.com/filecoin-project/go-fil-markets/shared_testutil"
 	"github.com/filecoin-project/go-fil-markets/storagemarket"
+	testnodes2 "github.com/filecoin-project/go-fil-markets/storagemarket/testnodes"
 )
 
 func TestShardRegistration(t *testing.T) {
-	pieceStore := tut.NewTestPieceStore()
+	ps := tut.NewTestPieceStore()
 	providerNode := testnodes.NewTestRetrievalProviderNode()
-	mountApi := mktdagstore.NewLotusMountAPI(pieceStore, providerNode)
+	mountApi := mktdagstore.NewLotusMountAPI(ps, providerNode)
 	dagStore := newMockDagStore()
 	failureCh := make(chan dagstore.ShardResult, 1)
 	dagStoreWrapper, err := mktdagstore.NewDagStoreWrapperWithDeps(dagStore, mountApi, failureCh)
@@ -49,14 +47,34 @@ func TestShardRegistration(t *testing.T) {
 	providerAddr, err := address.NewIDAddress(1)
 	require.NoError(t, err)
 	shardRegDS := ds_sync.MutexWrap(datastore.NewMapDatastore())
-	shardReg := NewShardMigrator(providerAddr, shardRegDS, dagStoreWrapper, &mockSectorStateAccessor{
-		sealed: map[abi.SectorNumber]bool{
+
+	spn := &testnodes2.FakeProviderNode{
+		Sealed: map[abi.SectorNumber]bool{
 			sealedSector:    true,
 			unsealedSector:  false,
 			unsealedSector2: false,
 			unsealedSector3: false,
 		},
+	}
+	ps.ExpectPiece(pieceCidUnsealed, piecestore.PieceInfo{
+		PieceCID: pieceCidUnsealed,
+		Deals: []piecestore.DealInfo{
+			{
+				SectorID: unsealedSector,
+			},
+		},
 	})
+
+	ps.ExpectPiece(pieceCidSealed, piecestore.PieceInfo{
+		PieceCID: pieceCidSealed,
+		Deals: []piecestore.DealInfo{
+			{
+				SectorID: sealedSector,
+			},
+		},
+	})
+
+	shardReg := NewShardMigrator(providerAddr, shardRegDS, dagStoreWrapper, ps, spn)
 
 	deals := []storagemarket.MinerDeal{{
 		// Should be registered
@@ -117,28 +135,8 @@ func TestShardRegistration(t *testing.T) {
 	// Should not call RegisterShard again because it should detect that the
 	// migration has already been run
 	require.Equal(t, 0, dagStore.lenRegistrations())
-}
 
-type mockSectorStateAccessor struct {
-	lk     sync.Mutex
-	sealed map[abi.SectorNumber]bool
-}
-
-var _ SectorStateAccessor = (*mockSectorStateAccessor)(nil)
-
-func (m *mockSectorStateAccessor) StateSectorGetInfo(ctx context.Context, a address.Address, number abi.SectorNumber, key types.TipSetKey) (*miner.SectorOnChainInfo, error) {
-	m.lk.Lock()
-	defer m.lk.Unlock()
-
-	return &miner.SectorOnChainInfo{SealProof: abi.RegisteredSealProof_StackedDrg2KiBV1}, nil
-}
-
-func (m *mockSectorStateAccessor) IsUnsealed(ctx context.Context, sector storage.SectorRef, offset storiface.UnpaddedByteIndex, size abi.UnpaddedPieceSize) (bool, error) {
-	m.lk.Lock()
-	defer m.lk.Unlock()
-
-	sealed := m.sealed[sector.ID.Number]
-	return !sealed, nil
+	ps.VerifyExpectations(t)
 }
 
 type mockDagStore struct {

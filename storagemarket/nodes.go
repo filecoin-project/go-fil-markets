@@ -105,6 +105,10 @@ type StorageProviderNode interface {
 
 	// GetProofType gets the current seal proof type for the given miner.
 	GetProofType(ctx context.Context, addr address.Address, tok shared.TipSetToken) (abi.RegisteredSealProof, error)
+
+	// IsUnsealed checks if we have an unsealed sector file for the given sector which contains the unsealed deal data
+	// starting at the given offset and which has the given length.
+	IsUnsealed(ctx context.Context, sectorID abi.SectorNumber, offset abi.UnpaddedPieceSize, length abi.UnpaddedPieceSize) (bool, error)
 }
 
 // StorageClientNode are node dependencies for a StorageClient
