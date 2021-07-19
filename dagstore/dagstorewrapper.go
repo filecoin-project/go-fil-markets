@@ -137,11 +137,11 @@ func (ds *dagStoreWrapper) LoadShard(ctx context.Context, pieceCid cid.Cid) (car
 		}
 
 		// if the DAGStore does not know about the Shard -> register it and then try to acquire it again.
-		log.Infow("ErrShardUnknown during LoadShard, will re-register", "pieceCID", pieceCid)
+		log.Warnw("failed to load shard as shard is not registered, will re-register", "pieceCID", pieceCid)
 		if err := RegisterShardSync(ctx, ds, pieceCid, "", false); err != nil {
 			return nil, xerrors.Errorf("failed to re-register shard during loading piece CID %s: %w", pieceCid, err)
 		}
-		log.Infow("Successfully re-registered Shard in LoadShard", "pieceCID", pieceCid)
+		log.Warnw("successfully re-registered shard", "pieceCID", pieceCid)
 
 		resch = make(chan dagstore.ShardResult, 1)
 		if err := ds.dagStore.AcquireShard(ctx, key, resch, dagstore.AcquireOpts{}); err != nil {
