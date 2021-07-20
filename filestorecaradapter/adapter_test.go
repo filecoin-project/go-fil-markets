@@ -74,7 +74,7 @@ func TestReadOnlyFilestoreWithFullCARFile(t *testing.T) {
 	tmpCARv2, err := os.CreateTemp(t.TempDir(), "rand")
 	require.NoError(t, err)
 	require.NoError(t, tmpCARv2.Close())
-	rw, err := blockstore.OpenReadWrite(tmpCARv2.Name(), []cid.Cid{root})
+	rw, err := blockstore.OpenReadWrite(tmpCARv2.Name(), []cid.Cid{root}, blockstore.UseWholeCIDs(true))
 	require.NoError(t, err)
 	dagSvc := merkledag.NewDAGService(blockservice.New(rw, offline.Exchange(rw)))
 	root2 := writeUnixfsDAGTo(t, ctx, normalFilePath, dagSvc)

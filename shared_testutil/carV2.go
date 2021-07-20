@@ -60,7 +60,7 @@ func genFullCARv2File(t *testing.T, ctx context.Context, fPath string, root cid.
 	require.NoError(t, err)
 	require.NoError(t, tmp.Close())
 
-	rw, err := blockstore.OpenReadWrite(tmp.Name(), []cid.Cid{root})
+	rw, err := blockstore.OpenReadWrite(tmp.Name(), []cid.Cid{root}, blockstore.UseWholeCIDs(true))
 	require.NoError(t, err)
 	dagSvc := merkledag.NewDAGService(blockservice.New(rw, offline.Exchange(rw)))
 

@@ -29,7 +29,7 @@ type FileStore struct {
 // the Filestore will simply act as a pass-through read only CAR blockstore.
 func NewReadOnlyFileStore(carFilePath string) (*FileStore, error) {
 	// Open a readOnly blockstore that wraps the given CAR file.
-	rdOnly, err := blockstore.OpenReadOnly(carFilePath, carv2.ZeroLengthSectionAsEOF)
+	rdOnly, err := blockstore.OpenReadOnly(carFilePath, carv2.ZeroLengthSectionAsEOF(true))
 	if err != nil {
 		return nil, xerrors.Errorf("failed to open read-only blockstore: %w", err)
 	}
@@ -58,7 +58,7 @@ func NewReadOnlyFileStore(carFilePath string) (*FileStore, error) {
 // Note that if the client does NOT write any `PosInfo` nodes to the Filestore, the backing CARv2 file will contain
 // all blocks as is i.e. in such a case, the Filestore will simply act as a pass-through read-write CAR Blockstore.
 func NewReadWriteFileStore(carV2FilePath string, roots []cid.Cid) (*FileStore, error) {
-	rw, err := blockstore.OpenReadWrite(carV2FilePath, roots)
+	rw, err := blockstore.OpenReadWrite(carV2FilePath, roots, blockstore.UseWholeCIDs(true))
 	if err != nil {
 		return nil, xerrors.Errorf("failed to open read-write blockstore: %w", err)
 	}

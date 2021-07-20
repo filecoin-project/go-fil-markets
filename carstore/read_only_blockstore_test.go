@@ -24,7 +24,7 @@ func TestReadOnlyStoreTracker(t *testing.T) {
 	_, carFilePath := testData.LoadUnixFSFileToStore(t, fpath1)
 	fpath2 := filepath.Join("retrievalmarket", "impl", "fixtures", "lorem_under_1_block.txt")
 	_, carFilePath2 := testData.LoadUnixFSFileToStore(t, fpath2)
-	rdOnlyBS1, err := blockstore.OpenReadOnly(carFilePath, carv2.ZeroLengthSectionAsEOF)
+	rdOnlyBS1, err := blockstore.OpenReadOnly(carFilePath, carv2.ZeroLengthSectionAsEOF(true))
 	require.NoError(t, err)
 	len1 := getBstoreLen(ctx, t, rdOnlyBS1)
 

@@ -214,7 +214,7 @@ func (ltd *Libp2pTestData) VerifyFileTransferred(t *testing.T, link ipld.Link, u
 // VerifyFileTransferredIntoStore checks that the fixture file was sent from
 // one node to the other, and stored in the given CAR file
 func (ltd *Libp2pTestData) VerifyFileTransferredIntoStore(t *testing.T, link ipld.Link, carFilePath string, readLen uint64) {
-	bstore, err := blockstore.OpenReadOnly(carFilePath, carv2.ZeroLengthSectionAsEOF)
+	bstore, err := blockstore.OpenReadOnly(carFilePath, carv2.ZeroLengthSectionAsEOF(true))
 	require.NoError(t, err)
 	bsvc := blockservice.New(bstore, offline.Exchange(bstore))
 	dagService := merkledag.NewDAGService(bsvc)
