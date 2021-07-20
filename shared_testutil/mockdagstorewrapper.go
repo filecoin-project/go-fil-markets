@@ -7,6 +7,7 @@ import (
 	"sync"
 
 	"github.com/ipfs/go-cid"
+	carv2 "github.com/ipld/go-car/v2"
 	"github.com/ipld/go-car/v2/blockstore"
 	"golang.org/x/xerrors"
 
@@ -123,7 +124,7 @@ func getBlockstoreFromReader(r io.ReadCloser, pieceCid cid.Cid) (carstore.Closab
 	}
 
 	// Get a blockstore from the CAR file
-	return blockstore.OpenReadOnly(tmpFile.Name())
+	return blockstore.OpenReadOnly(tmpFile.Name(), carv2.ZeroLengthSectionAsEOF)
 }
 
 func (m *MockDagStoreWrapper) Close() error {

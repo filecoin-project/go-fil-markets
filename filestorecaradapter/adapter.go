@@ -6,6 +6,7 @@ import (
 	"github.com/ipfs/go-cid"
 	"github.com/ipfs/go-filestore"
 	bstore "github.com/ipfs/go-ipfs-blockstore"
+	carv2 "github.com/ipld/go-car/v2"
 	"github.com/ipld/go-car/v2/blockstore"
 	"golang.org/x/xerrors"
 
@@ -28,7 +29,7 @@ type FileStore struct {
 // the Filestore will simply act as a pass-through read only CAR blockstore.
 func NewReadOnlyFileStore(carFilePath string) (*FileStore, error) {
 	// Open a readOnly blockstore that wraps the given CAR file.
-	rdOnly, err := blockstore.OpenReadOnly(carFilePath)
+	rdOnly, err := blockstore.OpenReadOnly(carFilePath, carv2.ZeroLengthSectionAsEOF)
 	if err != nil {
 		return nil, xerrors.Errorf("failed to open read-only blockstore: %w", err)
 	}

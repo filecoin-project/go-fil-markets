@@ -105,12 +105,12 @@ func (p *providerDealEnvironment) GeneratePieceCommitment(proposalCid cid.Cid, c
 
 	// dump the CARv1 payload of the CARv2 file to the Commp Writer and get back the CommP.
 	w := &writer.Writer{}
-	written, err := io.Copy(w, rd.CarV1Reader())
+	written, err := io.Copy(w, rd.DataReader())
 	if err != nil {
 		return cid.Undef, "", xerrors.Errorf("failed to write to CommP writer: %w", err)
 	}
-	if written != int64(rd.Header.CarV1Size) {
-		return cid.Undef, "", xerrors.Errorf("number of bytes written to CommP writer %d not equal to the CARv1 payload size %d", written, rd.Header.CarV1Size)
+	if written != int64(rd.Header.DataSize) {
+		return cid.Undef, "", xerrors.Errorf("number of bytes written to CommP writer %d not equal to the CARv1 payload size %d", written, rd.Header.DataSize)
 	}
 
 	cidAndSize, err := w.Sum()
