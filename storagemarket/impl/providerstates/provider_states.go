@@ -328,7 +328,7 @@ func HandoffDeal(ctx fsm.Context, environment ProviderDealEnvironment, deal stor
 
 		// Hand the deal off to the process that adds it to a sector
 		var packingErr error
-		packingInfo, packingErr = handoffDeal(ctx.Context(), environment, deal, v2r.CarV1Reader(), v2r.Header.CarV1Size)
+		packingInfo, packingErr = handoffDeal(ctx.Context(), environment, deal, v2r.DataReader(), v2r.Header.DataSize)
 		// Close the reader as we're done reading from it.
 		if err := v2r.Close(); err != nil {
 			return ctx.Trigger(storagemarket.ProviderEventDealHandoffFailed, xerrors.Errorf("failed to close CARv2 reader: %w", err))

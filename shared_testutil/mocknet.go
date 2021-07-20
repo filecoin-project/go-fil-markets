@@ -22,6 +22,7 @@ import (
 	ipldformat "github.com/ipfs/go-ipld-format"
 	"github.com/ipfs/go-merkledag"
 	unixfile "github.com/ipfs/go-unixfs/file"
+	carv2 "github.com/ipld/go-car/v2"
 	"github.com/ipld/go-car/v2/blockstore"
 	"github.com/ipld/go-ipld-prime"
 	cidlink "github.com/ipld/go-ipld-prime/linking/cid"
@@ -213,7 +214,7 @@ func (ltd *Libp2pTestData) VerifyFileTransferred(t *testing.T, link ipld.Link, u
 // VerifyFileTransferredIntoStore checks that the fixture file was sent from
 // one node to the other, and stored in the given CAR file
 func (ltd *Libp2pTestData) VerifyFileTransferredIntoStore(t *testing.T, link ipld.Link, carFilePath string, readLen uint64) {
-	bstore, err := blockstore.OpenReadOnly(carFilePath)
+	bstore, err := blockstore.OpenReadOnly(carFilePath, carv2.ZeroLengthSectionAsEOF)
 	require.NoError(t, err)
 	bsvc := blockservice.New(bstore, offline.Exchange(bstore))
 	dagService := merkledag.NewDAGService(bsvc)

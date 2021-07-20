@@ -5,6 +5,7 @@ import (
 	"sync"
 
 	bstore "github.com/ipfs/go-ipfs-blockstore"
+	carv2 "github.com/ipld/go-car/v2"
 	"github.com/ipld/go-car/v2/blockstore"
 	"golang.org/x/xerrors"
 )
@@ -47,7 +48,7 @@ func (r *CarReadOnlyStoreTracker) GetOrCreate(key string, carFilePath string) (C
 		return bs, nil
 	}
 
-	rdOnly, err := blockstore.OpenReadOnly(carFilePath)
+	rdOnly, err := blockstore.OpenReadOnly(carFilePath, carv2.ZeroLengthSectionAsEOF)
 	if err != nil {
 		return nil, xerrors.Errorf("failed to open read-only blockstore: %w", err)
 	}

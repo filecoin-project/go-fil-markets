@@ -156,7 +156,7 @@ func TestNoDuplicatesInCARv2(t *testing.T) {
 	defer v2r.Close()
 
 	// Get a reader over the CARv1 payload of the CARv2 file.
-	cr, err := car.NewCarReader(v2r.CarV1Reader())
+	cr, err := car.NewCarReader(v2r.DataReader())
 	require.NoError(t, err)
 
 	seen := make(map[cid.Cid]struct{})
