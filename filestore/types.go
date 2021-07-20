@@ -1,8 +1,6 @@
 package filestore
 
-import (
-	"io"
-)
+import "io"
 
 // Path represents an abstract path to a file
 type Path string
