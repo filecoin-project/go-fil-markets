@@ -13,9 +13,9 @@ import (
 	"github.com/filecoin-project/go-address"
 	"github.com/filecoin-project/go-commp-utils/writer"
 
-	"github.com/filecoin-project/go-fil-markets/dagstore"
 	"github.com/filecoin-project/go-fil-markets/filestore"
 	"github.com/filecoin-project/go-fil-markets/piecestore"
+	"github.com/filecoin-project/go-fil-markets/shared"
 	"github.com/filecoin-project/go-fil-markets/storagemarket"
 	"github.com/filecoin-project/go-fil-markets/storagemarket/impl/providerstates"
 	"github.com/filecoin-project/go-fil-markets/storagemarket/network"
@@ -30,7 +30,7 @@ type providerDealEnvironment struct {
 }
 
 func (p *providerDealEnvironment) RegisterShard(ctx context.Context, pieceCid cid.Cid, carPath string, eagerInit bool) error {
-	return dagstore.RegisterShardSync(ctx, p.p.dagStore, pieceCid, carPath, eagerInit)
+	return shared.RegisterShardSync(ctx, p.p.dagStore, pieceCid, carPath, eagerInit)
 }
 
 func (p *providerDealEnvironment) CARv2Reader(carV2FilePath string) (*carv2.Reader, error) {

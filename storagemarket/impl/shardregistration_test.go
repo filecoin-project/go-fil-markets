@@ -2,18 +2,13 @@ package storageimpl
 
 import (
 	"context"
-	"sync"
 	"testing"
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/filecoin-project/dagstore"
-	"github.com/filecoin-project/dagstore/mount"
-	"github.com/filecoin-project/dagstore/shard"
 	"github.com/filecoin-project/go-address"
 	"github.com/filecoin-project/go-state-types/abi"
 
-	mktdagstore "github.com/filecoin-project/go-fil-markets/dagstore"
 	"github.com/filecoin-project/go-fil-markets/piecestore"
 	"github.com/filecoin-project/go-fil-markets/retrievalmarket/impl/testnodes"
 	tut "github.com/filecoin-project/go-fil-markets/shared_testutil"
@@ -24,11 +19,7 @@ import (
 func TestShardRegistration(t *testing.T) {
 	ps := tut.NewTestPieceStore()
 	providerNode := testnodes.NewTestRetrievalProviderNode()
-	mountApi := mktdagstore.NewLotusMountAPI(ps, providerNode)
-	dagStore := newMockDagStore()
-	failureCh := make(chan dagstore.ShardResult, 1)
-	dagStoreWrapper, err := mktdagstore.NewDagStoreWrapperWithDeps(dagStore, mountApi, failureCh)
-	require.NoError(t, err)
+	dagStoreWrapper := tut.NewMockDagStoreWrapper(ps, providerNode)
 
 	ctx := context.Background()
 	cids := tut.GenerateCids(4)
@@ -110,20 +101,20 @@ func TestShardRegistration(t *testing.T) {
 	require.NoError(t, err)
 
 	// Only the deals in the appropriate state should be registered
-	require.Equal(t, 2, dagStore.lenRegistrations())
+	require.Equal(t, 2, dagStoreWrapper.LenRegistrations())
 
 	// The deal in an unsealed sector should be initialized immediately
-	opts1, has1 := dagStore.getRegistration(shard.KeyFromCID(pieceCidUnsealed))
+	reg1, has1 := dagStoreWrapper.GetRegistration(pieceCidUnsealed)
 	require.True(t, has1)
-	require.False(t, opts1.LazyInitialization)
+	require.True(t, reg1.EagerInit)
 
 	// The deal in a sealed sector should be initialized lazily
-	opts2, has2 := dagStore.getRegistration(shard.KeyFromCID(pieceCidSealed))
+	reg2, has2 := dagStoreWrapper.GetRegistration(pieceCidSealed)
 	require.True(t, has2)
-	require.True(t, opts2.LazyInitialization)
+	require.False(t, reg2.EagerInit)
 
 	// Clear out all deal registrations
-	dagStore.clearRegistrations()
+	dagStoreWrapper.ClearRegistrations()
 
 	// Run register shard migration again
 	err = shardReg.registerShards(ctx, deals)
@@ -131,66 +122,7 @@ func TestShardRegistration(t *testing.T) {
 
 	// Should not call RegisterShard again because it should detect that the
 	// migration has already been run
-	require.Equal(t, 0, dagStore.lenRegistrations())
+	require.Equal(t, 0, dagStoreWrapper.LenRegistrations())
 
 	ps.VerifyExpectations(t)
-}
-
-type mockDagStore struct {
-	lk            sync.Mutex
-	registrations map[shard.Key]dagstore.RegisterOpts
-}
-
-var _ mktdagstore.DagStore = (*mockDagStore)(nil)
-
-func newMockDagStore() *mockDagStore {
-	return &mockDagStore{
-		registrations: make(map[shard.Key]dagstore.RegisterOpts),
-	}
-}
-
-func (m *mockDagStore) RegisterShard(ctx context.Context, key shard.Key, mnt mount.Mount, out chan dagstore.ShardResult, opts dagstore.RegisterOpts) error {
-	m.lk.Lock()
-	defer m.lk.Unlock()
-
-	m.registrations[key] = opts
-	return nil
-}
-
-func (m *mockDagStore) lenRegistrations() int {
-	m.lk.Lock()
-	defer m.lk.Unlock()
-
-	return len(m.registrations)
-}
-
-func (m *mockDagStore) getRegistration(key shard.Key) (dagstore.RegisterOpts, bool) {
-	m.lk.Lock()
-	defer m.lk.Unlock()
-
-	opts, ok := m.registrations[key]
-	return opts, ok
-}
-
-func (m *mockDagStore) clearRegistrations() {
-	m.lk.Lock()
-	defer m.lk.Unlock()
-
-	m.registrations = make(map[shard.Key]dagstore.RegisterOpts)
-}
-
-func (m *mockDagStore) AcquireShard(ctx context.Context, key shard.Key, out chan dagstore.ShardResult, _ dagstore.AcquireOpts) error {
-	return nil
-}
-
-func (m *mockDagStore) RecoverShard(ctx context.Context, key shard.Key, out chan dagstore.ShardResult, _ dagstore.RecoverOpts) error {
-	return nil
-}
-
-func (m *mockDagStore) GC(ctx context.Context) (map[shard.Key]error, error) {
-	return nil, nil
-}
-
-func (m *mockDagStore) Close() error {
-	return nil
 }

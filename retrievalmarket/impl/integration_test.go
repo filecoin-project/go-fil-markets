@@ -12,7 +12,6 @@ import (
 	"github.com/ipfs/go-cid"
 	"github.com/ipfs/go-datastore"
 	"github.com/ipfs/go-datastore/namespace"
-	ds_sync "github.com/ipfs/go-datastore/sync"
 	graphsyncimpl "github.com/ipfs/go-graphsync/impl"
 	"github.com/ipfs/go-graphsync/network"
 	"github.com/ipld/go-car"
@@ -31,7 +30,6 @@ import (
 	"github.com/filecoin-project/go-state-types/big"
 	"github.com/filecoin-project/specs-actors/actors/builtin/paych"
 
-	mktdagstore "github.com/filecoin-project/go-fil-markets/dagstore"
 	"github.com/filecoin-project/go-fil-markets/filestorecaradapter"
 	"github.com/filecoin-project/go-fil-markets/piecestore"
 	"github.com/filecoin-project/go-fil-markets/retrievalmarket"
@@ -171,16 +169,9 @@ func requireSetupTestClientAndProvider(ctx context.Context, t *testing.T, payChA
 	}
 
 	// Set up a DAG store
-	mountApi := mktdagstore.NewLotusMountAPI(pieceStore, providerNode)
-	dagStoreWrapper, err := mktdagstore.NewDagStoreWrapper(mktdagstore.MarketDAGStoreConfig{
-		TransientsDir: t.TempDir(),
-		IndexDir:      t.TempDir(),
-		Datastore:     ds_sync.MutexWrap(datastore.NewMapDatastore()),
-	}, mountApi)
-	require.NoError(t, err)
-
+	dagstoreWrapper := tut.NewMockDagStoreWrapper(pieceStore, providerNode)
 	provider, err := retrievalimpl.NewProvider(
-		paymentAddress, providerNode, nw2, pieceStore, dagStoreWrapper, dt2, providerDs,
+		paymentAddress, providerNode, nw2, pieceStore, dagstoreWrapper, dt2, providerDs,
 		priceFunc)
 	require.NoError(t, err)
 
@@ -708,17 +699,11 @@ func setupProvider(
 		return ask, nil
 	}
 
-	// Create a DAG store
-	mountApi := mktdagstore.NewLotusMountAPI(pieceStore, providerNode)
-	dagStoreWrapper, err := mktdagstore.NewDagStoreWrapper(mktdagstore.MarketDAGStoreConfig{
-		TransientsDir: t.TempDir(),
-		IndexDir:      t.TempDir(),
-		Datastore:     ds_sync.MutexWrap(datastore.NewMapDatastore()),
-	}, mountApi)
-	require.NoError(t, err)
+	// Create a DAG store wrapper
+	dagstoreWrapper := tut.NewMockDagStoreWrapper(pieceStore, providerNode)
 
-	// Register the piece with the DAG store
-	err = mktdagstore.RegisterShardSync(ctx, dagStoreWrapper, pieceInfo.PieceCID, carFilePath, true)
+	// Register the piece with the DAG store wrapper
+	err = shared.RegisterShardSync(ctx, dagstoreWrapper, pieceInfo.PieceCID, carFilePath, true)
 	require.NoError(t, err)
 
 	// Remove the CAR file so that the provider is forced to unseal the data
@@ -726,7 +711,7 @@ func setupProvider(
 	_ = os.Remove(carFilePath)
 
 	provider, err := retrievalimpl.NewProvider(providerPaymentAddr, providerNode, nw2,
-		pieceStore, dagStoreWrapper, dt2, providerDs, priceFunc, opts...)
+		pieceStore, dagstoreWrapper, dt2, providerDs, priceFunc, opts...)
 	require.NoError(t, err)
 
 	return provider

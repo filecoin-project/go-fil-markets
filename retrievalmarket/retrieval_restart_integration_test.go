@@ -20,6 +20,7 @@ import (
 	"github.com/filecoin-project/go-fil-markets/retrievalmarket"
 	testnodes2 "github.com/filecoin-project/go-fil-markets/retrievalmarket/impl/testnodes"
 	"github.com/filecoin-project/go-fil-markets/shared_testutil"
+	tut "github.com/filecoin-project/go-fil-markets/shared_testutil"
 	"github.com/filecoin-project/go-fil-markets/storagemarket/testharness"
 	"github.com/filecoin-project/go-fil-markets/storagemarket/testharness/dependencies"
 	"github.com/filecoin-project/go-fil-markets/storagemarket/testnodes"
@@ -103,7 +104,7 @@ func TestBounceConnectionDealTransferOngoing(t *testing.T) {
 			deps := depGen.New(t, bgCtx, td, testnodes.NewStorageMarketState(), "", noOpDelay, noOpDelay)
 			providerNode := testnodes2.NewTestRetrievalProviderNode()
 			pieceStore := shared_testutil.NewTestPieceStore()
-			deps.DagStore = newDagStore(t, providerNode, pieceStore)
+			deps.DagStore = tut.NewMockDagStoreWrapper(pieceStore, providerNode)
 
 			sh := testharness.NewHarnessWithTestData(t, deps.TestData, deps, true, false)
 			defer os.Remove(sh.FileStoreCARv2FilePath)
@@ -232,7 +233,7 @@ func TestBounceConnectionDealTransferUnsealing(t *testing.T) {
 			deps := depGen.New(t, bgCtx, td, testnodes.NewStorageMarketState(), "", noOpDelay, noOpDelay)
 			providerNode := testnodes2.NewTestRetrievalProviderNode()
 			pieceStore := shared_testutil.NewTestPieceStore()
-			deps.DagStore = newDagStore(t, providerNode, pieceStore)
+			deps.DagStore = tut.NewMockDagStoreWrapper(pieceStore, providerNode)
 
 			sh := testharness.NewHarnessWithTestData(t, td, deps, true, false)
 			defer os.Remove(sh.FileStoreCARv2FilePath)

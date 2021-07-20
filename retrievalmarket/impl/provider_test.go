@@ -142,7 +142,7 @@ func TestDynamicPricing(t *testing.T) {
 	buildProvider := func(t *testing.T, node *testnodes.TestRetrievalProviderNode, qs network.RetrievalQueryStream,
 		pieceStore piecestore.PieceStore, net *tut.TestRetrievalMarketNetwork, pFnc retrievalimpl.RetrievalPricingFunc) retrievalmarket.RetrievalProvider {
 		ds := dss.MutexWrap(datastore.NewMapDatastore())
-		dagStore := tut.NewMockDagStoreWrapper()
+		dagStore := tut.NewMockDagStoreWrapper(pieceStore, node)
 		dt := tut.NewTestDataTransfer()
 		c, err := retrievalimpl.NewProvider(expectedAddress, node, net, pieceStore, dagStore, dt, ds, pFnc)
 		require.NoError(t, err)
@@ -671,7 +671,7 @@ func TestHandleQueryStream(t *testing.T) {
 
 	receiveStreamOnProvider := func(t *testing.T, node *testnodes.TestRetrievalProviderNode, qs network.RetrievalQueryStream, pieceStore piecestore.PieceStore) {
 		ds := dss.MutexWrap(datastore.NewMapDatastore())
-		dagStore := tut.NewMockDagStoreWrapper()
+		dagStore := tut.NewMockDagStoreWrapper(pieceStore, node)
 		dt := tut.NewTestDataTransfer()
 		net := tut.NewTestRetrievalMarketNetwork(tut.TestNetworkParams{})
 
@@ -898,7 +898,7 @@ func TestProvider_Construct(t *testing.T) {
 	ds := datastore.NewMapDatastore()
 	pieceStore := tut.NewTestPieceStore()
 	node := testnodes.NewTestRetrievalProviderNode()
-	dagStore := tut.NewMockDagStoreWrapper()
+	dagStore := tut.NewMockDagStoreWrapper(pieceStore, node)
 	dt := tut.NewTestDataTransfer()
 
 	priceFunc := func(ctx context.Context, dealPricingParams retrievalmarket.PricingInput) (retrievalmarket.Ask, error) {
@@ -953,7 +953,7 @@ func TestProviderConfigOpts(t *testing.T) {
 	ds := datastore.NewMapDatastore()
 	pieceStore := tut.NewTestPieceStore()
 	node := testnodes.NewTestRetrievalProviderNode()
-	dagStore := tut.NewMockDagStoreWrapper()
+	dagStore := tut.NewMockDagStoreWrapper(pieceStore, node)
 
 	priceFunc := func(ctx context.Context, dealPricingParams retrievalmarket.PricingInput) (retrievalmarket.Ask, error) {
 		ask := retrievalmarket.Ask{}
@@ -1029,7 +1029,7 @@ func TestProviderMigrations(t *testing.T) {
 	ds := dss.MutexWrap(datastore.NewMapDatastore())
 	pieceStore := tut.NewTestPieceStore()
 	node := testnodes.NewTestRetrievalProviderNode()
-	dagStore := tut.NewMockDagStoreWrapper()
+	dagStore := tut.NewMockDagStoreWrapper(pieceStore, node)
 	dt := tut.NewTestDataTransfer()
 
 	providerDs := namespace.Wrap(ds, datastore.NewKey("/retrievals/provider"))
