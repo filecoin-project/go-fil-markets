@@ -3,7 +3,7 @@ module github.com/filecoin-project/go-fil-markets
 go 1.13
 
 require (
-	github.com/filecoin-project/dagstore v0.1.0
+	github.com/filecoin-project/dagstore v0.2.0
 	github.com/filecoin-project/go-address v0.0.5
 	github.com/filecoin-project/go-cbor-util v0.0.0-20191219014500-08c40a1e63a2
 	github.com/filecoin-project/go-commp-utils v0.1.0
@@ -47,7 +47,7 @@ require (
 	github.com/multiformats/go-multihash v0.0.15
 	github.com/stretchr/testify v1.7.0
 	github.com/whyrusleeping/cbor-gen v0.0.0-20210219115102-f37d292932f2
-	golang.org/x/exp v0.0.0-20210615023648-acb5c1269671
+	golang.org/x/exp v0.0.0-20210714144626-1041f73d31d8
 	golang.org/x/net v0.0.0-20210226172049-e18ecbb05110
 	golang.org/x/xerrors v0.0.0-20200804184101-5ec99f83aff1
 )
