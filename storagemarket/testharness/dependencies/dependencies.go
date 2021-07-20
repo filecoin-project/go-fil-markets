@@ -24,11 +24,11 @@ import (
 	"github.com/filecoin-project/go-state-types/abi"
 	"github.com/filecoin-project/specs-actors/actors/builtin/market"
 
-	"github.com/filecoin-project/go-fil-markets/dagstore"
 	discoveryimpl "github.com/filecoin-project/go-fil-markets/discovery/impl"
 	"github.com/filecoin-project/go-fil-markets/filestore"
 	"github.com/filecoin-project/go-fil-markets/piecestore"
 	piecestoreimpl "github.com/filecoin-project/go-fil-markets/piecestore/impl"
+	"github.com/filecoin-project/go-fil-markets/shared"
 	"github.com/filecoin-project/go-fil-markets/shared_testutil"
 	"github.com/filecoin-project/go-fil-markets/storagemarket"
 	storageimpl "github.com/filecoin-project/go-fil-markets/storagemarket/impl"
@@ -49,7 +49,7 @@ type StorageDependencies struct {
 	ProviderInfo                      storagemarket.StorageProviderInfo
 	TestData                          *shared_testutil.Libp2pTestData
 	PieceStore                        piecestore.PieceStore
-	DagStore                          dagstore.DagStoreWrapper
+	DagStore                          shared.DagStoreWrapper
 	ShardReg                          *storageimpl.ShardMigrator
 	DTClient                          datatransfer.Manager
 	DTProvider                        datatransfer.Manager
@@ -145,7 +145,7 @@ func (gen *DepGenerator) New(
 	fs, err := filestore.NewLocalFileStore(filestore.OsPath(tempPath))
 	assert.NoError(t, err)
 
-	dagStore := shared_testutil.NewMockDagStoreWrapper()
+	dagStore := shared_testutil.NewMockDagStoreWrapper(nil, nil)
 	shardReg := storageimpl.NewShardMigrator(providerAddr, t.TempDir(), dagStore, ps, providerNode)
 
 	// create provider and client

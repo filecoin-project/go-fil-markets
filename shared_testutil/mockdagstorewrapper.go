@@ -96,16 +96,13 @@ func (m *MockDagStoreWrapper) LoadShard(ctx context.Context, pieceCid cid.Cid) (
 	}
 
 	// Unseal the sector data for the deal
-	for _, deal := range pi.Deals {
-		r, err := m.rpn.UnsealSector(ctx, deal.SectorID, deal.Offset.Unpadded(), deal.Length.Unpadded())
-		if err != nil {
-			return nil, xerrors.Errorf("error unsealing deal for piece %s: %w", pieceCid, err)
-		}
-
-		return getBlockstoreFromReader(r, pieceCid)
+	deal := pi.Deals[0]
+	r, err := m.rpn.UnsealSector(ctx, deal.SectorID, deal.Offset.Unpadded(), deal.Length.Unpadded())
+	if err != nil {
+		return nil, xerrors.Errorf("error unsealing deal for piece %s: %w", pieceCid, err)
 	}
 
-	return nil, xerrors.Errorf("no deals for piece %s", pieceCid)
+	return getBlockstoreFromReader(r, pieceCid)
 }
 
 func getBlockstoreFromReader(r io.ReadCloser, pieceCid cid.Cid) (carstore.ClosableBlockstore, error) {
