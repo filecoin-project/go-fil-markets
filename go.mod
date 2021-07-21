@@ -3,7 +3,7 @@ module github.com/filecoin-project/go-fil-markets
 go 1.13
 
 require (
-	github.com/filecoin-project/dagstore v0.2.2-0.20210721180527-15b4f8017ff4
+	github.com/filecoin-project/dagstore v0.2.2-0.20210721184657-325a1dab778c
 	github.com/filecoin-project/go-address v0.0.5
 	github.com/filecoin-project/go-cbor-util v0.0.0-20191219014500-08c40a1e63a2
 	github.com/filecoin-project/go-commp-utils v0.1.0
