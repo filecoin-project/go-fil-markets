@@ -134,7 +134,9 @@ func (pde *providerDealEnvironment) PrepareBlockstore(ctx context.Context, dealI
 		return xerrors.Errorf("failed to load blockstore for piece %s: %w", pieceCid, err)
 	}
 
+	log.Debugf("adding blockstore for deal %d to tracker", dealID)
 	_, err = pde.p.readOnlyBlockStores.Add(dealID.String(), bs)
+	log.Debugf("added blockstore for deal %d to tracker", dealID)
 	return err
 }
 

@@ -9,9 +9,12 @@ import (
 	datatransfer "github.com/filecoin-project/go-data-transfer"
 	"github.com/filecoin-project/go-statemachine"
 	"github.com/filecoin-project/go-statemachine/fsm"
+	logging "github.com/ipfs/go-log/v2"
 
 	rm "github.com/filecoin-project/go-fil-markets/retrievalmarket"
 )
+
+var log = logging.Logger("retrieval-fsm")
 
 // ProviderDealEnvironment is a bridge to the environment a provider deal is executing in
 // It provides access to relevant functionality on the retrieval provider
@@ -32,6 +35,7 @@ func UnsealData(ctx fsm.Context, environment ProviderDealEnvironment, deal rm.Pr
 	if err := environment.PrepareBlockstore(ctx.Context(), deal.ID, deal.PieceInfo.PieceCID); err != nil {
 		return ctx.Trigger(rm.ProviderEventUnsealError, err)
 	}
+	log.Debugf("blockstore prepared successfully, firing unseal complete for deal %d", deal.ID)
 	return ctx.Trigger(rm.ProviderEventUnsealComplete)
 }
 
@@ -46,11 +50,13 @@ func TrackTransfer(ctx fsm.Context, environment ProviderDealEnvironment, deal rm
 
 // UnpauseDeal resumes a deal so we can start sending data after its unsealed
 func UnpauseDeal(ctx fsm.Context, environment ProviderDealEnvironment, deal rm.ProviderDealState) error {
+	log.Debugf("unpausing data transfer for deal %d", deal.ID)
 	err := environment.TrackTransfer(deal)
 	if err != nil {
 		return ctx.Trigger(rm.ProviderEventDataTransferError, err)
 	}
 	if deal.ChannelID != nil {
+		log.Debugf("resuming data transfer for deal %d", deal.ID)
 		err = environment.ResumeDataTransfer(ctx.Context(), *deal.ChannelID)
 		if err != nil {
 			return ctx.Trigger(rm.ProviderEventDataTransferError, err)
