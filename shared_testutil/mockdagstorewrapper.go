@@ -124,7 +124,7 @@ func getBlockstoreFromReader(r io.ReadCloser, pieceCid cid.Cid) (carstore.Closab
 	}
 
 	// Get a blockstore from the CAR file
-	return blockstore.OpenReadOnly(tmpFile.Name(), carv2.ZeroLengthSectionAsEOF(true))
+	return blockstore.OpenReadOnly(tmpFile.Name(), carv2.ZeroLengthSectionAsEOF(true), blockstore.UseWholeCIDs(true))
 }
 
 func (m *MockDagStoreWrapper) Close() error {

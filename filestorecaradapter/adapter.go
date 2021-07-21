@@ -29,7 +29,7 @@ type FileStore struct {
 // the Filestore will simply act as a pass-through read only CAR blockstore.
 func NewReadOnlyFileStore(carFilePath string) (*FileStore, error) {
 	// Open a readOnly blockstore that wraps the given CAR file.
-	rdOnly, err := blockstore.OpenReadOnly(carFilePath, carv2.ZeroLengthSectionAsEOF(true))
+	rdOnly, err := blockstore.OpenReadOnly(carFilePath, carv2.ZeroLengthSectionAsEOF(true), blockstore.UseWholeCIDs(true))
 	if err != nil {
 		return nil, xerrors.Errorf("failed to open read-only blockstore: %w", err)
 	}
