@@ -60,6 +60,8 @@ func (r *ShardMigrator) registerShards(ctx context.Context, deals []storagemarke
 		return nil
 	}
 
+	log.Info("Performing shard registration for all active deals in sealing subsystem")
+
 	inSealingSubsystem := make(map[fsm.StateKey]struct{}, len(providerstates.StatesKnownBySealingSubsystem))
 	for _, s := range providerstates.StatesKnownBySealingSubsystem {
 		inSealingSubsystem[s] = struct{}{}
@@ -135,6 +137,11 @@ func (r *ShardMigrator) registerShards(ctx context.Context, deals []storagemarke
 		// index immediately if the deal is unsealed (if the deal is not
 		// unsealed it will be initialized "lazily" once it's unsealed during
 		// retrieval)
+		sealState := "sealed"
+		if isUnsealed {
+			sealState = "unsealed"
+		}
+		log.Infof("Registering deal %d (%s) with piece %s and CAR file at %s", deal.DealID, sealState, deal.Ref.PieceCid, deal.CARv2FilePath)
 		err = r.dagStore.RegisterShard(ctx, *deal.Ref.PieceCid, deal.CARv2FilePath, isUnsealed, resch)
 		if err != nil {
 			log.Warnf("failed to register shard for deal with piece CID %s: %s", deal.Ref.PieceCid, err)
@@ -151,6 +158,7 @@ func (r *ShardMigrator) registerShards(ctx context.Context, deals []storagemarke
 		log.Errorf("failed to mark shards as registered: %s", err)
 	}
 
+	log.Infof("Shard registration complete: registered %d deals", registered)
 	return nil
 }
 
