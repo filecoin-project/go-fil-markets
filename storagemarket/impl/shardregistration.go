@@ -142,7 +142,7 @@ func (r *ShardMigrator) registerShards(ctx context.Context, deals []storagemarke
 			sealState = "unsealed"
 		}
 		log.Infof("Registering deal %d (%s) with piece %s and CAR file at %s", deal.DealID, sealState, deal.Ref.PieceCid, deal.CARv2FilePath)
-		err = r.dagStore.RegisterShard(ctx, *deal.Ref.PieceCid, deal.CARv2FilePath, isUnsealed, resch)
+		err = r.dagStore.RegisterShard(ctx, *deal.Ref.PieceCid, "", isUnsealed, resch)
 		if err != nil {
 			log.Warnf("failed to register shard for deal with piece CID %s: %s", deal.Ref.PieceCid, err)
 			continue
