@@ -86,7 +86,7 @@ func GeneratePieceCommitmentWithMetadata(
 	payloadCid cid.Cid,
 	selector ipld.Node,
 	storeID *multistore.StoreID) (cid.Cid, abi.UnpaddedPieceSize, filestore.Path, error) {
-	metadataFile, err := fileStore.CreateTemp()
+	metadataFile, err := fileStore.CreateTemp(payloadCid.String())
 	if err != nil {
 		return cid.Cid{}, 0, "", err
 	}

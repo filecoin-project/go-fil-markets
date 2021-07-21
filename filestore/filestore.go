@@ -65,8 +65,13 @@ func (fs fileStore) Delete(p Path) error {
 	return os.Remove(full)
 }
 
-func (fs fileStore) CreateTemp() (File, error) {
-	f, err := ioutil.TempFile(fs.base, "fstmp")
+func (fs fileStore) CreateTemp(pattern string) (File, error) {
+	if pattern == "" {
+		pattern = "fstmp"
+	} else {
+		pattern = fmt.Sprintf("fstmp_%s", pattern)
+	}
+	f, err := ioutil.TempFile(fs.base, pattern)
 	if err != nil {
 		return nil, err
 	}

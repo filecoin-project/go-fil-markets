@@ -293,7 +293,7 @@ func (p *Provider) ImportDataForDeal(ctx context.Context, propCid cid.Cid, data 
 		return xerrors.Errorf("failed getting deal %s: %w", propCid, err)
 	}
 
-	tempfi, err := p.fs.CreateTemp()
+	tempfi, err := p.fs.CreateTemp(propCid.String())
 	if err != nil {
 		return xerrors.Errorf("failed to create temp file for data import: %w", err)
 	}
