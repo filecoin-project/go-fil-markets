@@ -186,7 +186,6 @@ var ProviderEvents = fsm.Events{
 	fsm.Event(storagemarket.ProviderEventFinalized).
 		From(storagemarket.StorageDealFinalizing).To(storagemarket.StorageDealActive).
 		Action(func(deal *storagemarket.MinerDeal) error {
-			deal.CARv2FilePath = ""
 			return nil
 		}),
 	fsm.Event(storagemarket.ProviderEventDealSlashed).
