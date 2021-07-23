@@ -5,11 +5,13 @@ go 1.13
 require (
 	github.com/filecoin-project/go-address v0.0.3
 	github.com/filecoin-project/go-cbor-util v0.0.0-20191219014500-08c40a1e63a2
-	github.com/filecoin-project/go-commp-utils v0.0.0-20201119054358-b88f7a96a434
+	github.com/filecoin-project/go-commp-utils v0.1.1-0.20210427191551-70bf140d31c7
 	github.com/filecoin-project/go-data-transfer v1.7.0
 	github.com/filecoin-project/go-ds-versioning v0.1.0
+	github.com/filecoin-project/go-fil-commcid v0.1.0
+	github.com/filecoin-project/go-fil-commp-hashhash v0.1.0
 	github.com/filecoin-project/go-multistore v0.0.3
-	github.com/filecoin-project/go-padreader v0.0.0-20200903213702-ed5fae088b20
+	github.com/filecoin-project/go-padreader v0.0.0-20210723183308-812a16dc01b1
 	github.com/filecoin-project/go-state-types v0.0.0-20201102161440-c8033295a1fc
 	github.com/filecoin-project/go-statemachine v0.0.0-20200925024713-05bd7c71fbfe
 	github.com/filecoin-project/go-statestore v0.1.0

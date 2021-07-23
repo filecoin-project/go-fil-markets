@@ -40,7 +40,7 @@ type ProviderDealEnvironment interface {
 	Node() storagemarket.StorageProviderNode
 	Ask() storagemarket.StorageAsk
 	DeleteStore(storeID multistore.StoreID) error
-	GeneratePieceCommitment(storeID *multistore.StoreID, payloadCid cid.Cid, selector ipld.Node) (cid.Cid, filestore.Path, error)
+	GeneratePieceCommitment(storeID *multistore.StoreID, payloadCid cid.Cid, selector ipld.Node, psize abi.PaddedPieceSize) (cid.Cid, filestore.Path, error)
 	GeneratePieceReader(storeID *multistore.StoreID, payloadCid cid.Cid, selector ipld.Node) (io.ReadCloser, uint64, error, <-chan error)
 	SendSignedResponse(ctx context.Context, response *network.Response) error
 	Disconnect(proposalCid cid.Cid) error
@@ -197,7 +197,7 @@ func DecideOnProposal(ctx fsm.Context, environment ProviderDealEnvironment, deal
 // VerifyData verifies that data received for a deal matches the pieceCID
 // in the proposal
 func VerifyData(ctx fsm.Context, environment ProviderDealEnvironment, deal storagemarket.MinerDeal) error {
-	pieceCid, metadataPath, err := environment.GeneratePieceCommitment(deal.StoreID, deal.Ref.Root, shared.AllSelector())
+	pieceCid, metadataPath, err := environment.GeneratePieceCommitment(deal.StoreID, deal.Ref.Root, shared.AllSelector(), deal.Proposal.PieceSize)
 	if err != nil {
 		return ctx.Trigger(storagemarket.ProviderEventDataVerificationFailed, xerrors.Errorf("error generating CommP: %w", err), filestore.Path(""), filestore.Path(""))
 	}
@@ -309,7 +309,7 @@ func HandoffDeal(ctx fsm.Context, environment ProviderDealEnvironment, deal stor
 		}
 
 		// Hand the deal off to the process that adds it to a sector
-		packingInfo, err = handoffDeal(ctx.Context(), environment, deal, file, uint64(file.Size()))
+		packingInfo, err = handoffDeal(ctx.Context(), environment, deal, file, uint64(file.Size()), deal.Proposal.PieceSize)
 		if err != nil {
 			err = xerrors.Errorf("packing piece at path %s: %w", deal.PiecePath, err)
 			return ctx.Trigger(storagemarket.ProviderEventDealHandoffFailed, err)
@@ -324,7 +324,7 @@ func HandoffDeal(ctx fsm.Context, environment ProviderDealEnvironment, deal stor
 
 		// Hand the deal off to the process that adds it to a sector
 		var packingErr error
-		packingInfo, packingErr = handoffDeal(ctx.Context(), environment, deal, pieceReader, pieceSize)
+		packingInfo, packingErr = handoffDeal(ctx.Context(), environment, deal, pieceReader, pieceSize, deal.Proposal.PieceSize)
 
 		// Close the read side of the pipe
 		err = pieceReader.Close()
@@ -360,8 +360,15 @@ func HandoffDeal(ctx fsm.Context, environment ProviderDealEnvironment, deal stor
 	return ctx.Trigger(storagemarket.ProviderEventDealHandedOff)
 }
 
-func handoffDeal(ctx context.Context, environment ProviderDealEnvironment, deal storagemarket.MinerDeal, reader io.Reader, size uint64) (*storagemarket.PackingResult, error) {
-	paddedReader, paddedSize := padreader.New(reader, size)
+func handoffDeal(ctx context.Context, environment ProviderDealEnvironment, deal storagemarket.MinerDeal, reader io.Reader, payloadSize uint64, pieceSize abi.PaddedPieceSize) (*storagemarket.PackingResult, error) {
+	// because we use the PadReader directly during AP we need to produce the
+	// correct amount of zeroes
+	// (alternative would be to keep precise track of sector offsets for each
+	// piece which is just too much work for a seldom used feature)
+	paddedReader, err := padreader.NewInflator(reader, payloadSize, pieceSize.Unpadded())
+	if err != nil {
+		return nil, err
+	}
 	return environment.Node().OnDealComplete(
 		ctx,
 		storagemarket.MinerDeal{
@@ -374,7 +381,7 @@ func handoffDeal(ctx context.Context, environment ProviderDealEnvironment, deal 
 			DealID:             deal.DealID,
 			FastRetrieval:      deal.FastRetrieval,
 		},
-		paddedSize,
+		pieceSize.Unpadded(),
 		paddedReader,
 	)
 }
