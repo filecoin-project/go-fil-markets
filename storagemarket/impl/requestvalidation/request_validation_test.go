@@ -176,21 +176,6 @@ func AssertPushValidator(t *testing.T, validator datatransfer.RequestValidator, 
 			t.Fatal("Push should fail if there is no deal stored")
 		}
 	})
-	t.Run("ValidatePush fails wrong miner", func(t *testing.T) {
-		otherClient := peer.ID("otherclient")
-		minerDeal, err := newMinerDeal(otherClient, storagemarket.StorageDealProposalAccepted)
-		if err != nil {
-			t.Fatal("error creating client deal")
-		}
-		if err := state.Begin(minerDeal.ProposalCid, &minerDeal); err != nil {
-			t.Fatal("deal tracking failed")
-		}
-		ref := minerDeal.Ref
-		_, err = validator.ValidatePush(false, datatransfer.ChannelID{}, sender, &rv.StorageDataTransferVoucher{minerDeal.ProposalCid}, ref.Root, nil)
-		if !xerrors.Is(err, rv.ErrWrongPeer) {
-			t.Fatal("Push should fail if miner address is incorrect")
-		}
-	})
 	t.Run("ValidatePush fails wrong piece ref", func(t *testing.T) {
 		minerDeal, err := newMinerDeal(sender, storagemarket.StorageDealProposalAccepted)
 		if err != nil {
