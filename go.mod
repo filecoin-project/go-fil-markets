@@ -11,7 +11,7 @@ require (
 	github.com/filecoin-project/go-fil-commcid v0.1.0
 	github.com/filecoin-project/go-fil-commp-hashhash v0.1.0
 	github.com/filecoin-project/go-multistore v0.0.3
-	github.com/filecoin-project/go-padreader v0.0.0-20210705163151-ca3f7051a78a
+	github.com/filecoin-project/go-padreader v0.0.0-20210723183308-812a16dc01b1
 	github.com/filecoin-project/go-state-types v0.0.0-20201102161440-c8033295a1fc
 	github.com/filecoin-project/go-statemachine v0.0.0-20200925024713-05bd7c71fbfe
 	github.com/filecoin-project/go-statestore v0.1.0
@@ -48,8 +48,5 @@ require (
 	golang.org/x/net v0.0.0-20201021035429-f5854403a974
 	golang.org/x/xerrors v0.0.0-20200804184101-5ec99f83aff1
 )
-
-// FIXME - temporary until https://github.com/filecoin-project/go-padreader/pull/6 merges
-replace github.com/filecoin-project/go-padreader => github.com/ribasushi/go-padreader v0.0.0-20210705163151-ca3f7051a78a
 
 replace github.com/filecoin-project/filecoin-ffi => ./extern/filecoin-ffi
