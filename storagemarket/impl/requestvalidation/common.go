@@ -15,7 +15,6 @@ import (
 // Will succeed only if:
 // - voucher has correct type
 // - voucher references an active deal
-// - referenced deal matches the client
 // - referenced deal matches the given base CID
 // - referenced deal is in an acceptable state
 func ValidatePush(
@@ -50,7 +49,6 @@ func ValidatePush(
 // Will succeed only if:
 // - voucher has correct type
 // - voucher references an active deal
-// - referenced deal matches the receiver (miner)
 // - referenced deal matches the given base CID
 // - referenced deal is in an acceptable state
 func ValidatePull(
