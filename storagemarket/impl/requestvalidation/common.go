@@ -68,9 +68,6 @@ func ValidatePull(
 		return xerrors.Errorf("Proposal CID %s: %w", dealVoucher.Proposal.String(), ErrNoDeal)
 	}
 
-	if deal.Miner != receiver {
-		return xerrors.Errorf("Deal Peer %s, Data Transfer Peer %s: %w", deal.Miner.String(), receiver.String(), ErrWrongPeer)
-	}
 	if !deal.DataRef.Root.Equals(baseCid) {
 		return xerrors.Errorf("Deal Payload CID %s, Data Transfer CID %s: %w", deal.Proposal.PieceCID.String(), baseCid.String(), ErrWrongPiece)
 	}

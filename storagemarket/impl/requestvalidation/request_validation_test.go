@@ -234,21 +234,6 @@ func AssertValidatesPulls(t *testing.T, validator datatransfer.RequestValidator,
 			t.Fatal("Pull should fail if there is no deal stored")
 		}
 	})
-	t.Run("ValidatePull fails wrong client", func(t *testing.T) {
-		otherMiner := peer.ID("otherminer")
-		clientDeal, err := newClientDeal(otherMiner, storagemarket.StorageDealProposalAccepted)
-		if err != nil {
-			t.Fatal("error creating client deal")
-		}
-		if err := state.Begin(clientDeal.ProposalCid, &clientDeal); err != nil {
-			t.Fatal("deal tracking failed")
-		}
-		payloadCid := clientDeal.DataRef.Root
-		_, err = validator.ValidatePull(false, datatransfer.ChannelID{}, receiver, &rv.StorageDataTransferVoucher{clientDeal.ProposalCid}, payloadCid, nil)
-		if !xerrors.Is(err, rv.ErrWrongPeer) {
-			t.Fatal("Pull should fail if miner address is incorrect")
-		}
-	})
 	t.Run("ValidatePull fails wrong piece ref", func(t *testing.T) {
 		clientDeal, err := newClientDeal(receiver, storagemarket.StorageDealProposalAccepted)
 		if err != nil {
