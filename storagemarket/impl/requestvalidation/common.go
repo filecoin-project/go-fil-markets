@@ -15,7 +15,6 @@ import (
 // Will succeed only if:
 // - voucher has correct type
 // - voucher references an active deal
-// - referenced deal matches the client
 // - referenced deal matches the given base CID
 // - referenced deal is in an acceptable state
 func ValidatePush(
@@ -34,9 +33,6 @@ func ValidatePush(
 	if err != nil {
 		return xerrors.Errorf("Proposal CID %s: %w", dealVoucher.Proposal.String(), ErrNoDeal)
 	}
-	if deal.Client != sender {
-		return xerrors.Errorf("Deal Peer %s, Data Transfer Peer %s: %w", deal.Client.String(), sender.String(), ErrWrongPeer)
-	}
 
 	if !deal.Ref.Root.Equals(baseCid) {
 		return xerrors.Errorf("Deal Payload CID %s, Data Transfer CID %s: %w", deal.Proposal.PieceCID.String(), baseCid.String(), ErrWrongPiece)
@@ -53,7 +49,6 @@ func ValidatePush(
 // Will succeed only if:
 // - voucher has correct type
 // - voucher references an active deal
-// - referenced deal matches the receiver (miner)
 // - referenced deal matches the given base CID
 // - referenced deal is in an acceptable state
 func ValidatePull(
@@ -71,9 +66,6 @@ func ValidatePull(
 		return xerrors.Errorf("Proposal CID %s: %w", dealVoucher.Proposal.String(), ErrNoDeal)
 	}
 
-	if deal.Miner != receiver {
-		return xerrors.Errorf("Deal Peer %s, Data Transfer Peer %s: %w", deal.Miner.String(), receiver.String(), ErrWrongPeer)
-	}
 	if !deal.DataRef.Root.Equals(baseCid) {
 		return xerrors.Errorf("Deal Payload CID %s, Data Transfer CID %s: %w", deal.Proposal.PieceCID.String(), baseCid.String(), ErrWrongPiece)
 	}
