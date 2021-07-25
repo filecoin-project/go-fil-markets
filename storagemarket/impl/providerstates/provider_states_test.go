@@ -1438,7 +1438,7 @@ func makeExecutor(ctx context.Context,
 			environment.ask = defaultAsk
 		}
 		if environment.pieceSize == 0 {
-			environment.pieceSize = uint64(defaultPieceSize)
+			environment.pieceSize = uint64(defaultPieceSize.Unpadded())
 		}
 		if environment.pieceReader == nil {
 			environment.pieceReader = newStubbedReadCloser(nil)
@@ -1551,7 +1551,7 @@ func (fe *fakeEnvironment) CleanReadWriteBlockstore(proposalCid cid.Cid, carFile
 	return nil
 }
 
-func (fe *fakeEnvironment) GeneratePieceCommitment(proposalCid cid.Cid, carV2FilePath string) (cid.Cid, filestore.Path, error) {
+func (fe *fakeEnvironment) GeneratePieceCommitment(proposalCid cid.Cid, carV2FilePath string, dealSize abi.PaddedPieceSize) (cid.Cid, filestore.Path, error) {
 	return fe.pieceCid, fe.metadataPath, fe.generateCommPError
 }
 

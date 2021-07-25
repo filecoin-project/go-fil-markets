@@ -440,7 +440,7 @@ func TestClientCanMakeDealWithProvider(t *testing.T) {
 			}
 
 			// ------- SET UP CLIENT
-			ctx, cancel := context.WithTimeout(bgCtx, 10*time.Second)
+			ctx, cancel := context.WithTimeout(bgCtx, 60*time.Second)
 			defer cancel()
 
 			provider := setupProvider(bgCtx, t, testData, payloadCID, pieceInfo, carFile.Name(), expectedQR,
@@ -561,11 +561,12 @@ CurrentInterval: %d
 				}
 				assert.Equal(t, retrievalmarket.DealStatusCompleted, clientDealState.Status)
 			}
-			ctx, cancel = context.WithTimeout(bgCtx, 5*time.Second)
-			defer cancel()
+
+			ctxProv, cancelProv := context.WithTimeout(bgCtx, 10*time.Second)
+			defer cancelProv()
 			var providerDealState retrievalmarket.ProviderDealState
 			select {
-			case <-ctx.Done():
+			case <-ctxProv.Done():
 				t.Error("provider never saw completed deal")
 				t.FailNow()
 			case providerDealState = <-providerDealStateChan:
