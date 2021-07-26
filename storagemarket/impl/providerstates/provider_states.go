@@ -42,7 +42,7 @@ type ProviderDealEnvironment interface {
 
 	CleanReadWriteBlockstore(proposalCid cid.Cid, carFilePath string) error
 
-	GeneratePieceCommitment(proposalCid cid.Cid, carV2FilePath string) (cid.Cid, filestore.Path, error)
+	GeneratePieceCommitment(proposalCid cid.Cid, carV2FilePath string, dealSize abi.PaddedPieceSize) (cid.Cid, filestore.Path, error)
 
 	Address() address.Address
 	Node() storagemarket.StorageProviderNode
@@ -207,7 +207,7 @@ func VerifyData(ctx fsm.Context, environment ProviderDealEnvironment, deal stora
 		return ctx.Trigger(storagemarket.ProviderEventDataVerificationFailed, xerrors.Errorf("failed to finalize read-write blockstore: %w", err), filestore.Path(""), filestore.Path(""))
 	}
 
-	pieceCid, metadataPath, err := environment.GeneratePieceCommitment(deal.ProposalCid, deal.CARv2FilePath)
+	pieceCid, metadataPath, err := environment.GeneratePieceCommitment(deal.ProposalCid, deal.CARv2FilePath, deal.Proposal.PieceSize)
 	if err != nil {
 		return ctx.Trigger(storagemarket.ProviderEventDataVerificationFailed, xerrors.Errorf("error generating CommP: %w", err), filestore.Path(""), filestore.Path(""))
 	}
@@ -355,14 +355,16 @@ func HandoffDeal(ctx fsm.Context, environment ProviderDealEnvironment, deal stor
 	return ctx.Trigger(storagemarket.ProviderEventDealHandedOff)
 }
 
-func handoffDeal(ctx context.Context, environment ProviderDealEnvironment, deal storagemarket.MinerDeal, reader io.Reader, size uint64) (*storagemarket.PackingResult, error) {
-	// Note that even though padreader.New returns an UnpaddedPieceSize, it is
-	// *actually* returning the padded piece size cast to UnpaddedPieceSize.
-	paddedReader, paddedSize := padreader.New(reader, size)
+func handoffDeal(ctx context.Context, environment ProviderDealEnvironment, deal storagemarket.MinerDeal, reader io.Reader, payloadSize uint64) (*storagemarket.PackingResult, error) {
+	// because we use the PadReader directly during AP we need to produce the
+	// correct amount of zeroes
+	// (alternative would be to keep precise track of sector offsets for each
+	// piece which is just too much work for a seldom used feature)
+	paddedReader, err := padreader.NewInflator(reader, payloadSize, deal.Proposal.PieceSize.Unpadded())
+	if err != nil {
+		return nil, err
+	}
 
-	// Note that even though OnDealComplete takes an UnpaddedPieceSize as a
-	// parameter, the sealing code *actually* requires a padded piece size,
-	// which is what we pass here.
 	return environment.Node().OnDealComplete(
 		ctx,
 		storagemarket.MinerDeal{
@@ -375,7 +377,7 @@ func handoffDeal(ctx context.Context, environment ProviderDealEnvironment, deal 
 			DealID:             deal.DealID,
 			FastRetrieval:      deal.FastRetrieval,
 		},
-		paddedSize,
+		deal.Proposal.PieceSize.Unpadded(),
 		paddedReader,
 	)
 }

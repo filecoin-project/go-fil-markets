@@ -161,7 +161,7 @@ func TestCommPGenerationWithMetadata(t *testing.T) {
 		t.Run(testName, func(t *testing.T) {
 			fcp := &fakeCommPGenerator{pieceCid, pieceSize, testCase.commPErr}
 			fs := shared_testutil.NewTestFileStore(testCase.fileStoreParams)
-			resultPieceCid, resultMetadataPath, resultErr := providerutils.GeneratePieceCommitmentWithMetadata(
+			resultPieceCid, _, resultMetadataPath, resultErr := providerutils.GeneratePieceCommitmentWithMetadata(
 				fs, fcp.GenerateCommPToFile, proofType, payloadCid, selector, &storeID)
 			require.Equal(t, resultPieceCid, testCase.expectedPieceCid)
 			require.Equal(t, resultMetadataPath, testCase.expectedMetadataPath)

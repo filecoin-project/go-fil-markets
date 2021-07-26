@@ -13,6 +13,9 @@ import (
 
 	"github.com/filecoin-project/go-address"
 	"github.com/filecoin-project/go-commp-utils/writer"
+	commcid "github.com/filecoin-project/go-fil-commcid"
+	commp "github.com/filecoin-project/go-fil-commp-hashhash"
+	"github.com/filecoin-project/go-state-types/abi"
 
 	"github.com/filecoin-project/go-fil-markets/filestore"
 	"github.com/filecoin-project/go-fil-markets/piecestore"
@@ -79,7 +82,7 @@ func (p *providerDealEnvironment) CleanReadWriteBlockstore(proposalCid cid.Cid, 
 }
 
 // GeneratePieceCommitment generates the pieceCid for the CARv1 deal payload in the CARv2 file that already exists at the given path.
-func (p *providerDealEnvironment) GeneratePieceCommitment(proposalCid cid.Cid, carV2FilePath string) (c cid.Cid, path filestore.Path, finalErr error) {
+func (p *providerDealEnvironment) GeneratePieceCommitment(proposalCid cid.Cid, carV2FilePath string, dealSize abi.PaddedPieceSize) (c cid.Cid, path filestore.Path, finalErr error) {
 	rd, err := carv2.OpenReader(carV2FilePath)
 	if err != nil {
 		return cid.Undef, "", xerrors.Errorf("failed to get CARv2 reader, proposalCid=%s, carV2FilePath=%s: %w", proposalCid, carV2FilePath, err)
@@ -117,6 +120,20 @@ func (p *providerDealEnvironment) GeneratePieceCommitment(proposalCid cid.Cid, c
 	cidAndSize, err := w.Sum()
 	if err != nil {
 		return cid.Undef, "", xerrors.Errorf("failed to get CommP: %w", err)
+	}
+
+	if cidAndSize.PieceSize < dealSize {
+		// need to pad up!
+		rawPaddedCommp, err := commp.PadCommP(
+			// we know how long a pieceCid "hash" is, just blindly extract the trailing 32 bytes
+			cidAndSize.PieceCID.Hash()[len(cidAndSize.PieceCID.Hash())-32:],
+			uint64(cidAndSize.PieceSize),
+			uint64(dealSize),
+		)
+		if err != nil {
+			return cid.Undef, "", err
+		}
+		cidAndSize.PieceCID, _ = commcid.DataCommitmentV1ToCID(rawPaddedCommp)
 	}
 
 	return cidAndSize.PieceCID, filestore.Path(""), err
