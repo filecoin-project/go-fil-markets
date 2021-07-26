@@ -332,6 +332,8 @@ var ProviderEvents = map[ProviderEvent]string{
 	ProviderEventDataTransferRestartFailed: "ProviderEventDataTransferRestartFailed",
 	ProviderEventDataTransferStalled:       "ProviderEventDataTransferStalled",
 	ProviderEventDataTransferCancelled:     "ProviderEventDataTransferCancelled",
+	ProviderEventDealPrecommitFailed:       "ProviderEventDealPrecommitFailed",
+	ProviderEventDealPrecommitted:          "ProviderEventDealPrecommitted",
 }
 
 func (e ProviderEvent) String() string {
