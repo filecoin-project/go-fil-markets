@@ -5,11 +5,11 @@ import (
 	"errors"
 
 	"github.com/ipfs/go-cid"
+	logging "github.com/ipfs/go-log/v2"
 
 	datatransfer "github.com/filecoin-project/go-data-transfer"
 	"github.com/filecoin-project/go-statemachine"
 	"github.com/filecoin-project/go-statemachine/fsm"
-	logging "github.com/ipfs/go-log/v2"
 
 	rm "github.com/filecoin-project/go-fil-markets/retrievalmarket"
 )
