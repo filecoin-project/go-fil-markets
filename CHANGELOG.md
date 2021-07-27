@@ -1,5 +1,11 @@
 # go-fil-markets changelog
 
+# go-fil-markets v1.6.0
+
+- Add a `StorageDealTransferQueued` event on the storage client that means that the data transfer request has been queued and will be executed soon.
+- Support padding out smaller files (https://github.com/filecoin-project/go-fil-markets/pull/536).
+- Storage Client peer and the peer that actually does the data transfer can be different (https://github.com/filecoin-project/go-fil-markets/pull/585).
+
 # go-fil-markets v1.5.0
 
 Adds Dynamic Retrieval Pricing
