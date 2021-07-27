@@ -5,6 +5,7 @@ package migrations
 import (
 	"fmt"
 	"io"
+	"math"
 	"sort"
 
 	migrations "github.com/filecoin-project/go-fil-markets/retrievalmarket/migrations"
@@ -15,6 +16,7 @@ import (
 
 var _ = xerrors.Errorf
 var _ = cid.Undef
+var _ = math.E
 var _ = sort.Sort
 
 var lengthBufRetrievalPeers0 = []byte{129}
