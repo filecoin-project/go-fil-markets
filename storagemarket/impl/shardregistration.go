@@ -50,17 +50,20 @@ func NewShardMigrator(
 }
 
 func (r *ShardMigrator) registerShards(ctx context.Context, deals []storagemarket.MinerDeal) error {
+	log := log.Named("migrator")
+
 	// Check if all deals have already been registered as shards
 	isComplete, err := r.registrationComplete()
 	if err != nil {
 		return xerrors.Errorf("failed to get shard registration status: %w", err)
 	}
 	if isComplete {
+		log.Info("no shard migration necessary; already marked complete")
 		// All deals have been registered as shards, bail out
 		return nil
 	}
 
-	log.Info("Performing shard registration for all active deals in sealing subsystem")
+	log.Infow("registering shards for all active deals in sealing subsystem", "count", len(deals))
 
 	inSealingSubsystem := make(map[fsm.StateKey]struct{}, len(providerstates.StatesKnownBySealingSubsystem))
 	for _, s := range providerstates.StatesKnownBySealingSubsystem {
@@ -88,8 +91,10 @@ func (r *ShardMigrator) registerShards(ctx context.Context, deals []storagemarke
 				totalCh = nil
 			case res = <-resch:
 				rcvd++
-				if res.Error != nil {
-					log.Warnf("dagstore migration: failed to register shard: %s", res.Error)
+				if res.Error == nil {
+					log.Infow("async shard registration completed successfully", "shard_key", res.Key)
+				} else {
+					log.Warnw("async shard registration failed", "shard_key", res.Key, "error", res.Error)
 				}
 			}
 		}
@@ -103,10 +108,12 @@ func (r *ShardMigrator) registerShards(ctx context.Context, deals []storagemarke
 	var registered int
 	for _, deal := range deals {
 		if deal.Ref.PieceCid == nil {
+			log.Warnw("deal has nil piece CID; skipping", "deal_id", deal.DealID)
 			continue
 		}
 		// Filter for deals that have been handed off to the sealing subsystem
 		if _, ok := inSealingSubsystem[deal.State]; !ok {
+			log.Infow("deal not ready; skipping", "deal_id", deal.DealID)
 			continue
 		}
 
@@ -123,32 +130,38 @@ func (r *ShardMigrator) registerShards(ctx context.Context, deals []storagemarke
 		// prefer an unsealed sector containing the piece if one exists
 		var isUnsealed bool
 		for _, deal := range pinfo.Deals {
+			log.Infow("processing deal", "deal_id", deal.DealID, "piece_cid", pcid)
+
 			isUnsealed, err = r.spn.IsUnsealed(ctx, deal.SectorID, deal.Offset.Unpadded(), deal.Length.Unpadded())
 			if err != nil {
-				log.Warnw("failed to check if piece is unsealed", "pieceCid", pcid, "err", err)
+				log.Warnw("failed to check if piece is unsealed; skipping", "piece_cid", pcid, "err", err)
 				continue
 			}
 			if isUnsealed {
+				log.Infow("piece is unsealed", "deal_id", deal.DealID, "piece_cid", pcid)
 				break
 			}
 		}
+
+		log.Infow("now registering deal in dag store",
+			"deal_id", deal.DealID,
+			"is_unsealed", isUnsealed,
+			"piece_cid", deal.Ref.PieceCid)
 
 		// Register the deal as a shard with the DAG store, initializing the
 		// index immediately if the deal is unsealed (if the deal is not
 		// unsealed it will be initialized "lazily" once it's unsealed during
 		// retrieval)
-		sealState := "sealed"
-		if isUnsealed {
-			sealState = "unsealed"
-		}
-		log.Infof("Registering deal %d (%s) with piece %s and CAR file at %s", deal.DealID, sealState, deal.Ref.PieceCid, deal.CARv2FilePath)
+
 		err = r.dagStore.RegisterShard(ctx, *deal.Ref.PieceCid, "", isUnsealed, resch)
 		if err != nil {
-			log.Warnf("failed to register shard for deal with piece CID %s: %s", deal.Ref.PieceCid, err)
+			log.Warnw("failed to register shard", "deal_id", deal.DealID, "piece_cid", deal.Ref.PieceCid, "error", err)
 			continue
 		}
 		registered++
 	}
+
+	log.Infow("finished registering all shards", "total", registered)
 
 	totalCh <- registered
 
@@ -156,9 +169,12 @@ func (r *ShardMigrator) registerShards(ctx context.Context, deals []storagemarke
 	err = r.markRegistrationComplete()
 	if err != nil {
 		log.Errorf("failed to mark shards as registered: %s", err)
+	} else {
+		log.Info("successfully marked migration as complete")
 	}
 
-	log.Infof("Shard registration complete: registered %d deals", registered)
+	log.Infow("dagstore migration complete")
+
 	return nil
 }
 
