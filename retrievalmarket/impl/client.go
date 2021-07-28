@@ -64,6 +64,7 @@ func dispatcher(evt pubsub.Event, subscriberFn pubsub.SubscriberFn) error {
 	if !ok {
 		return errors.New("wrong type of event")
 	}
+	log.Debugw("process retrieval client listeners", "name", retrievalmarket.ClientEvents[ie.evt], "proposal cid", ie.state.ID)
 	cb(ie.evt, ie.state)
 	return nil
 }

@@ -44,6 +44,8 @@ func ProviderDataTransferSubscriber(deals EventReceiver) datatransfer.Subscriber
 			}
 		}
 
+		log.Debugw("processing storage provider dt event", "event", datatransfer.Events[event.Code], "proposalCid", voucher.Proposal)
+
 		// Translate from data transfer events to provider FSM events
 		// Note: We ignore data transfer progress events (they do not affect deal state)
 		err := func() error {
@@ -89,6 +91,8 @@ func ClientDataTransferSubscriber(deals EventReceiver) datatransfer.Subscriber {
 
 		// Translate from data transfer events to client FSM events
 		// Note: We ignore data transfer progress events (they do not affect deal state)
+		log.Debugw("processing storage client dt event", "event", datatransfer.Events[event.Code], "proposalCid", voucher.Proposal)
+
 		err := func() error {
 			switch event.Code {
 			case datatransfer.Cancel:
