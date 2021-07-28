@@ -98,6 +98,7 @@ func (r *ShardMigrator) registerShards(ctx context.Context, deals []storagemarke
 				}
 			}
 		}
+		log.Infow("all migrated shards initialized")
 	}()
 
 	// Filter for deals that are currently sealing.
