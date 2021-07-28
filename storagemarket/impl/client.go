@@ -585,6 +585,7 @@ func clientDispatcher(evt pubsub.Event, fn pubsub.SubscriberFn) error {
 	if !ok {
 		return xerrors.New("wrong type of event")
 	}
+	log.Debugw("process storage client listeners", "name", storagemarket.ClientEvents[ie.evt], "proposal cid", ie.deal.ProposalCid)
 	cb(ie.evt, ie.deal)
 	return nil
 }
