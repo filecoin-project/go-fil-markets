@@ -67,6 +67,7 @@ func ProviderDataTransferSubscriber(deals EventReceiver) datatransfer.Subscriber
 		if retrievalEvent == noProviderEvent {
 			return
 		}
+		log.Debugw("processing retrieval provider dt event", "event", datatransfer.Events[event.Code], "dealID", dealProposal.ID, "peer", channelState.OtherPeer(), "retrievalEvent", rm.ProviderEvents[retrievalEvent])
 
 		err := deals.Send(rm.ProviderDealIdentifier{DealID: dealProposal.ID, Receiver: channelState.Recipient()}, retrievalEvent, params...)
 		if err != nil {
@@ -142,9 +143,11 @@ func ClientDataTransferSubscriber(deals EventReceiver) datatransfer.Subscriber {
 		}
 
 		retrievalEvent, params := clientEvent(event, channelState)
+
 		if retrievalEvent == noEvent {
 			return
 		}
+		log.Debugw("processing retrieval client dt event", "event", datatransfer.Events[event.Code], "dealID", dealProposal.ID, "peer", channelState.OtherPeer(), "retrievalEvent", rm.ClientEvents[retrievalEvent])
 
 		// data transfer events for progress do not affect deal state
 		err := deals.Send(dealProposal.ID, retrievalEvent, params...)

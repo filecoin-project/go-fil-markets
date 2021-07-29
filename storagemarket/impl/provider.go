@@ -585,6 +585,7 @@ func (p *Provider) dispatch(eventName fsm.EventName, deal fsm.StateType) {
 	}
 	pubSubEvt := internalProviderEvent{evt, realDeal}
 
+	log.Debugw("process storage provider listeners", "name", storagemarket.ProviderEvents[evt], "proposal cid", realDeal.ProposalCid)
 	if err := p.pubSub.Publish(pubSubEvt); err != nil {
 		log.Errorf("failed to publish event %d", evt)
 	}

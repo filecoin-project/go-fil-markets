@@ -35,8 +35,13 @@ func ProviderDataTransferSubscriber(deals EventReceiver) datatransfer.Subscriber
 		voucher, ok := channelState.Voucher().(*requestvalidation.StorageDataTransferVoucher)
 		// if this event is for a transfer not related to storage, ignore
 		if !ok {
+			log.Debugw("ignoring data-transfer event as it's not storage related", "event", datatransfer.Events[event.Code], "channelID",
+				channelState.ChannelID())
 			return
 		}
+
+		log.Debugw("processing storage provider dt event", "event", datatransfer.Events[event.Code], "proposalCid", voucher.Proposal, "channelID",
+			channelState.ChannelID(), "channelState", datatransfer.Statuses[channelState.Status()])
 
 		if channelState.Status() == datatransfer.Completed {
 			err := deals.Send(voucher.Proposal, storagemarket.ProviderEventDataTransferCompleted)
@@ -64,7 +69,8 @@ func ProviderDataTransferSubscriber(deals EventReceiver) datatransfer.Subscriber
 			}
 		}()
 		if err != nil {
-			log.Errorf("processing dt event: %s", err)
+			log.Errorw("error processing storage provider dt event", "event", datatransfer.Events[event.Code], "proposalCid", voucher.Proposal, "channelID",
+				channelState.ChannelID(), "err", err)
 		}
 	}
 }
@@ -81,6 +87,10 @@ func ClientDataTransferSubscriber(deals EventReceiver) datatransfer.Subscriber {
 			return
 		}
 
+		// Note: We ignore data transfer progress events (they do not affect deal state)
+		log.Debugw("processing storage client dt event", "event", datatransfer.Events[event.Code], "proposalCid", voucher.Proposal, "channelID",
+			channelState.ChannelID(), "channelState", datatransfer.Statuses[channelState.Status()])
+
 		if channelState.Status() == datatransfer.Completed {
 			err := deals.Send(voucher.Proposal, storagemarket.ClientEventDataTransferComplete)
 			if err != nil {
@@ -88,8 +98,6 @@ func ClientDataTransferSubscriber(deals EventReceiver) datatransfer.Subscriber {
 			}
 		}
 
-		// Translate from data transfer events to client FSM events
-		// Note: We ignore data transfer progress events (they do not affect deal state)
 		err := func() error {
 			switch event.Code {
 			case datatransfer.Cancel:
@@ -109,7 +117,8 @@ func ClientDataTransferSubscriber(deals EventReceiver) datatransfer.Subscriber {
 			}
 		}()
 		if err != nil {
-			log.Errorf("processing dt event: %s", err)
+			log.Errorw("error processing storage client dt event", "event", datatransfer.Events[event.Code], "proposalCid", voucher.Proposal, "channelID",
+				channelState.ChannelID(), "err", err)
 		}
 	}
 }
