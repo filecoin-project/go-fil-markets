@@ -15,6 +15,8 @@ import (
 	graphsyncimpl "github.com/ipfs/go-graphsync/impl"
 	"github.com/ipfs/go-graphsync/network"
 	"github.com/ipld/go-car"
+	car2 "github.com/ipld/go-car/v2"
+	"github.com/ipld/go-car/v2/blockstore"
 	"github.com/ipld/go-ipld-prime"
 	cidlink "github.com/ipld/go-ipld-prime/linking/cid"
 	basicnode "github.com/ipld/go-ipld-prime/node/basic"
@@ -30,7 +32,6 @@ import (
 	"github.com/filecoin-project/go-state-types/big"
 	"github.com/filecoin-project/specs-actors/actors/builtin/paych"
 
-	"github.com/filecoin-project/go-fil-markets/filestorecaradapter"
 	"github.com/filecoin-project/go-fil-markets/piecestore"
 	"github.com/filecoin-project/go-fil-markets/retrievalmarket"
 	retrievalimpl "github.com/filecoin-project/go-fil-markets/retrievalmarket/impl"
@@ -39,6 +40,7 @@ import (
 	rmtesting "github.com/filecoin-project/go-fil-markets/retrievalmarket/testing"
 	"github.com/filecoin-project/go-fil-markets/shared"
 	tut "github.com/filecoin-project/go-fil-markets/shared_testutil"
+	"github.com/filecoin-project/go-fil-markets/stores"
 )
 
 func TestClientCanMakeQueryToProvider(t *testing.T) {
@@ -366,8 +368,12 @@ func TestClientCanMakeDealWithProvider(t *testing.T) {
 			// Get the CARv1 payload of the UnixFS DAG that the (Filestore backed by the CARv2) contains.
 			carFile, err := os.CreateTemp(t.TempDir(), "rand")
 			require.NoError(t, err)
-			fs, err := filestorecaradapter.NewReadOnlyFileStore(fileStoreCARv2FilePath)
+
+			ro, err := blockstore.OpenReadOnly(fileStoreCARv2FilePath, car2.ZeroLengthSectionAsEOF(true), blockstore.UseWholeCIDs(true))
 			require.NoError(t, err)
+			fs, err := stores.FilestoreOf(ro)
+			require.NoError(t, err)
+
 			sc := car.NewSelectiveCar(bgCtx, fs, []car.Dag{{Root: payloadCID, Selector: shared.AllSelector()}})
 			prepared, err := sc.Prepare()
 			require.NoError(t, err)
@@ -375,7 +381,7 @@ func TestClientCanMakeDealWithProvider(t *testing.T) {
 			require.NoError(t, prepared.Dump(carBuf))
 			carDataBuf := new(bytes.Buffer)
 			tr := io.TeeReader(carBuf, carDataBuf)
-			require.NoError(t, fs.Close())
+			require.NoError(t, ro.Close())
 			_, err = io.Copy(carFile, tr)
 			require.NoError(t, err)
 			require.NoError(t, carFile.Close())

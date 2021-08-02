@@ -25,7 +25,6 @@ import (
 	"github.com/filecoin-project/go-state-types/exitcode"
 	"github.com/filecoin-project/go-statemachine/fsm"
 
-	"github.com/filecoin-project/go-fil-markets/carstore"
 	"github.com/filecoin-project/go-fil-markets/filestore"
 	"github.com/filecoin-project/go-fil-markets/piecestore"
 	"github.com/filecoin-project/go-fil-markets/shared"
@@ -37,6 +36,7 @@ import (
 	"github.com/filecoin-project/go-fil-markets/storagemarket/impl/requestvalidation"
 	"github.com/filecoin-project/go-fil-markets/storagemarket/migrations"
 	"github.com/filecoin-project/go-fil-markets/storagemarket/network"
+	"github.com/filecoin-project/go-fil-markets/stores"
 )
 
 var _ storagemarket.StorageProvider = &Provider{}
@@ -71,7 +71,7 @@ type Provider struct {
 
 	shardReg             *ShardMigrator
 	dagStore             shared.DagStoreWrapper
-	readWriteBlockStores *carstore.CarReadWriteStoreTracker
+	readWriteBlockStores *stores.CarReadWriteStoreTracker
 }
 
 // StorageProviderOption allows custom configuration of a storage provider
@@ -127,7 +127,7 @@ func NewProvider(net network.StorageMarketNetwork,
 		readyMgr:             shared.NewReadyManager(),
 		shardReg:             shardReg,
 		dagStore:             dagStore,
-		readWriteBlockStores: carstore.NewCarReadWriteStoreTracker(),
+		readWriteBlockStores: stores.NewCarReadWriteStoreTracker(),
 	}
 	storageMigrations, err := migrations.ProviderMigrations.Build()
 	if err != nil {

@@ -383,14 +383,14 @@ func (t *ClientDeal) MarshalCBOR(w io.Writer) error {
 		return err
 	}
 
-	if len(t.FilestoreCARv2FilePath) > cbg.MaxLength {
+	if len(t.IndexedCAR) > cbg.MaxLength {
 		return xerrors.Errorf("Value in field t.FilestoreCARv2FilePath was too long")
 	}
 
-	if err := cbg.WriteMajorTypeHeaderBuf(scratch, w, cbg.MajTextString, uint64(len(t.FilestoreCARv2FilePath))); err != nil {
+	if err := cbg.WriteMajorTypeHeaderBuf(scratch, w, cbg.MajTextString, uint64(len(t.IndexedCAR))); err != nil {
 		return err
 	}
-	if _, err := io.WriteString(w, string(t.FilestoreCARv2FilePath)); err != nil {
+	if _, err := io.WriteString(w, string(t.IndexedCAR)); err != nil {
 		return err
 	}
 	return nil
@@ -738,7 +738,7 @@ func (t *ClientDeal) UnmarshalCBOR(r io.Reader) error {
 					return err
 				}
 
-				t.FilestoreCARv2FilePath = string(sval)
+				t.IndexedCAR = string(sval)
 			}
 
 		default:

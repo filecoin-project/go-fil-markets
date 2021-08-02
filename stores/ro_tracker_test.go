@@ -1,18 +1,18 @@
-package carstore_test
+package stores_test
 
 import (
 	"context"
 	"path/filepath"
 	"testing"
 
-	carv2 "github.com/ipld/go-car/v2"
-	"github.com/ipld/go-car/v2/blockstore"
-	"github.com/stretchr/testify/require"
+	tut "github.com/filecoin-project/go-fil-markets/shared_testutil"
+	"github.com/filecoin-project/go-fil-markets/stores"
 
 	"github.com/filecoin-project/dagstore"
 
-	"github.com/filecoin-project/go-fil-markets/carstore"
-	tut "github.com/filecoin-project/go-fil-markets/shared_testutil"
+	carv2 "github.com/ipld/go-car/v2"
+	"github.com/ipld/go-car/v2/blockstore"
+	"github.com/stretchr/testify/require"
 )
 
 func TestReadOnlyStoreTracker(t *testing.T) {
@@ -30,11 +30,11 @@ func TestReadOnlyStoreTracker(t *testing.T) {
 
 	k1 := "k1"
 	k2 := "k2"
-	tracker := carstore.NewReadOnlyStoreTracker()
+	tracker := stores.NewReadOnlyStoreTracker()
 
 	// Get a non-existent key
 	_, err = tracker.Get(k1)
-	require.True(t, carstore.IsNotFound(err))
+	require.True(t, stores.IsNotFound(err))
 
 	// Add a read-only blockstore
 	ok, err := tracker.Add(k1, rdOnlyBS1)
@@ -71,7 +71,7 @@ func TestReadOnlyStoreTracker(t *testing.T) {
 
 	// Verify it's been removed
 	_, err = tracker.Get(k2)
-	require.True(t, carstore.IsNotFound(err))
+	require.True(t, stores.IsNotFound(err))
 }
 
 func getBstoreLen(ctx context.Context, t *testing.T, bs dagstore.ReadBlockstore) int {

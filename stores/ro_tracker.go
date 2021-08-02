@@ -1,4 +1,4 @@
-package carstore
+package stores
 
 import (
 	"io"
@@ -19,16 +19,16 @@ type ClosableBlockstore interface {
 // It's important to close a CAR Blockstore when done using it so that the backing CAR file can be closed.
 type CarReadOnlyStoreTracker struct {
 	mu     sync.RWMutex
-	stores map[string]ClosableBlockstore
+	stores map[string]bstore.Blockstore
 }
 
 func NewReadOnlyStoreTracker() *CarReadOnlyStoreTracker {
 	return &CarReadOnlyStoreTracker{
-		stores: make(map[string]ClosableBlockstore),
+		stores: make(map[string]bstore.Blockstore),
 	}
 }
 
-func (r *CarReadOnlyStoreTracker) Add(key string, bs ClosableBlockstore) (bool, error) {
+func (r *CarReadOnlyStoreTracker) Add(key string, bs bstore.Blockstore) (bool, error) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
@@ -40,7 +40,7 @@ func (r *CarReadOnlyStoreTracker) Add(key string, bs ClosableBlockstore) (bool, 
 	return true, nil
 }
 
-func (r *CarReadOnlyStoreTracker) GetOrCreate(key string, carFilePath string) (ClosableBlockstore, error) {
+func (r *CarReadOnlyStoreTracker) GetOrCreate(key string, carFilePath string) (bstore.Blockstore, error) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
@@ -57,7 +57,7 @@ func (r *CarReadOnlyStoreTracker) GetOrCreate(key string, carFilePath string) (C
 	return rdOnly, nil
 }
 
-func (r *CarReadOnlyStoreTracker) Get(key string) (ClosableBlockstore, error) {
+func (r *CarReadOnlyStoreTracker) Get(key string) (bstore.Blockstore, error) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 
@@ -74,8 +74,10 @@ func (r *CarReadOnlyStoreTracker) CleanBlockstore(key string) error {
 
 	if bs, ok := r.stores[key]; ok {
 		delete(r.stores, key)
-		if err := bs.Close(); err != nil {
-			return xerrors.Errorf("failed to close read-only blockstore: %w", err)
+		if closer, ok := bs.(io.Closer); ok {
+			if err := closer.Close(); err != nil {
+				return xerrors.Errorf("failed to close read-only blockstore: %w", err)
+			}
 		}
 	}
 

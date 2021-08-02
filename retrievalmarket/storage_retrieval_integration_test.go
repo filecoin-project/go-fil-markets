@@ -9,10 +9,13 @@ import (
 	"testing"
 	"time"
 
+	"github.com/filecoin-project/go-fil-markets/stores"
 	"github.com/ipfs/go-cid"
 	"github.com/ipfs/go-datastore"
 	"github.com/ipfs/go-datastore/namespace"
 	"github.com/ipld/go-car"
+	car2 "github.com/ipld/go-car/v2"
+	"github.com/ipld/go-car/v2/blockstore"
 	"github.com/ipld/go-ipld-prime"
 	cidlink "github.com/ipld/go-ipld-prime/linking/cid"
 	"github.com/libp2p/go-libp2p-core/peer"
@@ -25,7 +28,6 @@ import (
 	"github.com/filecoin-project/go-state-types/big"
 	"github.com/filecoin-project/specs-actors/actors/builtin/paych"
 
-	"github.com/filecoin-project/go-fil-markets/filestorecaradapter"
 	"github.com/filecoin-project/go-fil-markets/piecestore"
 	"github.com/filecoin-project/go-fil-markets/retrievalmarket"
 	retrievalimpl "github.com/filecoin-project/go-fil-markets/retrievalmarket/impl"
@@ -90,7 +92,7 @@ func TestStorageRetrieval(t *testing.T) {
 			deps := setupDepsWithDagStore(bgCtx, t, providerNode, pieceStore)
 			sh := testharness.NewHarnessWithTestData(t, deps.TestData, deps, true, false)
 
-			defer os.Remove(sh.FileStoreCARv2FilePath)
+			defer os.Remove(sh.IndexedCAR)
 
 			storageProviderSeenDeal := doStorage(t, bgCtx, sh)
 			ctxTimeout, canc := context.WithTimeout(bgCtx, 25*time.Second)
@@ -158,25 +160,33 @@ func TestOfflineStorageRetrieval(t *testing.T) {
 			pieceStore := tut.NewTestPieceStore()
 			deps := setupDepsWithDagStore(bgCtx, t, providerNode, pieceStore)
 			sh := testharness.NewHarnessWithTestData(t, deps.TestData, deps, true, false)
+			defer os.Remove(sh.IndexedCAR)
 
-			defer os.Remove(sh.FileStoreCARv2FilePath)
 			// start and wait for client/provider
 			ctx, cancel := context.WithTimeout(bgCtx, 5*time.Second)
 			defer cancel()
 			shared_testutil.StartAndWaitForReady(ctx, t, sh.Provider)
 			shared_testutil.StartAndWaitForReady(ctx, t, sh.Client)
 
-			// Do a Selective CARv1 traversal on the CARv2 file  to get a deterministic CARv1 that we can import on the miner side.
-			rdOnly, err := filestorecaradapter.NewReadOnlyFileStore(sh.FileStoreCARv2FilePath)
+			// Do a Selective CARv1 traversal on the CARv2 file to get a deterministic CARv1 that we can import on the miner side.
+			ro, err := blockstore.OpenReadOnly(sh.IndexedCAR,
+				car2.ZeroLengthSectionAsEOF(true),
+				blockstore.UseWholeCIDs(true),
+			)
 			require.NoError(t, err)
-			sc := car.NewSelectiveCar(ctx, rdOnly, []car.Dag{{Root: sh.PayloadCid, Selector: shared.AllSelector()}})
+
+			fs, err := stores.FilestoreOf(ro)
+			require.NoError(t, err)
+
+			require.NoError(t, err)
+			sc := car.NewSelectiveCar(ctx, fs, []car.Dag{{Root: sh.PayloadCid, Selector: shared.AllSelector()}})
 			prepared, err := sc.Prepare()
 			require.NoError(t, err)
 			carBuf := new(bytes.Buffer)
 			require.NoError(t, prepared.Write(carBuf))
-			require.NoError(t, rdOnly.Close())
+			require.NoError(t, ro.Close())
 
-			commP, size, err := clientutils.CommP(ctx, sh.FileStoreCARv2FilePath, &storagemarket.DataRef{
+			commP, size, err := clientutils.CommP(ctx, sh.IndexedCAR, &storagemarket.DataRef{
 				// hacky but need it for now because if it's manual, we wont get a CommP.
 				TransferType: storagemarket.TTGraphsync,
 				Root:         sh.PayloadCid,

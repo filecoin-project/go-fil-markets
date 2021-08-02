@@ -1,4 +1,4 @@
-package carstore_test
+package stores_test
 
 import (
 	"context"
@@ -8,8 +8,8 @@ import (
 	cidlink "github.com/ipld/go-ipld-prime/linking/cid"
 	"github.com/stretchr/testify/require"
 
-	"github.com/filecoin-project/go-fil-markets/carstore"
 	tut "github.com/filecoin-project/go-fil-markets/shared_testutil"
+	"github.com/filecoin-project/go-fil-markets/stores"
 )
 
 func TestReadWriteStoreTracker(t *testing.T) {
@@ -28,11 +28,11 @@ func TestReadWriteStoreTracker(t *testing.T) {
 
 	k1 := "k1"
 	k2 := "k2"
-	tracker := carstore.NewCarReadWriteStoreTracker()
+	tracker := stores.NewCarReadWriteStoreTracker()
 
 	// Get a non-existent key
 	_, err := tracker.Get(k1)
-	require.True(t, carstore.IsNotFound(err))
+	require.True(t, stores.IsNotFound(err))
 
 	// Create a blockstore by calling GetOrCreate
 	rdOnlyBS1, err := tracker.GetOrCreate(k1, carFilePath1, rootCidLnk1.Cid)
@@ -61,5 +61,5 @@ func TestReadWriteStoreTracker(t *testing.T) {
 
 	// Verify it's been removed
 	_, err = tracker.Get(k2)
-	require.True(t, carstore.IsNotFound(err))
+	require.True(t, stores.IsNotFound(err))
 }

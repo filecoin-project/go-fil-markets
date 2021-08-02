@@ -34,10 +34,10 @@ import (
 
 type StorageHarness struct {
 	*dependencies.StorageDependencies
-	PayloadCid             cid.Cid
-	Client                 storagemarket.StorageClient
-	Provider               storagemarket.StorageProvider
-	FileStoreCARv2FilePath string
+	PayloadCid cid.Cid
+	Client     storagemarket.StorageClient
+	Provider   storagemarket.StorageProvider
+	IndexedCAR string // path
 }
 
 func NewHarness(t *testing.T, ctx context.Context, useStore bool, cd testnodes.DelayFakeCommonNode, pd testnodes.DelayFakeCommonNode,
@@ -112,11 +112,11 @@ func NewHarnessWithTestData(t *testing.T, td *shared_testutil.Libp2pTestData, de
 	assert.NoError(t, err)
 
 	return &StorageHarness{
-		StorageDependencies:    deps,
-		PayloadCid:             payloadCid,
-		Client:                 client,
-		Provider:               provider,
-		FileStoreCARv2FilePath: carV2FilePath,
+		StorageDependencies: deps,
+		PayloadCid:          payloadCid,
+		Client:              client,
+		Provider:            provider,
+		IndexedCAR:          carV2FilePath,
 	}
 }
 
@@ -148,19 +148,19 @@ func (h *StorageHarness) ProposeStorageDeal(t *testing.T, dataRef *storagemarket
 	var dealDuration = abi.ChainEpoch(180 * builtin.EpochsInDay)
 
 	result, err := h.Client.ProposeStorageDeal(h.Ctx, storagemarket.ProposeStorageDealParams{
-		Addr:                   h.ClientAddr,
-		Info:                   &h.ProviderInfo,
-		Data:                   dataRef,
-		StartEpoch:             h.Epoch + 100,
-		EndEpoch:               h.Epoch + 100 + dealDuration,
-		Price:                  big.NewInt(1),
-		Collateral:             big.NewInt(0),
-		Rt:                     abi.RegisteredSealProof_StackedDrg2KiBV1,
-		FastRetrieval:          fastRetrieval,
-		VerifiedDeal:           verifiedDeal,
-		FilestoreCARv2FilePath: h.FileStoreCARv2FilePath,
+		Addr:          h.ClientAddr,
+		Info:          &h.ProviderInfo,
+		Data:          dataRef,
+		StartEpoch:    h.Epoch + 100,
+		EndEpoch:      h.Epoch + 100 + dealDuration,
+		Price:         big.NewInt(1),
+		Collateral:    big.NewInt(0),
+		Rt:            abi.RegisteredSealProof_StackedDrg2KiBV1,
+		FastRetrieval: fastRetrieval,
+		VerifiedDeal:  verifiedDeal,
+		IndexedCAR:    h.IndexedCAR,
 	})
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	return result
 }
 

@@ -6,15 +6,17 @@ import (
 
 	"github.com/ipfs/go-cid"
 	bstore "github.com/ipfs/go-ipfs-blockstore"
+	"github.com/ipld/go-car/v2"
+	"github.com/ipld/go-car/v2/blockstore"
 	"github.com/ipld/go-ipld-prime"
 	"github.com/libp2p/go-libp2p-core/peer"
 	"golang.org/x/xerrors"
 
 	datatransfer "github.com/filecoin-project/go-data-transfer"
 
-	"github.com/filecoin-project/go-fil-markets/filestorecaradapter"
 	"github.com/filecoin-project/go-fil-markets/storagemarket"
 	"github.com/filecoin-project/go-fil-markets/storagemarket/network"
+	"github.com/filecoin-project/go-fil-markets/stores"
 )
 
 // -------
@@ -34,7 +36,7 @@ func (c *clientDealEnvironment) Node() storagemarket.StorageClientNode {
 }
 
 func (c *clientDealEnvironment) CleanBlockstore(proposalCid cid.Cid) error {
-	return c.c.readOnlyCARStoreTracker.CleanBlockstore(proposalCid.String())
+	return c.c.stores.CleanBlockstore(proposalCid.String())
 }
 
 func (c *clientDealEnvironment) StartDataTransfer(ctx context.Context, to peer.ID, voucher datatransfer.Voucher, baseCid cid.Cid, selector ipld.Node) (datatransfer.ChannelID,
@@ -66,20 +68,25 @@ func (csg *clientStoreGetter) Get(proposalCid cid.Cid) (bstore.Blockstore, error
 		return nil, xerrors.Errorf("failed to get client deal state: %w", err)
 	}
 
-	// get a read Only CARv2 blockstore that provides random access on top of
-	// the client's CARv2 file containing the CARv1 payload that needs to be
-	// transferred as part of the deal.
+	// Open a read-only blockstore off the CAR file.
+	rdOnly, err := blockstore.OpenReadOnly(deal.IndexedCAR,
+		car.ZeroLengthSectionAsEOF(true),
+		blockstore.UseWholeCIDs(true))
+	if err != nil {
+		return nil, xerrors.Errorf("failed to open read-only blockstore: %w", err)
+	}
 
-	fs, err := filestorecaradapter.NewReadOnlyFileStore(deal.FilestoreCARv2FilePath)
+	// Wrap it in a filestore so it can read file positional references.
+	bs, err := stores.FilestoreOf(rdOnly)
+	if err != nil {
+		return nil, xerrors.Errorf("failed to create filestore: %w", err)
+	}
+
+	_, err = csg.c.stores.Add(proposalCid.String(), bs)
 	if err != nil {
 		return nil, xerrors.Errorf("failed to get blockstore from tracker: %w", err)
 	}
-
-	_, err = csg.c.readOnlyCARStoreTracker.Add(proposalCid.String(), fs)
-	if err != nil {
-		return nil, xerrors.Errorf("failed to get blockstore from tracker: %w", err)
-	}
-	return fs, nil
+	return bs, nil
 }
 
 func (c *clientDealEnvironment) TagPeer(peer peer.ID, tag string) {

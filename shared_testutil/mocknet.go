@@ -6,7 +6,6 @@ import (
 	"io"
 	"io/ioutil"
 	"os"
-	"path"
 	"path/filepath"
 	"runtime"
 	"testing"
@@ -152,52 +151,52 @@ func NewLibp2pTestData(ctx context.Context, t *testing.T) *Libp2pTestData {
 const unixfsChunkSize uint64 = 1 << 10
 const unixfsLinksPerLevel = 1024
 
-// LoadUnixFSFile injects the fixture `filename` into the given blockstore from the
+// LoadUnixFSFile injects the fixture `src` into the given blockstore from the
 // fixtures directory. If useSecondNode is true, fixture is injected to the second node;
 // otherwise the first node gets it
-func (ltd *Libp2pTestData) LoadUnixFSFile(t *testing.T, fixturesPath string, useSecondNode bool) (ipld.Link, string) {
+func (ltd *Libp2pTestData) LoadUnixFSFile(t *testing.T, src string, useSecondNode bool) (ipld.Link, string) {
 	var dagService ipldformat.DAGService
 	if useSecondNode {
 		dagService = ltd.DagService2
 	} else {
 		dagService = ltd.DagService1
 	}
-	return ltd.loadUnixFSFile(t, fixturesPath, dagService)
+	return ltd.loadUnixFSFile(t, src, dagService)
 }
 
-// LoadUnixFSFileToStore creates a CAR file from the fixture at `fixturesPath`
-func (ltd *Libp2pTestData) LoadUnixFSFileToStore(t *testing.T, fixturesPath string) (ipld.Link, string) {
+// LoadUnixFSFileToStore creates a CAR file from the fixture at `src`
+func (ltd *Libp2pTestData) LoadUnixFSFileToStore(t *testing.T, src string) (ipld.Link, string) {
 	dstore := dss.MutexWrap(datastore.NewMapDatastore())
 	bs := bstore.NewBlockstore(dstore)
 	dagService := merkledag.NewDAGService(blockservice.New(bs, offline.Exchange(bs)))
 
-	return ltd.loadUnixFSFile(t, fixturesPath, dagService)
+	return ltd.loadUnixFSFile(t, src, dagService)
 }
 
-func (ltd *Libp2pTestData) loadUnixFSFile(t *testing.T, fixturesPath string, dagService ipldformat.DAGService) (ipld.Link, string) {
-	ctx := context.Background()
-
+func (ltd *Libp2pTestData) loadUnixFSFile(t *testing.T, src string, dagService ipldformat.DAGService) (ipld.Link, string) {
 	// save the original files bytes
-	fpath, err := filepath.Abs(filepath.Join(thisDir(t), "..", fixturesPath))
+	fpath, err := filepath.Abs(filepath.Join(thisDir(t), "..", src))
 	require.NoError(t, err)
+
 	f, err := os.Open(fpath)
 	require.NoError(t, err)
+
 	ltd.OrigBytes, err = ioutil.ReadAll(f)
 	require.NoError(t, err)
 	require.NotEmpty(t, ltd.OrigBytes)
 
 	// generate a unixfs dag using the given dagService to get the root.
-	root := genUnixfsDAG(t, ctx, fixturesPath, dagService)
+	root := buildUnixFS(t, src, dagService)
 
 	// Create a UnixFS DAG again AND generate a CARv2 file that can be used to back a filestore.
-	carV2Path := genFileStoreCARv2File(t, ctx, fixturesPath, root)
-	return cidlink.Link{Cid: root}, carV2Path
+	path := genRefCARv2(t, src, root)
+	return cidlink.Link{Cid: root}, path
 }
 
 func thisDir(t *testing.T) string {
 	_, fname, _, ok := runtime.Caller(1)
 	require.True(t, ok)
-	return path.Dir(fname)
+	return filepath.Dir(fname)
 }
 
 // VerifyFileTransferred checks that the fixture file was sent from one node to the other.
@@ -222,7 +221,6 @@ func (ltd *Libp2pTestData) VerifyFileTransferredIntoStore(t *testing.T, link ipl
 }
 
 func (ltd *Libp2pTestData) verifyFileTransferred(t *testing.T, link ipld.Link, dagService ipldformat.DAGService, readLen uint64) {
-
 	c := link.(cidlink.Link).Cid
 
 	// load the root of the UnixFS DAG from the new blockstore

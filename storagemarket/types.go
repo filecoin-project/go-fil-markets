@@ -248,8 +248,9 @@ type ClientDeal struct {
 	TransferChannelID *datatransfer.ChannelID
 	SectorNumber      abi.SectorNumber
 
-	// path of the CARv2 file containing the entire UnixFSDAG OR a CARv2 file that can be used as backing store for a FileStore.
-	FilestoreCARv2FilePath string
+	// IndexedCAR is the path to an indexed CARv2 path. This needs to be opened
+	// as a filestore, as it most likely contains file-positional references.
+	IndexedCAR string
 }
 
 // StorageProviderInfo describes on chain information about a StorageProvider
@@ -282,7 +283,7 @@ type ProposeStorageDealParams struct {
 	VerifiedDeal  bool
 
 	// path of the CARv2 file containing the entire UnixFSDAG OR a CARv2 file that can be used as backing store for a FileStore.
-	FilestoreCARv2FilePath string
+	IndexedCAR string
 }
 
 const (

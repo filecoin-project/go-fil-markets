@@ -22,7 +22,6 @@ import (
 	"github.com/filecoin-project/go-state-types/big"
 	"github.com/filecoin-project/go-statemachine/fsm"
 
-	"github.com/filecoin-project/go-fil-markets/carstore"
 	"github.com/filecoin-project/go-fil-markets/discovery"
 	"github.com/filecoin-project/go-fil-markets/retrievalmarket"
 	"github.com/filecoin-project/go-fil-markets/retrievalmarket/impl/clientstates"
@@ -30,6 +29,7 @@ import (
 	"github.com/filecoin-project/go-fil-markets/retrievalmarket/migrations"
 	rmnet "github.com/filecoin-project/go-fil-markets/retrievalmarket/network"
 	"github.com/filecoin-project/go-fil-markets/shared"
+	"github.com/filecoin-project/go-fil-markets/stores"
 )
 
 var log = logging.Logger("retrieval")
@@ -47,7 +47,7 @@ type Client struct {
 	stateMachines        fsm.Group
 	migrateStateMachines func(context.Context) error
 	carPath              string
-	readWriteBlockstores *carstore.CarReadWriteStoreTracker
+	readWriteBlockstores *stores.CarReadWriteStoreTracker
 
 	// Guards concurrent access to Retrieve method
 	retrieveLk sync.Mutex
@@ -85,7 +85,7 @@ func NewClient(network rmnet.RetrievalMarketNetwork, carPath string, dataTransfe
 		subscribers:          pubsub.New(dispatcher),
 		readySub:             pubsub.New(shared.ReadyDispatcher),
 		carPath:              carPath,
-		readWriteBlockstores: carstore.NewCarReadWriteStoreTracker(),
+		readWriteBlockstores: stores.NewCarReadWriteStoreTracker(),
 	}
 	retrievalMigrations, err := migrations.ClientMigrations.Build()
 	if err != nil {

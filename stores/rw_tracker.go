@@ -1,4 +1,4 @@
-package carstore
+package stores
 
 import (
 	"sync"

@@ -11,6 +11,8 @@ import (
 
 	"github.com/ipfs/go-datastore"
 	"github.com/ipld/go-car"
+	car2 "github.com/ipld/go-car/v2"
+	"github.com/ipld/go-car/v2/blockstore"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -20,7 +22,6 @@ import (
 	dtnet "github.com/filecoin-project/go-data-transfer/network"
 	"github.com/filecoin-project/go-state-types/big"
 
-	"github.com/filecoin-project/go-fil-markets/filestorecaradapter"
 	"github.com/filecoin-project/go-fil-markets/shared"
 	"github.com/filecoin-project/go-fil-markets/shared_testutil"
 	"github.com/filecoin-project/go-fil-markets/storagemarket"
@@ -28,6 +29,7 @@ import (
 	"github.com/filecoin-project/go-fil-markets/storagemarket/testharness"
 	"github.com/filecoin-project/go-fil-markets/storagemarket/testharness/dependencies"
 	"github.com/filecoin-project/go-fil-markets/storagemarket/testnodes"
+	"github.com/filecoin-project/go-fil-markets/stores"
 )
 
 var noOpDelay = testnodes.DelayFakeCommonNode{}
@@ -58,7 +60,7 @@ func TestMakeDeal(t *testing.T) {
 				ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
 				defer cancel()
 				h := testharness.NewHarness(t, ctx, data.useStore, noOpDelay, noOpDelay, data.disableNewDeals, fileName)
-				defer os.Remove(h.FileStoreCARv2FilePath)
+				defer os.Remove(h.IndexedCAR)
 				shared_testutil.StartAndWaitForReady(ctx, t, h.Provider)
 				shared_testutil.StartAndWaitForReady(ctx, t, h.Client)
 
@@ -191,12 +193,12 @@ func TestMakeDealOffline(t *testing.T) {
 			ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
 			defer cancel()
 			h := testharness.NewHarness(t, ctx, true, noOpDelay, noOpDelay, false)
-			defer os.Remove(h.FileStoreCARv2FilePath)
+			defer os.Remove(h.IndexedCAR)
 
 			shared_testutil.StartAndWaitForReady(ctx, t, h.Provider)
 			shared_testutil.StartAndWaitForReady(ctx, t, h.Client)
 
-			commP, size, err := clientutils.CommP(ctx, h.FileStoreCARv2FilePath, &storagemarket.DataRef{
+			commP, size, err := clientutils.CommP(ctx, h.IndexedCAR, &storagemarket.DataRef{
 				// hacky but need it for now because if it's manual, we wont get a CommP.
 				TransferType: storagemarket.TTGraphsync,
 				Root:         h.PayloadCid,
@@ -233,15 +235,18 @@ func TestMakeDealOffline(t *testing.T) {
 			assert.True(t, pd.ProposalCid.Equals(proposalCid))
 			shared_testutil.AssertDealState(t, storagemarket.StorageDealWaitingForData, pd.State)
 
-			// Do a Selective CARv1 traversal on the CARv2 file  to get a deterministic CARv1 that we can import on the miner side.
-			fs, err := filestorecaradapter.NewReadOnlyFileStore(h.FileStoreCARv2FilePath)
+			// Do a selective CARv1 traversal on the CARv2 file to get a
+			// deterministic CARv1 that we can import on the miner side.
+			ro, err := blockstore.OpenReadOnly(h.IndexedCAR, car2.ZeroLengthSectionAsEOF(true), blockstore.UseWholeCIDs(true))
+			require.NoError(t, err)
+			fs, err := stores.FilestoreOf(ro)
 			require.NoError(t, err)
 			sc := car.NewSelectiveCar(ctx, fs, []car.Dag{{Root: h.PayloadCid, Selector: shared.AllSelector()}})
 			prepared, err := sc.Prepare()
 			require.NoError(t, err)
 			carBuf := new(bytes.Buffer)
 			require.NoError(t, prepared.Write(carBuf))
-			require.NoError(t, fs.Close())
+			require.NoError(t, ro.Close())
 
 			err = h.Provider.ImportDataForDeal(ctx, pd.ProposalCid, carBuf)
 			require.NoError(t, err)
@@ -294,7 +299,7 @@ func TestMakeDealNonBlocking(t *testing.T) {
 	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
 	defer cancel()
 	h := testharness.NewHarness(t, ctx, true, noOpDelay, noOpDelay, false)
-	defer os.Remove(h.FileStoreCARv2FilePath)
+	defer os.Remove(h.IndexedCAR)
 
 	testCids := shared_testutil.GenerateCids(2)
 
@@ -358,7 +363,7 @@ func TestRestartOnlyProviderDataTransfer(t *testing.T) {
 	}
 	deps := depGen.New(t, ctx, td, smState, "", noOpDelay, noOpDelay)
 	h := testharness.NewHarnessWithTestData(t, td, deps, true, false)
-	defer os.Remove(h.FileStoreCARv2FilePath)
+	defer os.Remove(h.IndexedCAR)
 
 	client := h.Client
 	host1 := h.TestData.Host1
@@ -558,7 +563,7 @@ func TestRestartClient(t *testing.T) {
 			ctx, cancel := context.WithTimeout(ctx, 50*time.Second)
 			defer cancel()
 			h := testharness.NewHarness(t, ctx, true, tc.clientDelay, tc.providerDelay, false)
-			defer os.Remove(h.FileStoreCARv2FilePath)
+			defer os.Remove(h.IndexedCAR)
 			host1 := h.TestData.Host1
 			host2 := h.TestData.Host2
 
@@ -620,7 +625,7 @@ func TestRestartClient(t *testing.T) {
 
 			deps := dependencies.NewDependenciesWithTestData(t, ctx, h.TestData, h.SMState, "", noOpDelay, noOpDelay)
 			h = testharness.NewHarnessWithTestData(t, h.TestData, deps, true, false)
-			defer os.Remove(h.FileStoreCARv2FilePath)
+			defer os.Remove(h.IndexedCAR)
 
 			if len(providerState) == 0 {
 				t.Log("no deal created on provider after stopping")
@@ -704,7 +709,7 @@ func TestBounceConnectionDataTransfer(t *testing.T) {
 	}
 	deps := depGen.New(t, ctx, td, smState, "", noOpDelay, noOpDelay)
 	h := testharness.NewHarnessWithTestData(t, td, deps, true, false)
-	defer os.Remove(h.FileStoreCARv2FilePath)
+	defer os.Remove(h.IndexedCAR)
 
 	client := h.Client
 	clientHost := h.TestData.Host1.ID()
@@ -804,7 +809,7 @@ func TestCancelDataTransfer(t *testing.T) {
 		ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
 		defer cancel()
 		h := testharness.NewHarness(t, ctx, true, noOpDelay, noOpDelay, false)
-		defer os.Remove(h.FileStoreCARv2FilePath)
+		defer os.Remove(h.IndexedCAR)
 		client := h.Client
 		provider := h.Provider
 		host1 := h.TestData.Host1
