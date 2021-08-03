@@ -101,7 +101,7 @@ func (r *ShardMigrator) registerShards(ctx context.Context, deals []storagemarke
 		log.Infow("all migrated shards initialized")
 	}()
 
-	// Filter for deals that are currently sealing.
+	// Filter for deals that are handed off.
 	// If the deal has not yet been handed off to the sealing subsystem, we
 	// don't need to call RegisterShard in this migration; RegisterShard will
 	// be called in the new code once the deal reaches the state where it's
