@@ -253,7 +253,7 @@ func (c *Client) Retrieve(ctx context.Context, payloadCID cid.Cid, params retrie
 	next := c.dealIDGen.Next()
 	dealID := retrievalmarket.DealID(next)
 	carFilePath := filepath.Join(c.carPath, dealID.String())
-	_, err = c.stores.GetOrCreate(dealID.String(), carFilePath, payloadCID)
+	_, err = c.stores.GetOrOpen(dealID.String(), carFilePath, payloadCID)
 	if err != nil {
 		return nil, xerrors.Errorf("failed to create retrieval client blockstore: %w", err)
 	}

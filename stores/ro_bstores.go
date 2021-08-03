@@ -5,13 +5,10 @@ import (
 	"sync"
 
 	bstore "github.com/ipfs/go-ipfs-blockstore"
-	carv2 "github.com/ipld/go-car/v2"
-	"github.com/ipld/go-car/v2/blockstore"
 	"golang.org/x/xerrors"
 )
 
-// ReadOnlyBlockstores tracks the lifecycle of a ReadOnly CAR Blockstore and makes it easy to create/get/cleanup the blockstores.
-// It's important to close a CAR Blockstore when done using it so that the backing CAR file can be closed.
+// ReadOnlyBlockstores tracks open read blockstores.
 type ReadOnlyBlockstores struct {
 	mu     sync.RWMutex
 	stores map[string]bstore.Blockstore
@@ -44,23 +41,6 @@ func (r *ReadOnlyBlockstores) Get(key string) (bstore.Blockstore, error) {
 	}
 
 	return nil, xerrors.Errorf("could not get blockstore for key %s: %w", key, ErrNotFound)
-}
-
-func (r *ReadOnlyBlockstores) GetOrOpen(key string, carFilePath string) (bstore.Blockstore, error) {
-	r.mu.Lock()
-	defer r.mu.Unlock()
-
-	if bs, ok := r.stores[key]; ok {
-		return bs, nil
-	}
-
-	bs, err := blockstore.OpenReadOnly(carFilePath, carv2.ZeroLengthSectionAsEOF(true), blockstore.UseWholeCIDs(true))
-	if err != nil {
-		return nil, xerrors.Errorf("failed to open read-only blockstore: %w", err)
-	}
-	r.stores[key] = bs
-
-	return bs, nil
 }
 
 func (r *ReadOnlyBlockstores) Untrack(key string) error {

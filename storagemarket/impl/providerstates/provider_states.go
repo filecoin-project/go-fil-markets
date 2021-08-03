@@ -38,9 +38,8 @@ type ProviderDealEnvironment interface {
 
 	RegisterShard(ctx context.Context, pieceCid cid.Cid, path string, eagerInit bool) error
 
-	FinalizeReadWriteBlockstore(proposalCid cid.Cid) error
-
-	CleanReadWriteBlockstore(proposalCid cid.Cid, path string) error
+	FinalizeBlockstore(proposalCid cid.Cid) error
+	TerminateBlockstore(proposalCid cid.Cid, path string) error
 
 	GeneratePieceCommitment(proposalCid cid.Cid, path string, dealSize abi.PaddedPieceSize) (cid.Cid, filestore.Path, error)
 
@@ -203,7 +202,7 @@ func DecideOnProposal(ctx fsm.Context, environment ProviderDealEnvironment, deal
 // in the proposal
 func VerifyData(ctx fsm.Context, environment ProviderDealEnvironment, deal storagemarket.MinerDeal) error {
 	// finalize the blockstore as we're done writing deal data to it.
-	if err := environment.FinalizeReadWriteBlockstore(deal.ProposalCid); err != nil {
+	if err := environment.FinalizeBlockstore(deal.ProposalCid); err != nil {
 		return ctx.Trigger(storagemarket.ProviderEventDataVerificationFailed, xerrors.Errorf("failed to finalize read/write blockstore: %w", err), filestore.Path(""), filestore.Path(""))
 	}
 
@@ -430,7 +429,7 @@ func CleanupDeal(ctx fsm.Context, environment ProviderDealEnvironment, deal stor
 	}
 
 	if deal.InboundCAR != "" {
-		if err := environment.CleanReadWriteBlockstore(deal.ProposalCid, deal.InboundCAR); err != nil {
+		if err := environment.TerminateBlockstore(deal.ProposalCid, deal.InboundCAR); err != nil {
 			log.Warnf("failed to cleanup blockstore, car_path=%s: %s", deal.InboundCAR, err)
 		}
 	}
@@ -554,11 +553,11 @@ func FailDeal(ctx fsm.Context, environment ProviderDealEnvironment, deal storage
 	}
 
 	if deal.InboundCAR != "" {
-		if err := environment.FinalizeReadWriteBlockstore(deal.ProposalCid); err != nil {
+		if err := environment.FinalizeBlockstore(deal.ProposalCid); err != nil {
 			log.Warnf("error finalizing read-write store, car_path=%s: %s", deal.InboundCAR, err)
 		}
 
-		if err := environment.CleanReadWriteBlockstore(deal.ProposalCid, deal.InboundCAR); err != nil {
+		if err := environment.TerminateBlockstore(deal.ProposalCid, deal.InboundCAR); err != nil {
 			log.Warnf("error deleting store, car_path=%s: %s", deal.InboundCAR, err)
 		}
 	}

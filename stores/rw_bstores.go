@@ -1,7 +1,6 @@
 package stores
 
 import (
-	"fmt"
 	"sync"
 
 	"github.com/ipfs/go-cid"
@@ -14,7 +13,7 @@ type rwEntry struct {
 	path string
 }
 
-// ReadWriteBlockstores tracks ReadWrite CAR blockstores.
+// ReadWriteBlockstores tracks open ReadWrite CAR blockstores.
 type ReadWriteBlockstores struct {
 	mu     sync.RWMutex
 	stores map[string]rwEntry
@@ -36,7 +35,7 @@ func (r *ReadWriteBlockstores) Get(key string) (*blockstore.ReadWrite, string, e
 	return nil, "", xerrors.Errorf("could not get blockstore for key %s: %w", key, ErrNotFound)
 }
 
-func (r *ReadWriteBlockstores) GetOrCreate(key string, path string, rootCid cid.Cid) (*blockstore.ReadWrite, error) {
+func (r *ReadWriteBlockstores) GetOrOpen(key string, path string, rootCid cid.Cid) (*blockstore.ReadWrite, error) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
@@ -48,7 +47,6 @@ func (r *ReadWriteBlockstores) GetOrCreate(key string, path string, rootCid cid.
 	if err != nil {
 		return nil, xerrors.Errorf("failed to create read-write blockstore: %w", err)
 	}
-	fmt.Println("************", path)
 	r.stores[key] = rwEntry{
 		bs:   bs,
 		path: path,

@@ -35,7 +35,7 @@ func TestReadWriteStoreTracker(t *testing.T) {
 	require.True(t, stores.IsNotFound(err))
 
 	// Create a blockstore by calling GetOrOpen
-	rdOnlyBS1, err := tracker.GetOrCreate(k1, carFilePath1, rootCidLnk1.Cid)
+	rdOnlyBS1, err := tracker.GetOrOpen(k1, carFilePath1, rootCidLnk1.Cid)
 	require.NoError(t, err)
 
 	// Get the blockstore using its key
@@ -48,7 +48,7 @@ func TestReadWriteStoreTracker(t *testing.T) {
 	require.Equal(t, len1, lenGot)
 
 	// Call GetOrOpen with a different CAR file
-	rdOnlyBS2, err := tracker.GetOrCreate(k2, carFilePath2, rootCidLnk2.Cid)
+	rdOnlyBS2, err := tracker.GetOrOpen(k2, carFilePath2, rootCidLnk2.Cid)
 	require.NoError(t, err)
 
 	// Verify the blockstore is different

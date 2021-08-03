@@ -594,10 +594,10 @@ func (p *Provider) start(ctx context.Context) error {
 	err := p.migrateDeals(ctx)
 	publishErr := p.readyMgr.FireReady(err)
 	if publishErr != nil {
-		log.Warnf("Publish storage provider ready event: %s", err.Error())
+		log.Warnf("publish storage provider ready event: %s", err.Error())
 	}
 	if err != nil {
-		return fmt.Errorf("Migrating storage provider state machines: %w", err)
+		return fmt.Errorf("migrating storage provider state machines: %w", err)
 	}
 
 	var deals []storagemarket.MinerDeal
@@ -605,11 +605,19 @@ func (p *Provider) start(ctx context.Context) error {
 	if err != nil {
 		return xerrors.Errorf("failed to fetch deals during startup: %w", err)
 	}
+
+	// re-track all deals for whom we still have a local blockstore.
+	for _, d := range deals {
+		if _, err := os.Stat(d.InboundCAR); err == nil && d.Ref != nil {
+			_, _ = p.stores.GetOrOpen(d.ProposalCid.String(), d.InboundCAR, d.Ref.Root)
+		}
+	}
+
 	if err := p.shardReg.registerShards(ctx, deals); err != nil {
-		return fmt.Errorf("Failed to restart deals: %w", err)
+		return fmt.Errorf("failed to restart deals: %w", err)
 	}
 	if err := p.restartDeals(deals); err != nil {
-		return fmt.Errorf("Failed to restart deals: %w", err)
+		return fmt.Errorf("failed to restart deals: %w", err)
 	}
 	return nil
 }

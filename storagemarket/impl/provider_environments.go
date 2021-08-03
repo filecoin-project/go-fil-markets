@@ -41,7 +41,7 @@ func (p *providerDealEnvironment) ReadCAR(path string) (*carv2.Reader, error) {
 	return carv2.OpenReader(path)
 }
 
-func (p *providerDealEnvironment) FinalizeReadWriteBlockstore(proposalCid cid.Cid) error {
+func (p *providerDealEnvironment) FinalizeBlockstore(proposalCid cid.Cid) error {
 	bs, _, err := p.p.stores.Get(proposalCid.String())
 	if err != nil {
 		return xerrors.Errorf("failed to get read/write blockstore: %w", err)
@@ -52,6 +52,17 @@ func (p *providerDealEnvironment) FinalizeReadWriteBlockstore(proposalCid cid.Ci
 	}
 
 	return nil
+}
+
+func (p *providerDealEnvironment) TerminateBlockstore(proposalCid cid.Cid, path string) error {
+	// stop tracking it.
+	if err := p.p.stores.Untrack(proposalCid.String()); err != nil {
+		log.Warnf("failed to clean read write blockstore, proposalCid=%s, car_path=%s: %s", proposalCid, path, err)
+	}
+
+	// delete the backing CARv2 file as it was a temporary file we created for
+	// this storage deal; the piece has now been handed off, or the deal has failed.
+	return os.Remove(path)
 }
 
 func (p *providerDealEnvironment) Address() address.Address {
@@ -68,17 +79,6 @@ func (p *providerDealEnvironment) Ask() storagemarket.StorageAsk {
 		return storagemarket.StorageAskUndefined
 	}
 	return *sask.Ask
-}
-
-func (p *providerDealEnvironment) CleanReadWriteBlockstore(proposalCid cid.Cid, path string) error {
-	// ensure the carv2 is finalized, and stop tracking it.
-	if err := p.p.stores.Untrack(proposalCid.String()); err != nil {
-		log.Warnf("failed to clean read write blockstore, proposalCid=%s, car_path=%s: %s", proposalCid, path, err)
-	}
-
-	// delete the backing CARv2 file as it was a temporary file we created for
-	// this storage deal; the piece has now been handed off, or the deal has failed.
-	return os.Remove(path)
 }
 
 // GeneratePieceCommitment generates the pieceCid for the CARv1 deal payload in
@@ -210,7 +210,7 @@ func (psg *providerStoreGetter) Get(proposalCid cid.Cid) (bstore.Blockstore, err
 		return nil, xerrors.Errorf("failed to get deal state: %w", err)
 	}
 
-	return psg.p.stores.GetOrCreate(proposalCid.String(), deal.InboundCAR, deal.Ref.Root)
+	return psg.p.stores.GetOrOpen(proposalCid.String(), deal.InboundCAR, deal.Ref.Root)
 }
 
 type providerPushDeals struct {

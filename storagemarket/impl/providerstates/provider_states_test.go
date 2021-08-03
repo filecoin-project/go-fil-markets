@@ -1547,7 +1547,7 @@ func (fe *fakeEnvironment) RegisterShard(ctx context.Context, pieceCid cid.Cid, 
 	return fe.shardActivationError
 }
 
-func (fe *fakeEnvironment) CleanReadWriteBlockstore(proposalCid cid.Cid, carFilePath string) error {
+func (fe *fakeEnvironment) TerminateBlockstore(proposalCid cid.Cid, carFilePath string) error {
 	return nil
 }
 
@@ -1555,7 +1555,7 @@ func (fe *fakeEnvironment) GeneratePieceCommitment(proposalCid cid.Cid, _ string
 	return fe.pieceCid, fe.metadataPath, fe.generateCommPError
 }
 
-func (fe *fakeEnvironment) FinalizeReadWriteBlockstore(proposalCid cid.Cid) error {
+func (fe *fakeEnvironment) FinalizeBlockstore(proposalCid cid.Cid) error {
 	return fe.finalizeBlockstoreErr
 }
 
