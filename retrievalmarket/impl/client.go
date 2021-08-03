@@ -47,7 +47,7 @@ type Client struct {
 	stateMachines        fsm.Group
 	migrateStateMachines func(context.Context) error
 	carPath              string
-	stores               *stores.CarReadWriteStoreTracker
+	stores               *stores.ReadWriteBlockstores
 
 	// Guards concurrent access to Retrieve method
 	retrieveLk sync.Mutex
@@ -85,7 +85,7 @@ func NewClient(network rmnet.RetrievalMarketNetwork, carPath string, dataTransfe
 		subscribers:  pubsub.New(dispatcher),
 		readySub:     pubsub.New(shared.ReadyDispatcher),
 		carPath:      carPath,
-		stores:       stores.NewCarReadWriteStoreTracker(),
+		stores:       stores.NewReadWriteBlockstores(),
 	}
 	retrievalMigrations, err := migrations.ClientMigrations.Build()
 	if err != nil {
@@ -462,7 +462,7 @@ func (c *clientDealEnvironment) CloseDataTransfer(ctx context.Context, channelID
 
 // FinalizeBlockstore is called when all blocks have been received
 func (c *clientDealEnvironment) FinalizeBlockstore(ctx context.Context, dealID retrievalmarket.DealID) error {
-	bs, err := c.c.stores.Get(dealID.String())
+	bs, _, err := c.c.stores.Get(dealID.String())
 	if err != nil {
 		return xerrors.Errorf("getting deal with ID %s to finalize it: %w", dealID, err)
 	}
@@ -472,7 +472,7 @@ func (c *clientDealEnvironment) FinalizeBlockstore(ctx context.Context, dealID r
 		return xerrors.Errorf("failed to finalize blockstore for deal with ID %s: %w", dealID, err)
 	}
 
-	err = c.c.stores.CleanBlockstore(dealID.String())
+	err = c.c.stores.Untrack(dealID.String())
 	if err != nil {
 		return xerrors.Errorf("failed to clean blockstore for deal with ID %s: %w", dealID, err)
 	}
@@ -490,7 +490,8 @@ func (csg *clientStoreGetter) Get(otherPeer peer.ID, dealID retrievalmarket.Deal
 	if err != nil {
 		return nil, err
 	}
-	return csg.c.stores.Get(deal.ID.String())
+	bs, _, err := csg.c.stores.Get(deal.ID.String())
+	return bs, err
 }
 
 // ClientFSMParameterSpec is a valid set of parameters for a client deal FSM - used in doc generation

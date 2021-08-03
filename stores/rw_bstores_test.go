@@ -28,18 +28,18 @@ func TestReadWriteStoreTracker(t *testing.T) {
 
 	k1 := "k1"
 	k2 := "k2"
-	tracker := stores.NewCarReadWriteStoreTracker()
+	tracker := stores.NewReadWriteBlockstores()
 
 	// Get a non-existent key
-	_, err := tracker.Get(k1)
+	_, _, err := tracker.Get(k1)
 	require.True(t, stores.IsNotFound(err))
 
-	// Create a blockstore by calling GetOrCreate
+	// Create a blockstore by calling GetOrOpen
 	rdOnlyBS1, err := tracker.GetOrCreate(k1, carFilePath1, rootCidLnk1.Cid)
 	require.NoError(t, err)
 
 	// Get the blockstore using its key
-	got, err := tracker.Get(k1)
+	got, _, err := tracker.Get(k1)
 	require.NoError(t, err)
 
 	// Verify the blockstore is the same
@@ -47,7 +47,7 @@ func TestReadWriteStoreTracker(t *testing.T) {
 	lenGot := getBstoreLen(ctx, t, got)
 	require.Equal(t, len1, lenGot)
 
-	// Call GetOrCreate with a different CAR file
+	// Call GetOrOpen with a different CAR file
 	rdOnlyBS2, err := tracker.GetOrCreate(k2, carFilePath2, rootCidLnk2.Cid)
 	require.NoError(t, err)
 
@@ -55,11 +55,11 @@ func TestReadWriteStoreTracker(t *testing.T) {
 	len2 := getBstoreLen(ctx, t, rdOnlyBS2)
 	require.NotEqual(t, len1, len2)
 
-	// Clean the second blockstore from the tracker
-	err = tracker.CleanBlockstore(k2)
+	// Untrack the second blockstore from the tracker
+	err = tracker.Untrack(k2)
 	require.NoError(t, err)
 
 	// Verify it's been removed
-	_, err = tracker.Get(k2)
+	_, _, err = tracker.Get(k2)
 	require.True(t, stores.IsNotFound(err))
 }

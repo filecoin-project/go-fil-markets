@@ -71,7 +71,7 @@ type Provider struct {
 
 	shardReg *ShardMigrator
 	dagStore stores.DAGStoreWrapper
-	stores   *stores.CarReadWriteStoreTracker
+	stores   *stores.ReadWriteBlockstores
 }
 
 // StorageProviderOption allows custom configuration of a storage provider
@@ -127,7 +127,7 @@ func NewProvider(net network.StorageMarketNetwork,
 		readyMgr:     shared.NewReadyManager(),
 		shardReg:     shardReg,
 		dagStore:     dagStore,
-		stores:       stores.NewCarReadWriteStoreTracker(),
+		stores:       stores.NewReadWriteBlockstores(),
 	}
 	storageMigrations, err := migrations.ProviderMigrations.Build()
 	if err != nil {
@@ -220,7 +220,6 @@ func (p *Provider) HandleDealStream(s network.StorageDealStream) {
 	}
 }
 
-// TODO Write a one time script that registers shards for all Pieces that a miner has.
 func (p *Provider) receiveDeal(s network.StorageDealStream) error {
 	proposal, err := s.ReadDealProposal()
 	if err != nil {
@@ -240,7 +239,7 @@ func (p *Provider) receiveDeal(s network.StorageDealStream) error {
 		return p.resendProposalResponse(s, &md)
 	}
 
-	var carV2FilePath string
+	var path string
 	// create an empty CARv2 file at a temp location that Graphysnc will write the incoming blocks to via a CARv2 ReadWrite blockstore wrapper.
 	if proposal.Piece.TransferType != storagemarket.TTManual {
 		tmp, err := p.fs.CreateTemp()
@@ -251,7 +250,7 @@ func (p *Provider) receiveDeal(s network.StorageDealStream) error {
 			_ = os.Remove(string(tmp.OsPath()))
 			return xerrors.Errorf("failed to close temp file: %w", err)
 		}
-		carV2FilePath = string(tmp.OsPath())
+		path = string(tmp.OsPath())
 	}
 
 	deal := &storagemarket.MinerDeal{
@@ -263,7 +262,7 @@ func (p *Provider) receiveDeal(s network.StorageDealStream) error {
 		Ref:                proposal.Piece,
 		FastRetrieval:      proposal.FastRetrieval,
 		CreationTime:       curTime(),
-		InboundCAR:         carV2FilePath,
+		InboundCAR:         path,
 	}
 
 	err = p.deals.Begin(proposalNd.Cid(), deal)

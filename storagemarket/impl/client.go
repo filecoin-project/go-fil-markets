@@ -58,7 +58,7 @@ type Client struct {
 
 	unsubDataTransfer datatransfer.Unsubscribe
 
-	stores *stores.CarReadOnlyStoreTracker
+	stores *stores.ReadOnlyBlockstores
 }
 
 // StorageClientOption allows custom configuration of a storage client
@@ -89,7 +89,7 @@ func NewClient(
 		pubSub:          pubsub.New(clientDispatcher),
 		readySub:        pubsub.New(shared.ReadyDispatcher),
 		pollingInterval: DefaultPollingInterval,
-		stores:          stores.NewReadOnlyStoreTracker(),
+		stores:          stores.NewReadOnlyBlockstores(),
 	}
 	storageMigrations, err := migrations.ClientMigrations.Build()
 	if err != nil {

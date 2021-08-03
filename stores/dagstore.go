@@ -2,11 +2,18 @@ package stores
 
 import (
 	"context"
+	"io"
 
 	"github.com/ipfs/go-cid"
+	bstore "github.com/ipfs/go-ipfs-blockstore"
 
 	"github.com/filecoin-project/dagstore"
 )
+
+type ClosableBlockstore interface {
+	bstore.Blockstore
+	io.Closer
+}
 
 // DAGStoreWrapper hides the details of the DAG store implementation from
 // the other parts of go-fil-markets.
@@ -14,8 +21,13 @@ type DAGStoreWrapper interface {
 	// RegisterShard loads a CAR file into the DAG store and builds an
 	// index for it, sending the result on the supplied channel on completion
 	RegisterShard(ctx context.Context, pieceCid cid.Cid, carPath string, eagerInit bool, resch chan dagstore.ShardResult) error
-	// LoadShard fetches the data for a shard and provides a blockstore interface to it
+
+	// LoadShard fetches the data for a shard and provides a blockstore
+	// interface to it.
+	//
+	// The blockstore must be closed to release the shard.
 	LoadShard(ctx context.Context, pieceCid cid.Cid) (ClosableBlockstore, error)
+
 	// Close closes the dag store wrapper.
 	Close() error
 }

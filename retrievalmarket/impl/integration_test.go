@@ -360,7 +360,7 @@ func TestClientCanMakeDealWithProvider(t *testing.T) {
 
 			// Create a CARv2 file from a fixture
 			fpath := filepath.Join("retrievalmarket", "impl", "fixtures", testCase.filename)
-			pieceLink, fileStoreCARv2FilePath := testData.LoadUnixFSFileToStore(t, fpath)
+			pieceLink, path := testData.LoadUnixFSFileToStore(t, fpath)
 			c, ok := pieceLink.(cidlink.Link)
 			require.True(t, ok)
 			payloadCID := c.Cid
@@ -369,7 +369,7 @@ func TestClientCanMakeDealWithProvider(t *testing.T) {
 			carFile, err := os.CreateTemp(t.TempDir(), "rand")
 			require.NoError(t, err)
 
-			ro, err := blockstore.OpenReadOnly(fileStoreCARv2FilePath, car2.ZeroLengthSectionAsEOF(true), blockstore.UseWholeCIDs(true))
+			ro, err := blockstore.OpenReadOnly(path, car2.ZeroLengthSectionAsEOF(true), blockstore.UseWholeCIDs(true))
 			require.NoError(t, err)
 			fs, err := stores.FilestoreOf(ro)
 			require.NoError(t, err)
@@ -710,7 +710,7 @@ func setupProvider(
 	dagstoreWrapper := tut.NewMockDagStoreWrapper(pieceStore, providerNode)
 
 	// Register the piece with the DAG store wrapper
-	err = shared.RegisterShardSync(ctx, dagstoreWrapper, pieceInfo.PieceCID, carFilePath, true)
+	err = stores.RegisterShardSync(ctx, dagstoreWrapper, pieceInfo.PieceCID, carFilePath, true)
 	require.NoError(t, err)
 
 	// Remove the CAR file so that the provider is forced to unseal the data

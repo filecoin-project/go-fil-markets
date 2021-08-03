@@ -135,7 +135,7 @@ func (pde *providerDealEnvironment) PrepareBlockstore(ctx context.Context, dealI
 	}
 
 	log.Debugf("adding blockstore for deal %d to tracker", dealID)
-	_, err = pde.p.stores.Add(dealID.String(), bs)
+	_, err = pde.p.stores.Track(dealID.String(), bs)
 	log.Debugf("added blockstore for deal %d to tracker", dealID)
 	return err
 }
@@ -171,7 +171,7 @@ func (pde *providerDealEnvironment) CloseDataTransfer(ctx context.Context, chid 
 
 func (pde *providerDealEnvironment) DeleteStore(dealID retrievalmarket.DealID) error {
 	// close the read-only blockstore and stop tracking it for the deal
-	if err := pde.p.stores.CleanBlockstore(dealID.String()); err != nil {
+	if err := pde.p.stores.Untrack(dealID.String()); err != nil {
 		return xerrors.Errorf("failed to clean read-only blockstore for deal %d: %w", dealID, err)
 	}
 

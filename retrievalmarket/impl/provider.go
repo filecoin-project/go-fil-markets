@@ -60,7 +60,7 @@ type Provider struct {
 	disableNewDeals      bool
 	retrievalPricingFunc RetrievalPricingFunc
 	dagStore             stores.DAGStoreWrapper
-	stores               *stores.CarReadOnlyStoreTracker
+	stores               *stores.ReadOnlyBlockstores
 }
 
 type internalProviderEvent struct {
@@ -124,7 +124,7 @@ func NewProvider(minerAddress address.Address,
 		readySub:             pubsub.New(shared.ReadyDispatcher),
 		retrievalPricingFunc: retrievalPricingFunc,
 		dagStore:             dagStore,
-		stores:               stores.NewReadOnlyStoreTracker(),
+		stores:               stores.NewReadOnlyBlockstores(),
 	}
 
 	err := shared.MoveKey(ds, "retrieval-ask", "retrieval-ask/latest")

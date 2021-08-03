@@ -1551,15 +1551,15 @@ func (fe *fakeEnvironment) CleanReadWriteBlockstore(proposalCid cid.Cid, carFile
 	return nil
 }
 
-func (fe *fakeEnvironment) GeneratePieceCommitment(proposalCid cid.Cid, carV2FilePath string, dealSize abi.PaddedPieceSize) (cid.Cid, filestore.Path, error) {
+func (fe *fakeEnvironment) GeneratePieceCommitment(proposalCid cid.Cid, _ string, dealSize abi.PaddedPieceSize) (cid.Cid, filestore.Path, error) {
 	return fe.pieceCid, fe.metadataPath, fe.generateCommPError
 }
 
-func (fe *fakeEnvironment) FinalizeReadWriteBlockstore(proposalCid cid.Cid, carPath string, root cid.Cid) error {
+func (fe *fakeEnvironment) FinalizeReadWriteBlockstore(proposalCid cid.Cid) error {
 	return fe.finalizeBlockstoreErr
 }
 
-func (fe *fakeEnvironment) CARv2Reader(carV2FilePath string) (*carv2.Reader, error) {
+func (fe *fakeEnvironment) ReadCAR(_ string) (*carv2.Reader, error) {
 	return fe.carV2Reader, fe.carV2Error
 }
 

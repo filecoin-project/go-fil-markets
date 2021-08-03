@@ -61,12 +61,12 @@ func NewHarnessWithTestData(t *testing.T, td *shared_testutil.Libp2pTestData, de
 	fpath := filepath.Join("storagemarket", "fixtures", file)
 	var rootLink ipld.Link
 
-	var carV2FilePath string
+	var path string
 	// TODO Both functions here should return the root cid of the UnixFSDag and the carv2 file path.
 	if useStore {
-		rootLink, carV2FilePath = td.LoadUnixFSFileToStore(t, fpath)
+		rootLink, path = td.LoadUnixFSFileToStore(t, fpath)
 	} else {
-		rootLink, carV2FilePath = td.LoadUnixFSFile(t, fpath, false)
+		rootLink, path = td.LoadUnixFSFile(t, fpath, false)
 	}
 
 	payloadCid := rootLink.(cidlink.Link).Cid
@@ -116,7 +116,7 @@ func NewHarnessWithTestData(t *testing.T, td *shared_testutil.Libp2pTestData, de
 		PayloadCid:          payloadCid,
 		Client:              client,
 		Provider:            provider,
-		IndexedCAR:          carV2FilePath,
+		IndexedCAR:          path,
 	}
 }
 
