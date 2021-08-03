@@ -9,21 +9,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/ipfs/go-cid"
-	"github.com/ipfs/go-datastore"
-	"github.com/ipfs/go-datastore/namespace"
-	graphsyncimpl "github.com/ipfs/go-graphsync/impl"
-	"github.com/ipfs/go-graphsync/network"
-	"github.com/ipld/go-car"
-	car2 "github.com/ipld/go-car/v2"
-	"github.com/ipld/go-car/v2/blockstore"
-	"github.com/ipld/go-ipld-prime"
-	cidlink "github.com/ipld/go-ipld-prime/linking/cid"
-	basicnode "github.com/ipld/go-ipld-prime/node/basic"
-	"github.com/ipld/go-ipld-prime/traversal/selector/builder"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
-
 	"github.com/filecoin-project/go-address"
 	dtimpl "github.com/filecoin-project/go-data-transfer/impl"
 	"github.com/filecoin-project/go-data-transfer/testutil"
@@ -31,6 +16,18 @@ import (
 	"github.com/filecoin-project/go-state-types/abi"
 	"github.com/filecoin-project/go-state-types/big"
 	"github.com/filecoin-project/specs-actors/actors/builtin/paych"
+	"github.com/ipfs/go-cid"
+	"github.com/ipfs/go-datastore"
+	"github.com/ipfs/go-datastore/namespace"
+	graphsyncimpl "github.com/ipfs/go-graphsync/impl"
+	"github.com/ipfs/go-graphsync/network"
+	"github.com/ipld/go-car"
+	"github.com/ipld/go-ipld-prime"
+	cidlink "github.com/ipld/go-ipld-prime/linking/cid"
+	basicnode "github.com/ipld/go-ipld-prime/node/basic"
+	"github.com/ipld/go-ipld-prime/traversal/selector/builder"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 
 	"github.com/filecoin-project/go-fil-markets/piecestore"
 	"github.com/filecoin-project/go-fil-markets/retrievalmarket"
@@ -369,9 +366,7 @@ func TestClientCanMakeDealWithProvider(t *testing.T) {
 			carFile, err := os.CreateTemp(t.TempDir(), "rand")
 			require.NoError(t, err)
 
-			ro, err := blockstore.OpenReadOnly(path, car2.ZeroLengthSectionAsEOF(true), blockstore.UseWholeCIDs(true))
-			require.NoError(t, err)
-			fs, err := stores.FilestoreOf(ro)
+			fs, err := stores.ReadOnlyFilestore(path)
 			require.NoError(t, err)
 
 			sc := car.NewSelectiveCar(bgCtx, fs, []car.Dag{{Root: payloadCID, Selector: shared.AllSelector()}})
@@ -381,7 +376,7 @@ func TestClientCanMakeDealWithProvider(t *testing.T) {
 			require.NoError(t, prepared.Dump(carBuf))
 			carDataBuf := new(bytes.Buffer)
 			tr := io.TeeReader(carBuf, carDataBuf)
-			require.NoError(t, ro.Close())
+			require.NoError(t, fs.Close())
 			_, err = io.Copy(carFile, tr)
 			require.NoError(t, err)
 			require.NoError(t, carFile.Close())

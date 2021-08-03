@@ -13,8 +13,6 @@ import (
 	"github.com/ipfs/go-datastore"
 	"github.com/ipfs/go-datastore/namespace"
 	"github.com/ipld/go-car"
-	car2 "github.com/ipld/go-car/v2"
-	"github.com/ipld/go-car/v2/blockstore"
 	"github.com/ipld/go-ipld-prime"
 	cidlink "github.com/ipld/go-ipld-prime/linking/cid"
 	"github.com/libp2p/go-libp2p-core/peer"
@@ -169,13 +167,7 @@ func TestOfflineStorageRetrieval(t *testing.T) {
 			shared_testutil.StartAndWaitForReady(ctx, t, sh.Client)
 
 			// Do a Selective CARv1 traversal on the CARv2 file to get a deterministic CARv1 that we can import on the miner side.
-			ro, err := blockstore.OpenReadOnly(sh.IndexedCAR,
-				car2.ZeroLengthSectionAsEOF(true),
-				blockstore.UseWholeCIDs(true),
-			)
-			require.NoError(t, err)
-
-			fs, err := stores.FilestoreOf(ro)
+			fs, err := stores.ReadOnlyFilestore(sh.IndexedCAR)
 			require.NoError(t, err)
 
 			require.NoError(t, err)
@@ -184,7 +176,7 @@ func TestOfflineStorageRetrieval(t *testing.T) {
 			require.NoError(t, err)
 			carBuf := new(bytes.Buffer)
 			require.NoError(t, prepared.Write(carBuf))
-			require.NoError(t, ro.Close())
+			require.NoError(t, fs.Close())
 
 			commP, size, err := clientutils.CommP(ctx, sh.IndexedCAR, &storagemarket.DataRef{
 				// hacky but need it for now because if it's manual, we wont get a CommP.

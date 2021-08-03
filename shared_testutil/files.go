@@ -66,21 +66,18 @@ func CreateRefCARv2(t *testing.T, src string) (cid.Cid, string) {
 	return root, path
 }
 
-func genRefCARv2(t *testing.T, fPath string, root cid.Cid) string {
+func genRefCARv2(t *testing.T, path string, root cid.Cid) string {
 	tmp, err := os.CreateTemp("", "rand")
 	require.NoError(t, err)
 	require.NoError(t, tmp.Close())
 
-	rw, err := blockstore.OpenReadWrite(tmp.Name(), []cid.Cid{root}, blockstore.UseWholeCIDs(true))
-	require.NoError(t, err)
-
-	fs, err := stores.FilestoreOf(rw)
+	fs, err := stores.ReadWriteFilestore(tmp.Name(), root)
 	require.NoError(t, err)
 
 	dagSvc := merkledag.NewDAGService(blockservice.New(fs, offline.Exchange(fs)))
 
-	root2 := buildUnixFS(t, fPath, dagSvc)
-	require.NoError(t, rw.Finalize())
+	root2 := buildUnixFS(t, path, dagSvc)
+	require.NoError(t, fs.Close())
 	require.Equal(t, root, root2)
 
 	// return the path of the CARv2 file.

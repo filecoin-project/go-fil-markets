@@ -9,18 +9,15 @@ import (
 	"testing"
 	"time"
 
-	"github.com/ipfs/go-datastore"
-	"github.com/ipld/go-car"
-	car2 "github.com/ipld/go-car/v2"
-	"github.com/ipld/go-car/v2/blockstore"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
-
 	datatransfer "github.com/filecoin-project/go-data-transfer"
 	"github.com/filecoin-project/go-data-transfer/channelmonitor"
 	dtimpl "github.com/filecoin-project/go-data-transfer/impl"
 	dtnet "github.com/filecoin-project/go-data-transfer/network"
 	"github.com/filecoin-project/go-state-types/big"
+	"github.com/ipfs/go-datastore"
+	"github.com/ipld/go-car"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 
 	"github.com/filecoin-project/go-fil-markets/shared"
 	"github.com/filecoin-project/go-fil-markets/shared_testutil"
@@ -237,16 +234,15 @@ func TestMakeDealOffline(t *testing.T) {
 
 			// Do a selective CARv1 traversal on the CARv2 file to get a
 			// deterministic CARv1 that we can import on the miner side.
-			ro, err := blockstore.OpenReadOnly(h.IndexedCAR, car2.ZeroLengthSectionAsEOF(true), blockstore.UseWholeCIDs(true))
-			require.NoError(t, err)
-			fs, err := stores.FilestoreOf(ro)
+
+			fs, err := stores.ReadOnlyFilestore(h.IndexedCAR)
 			require.NoError(t, err)
 			sc := car.NewSelectiveCar(ctx, fs, []car.Dag{{Root: h.PayloadCid, Selector: shared.AllSelector()}})
 			prepared, err := sc.Prepare()
 			require.NoError(t, err)
 			carBuf := new(bytes.Buffer)
 			require.NoError(t, prepared.Write(carBuf))
-			require.NoError(t, ro.Close())
+			require.NoError(t, fs.Close())
 
 			err = h.Provider.ImportDataForDeal(ctx, pd.ProposalCid, carBuf)
 			require.NoError(t, err)

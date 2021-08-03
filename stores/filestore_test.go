@@ -1,4 +1,4 @@
-package filestorecaradapter
+package stores
 
 import (
 	"context"
@@ -10,7 +10,7 @@ import (
 
 	"github.com/ipfs/go-blockservice"
 	"github.com/ipfs/go-cid"
-	cidutil "github.com/ipfs/go-cidutil"
+	"github.com/ipfs/go-cidutil"
 	ds "github.com/ipfs/go-datastore"
 	dssync "github.com/ipfs/go-datastore/sync"
 	bstore "github.com/ipfs/go-ipfs-blockstore"
@@ -22,13 +22,14 @@ import (
 	unixfile "github.com/ipfs/go-unixfs/file"
 	"github.com/ipfs/go-unixfs/importer/balanced"
 	ihelper "github.com/ipfs/go-unixfs/importer/helpers"
-	"github.com/ipld/go-car/v2/blockstore"
 	mh "github.com/multiformats/go-multihash"
 	"github.com/stretchr/testify/require"
 )
 
-const unixfsChunkSize uint64 = 1 << 10
-const unixfsLinksPerLevel = 1024
+const (
+	unixfsChunkSize     uint64 = 1 << 10
+	unixfsLinksPerLevel        = 1024
+)
 
 var defaultHashFunction = uint64(mh.BLAKE2B_MIN + 31)
 
@@ -44,25 +45,28 @@ func TestReadOnlyFilstoreWithPosInfoCARFile(t *testing.T) {
 	tmpCARv2, err := os.CreateTemp(t.TempDir(), "rand")
 	require.NoError(t, err)
 	require.NoError(t, tmpCARv2.Close())
-	fs, err := NewReadWriteFileStore(tmpCARv2.Name(), []cid.Cid{root})
+
+	fs, err := ReadWriteFilestore(tmpCARv2.Name(), root)
 	require.NoError(t, err)
+
 	dagSvc := merkledag.NewDAGService(blockservice.New(fs, offline.Exchange(fs)))
 	root2 := writeUnixfsDAGTo(t, ctx, normalFilePath, dagSvc)
 	require.NoError(t, fs.Close())
 	require.Equal(t, root, root2)
 
 	// it works if we use a Filestore backed by the given CAR file
-	rofs, err := NewReadOnlyFileStore(tmpCARv2.Name())
+	fs, err = ReadOnlyFilestore(tmpCARv2.Name())
 	require.NoError(t, err)
-	fbz, err := dagToNormalFile(t, ctx, root, rofs)
+
+	fbz, err := dagToNormalFile(t, ctx, root, fs)
 	require.NoError(t, err)
-	require.NoError(t, rofs.Close())
+	require.NoError(t, fs.Close())
 
 	// assert contents are equal
 	require.EqualValues(t, origBytes, fbz)
 }
 
-func TestReadOnlyFilestoreWithFullCARFile(t *testing.T) {
+func TestReadOnlyFilestoreWithDenseCARFile(t *testing.T) {
 	ctx := context.Background()
 	normalFilePath, origContent := createFile(t, 10, 10485760)
 
@@ -74,15 +78,17 @@ func TestReadOnlyFilestoreWithFullCARFile(t *testing.T) {
 	tmpCARv2, err := os.CreateTemp(t.TempDir(), "rand")
 	require.NoError(t, err)
 	require.NoError(t, tmpCARv2.Close())
-	rw, err := blockstore.OpenReadWrite(tmpCARv2.Name(), []cid.Cid{root}, blockstore.UseWholeCIDs(true))
+
+	fs, err := ReadWriteFilestore(tmpCARv2.Name(), root)
 	require.NoError(t, err)
-	dagSvc := merkledag.NewDAGService(blockservice.New(rw, offline.Exchange(rw)))
+
+	dagSvc := merkledag.NewDAGService(blockservice.New(fs, offline.Exchange(fs)))
 	root2 := writeUnixfsDAGTo(t, ctx, normalFilePath, dagSvc)
-	require.NoError(t, rw.Finalize())
+	require.NoError(t, fs.Close())
 	require.Equal(t, root, root2)
 
 	// Open a read only filestore with the full CARv2 file
-	fs, err := NewReadOnlyFileStore(tmpCARv2.Name())
+	fs, err = ReadOnlyFilestore(tmpCARv2.Name())
 	require.NoError(t, err)
 
 	// write out the normal file using the Filestore and assert the contents match.

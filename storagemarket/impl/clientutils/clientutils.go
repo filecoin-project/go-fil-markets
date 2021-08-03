@@ -6,8 +6,6 @@ import (
 
 	"github.com/ipfs/go-cid"
 	"github.com/ipld/go-car"
-	car2 "github.com/ipld/go-car/v2"
-	"github.com/ipld/go-car/v2/blockstore"
 	"github.com/multiformats/go-multibase"
 	"golang.org/x/xerrors"
 
@@ -43,16 +41,13 @@ func CommP(ctx context.Context, carPath string, data *storagemarket.DataRef) (ci
 		return cid.Undef, 0, xerrors.New("need Carv2 file path to get a read-only blockstore")
 	}
 
-	bs, err := blockstore.OpenReadOnly(carPath, car2.ZeroLengthSectionAsEOF(true), blockstore.UseWholeCIDs(true))
+	// Open a read-only blockstore off the CAR file, wrapped in a filestore so
+	// it can read file positional references.
+	fs, err := stores.ReadOnlyFilestore(carPath)
 	if err != nil {
 		return cid.Undef, 0, xerrors.Errorf("failed to open carv2 blockstore: %w", err)
 	}
-	defer bs.Close()
-
-	fs, err := stores.FilestoreOf(bs)
-	if err != nil {
-		return cid.Undef, 0, xerrors.Errorf("failed to create filestore: %w", err)
-	}
+	defer fs.Close()
 
 	// do a CARv1 traversal with the DFS selector.
 	sc := car.NewSelectiveCar(ctx, fs, []car.Dag{{Root: data.Root, Selector: shared.AllSelector()}})

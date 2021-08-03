@@ -6,16 +6,60 @@ import (
 	"github.com/ipfs/go-datastore"
 	"github.com/ipfs/go-datastore/query"
 	"github.com/ipfs/go-filestore"
-	blockstore "github.com/ipfs/go-ipfs-blockstore"
+	bstore "github.com/ipfs/go-ipfs-blockstore"
+	carv2 "github.com/ipld/go-car/v2"
+	"github.com/ipld/go-car/v2/blockstore"
 	mh "github.com/multiformats/go-multihash"
 	"golang.org/x/xerrors"
 )
+
+// ReadOnlyFilestore opens the CAR in the specified path as as a read-only
+// blockstore, and fronts it with a Filestore whose positional mappings are
+// stored inside the CAR itself. It must be closed after done.
+func ReadOnlyFilestore(path string) (ClosableBlockstore, error) {
+	ro, err := blockstore.OpenReadOnly(path,
+		carv2.ZeroLengthSectionAsEOF(true),
+		blockstore.UseWholeCIDs(true),
+	)
+
+	if err != nil {
+		return nil, err
+	}
+
+	bs, err := FilestoreOf(ro)
+	if err != nil {
+		return nil, err
+	}
+
+	return &closableBlockstore{Blockstore: bs, closeFn: ro.Close}, nil
+}
+
+// ReadWriteFilestore opens the CAR in the specified path as as a read-write
+// blockstore, and fronts it with a Filestore whose positional mappings are
+// stored inside the CAR itself. It must be closed after done. Closing will
+// finalize the CAR blockstore.
+func ReadWriteFilestore(path string, roots ...cid.Cid) (ClosableBlockstore, error) {
+	rw, err := blockstore.OpenReadWrite(path, roots,
+		carv2.ZeroLengthSectionAsEOF(true),
+		blockstore.UseWholeCIDs(true),
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	bs, err := FilestoreOf(rw)
+	if err != nil {
+		return nil, err
+	}
+
+	return &closableBlockstore{Blockstore: bs, closeFn: rw.Finalize}, nil
+}
 
 // FilestoreOf returns a FileManager/Filestore backed entirely by a
 // blockstore without requiring a datastore. It achieves this by coercing the
 // blockstore into a datastore. The resulting blockstore is suitable for usage
 // with DagBuilderHelper with DagBuilderParams#NoCopy=true.
-func FilestoreOf(bs blockstore.Blockstore) (blockstore.Blockstore, error) {
+func FilestoreOf(bs bstore.Blockstore) (bstore.Blockstore, error) {
 	coercer := &dsCoercer{bs}
 
 	// the FileManager stores positional infos (positional mappings) in a
@@ -31,7 +75,7 @@ func FilestoreOf(bs blockstore.Blockstore) (blockstore.Blockstore, error) {
 	// blockstore), and the intermediate nodes to the blockstore proper (since
 	// they cannot be mapped to the file.
 	fstore := filestore.NewFilestore(bs, fm)
-	bs = blockstore.NewIdStore(fstore)
+	bs = bstore.NewIdStore(fstore)
 
 	return bs, nil
 }
@@ -42,7 +86,7 @@ var cidBuilder = cid.V1Builder{Codec: cid.Raw, MhType: mh.IDENTITY}
 // usage with the Filestore/FileManager. Only PosInfos will be written through
 // this path.
 type dsCoercer struct {
-	blockstore.Blockstore
+	bstore.Blockstore
 }
 
 var _ datastore.Batching = (*dsCoercer)(nil)
@@ -105,4 +149,13 @@ func (crcr *dsCoercer) Sync(_ datastore.Key) error {
 
 func (crcr *dsCoercer) Close() error {
 	return nil
+}
+
+type closableBlockstore struct {
+	bstore.Blockstore
+	closeFn func() error
+}
+
+func (c *closableBlockstore) Close() error {
+	return c.closeFn()
 }

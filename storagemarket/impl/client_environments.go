@@ -6,8 +6,6 @@ import (
 
 	"github.com/ipfs/go-cid"
 	bstore "github.com/ipfs/go-ipfs-blockstore"
-	"github.com/ipld/go-car/v2"
-	"github.com/ipld/go-car/v2/blockstore"
 	"github.com/ipld/go-ipld-prime"
 	"github.com/libp2p/go-libp2p-core/peer"
 	"golang.org/x/xerrors"
@@ -68,18 +66,11 @@ func (csg *clientStoreGetter) Get(proposalCid cid.Cid) (bstore.Blockstore, error
 		return nil, xerrors.Errorf("failed to get client deal state: %w", err)
 	}
 
-	// Open a read-only blockstore off the CAR file.
-	rdOnly, err := blockstore.OpenReadOnly(deal.IndexedCAR,
-		car.ZeroLengthSectionAsEOF(true),
-		blockstore.UseWholeCIDs(true))
+	// Open a read-only blockstore off the CAR file, wrapped in a filestore so
+	// it can read file positional references.
+	bs, err := stores.ReadOnlyFilestore(deal.IndexedCAR)
 	if err != nil {
-		return nil, xerrors.Errorf("failed to open read-only blockstore: %w", err)
-	}
-
-	// Wrap it in a filestore so it can read file positional references.
-	bs, err := stores.FilestoreOf(rdOnly)
-	if err != nil {
-		return nil, xerrors.Errorf("failed to create filestore: %w", err)
+		return nil, xerrors.Errorf("failed to open car filestore: %w", err)
 	}
 
 	_, err = csg.c.stores.Track(proposalCid.String(), bs)
