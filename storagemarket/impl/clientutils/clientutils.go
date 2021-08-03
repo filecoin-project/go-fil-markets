@@ -4,7 +4,6 @@ package clientutils
 import (
 	"context"
 
-	"github.com/filecoin-project/go-fil-markets/stores"
 	"github.com/ipfs/go-cid"
 	"github.com/ipld/go-car"
 	car2 "github.com/ipld/go-car/v2"
@@ -21,6 +20,7 @@ import (
 	"github.com/filecoin-project/go-fil-markets/shared"
 	"github.com/filecoin-project/go-fil-markets/storagemarket"
 	"github.com/filecoin-project/go-fil-markets/storagemarket/network"
+	"github.com/filecoin-project/go-fil-markets/stores"
 )
 
 // CommP calculates the commP for a given dataref

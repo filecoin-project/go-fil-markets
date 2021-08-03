@@ -8,7 +8,6 @@ import (
 	"os"
 	"testing"
 
-	"github.com/filecoin-project/go-fil-markets/stores"
 	"github.com/ipfs/go-datastore"
 	"github.com/ipfs/go-datastore/namespace"
 	graphsyncimpl "github.com/ipfs/go-graphsync/impl"
@@ -34,6 +33,7 @@ import (
 	storageimpl "github.com/filecoin-project/go-fil-markets/storagemarket/impl"
 	"github.com/filecoin-project/go-fil-markets/storagemarket/impl/storedask"
 	"github.com/filecoin-project/go-fil-markets/storagemarket/testnodes"
+	"github.com/filecoin-project/go-fil-markets/stores"
 )
 
 // StorageDependencies are the dependencies required to initialize a storage client/provider

@@ -6,7 +6,6 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/filecoin-project/go-fil-markets/stores"
 	"github.com/ipfs/go-blockservice"
 	"github.com/ipfs/go-cid"
 	"github.com/ipfs/go-cidutil"
@@ -23,6 +22,8 @@ import (
 	"github.com/ipld/go-car/v2/blockstore"
 	mh "github.com/multiformats/go-multihash"
 	"github.com/stretchr/testify/require"
+
+	"github.com/filecoin-project/go-fil-markets/stores"
 )
 
 var defaultHashFunction = uint64(mh.BLAKE2B_MIN + 31)

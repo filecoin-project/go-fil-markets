@@ -5,14 +5,14 @@ import (
 	"path/filepath"
 	"testing"
 
-	tut "github.com/filecoin-project/go-fil-markets/shared_testutil"
-	"github.com/filecoin-project/go-fil-markets/stores"
-
-	"github.com/filecoin-project/dagstore"
-
 	carv2 "github.com/ipld/go-car/v2"
 	"github.com/ipld/go-car/v2/blockstore"
 	"github.com/stretchr/testify/require"
+
+	"github.com/filecoin-project/dagstore"
+
+	tut "github.com/filecoin-project/go-fil-markets/shared_testutil"
+	"github.com/filecoin-project/go-fil-markets/stores"
 )
 
 func TestReadOnlyStoreTracker(t *testing.T) {

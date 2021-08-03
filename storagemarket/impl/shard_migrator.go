@@ -6,7 +6,6 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/filecoin-project/go-fil-markets/stores"
 	"golang.org/x/xerrors"
 
 	"github.com/filecoin-project/dagstore"
@@ -16,6 +15,7 @@ import (
 	"github.com/filecoin-project/go-fil-markets/piecestore"
 	"github.com/filecoin-project/go-fil-markets/storagemarket"
 	"github.com/filecoin-project/go-fil-markets/storagemarket/impl/providerstates"
+	"github.com/filecoin-project/go-fil-markets/stores"
 )
 
 var shardRegMarker = ".shard-registration-complete"
