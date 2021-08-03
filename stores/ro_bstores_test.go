@@ -20,12 +20,19 @@ func TestReadOnlyStoreTracker(t *testing.T) {
 
 	// Create a CARv2 file from a fixture
 	testData := tut.NewLibp2pTestData(ctx, t)
+
 	fpath1 := filepath.Join("retrievalmarket", "impl", "fixtures", "lorem.txt")
 	_, carFilePath := testData.LoadUnixFSFileToStore(t, fpath1)
+
 	fpath2 := filepath.Join("retrievalmarket", "impl", "fixtures", "lorem_under_1_block.txt")
 	_, carFilePath2 := testData.LoadUnixFSFileToStore(t, fpath2)
+
 	rdOnlyBS1, err := blockstore.OpenReadOnly(carFilePath, carv2.ZeroLengthSectionAsEOF(true), blockstore.UseWholeCIDs(true))
 	require.NoError(t, err)
+
+	rdOnlyBS2, err := blockstore.OpenReadOnly(carFilePath2, carv2.ZeroLengthSectionAsEOF(true), blockstore.UseWholeCIDs(true))
+	require.NoError(t, err)
+
 	len1 := getBstoreLen(ctx, t, rdOnlyBS1)
 
 	k1 := "k1"
@@ -49,17 +56,10 @@ func TestReadOnlyStoreTracker(t *testing.T) {
 	lenGot := getBstoreLen(ctx, t, got)
 	require.Equal(t, len1, lenGot)
 
-	// Call GetOrOpen using the same key
-	got2, err := tracker.GetOrOpen(k1, carFilePath)
-	require.NoError(t, err)
-
-	// Verify the blockstore is the same
-	lenGot2 := getBstoreLen(ctx, t, got2)
-	require.Equal(t, len1, lenGot2)
-
 	// Call GetOrOpen with a different CAR file
-	rdOnlyBS2, err := tracker.GetOrOpen(k2, carFilePath2)
+	ok, err = tracker.Track(k2, rdOnlyBS2)
 	require.NoError(t, err)
+	require.True(t, ok)
 
 	// Verify the blockstore is different
 	len2 := getBstoreLen(ctx, t, rdOnlyBS2)

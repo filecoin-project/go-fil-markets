@@ -518,8 +518,8 @@ func TestRestartClient(t *testing.T) {
 		},
 
 		"ClientEventFundingComplete": {
-			//Edge case : Provider begins the state machine on recieving a deal stream request
-			//client crashes -> restarts -> sends deal stream again -> state machine fails
+			// Edge case: Provider begins the state machine on receiving a deal stream request
+			// client crashes -> restarts -> sends deal stream again -> state machine fails
 			// See https://github.com/filecoin-project/lotus/issues/3966
 			stopAtClientEvent:   storagemarket.ClientEventFundingComplete,
 			expectedClientState: storagemarket.StorageDealFundsReserved,
