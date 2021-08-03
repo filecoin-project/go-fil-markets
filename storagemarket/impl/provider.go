@@ -70,7 +70,7 @@ type Provider struct {
 	unsubDataTransfer datatransfer.Unsubscribe
 
 	shardReg             *ShardMigrator
-	dagStore             shared.DagStoreWrapper
+	dagStore             stores.DAGStoreWrapper
 	readWriteBlockStores *stores.CarReadWriteStoreTracker
 }
 
@@ -105,7 +105,7 @@ func CustomDealDecisionLogic(decider DealDeciderFunc) StorageProviderOption {
 func NewProvider(net network.StorageMarketNetwork,
 	ds datastore.Batching,
 	fs filestore.FileStore,
-	dagStore shared.DagStoreWrapper,
+	dagStore stores.DAGStoreWrapper,
 	pieceStore piecestore.PieceStore,
 	dataTransfer datatransfer.Manager,
 	spn storagemarket.StorageProviderNode,

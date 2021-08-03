@@ -15,7 +15,6 @@ import (
 
 	"github.com/filecoin-project/go-fil-markets/piecestore"
 	"github.com/filecoin-project/go-fil-markets/retrievalmarket"
-	"github.com/filecoin-project/go-fil-markets/shared"
 	"github.com/filecoin-project/go-fil-markets/stores"
 )
 
@@ -36,7 +35,7 @@ type MockDagStoreWrapper struct {
 	registrations map[cid.Cid]registration
 }
 
-var _ shared.DagStoreWrapper = (*MockDagStoreWrapper)(nil)
+var _ stores.DAGStoreWrapper = (*MockDagStoreWrapper)(nil)
 
 func NewMockDagStoreWrapper(pieceStore piecestore.PieceStore, rpn retrievalmarket.RetrievalProviderNode) *MockDagStoreWrapper {
 	return &MockDagStoreWrapper{

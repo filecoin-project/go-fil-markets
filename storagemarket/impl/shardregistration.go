@@ -6,6 +6,7 @@ import (
 	"os"
 	"path/filepath"
 
+	"github.com/filecoin-project/go-fil-markets/stores"
 	"golang.org/x/xerrors"
 
 	"github.com/filecoin-project/dagstore"
@@ -13,7 +14,6 @@ import (
 	"github.com/filecoin-project/go-statemachine/fsm"
 
 	"github.com/filecoin-project/go-fil-markets/piecestore"
-	"github.com/filecoin-project/go-fil-markets/shared"
 	"github.com/filecoin-project/go-fil-markets/storagemarket"
 	"github.com/filecoin-project/go-fil-markets/storagemarket/impl/providerstates"
 )
@@ -27,7 +27,7 @@ var shardRegMarker = ".shard-registration-complete"
 type ShardMigrator struct {
 	providerAddr   address.Address
 	markerFilePath string
-	dagStore       shared.DagStoreWrapper
+	dagStore       stores.DAGStoreWrapper
 
 	pieceStore piecestore.PieceStore
 	spn        storagemarket.StorageProviderNode
@@ -36,7 +36,7 @@ type ShardMigrator struct {
 func NewShardMigrator(
 	maddr address.Address,
 	dagStorePath string,
-	dagStore shared.DagStoreWrapper,
+	dagStore stores.DAGStoreWrapper,
 	pieceStore piecestore.PieceStore,
 	spn storagemarket.StorageProviderNode,
 ) *ShardMigrator {

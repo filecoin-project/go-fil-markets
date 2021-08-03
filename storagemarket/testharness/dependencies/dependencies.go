@@ -8,6 +8,7 @@ import (
 	"os"
 	"testing"
 
+	"github.com/filecoin-project/go-fil-markets/stores"
 	"github.com/ipfs/go-datastore"
 	"github.com/ipfs/go-datastore/namespace"
 	graphsyncimpl "github.com/ipfs/go-graphsync/impl"
@@ -28,7 +29,6 @@ import (
 	"github.com/filecoin-project/go-fil-markets/filestore"
 	"github.com/filecoin-project/go-fil-markets/piecestore"
 	piecestoreimpl "github.com/filecoin-project/go-fil-markets/piecestore/impl"
-	"github.com/filecoin-project/go-fil-markets/shared"
 	"github.com/filecoin-project/go-fil-markets/shared_testutil"
 	"github.com/filecoin-project/go-fil-markets/storagemarket"
 	storageimpl "github.com/filecoin-project/go-fil-markets/storagemarket/impl"
@@ -49,7 +49,7 @@ type StorageDependencies struct {
 	ProviderInfo                      storagemarket.StorageProviderInfo
 	TestData                          *shared_testutil.Libp2pTestData
 	PieceStore                        piecestore.PieceStore
-	DagStore                          shared.DagStoreWrapper
+	DagStore                          stores.DAGStoreWrapper
 	ShardReg                          *storageimpl.ShardMigrator
 	DTClient                          datatransfer.Manager
 	DTProvider                        datatransfer.Manager

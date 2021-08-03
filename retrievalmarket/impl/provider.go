@@ -59,7 +59,7 @@ type Provider struct {
 	askStore             retrievalmarket.AskStore
 	disableNewDeals      bool
 	retrievalPricingFunc RetrievalPricingFunc
-	dagStore             shared.DagStoreWrapper
+	dagStore             stores.DAGStoreWrapper
 	stores               *stores.CarReadOnlyStoreTracker
 }
 
@@ -103,7 +103,7 @@ func NewProvider(minerAddress address.Address,
 	node retrievalmarket.RetrievalProviderNode,
 	network rmnet.RetrievalMarketNetwork,
 	pieceStore piecestore.PieceStore,
-	dagStore shared.DagStoreWrapper,
+	dagStore stores.DAGStoreWrapper,
 	dataTransfer datatransfer.Manager,
 	ds datastore.Batching,
 	retrievalPricingFunc RetrievalPricingFunc,
