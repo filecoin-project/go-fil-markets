@@ -111,7 +111,7 @@ type MinerDeal struct {
 	TransferChannelId *datatransfer.ChannelID
 	SectorNumber      abi.SectorNumber
 
-	CARv2FilePath string
+	InboundCAR string
 }
 
 // NewDealStages creates a new DealStages object ready to be used.

@@ -71,7 +71,7 @@ func TestShardRegistration(t *testing.T) {
 		Ref: &storagemarket.DataRef{
 			PieceCid: &pieceCidUnsealed,
 		},
-		CARv2FilePath: "",
+		InboundCAR: "",
 	}, {
 		// Should be registered with lazy registration (because sector is sealed)
 		State:        storagemarket.StorageDealSealing,
@@ -79,7 +79,7 @@ func TestShardRegistration(t *testing.T) {
 		Ref: &storagemarket.DataRef{
 			PieceCid: &pieceCidSealed,
 		},
-		CARv2FilePath: "",
+		InboundCAR: "",
 	}, {
 		// Should be ignored because deal is no longer active
 		State:        storagemarket.StorageDealError,
@@ -87,7 +87,7 @@ func TestShardRegistration(t *testing.T) {
 		Ref: &storagemarket.DataRef{
 			PieceCid: &pieceCidUnsealed2,
 		},
-		CARv2FilePath: "",
+		InboundCAR: "",
 	}, {
 		// Should be ignored because deal is not yet sealing
 		State:        storagemarket.StorageDealFundsReserved,
@@ -95,7 +95,7 @@ func TestShardRegistration(t *testing.T) {
 		Ref: &storagemarket.DataRef{
 			PieceCid: &pieceCidUnsealed3,
 		},
-		CARv2FilePath: "",
+		InboundCAR: "",
 	}}
 	err = shardReg.registerShards(ctx, deals)
 	require.NoError(t, err)

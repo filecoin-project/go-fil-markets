@@ -69,9 +69,9 @@ type Provider struct {
 
 	unsubDataTransfer datatransfer.Unsubscribe
 
-	shardReg             *ShardMigrator
-	dagStore             stores.DAGStoreWrapper
-	readWriteBlockStores *stores.CarReadWriteStoreTracker
+	shardReg *ShardMigrator
+	dagStore stores.DAGStoreWrapper
+	stores   *stores.CarReadWriteStoreTracker
 }
 
 // StorageProviderOption allows custom configuration of a storage provider
@@ -115,19 +115,19 @@ func NewProvider(net network.StorageMarketNetwork,
 	options ...StorageProviderOption,
 ) (storagemarket.StorageProvider, error) {
 	h := &Provider{
-		net:                  net,
-		spn:                  spn,
-		fs:                   fs,
-		pieceStore:           pieceStore,
-		conns:                connmanager.NewConnManager(),
-		storedAsk:            storedAsk,
-		actor:                minerAddress,
-		dataTransfer:         dataTransfer,
-		pubSub:               pubsub.New(providerDispatcher),
-		readyMgr:             shared.NewReadyManager(),
-		shardReg:             shardReg,
-		dagStore:             dagStore,
-		readWriteBlockStores: stores.NewCarReadWriteStoreTracker(),
+		net:          net,
+		spn:          spn,
+		fs:           fs,
+		pieceStore:   pieceStore,
+		conns:        connmanager.NewConnManager(),
+		storedAsk:    storedAsk,
+		actor:        minerAddress,
+		dataTransfer: dataTransfer,
+		pubSub:       pubsub.New(providerDispatcher),
+		readyMgr:     shared.NewReadyManager(),
+		shardReg:     shardReg,
+		dagStore:     dagStore,
+		stores:       stores.NewCarReadWriteStoreTracker(),
 	}
 	storageMigrations, err := migrations.ProviderMigrations.Build()
 	if err != nil {
@@ -263,7 +263,7 @@ func (p *Provider) receiveDeal(s network.StorageDealStream) error {
 		Ref:                proposal.Piece,
 		FastRetrieval:      proposal.FastRetrieval,
 		CreationTime:       curTime(),
-		CARv2FilePath:      carV2FilePath,
+		InboundCAR:         carV2FilePath,
 	}
 
 	err = p.deals.Begin(proposalNd.Cid(), deal)

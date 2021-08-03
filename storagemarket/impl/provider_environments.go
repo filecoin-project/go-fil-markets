@@ -19,10 +19,10 @@ import (
 
 	"github.com/filecoin-project/go-fil-markets/filestore"
 	"github.com/filecoin-project/go-fil-markets/piecestore"
-	"github.com/filecoin-project/go-fil-markets/shared"
 	"github.com/filecoin-project/go-fil-markets/storagemarket"
 	"github.com/filecoin-project/go-fil-markets/storagemarket/impl/providerstates"
 	"github.com/filecoin-project/go-fil-markets/storagemarket/network"
+	"github.com/filecoin-project/go-fil-markets/stores"
 )
 
 // -------
@@ -34,15 +34,15 @@ type providerDealEnvironment struct {
 }
 
 func (p *providerDealEnvironment) RegisterShard(ctx context.Context, pieceCid cid.Cid, carPath string, eagerInit bool) error {
-	return shared.RegisterShardSync(ctx, p.p.dagStore, pieceCid, carPath, eagerInit)
+	return stores.RegisterShardSync(ctx, p.p.dagStore, pieceCid, carPath, eagerInit)
 }
 
-func (p *providerDealEnvironment) CARv2Reader(carV2FilePath string) (*carv2.Reader, error) {
-	return carv2.OpenReader(carV2FilePath)
+func (p *providerDealEnvironment) CARv2Reader(path string) (*carv2.Reader, error) {
+	return carv2.OpenReader(path)
 }
 
 func (p *providerDealEnvironment) FinalizeReadWriteBlockstore(proposalCid cid.Cid, carPath string, rootCid cid.Cid) error {
-	bs, err := p.p.readWriteBlockStores.GetOrCreate(proposalCid.String(), carPath, rootCid)
+	bs, err := p.p.stores.GetOrCreate(proposalCid.String(), carPath, rootCid)
 	if err != nil {
 		return xerrors.Errorf("failed to get read-write blockstore: %w", err)
 	}
@@ -70,15 +70,15 @@ func (p *providerDealEnvironment) Ask() storagemarket.StorageAsk {
 	return *sask.Ask
 }
 
-func (p *providerDealEnvironment) CleanReadWriteBlockstore(proposalCid cid.Cid, carV2FilePath string) error {
-	// close the backing CARv2 file and stop tracking the read-write blockstore for the deal with the given proposalCid.
-	if err := p.p.readWriteBlockStores.CleanBlockstore(proposalCid.String()); err != nil {
-		log.Warnf("failed to clean read write blockstore, proposalCid=%s, carV2FilePath=%s: %s", proposalCid, carV2FilePath, err)
+func (p *providerDealEnvironment) CleanReadWriteBlockstore(proposalCid cid.Cid, path string) error {
+	// ensure the carv2 is finalized, and stop tracking it.
+	if err := p.p.stores.CleanBlockstore(proposalCid.String()); err != nil {
+		log.Warnf("failed to clean read write blockstore, proposalCid=%s, carV2FilePath=%s: %s", proposalCid, path, err)
 	}
 
-	// clean up the backing CARv2 file as it was a temporary file we created for this Storage deal and the deal dag has
-	// now either been sealed into a Sector or the storage deal has failed.
-	return os.Remove(carV2FilePath)
+	// delete the backing CARv2 file as it was a temporary file we created for
+	// this storage deal; the piece has now been handed off, or the deal has failed.
+	return os.Remove(path)
 }
 
 // GeneratePieceCommitment generates the pieceCid for the CARv1 deal payload in the CARv2 file that already exists at the given path.
@@ -209,7 +209,7 @@ func (psg *providerStoreGetter) Get(proposalCid cid.Cid) (bstore.Blockstore, err
 		return nil, xerrors.Errorf("failed to get deal state: %w", err)
 	}
 
-	return psg.p.readWriteBlockStores.GetOrCreate(proposalCid.String(), deal.CARv2FilePath, deal.Ref.Root)
+	return psg.p.stores.GetOrCreate(proposalCid.String(), deal.InboundCAR, deal.Ref.Root)
 }
 
 type providerPushDeals struct {

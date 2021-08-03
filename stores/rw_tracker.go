@@ -21,7 +21,7 @@ func NewCarReadWriteStoreTracker() *CarReadWriteStoreTracker {
 	}
 }
 
-func (r *CarReadWriteStoreTracker) GetOrCreate(key string, carV2FilePath string, rootCid cid.Cid) (*blockstore.ReadWrite, error) {
+func (r *CarReadWriteStoreTracker) GetOrCreate(key string, path string, rootCid cid.Cid) (*blockstore.ReadWrite, error) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
@@ -29,7 +29,7 @@ func (r *CarReadWriteStoreTracker) GetOrCreate(key string, carV2FilePath string,
 		return bs, nil
 	}
 
-	rwBs, err := blockstore.OpenReadWrite(carV2FilePath, []cid.Cid{rootCid}, blockstore.UseWholeCIDs(true))
+	rwBs, err := blockstore.OpenReadWrite(path, []cid.Cid{rootCid}, blockstore.UseWholeCIDs(true))
 	if err != nil {
 		return nil, xerrors.Errorf("failed to create read-write blockstore: %w", err)
 	}

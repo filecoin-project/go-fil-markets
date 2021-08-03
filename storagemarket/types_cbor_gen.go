@@ -1129,14 +1129,14 @@ func (t *MinerDeal) MarshalCBOR(w io.Writer) error {
 		return err
 	}
 
-	if len(t.CARv2FilePath) > cbg.MaxLength {
+	if len(t.InboundCAR) > cbg.MaxLength {
 		return xerrors.Errorf("Value in field t.CARv2FilePath was too long")
 	}
 
-	if err := cbg.WriteMajorTypeHeaderBuf(scratch, w, cbg.MajTextString, uint64(len(t.CARv2FilePath))); err != nil {
+	if err := cbg.WriteMajorTypeHeaderBuf(scratch, w, cbg.MajTextString, uint64(len(t.InboundCAR))); err != nil {
 		return err
 	}
-	if _, err := io.WriteString(w, string(t.CARv2FilePath)); err != nil {
+	if _, err := io.WriteString(w, string(t.InboundCAR)); err != nil {
 		return err
 	}
 	return nil
@@ -1475,7 +1475,7 @@ func (t *MinerDeal) UnmarshalCBOR(r io.Reader) error {
 					return err
 				}
 
-				t.CARv2FilePath = string(sval)
+				t.InboundCAR = string(sval)
 			}
 
 		default:
