@@ -98,7 +98,7 @@ func (fs *TestFileStore) Delete(p filestore.Path) error {
 }
 
 // CreateTemp will create a temporary file from the provided set of temporary files
-func (fs *TestFileStore) CreateTemp() (filestore.File, error) {
+func (fs *TestFileStore) CreateTemp(pattern string) (filestore.File, error) {
 	if len(fs.availableTempFiles) == 0 {
 		return nil, TestErrTempFile
 	}

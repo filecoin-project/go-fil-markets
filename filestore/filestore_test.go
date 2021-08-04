@@ -133,8 +133,9 @@ func Test_CreateFile(t *testing.T) {
 func Test_CreateTempFile(t *testing.T) {
 	store, err := NewLocalFileStore(baseDir)
 	require.NoError(t, err)
-	file, err := store.CreateTemp()
+	file, err := store.CreateTemp("pattern")
 	require.NoError(t, err)
+	require.Contains(t, file.Path(), "fstmp_pattern")
 	defer func() {
 		err := store.Delete(file.Path())
 		require.NoError(t, err)
