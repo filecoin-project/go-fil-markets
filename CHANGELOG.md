@@ -1,5 +1,9 @@
 # go-fil-markets changelog
 
+# go-fil-markets v1.7.0
+
+- Pass deal proposal instead of deal ID to OnDealExpiredOrSlashed (#476) ([filecoin-project/go-fil-markets#476](https://github.com/filecoin-project/go-fil-markets/pull/476)) 
+
 # go-fil-markets v1.6.0
 
 - Add a `StorageDealTransferQueued` event on the storage client that means that the data transfer request has been queued and will be executed soon.
