@@ -67,7 +67,7 @@ type StorageCommon interface {
 	OnDealSectorCommitted(ctx context.Context, provider address.Address, dealID abi.DealID, sectorNumber abi.SectorNumber, proposal market.DealProposal, publishCid *cid.Cid, cb DealSectorCommittedCallback) error
 
 	// OnDealExpiredOrSlashed registers callbacks to be called when the deal expires or is slashed
-	OnDealExpiredOrSlashed(ctx context.Context, dealID abi.DealID, onDealExpired DealExpiredCallback, onDealSlashed DealSlashedCallback) error
+	OnDealExpiredOrSlashed(ctx context.Context, publishCid cid.Cid, proposal market.DealProposal, onDealExpired DealExpiredCallback, onDealSlashed DealSlashedCallback) error
 }
 
 // PackingResult returns information about how a deal was put into a sector

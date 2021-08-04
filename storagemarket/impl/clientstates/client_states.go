@@ -300,7 +300,7 @@ func WaitForDealCompletion(ctx fsm.Context, environment ClientDealEnvironment, d
 		}
 	}
 
-	if err := node.OnDealExpiredOrSlashed(ctx.Context(), deal.DealID, expiredCb, slashedCb); err != nil {
+	if err := node.OnDealExpiredOrSlashed(ctx.Context(), *deal.PublishMessage, deal.Proposal, expiredCb, slashedCb); err != nil {
 		return ctx.Trigger(storagemarket.ClientEventDealCompletionFailed, err)
 	}
 
