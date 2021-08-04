@@ -30,7 +30,6 @@ import (
 	piecestoreimpl "github.com/filecoin-project/go-fil-markets/piecestore/impl"
 	"github.com/filecoin-project/go-fil-markets/shared_testutil"
 	"github.com/filecoin-project/go-fil-markets/storagemarket"
-	storageimpl "github.com/filecoin-project/go-fil-markets/storagemarket/impl"
 	"github.com/filecoin-project/go-fil-markets/storagemarket/impl/storedask"
 	"github.com/filecoin-project/go-fil-markets/storagemarket/testnodes"
 	"github.com/filecoin-project/go-fil-markets/stores"
@@ -50,7 +49,6 @@ type StorageDependencies struct {
 	TestData                          *shared_testutil.Libp2pTestData
 	PieceStore                        piecestore.PieceStore
 	DagStore                          stores.DAGStoreWrapper
-	ShardReg                          *storageimpl.ShardMigrator
 	DTClient                          datatransfer.Manager
 	DTProvider                        datatransfer.Manager
 	PeerResolver                      *discoveryimpl.Local
@@ -146,7 +144,6 @@ func (gen *DepGenerator) New(
 	assert.NoError(t, err)
 
 	dagStore := shared_testutil.NewMockDagStoreWrapper(nil, nil)
-	shardReg := storageimpl.NewShardMigrator(providerAddr, t.TempDir(), dagStore, ps, providerNode)
 
 	// create provider and client
 
@@ -194,7 +191,6 @@ func (gen *DepGenerator) New(
 		ClientDelayFakeCommonNode:         cd,
 		ProviderClientDelayFakeCommonNode: pd,
 		DagStore:                          dagStore,
-		ShardReg:                          shardReg,
 		DTClient:                          dt1,
 		DTProvider:                        dt2,
 		PeerResolver:                      discovery,

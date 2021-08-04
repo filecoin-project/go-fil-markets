@@ -69,7 +69,6 @@ type Provider struct {
 
 	unsubDataTransfer datatransfer.Unsubscribe
 
-	shardReg *ShardMigrator
 	dagStore stores.DAGStoreWrapper
 	stores   *stores.ReadWriteBlockstores
 }
@@ -111,7 +110,6 @@ func NewProvider(net network.StorageMarketNetwork,
 	spn storagemarket.StorageProviderNode,
 	minerAddress address.Address,
 	storedAsk StoredAsk,
-	shardReg *ShardMigrator,
 	options ...StorageProviderOption,
 ) (storagemarket.StorageProvider, error) {
 	h := &Provider{
@@ -125,7 +123,6 @@ func NewProvider(net network.StorageMarketNetwork,
 		dataTransfer: dataTransfer,
 		pubSub:       pubsub.New(providerDispatcher),
 		readyMgr:     shared.NewReadyManager(),
-		shardReg:     shardReg,
 		dagStore:     dagStore,
 		stores:       stores.NewReadWriteBlockstores(),
 	}
@@ -613,9 +610,15 @@ func (p *Provider) start(ctx context.Context) error {
 		}
 	}
 
-	if err := p.shardReg.registerShards(ctx, deals); err != nil {
-		return fmt.Errorf("failed to restart deals: %w", err)
+	// migrate deals to the dagstore if still not migrated.
+	if ok, err := p.dagStore.MigrateDeals(ctx, deals); err != nil {
+		return fmt.Errorf("failed to migrate deals to DAG store: %w", err)
+	} else if ok {
+		log.Info("dagstore migration performed")
+	} else {
+		log.Info("no dagstore migration necessary")
 	}
+
 	if err := p.restartDeals(deals); err != nil {
 		return fmt.Errorf("failed to restart deals: %w", err)
 	}
