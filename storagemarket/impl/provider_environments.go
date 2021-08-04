@@ -100,7 +100,7 @@ func (p *providerDealEnvironment) GeneratePieceCommitment(proposalCid cid.Cid, c
 			if finalErr == nil {
 				c = cid.Undef
 				path = ""
-				finalErr = xerrors.Errorf("failed to close CARv2 reader, proposalCid=%s, carPath=%s, err=%s",
+				finalErr = xerrors.Errorf("failed to close CARv2 reader, proposalCid=%s, carPath=%s: %w",
 					proposalCid, carPath, err)
 				return
 			}

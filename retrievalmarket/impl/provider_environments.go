@@ -33,7 +33,7 @@ func (pve *providerValidationEnvironment) GetAsk(ctx context.Context, payloadCid
 
 	storageDeals, err := storageDealsForPiece(pieceCid != nil, payloadCid, piece, pve.p.pieceStore)
 	if err != nil {
-		return retrievalmarket.Ask{}, xerrors.Errorf("failed to fetch deals for payload, err=%s", err)
+		return retrievalmarket.Ask{}, xerrors.Errorf("failed to fetch deals for payload: %w", err)
 	}
 
 	input := retrievalmarket.PricingInput{
