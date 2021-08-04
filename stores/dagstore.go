@@ -8,6 +8,8 @@ import (
 	bstore "github.com/ipfs/go-ipfs-blockstore"
 
 	"github.com/filecoin-project/dagstore"
+
+	"github.com/filecoin-project/go-fil-markets/storagemarket"
 )
 
 type ClosableBlockstore interface {
@@ -27,6 +29,9 @@ type DAGStoreWrapper interface {
 	//
 	// The blockstore must be closed to release the shard.
 	LoadShard(ctx context.Context, pieceCid cid.Cid) (ClosableBlockstore, error)
+
+	// MigrateDeals migrates the supplied storage deals into the DAG store.
+	MigrateDeals(ctx context.Context, deals []storagemarket.MinerDeal) (bool, error)
 
 	// Close closes the dag store wrapper.
 	Close() error

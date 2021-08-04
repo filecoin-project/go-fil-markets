@@ -15,6 +15,7 @@ import (
 
 	"github.com/filecoin-project/go-fil-markets/piecestore"
 	"github.com/filecoin-project/go-fil-markets/retrievalmarket"
+	"github.com/filecoin-project/go-fil-markets/storagemarket"
 	"github.com/filecoin-project/go-fil-markets/stores"
 )
 
@@ -56,6 +57,10 @@ func (m *MockDagStoreWrapper) RegisterShard(ctx context.Context, pieceCid cid.Ci
 
 	resch <- dagstore.ShardResult{}
 	return nil
+}
+
+func (m *MockDagStoreWrapper) MigrateDeals(ctx context.Context, deals []storagemarket.MinerDeal) (bool, error) {
+	panic("implement me")
 }
 
 func (m *MockDagStoreWrapper) LenRegistrations() int {
