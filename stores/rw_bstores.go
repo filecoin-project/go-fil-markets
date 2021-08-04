@@ -8,49 +8,41 @@ import (
 	"golang.org/x/xerrors"
 )
 
-type rwEntry struct {
-	bs   *blockstore.ReadWrite
-	path string
-}
-
 // ReadWriteBlockstores tracks open ReadWrite CAR blockstores.
 type ReadWriteBlockstores struct {
 	mu     sync.RWMutex
-	stores map[string]rwEntry
+	stores map[string]*blockstore.ReadWrite
 }
 
 func NewReadWriteBlockstores() *ReadWriteBlockstores {
 	return &ReadWriteBlockstores{
-		stores: make(map[string]rwEntry),
+		stores: make(map[string]*blockstore.ReadWrite),
 	}
 }
 
-func (r *ReadWriteBlockstores) Get(key string) (*blockstore.ReadWrite, string, error) {
+func (r *ReadWriteBlockstores) Get(key string) (*blockstore.ReadWrite, error) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 
-	if e, ok := r.stores[key]; ok {
-		return e.bs, e.path, nil
+	if bs, ok := r.stores[key]; ok {
+		return bs, nil
 	}
-	return nil, "", xerrors.Errorf("could not get blockstore for key %s: %w", key, ErrNotFound)
+	return nil, xerrors.Errorf("could not get blockstore for key %s: %w", key, ErrNotFound)
 }
 
 func (r *ReadWriteBlockstores) GetOrOpen(key string, path string, rootCid cid.Cid) (*blockstore.ReadWrite, error) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
-	if e, ok := r.stores[key]; ok {
-		return e.bs, nil
+	if bs, ok := r.stores[key]; ok {
+		return bs, nil
 	}
 
 	bs, err := blockstore.OpenReadWrite(path, []cid.Cid{rootCid}, blockstore.UseWholeCIDs(true))
 	if err != nil {
 		return nil, xerrors.Errorf("failed to create read-write blockstore: %w", err)
 	}
-	r.stores[key] = rwEntry{
-		bs:   bs,
-		path: path,
-	}
+	r.stores[key] = bs
 	return bs, nil
 }
 
@@ -58,11 +50,11 @@ func (r *ReadWriteBlockstores) Untrack(key string) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
-	if e, ok := r.stores[key]; ok {
+	if bs, ok := r.stores[key]; ok {
 		// If the blockstore has already been finalized, calling Finalize again
 		// will return an error. For our purposes it's simplest if Finalize is
 		// idempotent so we just ignore any error.
-		_ = e.bs.Finalize()
+		_ = bs.Finalize()
 	}
 
 	delete(r.stores, key)

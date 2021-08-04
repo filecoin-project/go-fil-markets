@@ -42,7 +42,7 @@ func (p *providerDealEnvironment) ReadCAR(path string) (*carv2.Reader, error) {
 }
 
 func (p *providerDealEnvironment) FinalizeBlockstore(proposalCid cid.Cid) error {
-	bs, _, err := p.p.stores.Get(proposalCid.String())
+	bs, err := p.p.stores.Get(proposalCid.String())
 	if err != nil {
 		return xerrors.Errorf("failed to get read/write blockstore: %w", err)
 	}
@@ -57,12 +57,16 @@ func (p *providerDealEnvironment) FinalizeBlockstore(proposalCid cid.Cid) error 
 func (p *providerDealEnvironment) TerminateBlockstore(proposalCid cid.Cid, path string) error {
 	// stop tracking it.
 	if err := p.p.stores.Untrack(proposalCid.String()); err != nil {
-		log.Warnf("failed to clean read write blockstore, proposalCid=%s, car_path=%s: %s", proposalCid, path, err)
+		log.Warnf("failed to untrack read write blockstore, proposalCid=%s, car_path=%s: %s", proposalCid, path, err)
 	}
 
 	// delete the backing CARv2 file as it was a temporary file we created for
 	// this storage deal; the piece has now been handed off, or the deal has failed.
-	return os.Remove(path)
+	if err := os.Remove(path); err != nil {
+		log.Warnf("failed to delete carv2 file on termination, car_path=%s: %s", path, err)
+	}
+
+	return nil
 }
 
 func (p *providerDealEnvironment) Address() address.Address {

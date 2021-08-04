@@ -31,7 +31,7 @@ func TestReadWriteStoreTracker(t *testing.T) {
 	tracker := stores.NewReadWriteBlockstores()
 
 	// Get a non-existent key
-	_, _, err := tracker.Get(k1)
+	_, err := tracker.Get(k1)
 	require.True(t, stores.IsNotFound(err))
 
 	// Create a blockstore by calling GetOrOpen
@@ -39,7 +39,7 @@ func TestReadWriteStoreTracker(t *testing.T) {
 	require.NoError(t, err)
 
 	// Get the blockstore using its key
-	got, _, err := tracker.Get(k1)
+	got, err := tracker.Get(k1)
 	require.NoError(t, err)
 
 	// Verify the blockstore is the same
@@ -60,6 +60,6 @@ func TestReadWriteStoreTracker(t *testing.T) {
 	require.NoError(t, err)
 
 	// Verify it's been removed
-	_, _, err = tracker.Get(k2)
+	_, err = tracker.Get(k2)
 	require.True(t, stores.IsNotFound(err))
 }

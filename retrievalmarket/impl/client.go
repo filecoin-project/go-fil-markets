@@ -462,7 +462,7 @@ func (c *clientDealEnvironment) CloseDataTransfer(ctx context.Context, channelID
 
 // FinalizeBlockstore is called when all blocks have been received
 func (c *clientDealEnvironment) FinalizeBlockstore(ctx context.Context, dealID retrievalmarket.DealID) error {
-	bs, _, err := c.c.stores.Get(dealID.String())
+	bs, err := c.c.stores.Get(dealID.String())
 	if err != nil {
 		return xerrors.Errorf("getting deal with ID %s to finalize it: %w", dealID, err)
 	}
@@ -490,7 +490,7 @@ func (csg *clientStoreGetter) Get(otherPeer peer.ID, dealID retrievalmarket.Deal
 	if err != nil {
 		return nil, err
 	}
-	bs, _, err := csg.c.stores.Get(deal.ID.String())
+	bs, err := csg.c.stores.Get(deal.ID.String())
 	return bs, err
 }
 
