@@ -107,11 +107,6 @@ func (p *providerDealEnvironment) GeneratePieceCommitment(proposalCid cid.Cid, c
 		}
 	}()
 
-	// TODO Get this work later = punt on it for now as this is anyways NOT enabled.
-	/*if p.p.universalRetrievalEnabled {
-		//return providerutils.GeneratePieceCommitmentWithMetadata(p.p.fs, p.p.pio.GeneratePieceCommitment, proofType, payloadCid, selector, storeID)
-	}*/
-
 	// dump the CARv1 payload of the CARv2 file to the Commp Writer and get back the CommP.
 	w := &writer.Writer{}
 	written, err := io.Copy(w, rd.DataReader())

@@ -10,7 +10,6 @@ import (
 	"github.com/ipfs/go-datastore"
 	"github.com/ipfs/go-datastore/namespace"
 	"github.com/libp2p/go-libp2p-core/peer"
-	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	cbg "github.com/whyrusleeping/cbor-gen"
 	"golang.org/x/exp/rand"
@@ -30,18 +29,6 @@ import (
 	"github.com/filecoin-project/go-fil-markets/storagemarket/testharness/dependencies"
 	"github.com/filecoin-project/go-fil-markets/storagemarket/testnodes"
 )
-
-func TestConfigure(t *testing.T) {
-	p := &storageimpl.Provider{}
-
-	assert.False(t, p.UniversalRetrievalEnabled())
-
-	p.Configure(
-		storageimpl.EnableUniversalRetrieval(),
-	)
-
-	assert.True(t, p.UniversalRetrievalEnabled())
-}
 
 func TestProvider_Migrations(t *testing.T) {
 	ctx := context.Background()

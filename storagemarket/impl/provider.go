@@ -52,17 +52,16 @@ type StoredAsk interface {
 type Provider struct {
 	net network.StorageMarketNetwork
 
-	spn                       storagemarket.StorageProviderNode
-	fs                        filestore.FileStore
-	pieceStore                piecestore.PieceStore
-	conns                     *connmanager.ConnManager
-	storedAsk                 StoredAsk
-	actor                     address.Address
-	dataTransfer              datatransfer.Manager
-	universalRetrievalEnabled bool
-	customDealDeciderFunc     DealDeciderFunc
-	pubSub                    *pubsub.PubSub
-	readyMgr                  *shared.ReadyManager
+	spn                   storagemarket.StorageProviderNode
+	fs                    filestore.FileStore
+	pieceStore            piecestore.PieceStore
+	conns                 *connmanager.ConnManager
+	storedAsk             StoredAsk
+	actor                 address.Address
+	dataTransfer          datatransfer.Manager
+	customDealDeciderFunc DealDeciderFunc
+	pubSub                *pubsub.PubSub
+	readyMgr              *shared.ReadyManager
 
 	deals        fsm.Group
 	migrateDeals func(context.Context) error
@@ -76,14 +75,6 @@ type Provider struct {
 
 // StorageProviderOption allows custom configuration of a storage provider
 type StorageProviderOption func(p *Provider)
-
-// EnableUniversalRetrieval causes a storage provider to track all CIDs in a piece,
-// so that any CID, not just the root payload CID, can be retrieved
-func EnableUniversalRetrieval() StorageProviderOption {
-	return func(p *Provider) {
-		p.universalRetrievalEnabled = true
-	}
-}
 
 // DealDeciderFunc is a function which evaluates an incoming deal to decide if
 // it its accepted
@@ -556,13 +547,6 @@ func (p *Provider) Configure(options ...StorageProviderOption) {
 	for _, option := range options {
 		option(p)
 	}
-}
-
-// UniversalRetrievalEnabled returns whether or not universal retrieval
-// (retrieval by any CID, not just the root payload CID) is enabled
-// for this provider
-func (p *Provider) UniversalRetrievalEnabled() bool {
-	return p.universalRetrievalEnabled
 }
 
 // SubscribeToEvents allows another component to listen for events on the StorageProvider
