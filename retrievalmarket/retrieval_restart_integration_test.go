@@ -107,7 +107,7 @@ func TestBounceConnectionDealTransferOngoing(t *testing.T) {
 			deps.DagStore = tut.NewMockDagStoreWrapper(pieceStore, providerNode)
 
 			sh := testharness.NewHarnessWithTestData(t, deps.TestData, deps, true, false)
-			defer os.Remove(sh.FileStoreCARv2FilePath)
+			defer os.Remove(sh.IndexedCAR)
 
 			// do a storage deal
 			storageClientSeenDeal := doStorage(t, bgCtx, sh)
@@ -236,7 +236,7 @@ func TestBounceConnectionDealTransferUnsealing(t *testing.T) {
 			deps.DagStore = tut.NewMockDagStoreWrapper(pieceStore, providerNode)
 
 			sh := testharness.NewHarnessWithTestData(t, td, deps, true, false)
-			defer os.Remove(sh.FileStoreCARv2FilePath)
+			defer os.Remove(sh.IndexedCAR)
 
 			// do a storage deal
 			storageClientSeenDeal := doStorage(t, bgCtx, sh)

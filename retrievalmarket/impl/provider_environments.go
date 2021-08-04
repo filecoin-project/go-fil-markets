@@ -33,7 +33,7 @@ func (pve *providerValidationEnvironment) GetAsk(ctx context.Context, payloadCid
 
 	storageDeals, err := storageDealsForPiece(pieceCid != nil, payloadCid, piece, pve.p.pieceStore)
 	if err != nil {
-		return retrievalmarket.Ask{}, xerrors.Errorf("failed to fetch deals for payload, err=%s", err)
+		return retrievalmarket.Ask{}, xerrors.Errorf("failed to fetch deals for payload: %w", err)
 	}
 
 	input := retrievalmarket.PricingInput{
@@ -135,7 +135,7 @@ func (pde *providerDealEnvironment) PrepareBlockstore(ctx context.Context, dealI
 	}
 
 	log.Debugf("adding blockstore for deal %d to tracker", dealID)
-	_, err = pde.p.readOnlyBlockStores.Add(dealID.String(), bs)
+	_, err = pde.p.stores.Track(dealID.String(), bs)
 	log.Debugf("added blockstore for deal %d to tracker", dealID)
 	return err
 }
@@ -171,7 +171,7 @@ func (pde *providerDealEnvironment) CloseDataTransfer(ctx context.Context, chid 
 
 func (pde *providerDealEnvironment) DeleteStore(dealID retrievalmarket.DealID) error {
 	// close the read-only blockstore and stop tracking it for the deal
-	if err := pde.p.readOnlyBlockStores.CleanBlockstore(dealID.String()); err != nil {
+	if err := pde.p.stores.Untrack(dealID.String()); err != nil {
 		return xerrors.Errorf("failed to clean read-only blockstore for deal %d: %w", dealID, err)
 	}
 
@@ -318,6 +318,6 @@ func (psg *providerStoreGetter) Get(otherPeer peer.ID, dealID retrievalmarket.De
 	// but is only accessed in step 4 after the data has been unsealed.
 	//
 	return newLazyBlockstore(func() (dagstore.ReadBlockstore, error) {
-		return psg.p.readOnlyBlockStores.Get(dealID.String())
+		return psg.p.stores.Get(dealID.String())
 	}), nil
 }

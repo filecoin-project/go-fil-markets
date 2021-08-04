@@ -16,9 +16,9 @@ import (
 func TestGeneratePieceCommitment(t *testing.T) {
 	// both payload.txt and payload2.txt are about 18kb long
 	pieceSize := abi.PaddedPieceSize(32768)
-	_, carV2File1 := shared_testutil.GenFullCARv2FromNormalFile(t, filepath.Join("storagemarket", "fixtures", "payload.txt"))
+	_, carV2File1 := shared_testutil.CreateDenseCARv2(t, filepath.Join("storagemarket", "fixtures", "payload.txt"))
 	defer os.Remove(carV2File1)
-	_, carV2File2 := shared_testutil.GenFullCARv2FromNormalFile(t, filepath.Join("storagemarket", "fixtures", "payload2.txt"))
+	_, carV2File2 := shared_testutil.CreateDenseCARv2(t, filepath.Join("storagemarket", "fixtures", "payload2.txt"))
 	defer os.Remove(carV2File2)
 
 	commP1 := genProviderCommP(t, carV2File1, pieceSize)

@@ -62,10 +62,10 @@ func TestCommPSuccess(t *testing.T) {
 
 	// ----------------
 	// commP for file 1.
-	root1, f1FullCAR := shared_testutil.GenFullCARv2FromNormalFile(t, file1)
+	root1, f1FullCAR := shared_testutil.CreateDenseCARv2(t, file1)
 	defer os.Remove(f1FullCAR)
 
-	root2, f1FileStoreCAR := shared_testutil.GenFileStoreCARv2FromNormalFile(t, file1)
+	root2, f1FileStoreCAR := shared_testutil.CreateRefCARv2(t, file1)
 	defer os.Remove(f1FileStoreCAR)
 
 	// assert the two files have different contents
@@ -81,10 +81,10 @@ func TestCommPSuccess(t *testing.T) {
 
 	// ------------
 	// commP for file2.
-	root1, f2FullCAR := shared_testutil.GenFullCARv2FromNormalFile(t, file2)
+	root1, f2FullCAR := shared_testutil.CreateDenseCARv2(t, file2)
 	defer os.Remove(f2FullCAR)
 
-	root2, f2FileStoreCAR := shared_testutil.GenFileStoreCARv2FromNormalFile(t, file2)
+	root2, f2FileStoreCAR := shared_testutil.CreateRefCARv2(t, file2)
 	defer os.Remove(f2FileStoreCAR)
 
 	// assert the two files have different contents
@@ -147,7 +147,7 @@ func TestLabelField(t *testing.T) {
 func TestNoDuplicatesInCARv2(t *testing.T) {
 	// The CARv2 file for a UnixFS DAG that has duplicates should NOT have duplicates.
 	file1 := filepath.Join("storagemarket", "fixtures", "duplicate_blocks.txt")
-	_, CARv2Path := shared_testutil.GenFullCARv2FromNormalFile(t, file1)
+	_, CARv2Path := shared_testutil.CreateDenseCARv2(t, file1)
 	require.NotEmpty(t, CARv2Path)
 	defer os.Remove(CARv2Path)
 

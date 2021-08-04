@@ -12,9 +12,9 @@ import (
 
 	datatransfer "github.com/filecoin-project/go-data-transfer"
 
-	"github.com/filecoin-project/go-fil-markets/filestorecaradapter"
 	"github.com/filecoin-project/go-fil-markets/storagemarket"
 	"github.com/filecoin-project/go-fil-markets/storagemarket/network"
+	"github.com/filecoin-project/go-fil-markets/stores"
 )
 
 // -------
@@ -34,7 +34,7 @@ func (c *clientDealEnvironment) Node() storagemarket.StorageClientNode {
 }
 
 func (c *clientDealEnvironment) CleanBlockstore(proposalCid cid.Cid) error {
-	return c.c.readOnlyCARStoreTracker.CleanBlockstore(proposalCid.String())
+	return c.c.stores.Untrack(proposalCid.String())
 }
 
 func (c *clientDealEnvironment) StartDataTransfer(ctx context.Context, to peer.ID, voucher datatransfer.Voucher, baseCid cid.Cid, selector ipld.Node) (datatransfer.ChannelID,
@@ -66,20 +66,18 @@ func (csg *clientStoreGetter) Get(proposalCid cid.Cid) (bstore.Blockstore, error
 		return nil, xerrors.Errorf("failed to get client deal state: %w", err)
 	}
 
-	// get a read Only CARv2 blockstore that provides random access on top of
-	// the client's CARv2 file containing the CARv1 payload that needs to be
-	// transferred as part of the deal.
+	// Open a read-only blockstore off the CAR file, wrapped in a filestore so
+	// it can read file positional references.
+	bs, err := stores.ReadOnlyFilestore(deal.IndexedCAR)
+	if err != nil {
+		return nil, xerrors.Errorf("failed to open car filestore: %w", err)
+	}
 
-	fs, err := filestorecaradapter.NewReadOnlyFileStore(deal.FilestoreCARv2FilePath)
+	_, err = csg.c.stores.Track(proposalCid.String(), bs)
 	if err != nil {
 		return nil, xerrors.Errorf("failed to get blockstore from tracker: %w", err)
 	}
-
-	_, err = csg.c.readOnlyCARStoreTracker.Add(proposalCid.String(), fs)
-	if err != nil {
-		return nil, xerrors.Errorf("failed to get blockstore from tracker: %w", err)
-	}
-	return fs, nil
+	return bs, nil
 }
 
 func (c *clientDealEnvironment) TagPeer(peer peer.ID, tag string) {

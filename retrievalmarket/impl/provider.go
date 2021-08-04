@@ -20,7 +20,6 @@ import (
 	"github.com/filecoin-project/go-state-types/big"
 	"github.com/filecoin-project/go-statemachine/fsm"
 
-	"github.com/filecoin-project/go-fil-markets/carstore"
 	"github.com/filecoin-project/go-fil-markets/piecestore"
 	"github.com/filecoin-project/go-fil-markets/retrievalmarket"
 	"github.com/filecoin-project/go-fil-markets/retrievalmarket/impl/askstore"
@@ -30,6 +29,7 @@ import (
 	"github.com/filecoin-project/go-fil-markets/retrievalmarket/migrations"
 	rmnet "github.com/filecoin-project/go-fil-markets/retrievalmarket/network"
 	"github.com/filecoin-project/go-fil-markets/shared"
+	"github.com/filecoin-project/go-fil-markets/stores"
 )
 
 // RetrievalProviderOption is a function that configures a retrieval provider
@@ -59,8 +59,8 @@ type Provider struct {
 	askStore             retrievalmarket.AskStore
 	disableNewDeals      bool
 	retrievalPricingFunc RetrievalPricingFunc
-	dagStore             shared.DagStoreWrapper
-	readOnlyBlockStores  *carstore.CarReadOnlyStoreTracker
+	dagStore             stores.DAGStoreWrapper
+	stores               *stores.ReadOnlyBlockstores
 }
 
 type internalProviderEvent struct {
@@ -103,7 +103,7 @@ func NewProvider(minerAddress address.Address,
 	node retrievalmarket.RetrievalProviderNode,
 	network rmnet.RetrievalMarketNetwork,
 	pieceStore piecestore.PieceStore,
-	dagStore shared.DagStoreWrapper,
+	dagStore stores.DAGStoreWrapper,
 	dataTransfer datatransfer.Manager,
 	ds datastore.Batching,
 	retrievalPricingFunc RetrievalPricingFunc,
@@ -124,7 +124,7 @@ func NewProvider(minerAddress address.Address,
 		readySub:             pubsub.New(shared.ReadyDispatcher),
 		retrievalPricingFunc: retrievalPricingFunc,
 		dagStore:             dagStore,
-		readOnlyBlockStores:  carstore.NewReadOnlyStoreTracker(),
+		stores:               stores.NewReadOnlyBlockstores(),
 	}
 
 	err := shared.MoveKey(ds, "retrieval-ask", "retrieval-ask/latest")

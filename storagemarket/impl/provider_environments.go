@@ -19,10 +19,10 @@ import (
 
 	"github.com/filecoin-project/go-fil-markets/filestore"
 	"github.com/filecoin-project/go-fil-markets/piecestore"
-	"github.com/filecoin-project/go-fil-markets/shared"
 	"github.com/filecoin-project/go-fil-markets/storagemarket"
 	"github.com/filecoin-project/go-fil-markets/storagemarket/impl/providerstates"
 	"github.com/filecoin-project/go-fil-markets/storagemarket/network"
+	"github.com/filecoin-project/go-fil-markets/stores"
 )
 
 // -------
@@ -34,21 +34,36 @@ type providerDealEnvironment struct {
 }
 
 func (p *providerDealEnvironment) RegisterShard(ctx context.Context, pieceCid cid.Cid, carPath string, eagerInit bool) error {
-	return shared.RegisterShardSync(ctx, p.p.dagStore, pieceCid, carPath, eagerInit)
+	return stores.RegisterShardSync(ctx, p.p.dagStore, pieceCid, carPath, eagerInit)
 }
 
-func (p *providerDealEnvironment) CARv2Reader(carV2FilePath string) (*carv2.Reader, error) {
-	return carv2.OpenReader(carV2FilePath)
+func (p *providerDealEnvironment) ReadCAR(path string) (*carv2.Reader, error) {
+	return carv2.OpenReader(path)
 }
 
-func (p *providerDealEnvironment) FinalizeReadWriteBlockstore(proposalCid cid.Cid, carPath string, rootCid cid.Cid) error {
-	bs, err := p.p.readWriteBlockStores.GetOrCreate(proposalCid.String(), carPath, rootCid)
+func (p *providerDealEnvironment) FinalizeBlockstore(proposalCid cid.Cid) error {
+	bs, err := p.p.stores.Get(proposalCid.String())
 	if err != nil {
-		return xerrors.Errorf("failed to get read-write blockstore: %w", err)
+		return xerrors.Errorf("failed to get read/write blockstore: %w", err)
 	}
 
 	if err := bs.Finalize(); err != nil {
-		return xerrors.Errorf("failed to finalize read-write blockstore: %w", err)
+		return xerrors.Errorf("failed to finalize read/write blockstore: %w", err)
+	}
+
+	return nil
+}
+
+func (p *providerDealEnvironment) TerminateBlockstore(proposalCid cid.Cid, path string) error {
+	// stop tracking it.
+	if err := p.p.stores.Untrack(proposalCid.String()); err != nil {
+		log.Warnf("failed to untrack read write blockstore, proposalCid=%s, car_path=%s: %s", proposalCid, path, err)
+	}
+
+	// delete the backing CARv2 file as it was a temporary file we created for
+	// this storage deal; the piece has now been handed off, or the deal has failed.
+	if err := os.Remove(path); err != nil {
+		log.Warnf("failed to delete carv2 file on termination, car_path=%s: %s", path, err)
 	}
 
 	return nil
@@ -70,33 +85,23 @@ func (p *providerDealEnvironment) Ask() storagemarket.StorageAsk {
 	return *sask.Ask
 }
 
-func (p *providerDealEnvironment) CleanReadWriteBlockstore(proposalCid cid.Cid, carV2FilePath string) error {
-	// close the backing CARv2 file and stop tracking the read-write blockstore for the deal with the given proposalCid.
-	if err := p.p.readWriteBlockStores.CleanBlockstore(proposalCid.String()); err != nil {
-		log.Warnf("failed to clean read write blockstore, proposalCid=%s, carV2FilePath=%s: %s", proposalCid, carV2FilePath, err)
-	}
-
-	// clean up the backing CARv2 file as it was a temporary file we created for this Storage deal and the deal dag has
-	// now either been sealed into a Sector or the storage deal has failed.
-	return os.Remove(carV2FilePath)
-}
-
-// GeneratePieceCommitment generates the pieceCid for the CARv1 deal payload in the CARv2 file that already exists at the given path.
-func (p *providerDealEnvironment) GeneratePieceCommitment(proposalCid cid.Cid, carV2FilePath string, dealSize abi.PaddedPieceSize) (c cid.Cid, path filestore.Path, finalErr error) {
-	rd, err := carv2.OpenReader(carV2FilePath)
+// GeneratePieceCommitment generates the pieceCid for the CARv1 deal payload in
+// the CARv2 file that already exists at the given path.
+func (p *providerDealEnvironment) GeneratePieceCommitment(proposalCid cid.Cid, carPath string, dealSize abi.PaddedPieceSize) (c cid.Cid, path filestore.Path, finalErr error) {
+	rd, err := carv2.OpenReader(carPath)
 	if err != nil {
-		return cid.Undef, "", xerrors.Errorf("failed to get CARv2 reader, proposalCid=%s, carV2FilePath=%s: %w", proposalCid, carV2FilePath, err)
+		return cid.Undef, "", xerrors.Errorf("failed to get CARv2 reader, proposalCid=%s, carPath=%s: %w", proposalCid, carPath, err)
 	}
 
 	defer func() {
 		if err := rd.Close(); err != nil {
-			log.Errorf("failed to close CARv2 reader, carV2FilePath=%s, err=%s", carV2FilePath, err)
+			log.Errorf("failed to close CARv2 reader, carPath=%s, err=%s", carPath, err)
 
 			if finalErr == nil {
 				c = cid.Undef
 				path = ""
-				finalErr = xerrors.Errorf("failed to close CARv2 reader, proposalCid=%s, carV2FilePath=%s, err=%s",
-					proposalCid, carV2FilePath, err)
+				finalErr = xerrors.Errorf("failed to close CARv2 reader, proposalCid=%s, carPath=%s: %w",
+					proposalCid, carPath, err)
 				return
 			}
 		}
@@ -209,7 +214,7 @@ func (psg *providerStoreGetter) Get(proposalCid cid.Cid) (bstore.Blockstore, err
 		return nil, xerrors.Errorf("failed to get deal state: %w", err)
 	}
 
-	return psg.p.readWriteBlockStores.GetOrCreate(proposalCid.String(), deal.CARv2FilePath, deal.Ref.Root)
+	return psg.p.stores.GetOrOpen(proposalCid.String(), deal.InboundCAR, deal.Ref.Root)
 }
 
 type providerPushDeals struct {

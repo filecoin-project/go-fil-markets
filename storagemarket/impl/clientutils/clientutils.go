@@ -15,10 +15,10 @@ import (
 	"github.com/filecoin-project/go-state-types/abi"
 	"github.com/filecoin-project/go-state-types/crypto"
 
-	"github.com/filecoin-project/go-fil-markets/filestorecaradapter"
 	"github.com/filecoin-project/go-fil-markets/shared"
 	"github.com/filecoin-project/go-fil-markets/storagemarket"
 	"github.com/filecoin-project/go-fil-markets/storagemarket/network"
+	"github.com/filecoin-project/go-fil-markets/stores"
 )
 
 // CommP calculates the commP for a given dataref
@@ -26,7 +26,7 @@ import (
 // We can't rely on the CARv1 payload in the given CARv2 file being deterministic as the client could have
 // written a "non-deterministic/unordered" CARv2 file.
 // So, we need to do a CARv1 traversal here by giving the traverser a random access CARv2 blockstore that wraps the given CARv2 file.
-func CommP(ctx context.Context, FileStoreCARv2FilePath string, data *storagemarket.DataRef) (cid.Cid, abi.UnpaddedPieceSize, error) {
+func CommP(ctx context.Context, carPath string, data *storagemarket.DataRef) (cid.Cid, abi.UnpaddedPieceSize, error) {
 	// if we already have the PieceCid, there's no need to do anything here.
 	if data.PieceCid != nil {
 		return *data.PieceCid, data.PieceSize, nil
@@ -37,13 +37,15 @@ func CommP(ctx context.Context, FileStoreCARv2FilePath string, data *storagemark
 		return cid.Undef, 0, xerrors.New("Piece CID and size must be set for manual transfer")
 	}
 
-	if FileStoreCARv2FilePath == "" {
+	if carPath == "" {
 		return cid.Undef, 0, xerrors.New("need Carv2 file path to get a read-only blockstore")
 	}
 
-	fs, err := filestorecaradapter.NewReadOnlyFileStore(FileStoreCARv2FilePath)
+	// Open a read-only blockstore off the CAR file, wrapped in a filestore so
+	// it can read file positional references.
+	fs, err := stores.ReadOnlyFilestore(carPath)
 	if err != nil {
-		return cid.Undef, 0, xerrors.Errorf("failed to create read-only filestore: %w", err)
+		return cid.Undef, 0, xerrors.Errorf("failed to open carv2 blockstore: %w", err)
 	}
 	defer fs.Close()
 
@@ -92,7 +94,6 @@ func VerifyResponse(ctx context.Context, resp network.SignedResponse, minerAddr 
 
 // LabelField makes a label field for a deal proposal as a multibase encoding
 // of the payload CID (B58BTC for V0, B64 for V1)
-//
 func LabelField(payloadCID cid.Cid) (string, error) {
 	if payloadCID.Version() == 0 {
 		return payloadCID.StringOfBase(multibase.Base58BTC)

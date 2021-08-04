@@ -23,7 +23,6 @@ import (
 	"github.com/filecoin-project/go-statemachine/fsm"
 	"github.com/filecoin-project/specs-actors/actors/builtin/market"
 
-	"github.com/filecoin-project/go-fil-markets/carstore"
 	discoveryimpl "github.com/filecoin-project/go-fil-markets/discovery/impl"
 	"github.com/filecoin-project/go-fil-markets/retrievalmarket"
 	"github.com/filecoin-project/go-fil-markets/shared"
@@ -34,6 +33,7 @@ import (
 	"github.com/filecoin-project/go-fil-markets/storagemarket/impl/requestvalidation"
 	"github.com/filecoin-project/go-fil-markets/storagemarket/migrations"
 	"github.com/filecoin-project/go-fil-markets/storagemarket/network"
+	"github.com/filecoin-project/go-fil-markets/stores"
 )
 
 var log = logging.Logger("storagemarket_impl")
@@ -58,7 +58,7 @@ type Client struct {
 
 	unsubDataTransfer datatransfer.Unsubscribe
 
-	readOnlyCARStoreTracker *carstore.CarReadOnlyStoreTracker
+	stores *stores.ReadOnlyBlockstores
 }
 
 // StorageClientOption allows custom configuration of a storage client
@@ -82,14 +82,14 @@ func NewClient(
 	options ...StorageClientOption,
 ) (*Client, error) {
 	c := &Client{
-		net:                     net,
-		dataTransfer:            dataTransfer,
-		discovery:               discovery,
-		node:                    scn,
-		pubSub:                  pubsub.New(clientDispatcher),
-		readySub:                pubsub.New(shared.ReadyDispatcher),
-		pollingInterval:         DefaultPollingInterval,
-		readOnlyCARStoreTracker: carstore.NewReadOnlyStoreTracker(),
+		net:             net,
+		dataTransfer:    dataTransfer,
+		discovery:       discovery,
+		node:            scn,
+		pubSub:          pubsub.New(clientDispatcher),
+		readySub:        pubsub.New(shared.ReadyDispatcher),
+		pollingInterval: DefaultPollingInterval,
+		stores:          stores.NewReadOnlyBlockstores(),
 	}
 	storageMigrations, err := migrations.ClientMigrations.Build()
 	if err != nil {
@@ -327,7 +327,7 @@ func (c *Client) ProposeStorageDeal(ctx context.Context, params storagemarket.Pr
 		return nil, xerrors.Errorf("looking up addresses: %w", err)
 	}
 
-	commP, pieceSize, err := clientutils.CommP(ctx, params.FilestoreCARv2FilePath, params.Data)
+	commP, pieceSize, err := clientutils.CommP(ctx, params.IndexedCAR, params.Data)
 	if err != nil {
 		return nil, xerrors.Errorf("computing commP failed: %w", err)
 	}
@@ -374,16 +374,16 @@ func (c *Client) ProposeStorageDeal(ctx context.Context, params storagemarket.Pr
 	}
 
 	deal := &storagemarket.ClientDeal{
-		ProposalCid:            proposalNd.Cid(),
-		ClientDealProposal:     *clientDealProposal,
-		State:                  storagemarket.StorageDealUnknown,
-		Miner:                  params.Info.PeerID,
-		MinerWorker:            params.Info.Worker,
-		DataRef:                params.Data,
-		FastRetrieval:          params.FastRetrieval,
-		DealStages:             storagemarket.NewDealStages(),
-		CreationTime:           curTime(),
-		FilestoreCARv2FilePath: params.FilestoreCARv2FilePath,
+		ProposalCid:        proposalNd.Cid(),
+		ClientDealProposal: *clientDealProposal,
+		State:              storagemarket.StorageDealUnknown,
+		Miner:              params.Info.PeerID,
+		MinerWorker:        params.Info.Worker,
+		DataRef:            params.Data,
+		FastRetrieval:      params.FastRetrieval,
+		DealStages:         storagemarket.NewDealStages(),
+		CreationTime:       curTime(),
+		IndexedCAR:         params.IndexedCAR,
 	}
 
 	err = c.statemachines.Begin(proposalNd.Cid(), deal)

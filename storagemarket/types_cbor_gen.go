@@ -371,26 +371,26 @@ func (t *ClientDeal) MarshalCBOR(w io.Writer) error {
 		return err
 	}
 
-	// t.FilestoreCARv2FilePath (string) (string)
-	if len("FilestoreCARv2FilePath") > cbg.MaxLength {
-		return xerrors.Errorf("Value in field \"FilestoreCARv2FilePath\" was too long")
+	// t.IndexedCAR (string) (string)
+	if len("IndexedCAR") > cbg.MaxLength {
+		return xerrors.Errorf("Value in field \"IndexedCAR\" was too long")
 	}
 
-	if err := cbg.WriteMajorTypeHeaderBuf(scratch, w, cbg.MajTextString, uint64(len("FilestoreCARv2FilePath"))); err != nil {
+	if err := cbg.WriteMajorTypeHeaderBuf(scratch, w, cbg.MajTextString, uint64(len("IndexedCAR"))); err != nil {
 		return err
 	}
-	if _, err := io.WriteString(w, string("FilestoreCARv2FilePath")); err != nil {
+	if _, err := io.WriteString(w, string("IndexedCAR")); err != nil {
 		return err
 	}
 
-	if len(t.FilestoreCARv2FilePath) > cbg.MaxLength {
-		return xerrors.Errorf("Value in field t.FilestoreCARv2FilePath was too long")
+	if len(t.IndexedCAR) > cbg.MaxLength {
+		return xerrors.Errorf("Value in field t.IndexedCAR was too long")
 	}
 
-	if err := cbg.WriteMajorTypeHeaderBuf(scratch, w, cbg.MajTextString, uint64(len(t.FilestoreCARv2FilePath))); err != nil {
+	if err := cbg.WriteMajorTypeHeaderBuf(scratch, w, cbg.MajTextString, uint64(len(t.IndexedCAR))); err != nil {
 		return err
 	}
-	if _, err := io.WriteString(w, string(t.FilestoreCARv2FilePath)); err != nil {
+	if _, err := io.WriteString(w, string(t.IndexedCAR)); err != nil {
 		return err
 	}
 	return nil
@@ -729,8 +729,8 @@ func (t *ClientDeal) UnmarshalCBOR(r io.Reader) error {
 				t.SectorNumber = abi.SectorNumber(extra)
 
 			}
-			// t.FilestoreCARv2FilePath (string) (string)
-		case "FilestoreCARv2FilePath":
+			// t.IndexedCAR (string) (string)
+		case "IndexedCAR":
 
 			{
 				sval, err := cbg.ReadStringBuf(br, scratch)
@@ -738,7 +738,7 @@ func (t *ClientDeal) UnmarshalCBOR(r io.Reader) error {
 					return err
 				}
 
-				t.FilestoreCARv2FilePath = string(sval)
+				t.IndexedCAR = string(sval)
 			}
 
 		default:
@@ -1117,26 +1117,26 @@ func (t *MinerDeal) MarshalCBOR(w io.Writer) error {
 		return err
 	}
 
-	// t.CARv2FilePath (string) (string)
-	if len("CARv2FilePath") > cbg.MaxLength {
-		return xerrors.Errorf("Value in field \"CARv2FilePath\" was too long")
+	// t.InboundCAR (string) (string)
+	if len("InboundCAR") > cbg.MaxLength {
+		return xerrors.Errorf("Value in field \"InboundCAR\" was too long")
 	}
 
-	if err := cbg.WriteMajorTypeHeaderBuf(scratch, w, cbg.MajTextString, uint64(len("CARv2FilePath"))); err != nil {
+	if err := cbg.WriteMajorTypeHeaderBuf(scratch, w, cbg.MajTextString, uint64(len("InboundCAR"))); err != nil {
 		return err
 	}
-	if _, err := io.WriteString(w, string("CARv2FilePath")); err != nil {
+	if _, err := io.WriteString(w, string("InboundCAR")); err != nil {
 		return err
 	}
 
-	if len(t.CARv2FilePath) > cbg.MaxLength {
-		return xerrors.Errorf("Value in field t.CARv2FilePath was too long")
+	if len(t.InboundCAR) > cbg.MaxLength {
+		return xerrors.Errorf("Value in field t.InboundCAR was too long")
 	}
 
-	if err := cbg.WriteMajorTypeHeaderBuf(scratch, w, cbg.MajTextString, uint64(len(t.CARv2FilePath))); err != nil {
+	if err := cbg.WriteMajorTypeHeaderBuf(scratch, w, cbg.MajTextString, uint64(len(t.InboundCAR))); err != nil {
 		return err
 	}
-	if _, err := io.WriteString(w, string(t.CARv2FilePath)); err != nil {
+	if _, err := io.WriteString(w, string(t.InboundCAR)); err != nil {
 		return err
 	}
 	return nil
@@ -1466,8 +1466,8 @@ func (t *MinerDeal) UnmarshalCBOR(r io.Reader) error {
 				t.SectorNumber = abi.SectorNumber(extra)
 
 			}
-			// t.CARv2FilePath (string) (string)
-		case "CARv2FilePath":
+			// t.InboundCAR (string) (string)
+		case "InboundCAR":
 
 			{
 				sval, err := cbg.ReadStringBuf(br, scratch)
@@ -1475,7 +1475,7 @@ func (t *MinerDeal) UnmarshalCBOR(r io.Reader) error {
 					return err
 				}
 
-				t.CARv2FilePath = string(sval)
+				t.InboundCAR = string(sval)
 			}
 
 		default:

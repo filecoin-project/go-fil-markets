@@ -25,7 +25,6 @@ import (
 	"github.com/filecoin-project/go-state-types/exitcode"
 	"github.com/filecoin-project/go-statemachine/fsm"
 
-	"github.com/filecoin-project/go-fil-markets/carstore"
 	"github.com/filecoin-project/go-fil-markets/filestore"
 	"github.com/filecoin-project/go-fil-markets/piecestore"
 	"github.com/filecoin-project/go-fil-markets/shared"
@@ -37,6 +36,7 @@ import (
 	"github.com/filecoin-project/go-fil-markets/storagemarket/impl/requestvalidation"
 	"github.com/filecoin-project/go-fil-markets/storagemarket/migrations"
 	"github.com/filecoin-project/go-fil-markets/storagemarket/network"
+	"github.com/filecoin-project/go-fil-markets/stores"
 )
 
 var _ storagemarket.StorageProvider = &Provider{}
@@ -69,9 +69,9 @@ type Provider struct {
 
 	unsubDataTransfer datatransfer.Unsubscribe
 
-	shardReg             *ShardMigrator
-	dagStore             shared.DagStoreWrapper
-	readWriteBlockStores *carstore.CarReadWriteStoreTracker
+	shardReg *ShardMigrator
+	dagStore stores.DAGStoreWrapper
+	stores   *stores.ReadWriteBlockstores
 }
 
 // StorageProviderOption allows custom configuration of a storage provider
@@ -105,7 +105,7 @@ func CustomDealDecisionLogic(decider DealDeciderFunc) StorageProviderOption {
 func NewProvider(net network.StorageMarketNetwork,
 	ds datastore.Batching,
 	fs filestore.FileStore,
-	dagStore shared.DagStoreWrapper,
+	dagStore stores.DAGStoreWrapper,
 	pieceStore piecestore.PieceStore,
 	dataTransfer datatransfer.Manager,
 	spn storagemarket.StorageProviderNode,
@@ -115,19 +115,19 @@ func NewProvider(net network.StorageMarketNetwork,
 	options ...StorageProviderOption,
 ) (storagemarket.StorageProvider, error) {
 	h := &Provider{
-		net:                  net,
-		spn:                  spn,
-		fs:                   fs,
-		pieceStore:           pieceStore,
-		conns:                connmanager.NewConnManager(),
-		storedAsk:            storedAsk,
-		actor:                minerAddress,
-		dataTransfer:         dataTransfer,
-		pubSub:               pubsub.New(providerDispatcher),
-		readyMgr:             shared.NewReadyManager(),
-		shardReg:             shardReg,
-		dagStore:             dagStore,
-		readWriteBlockStores: carstore.NewCarReadWriteStoreTracker(),
+		net:          net,
+		spn:          spn,
+		fs:           fs,
+		pieceStore:   pieceStore,
+		conns:        connmanager.NewConnManager(),
+		storedAsk:    storedAsk,
+		actor:        minerAddress,
+		dataTransfer: dataTransfer,
+		pubSub:       pubsub.New(providerDispatcher),
+		readyMgr:     shared.NewReadyManager(),
+		shardReg:     shardReg,
+		dagStore:     dagStore,
+		stores:       stores.NewReadWriteBlockstores(),
 	}
 	storageMigrations, err := migrations.ProviderMigrations.Build()
 	if err != nil {
@@ -220,7 +220,6 @@ func (p *Provider) HandleDealStream(s network.StorageDealStream) {
 	}
 }
 
-// TODO Write a one time script that registers shards for all Pieces that a miner has.
 func (p *Provider) receiveDeal(s network.StorageDealStream) error {
 	proposal, err := s.ReadDealProposal()
 	if err != nil {
@@ -240,7 +239,7 @@ func (p *Provider) receiveDeal(s network.StorageDealStream) error {
 		return p.resendProposalResponse(s, &md)
 	}
 
-	var carV2FilePath string
+	var path string
 	// create an empty CARv2 file at a temp location that Graphysnc will write the incoming blocks to via a CARv2 ReadWrite blockstore wrapper.
 	if proposal.Piece.TransferType != storagemarket.TTManual {
 		tmp, err := p.fs.CreateTemp()
@@ -251,7 +250,7 @@ func (p *Provider) receiveDeal(s network.StorageDealStream) error {
 			_ = os.Remove(string(tmp.OsPath()))
 			return xerrors.Errorf("failed to close temp file: %w", err)
 		}
-		carV2FilePath = string(tmp.OsPath())
+		path = string(tmp.OsPath())
 	}
 
 	deal := &storagemarket.MinerDeal{
@@ -263,7 +262,7 @@ func (p *Provider) receiveDeal(s network.StorageDealStream) error {
 		Ref:                proposal.Piece,
 		FastRetrieval:      proposal.FastRetrieval,
 		CreationTime:       curTime(),
-		CARv2FilePath:      carV2FilePath,
+		InboundCAR:         path,
 	}
 
 	err = p.deals.Begin(proposalNd.Cid(), deal)
@@ -595,10 +594,10 @@ func (p *Provider) start(ctx context.Context) error {
 	err := p.migrateDeals(ctx)
 	publishErr := p.readyMgr.FireReady(err)
 	if publishErr != nil {
-		log.Warnf("Publish storage provider ready event: %s", err.Error())
+		log.Warnf("publish storage provider ready event: %s", err.Error())
 	}
 	if err != nil {
-		return fmt.Errorf("Migrating storage provider state machines: %w", err)
+		return fmt.Errorf("migrating storage provider state machines: %w", err)
 	}
 
 	var deals []storagemarket.MinerDeal
@@ -606,11 +605,19 @@ func (p *Provider) start(ctx context.Context) error {
 	if err != nil {
 		return xerrors.Errorf("failed to fetch deals during startup: %w", err)
 	}
+
+	// re-track all deals for whom we still have a local blockstore.
+	for _, d := range deals {
+		if _, err := os.Stat(d.InboundCAR); err == nil && d.Ref != nil {
+			_, _ = p.stores.GetOrOpen(d.ProposalCid.String(), d.InboundCAR, d.Ref.Root)
+		}
+	}
+
 	if err := p.shardReg.registerShards(ctx, deals); err != nil {
-		return fmt.Errorf("Failed to restart deals: %w", err)
+		return fmt.Errorf("failed to restart deals: %w", err)
 	}
 	if err := p.restartDeals(deals); err != nil {
-		return fmt.Errorf("Failed to restart deals: %w", err)
+		return fmt.Errorf("failed to restart deals: %w", err)
 	}
 	return nil
 }

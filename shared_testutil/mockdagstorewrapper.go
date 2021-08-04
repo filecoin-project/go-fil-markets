@@ -13,10 +13,9 @@ import (
 
 	"github.com/filecoin-project/dagstore"
 
-	"github.com/filecoin-project/go-fil-markets/carstore"
 	"github.com/filecoin-project/go-fil-markets/piecestore"
 	"github.com/filecoin-project/go-fil-markets/retrievalmarket"
-	"github.com/filecoin-project/go-fil-markets/shared"
+	"github.com/filecoin-project/go-fil-markets/stores"
 )
 
 type registration struct {
@@ -36,7 +35,7 @@ type MockDagStoreWrapper struct {
 	registrations map[cid.Cid]registration
 }
 
-var _ shared.DagStoreWrapper = (*MockDagStoreWrapper)(nil)
+var _ stores.DAGStoreWrapper = (*MockDagStoreWrapper)(nil)
 
 func NewMockDagStoreWrapper(pieceStore piecestore.PieceStore, rpn retrievalmarket.RetrievalProviderNode) *MockDagStoreWrapper {
 	return &MockDagStoreWrapper{
@@ -81,7 +80,7 @@ func (m *MockDagStoreWrapper) ClearRegistrations() {
 	m.registrations = make(map[cid.Cid]registration)
 }
 
-func (m *MockDagStoreWrapper) LoadShard(ctx context.Context, pieceCid cid.Cid) (carstore.ClosableBlockstore, error) {
+func (m *MockDagStoreWrapper) LoadShard(ctx context.Context, pieceCid cid.Cid) (stores.ClosableBlockstore, error) {
 	m.lk.Lock()
 	defer m.lk.Unlock()
 
@@ -106,7 +105,7 @@ func (m *MockDagStoreWrapper) LoadShard(ctx context.Context, pieceCid cid.Cid) (
 	return getBlockstoreFromReader(r, pieceCid)
 }
 
-func getBlockstoreFromReader(r io.ReadCloser, pieceCid cid.Cid) (carstore.ClosableBlockstore, error) {
+func getBlockstoreFromReader(r io.ReadCloser, pieceCid cid.Cid) (stores.ClosableBlockstore, error) {
 	// Write the piece to a file
 	tmpFile, err := os.CreateTemp("", "dagstoretmp")
 	if err != nil {

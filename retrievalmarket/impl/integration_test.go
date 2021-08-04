@@ -30,7 +30,6 @@ import (
 	"github.com/filecoin-project/go-state-types/big"
 	"github.com/filecoin-project/specs-actors/actors/builtin/paych"
 
-	"github.com/filecoin-project/go-fil-markets/filestorecaradapter"
 	"github.com/filecoin-project/go-fil-markets/piecestore"
 	"github.com/filecoin-project/go-fil-markets/retrievalmarket"
 	retrievalimpl "github.com/filecoin-project/go-fil-markets/retrievalmarket/impl"
@@ -39,6 +38,7 @@ import (
 	rmtesting "github.com/filecoin-project/go-fil-markets/retrievalmarket/testing"
 	"github.com/filecoin-project/go-fil-markets/shared"
 	tut "github.com/filecoin-project/go-fil-markets/shared_testutil"
+	"github.com/filecoin-project/go-fil-markets/stores"
 )
 
 func TestClientCanMakeQueryToProvider(t *testing.T) {
@@ -358,7 +358,7 @@ func TestClientCanMakeDealWithProvider(t *testing.T) {
 
 			// Create a CARv2 file from a fixture
 			fpath := filepath.Join("retrievalmarket", "impl", "fixtures", testCase.filename)
-			pieceLink, fileStoreCARv2FilePath := testData.LoadUnixFSFileToStore(t, fpath)
+			pieceLink, path := testData.LoadUnixFSFileToStore(t, fpath)
 			c, ok := pieceLink.(cidlink.Link)
 			require.True(t, ok)
 			payloadCID := c.Cid
@@ -366,8 +366,10 @@ func TestClientCanMakeDealWithProvider(t *testing.T) {
 			// Get the CARv1 payload of the UnixFS DAG that the (Filestore backed by the CARv2) contains.
 			carFile, err := os.CreateTemp(t.TempDir(), "rand")
 			require.NoError(t, err)
-			fs, err := filestorecaradapter.NewReadOnlyFileStore(fileStoreCARv2FilePath)
+
+			fs, err := stores.ReadOnlyFilestore(path)
 			require.NoError(t, err)
+
 			sc := car.NewSelectiveCar(bgCtx, fs, []car.Dag{{Root: payloadCID, Selector: shared.AllSelector()}})
 			prepared, err := sc.Prepare()
 			require.NoError(t, err)
@@ -704,7 +706,7 @@ func setupProvider(
 	dagstoreWrapper := tut.NewMockDagStoreWrapper(pieceStore, providerNode)
 
 	// Register the piece with the DAG store wrapper
-	err = shared.RegisterShardSync(ctx, dagstoreWrapper, pieceInfo.PieceCID, carFilePath, true)
+	err = stores.RegisterShardSync(ctx, dagstoreWrapper, pieceInfo.PieceCID, carFilePath, true)
 	require.NoError(t, err)
 
 	// Remove the CAR file so that the provider is forced to unseal the data

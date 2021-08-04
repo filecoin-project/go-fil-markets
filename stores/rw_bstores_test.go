@@ -1,4 +1,4 @@
-package carstore_test
+package stores_test
 
 import (
 	"context"
@@ -8,8 +8,8 @@ import (
 	cidlink "github.com/ipld/go-ipld-prime/linking/cid"
 	"github.com/stretchr/testify/require"
 
-	"github.com/filecoin-project/go-fil-markets/carstore"
 	tut "github.com/filecoin-project/go-fil-markets/shared_testutil"
+	"github.com/filecoin-project/go-fil-markets/stores"
 )
 
 func TestReadWriteStoreTracker(t *testing.T) {
@@ -28,14 +28,14 @@ func TestReadWriteStoreTracker(t *testing.T) {
 
 	k1 := "k1"
 	k2 := "k2"
-	tracker := carstore.NewCarReadWriteStoreTracker()
+	tracker := stores.NewReadWriteBlockstores()
 
 	// Get a non-existent key
 	_, err := tracker.Get(k1)
-	require.True(t, carstore.IsNotFound(err))
+	require.True(t, stores.IsNotFound(err))
 
-	// Create a blockstore by calling GetOrCreate
-	rdOnlyBS1, err := tracker.GetOrCreate(k1, carFilePath1, rootCidLnk1.Cid)
+	// Create a blockstore by calling GetOrOpen
+	rdOnlyBS1, err := tracker.GetOrOpen(k1, carFilePath1, rootCidLnk1.Cid)
 	require.NoError(t, err)
 
 	// Get the blockstore using its key
@@ -47,19 +47,19 @@ func TestReadWriteStoreTracker(t *testing.T) {
 	lenGot := getBstoreLen(ctx, t, got)
 	require.Equal(t, len1, lenGot)
 
-	// Call GetOrCreate with a different CAR file
-	rdOnlyBS2, err := tracker.GetOrCreate(k2, carFilePath2, rootCidLnk2.Cid)
+	// Call GetOrOpen with a different CAR file
+	rdOnlyBS2, err := tracker.GetOrOpen(k2, carFilePath2, rootCidLnk2.Cid)
 	require.NoError(t, err)
 
 	// Verify the blockstore is different
 	len2 := getBstoreLen(ctx, t, rdOnlyBS2)
 	require.NotEqual(t, len1, len2)
 
-	// Clean the second blockstore from the tracker
-	err = tracker.CleanBlockstore(k2)
+	// Untrack the second blockstore from the tracker
+	err = tracker.Untrack(k2)
 	require.NoError(t, err)
 
 	// Verify it's been removed
 	_, err = tracker.Get(k2)
-	require.True(t, carstore.IsNotFound(err))
+	require.True(t, stores.IsNotFound(err))
 }

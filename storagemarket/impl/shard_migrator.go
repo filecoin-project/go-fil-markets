@@ -13,9 +13,9 @@ import (
 	"github.com/filecoin-project/go-statemachine/fsm"
 
 	"github.com/filecoin-project/go-fil-markets/piecestore"
-	"github.com/filecoin-project/go-fil-markets/shared"
 	"github.com/filecoin-project/go-fil-markets/storagemarket"
 	"github.com/filecoin-project/go-fil-markets/storagemarket/impl/providerstates"
+	"github.com/filecoin-project/go-fil-markets/stores"
 )
 
 var shardRegMarker = ".shard-registration-complete"
@@ -27,7 +27,7 @@ var shardRegMarker = ".shard-registration-complete"
 type ShardMigrator struct {
 	providerAddr   address.Address
 	markerFilePath string
-	dagStore       shared.DagStoreWrapper
+	dagStore       stores.DAGStoreWrapper
 
 	pieceStore piecestore.PieceStore
 	spn        storagemarket.StorageProviderNode
@@ -36,7 +36,7 @@ type ShardMigrator struct {
 func NewShardMigrator(
 	maddr address.Address,
 	dagStorePath string,
-	dagStore shared.DagStoreWrapper,
+	dagStore stores.DAGStoreWrapper,
 	pieceStore piecestore.PieceStore,
 	spn storagemarket.StorageProviderNode,
 ) *ShardMigrator {
@@ -101,7 +101,7 @@ func (r *ShardMigrator) registerShards(ctx context.Context, deals []storagemarke
 		log.Infow("all migrated shards initialized")
 	}()
 
-	// Filter for deals that are currently sealing.
+	// Filter for deals that are handed off.
 	// If the deal has not yet been handed off to the sealing subsystem, we
 	// don't need to call RegisterShard in this migration; RegisterShard will
 	// be called in the new code once the deal reaches the state where it's
