@@ -60,7 +60,7 @@ func (m *MockDagStoreWrapper) RegisterShard(ctx context.Context, pieceCid cid.Ci
 }
 
 func (m *MockDagStoreWrapper) MigrateDeals(ctx context.Context, deals []storagemarket.MinerDeal) (bool, error) {
-	panic("implement me")
+	return true, nil
 }
 
 func (m *MockDagStoreWrapper) LenRegistrations() int {
