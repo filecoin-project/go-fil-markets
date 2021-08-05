@@ -21,7 +21,7 @@ import (
 
 var log = logging.Logger("storagemrkt")
 
-//go:generate cbor-gen-for --map-encoding ClientDeal MinerDeal Balance SignedStorageAsk StorageAsk DataRef ProviderDealState DealStages DealStage Log
+//go:generate cbor-gen-for --map-encoding ClientDeal MinerDeal Balance SignedStorageAsk StorageAsk DataRef ProviderDealState DealStages DealStage Log MockMinerDeal MockOldMinerDeal
 
 // DealProtocolID is the ID for the libp2p protocol for proposing storage deals.
 const OldDealProtocolID = "/fil/storage/mk/1.0.1"
@@ -320,4 +320,16 @@ type ProviderDealState struct {
 func curTime() cbg.CborTime {
 	now := time.Now()
 	return cbg.CborTime(time.Unix(0, now.UnixNano()).UTC())
+}
+
+type MockMinerDeal struct {
+	ProposalCid cid.Cid
+	DealID      abi.DealID
+	InboundCAR  string
+}
+
+type MockOldMinerDeal struct {
+	ProposalCid   cid.Cid
+	DealID        abi.DealID
+	CarV2FilePath string
 }
