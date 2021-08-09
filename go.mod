@@ -54,8 +54,4 @@ require (
 	golang.org/x/xerrors v0.0.0-20200804184101-5ec99f83aff1
 )
 
-replace github.com/libp2p/go-libp2p => github.com/libp2p/go-libp2p v0.12.0
-
-replace github.com/libp2p/go-libp2p-core => github.com/libp2p/go-libp2p-core v0.7.0
-
 replace github.com/filecoin-project/filecoin-ffi => ./extern/filecoin-ffi
