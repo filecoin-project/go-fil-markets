@@ -417,7 +417,7 @@ func TestClientCanMakeDealWithProvider(t *testing.T) {
 			sectorID := abi.SectorNumber(100000)
 			offset := abi.PaddedPieceSize(1000)
 			pieceInfo := piecestore.PieceInfo{
-				PieceCID: payloadCID,
+				PieceCID: tut.GenerateCids(1)[0],
 				Deals: []piecestore.DealInfo{
 					{
 						DealID:   abi.DealID(100),
@@ -669,7 +669,7 @@ func setupProvider(
 ) retrievalmarket.RetrievalProvider {
 	nw2 := rmnet.NewFromLibp2pHost(testData.Host2, rmnet.RetryParameters(0, 0, 0, 0))
 	pieceStore := tut.NewTestPieceStore()
-	expectedPiece := payloadCID
+	expectedPiece := pieceInfo.PieceCID
 	cidInfo := piecestore.CIDInfo{
 		PieceBlockLocations: []piecestore.PieceBlockLocation{
 			{
