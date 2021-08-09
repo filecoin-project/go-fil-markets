@@ -572,19 +572,34 @@ func (p *Provider) dispatch(eventName fsm.EventName, deal fsm.StateType) {
 }
 
 func (p *Provider) start(ctx context.Context) error {
-	err := p.migrateDeals(ctx)
+	// Run datastore and DAG store migrations
+	deals, err := p.runMigrations(ctx)
 	publishErr := p.readyMgr.FireReady(err)
 	if publishErr != nil {
 		log.Warnf("publish storage provider ready event: %s", err.Error())
 	}
 	if err != nil {
-		return fmt.Errorf("migrating storage provider state machines: %w", err)
+		return err
+	}
+
+	// Fire restart event on all active deals
+	if err := p.restartDeals(deals); err != nil {
+		return fmt.Errorf("failed to restart deals: %w", err)
+	}
+	return nil
+}
+
+func (p *Provider) runMigrations(ctx context.Context) ([]storagemarket.MinerDeal, error) {
+	// Perform datastore migration
+	err := p.migrateDeals(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("migrating storage provider state machines: %w", err)
 	}
 
 	var deals []storagemarket.MinerDeal
 	err = p.deals.List(&deals)
 	if err != nil {
-		return xerrors.Errorf("failed to fetch deals during startup: %w", err)
+		return nil, xerrors.Errorf("failed to fetch deals during startup: %w", err)
 	}
 
 	// re-track all deals for whom we still have a local blockstore.
@@ -596,17 +611,14 @@ func (p *Provider) start(ctx context.Context) error {
 
 	// migrate deals to the dagstore if still not migrated.
 	if ok, err := p.dagStore.MigrateDeals(ctx, deals); err != nil {
-		return fmt.Errorf("failed to migrate deals to DAG store: %w", err)
+		return nil, fmt.Errorf("failed to migrate deals to DAG store: %w", err)
 	} else if ok {
-		log.Info("dagstore migration performed")
+		log.Info("dagstore migration completed successfully")
 	} else {
 		log.Info("no dagstore migration necessary")
 	}
 
-	if err := p.restartDeals(deals); err != nil {
-		return fmt.Errorf("failed to restart deals: %w", err)
-	}
-	return nil
+	return deals, nil
 }
 
 func (p *Provider) restartDeals(deals []storagemarket.MinerDeal) error {
