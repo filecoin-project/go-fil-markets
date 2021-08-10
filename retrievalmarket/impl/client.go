@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"path/filepath"
 	"sync"
 
 	"github.com/hannahhoward/go-pubsub"
@@ -46,7 +45,6 @@ type Client struct {
 	resolver             discovery.PeerResolver
 	stateMachines        fsm.Group
 	migrateStateMachines func(context.Context) error
-	carPath              string
 	stores               *stores.ReadWriteBlockstores
 
 	// Guards concurrent access to Retrieve method
@@ -75,7 +73,7 @@ func dispatcher(evt pubsub.Event, subscriberFn pubsub.SubscriberFn) error {
 var _ retrievalmarket.RetrievalClient = &Client{}
 
 // NewClient creates a new retrieval client
-func NewClient(network rmnet.RetrievalMarketNetwork, carPath string, dataTransfer datatransfer.Manager, node retrievalmarket.RetrievalClientNode, resolver discovery.PeerResolver, ds datastore.Batching) (retrievalmarket.RetrievalClient, error) {
+func NewClient(network rmnet.RetrievalMarketNetwork, dataTransfer datatransfer.Manager, node retrievalmarket.RetrievalClientNode, resolver discovery.PeerResolver, ds datastore.Batching) (retrievalmarket.RetrievalClient, error) {
 	c := &Client{
 		network:      network,
 		dataTransfer: dataTransfer,
@@ -84,7 +82,6 @@ func NewClient(network rmnet.RetrievalMarketNetwork, carPath string, dataTransfe
 		dealIDGen:    shared.NewTimeCounter(),
 		subscribers:  pubsub.New(dispatcher),
 		readySub:     pubsub.New(shared.ReadyDispatcher),
-		carPath:      carPath,
 		stores:       stores.NewReadWriteBlockstores(),
 	}
 	retrievalMigrations, err := migrations.ClientMigrations.Build()
@@ -232,7 +229,16 @@ From then on, the statemachine controls the deal flow in the client. Other compo
 
 Documentation of the client state machine can be found at https://godoc.org/github.com/filecoin-project/go-fil-markets/retrievalmarket/impl/clientstates
 */
-func (c *Client) Retrieve(ctx context.Context, payloadCID cid.Cid, params retrievalmarket.Params, totalFunds abi.TokenAmount, p retrievalmarket.RetrievalPeer, clientWallet address.Address, minerWallet address.Address) (*retrievalmarket.RetrieveResponse, error) {
+func (c *Client) Retrieve(
+	ctx context.Context,
+	payloadCID cid.Cid,
+	params retrievalmarket.Params,
+	totalFunds abi.TokenAmount,
+	p retrievalmarket.RetrievalPeer,
+	clientWallet address.Address,
+	minerWallet address.Address,
+	carFileDest string,
+) (*retrievalmarket.RetrieveResponse, error) {
 	c.retrieveLk.Lock()
 	defer c.retrieveLk.Unlock()
 
@@ -252,8 +258,7 @@ func (c *Client) Retrieve(ctx context.Context, payloadCID cid.Cid, params retrie
 	// will be written to
 	next := c.dealIDGen.Next()
 	dealID := retrievalmarket.DealID(next)
-	carFilePath := filepath.Join(c.carPath, dealID.String())
-	_, err = c.stores.GetOrOpen(dealID.String(), carFilePath, payloadCID)
+	_, err = c.stores.GetOrOpen(dealID.String(), carFileDest, payloadCID)
 	if err != nil {
 		return nil, xerrors.Errorf("failed to create retrieval client blockstore: %w", err)
 	}
@@ -290,7 +295,7 @@ func (c *Client) Retrieve(ctx context.Context, payloadCID cid.Cid, params retrie
 
 	return &retrievalmarket.RetrieveResponse{
 		DealID:      dealID,
-		CarFilePath: carFilePath,
+		CarFilePath: carFileDest,
 	}, nil
 }
 

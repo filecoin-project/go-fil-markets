@@ -118,7 +118,7 @@ func requireSetupTestClientAndProvider(ctx context.Context, t *testing.T, payChA
 	testutil.StartAndWaitForReady(ctx, t, dt1)
 	require.NoError(t, err)
 	clientDs := namespace.Wrap(testData.Ds1, datastore.NewKey("/retrievals/client"))
-	client, err := retrievalimpl.NewClient(nw1, testData.CarFilePath, dt1, rcNode1, &tut.TestPeerResolver{}, clientDs)
+	client, err := retrievalimpl.NewClient(nw1, dt1, rcNode1, &tut.TestPeerResolver{}, clientDs)
 	require.NoError(t, err)
 	tut.StartAndWaitForReady(ctx, t, client)
 	nw2 := rmnet.NewFromLibp2pHost(testData.Host2, rmnet.RetryParameters(0, 0, 0, 0))
@@ -537,7 +537,8 @@ CurrentInterval: %d
 			}
 
 			// *** Retrieve the piece
-			rresp, err := client.Retrieve(bgCtx, payloadCID, rmParams, expectedTotal, retrievalPeer, clientPaymentChannel, retrievalPeer.Address)
+			carPath := filepath.Join(t.TempDir(), "out.car")
+			rresp, err := client.Retrieve(bgCtx, payloadCID, rmParams, expectedTotal, retrievalPeer, clientPaymentChannel, retrievalPeer.Address, carPath)
 			require.NoError(t, err)
 
 			// verify that client subscribers will be notified of state changes
@@ -650,7 +651,7 @@ func setupClient(
 	require.NoError(t, err)
 	clientDs := namespace.Wrap(testData.Ds1, datastore.NewKey("/retrievals/client"))
 
-	client, err := retrievalimpl.NewClient(nw1, testData.CarFilePath, dt1, clientNode, &tut.TestPeerResolver{}, clientDs)
+	client, err := retrievalimpl.NewClient(nw1, dt1, clientNode, &tut.TestPeerResolver{}, clientDs)
 	return &createdChan, &newLaneAddr, &createdVoucher, clientNode, client, err
 }
 

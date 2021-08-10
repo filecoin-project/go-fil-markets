@@ -39,7 +39,6 @@ type Libp2pTestData struct {
 	Ds2         datastore.Batching
 	Bs1         bstore.Blockstore
 	Bs2         bstore.Blockstore
-	CarFilePath string
 	DagService1 ipldformat.DAGService
 	DagService2 ipldformat.DAGService
 	DTNet1      dtnet.DataTransferNetwork
@@ -102,8 +101,6 @@ func NewLibp2pTestData(ctx context.Context, t *testing.T) *Libp2pTestData {
 	// make a bstore and dag service
 	testData.Bs1 = bstore.NewBlockstore(testData.Ds1)
 	testData.Bs2 = bstore.NewBlockstore(testData.Ds2)
-
-	testData.CarFilePath = t.TempDir()
 
 	testData.DagService1 = merkledag.NewDAGService(blockservice.New(testData.Bs1, offline.Exchange(testData.Bs1)))
 	testData.DagService2 = merkledag.NewDAGService(blockservice.New(testData.Bs2, offline.Exchange(testData.Bs2)))

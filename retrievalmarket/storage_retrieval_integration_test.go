@@ -5,6 +5,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"path/filepath"
 	"sync"
 	"testing"
 	"time"
@@ -412,7 +413,7 @@ func newRetrievalHarnessWithDeps(
 
 	nw1 := rmnet.NewFromLibp2pHost(sh.TestData.Host1, rmnet.RetryParameters(0, 0, 0, 0))
 	clientDs := namespace.Wrap(sh.TestData.Ds1, datastore.NewKey("/retrievals/client"))
-	client, err := retrievalimpl.NewClient(nw1, sh.TestData.CarFilePath, sh.DTClient, clientNode, sh.PeerResolver, clientDs)
+	client, err := retrievalimpl.NewClient(nw1, sh.DTClient, clientNode, sh.PeerResolver, clientDs)
 	require.NoError(t, err)
 	tut.StartAndWaitForReady(ctx, t, client)
 	payloadCID := deal.DataRef.Root
@@ -592,7 +593,8 @@ func doRetrieve(t *testing.T, ctx context.Context, rh *retrievalHarness, sh *tes
 	expectedTotal := big.Add(big.Mul(rh.RetrievalParams.PricePerByte, abi.NewTokenAmount(int64(fsize*2))), rh.RetrievalParams.UnsealPrice)
 
 	// *** Retrieve the piece
-	rresp, err := rh.Client.Retrieve(ctx, sh.PayloadCid, rmParams, expectedTotal, retrievalPeer, *rh.ExpPaych, retrievalPeer.Address)
+	carPath := filepath.Join(t.TempDir(), "out.car")
+	rresp, err := rh.Client.Retrieve(ctx, sh.PayloadCid, rmParams, expectedTotal, retrievalPeer, *rh.ExpPaych, retrievalPeer.Address, carPath)
 	require.NoError(t, err)
 
 	return fsize, rresp
