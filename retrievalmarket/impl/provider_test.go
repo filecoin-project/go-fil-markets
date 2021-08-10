@@ -139,12 +139,19 @@ func TestDynamicPricing(t *testing.T) {
 		return ask, nil
 	}
 
-	buildProvider := func(t *testing.T, node *testnodes.TestRetrievalProviderNode, qs network.RetrievalQueryStream,
-		pieceStore piecestore.PieceStore, net *tut.TestRetrievalMarketNetwork, pFnc retrievalimpl.RetrievalPricingFunc) retrievalmarket.RetrievalProvider {
+	buildProvider := func(
+		t *testing.T,
+		node *testnodes.TestRetrievalProviderNode,
+		sa retrievalmarket.SectorAccessor,
+		qs network.RetrievalQueryStream,
+		pieceStore piecestore.PieceStore,
+		net *tut.TestRetrievalMarketNetwork,
+		pFnc retrievalimpl.RetrievalPricingFunc,
+	) retrievalmarket.RetrievalProvider {
 		ds := dss.MutexWrap(datastore.NewMapDatastore())
-		dagStore := tut.NewMockDagStoreWrapper(pieceStore, node)
+		dagStore := tut.NewMockDagStoreWrapper(pieceStore, sa)
 		dt := tut.NewTestDataTransfer()
-		c, err := retrievalimpl.NewProvider(expectedAddress, node, net, pieceStore, dagStore, dt, ds, pFnc)
+		c, err := retrievalimpl.NewProvider(expectedAddress, node, sa, net, pieceStore, dagStore, dt, ds, pFnc)
 		require.NoError(t, err)
 		tut.StartAndWaitForReady(ctx, t, c)
 		return c
@@ -163,11 +170,12 @@ func TestDynamicPricing(t *testing.T) {
 	}
 
 	tcs := map[string]struct {
-		query       retrievalmarket.Query
-		expFunc     func(t *testing.T, pieceStore *tut.TestPieceStore)
-		nodeFunc    func(n *testnodes.TestRetrievalProviderNode)
-		peerIdFnc   func(stream *tut.TestRetrievalQueryStream)
-		providerFnc func(provider retrievalmarket.RetrievalProvider)
+		query              retrievalmarket.Query
+		expFunc            func(t *testing.T, pieceStore *tut.TestPieceStore)
+		nodeFunc           func(n *testnodes.TestRetrievalProviderNode)
+		sectorAccessorFunc func(sa *testnodes.TestSectorAccessor)
+		peerIdFnc          func(stream *tut.TestRetrievalQueryStream)
+		providerFnc        func(provider retrievalmarket.RetrievalProvider)
 
 		pricingFnc retrievalimpl.RetrievalPricingFunc
 
@@ -254,9 +262,11 @@ func TestDynamicPricing(t *testing.T) {
 				qs.SetRemotePeer(peer1)
 			},
 			nodeFunc: func(n *testnodes.TestRetrievalProviderNode) {
-				p := piece2.Deals[0]
-				n.MarkUnsealed(context.TODO(), p.SectorID, p.Offset.Unpadded(), p.Length.Unpadded())
 				n.ExpectPricingParams(expectedPieceCID2, []abi.DealID{1, 11, 2, 22, 222})
+			},
+			sectorAccessorFunc: func(sa *testnodes.TestSectorAccessor) {
+				p := piece2.Deals[0]
+				sa.MarkUnsealed(context.TODO(), p.SectorID, p.Offset.Unpadded(), p.Length.Unpadded())
 			},
 			expFunc: func(t *testing.T, pieceStore *tut.TestPieceStore) {
 				pieceStore.ExpectCID(payloadCID, expectedCIDInfo)
@@ -279,10 +289,12 @@ func TestDynamicPricing(t *testing.T) {
 				qs.SetRemotePeer(peer1)
 			},
 			nodeFunc: func(n *testnodes.TestRetrievalProviderNode) {
-				p := piece2.Deals[0]
-				n.MarkUnsealed(context.TODO(), p.SectorID, p.Offset.Unpadded(), p.Length.Unpadded())
 				n.MarkVerified()
 				n.ExpectPricingParams(expectedPieceCID2, []abi.DealID{1, 11, 2, 22, 222})
+			},
+			sectorAccessorFunc: func(sa *testnodes.TestSectorAccessor) {
+				p := piece2.Deals[0]
+				sa.MarkUnsealed(context.TODO(), p.SectorID, p.Offset.Unpadded(), p.Length.Unpadded())
 			},
 			expFunc: func(t *testing.T, pieceStore *tut.TestPieceStore) {
 				pieceStore.ExpectCID(payloadCID, expectedCIDInfo)
@@ -305,10 +317,12 @@ func TestDynamicPricing(t *testing.T) {
 				qs.SetRemotePeer(peer1)
 			},
 			nodeFunc: func(n *testnodes.TestRetrievalProviderNode) {
-				p := piece2.Deals[0]
-				n.MarkUnsealed(context.TODO(), p.SectorID, p.Offset.Unpadded(), p.Length.Unpadded())
 				n.MarkVerified()
 				n.ExpectPricingParams(expectedPieceCID2, []abi.DealID{1, 11, 2, 22, 222})
+			},
+			sectorAccessorFunc: func(sa *testnodes.TestSectorAccessor) {
+				p := piece2.Deals[0]
+				sa.MarkUnsealed(context.TODO(), p.SectorID, p.Offset.Unpadded(), p.Length.Unpadded())
 			},
 			expFunc: func(t *testing.T, pieceStore *tut.TestPieceStore) {
 				pieceStore.ExpectCID(payloadCID, expectedCIDInfo)
@@ -338,10 +352,12 @@ func TestDynamicPricing(t *testing.T) {
 				qs.SetRemotePeer(peer1)
 			},
 			nodeFunc: func(n *testnodes.TestRetrievalProviderNode) {
-				p := piece2.Deals[0]
-				n.MarkUnsealed(context.TODO(), p.SectorID, p.Offset.Unpadded(), p.Length.Unpadded())
 				n.MarkVerified()
 				n.ExpectPricingParams(expectedPieceCID2, []abi.DealID{1, 11, 2, 22, 222})
+			},
+			sectorAccessorFunc: func(sa *testnodes.TestSectorAccessor) {
+				p := piece2.Deals[0]
+				sa.MarkUnsealed(context.TODO(), p.SectorID, p.Offset.Unpadded(), p.Length.Unpadded())
 			},
 			expFunc: func(t *testing.T, pieceStore *tut.TestPieceStore) {
 				pieceStore.ExpectCID(payloadCID, expectedCIDInfo)
@@ -407,9 +423,11 @@ func TestDynamicPricing(t *testing.T) {
 				qs.SetRemotePeer(peer1)
 			},
 			nodeFunc: func(n *testnodes.TestRetrievalProviderNode) {
-				p := piece2.Deals[0]
-				n.MarkUnsealed(context.TODO(), p.SectorID, p.Offset.Unpadded(), p.Length.Unpadded())
 				n.ExpectPricingParams(expectedPieceCID1, []abi.DealID{1, 11})
+			},
+			sectorAccessorFunc: func(sa *testnodes.TestSectorAccessor) {
+				p := piece2.Deals[0]
+				sa.MarkUnsealed(context.TODO(), p.SectorID, p.Offset.Unpadded(), p.Length.Unpadded())
 			},
 			expFunc: func(t *testing.T, pieceStore *tut.TestPieceStore) {
 				pieceStore.ExpectCID(payloadCID, expectedCIDInfo)
@@ -434,9 +452,11 @@ func TestDynamicPricing(t *testing.T) {
 				qs.SetRemotePeer(peer1)
 			},
 			nodeFunc: func(n *testnodes.TestRetrievalProviderNode) {
-				p := piece1.Deals[0]
-				n.MarkUnsealed(context.TODO(), p.SectorID, p.Offset.Unpadded(), p.Length.Unpadded())
 				n.ExpectPricingParams(expectedPieceCID2, []abi.DealID{2, 22, 222})
+			},
+			sectorAccessorFunc: func(sa *testnodes.TestSectorAccessor) {
+				p := piece1.Deals[0]
+				sa.MarkUnsealed(context.TODO(), p.SectorID, p.Offset.Unpadded(), p.Length.Unpadded())
 			},
 			expFunc: func(t *testing.T, pieceStore *tut.TestPieceStore) {
 				pieceStore.ExpectCID(payloadCID, expectedCIDInfo)
@@ -462,10 +482,12 @@ func TestDynamicPricing(t *testing.T) {
 				qs.SetRemotePeer(peer1)
 			},
 			nodeFunc: func(n *testnodes.TestRetrievalProviderNode) {
-				p := piece2.Deals[0]
-				n.MarkUnsealed(context.TODO(), p.SectorID, p.Offset.Unpadded(), p.Length.Unpadded())
 				n.ExpectPricingParams(expectedPieceCID1, []abi.DealID{1, 11})
 				n.MarkVerified()
+			},
+			sectorAccessorFunc: func(sa *testnodes.TestSectorAccessor) {
+				p := piece2.Deals[0]
+				sa.MarkUnsealed(context.TODO(), p.SectorID, p.Offset.Unpadded(), p.Length.Unpadded())
 			},
 			expFunc: func(t *testing.T, pieceStore *tut.TestPieceStore) {
 				pieceStore.ExpectCID(payloadCID, expectedCIDInfo)
@@ -490,10 +512,12 @@ func TestDynamicPricing(t *testing.T) {
 				qs.SetRemotePeer(peer1)
 			},
 			nodeFunc: func(n *testnodes.TestRetrievalProviderNode) {
-				p := piece1.Deals[0]
-				n.MarkUnsealed(context.TODO(), p.SectorID, p.Offset.Unpadded(), p.Length.Unpadded())
 				n.MarkVerified()
 				n.ExpectPricingParams(expectedPieceCID1, []abi.DealID{1, 11})
+			},
+			sectorAccessorFunc: func(sa *testnodes.TestSectorAccessor) {
+				p := piece1.Deals[0]
+				sa.MarkUnsealed(context.TODO(), p.SectorID, p.Offset.Unpadded(), p.Length.Unpadded())
 			},
 			expFunc: func(t *testing.T, pieceStore *tut.TestPieceStore) {
 				pieceStore.ExpectCID(payloadCID, expectedCIDInfo)
@@ -518,10 +542,12 @@ func TestDynamicPricing(t *testing.T) {
 				qs.SetRemotePeer(peer2)
 			},
 			nodeFunc: func(n *testnodes.TestRetrievalProviderNode) {
-				p := piece2.Deals[0]
-				n.MarkUnsealed(context.TODO(), p.SectorID, p.Offset.Unpadded(), p.Length.Unpadded())
 				n.MarkVerified()
 				n.ExpectPricingParams(expectedPieceCID2, []abi.DealID{2, 22, 222})
+			},
+			sectorAccessorFunc: func(sa *testnodes.TestSectorAccessor) {
+				p := piece2.Deals[0]
+				sa.MarkUnsealed(context.TODO(), p.SectorID, p.Offset.Unpadded(), p.Length.Unpadded())
 			},
 			expFunc: func(t *testing.T, pieceStore *tut.TestPieceStore) {
 				pieceStore.ExpectCID(payloadCID, expectedCIDInfo)
@@ -576,6 +602,7 @@ func TestDynamicPricing(t *testing.T) {
 	for name, tc := range tcs {
 		t.Run(name, func(t *testing.T) {
 			node := testnodes.NewTestRetrievalProviderNode()
+			sectorAccessor := testnodes.NewTestSectorAccessor()
 			qs := readWriteQueryStream()
 			tc.peerIdFnc(qs)
 
@@ -583,10 +610,13 @@ func TestDynamicPricing(t *testing.T) {
 			require.NoError(t, err)
 			pieceStore := tut.NewTestPieceStore()
 			tc.nodeFunc(node)
+			if tc.sectorAccessorFunc != nil {
+				tc.sectorAccessorFunc(sectorAccessor)
+			}
 			tc.expFunc(t, pieceStore)
 
 			net := tut.NewTestRetrievalMarketNetwork(tut.TestNetworkParams{})
-			p := buildProvider(t, node, qs, pieceStore, net, tc.pricingFnc)
+			p := buildProvider(t, node, sectorAccessor, qs, pieceStore, net, tc.pricingFnc)
 			tc.providerFnc(p)
 			net.ReceiveQueryStream(qs)
 
@@ -594,6 +624,7 @@ func TestDynamicPricing(t *testing.T) {
 			require.NoError(t, err)
 			pieceStore.VerifyExpectations(t)
 			node.VerifyExpectations(t)
+			sectorAccessor.VerifyExpectations(t)
 
 			require.Equal(t, expectedAddress, actualResp.PaymentAddress)
 			require.Equal(t, tc.expectedPricePerByte, actualResp.MinPricePerByte)
@@ -669,9 +700,9 @@ func TestHandleQueryStream(t *testing.T) {
 		return qs
 	}
 
-	receiveStreamOnProvider := func(t *testing.T, node *testnodes.TestRetrievalProviderNode, qs network.RetrievalQueryStream, pieceStore piecestore.PieceStore) {
+	receiveStreamOnProvider := func(t *testing.T, node *testnodes.TestRetrievalProviderNode, sa *testnodes.TestSectorAccessor, qs network.RetrievalQueryStream, pieceStore piecestore.PieceStore) {
 		ds := dss.MutexWrap(datastore.NewMapDatastore())
-		dagStore := tut.NewMockDagStoreWrapper(pieceStore, node)
+		dagStore := tut.NewMockDagStoreWrapper(pieceStore, sa)
 		dt := tut.NewTestDataTransfer()
 		net := tut.NewTestRetrievalMarketNetwork(tut.TestNetworkParams{})
 
@@ -689,7 +720,7 @@ func TestHandleQueryStream(t *testing.T) {
 			return ask, nil
 		}
 
-		c, err := retrievalimpl.NewProvider(expectedAddress, node, net, pieceStore, dagStore, dt, ds, priceFunc)
+		c, err := retrievalimpl.NewProvider(expectedAddress, node, sa, net, pieceStore, dagStore, dt, ds, priceFunc)
 		require.NoError(t, err)
 
 		tut.StartAndWaitForReady(ctx, t, c)
@@ -698,12 +729,12 @@ func TestHandleQueryStream(t *testing.T) {
 	}
 
 	testCases := []struct {
-		name     string
-		query    retrievalmarket.Query
-		expResp  retrievalmarket.QueryResponse
-		expErr   string
-		expFunc  func(t *testing.T, pieceStore *tut.TestPieceStore)
-		nodeFunc func(n *testnodes.TestRetrievalProviderNode)
+		name               string
+		query              retrievalmarket.Query
+		expResp            retrievalmarket.QueryResponse
+		expErr             string
+		expFunc            func(t *testing.T, pieceStore *tut.TestPieceStore)
+		sectorAccessorFunc func(sa *testnodes.TestSectorAccessor)
 
 		expectedPricePerByte            abi.TokenAmount
 		expectedPaymentInterval         uint64
@@ -729,9 +760,9 @@ func TestHandleQueryStream(t *testing.T) {
 		},
 
 		{name: "When PieceCID is not provided, prefer a piece for which an unsealed sector already exists and price it accordingly",
-			nodeFunc: func(n *testnodes.TestRetrievalProviderNode) {
+			sectorAccessorFunc: func(sa *testnodes.TestSectorAccessor) {
 				p := expectedPiece2.Deals[0]
-				n.MarkUnsealed(context.TODO(), p.SectorID, p.Offset.Unpadded(), p.Length.Unpadded())
+				sa.MarkUnsealed(context.TODO(), p.SectorID, p.Offset.Unpadded(), p.Length.Unpadded())
 			},
 			expFunc: func(t *testing.T, pieceStore *tut.TestPieceStore) {
 				pieceStore.ExpectCID(payloadCID, expectedCIDInfo)
@@ -810,17 +841,18 @@ func TestHandleQueryStream(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			node := testnodes.NewTestRetrievalProviderNode()
+			sa := testnodes.NewTestSectorAccessor()
 			qs := readWriteQueryStream()
 			err := qs.WriteQuery(tc.query)
 			require.NoError(t, err)
 			pieceStore := tut.NewTestPieceStore()
-			if tc.nodeFunc != nil {
-				tc.nodeFunc(node)
+			if tc.sectorAccessorFunc != nil {
+				tc.sectorAccessorFunc(sa)
 			}
 
 			tc.expFunc(t, pieceStore)
 
-			receiveStreamOnProvider(t, node, qs, pieceStore)
+			receiveStreamOnProvider(t, node, sa, qs, pieceStore)
 
 			actualResp, err := qs.ReadQueryResponse()
 			pieceStore.VerifyExpectations(t)
@@ -841,6 +873,7 @@ func TestHandleQueryStream(t *testing.T) {
 
 	t.Run("error reading piece", func(t *testing.T) {
 		node := testnodes.NewTestRetrievalProviderNode()
+		sa := testnodes.NewTestSectorAccessor()
 
 		qs := readWriteQueryStream()
 		err := qs.WriteQuery(retrievalmarket.Query{
@@ -849,7 +882,7 @@ func TestHandleQueryStream(t *testing.T) {
 		require.NoError(t, err)
 		pieceStore := tut.NewTestPieceStore()
 
-		receiveStreamOnProvider(t, node, qs, pieceStore)
+		receiveStreamOnProvider(t, node, sa, qs, pieceStore)
 
 		response, err := qs.ReadQueryResponse()
 		require.NoError(t, err)
@@ -859,10 +892,11 @@ func TestHandleQueryStream(t *testing.T) {
 
 	t.Run("when ReadDealStatusRequest fails", func(t *testing.T) {
 		node := testnodes.NewTestRetrievalProviderNode()
+		sa := testnodes.NewTestSectorAccessor()
 		qs := readWriteQueryStream()
 		pieceStore := tut.NewTestPieceStore()
 
-		receiveStreamOnProvider(t, node, qs, pieceStore)
+		receiveStreamOnProvider(t, node, sa, qs, pieceStore)
 
 		response, err := qs.ReadQueryResponse()
 		require.NotNil(t, err)
@@ -871,6 +905,7 @@ func TestHandleQueryStream(t *testing.T) {
 
 	t.Run("when WriteDealStatusResponse fails", func(t *testing.T) {
 		node := testnodes.NewTestRetrievalProviderNode()
+		sa := testnodes.NewTestSectorAccessor()
 		qRead, qWrite := tut.QueryReadWriter()
 		qs := tut.NewTestRetrievalQueryStream(tut.TestQueryStreamParams{
 			PeerID:     expectedPeer,
@@ -887,7 +922,7 @@ func TestHandleQueryStream(t *testing.T) {
 		pieceStore.ExpectPiece(expectedPieceCID, expectedPiece)
 		pieceStore.ExpectPiece(expectedPieceCID2, expectedPiece2)
 
-		receiveStreamOnProvider(t, node, qs, pieceStore)
+		receiveStreamOnProvider(t, node, sa, qs, pieceStore)
 
 		pieceStore.VerifyExpectations(t)
 	})
@@ -898,7 +933,8 @@ func TestProvider_Construct(t *testing.T) {
 	ds := datastore.NewMapDatastore()
 	pieceStore := tut.NewTestPieceStore()
 	node := testnodes.NewTestRetrievalProviderNode()
-	dagStore := tut.NewMockDagStoreWrapper(pieceStore, node)
+	sa := testnodes.NewTestSectorAccessor()
+	dagStore := tut.NewMockDagStoreWrapper(pieceStore, sa)
 	dt := tut.NewTestDataTransfer()
 
 	priceFunc := func(ctx context.Context, dealPricingParams retrievalmarket.PricingInput) (retrievalmarket.Ask, error) {
@@ -909,6 +945,7 @@ func TestProvider_Construct(t *testing.T) {
 	_, err := retrievalimpl.NewProvider(
 		spect.NewIDAddr(t, 2344),
 		node,
+		sa,
 		tut.NewTestRetrievalMarketNetwork(tut.TestNetworkParams{}),
 		pieceStore,
 		dagStore,
@@ -953,7 +990,8 @@ func TestProviderConfigOpts(t *testing.T) {
 	ds := datastore.NewMapDatastore()
 	pieceStore := tut.NewTestPieceStore()
 	node := testnodes.NewTestRetrievalProviderNode()
-	dagStore := tut.NewMockDagStoreWrapper(pieceStore, node)
+	sa := testnodes.NewTestSectorAccessor()
+	dagStore := tut.NewMockDagStoreWrapper(pieceStore, sa)
 
 	priceFunc := func(ctx context.Context, dealPricingParams retrievalmarket.PricingInput) (retrievalmarket.Ask, error) {
 		ask := retrievalmarket.Ask{}
@@ -963,6 +1001,7 @@ func TestProviderConfigOpts(t *testing.T) {
 	p, err := retrievalimpl.NewProvider(
 		spect.NewIDAddr(t, 2344),
 		node,
+		sa,
 		tut.NewTestRetrievalMarketNetwork(tut.TestNetworkParams{}),
 		pieceStore,
 		dagStore,
@@ -983,6 +1022,7 @@ func TestProviderConfigOpts(t *testing.T) {
 	p, err = retrievalimpl.NewProvider(
 		spect.NewIDAddr(t, 2344),
 		testnodes.NewTestRetrievalProviderNode(),
+		testnodes.NewTestSectorAccessor(),
 		tut.NewTestRetrievalMarketNetwork(tut.TestNetworkParams{}),
 		tut.NewTestPieceStore(),
 		dagStore,
@@ -1029,7 +1069,8 @@ func TestProviderMigrations(t *testing.T) {
 	ds := dss.MutexWrap(datastore.NewMapDatastore())
 	pieceStore := tut.NewTestPieceStore()
 	node := testnodes.NewTestRetrievalProviderNode()
-	dagStore := tut.NewMockDagStoreWrapper(pieceStore, node)
+	sa := testnodes.NewTestSectorAccessor()
+	dagStore := tut.NewMockDagStoreWrapper(pieceStore, sa)
 	dt := tut.NewTestDataTransfer()
 
 	providerDs := namespace.Wrap(ds, datastore.NewKey("/retrievals/provider"))
@@ -1144,6 +1185,7 @@ func TestProviderMigrations(t *testing.T) {
 	retrievalProvider, err := retrievalimpl.NewProvider(
 		spect.NewIDAddr(t, 2344),
 		node,
+		sa,
 		tut.NewTestRetrievalMarketNetwork(tut.TestNetworkParams{}),
 		pieceStore,
 		dagStore,

@@ -6,6 +6,8 @@ import (
 	"os"
 	"sync"
 
+	"github.com/filecoin-project/go-fil-markets/retrievalmarket"
+
 	"github.com/ipfs/go-cid"
 	carv2 "github.com/ipld/go-car/v2"
 	"github.com/ipld/go-car/v2/blockstore"
@@ -14,7 +16,6 @@ import (
 	"github.com/filecoin-project/dagstore"
 
 	"github.com/filecoin-project/go-fil-markets/piecestore"
-	"github.com/filecoin-project/go-fil-markets/retrievalmarket"
 	"github.com/filecoin-project/go-fil-markets/storagemarket"
 	"github.com/filecoin-project/go-fil-markets/stores"
 )
@@ -30,7 +31,7 @@ type registration struct {
 // the deal from a retrieval provider node.
 type MockDagStoreWrapper struct {
 	pieceStore piecestore.PieceStore
-	rpn        retrievalmarket.RetrievalProviderNode
+	sa         retrievalmarket.SectorAccessor
 
 	lk            sync.Mutex
 	registrations map[cid.Cid]registration
@@ -38,10 +39,10 @@ type MockDagStoreWrapper struct {
 
 var _ stores.DAGStoreWrapper = (*MockDagStoreWrapper)(nil)
 
-func NewMockDagStoreWrapper(pieceStore piecestore.PieceStore, rpn retrievalmarket.RetrievalProviderNode) *MockDagStoreWrapper {
+func NewMockDagStoreWrapper(pieceStore piecestore.PieceStore, sa retrievalmarket.SectorAccessor) *MockDagStoreWrapper {
 	return &MockDagStoreWrapper{
 		pieceStore:    pieceStore,
-		rpn:           rpn,
+		sa:            sa,
 		registrations: make(map[cid.Cid]registration),
 	}
 }
@@ -102,7 +103,7 @@ func (m *MockDagStoreWrapper) LoadShard(ctx context.Context, pieceCid cid.Cid) (
 
 	// Unseal the sector data for the deal
 	deal := pi.Deals[0]
-	r, err := m.rpn.UnsealSector(ctx, deal.SectorID, deal.Offset.Unpadded(), deal.Length.Unpadded())
+	r, err := m.sa.UnsealSector(ctx, deal.SectorID, deal.Offset.Unpadded(), deal.Length.Unpadded())
 	if err != nil {
 		return nil, xerrors.Errorf("error unsealing deal for piece %s: %w", pieceCid, err)
 	}

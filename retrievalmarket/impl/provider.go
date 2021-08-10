@@ -46,6 +46,7 @@ var queryTimeout = 5 * time.Second
 type Provider struct {
 	dataTransfer         datatransfer.Manager
 	node                 retrievalmarket.RetrievalProviderNode
+	sa                   retrievalmarket.SectorAccessor
 	network              rmnet.RetrievalMarketNetwork
 	requestValidator     *requestvalidation.ProviderRequestValidator
 	revalidator          *requestvalidation.ProviderRevalidator
@@ -101,6 +102,7 @@ func DisableNewDeals() RetrievalProviderOption {
 // NewProvider returns a new retrieval Provider
 func NewProvider(minerAddress address.Address,
 	node retrievalmarket.RetrievalProviderNode,
+	sa retrievalmarket.SectorAccessor,
 	network rmnet.RetrievalMarketNetwork,
 	pieceStore piecestore.PieceStore,
 	dagStore stores.DAGStoreWrapper,
@@ -117,6 +119,7 @@ func NewProvider(minerAddress address.Address,
 	p := &Provider{
 		dataTransfer:         dataTransfer,
 		node:                 node,
+		sa:                   sa,
 		network:              network,
 		minerAddress:         minerAddress,
 		pieceStore:           pieceStore,
@@ -335,7 +338,7 @@ func (p *Provider) HandleQueryStream(stream rmnet.RetrievalQueryStream) {
 	if query.PieceCID != nil {
 		pieceCID = *query.PieceCID
 	}
-	pieceInfo, isUnsealed, err := getPieceInfoFromCid(ctx, p.node, p.pieceStore, query.PayloadCID, pieceCID)
+	pieceInfo, isUnsealed, err := p.getPieceInfoFromCid(ctx, query.PayloadCID, pieceCID)
 	if err != nil {
 		log.Errorf("Retrieval query: getPieceInfoFromCid: %s", err)
 		if !xerrors.Is(err, retrievalmarket.ErrNotFound) {
@@ -383,6 +386,66 @@ func (p *Provider) HandleQueryStream(stream rmnet.RetrievalQueryStream) {
 	answer.MaxPaymentIntervalIncrease = ask.PaymentIntervalIncrease
 	answer.UnsealPrice = ask.UnsealPrice
 	sendResp(answer)
+}
+
+func (p *Provider) getPieceInfoFromCid(ctx context.Context, payloadCID, pieceCID cid.Cid) (piecestore.PieceInfo, bool, error) {
+	cidInfo, err := p.pieceStore.GetCIDInfo(payloadCID)
+	if err != nil {
+		return piecestore.PieceInfoUndefined, false, xerrors.Errorf("get cid info: %w", err)
+	}
+	var lastErr error
+	var sealedPieceInfo *piecestore.PieceInfo
+
+	for _, pieceBlockLocation := range cidInfo.PieceBlockLocations {
+		pieceInfo, err := p.pieceStore.GetPieceInfo(pieceBlockLocation.PieceCID)
+		if err != nil {
+			lastErr = err
+			continue
+		}
+
+		// if client wants to retrieve the payload from a specific piece, just return that piece.
+		if pieceCID.Defined() && pieceInfo.PieceCID.Equals(pieceCID) {
+			return pieceInfo, p.pieceInUnsealedSector(ctx, pieceInfo), nil
+		}
+
+		// if client dosen't have a preference for a particular piece, prefer a piece
+		// for which an unsealed sector exists.
+		if pieceCID.Equals(cid.Undef) {
+			if p.pieceInUnsealedSector(ctx, pieceInfo) {
+				return pieceInfo, true, nil
+			}
+
+			if sealedPieceInfo == nil {
+				sealedPieceInfo = &pieceInfo
+			}
+		}
+
+	}
+
+	if sealedPieceInfo != nil {
+		return *sealedPieceInfo, false, nil
+	}
+
+	if lastErr == nil {
+		lastErr = xerrors.Errorf("unknown pieceCID %s", pieceCID.String())
+	}
+
+	return piecestore.PieceInfoUndefined, false, xerrors.Errorf("could not locate piece: %w", lastErr)
+}
+
+func (p *Provider) pieceInUnsealedSector(ctx context.Context, pieceInfo piecestore.PieceInfo) bool {
+	for _, di := range pieceInfo.Deals {
+		isUnsealed, err := p.sa.IsUnsealed(ctx, di.SectorID, di.Offset.Unpadded(), di.Length.Unpadded())
+		if err != nil {
+			log.Errorf("failed to find out if sector %d is unsealed, err=%s", di.SectorID, err)
+			continue
+		}
+		if isUnsealed {
+			return true
+		}
+	}
+
+	return false
 }
 
 // GetDynamicAsk quotes a dynamic price for the retrieval deal by calling the user configured

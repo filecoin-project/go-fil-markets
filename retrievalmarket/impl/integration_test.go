@@ -123,6 +123,7 @@ func requireSetupTestClientAndProvider(ctx context.Context, t *testing.T, payChA
 	tut.StartAndWaitForReady(ctx, t, client)
 	nw2 := rmnet.NewFromLibp2pHost(testData.Host2, rmnet.RetryParameters(0, 0, 0, 0))
 	providerNode := testnodes.NewTestRetrievalProviderNode()
+	sectorAccessor := testnodes.NewTestSectorAccessor()
 	pieceStore := tut.NewTestPieceStore()
 	expectedCIDs := tut.GenerateCids(3)
 	expectedPieceCIDs := tut.GenerateCids(3)
@@ -169,9 +170,9 @@ func requireSetupTestClientAndProvider(ctx context.Context, t *testing.T, payChA
 	}
 
 	// Set up a DAG store
-	dagstoreWrapper := tut.NewMockDagStoreWrapper(pieceStore, providerNode)
+	dagstoreWrapper := tut.NewMockDagStoreWrapper(pieceStore, sectorAccessor)
 	provider, err := retrievalimpl.NewProvider(
-		paymentAddress, providerNode, nw2, pieceStore, dagstoreWrapper, dt2, providerDs,
+		paymentAddress, providerNode, sectorAccessor, nw2, pieceStore, dagstoreWrapper, dt2, providerDs,
 		priceFunc)
 	require.NoError(t, err)
 
@@ -430,10 +431,11 @@ func TestClientCanMakeDealWithProvider(t *testing.T) {
 			providerNode := testnodes.NewTestRetrievalProviderNode()
 			providerNode.ExpectPricingParams(pieceInfo.PieceCID, []abi.DealID{100})
 
+			sectorAccessor := testnodes.NewTestSectorAccessor()
 			if testCase.failsUnseal {
-				providerNode.ExpectFailedUnseal(sectorID, offset.Unpadded(), abi.UnpaddedPieceSize(len(carData)))
+				sectorAccessor.ExpectFailedUnseal(sectorID, offset.Unpadded(), abi.UnpaddedPieceSize(len(carData)))
 			} else {
-				providerNode.ExpectUnseal(sectorID, offset.Unpadded(), abi.UnpaddedPieceSize(len(carData)), carData)
+				sectorAccessor.ExpectUnseal(sectorID, offset.Unpadded(), abi.UnpaddedPieceSize(len(carData)), carData)
 			}
 
 			decider := rmtesting.TrivialTestDecider
@@ -446,7 +448,7 @@ func TestClientCanMakeDealWithProvider(t *testing.T) {
 			defer cancel()
 
 			provider := setupProvider(bgCtx, t, testData, payloadCID, pieceInfo, carFile.Name(), expectedQR,
-				providerPaymentAddr, providerNode, decider, testCase.disableNewDeals)
+				providerPaymentAddr, providerNode, sectorAccessor, decider, testCase.disableNewDeals)
 			tut.StartAndWaitForReady(ctx, t, provider)
 
 			retrievalPeer := retrievalmarket.RetrievalPeer{Address: providerPaymentAddr, ID: testData.Host2.ID()}
@@ -588,9 +590,10 @@ CurrentInterval: %d
 			if testCase.decider != nil {
 				assert.True(t, customDeciderRan)
 			}
-			// verify that the nodes we interacted with as expected
+			// verify that the nodes we interacted with behaved as expected
 			clientNode.VerifyExpectations(t)
 			providerNode.VerifyExpectations(t)
+			sectorAccessor.VerifyExpectations(t)
 			if !testCase.failsUnseal && !testCase.cancelled {
 				testData.VerifyFileTransferredIntoStore(t, pieceLink, rresp.CarFilePath, testCase.filesize)
 			}
@@ -665,6 +668,7 @@ func setupProvider(
 	expectedQR retrievalmarket.QueryResponse,
 	providerPaymentAddr address.Address,
 	providerNode retrievalmarket.RetrievalProviderNode,
+	sectorAccessor retrievalmarket.SectorAccessor,
 	decider retrievalimpl.DealDecider,
 	disableNewDeals bool,
 ) retrievalmarket.RetrievalProvider {
@@ -704,7 +708,7 @@ func setupProvider(
 	}
 
 	// Create a DAG store wrapper
-	dagstoreWrapper := tut.NewMockDagStoreWrapper(pieceStore, providerNode)
+	dagstoreWrapper := tut.NewMockDagStoreWrapper(pieceStore, sectorAccessor)
 
 	// Register the piece with the DAG store wrapper
 	err = stores.RegisterShardSync(ctx, dagstoreWrapper, pieceInfo.PieceCID, carFilePath, true)
@@ -714,8 +718,8 @@ func setupProvider(
 	// (instead of using the cached CAR file)
 	_ = os.Remove(carFilePath)
 
-	provider, err := retrievalimpl.NewProvider(providerPaymentAddr, providerNode, nw2,
-		pieceStore, dagstoreWrapper, dt2, providerDs, priceFunc, opts...)
+	provider, err := retrievalimpl.NewProvider(providerPaymentAddr, providerNode, sectorAccessor,
+		nw2, pieceStore, dagstoreWrapper, dt2, providerDs, priceFunc, opts...)
 	require.NoError(t, err)
 
 	return provider
