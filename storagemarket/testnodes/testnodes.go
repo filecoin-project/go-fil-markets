@@ -12,7 +12,6 @@ import (
 
 	"github.com/ipfs/go-cid"
 	"github.com/stretchr/testify/require"
-	"golang.org/x/xerrors"
 
 	"github.com/filecoin-project/go-address"
 	"github.com/filecoin-project/go-state-types/abi"
@@ -384,18 +383,6 @@ func (n *FakeProviderNode) OnDealComplete(ctx context.Context, deal storagemarke
 	n.LastOnDealCompleteBytes, _ = ioutil.ReadAll(pieceReader)
 	// TODO: probably need to return some mock value here
 	return &storagemarket.PackingResult{}, n.OnDealCompleteError
-}
-
-func (n *FakeProviderNode) IsUnsealed(ctx context.Context, sectorID abi.SectorNumber, offset abi.UnpaddedPieceSize, length abi.UnpaddedPieceSize) (bool, error) {
-	n.lk.Lock()
-	defer n.lk.Unlock()
-
-	sealed, ok := n.Sealed[sectorID]
-	if !ok {
-		return false, xerrors.New("not found")
-	}
-
-	return !sealed, nil
 }
 
 // GetMinerWorkerAddress returns the address specified by MinerAddr
