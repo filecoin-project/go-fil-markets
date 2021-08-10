@@ -6,6 +6,8 @@ import (
 	"os"
 	"sync"
 
+	"github.com/filecoin-project/go-fil-markets/retrievalmarket"
+
 	"github.com/ipfs/go-cid"
 	carv2 "github.com/ipld/go-car/v2"
 	"github.com/ipld/go-car/v2/blockstore"
@@ -14,7 +16,6 @@ import (
 	"github.com/filecoin-project/dagstore"
 
 	"github.com/filecoin-project/go-fil-markets/piecestore"
-	"github.com/filecoin-project/go-fil-markets/sectoraccessor"
 	"github.com/filecoin-project/go-fil-markets/storagemarket"
 	"github.com/filecoin-project/go-fil-markets/stores"
 )
@@ -30,7 +31,7 @@ type registration struct {
 // the deal from a retrieval provider node.
 type MockDagStoreWrapper struct {
 	pieceStore piecestore.PieceStore
-	sa         sectoraccessor.SectorAccessor
+	sa         retrievalmarket.SectorAccessor
 
 	lk            sync.Mutex
 	registrations map[cid.Cid]registration
@@ -38,7 +39,7 @@ type MockDagStoreWrapper struct {
 
 var _ stores.DAGStoreWrapper = (*MockDagStoreWrapper)(nil)
 
-func NewMockDagStoreWrapper(pieceStore piecestore.PieceStore, sa sectoraccessor.SectorAccessor) *MockDagStoreWrapper {
+func NewMockDagStoreWrapper(pieceStore piecestore.PieceStore, sa retrievalmarket.SectorAccessor) *MockDagStoreWrapper {
 	return &MockDagStoreWrapper{
 		pieceStore:    pieceStore,
 		sa:            sa,

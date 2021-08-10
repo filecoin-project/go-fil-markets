@@ -28,7 +28,6 @@ import (
 	"github.com/filecoin-project/go-fil-markets/retrievalmarket/impl/requestvalidation"
 	"github.com/filecoin-project/go-fil-markets/retrievalmarket/migrations"
 	rmnet "github.com/filecoin-project/go-fil-markets/retrievalmarket/network"
-	"github.com/filecoin-project/go-fil-markets/sectoraccessor"
 	"github.com/filecoin-project/go-fil-markets/shared"
 	"github.com/filecoin-project/go-fil-markets/stores"
 )
@@ -47,7 +46,7 @@ var queryTimeout = 5 * time.Second
 type Provider struct {
 	dataTransfer         datatransfer.Manager
 	node                 retrievalmarket.RetrievalProviderNode
-	sa                   sectoraccessor.SectorAccessor
+	sa                   retrievalmarket.SectorAccessor
 	network              rmnet.RetrievalMarketNetwork
 	requestValidator     *requestvalidation.ProviderRequestValidator
 	revalidator          *requestvalidation.ProviderRevalidator
@@ -103,7 +102,7 @@ func DisableNewDeals() RetrievalProviderOption {
 // NewProvider returns a new retrieval Provider
 func NewProvider(minerAddress address.Address,
 	node retrievalmarket.RetrievalProviderNode,
-	sa sectoraccessor.SectorAccessor,
+	sa retrievalmarket.SectorAccessor,
 	network rmnet.RetrievalMarketNetwork,
 	pieceStore piecestore.PieceStore,
 	dagStore stores.DAGStoreWrapper,

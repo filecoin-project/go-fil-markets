@@ -36,7 +36,6 @@ import (
 	"github.com/filecoin-project/go-fil-markets/retrievalmarket/impl/testnodes"
 	rmnet "github.com/filecoin-project/go-fil-markets/retrievalmarket/network"
 	rmtesting "github.com/filecoin-project/go-fil-markets/retrievalmarket/testing"
-	"github.com/filecoin-project/go-fil-markets/sectoraccessor"
 	"github.com/filecoin-project/go-fil-markets/shared"
 	tut "github.com/filecoin-project/go-fil-markets/shared_testutil"
 	"github.com/filecoin-project/go-fil-markets/stores"
@@ -669,7 +668,7 @@ func setupProvider(
 	expectedQR retrievalmarket.QueryResponse,
 	providerPaymentAddr address.Address,
 	providerNode retrievalmarket.RetrievalProviderNode,
-	sectorAccessor sectoraccessor.SectorAccessor,
+	sectorAccessor retrievalmarket.SectorAccessor,
 	decider retrievalimpl.DealDecider,
 	disableNewDeals bool,
 ) retrievalmarket.RetrievalProvider {

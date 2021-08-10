@@ -33,7 +33,6 @@ import (
 	"github.com/filecoin-project/go-fil-markets/retrievalmarket/impl/testnodes"
 	"github.com/filecoin-project/go-fil-markets/retrievalmarket/migrations"
 	"github.com/filecoin-project/go-fil-markets/retrievalmarket/network"
-	"github.com/filecoin-project/go-fil-markets/sectoraccessor"
 	"github.com/filecoin-project/go-fil-markets/shared"
 	tut "github.com/filecoin-project/go-fil-markets/shared_testutil"
 )
@@ -143,7 +142,7 @@ func TestDynamicPricing(t *testing.T) {
 	buildProvider := func(
 		t *testing.T,
 		node *testnodes.TestRetrievalProviderNode,
-		sa sectoraccessor.SectorAccessor,
+		sa retrievalmarket.SectorAccessor,
 		qs network.RetrievalQueryStream,
 		pieceStore piecestore.PieceStore,
 		net *tut.TestRetrievalMarketNetwork,

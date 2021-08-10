@@ -9,11 +9,11 @@ import (
 	"sync"
 	"testing"
 
+	"github.com/filecoin-project/go-fil-markets/retrievalmarket"
+
 	"github.com/stretchr/testify/require"
 
 	"github.com/filecoin-project/go-state-types/abi"
-
-	"github.com/filecoin-project/go-fil-markets/sectoraccessor"
 )
 
 type sectorKey struct {
@@ -32,7 +32,7 @@ type TestSectorAccessor struct {
 	unsealPaused chan struct{}
 }
 
-var _ sectoraccessor.SectorAccessor = &TestSectorAccessor{}
+var _ retrievalmarket.SectorAccessor = &TestSectorAccessor{}
 
 // NewTestSectorAccessor instantiates a new TestSectorAccessor
 func NewTestSectorAccessor() *TestSectorAccessor {

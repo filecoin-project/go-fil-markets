@@ -1,4 +1,4 @@
-package sectoraccessor
+package retrievalmarket
 
 import (
 	"context"
