@@ -54,7 +54,7 @@ func (pve *providerValidationEnvironment) GetPiece(c cid.Cid, pieceCID *cid.Cid)
 		inPieceCid = *pieceCID
 	}
 
-	return getPieceInfoFromCid(context.TODO(), pve.p.node, pve.p.pieceStore, c, inPieceCid)
+	return pve.p.getPieceInfoFromCid(context.TODO(), c, inPieceCid)
 }
 
 // CheckDealParams verifies the given deal params are acceptable
@@ -178,21 +178,6 @@ func (pde *providerDealEnvironment) DeleteStore(dealID retrievalmarket.DealID) e
 	return nil
 }
 
-func pieceInUnsealedSector(ctx context.Context, n retrievalmarket.RetrievalProviderNode, pieceInfo piecestore.PieceInfo) bool {
-	for _, di := range pieceInfo.Deals {
-		isUnsealed, err := n.IsUnsealed(ctx, di.SectorID, di.Offset.Unpadded(), di.Length.Unpadded())
-		if err != nil {
-			log.Errorf("failed to find out if sector %d is unsealed, err=%s", di.SectorID, err)
-			continue
-		}
-		if isUnsealed {
-			return true
-		}
-	}
-
-	return false
-}
-
 func storageDealsForPiece(clientSpecificPiece bool, payloadCID cid.Cid, pieceInfo piecestore.PieceInfo, pieceStore piecestore.PieceStore) ([]abi.DealID, error) {
 	var storageDeals []abi.DealID
 	var err error
@@ -246,51 +231,6 @@ func getAllDealsContainingPayload(pieceStore piecestore.PieceStore, payloadCID c
 	}
 
 	return dealsIds, nil
-}
-
-func getPieceInfoFromCid(ctx context.Context, n retrievalmarket.RetrievalProviderNode, pieceStore piecestore.PieceStore, payloadCID, pieceCID cid.Cid) (piecestore.PieceInfo, bool, error) {
-	cidInfo, err := pieceStore.GetCIDInfo(payloadCID)
-	if err != nil {
-		return piecestore.PieceInfoUndefined, false, xerrors.Errorf("get cid info: %w", err)
-	}
-	var lastErr error
-	var sealedPieceInfo *piecestore.PieceInfo
-
-	for _, pieceBlockLocation := range cidInfo.PieceBlockLocations {
-		pieceInfo, err := pieceStore.GetPieceInfo(pieceBlockLocation.PieceCID)
-		if err != nil {
-			lastErr = err
-			continue
-		}
-
-		// if client wants to retrieve the payload from a specific piece, just return that piece.
-		if pieceCID.Defined() && pieceInfo.PieceCID.Equals(pieceCID) {
-			return pieceInfo, pieceInUnsealedSector(ctx, n, pieceInfo), nil
-		}
-
-		// if client dosen't have a preference for a particular piece, prefer a piece
-		// for which an unsealed sector exists.
-		if pieceCID.Equals(cid.Undef) {
-			if pieceInUnsealedSector(ctx, n, pieceInfo) {
-				return pieceInfo, true, nil
-			}
-
-			if sealedPieceInfo == nil {
-				sealedPieceInfo = &pieceInfo
-			}
-		}
-
-	}
-
-	if sealedPieceInfo != nil {
-		return *sealedPieceInfo, false, nil
-	}
-
-	if lastErr == nil {
-		lastErr = xerrors.Errorf("unknown pieceCID %s", pieceCID.String())
-	}
-
-	return piecestore.PieceInfoUndefined, false, xerrors.Errorf("could not locate piece: %w", lastErr)
 }
 
 var _ dtutils.StoreGetter = &providerStoreGetter{}

@@ -87,8 +87,9 @@ func TestStorageRetrieval(t *testing.T) {
 	for name, tc := range tcs {
 		t.Run(name, func(t *testing.T) {
 			providerNode := testnodes2.NewTestRetrievalProviderNode()
+			sa := testnodes2.NewTestSectorAccessor()
 			pieceStore := tut.NewTestPieceStore()
-			deps := setupDepsWithDagStore(bgCtx, t, providerNode, pieceStore)
+			deps := setupDepsWithDagStore(bgCtx, t, sa, pieceStore)
 			sh := testharness.NewHarnessWithTestData(t, deps.TestData, deps, true, false)
 
 			defer os.Remove(sh.IndexedCAR)
@@ -103,7 +104,7 @@ func TestStorageRetrieval(t *testing.T) {
 				PaymentInterval:         tc.paymentInterval,
 				PaymentIntervalIncrease: tc.paymentIntervalIncrease,
 			}
-			rh := newRetrievalHarnessWithDeps(ctxTimeout, t, sh, storageProviderSeenDeal, providerNode, pieceStore, params)
+			rh := newRetrievalHarnessWithDeps(ctxTimeout, t, sh, storageProviderSeenDeal, providerNode, sa, pieceStore, params)
 
 			checkRetrieve(t, bgCtx, rh, sh, tc.voucherAmts)
 		})
@@ -156,8 +157,9 @@ func TestOfflineStorageRetrieval(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			// offline storage
 			providerNode := testnodes2.NewTestRetrievalProviderNode()
+			sa := testnodes2.NewTestSectorAccessor()
 			pieceStore := tut.NewTestPieceStore()
-			deps := setupDepsWithDagStore(bgCtx, t, providerNode, pieceStore)
+			deps := setupDepsWithDagStore(bgCtx, t, sa, pieceStore)
 			sh := testharness.NewHarnessWithTestData(t, deps.TestData, deps, true, false)
 			defer os.Remove(sh.IndexedCAR)
 
@@ -247,7 +249,7 @@ func TestOfflineStorageRetrieval(t *testing.T) {
 				PaymentInterval:         tc.paymentInterval,
 				PaymentIntervalIncrease: tc.paymentIntervalIncrease,
 			}
-			rh := newRetrievalHarnessWithDeps(ctxTimeout, t, sh, cd, providerNode, pieceStore, params)
+			rh := newRetrievalHarnessWithDeps(ctxTimeout, t, sh, cd, providerNode, sa, pieceStore, params)
 
 			checkRetrieve(t, bgCtx, rh, sh, tc.voucherAmts)
 		})
@@ -353,6 +355,7 @@ type retrievalHarness struct {
 	ClientNode                  *testnodes2.TestRetrievalClientNode
 	Provider                    retrievalmarket.RetrievalProvider
 	ProviderNode                *testnodes2.TestRetrievalProviderNode
+	SectorAccessor              *testnodes2.TestSectorAccessor
 	PieceStore                  piecestore.PieceStore
 	ExpPaych, NewLaneAddr       *address.Address
 	ExpPaychAmt, ActualPaychAmt *abi.TokenAmount
@@ -362,11 +365,11 @@ type retrievalHarness struct {
 	TestDataNet *shared_testutil.Libp2pTestData
 }
 
-func setupDepsWithDagStore(ctx context.Context, t *testing.T, providerNode *testnodes2.TestRetrievalProviderNode, pieceStore *tut.TestPieceStore) *dependencies.StorageDependencies {
+func setupDepsWithDagStore(ctx context.Context, t *testing.T, sa *testnodes2.TestSectorAccessor, pieceStore *tut.TestPieceStore) *dependencies.StorageDependencies {
 	smState := testnodes.NewStorageMarketState()
 	td := shared_testutil.NewLibp2pTestData(ctx, t)
 	deps := dependencies.NewDependenciesWithTestData(t, ctx, td, smState, "", testnodes.DelayFakeCommonNode{}, testnodes.DelayFakeCommonNode{})
-	deps.DagStore = tut.NewMockDagStoreWrapper(pieceStore, providerNode)
+	deps.DagStore = tut.NewMockDagStoreWrapper(pieceStore, sa)
 	return deps
 }
 
@@ -376,6 +379,7 @@ func newRetrievalHarnessWithDeps(
 	sh *testharness.StorageHarness,
 	deal storagemarket.ClientDeal,
 	providerNode *testnodes2.TestRetrievalProviderNode,
+	sa *testnodes2.TestSectorAccessor,
 	pieceStore *tut.TestPieceStore,
 	params ...retrievalmarket.Params,
 ) *retrievalHarness {
@@ -435,7 +439,7 @@ func newRetrievalHarnessWithDeps(
 			},
 		},
 	}
-	providerNode.ExpectUnseal(sectorID, offset.Unpadded(), abi.UnpaddedPieceSize(uint64(len(carData))), carData)
+	sa.ExpectUnseal(sectorID, offset.Unpadded(), abi.UnpaddedPieceSize(uint64(len(carData))), carData)
 
 	// clear out provider blockstore
 	allCids, err := sh.TestData.Bs2.AllKeysChan(sh.Ctx)
@@ -480,8 +484,8 @@ func newRetrievalHarnessWithDeps(
 	}
 
 	provider, err := retrievalimpl.NewProvider(
-		providerPaymentAddr, providerNode, nw2, pieceStore, sh.DagStore, sh.DTProvider, providerDs,
-		priceFunc)
+		providerPaymentAddr, providerNode, sa, nw2, pieceStore,
+		sh.DagStore, sh.DTProvider, providerDs, priceFunc)
 	require.NoError(t, err)
 	tut.StartAndWaitForReady(ctx, t, provider)
 
@@ -497,6 +501,7 @@ func newRetrievalHarnessWithDeps(
 		ActualVoucher:   &newVoucher,
 		Provider:        provider,
 		ProviderNode:    providerNode,
+		SectorAccessor:  sa,
 		PieceStore:      sh.PieceStore,
 		RetrievalParams: p,
 		TestDataNet:     sh.TestData,
