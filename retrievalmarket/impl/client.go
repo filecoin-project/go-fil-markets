@@ -33,8 +33,8 @@ import (
 var log = logging.Logger("retrieval")
 
 type BlockstoreAccessor interface {
-	Get(key string, rootCid cid.Cid) (bstore.Blockstore, error)
-	Close(key string) error
+	Get(rootCid cid.Cid) (bstore.Blockstore, error)
+	Close(rootCid cid.Cid) error
 }
 
 // Client is the production implementation of the RetrievalClient interface
@@ -464,7 +464,7 @@ func (c *clientDealEnvironment) CloseDataTransfer(ctx context.Context, channelID
 
 // FinalizeBlockstore is called when all blocks have been received
 func (c *clientDealEnvironment) FinalizeBlockstore(ctx context.Context, payloadCid cid.Cid) error {
-	return c.c.bstores.Close(payloadCid.String())
+	return c.c.bstores.Close(payloadCid)
 }
 
 type clientStoreGetter struct {
@@ -477,7 +477,7 @@ func (csg *clientStoreGetter) Get(otherPeer peer.ID, dealID retrievalmarket.Deal
 	if err != nil {
 		return nil, err
 	}
-	return csg.c.bstores.Get(deal.PayloadCID.String(), deal.PayloadCID)
+	return csg.c.bstores.Get(deal.PayloadCID)
 }
 
 // ClientFSMParameterSpec is a valid set of parameters for a client deal FSM - used in doc generation
