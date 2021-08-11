@@ -300,7 +300,7 @@ func checkRetrieve(t *testing.T, bgCtx context.Context, rh *retrievalHarness, sh
 		}
 	})
 
-	fsize, resp := doRetrieve(t, bgCtx, rh, sh, vAmts)
+	fsize := doRetrieve(t, bgCtx, rh, sh, vAmts)
 
 	ctxTimeout, cancel := context.WithTimeout(bgCtx, 10*time.Second)
 	defer cancel()
@@ -329,7 +329,7 @@ func checkRetrieve(t *testing.T, bgCtx context.Context, rh *retrievalHarness, sh
 
 	rh.ClientNode.VerifyExpectations(t)
 
-	sh.TestData.VerifyFileTransferredIntoStore(t, cidlink.Link{Cid: sh.PayloadCid}, resp.CarFilePath, uint64(fsize))
+	sh.TestData.VerifyFileTransferredIntoStore(t, cidlink.Link{Cid: sh.PayloadCid}, rh.BlockstoreAccessor.Blockstore, uint64(fsize))
 }
 
 // waitGroupWait calls wg.Wait while respecting context cancellation
@@ -355,6 +355,7 @@ type retrievalHarness struct {
 	ClientNode                  *testnodes2.TestRetrievalClientNode
 	Provider                    retrievalmarket.RetrievalProvider
 	ProviderNode                *testnodes2.TestRetrievalProviderNode
+	BlockstoreAccessor          *tut.TestRetrievalBlockstoreAccessor
 	SectorAccessor              *testnodes2.TestSectorAccessor
 	PieceStore                  piecestore.PieceStore
 	ExpPaych, NewLaneAddr       *address.Address
@@ -417,7 +418,8 @@ func newRetrievalHarnessWithDeps(
 
 	nw1 := rmnet.NewFromLibp2pHost(sh.TestData.Host1, rmnet.RetryParameters(0, 0, 0, 0))
 	clientDs := namespace.Wrap(sh.TestData.Ds1, datastore.NewKey("/retrievals/client"))
-	client, err := retrievalimpl.NewClient(nw1, sh.DTClient, clientNode, sh.PeerResolver, clientDs)
+	ba := tut.NewTestRetrievalBlockstoreAccessor()
+	client, err := retrievalimpl.NewClient(nw1, sh.DTClient, clientNode, sh.PeerResolver, clientDs, ba)
 	require.NoError(t, err)
 	tut.StartAndWaitForReady(ctx, t, client)
 	payloadCID := deal.DataRef.Root
@@ -490,21 +492,22 @@ func newRetrievalHarnessWithDeps(
 	tut.StartAndWaitForReady(ctx, t, provider)
 
 	return &retrievalHarness{
-		Ctx:             ctx,
-		Client:          client,
-		ClientNode:      clientNode,
-		Epoch:           sh.Epoch,
-		ExpPaych:        &clientPaymentChannel,
-		NewLaneAddr:     &newLaneAddr,
-		ActualPaychAmt:  &newPaychAmt,
-		ExpVoucher:      expectedVoucher,
-		ActualVoucher:   &newVoucher,
-		Provider:        provider,
-		ProviderNode:    providerNode,
-		SectorAccessor:  sa,
-		PieceStore:      sh.PieceStore,
-		RetrievalParams: p,
-		TestDataNet:     sh.TestData,
+		Ctx:                ctx,
+		Client:             client,
+		ClientNode:         clientNode,
+		Epoch:              sh.Epoch,
+		ExpPaych:           &clientPaymentChannel,
+		NewLaneAddr:        &newLaneAddr,
+		ActualPaychAmt:     &newPaychAmt,
+		ExpVoucher:         expectedVoucher,
+		ActualVoucher:      &newVoucher,
+		Provider:           provider,
+		ProviderNode:       providerNode,
+		SectorAccessor:     sa,
+		BlockstoreAccessor: ba,
+		PieceStore:         sh.PieceStore,
+		RetrievalParams:    p,
+		TestDataNet:        sh.TestData,
 	}
 }
 
@@ -569,7 +572,7 @@ func doStorage(t *testing.T, ctx context.Context, sh *testharness.StorageHarness
 	return storageClientSeenDeal
 }
 
-func doRetrieve(t *testing.T, ctx context.Context, rh *retrievalHarness, sh *testharness.StorageHarness, voucherAmts []abi.TokenAmount) (int, *retrievalmarket.RetrieveResponse) {
+func doRetrieve(t *testing.T, ctx context.Context, rh *retrievalHarness, sh *testharness.StorageHarness, voucherAmts []abi.TokenAmount) int {
 
 	proof := []byte("")
 	for _, voucherAmt := range voucherAmts {
@@ -599,8 +602,8 @@ func doRetrieve(t *testing.T, ctx context.Context, rh *retrievalHarness, sh *tes
 
 	// *** Retrieve the piece
 	carPath := filepath.Join(t.TempDir(), "out.car")
-	rresp, err := rh.Client.Retrieve(ctx, sh.PayloadCid, rmParams, expectedTotal, retrievalPeer, *rh.ExpPaych, retrievalPeer.Address, carPath)
+	_, err = rh.Client.Retrieve(ctx, sh.PayloadCid, rmParams, expectedTotal, retrievalPeer, *rh.ExpPaych, retrievalPeer.Address, carPath)
 	require.NoError(t, err)
 
-	return fsize, rresp
+	return fsize
 }

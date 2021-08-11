@@ -337,7 +337,9 @@ func (c *Client) ProposeStorageDeal(ctx context.Context, params storagemarket.Pr
 		return nil, xerrors.Errorf("looking up addresses: %w", err)
 	}
 
-	commP, pieceSize, err := clientutils.CommP(ctx, params.IndexedCAR, params.Data)
+	// TODO: Change clientutils.CommP to accept a blockstore?
+	//bs, err := c.bstores.Get(params.Data.Root)
+	commP, pieceSize, err := clientutils.CommP(ctx, "", params.Data)
 	if err != nil {
 		return nil, xerrors.Errorf("computing commP failed: %w", err)
 	}

@@ -281,9 +281,6 @@ type ProposeStorageDealParams struct {
 	Rt            abi.RegisteredSealProof
 	FastRetrieval bool
 	VerifiedDeal  bool
-
-	// path of the CARv2 file containing the entire UnixFSDAG OR a CARv2 file that can be used as backing store for a FileStore.
-	IndexedCAR string
 }
 
 const (

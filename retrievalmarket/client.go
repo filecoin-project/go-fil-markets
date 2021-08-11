@@ -48,8 +48,7 @@ type RetrievalClient interface {
 		p RetrievalPeer,
 		clientWallet address.Address,
 		minerWallet address.Address,
-		carFilePath string,
-	) (*RetrieveResponse, error)
+	) (DealID, error)
 
 	// SubscribeToEvents listens for events that happen related to client retrievals
 	SubscribeToEvents(subscriber ClientSubscriber) Unsubscribe

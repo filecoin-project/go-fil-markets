@@ -118,7 +118,8 @@ func requireSetupTestClientAndProvider(ctx context.Context, t *testing.T, payChA
 	testutil.StartAndWaitForReady(ctx, t, dt1)
 	require.NoError(t, err)
 	clientDs := namespace.Wrap(testData.Ds1, datastore.NewKey("/retrievals/client"))
-	client, err := retrievalimpl.NewClient(nw1, dt1, rcNode1, &tut.TestPeerResolver{}, clientDs)
+	ba := tut.NewTestRetrievalBlockstoreAccessor()
+	client, err := retrievalimpl.NewClient(nw1, dt1, rcNode1, &tut.TestPeerResolver{}, clientDs, ba)
 	require.NoError(t, err)
 	tut.StartAndWaitForReady(ctx, t, client)
 	nw2 := rmnet.NewFromLibp2pHost(testData.Host2, rmnet.RetryParameters(0, 0, 0, 0))
@@ -466,7 +467,7 @@ func TestClientCanMakeDealWithProvider(t *testing.T) {
 			}
 
 			nw1 := rmnet.NewFromLibp2pHost(testData.Host1, rmnet.RetryParameters(0, 0, 0, 0))
-			createdChan, newLaneAddr, createdVoucher, clientNode, client, err := setupClient(bgCtx, t, clientPaymentChannel, expectedVoucher, nw1, testData, testCase.addFunds, testCase.channelAvailableFunds)
+			createdChan, newLaneAddr, createdVoucher, clientNode, client, ba, err := setupClient(bgCtx, t, clientPaymentChannel, expectedVoucher, nw1, testData, testCase.addFunds, testCase.channelAvailableFunds)
 			require.NoError(t, err)
 			tut.StartAndWaitForReady(ctx, t, client)
 
@@ -539,8 +540,7 @@ CurrentInterval: %d
 			}
 
 			// *** Retrieve the piece
-			carPath := filepath.Join(t.TempDir(), "out.car")
-			rresp, err := client.Retrieve(bgCtx, payloadCID, rmParams, expectedTotal, retrievalPeer, clientPaymentChannel, retrievalPeer.Address, carPath)
+			_, err = client.Retrieve(bgCtx, payloadCID, rmParams, expectedTotal, retrievalPeer, clientPaymentChannel, retrievalPeer.Address)
 			require.NoError(t, err)
 
 			// verify that client subscribers will be notified of state changes
@@ -595,7 +595,7 @@ CurrentInterval: %d
 			providerNode.VerifyExpectations(t)
 			sectorAccessor.VerifyExpectations(t)
 			if !testCase.failsUnseal && !testCase.cancelled {
-				testData.VerifyFileTransferredIntoStore(t, pieceLink, rresp.CarFilePath, testCase.filesize)
+				testData.VerifyFileTransferredIntoStore(t, pieceLink, ba.Blockstore, testCase.filesize)
 			}
 		})
 	}
@@ -616,6 +616,7 @@ func setupClient(
 	*paych.SignedVoucher,
 	*testnodes.TestRetrievalClientNode,
 	retrievalmarket.RetrievalClient,
+	*tut.TestRetrievalBlockstoreAccessor,
 	error) {
 	var createdChan pmtChan
 	paymentChannelRecorder := func(client, miner address.Address, amt abi.TokenAmount) {
@@ -653,9 +654,10 @@ func setupClient(
 	testutil.StartAndWaitForReady(ctx, t, dt1)
 	require.NoError(t, err)
 	clientDs := namespace.Wrap(testData.Ds1, datastore.NewKey("/retrievals/client"))
+	ba := tut.NewTestRetrievalBlockstoreAccessor()
 
-	client, err := retrievalimpl.NewClient(nw1, dt1, clientNode, &tut.TestPeerResolver{}, clientDs)
-	return &createdChan, &newLaneAddr, &createdVoucher, clientNode, client, err
+	client, err := retrievalimpl.NewClient(nw1, dt1, clientNode, &tut.TestPeerResolver{}, clientDs, ba)
+	return &createdChan, &newLaneAddr, &createdVoucher, clientNode, client, ba, err
 }
 
 func setupProvider(

@@ -32,9 +32,13 @@ import (
 
 var log = logging.Logger("retrieval")
 
+// The retrieval market client gets a blockstore from the BlockstoreAccessor
+// when it needs to store blocks received from the provider. This allows the
+// caller to provide different implementations of the blockstore, eg an IPFS
+// store vs a CARv2 file.
 type BlockstoreAccessor interface {
-	Get(key string, rootCid cid.Cid) (bstore.Blockstore, error)
-	Close(key string) error
+	Get(rootCid cid.Cid) (bstore.Blockstore, error)
+	Close(rootCid cid.Cid) error
 }
 
 // Client is the production implementation of the RetrievalClient interface
@@ -241,8 +245,7 @@ func (c *Client) Retrieve(
 	p retrievalmarket.RetrievalPeer,
 	clientWallet address.Address,
 	minerWallet address.Address,
-	carFileDest string,
-) (*retrievalmarket.RetrieveResponse, error) {
+) (retrievalmarket.DealID, error) {
 	c.retrieveLk.Lock()
 	defer c.retrieveLk.Unlock()
 
@@ -250,12 +253,12 @@ func (c *Client) Retrieve(
 	// for the same payload CID
 	err := c.checkForActiveDeal(payloadCID, p.ID)
 	if err != nil {
-		return nil, err
+		return 0, err
 	}
 
 	err = c.addMultiaddrs(ctx, p)
 	if err != nil {
-		return nil, err
+		return 0, err
 	}
 
 	next := c.dealIDGen.Next()
@@ -282,18 +285,15 @@ func (c *Client) Retrieve(
 	// start the deal processing
 	err = c.stateMachines.Begin(dealState.ID, &dealState)
 	if err != nil {
-		return nil, err
+		return 0, err
 	}
 
 	err = c.stateMachines.Send(dealState.ID, retrievalmarket.ClientEventOpen)
 	if err != nil {
-		return nil, err
+		return 0, err
 	}
 
-	return &retrievalmarket.RetrieveResponse{
-		DealID:      dealID,
-		CarFilePath: carFileDest,
-	}, nil
+	return dealID, nil
 }
 
 // Check if there's already an active retrieval deal with the same peer
@@ -464,7 +464,7 @@ func (c *clientDealEnvironment) CloseDataTransfer(ctx context.Context, channelID
 
 // FinalizeBlockstore is called when all blocks have been received
 func (c *clientDealEnvironment) FinalizeBlockstore(ctx context.Context, payloadCid cid.Cid) error {
-	return c.c.bstores.Close(payloadCid.String())
+	return c.c.bstores.Close(payloadCid)
 }
 
 type clientStoreGetter struct {
@@ -477,7 +477,7 @@ func (csg *clientStoreGetter) Get(otherPeer peer.ID, dealID retrievalmarket.Deal
 	if err != nil {
 		return nil, err
 	}
-	return csg.c.bstores.Get(deal.PayloadCID.String(), deal.PayloadCID)
+	return csg.c.bstores.Get(deal.PayloadCID)
 }
 
 // ClientFSMParameterSpec is a valid set of parameters for a client deal FSM - used in doc generation
