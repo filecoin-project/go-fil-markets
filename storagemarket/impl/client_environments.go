@@ -14,7 +14,6 @@ import (
 
 	"github.com/filecoin-project/go-fil-markets/storagemarket"
 	"github.com/filecoin-project/go-fil-markets/storagemarket/network"
-	"github.com/filecoin-project/go-fil-markets/stores"
 )
 
 // -------
@@ -33,8 +32,8 @@ func (c *clientDealEnvironment) Node() storagemarket.StorageClientNode {
 	return c.c.node
 }
 
-func (c *clientDealEnvironment) CleanBlockstore(proposalCid cid.Cid) error {
-	return c.c.stores.Untrack(proposalCid.String())
+func (c *clientDealEnvironment) CleanBlockstore(rootCid cid.Cid) error {
+	return c.c.bstores.Close(rootCid.String())
 }
 
 func (c *clientDealEnvironment) StartDataTransfer(ctx context.Context, to peer.ID, voucher datatransfer.Voucher, baseCid cid.Cid, selector ipld.Node) (datatransfer.ChannelID,
@@ -66,17 +65,11 @@ func (csg *clientStoreGetter) Get(proposalCid cid.Cid) (bstore.Blockstore, error
 		return nil, xerrors.Errorf("failed to get client deal state: %w", err)
 	}
 
-	// Open a read-only blockstore off the CAR file, wrapped in a filestore so
-	// it can read file positional references.
-	bs, err := stores.ReadOnlyFilestore(deal.IndexedCAR)
+	bs, err := csg.c.bstores.Get(deal.DataRef.Root.String())
 	if err != nil {
-		return nil, xerrors.Errorf("failed to open car filestore: %w", err)
+		return nil, xerrors.Errorf("failed to get blockstore for %s: %w", proposalCid, err)
 	}
 
-	_, err = csg.c.stores.Track(proposalCid.String(), bs)
-	if err != nil {
-		return nil, xerrors.Errorf("failed to get blockstore from tracker: %w", err)
-	}
 	return bs, nil
 }
 

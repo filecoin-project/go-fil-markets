@@ -32,7 +32,7 @@ const MaxGraceEpochsForDealAcceptance = 10
 type ClientDealEnvironment interface {
 	// CleanBlockstore cleans up the read-only CARv2 blockstore that provides random access on top of client deal data.
 	// It's important to do this when the client deal finishes successfully or errors out.
-	CleanBlockstore(proposalCid cid.Cid) error
+	CleanBlockstore(rootCid cid.Cid) error
 	Node() storagemarket.StorageClientNode
 	NewDealStream(ctx context.Context, p peer.ID) (network.StorageDealStream, error)
 	StartDataTransfer(ctx context.Context, to peer.ID, voucher datatransfer.Voucher, baseCid cid.Cid, selector ipld.Node) (datatransfer.ChannelID, error)
@@ -287,7 +287,7 @@ func WaitForDealCompletion(ctx fsm.Context, environment ClientDealEnvironment, d
 	node := environment.Node()
 
 	// deal is now active, clean up the blockstore.
-	if err := environment.CleanBlockstore(deal.ProposalCid); err != nil {
+	if err := environment.CleanBlockstore(deal.DataRef.Root); err != nil {
 		log.Errorf("storage deal active but failed to cleanup rea-only blockstore, proposalCid=%s, err=%s", deal.ProposalCid, err)
 	}
 
@@ -325,7 +325,7 @@ func FailDeal(ctx fsm.Context, environment ClientDealEnvironment, deal storagema
 
 	environment.UntagPeer(deal.Miner, deal.ProposalCid.String())
 
-	if err := environment.CleanBlockstore(deal.ProposalCid); err != nil {
+	if err := environment.CleanBlockstore(deal.DataRef.Root); err != nil {
 		log.Errorf("failed to cleanup read-only blockstore, proposalCid=%s: %s", deal.ProposalCid, err)
 	}
 

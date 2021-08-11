@@ -8,6 +8,7 @@ import (
 	"github.com/hannahhoward/go-pubsub"
 	"github.com/ipfs/go-cid"
 	"github.com/ipfs/go-datastore"
+	bstore "github.com/ipfs/go-ipfs-blockstore"
 	logging "github.com/ipfs/go-log/v2"
 	cbg "github.com/whyrusleeping/cbor-gen"
 	"golang.org/x/xerrors"
@@ -33,7 +34,6 @@ import (
 	"github.com/filecoin-project/go-fil-markets/storagemarket/impl/requestvalidation"
 	"github.com/filecoin-project/go-fil-markets/storagemarket/migrations"
 	"github.com/filecoin-project/go-fil-markets/storagemarket/network"
-	"github.com/filecoin-project/go-fil-markets/stores"
 )
 
 var log = logging.Logger("storagemarket_impl")
@@ -42,6 +42,11 @@ var log = logging.Logger("storagemarket_impl")
 const DefaultPollingInterval = 30 * time.Second
 
 var _ storagemarket.StorageClient = &Client{}
+
+type BlockstoreAccessor interface {
+	Get(key string) (bstore.Blockstore, error)
+	Close(key string) error
+}
 
 // Client is the production implementation of the StorageClient interface
 type Client struct {
@@ -58,7 +63,7 @@ type Client struct {
 
 	unsubDataTransfer datatransfer.Unsubscribe
 
-	stores *stores.ReadOnlyBlockstores
+	bstores BlockstoreAccessor
 }
 
 // StorageClientOption allows custom configuration of a storage client
@@ -79,6 +84,7 @@ func NewClient(
 	discovery *discoveryimpl.Local,
 	ds datastore.Batching,
 	scn storagemarket.StorageClientNode,
+	bstores BlockstoreAccessor,
 	options ...StorageClientOption,
 ) (*Client, error) {
 	c := &Client{
@@ -89,7 +95,7 @@ func NewClient(
 		pubSub:          pubsub.New(clientDispatcher),
 		readySub:        pubsub.New(shared.ReadyDispatcher),
 		pollingInterval: DefaultPollingInterval,
-		stores:          stores.NewReadOnlyBlockstores(),
+		bstores:         bstores,
 	}
 	storageMigrations, err := migrations.ClientMigrations.Build()
 	if err != nil {
