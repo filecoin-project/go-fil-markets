@@ -33,7 +33,7 @@ func (c *clientDealEnvironment) Node() storagemarket.StorageClientNode {
 }
 
 func (c *clientDealEnvironment) CleanBlockstore(rootCid cid.Cid) error {
-	return c.c.bstores.Close(rootCid.String())
+	return c.c.bstores.Close(rootCid)
 }
 
 func (c *clientDealEnvironment) StartDataTransfer(ctx context.Context, to peer.ID, voucher datatransfer.Voucher, baseCid cid.Cid, selector ipld.Node) (datatransfer.ChannelID,
@@ -65,7 +65,7 @@ func (csg *clientStoreGetter) Get(proposalCid cid.Cid) (bstore.Blockstore, error
 		return nil, xerrors.Errorf("failed to get client deal state: %w", err)
 	}
 
-	bs, err := csg.c.bstores.Get(deal.DataRef.Root.String())
+	bs, err := csg.c.bstores.Get(deal.DataRef.Root)
 	if err != nil {
 		return nil, xerrors.Errorf("failed to get blockstore for %s: %w", proposalCid, err)
 	}

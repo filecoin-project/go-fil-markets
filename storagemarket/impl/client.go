@@ -43,9 +43,13 @@ const DefaultPollingInterval = 30 * time.Second
 
 var _ storagemarket.StorageClient = &Client{}
 
+// The storage market client gets a blockstore from the BlockstoreAccessor
+// when it needs to send blocks to the provider. This allows the caller to
+// provide different implementations of the blockstore, eg an IPFS store vs
+// a CARv2 file.
 type BlockstoreAccessor interface {
-	Get(key string) (bstore.Blockstore, error)
-	Close(key string) error
+	Get(rootCid cid.Cid) (bstore.Blockstore, error)
+	Close(rootCid cid.Cid) error
 }
 
 // Client is the production implementation of the StorageClient interface
