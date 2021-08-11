@@ -22,6 +22,7 @@ import (
 	unixfile "github.com/ipfs/go-unixfs/file"
 	"github.com/ipfs/go-unixfs/importer/balanced"
 	ihelper "github.com/ipfs/go-unixfs/importer/helpers"
+	"github.com/ipld/go-car/v2/blockstore"
 	mh "github.com/multiformats/go-multihash"
 	"github.com/stretchr/testify/require"
 )
@@ -33,7 +34,7 @@ const (
 
 var defaultHashFunction = uint64(mh.BLAKE2B_MIN + 31)
 
-func TestReadOnlyFilstoreWithPosInfoCARFile(t *testing.T) {
+func TestFilestoreRoundtrip(t *testing.T) {
 	ctx := context.Background()
 	normalFilePath, origBytes := createFile(t, 10, 10485760)
 
@@ -46,6 +47,7 @@ func TestReadOnlyFilstoreWithPosInfoCARFile(t *testing.T) {
 	require.NoError(t, err)
 	require.NoError(t, tmpCARv2.Close())
 
+	// writing a filestore, and then using it as as source.
 	fs, err := ReadWriteFilestore(tmpCARv2.Name(), root)
 	require.NoError(t, err)
 
@@ -79,16 +81,16 @@ func TestReadOnlyFilestoreWithDenseCARFile(t *testing.T) {
 	require.NoError(t, err)
 	require.NoError(t, tmpCARv2.Close())
 
-	fs, err := ReadWriteFilestore(tmpCARv2.Name(), root)
+	bs, err := blockstore.OpenReadWrite(tmpCARv2.Name(), []cid.Cid{root})
 	require.NoError(t, err)
 
-	dagSvc := merkledag.NewDAGService(blockservice.New(fs, offline.Exchange(fs)))
+	dagSvc := merkledag.NewDAGService(blockservice.New(bs, offline.Exchange(bs)))
 	root2 := writeUnixfsDAGTo(t, ctx, normalFilePath, dagSvc)
-	require.NoError(t, fs.Close())
+	require.NoError(t, bs.Finalize())
 	require.Equal(t, root, root2)
 
 	// Open a read only filestore with the full CARv2 file
-	fs, err = ReadOnlyFilestore(tmpCARv2.Name())
+	fs, err := ReadOnlyFilestore(tmpCARv2.Name())
 	require.NoError(t, err)
 
 	// write out the normal file using the Filestore and assert the contents match.
