@@ -17,11 +17,13 @@ func TestReadWriteStoreTracker(t *testing.T) {
 
 	// Create a CARv2 file from a fixture
 	testData := tut.NewLibp2pTestData(ctx, t)
-	fpath1 := filepath.Join("retrievalmarket", "impl", "fixtures", "lorem.txt")
+
+	fpath1 := filepath.Join(tut.ThisDir(t), "../retrievalmarket/impl/fixtures/lorem.txt")
 	lnk1, carFilePath1 := testData.LoadUnixFSFileToStore(t, fpath1)
 	rootCidLnk1, ok := lnk1.(cidlink.Link)
 	require.True(t, ok)
-	fpath2 := filepath.Join("retrievalmarket", "impl", "fixtures", "lorem_under_1_block.txt")
+
+	fpath2 := filepath.Join(tut.ThisDir(t), "../retrievalmarket/impl/fixtures/lorem_under_1_block.txt")
 	lnk2, carFilePath2 := testData.LoadUnixFSFileToStore(t, fpath2)
 	rootCidLnk2, ok := lnk2.(cidlink.Link)
 	require.True(t, ok)

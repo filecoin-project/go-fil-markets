@@ -21,10 +21,10 @@ func TestReadOnlyStoreTracker(t *testing.T) {
 	// Create a CARv2 file from a fixture
 	testData := tut.NewLibp2pTestData(ctx, t)
 
-	fpath1 := filepath.Join("retrievalmarket", "impl", "fixtures", "lorem.txt")
+	fpath1 := filepath.Join(tut.ThisDir(t), "../retrievalmarket/impl/fixtures/lorem.txt")
 	_, carFilePath := testData.LoadUnixFSFileToStore(t, fpath1)
 
-	fpath2 := filepath.Join("retrievalmarket", "impl", "fixtures", "lorem_under_1_block.txt")
+	fpath2 := filepath.Join(tut.ThisDir(t), "../retrievalmarket/impl/fixtures/lorem_under_1_block.txt")
 	_, carFilePath2 := testData.LoadUnixFSFileToStore(t, fpath2)
 
 	rdOnlyBS1, err := blockstore.OpenReadOnly(carFilePath, carv2.ZeroLengthSectionAsEOF(true), blockstore.UseWholeCIDs(true))

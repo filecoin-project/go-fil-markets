@@ -6,8 +6,6 @@ import (
 	"io"
 	"io/ioutil"
 	"os"
-	"path/filepath"
-	"runtime"
 	"testing"
 
 	blocks "github.com/ipfs/go-block-format"
@@ -31,6 +29,8 @@ import (
 	"golang.org/x/net/context"
 
 	dtnet "github.com/filecoin-project/go-data-transfer/network"
+
+	"github.com/filecoin-project/go-fil-markets/shared_testutil/unixfs"
 )
 
 type Libp2pTestData struct {
@@ -145,9 +145,6 @@ func NewLibp2pTestData(ctx context.Context, t *testing.T) *Libp2pTestData {
 	return testData
 }
 
-const unixfsChunkSize uint64 = 1 << 10
-const unixfsLinksPerLevel = 1024
-
 // LoadUnixFSFile injects the fixture `src` into the given blockstore from the
 // fixtures directory. If useSecondNode is true, fixture is injected to the second node;
 // otherwise the first node gets it
@@ -171,11 +168,7 @@ func (ltd *Libp2pTestData) LoadUnixFSFileToStore(t *testing.T, src string) (ipld
 }
 
 func (ltd *Libp2pTestData) loadUnixFSFile(t *testing.T, src string, dagService ipldformat.DAGService) (ipld.Link, string) {
-	// save the original files bytes
-	fpath, err := filepath.Abs(filepath.Join(thisDir(t), "..", src))
-	require.NoError(t, err)
-
-	f, err := os.Open(fpath)
+	f, err := os.Open(src)
 	require.NoError(t, err)
 
 	ltd.OrigBytes, err = ioutil.ReadAll(f)
@@ -183,17 +176,11 @@ func (ltd *Libp2pTestData) loadUnixFSFile(t *testing.T, src string, dagService i
 	require.NotEmpty(t, ltd.OrigBytes)
 
 	// generate a unixfs dag using the given dagService to get the root.
-	root := buildUnixFS(t, src, dagService)
+	root := unixfs.WriteUnixfsDAGTo(t, src, dagService)
 
 	// Create a UnixFS DAG again AND generate a CARv2 file that can be used to back a filestore.
 	path := genRefCARv2(t, src, root)
 	return cidlink.Link{Cid: root}, path
-}
-
-func thisDir(t *testing.T) string {
-	_, fname, _, ok := runtime.Caller(1)
-	require.True(t, ok)
-	return filepath.Dir(fname)
 }
 
 // VerifyFileTransferred checks that the fixture file was sent from one node to the other.

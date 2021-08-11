@@ -57,8 +57,8 @@ func TestCommP(t *testing.T) {
 func TestCommPSuccess(t *testing.T) {
 	ctx := context.Background()
 
-	file1 := filepath.Join("storagemarket", "fixtures", "payload.txt")
-	file2 := filepath.Join("storagemarket", "fixtures", "payload2.txt")
+	file1 := filepath.Join(shared_testutil.ThisDir(t), "../../fixtures/payload.txt")
+	file2 := filepath.Join(shared_testutil.ThisDir(t), "../../fixtures/payload2.txt")
 
 	// ----------------
 	// commP for file 1.
@@ -146,12 +146,12 @@ func TestLabelField(t *testing.T) {
 
 func TestNoDuplicatesInCARv2(t *testing.T) {
 	// The CARv2 file for a UnixFS DAG that has duplicates should NOT have duplicates.
-	file1 := filepath.Join("storagemarket", "fixtures", "duplicate_blocks.txt")
-	_, CARv2Path := shared_testutil.CreateDenseCARv2(t, file1)
-	require.NotEmpty(t, CARv2Path)
-	defer os.Remove(CARv2Path)
+	file1 := filepath.Join(shared_testutil.ThisDir(t), "../../fixtures/duplicate_blocks.txt")
+	_, path := shared_testutil.CreateDenseCARv2(t, file1)
+	require.NotEmpty(t, path)
+	defer os.Remove(path)
 
-	v2r, err := carv2.OpenReader(CARv2Path)
+	v2r, err := carv2.OpenReader(path)
 	require.NoError(t, err)
 	defer v2r.Close()
 
