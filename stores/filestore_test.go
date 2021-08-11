@@ -40,7 +40,6 @@ func TestFilestoreRoundtrip(t *testing.T) {
 
 	// write out a unixfs dag to an inmemory store to get the root.
 	root := writeUnixfsDAGInmemory(t, ctx, normalFilePath)
-	require.NotEqualValues(t, cid.Undef, root)
 
 	// write out a unixfs dag to a file store backed by a CAR file.
 	tmpCARv2, err := os.CreateTemp(t.TempDir(), "rand")
@@ -74,7 +73,6 @@ func TestReadOnlyFilestoreWithDenseCARFile(t *testing.T) {
 
 	// write out a unixfs dag to an inmemory store to get the root.
 	root := writeUnixfsDAGInmemory(t, ctx, normalFilePath)
-	require.NotEqualValues(t, cid.Undef, root)
 
 	// write out a unixfs dag to a read-write CARv2 blockstore to get the full CARv2 file.
 	tmpCARv2, err := os.CreateTemp(t.TempDir(), "rand")
@@ -160,7 +158,6 @@ func writeUnixfsDAGInmemory(t *testing.T, ctx context.Context, filePath string) 
 	bs := bstore.NewBlockstore(dssync.MutexWrap(ds.NewMapDatastore()))
 	dagSvc := merkledag.NewDAGService(blockservice.New(bs, offline.Exchange(bs)))
 	root := writeUnixfsDAGTo(t, ctx, filePath, dagSvc)
-	require.NotEqualValues(t, cid.Undef, root)
 	return root
 }
 
