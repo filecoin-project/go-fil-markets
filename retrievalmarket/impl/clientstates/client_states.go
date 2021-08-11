@@ -3,6 +3,7 @@ package clientstates
 import (
 	"context"
 
+	"github.com/ipfs/go-cid"
 	logging "github.com/ipfs/go-log/v2"
 	peer "github.com/libp2p/go-libp2p-core/peer"
 
@@ -25,7 +26,7 @@ type ClientDealEnvironment interface {
 	OpenDataTransfer(ctx context.Context, to peer.ID, proposal *rm.DealProposal, legacy bool) (datatransfer.ChannelID, error)
 	SendDataTransferVoucher(context.Context, datatransfer.ChannelID, *rm.DealPayment, bool) error
 	CloseDataTransfer(context.Context, datatransfer.ChannelID) error
-	FinalizeBlockstore(context.Context, rm.DealID) error
+	FinalizeBlockstore(context.Context, cid.Cid) error
 }
 
 // ProposeDeal sends the proposal to the other party
@@ -224,7 +225,7 @@ func CancelDeal(ctx fsm.Context, environment ClientDealEnvironment, deal rm.Clie
 	// Attempt to finalize the blockstore. If it fails just log an error as
 	// we want to make sure we end up in the cancelled state (not an error
 	// state)
-	if err := environment.FinalizeBlockstore(ctx.Context(), deal.ID); err != nil {
+	if err := environment.FinalizeBlockstore(ctx.Context(), deal.PayloadCID); err != nil {
 		log.Errorf("failed to finalize blockstore for deal %s: %s", deal.ID, err)
 	}
 
@@ -265,7 +266,7 @@ func CheckComplete(ctx fsm.Context, environment ClientDealEnvironment, deal rm.C
 // FinalizeBlockstore is called once all blocks have been received and the
 // blockstore needs to be finalized before completing the deal
 func FinalizeBlockstore(ctx fsm.Context, environment ClientDealEnvironment, deal rm.ClientDealState) error {
-	if err := environment.FinalizeBlockstore(ctx.Context(), deal.ID); err != nil {
+	if err := environment.FinalizeBlockstore(ctx.Context(), deal.PayloadCID); err != nil {
 		return ctx.Trigger(rm.ClientEventFinalizeBlockstoreErrored, err)
 	}
 	return ctx.Trigger(rm.ClientEventBlockstoreFinalized)
@@ -280,7 +281,7 @@ func FailsafeFinalizeBlockstore(ctx fsm.Context, environment ClientDealEnvironme
 	// Attempt to finalize the blockstore. If it fails just log an error as
 	// we want to make sure we end up in a specific termination state (not
 	// necessarily the error state)
-	if err := environment.FinalizeBlockstore(ctx.Context(), deal.ID); err != nil {
+	if err := environment.FinalizeBlockstore(ctx.Context(), deal.PayloadCID); err != nil {
 		log.Errorf("failed to finalize blockstore for deal %s: %s", deal.ID, err)
 	}
 	return ctx.Trigger(rm.ClientEventBlockstoreFinalized)

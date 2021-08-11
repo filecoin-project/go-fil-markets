@@ -28,10 +28,14 @@ import (
 	"github.com/filecoin-project/go-fil-markets/retrievalmarket/migrations"
 	rmnet "github.com/filecoin-project/go-fil-markets/retrievalmarket/network"
 	"github.com/filecoin-project/go-fil-markets/shared"
-	"github.com/filecoin-project/go-fil-markets/stores"
 )
 
 var log = logging.Logger("retrieval")
+
+type BlockstoreAccessor interface {
+	Get(key string, rootCid cid.Cid) (bstore.Blockstore, error)
+	Close(key string) error
+}
 
 // Client is the production implementation of the RetrievalClient interface
 type Client struct {
@@ -45,7 +49,7 @@ type Client struct {
 	resolver             discovery.PeerResolver
 	stateMachines        fsm.Group
 	migrateStateMachines func(context.Context) error
-	stores               *stores.ReadWriteBlockstores
+	bstores              BlockstoreAccessor
 
 	// Guards concurrent access to Retrieve method
 	retrieveLk sync.Mutex
@@ -73,7 +77,7 @@ func dispatcher(evt pubsub.Event, subscriberFn pubsub.SubscriberFn) error {
 var _ retrievalmarket.RetrievalClient = &Client{}
 
 // NewClient creates a new retrieval client
-func NewClient(network rmnet.RetrievalMarketNetwork, dataTransfer datatransfer.Manager, node retrievalmarket.RetrievalClientNode, resolver discovery.PeerResolver, ds datastore.Batching) (retrievalmarket.RetrievalClient, error) {
+func NewClient(network rmnet.RetrievalMarketNetwork, dataTransfer datatransfer.Manager, node retrievalmarket.RetrievalClientNode, resolver discovery.PeerResolver, ds datastore.Batching, ba BlockstoreAccessor) (retrievalmarket.RetrievalClient, error) {
 	c := &Client{
 		network:      network,
 		dataTransfer: dataTransfer,
@@ -82,7 +86,7 @@ func NewClient(network rmnet.RetrievalMarketNetwork, dataTransfer datatransfer.M
 		dealIDGen:    shared.NewTimeCounter(),
 		subscribers:  pubsub.New(dispatcher),
 		readySub:     pubsub.New(shared.ReadyDispatcher),
-		stores:       stores.NewReadWriteBlockstores(),
+		bstores:      ba,
 	}
 	retrievalMigrations, err := migrations.ClientMigrations.Build()
 	if err != nil {
@@ -254,15 +258,8 @@ func (c *Client) Retrieve(
 		return nil, err
 	}
 
-	// Create a blockstore using a read-write CAR file that received blocks
-	// will be written to
 	next := c.dealIDGen.Next()
 	dealID := retrievalmarket.DealID(next)
-	_, err = c.stores.GetOrOpen(dealID.String(), carFileDest, payloadCID)
-	if err != nil {
-		return nil, xerrors.Errorf("failed to create retrieval client blockstore: %w", err)
-	}
-
 	dealState := retrievalmarket.ClientDealState{
 		DealProposal: retrievalmarket.DealProposal{
 			PayloadCID: payloadCID,
@@ -466,23 +463,8 @@ func (c *clientDealEnvironment) CloseDataTransfer(ctx context.Context, channelID
 }
 
 // FinalizeBlockstore is called when all blocks have been received
-func (c *clientDealEnvironment) FinalizeBlockstore(ctx context.Context, dealID retrievalmarket.DealID) error {
-	bs, err := c.c.stores.Get(dealID.String())
-	if err != nil {
-		return xerrors.Errorf("getting deal with ID %s to finalize it: %w", dealID, err)
-	}
-
-	err = bs.Finalize()
-	if err != nil {
-		return xerrors.Errorf("failed to finalize blockstore for deal with ID %s: %w", dealID, err)
-	}
-
-	err = c.c.stores.Untrack(dealID.String())
-	if err != nil {
-		return xerrors.Errorf("failed to clean blockstore for deal with ID %s: %w", dealID, err)
-	}
-
-	return nil
+func (c *clientDealEnvironment) FinalizeBlockstore(ctx context.Context, payloadCid cid.Cid) error {
+	return c.c.bstores.Close(payloadCid.String())
 }
 
 type clientStoreGetter struct {
@@ -495,8 +477,7 @@ func (csg *clientStoreGetter) Get(otherPeer peer.ID, dealID retrievalmarket.Deal
 	if err != nil {
 		return nil, err
 	}
-	bs, err := csg.c.stores.Get(deal.ID.String())
-	return bs, err
+	return csg.c.bstores.Get(deal.PayloadCID.String(), deal.PayloadCID)
 }
 
 // ClientFSMParameterSpec is a valid set of parameters for a client deal FSM - used in doc generation
