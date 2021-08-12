@@ -1,6 +1,7 @@
 package testharness
 
 import (
+	"os"
 	"path/filepath"
 	"sync"
 	"testing"
@@ -10,6 +11,7 @@ import (
 	"github.com/ipfs/go-datastore/namespace"
 	graphsyncimpl "github.com/ipfs/go-graphsync/impl"
 	gsnetwork "github.com/ipfs/go-graphsync/network"
+	bstore "github.com/ipfs/go-ipfs-blockstore"
 	"github.com/ipld/go-ipld-prime"
 	cidlink "github.com/ipld/go-ipld-prime/linking/cid"
 	"github.com/libp2p/go-libp2p-core/protocol"
@@ -30,6 +32,7 @@ import (
 	"github.com/filecoin-project/go-fil-markets/storagemarket/network"
 	"github.com/filecoin-project/go-fil-markets/storagemarket/testharness/dependencies"
 	"github.com/filecoin-project/go-fil-markets/storagemarket/testnodes"
+	"github.com/filecoin-project/go-fil-markets/stores"
 )
 
 type StorageHarness struct {
@@ -37,7 +40,7 @@ type StorageHarness struct {
 	PayloadCid cid.Cid
 	Client     storagemarket.StorageClient
 	Provider   storagemarket.StorageProvider
-	IndexedCAR string // path
+	Data       bstore.Blockstore
 }
 
 func NewHarness(t *testing.T, ctx context.Context, useStore bool, cd testnodes.DelayFakeCommonNode, pd testnodes.DelayFakeCommonNode,
@@ -49,13 +52,12 @@ func NewHarness(t *testing.T, ctx context.Context, useStore bool, cd testnodes.D
 	return NewHarnessWithTestData(t, td, deps, useStore, disableNewDeals, fName...)
 }
 
-func NewHarnessWithTestData(t *testing.T, td *shared_testutil.Libp2pTestData, deps *dependencies.StorageDependencies, useStore bool, disableNewDeals bool,
-	fName ...string) *StorageHarness {
+func NewHarnessWithTestData(t *testing.T, td *shared_testutil.Libp2pTestData, deps *dependencies.StorageDependencies, useStore bool, disableNewDeals bool, files ...string) *StorageHarness {
 	var file string
-	if len(fName) == 0 {
+	if len(files) == 0 {
 		file = "payload.txt"
 	} else {
-		file = fName[0]
+		file = files[0]
 	}
 
 	fPath := filepath.Join(shared_testutil.ThisDir(t), "../fixtures/"+file)
@@ -68,11 +70,17 @@ func NewHarnessWithTestData(t *testing.T, td *shared_testutil.Libp2pTestData, de
 	} else {
 		rootLink, path = td.LoadUnixFSFile(t, fPath, false)
 	}
+	t.Cleanup(func() { _ = os.Remove(path) })
 
 	payloadCid := rootLink.(cidlink.Link).Cid
 
-	// create provider and client
+	ba := shared_testutil.NewTestStorageBlockstoreAccessor()
+	bs, err := stores.ReadOnlyFilestore(path)
+	require.NoError(t, err)
+	ba.Blockstore = bs
+	t.Cleanup(func() { _ = bs.Close() })
 
+	// create provider and client
 	clientDs := namespace.Wrap(td.Ds1, datastore.NewKey("/deals/client"))
 	client, err := storageimpl.NewClient(
 		network.NewFromLibp2pHost(td.Host1, network.RetryParameters(0, 0, 0, 0)),
@@ -80,6 +88,7 @@ func NewHarnessWithTestData(t *testing.T, td *shared_testutil.Libp2pTestData, de
 		deps.PeerResolver,
 		clientDs,
 		deps.ClientNode,
+		ba,
 		storageimpl.DealPollingInterval(0),
 	)
 	require.NoError(t, err)
@@ -115,7 +124,7 @@ func NewHarnessWithTestData(t *testing.T, td *shared_testutil.Libp2pTestData, de
 		PayloadCid:          payloadCid,
 		Client:              client,
 		Provider:            provider,
-		IndexedCAR:          path,
+		Data:                bs,
 	}
 }
 
@@ -156,7 +165,6 @@ func (h *StorageHarness) ProposeStorageDeal(t *testing.T, dataRef *storagemarket
 		Rt:            abi.RegisteredSealProof_StackedDrg2KiBV1,
 		FastRetrieval: fastRetrieval,
 		VerifiedDeal:  verifiedDeal,
-		IndexedCAR:    h.IndexedCAR,
 	})
 	require.NoError(t, err)
 	return result

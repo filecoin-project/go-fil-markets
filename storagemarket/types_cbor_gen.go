@@ -29,7 +29,7 @@ func (t *ClientDeal) MarshalCBOR(w io.Writer) error {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	if _, err := w.Write([]byte{180}); err != nil {
+	if _, err := w.Write([]byte{179}); err != nil {
 		return err
 	}
 
@@ -371,28 +371,6 @@ func (t *ClientDeal) MarshalCBOR(w io.Writer) error {
 		return err
 	}
 
-	// t.IndexedCAR (string) (string)
-	if len("IndexedCAR") > cbg.MaxLength {
-		return xerrors.Errorf("Value in field \"IndexedCAR\" was too long")
-	}
-
-	if err := cbg.WriteMajorTypeHeaderBuf(scratch, w, cbg.MajTextString, uint64(len("IndexedCAR"))); err != nil {
-		return err
-	}
-	if _, err := io.WriteString(w, string("IndexedCAR")); err != nil {
-		return err
-	}
-
-	if len(t.IndexedCAR) > cbg.MaxLength {
-		return xerrors.Errorf("Value in field t.IndexedCAR was too long")
-	}
-
-	if err := cbg.WriteMajorTypeHeaderBuf(scratch, w, cbg.MajTextString, uint64(len(t.IndexedCAR))); err != nil {
-		return err
-	}
-	if _, err := io.WriteString(w, string(t.IndexedCAR)); err != nil {
-		return err
-	}
 	return nil
 }
 
@@ -728,17 +706,6 @@ func (t *ClientDeal) UnmarshalCBOR(r io.Reader) error {
 				}
 				t.SectorNumber = abi.SectorNumber(extra)
 
-			}
-			// t.IndexedCAR (string) (string)
-		case "IndexedCAR":
-
-			{
-				sval, err := cbg.ReadStringBuf(br, scratch)
-				if err != nil {
-					return err
-				}
-
-				t.IndexedCAR = string(sval)
 			}
 
 		default:

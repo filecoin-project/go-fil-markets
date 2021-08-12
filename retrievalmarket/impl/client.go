@@ -32,15 +32,6 @@ import (
 
 var log = logging.Logger("retrieval")
 
-// BlockstoreAccessor is used by the retrieval market client to get a
-// blockstore when needed, concretely to store blocks received from the provider.
-// This abstraction allows the caller to provider any blockstore implementation:
-// a CARv2 file, an IPFS blockstore, or something else.
-type BlockstoreAccessor interface {
-	Get(retrievalmarket.DealID) (bstore.Blockstore, error)
-	Close(retrievalmarket.DealID) error
-}
-
 // Client is the production implementation of the RetrievalClient interface
 type Client struct {
 	network      rmnet.RetrievalMarketNetwork
@@ -53,7 +44,7 @@ type Client struct {
 	resolver             discovery.PeerResolver
 	stateMachines        fsm.Group
 	migrateStateMachines func(context.Context) error
-	bstores              BlockstoreAccessor
+	bstores              retrievalmarket.BlockstoreAccessor
 
 	// Guards concurrent access to Retrieve method
 	retrieveLk sync.Mutex
@@ -81,7 +72,14 @@ func dispatcher(evt pubsub.Event, subscriberFn pubsub.SubscriberFn) error {
 var _ retrievalmarket.RetrievalClient = &Client{}
 
 // NewClient creates a new retrieval client
-func NewClient(network rmnet.RetrievalMarketNetwork, dataTransfer datatransfer.Manager, node retrievalmarket.RetrievalClientNode, resolver discovery.PeerResolver, ds datastore.Batching, ba BlockstoreAccessor) (retrievalmarket.RetrievalClient, error) {
+func NewClient(
+	network rmnet.RetrievalMarketNetwork,
+	dataTransfer datatransfer.Manager,
+	node retrievalmarket.RetrievalClientNode,
+	resolver discovery.PeerResolver,
+	ds datastore.Batching,
+	ba retrievalmarket.BlockstoreAccessor,
+) (retrievalmarket.RetrievalClient, error) {
 	c := &Client{
 		network:      network,
 		dataTransfer: dataTransfer,

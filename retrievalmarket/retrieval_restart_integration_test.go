@@ -2,7 +2,6 @@ package retrievalmarket_test
 
 import (
 	"context"
-	"os"
 	"testing"
 	"time"
 
@@ -108,7 +107,6 @@ func TestBounceConnectionDealTransferOngoing(t *testing.T) {
 			deps.DagStore = tut.NewMockDagStoreWrapper(pieceStore, sa)
 
 			sh := testharness.NewHarnessWithTestData(t, deps.TestData, deps, true, false)
-			defer os.Remove(sh.IndexedCAR)
 
 			// do a storage deal
 			storageClientSeenDeal := doStorage(t, bgCtx, sh)
@@ -238,7 +236,6 @@ func TestBounceConnectionDealTransferUnsealing(t *testing.T) {
 			deps.DagStore = tut.NewMockDagStoreWrapper(pieceStore, sa)
 
 			sh := testharness.NewHarnessWithTestData(t, td, deps, true, false)
-			defer os.Remove(sh.IndexedCAR)
 
 			// do a storage deal
 			storageClientSeenDeal := doStorage(t, bgCtx, sh)

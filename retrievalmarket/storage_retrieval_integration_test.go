@@ -4,8 +4,6 @@ import (
 	"bytes"
 	"context"
 	"fmt"
-	"os"
-	"path/filepath"
 	"sync"
 	"testing"
 	"time"
@@ -39,7 +37,6 @@ import (
 	"github.com/filecoin-project/go-fil-markets/storagemarket/testharness"
 	"github.com/filecoin-project/go-fil-markets/storagemarket/testharness/dependencies"
 	"github.com/filecoin-project/go-fil-markets/storagemarket/testnodes"
-	"github.com/filecoin-project/go-fil-markets/stores"
 )
 
 func TestStorageRetrieval(t *testing.T) {
@@ -91,8 +88,6 @@ func TestStorageRetrieval(t *testing.T) {
 			pieceStore := tut.NewTestPieceStore()
 			deps := setupDepsWithDagStore(bgCtx, t, sa, pieceStore)
 			sh := testharness.NewHarnessWithTestData(t, deps.TestData, deps, true, false)
-
-			defer os.Remove(sh.IndexedCAR)
 
 			storageProviderSeenDeal := doStorage(t, bgCtx, sh)
 			ctxTimeout, canc := context.WithTimeout(bgCtx, 25*time.Second)
@@ -161,7 +156,6 @@ func TestOfflineStorageRetrieval(t *testing.T) {
 			pieceStore := tut.NewTestPieceStore()
 			deps := setupDepsWithDagStore(bgCtx, t, sa, pieceStore)
 			sh := testharness.NewHarnessWithTestData(t, deps.TestData, deps, true, false)
-			defer os.Remove(sh.IndexedCAR)
 
 			// start and wait for client/provider
 			ctx, cancel := context.WithTimeout(bgCtx, 5*time.Second)
@@ -170,18 +164,13 @@ func TestOfflineStorageRetrieval(t *testing.T) {
 			shared_testutil.StartAndWaitForReady(ctx, t, sh.Client)
 
 			// Do a Selective CARv1 traversal on the CARv2 file to get a deterministic CARv1 that we can import on the miner side.
-			fs, err := stores.ReadOnlyFilestore(sh.IndexedCAR)
-			require.NoError(t, err)
-
-			require.NoError(t, err)
-			sc := car.NewSelectiveCar(ctx, fs, []car.Dag{{Root: sh.PayloadCid, Selector: shared.AllSelector()}})
+			sc := car.NewSelectiveCar(ctx, sh.Data, []car.Dag{{Root: sh.PayloadCid, Selector: shared.AllSelector()}})
 			prepared, err := sc.Prepare()
 			require.NoError(t, err)
 			carBuf := new(bytes.Buffer)
 			require.NoError(t, prepared.Write(carBuf))
-			require.NoError(t, fs.Close())
 
-			commP, size, err := clientutils.CommP(ctx, sh.IndexedCAR, &storagemarket.DataRef{
+			commP, size, err := clientutils.CommP(ctx, sh.Data, &storagemarket.DataRef{
 				// hacky but need it for now because if it's manual, we wont get a CommP.
 				TransferType: storagemarket.TTGraphsync,
 				Root:         sh.PayloadCid,
@@ -601,8 +590,7 @@ func doRetrieve(t *testing.T, ctx context.Context, rh *retrievalHarness, sh *tes
 	expectedTotal := big.Add(big.Mul(rh.RetrievalParams.PricePerByte, abi.NewTokenAmount(int64(fsize*2))), rh.RetrievalParams.UnsealPrice)
 
 	// *** Retrieve the piece
-	carPath := filepath.Join(t.TempDir(), "out.car")
-	_, err = rh.Client.Retrieve(ctx, sh.PayloadCid, rmParams, expectedTotal, retrievalPeer, *rh.ExpPaych, retrievalPeer.Address, carPath)
+	_, err = rh.Client.Retrieve(ctx, sh.PayloadCid, rmParams, expectedTotal, retrievalPeer, *rh.ExpPaych, retrievalPeer.Address)
 	require.NoError(t, err)
 
 	return fsize

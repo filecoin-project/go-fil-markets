@@ -40,6 +40,8 @@ func CreateDenseCARv2(t *testing.T, src string) (root cid.Cid, path string) {
 	require.NoError(t, err)
 	require.NoError(t, out.Close())
 
+	t.Cleanup(func() { os.Remove(out.Name()) })
+
 	rw, err := blockstore.OpenReadWrite(out.Name(), []cid.Cid{root}, blockstore.UseWholeCIDs(true))
 	require.NoError(t, err)
 

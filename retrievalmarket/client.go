@@ -4,12 +4,22 @@ import (
 	"context"
 
 	"github.com/ipfs/go-cid"
+	bstore "github.com/ipfs/go-ipfs-blockstore"
 
 	"github.com/filecoin-project/go-address"
 	"github.com/filecoin-project/go-state-types/abi"
 
 	"github.com/filecoin-project/go-fil-markets/shared"
 )
+
+// BlockstoreAccessor is used by the retrieval market client to get a
+// blockstore when needed, concretely to store blocks received from the provider.
+// This abstraction allows the caller to provider any blockstore implementation:
+// a CARv2 file, an IPFS blockstore, or something else.
+type BlockstoreAccessor interface {
+	Get(DealID) (bstore.Blockstore, error)
+	Close(DealID) error
+}
 
 // ClientSubscriber is a callback that is registered to listen for retrieval events
 type ClientSubscriber func(event ClientEvent, state ClientDealState)

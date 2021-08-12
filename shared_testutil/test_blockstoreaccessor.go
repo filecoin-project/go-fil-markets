@@ -1,20 +1,44 @@
 package shared_testutil
 
 import (
-	"github.com/ipfs/go-cid"
 	"github.com/ipfs/go-datastore"
 	bstore "github.com/ipfs/go-ipfs-blockstore"
+
+	"github.com/filecoin-project/go-fil-markets/retrievalmarket"
+	"github.com/filecoin-project/go-fil-markets/storagemarket"
 )
+
+type TestStorageBlockstoreAccessor struct {
+	Blockstore bstore.Blockstore
+}
+
+var _ storagemarket.BlockstoreAccessor = (*TestStorageBlockstoreAccessor)(nil)
+
+func (t *TestStorageBlockstoreAccessor) Get(storagemarket.PayloadCID) (bstore.Blockstore, error) {
+	return t.Blockstore, nil
+}
+
+func (t *TestStorageBlockstoreAccessor) Close(storagemarket.PayloadCID) error {
+	return nil
+}
+
+func NewTestStorageBlockstoreAccessor() *TestStorageBlockstoreAccessor {
+	return &TestStorageBlockstoreAccessor{
+		Blockstore: bstore.NewBlockstore(datastore.NewMapDatastore()),
+	}
+}
 
 type TestRetrievalBlockstoreAccessor struct {
 	Blockstore bstore.Blockstore
 }
 
-func (t *TestRetrievalBlockstoreAccessor) Get(rootCid cid.Cid) (bstore.Blockstore, error) {
+var _ retrievalmarket.BlockstoreAccessor = (*TestRetrievalBlockstoreAccessor)(nil)
+
+func (t *TestRetrievalBlockstoreAccessor) Get(retrievalmarket.DealID) (bstore.Blockstore, error) {
 	return t.Blockstore, nil
 }
 
-func (t *TestRetrievalBlockstoreAccessor) Close(rootCid cid.Cid) error {
+func (t *TestRetrievalBlockstoreAccessor) Close(retrievalmarket.DealID) error {
 	return nil
 }
 

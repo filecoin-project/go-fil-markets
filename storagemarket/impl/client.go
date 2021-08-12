@@ -8,7 +8,6 @@ import (
 	"github.com/hannahhoward/go-pubsub"
 	"github.com/ipfs/go-cid"
 	"github.com/ipfs/go-datastore"
-	bstore "github.com/ipfs/go-ipfs-blockstore"
 	logging "github.com/ipfs/go-log/v2"
 	cbg "github.com/whyrusleeping/cbor-gen"
 	"golang.org/x/xerrors"
@@ -43,17 +42,6 @@ const DefaultPollingInterval = 30 * time.Second
 
 var _ storagemarket.StorageClient = &Client{}
 
-type ProposalCID = cid.Cid
-
-// BlockstoreAccessor is used by the storage market client to get a
-// blockstore when needed, concretely to send the payload to the provider.
-// This abstraction allows the caller to provider any blockstore implementation:
-// a CARv2 file, an IPFS blockstore, or something else.
-type BlockstoreAccessor interface {
-	Get(ProposalCID) (bstore.Blockstore, error)
-	Close(ProposalCID) error
-}
-
 // Client is the production implementation of the StorageClient interface
 type Client struct {
 	net network.StorageMarketNetwork
@@ -69,7 +57,7 @@ type Client struct {
 
 	unsubDataTransfer datatransfer.Unsubscribe
 
-	bstores BlockstoreAccessor
+	bstores storagemarket.BlockstoreAccessor
 }
 
 // StorageClientOption allows custom configuration of a storage client
@@ -90,7 +78,7 @@ func NewClient(
 	discovery *discoveryimpl.Local,
 	ds datastore.Batching,
 	scn storagemarket.StorageClientNode,
-	bstores BlockstoreAccessor,
+	bstores storagemarket.BlockstoreAccessor,
 	options ...StorageClientOption,
 ) (*Client, error) {
 	c := &Client{
@@ -337,9 +325,12 @@ func (c *Client) ProposeStorageDeal(ctx context.Context, params storagemarket.Pr
 		return nil, xerrors.Errorf("looking up addresses: %w", err)
 	}
 
-	// TODO: Change clientutils.CommP to accept a blockstore?
-	//bs, err := c.bstores.Get(params.Data.Root)
-	commP, pieceSize, err := clientutils.CommP(ctx, "", params.Data)
+	bs, err := c.bstores.Get(params.Data.Root)
+	if err != nil {
+		return nil, xerrors.Errorf("failed to get blockstore for imported root %s: %w", params.Data.Root, err)
+	}
+
+	commP, pieceSize, err := clientutils.CommP(ctx, bs, params.Data)
 	if err != nil {
 		return nil, xerrors.Errorf("computing commP failed: %w", err)
 	}

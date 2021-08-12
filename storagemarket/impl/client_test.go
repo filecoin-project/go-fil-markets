@@ -123,6 +123,7 @@ func TestClient_Migrations(t *testing.T) {
 		deps.PeerResolver,
 		clientDs,
 		deps.ClientNode,
+		shared_testutil.NewTestStorageBlockstoreAccessor(),
 		storageimpl.DealPollingInterval(0),
 	)
 	require.NoError(t, err)

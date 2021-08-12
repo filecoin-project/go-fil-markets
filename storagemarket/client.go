@@ -4,12 +4,27 @@ import (
 	"context"
 
 	"github.com/ipfs/go-cid"
+	bstore "github.com/ipfs/go-ipfs-blockstore"
 
 	"github.com/filecoin-project/go-address"
 	"github.com/filecoin-project/go-state-types/abi"
 
 	"github.com/filecoin-project/go-fil-markets/shared"
 )
+
+type PayloadCID = cid.Cid
+
+// BlockstoreAccessor is used by the storage market client to get a
+// blockstore when needed, concretely to send the payload to the provider.
+// This abstraction allows the caller to provider any blockstore implementation:
+// a CARv2 file, an IPFS blockstore, or something else.
+//
+// They key is a payload CID because this is the unique top-level key of a
+// client-side data import.
+type BlockstoreAccessor interface {
+	Get(PayloadCID) (bstore.Blockstore, error)
+	Close(PayloadCID) error
+}
 
 // ClientSubscriber is a callback that is run when events are emitted on a StorageClient
 type ClientSubscriber func(event ClientEvent, deal ClientDeal)
