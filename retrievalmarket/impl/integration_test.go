@@ -359,7 +359,7 @@ func TestClientCanMakeDealWithProvider(t *testing.T) {
 			testData := tut.NewLibp2pTestData(bgCtx, t)
 
 			// Create a CARv2 file from a fixture
-			fpath := filepath.Join("retrievalmarket", "impl", "fixtures", testCase.filename)
+			fpath := filepath.Join(tut.ThisDir(t), "./fixtures/"+testCase.filename)
 			pieceLink, path := testData.LoadUnixFSFileToStore(t, fpath)
 			c, ok := pieceLink.(cidlink.Link)
 			require.True(t, ok)

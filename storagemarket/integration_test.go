@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"os"
+	"path/filepath"
 	"sync"
 	"testing"
 	"time"
@@ -54,7 +55,7 @@ func TestMakeDeal(t *testing.T) {
 
 	for _, fileName := range fixtureFiles {
 		for testCase, data := range testCases {
-			t.Run(testCase+"-"+fileName, func(t *testing.T) {
+			t.Run(testCase+"-"+filepath.Base(fileName), func(t *testing.T) {
 				ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
 				defer cancel()
 				h := testharness.NewHarness(t, ctx, data.useStore, noOpDelay, noOpDelay, data.disableNewDeals, fileName)
@@ -183,10 +184,13 @@ func TestMakeDeal(t *testing.T) {
 }
 
 func TestMakeDealOffline(t *testing.T) {
-	fixtureFiles := []string{"payload.txt", "duplicate_blocks.txt"}
+	fixtureFiles := []string{
+		filepath.Join(shared_testutil.ThisDir(t), "./fixtures/payload.txt"),
+		filepath.Join(shared_testutil.ThisDir(t), "./fixtures/duplicate_blocks.txt"),
+	}
 
 	for _, file := range fixtureFiles {
-		t.Run(file, func(t *testing.T) {
+		t.Run(filepath.Base(file), func(t *testing.T) {
 			ctx := context.Background()
 			ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
 			defer cancel()

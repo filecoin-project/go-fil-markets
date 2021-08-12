@@ -58,15 +58,15 @@ func NewHarnessWithTestData(t *testing.T, td *shared_testutil.Libp2pTestData, de
 		file = fName[0]
 	}
 
-	fpath := filepath.Join("storagemarket", "fixtures", file)
-	var rootLink ipld.Link
+	fPath := filepath.Join(shared_testutil.ThisDir(t), "../fixtures/"+file)
 
+	var rootLink ipld.Link
 	var path string
 	// TODO Both functions here should return the root cid of the UnixFSDag and the carv2 file path.
 	if useStore {
-		rootLink, path = td.LoadUnixFSFileToStore(t, fpath)
+		rootLink, path = td.LoadUnixFSFileToStore(t, fPath)
 	} else {
-		rootLink, path = td.LoadUnixFSFile(t, fpath, false)
+		rootLink, path = td.LoadUnixFSFile(t, fPath, false)
 	}
 
 	payloadCid := rootLink.(cidlink.Link).Cid
