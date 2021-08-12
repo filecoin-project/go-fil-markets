@@ -43,13 +43,15 @@ const DefaultPollingInterval = 30 * time.Second
 
 var _ storagemarket.StorageClient = &Client{}
 
-// The storage market client gets a blockstore from the BlockstoreAccessor
-// when it needs to send blocks to the provider. This allows the caller to
-// provide different implementations of the blockstore, eg an IPFS store vs
-// a CARv2 file.
+type ProposalCID = cid.Cid
+
+// BlockstoreAccessor is used by the storage market client to get a
+// blockstore when needed, concretely to send the payload to the provider.
+// This abstraction allows the caller to provider any blockstore implementation:
+// a CARv2 file, an IPFS blockstore, or something else.
 type BlockstoreAccessor interface {
-	Get(rootCid cid.Cid) (bstore.Blockstore, error)
-	Close(rootCid cid.Cid) error
+	Get(ProposalCID) (bstore.Blockstore, error)
+	Close(ProposalCID) error
 }
 
 // Client is the production implementation of the StorageClient interface
@@ -297,39 +299,37 @@ func (c *Client) GetProviderDealState(ctx context.Context, proposalCid cid.Cid) 
 	return &resp.DealState, nil
 }
 
-/*
-ProposeStorageDeal initiates the retrieval deal flow, which involves multiple requests and responses.
-
-This function is called after using ListProviders and QueryAs are used to identify an appropriate provider
-to store data. The parameters passed to ProposeStorageDeal should matched those returned by the miner from
-QueryAsk to ensure the greatest likelihood the provider will accept the deal.
-
-When called, the client takes the following actions:
-
-1. Calculates the PieceCID for this deal from the given PayloadCID. (by writing the payload to a CAR file then calculating
-a merkle root for the resulting data)
-
-2. Constructs a `DealProposal` (spec-actors type) with deal terms
-
-3. Signs the `DealProposal` to make a ClientDealProposal
-
-4. Gets the CID for the ClientDealProposal
-
-5. Construct a ClientDeal to track the state of this deal.
-
-6. Tells its statemachine to begin tracking the deal state by the CID of the ClientDealProposal
-
-7. Triggers a `ClientEventOpen` event on its statemachine.
-
-8. Records the Provider as a possible peer for retrieving this data in the future
-
-From then on, the statemachine controls the deal flow in the client. Other components may listen for events in this flow by calling
-`SubscribeToEvents` on the Client. The Client also provides access to the node and network and other functionality through
-its implementation of the Client FSM's ClientDealEnvironment.
-
-Documentation of the client state machine can be found at https://godoc.org/github.com/filecoin-project/go-fil-markets/storagemarket/impl/clientstates
-*/
-
+// ProposeStorageDeal initiates the retrieval deal flow, which involves multiple requests and responses.
+//
+// This function is called after using ListProviders and QueryAs are used to identify an appropriate provider
+// to store data. The parameters passed to ProposeStorageDeal should matched those returned by the miner from
+// QueryAsk to ensure the greatest likelihood the provider will accept the deal.
+//
+// When called, the client takes the following actions:
+//
+// 1. Calculates the PieceCID for this deal from the given PayloadCID. (by writing the payload to a CAR file then calculating
+// a merkle root for the resulting data)
+//
+// 2. Constructs a `DealProposal` (spec-actors type) with deal terms
+//
+// 3. Signs the `DealProposal` to make a ClientDealProposal
+//
+// 4. Gets the CID for the ClientDealProposal
+//
+// 5. Construct a ClientDeal to track the state of this deal.
+//
+// 6. Tells its statemachine to begin tracking the deal state by the CID of the ClientDealProposal
+//
+// 7. Triggers a `ClientEventOpen` event on its statemachine.
+//
+// 8. Records the Provider as a possible peer for retrieving this data in the future
+//
+// From then on, the statemachine controls the deal flow in the client. Other components may listen for events in this flow by calling
+// `SubscribeToEvents` on the Client. The Client also provides access to the node and network and other functionality through
+// its implementation of the Client FSM's ClientDealEnvironment.
+//
+// Documentation of the client state machine can be found at https://godoc.org/github.com/filecoin-project/go-fil-markets/storagemarket/impl/clientstates
+//
 // Note: This will fail for online deals if client does not give a valid CARv2 file path.
 func (c *Client) ProposeStorageDeal(ctx context.Context, params storagemarket.ProposeStorageDealParams) (*storagemarket.ProposeStorageDealResult, error) {
 	err := c.addMultiaddrs(ctx, params.Info.Address)
@@ -395,7 +395,6 @@ func (c *Client) ProposeStorageDeal(ctx context.Context, params storagemarket.Pr
 		FastRetrieval:      params.FastRetrieval,
 		DealStages:         storagemarket.NewDealStages(),
 		CreationTime:       curTime(),
-		IndexedCAR:         params.IndexedCAR,
 	}
 
 	err = c.statemachines.Begin(proposalNd.Cid(), deal)

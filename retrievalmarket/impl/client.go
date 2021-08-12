@@ -32,13 +32,13 @@ import (
 
 var log = logging.Logger("retrieval")
 
-// The retrieval market client gets a blockstore from the BlockstoreAccessor
-// when it needs to store blocks received from the provider. This allows the
-// caller to provide different implementations of the blockstore, eg an IPFS
-// store vs a CARv2 file.
+// BlockstoreAccessor is used by the retrieval market client to get a
+// blockstore when needed, concretely to store blocks received from the provider.
+// This abstraction allows the caller to provider any blockstore implementation:
+// a CARv2 file, an IPFS blockstore, or something else.
 type BlockstoreAccessor interface {
-	Get(rootCid cid.Cid) (bstore.Blockstore, error)
-	Close(rootCid cid.Cid) error
+	Get(retrievalmarket.DealID) (bstore.Blockstore, error)
+	Close(retrievalmarket.DealID) error
 }
 
 // Client is the production implementation of the RetrievalClient interface
@@ -209,34 +209,32 @@ func (c *Client) Query(ctx context.Context, p retrievalmarket.RetrievalPeer, pay
 	return s.ReadQueryResponse()
 }
 
-/*
-Retrieve initiates the retrieval deal flow, which involves multiple requests and responses
-
-To start this processes, the client creates a new `RetrievalDealStream`.  Currently, this connection is
-kept open through the entire deal until completion or failure.  Make deals pauseable as well as surviving
-a restart is a planned future feature.
-
-Retrieve should be called after using FindProviders and Query are used to identify an appropriate provider to
-retrieve the deal from. The parameters identified in Query should be passed to Retrieve to ensure the
-greatest likelihood the provider will accept the deal
-
-When called, the client takes the following actions:
-
-1. Creates a deal ID using the next value from its `storedCounter`.
-
-2. Constructs a `DealProposal` with deal terms
-
-3. Tells its statemachine to begin tracking this deal state by dealID.
-
-4. Constructs a `blockio.SelectorVerifier` and adds it to its dealID-keyed map of block verifiers.
-
-5. Triggers a `ClientEventOpen` event on its statemachine.
-
-From then on, the statemachine controls the deal flow in the client. Other components may listen for events in this flow by calling
-`SubscribeToEvents` on the Client. The Client handles consuming blocks it receives from the provider, via `ConsumeBlocks` function
-
-Documentation of the client state machine can be found at https://godoc.org/github.com/filecoin-project/go-fil-markets/retrievalmarket/impl/clientstates
-*/
+// Retrieve initiates the retrieval deal flow, which involves multiple requests and responses
+//
+// To start this processes, the client creates a new `RetrievalDealStream`.  Currently, this connection is
+// kept open through the entire deal until completion or failure.  Make deals pauseable as well as surviving
+// a restart is a planned future feature.
+//
+// Retrieve should be called after using FindProviders and Query are used to identify an appropriate provider to
+// retrieve the deal from. The parameters identified in Query should be passed to Retrieve to ensure the
+// greatest likelihood the provider will accept the deal
+//
+// When called, the client takes the following actions:
+//
+// 1. Creates a deal ID using the next value from its `storedCounter`.
+//
+// 2. Constructs a `DealProposal` with deal terms
+//
+// 3. Tells its statemachine to begin tracking this deal state by dealID.
+//
+// 4. Constructs a `blockio.SelectorVerifier` and adds it to its dealID-keyed map of block verifiers.
+//
+// 5. Triggers a `ClientEventOpen` event on its statemachine.
+//
+// From then on, the statemachine controls the deal flow in the client. Other components may listen for events in this flow by calling
+// `SubscribeToEvents` on the Client. The Client handles consuming blocks it receives from the provider, via `ConsumeBlocks` function
+//
+// Documentation of the client state machine can be found at https://godoc.org/github.com/filecoin-project/go-fil-markets/retrievalmarket/impl/clientstates
 func (c *Client) Retrieve(
 	ctx context.Context,
 	payloadCID cid.Cid,
@@ -463,21 +461,21 @@ func (c *clientDealEnvironment) CloseDataTransfer(ctx context.Context, channelID
 }
 
 // FinalizeBlockstore is called when all blocks have been received
-func (c *clientDealEnvironment) FinalizeBlockstore(ctx context.Context, payloadCid cid.Cid) error {
-	return c.c.bstores.Close(payloadCid)
+func (c *clientDealEnvironment) FinalizeBlockstore(ctx context.Context, dealID retrievalmarket.DealID) error {
+	return c.c.bstores.Close(dealID)
 }
 
 type clientStoreGetter struct {
 	c *Client
 }
 
-func (csg *clientStoreGetter) Get(otherPeer peer.ID, dealID retrievalmarket.DealID) (bstore.Blockstore, error) {
+func (csg *clientStoreGetter) Get(_ peer.ID, id retrievalmarket.DealID) (bstore.Blockstore, error) {
 	var deal retrievalmarket.ClientDealState
-	err := csg.c.stateMachines.Get(dealID).Get(&deal)
+	err := csg.c.stateMachines.Get(id).Get(&deal)
 	if err != nil {
 		return nil, err
 	}
-	return csg.c.bstores.Get(deal.PayloadCID)
+	return csg.c.bstores.Get(id)
 }
 
 // ClientFSMParameterSpec is a valid set of parameters for a client deal FSM - used in doc generation

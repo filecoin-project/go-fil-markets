@@ -247,10 +247,6 @@ type ClientDeal struct {
 	CreationTime      cbg.CborTime
 	TransferChannelID *datatransfer.ChannelID
 	SectorNumber      abi.SectorNumber
-
-	// IndexedCAR is the path to an indexed CARv2 path. This needs to be opened
-	// as a filestore, as it most likely contains file-positional references.
-	IndexedCAR string
 }
 
 // StorageProviderInfo describes on chain information about a StorageProvider
