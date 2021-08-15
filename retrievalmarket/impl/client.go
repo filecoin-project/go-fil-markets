@@ -143,6 +143,10 @@ func NewClient(
 	return c, nil
 }
 
+func (c *Client) NextID() retrievalmarket.DealID {
+	return retrievalmarket.DealID(c.dealIDGen.Next())
+}
+
 // Start initialized the Client, performing relevant database migrations
 func (c *Client) Start(ctx context.Context) error {
 	go func() {
@@ -232,9 +236,15 @@ func (c *Client) Query(ctx context.Context, p retrievalmarket.RetrievalPeer, pay
 // From then on, the statemachine controls the deal flow in the client. Other components may listen for events in this flow by calling
 // `SubscribeToEvents` on the Client. The Client handles consuming blocks it receives from the provider, via `ConsumeBlocks` function
 //
+// Retrieve can use an ID generated through NextID, or can generate an ID if the user passes a zero value.
+//
+// Use NextID when it's necessary to reserve an ID ahead of time, e.g. to
+// associate it with a given blockstore in the BlockstoreAccessor.
+//
 // Documentation of the client state machine can be found at https://godoc.org/github.com/filecoin-project/go-fil-markets/retrievalmarket/impl/clientstates
 func (c *Client) Retrieve(
 	ctx context.Context,
+	id retrievalmarket.DealID,
 	payloadCID cid.Cid,
 	params retrievalmarket.Params,
 	totalFunds abi.TokenAmount,
@@ -257,12 +267,16 @@ func (c *Client) Retrieve(
 		return 0, err
 	}
 
-	next := c.dealIDGen.Next()
-	dealID := retrievalmarket.DealID(next)
+	// assign a new ID.
+	if id == 0 {
+		next := c.dealIDGen.Next()
+		id = retrievalmarket.DealID(next)
+	}
+
 	dealState := retrievalmarket.ClientDealState{
 		DealProposal: retrievalmarket.DealProposal{
 			PayloadCID: payloadCID,
-			ID:         dealID,
+			ID:         id,
 			Params:     params,
 		},
 		TotalFunds:       totalFunds,
@@ -289,7 +303,7 @@ func (c *Client) Retrieve(
 		return 0, err
 	}
 
-	return dealID, nil
+	return id, nil
 }
 
 // Check if there's already an active retrieval deal with the same peer
@@ -460,7 +474,7 @@ func (c *clientDealEnvironment) CloseDataTransfer(ctx context.Context, channelID
 
 // FinalizeBlockstore is called when all blocks have been received
 func (c *clientDealEnvironment) FinalizeBlockstore(ctx context.Context, dealID retrievalmarket.DealID) error {
-	return c.c.bstores.Close(dealID)
+	return c.c.bstores.Done(dealID)
 }
 
 type clientStoreGetter struct {
@@ -473,7 +487,7 @@ func (csg *clientStoreGetter) Get(_ peer.ID, id retrievalmarket.DealID) (bstore.
 	if err != nil {
 		return nil, err
 	}
-	return csg.c.bstores.Get(id)
+	return csg.c.bstores.Get(id, deal.PayloadCID)
 }
 
 // ClientFSMParameterSpec is a valid set of parameters for a client deal FSM - used in doc generation

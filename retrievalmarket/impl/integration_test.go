@@ -540,7 +540,7 @@ CurrentInterval: %d
 			}
 
 			// *** Retrieve the piece
-			_, err = client.Retrieve(bgCtx, payloadCID, rmParams, expectedTotal, retrievalPeer, clientPaymentChannel, retrievalPeer.Address)
+			_, err = client.Retrieve(bgCtx, 0, payloadCID, rmParams, expectedTotal, retrievalPeer, clientPaymentChannel, retrievalPeer.Address)
 			require.NoError(t, err)
 
 			// verify that client subscribers will be notified of state changes

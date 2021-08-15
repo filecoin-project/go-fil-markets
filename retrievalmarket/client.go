@@ -12,13 +12,15 @@ import (
 	"github.com/filecoin-project/go-fil-markets/shared"
 )
 
+type PayloadCID = cid.Cid
+
 // BlockstoreAccessor is used by the retrieval market client to get a
 // blockstore when needed, concretely to store blocks received from the provider.
 // This abstraction allows the caller to provider any blockstore implementation:
 // a CARv2 file, an IPFS blockstore, or something else.
 type BlockstoreAccessor interface {
-	Get(DealID) (bstore.Blockstore, error)
-	Close(DealID) error
+	Get(DealID, PayloadCID) (bstore.Blockstore, error)
+	Done(DealID) error
 }
 
 // ClientSubscriber is a callback that is registered to listen for retrieval events
@@ -31,6 +33,9 @@ type RetrieveResponse struct {
 
 // RetrievalClient is a client interface for making retrieval deals
 type RetrievalClient interface {
+
+	// NextID generates a new deal ID.
+	NextID() DealID
 
 	// Start initializes the client by running migrations
 	Start(ctx context.Context) error
@@ -52,6 +57,7 @@ type RetrievalClient interface {
 	// Retrieve retrieves all or part of a piece with the given retrieval parameters
 	Retrieve(
 		ctx context.Context,
+		id DealID,
 		payloadCID cid.Cid,
 		params Params,
 		totalFunds abi.TokenAmount,

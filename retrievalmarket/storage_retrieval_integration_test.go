@@ -590,7 +590,7 @@ func doRetrieve(t *testing.T, ctx context.Context, rh *retrievalHarness, sh *tes
 	expectedTotal := big.Add(big.Mul(rh.RetrievalParams.PricePerByte, abi.NewTokenAmount(int64(fsize*2))), rh.RetrievalParams.UnsealPrice)
 
 	// *** Retrieve the piece
-	_, err = rh.Client.Retrieve(ctx, sh.PayloadCid, rmParams, expectedTotal, retrievalPeer, *rh.ExpPaych, retrievalPeer.Address)
+	_, err = rh.Client.Retrieve(ctx, 0, sh.PayloadCid, rmParams, expectedTotal, retrievalPeer, *rh.ExpPaych, retrievalPeer.Address)
 	require.NoError(t, err)
 
 	return fsize

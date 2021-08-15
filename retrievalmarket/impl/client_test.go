@@ -317,7 +317,7 @@ func TestClient_DuplicateRetrieve(t *testing.T) {
 				UnsealPrice:             abi.NewTokenAmount(0),
 			}
 
-			dealID, err := client.Retrieve(ctx, tc.payloadCid1, params, abi.NewTokenAmount(10), tc.rpeer1, payChAddr, tc.rpeer1.Address)
+			dealID, err := client.Retrieve(ctx, 0, tc.payloadCid1, params, abi.NewTokenAmount(10), tc.rpeer1, payChAddr, tc.rpeer1.Address)
 			assert.NoError(t, err)
 
 			// If the deal should be cancelled
@@ -342,7 +342,7 @@ func TestClient_DuplicateRetrieve(t *testing.T) {
 			}
 
 			// Retrieve second payload CID from second peer
-			_, err = client.Retrieve(ctx, tc.payloadCid2, params, abi.NewTokenAmount(10), tc.rpeer2, payChAddr, tc.rpeer2.Address)
+			_, err = client.Retrieve(ctx, 0, tc.payloadCid2, params, abi.NewTokenAmount(10), tc.rpeer2, payChAddr, tc.rpeer2.Address)
 			if tc.expectError {
 				assert.Error(t, err)
 			} else {

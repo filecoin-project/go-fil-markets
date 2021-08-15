@@ -23,7 +23,7 @@ type PayloadCID = cid.Cid
 // client-side data import.
 type BlockstoreAccessor interface {
 	Get(PayloadCID) (bstore.Blockstore, error)
-	Close(PayloadCID) error
+	Done(PayloadCID) error
 }
 
 // ClientSubscriber is a callback that is run when events are emitted on a StorageClient

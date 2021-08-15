@@ -18,7 +18,7 @@ func (t *TestStorageBlockstoreAccessor) Get(storagemarket.PayloadCID) (bstore.Bl
 	return t.Blockstore, nil
 }
 
-func (t *TestStorageBlockstoreAccessor) Close(storagemarket.PayloadCID) error {
+func (t *TestStorageBlockstoreAccessor) Done(bstore.Blockstore) error {
 	return nil
 }
 
