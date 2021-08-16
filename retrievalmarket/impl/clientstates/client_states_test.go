@@ -36,6 +36,7 @@ type fakeEnvironment struct {
 	OpenDataTransferError        error
 	SendDataTransferVoucherError error
 	CloseDataTransferError       error
+	FinalizeBlockstoreError      error
 }
 
 func (e *fakeEnvironment) Node() retrievalmarket.RetrievalClientNode {
@@ -54,13 +55,17 @@ func (e *fakeEnvironment) CloseDataTransfer(_ context.Context, _ datatransfer.Ch
 	return e.CloseDataTransferError
 }
 
+func (e *fakeEnvironment) FinalizeBlockstore(ctx context.Context, id rm.DealID) error {
+	return e.FinalizeBlockstoreError
+}
+
 func TestProposeDeal(t *testing.T) {
 	ctx := context.Background()
 	node := testnodes.NewTestRetrievalClientNode(testnodes.TestRetrievalClientNodeParams{})
 	eventMachine, err := fsm.NewEventProcessor(retrievalmarket.ClientDealState{}, "Status", clientstates.ClientEvents)
 	require.NoError(t, err)
 	runProposeDeal := func(t *testing.T, openError error, dealState *retrievalmarket.ClientDealState) {
-		environment := &fakeEnvironment{node, openError, nil, nil}
+		environment := &fakeEnvironment{node: node, OpenDataTransferError: openError}
 		fsmCtx := fsmtest.NewTestContext(ctx, eventMachine)
 		err := clientstates.ProposeDeal(fsmCtx, environment, *dealState)
 		require.NoError(t, err)
@@ -90,7 +95,7 @@ func TestProposeDeal(t *testing.T) {
 		openError := errors.New("something went wrong")
 		runProposeDeal(t, openError, dealState)
 		require.NotEmpty(t, dealState.Message)
-		require.Equal(t, dealState.Status, retrievalmarket.DealStatusErrored)
+		require.Equal(t, dealState.Status, retrievalmarket.DealStatusErroring)
 	})
 }
 
@@ -103,7 +108,7 @@ func TestSetupPaymentChannel(t *testing.T) {
 		params testnodes.TestRetrievalClientNodeParams,
 		dealState *retrievalmarket.ClientDealState) {
 		node := testnodes.NewTestRetrievalClientNode(params)
-		environment := &fakeEnvironment{node, nil, nil, nil}
+		environment := &fakeEnvironment{node: node}
 		fsmCtx := fsmtest.NewTestContext(ctx, eventMachine)
 		err := clientstates.SetupPaymentChannelStart(fsmCtx, environment, *dealState)
 		require.NoError(t, err)
@@ -166,7 +171,7 @@ func TestWaitForPaymentReady(t *testing.T) {
 		params testnodes.TestRetrievalClientNodeParams,
 		dealState *retrievalmarket.ClientDealState) {
 		node := testnodes.NewTestRetrievalClientNode(params)
-		environment := &fakeEnvironment{node, nil, nil, nil}
+		environment := &fakeEnvironment{node: node}
 		fsmCtx := fsmtest.NewTestContext(ctx, eventMachine)
 		err := clientstates.WaitPaymentChannelReady(fsmCtx, environment, *dealState)
 		require.NoError(t, err)
@@ -221,7 +226,7 @@ func TestAllocateLane(t *testing.T) {
 		params testnodes.TestRetrievalClientNodeParams,
 		dealState *retrievalmarket.ClientDealState) {
 		node := testnodes.NewTestRetrievalClientNode(params)
-		environment := &fakeEnvironment{node, nil, nil, nil}
+		environment := &fakeEnvironment{node: node}
 		fsmCtx := fsmtest.NewTestContext(ctx, eventMachine)
 		err := clientstates.AllocateLane(fsmCtx, environment, *dealState)
 		require.NoError(t, err)
@@ -256,7 +261,7 @@ func TestOngoing(t *testing.T) {
 	runOngoing := func(t *testing.T,
 		dealState *retrievalmarket.ClientDealState) {
 		node := testnodes.NewTestRetrievalClientNode(testnodes.TestRetrievalClientNodeParams{})
-		environment := &fakeEnvironment{node, nil, nil, nil}
+		environment := &fakeEnvironment{node: node}
 		fsmCtx := fsmtest.NewTestContext(ctx, eventMachine)
 		err := clientstates.Ongoing(fsmCtx, environment, *dealState)
 		require.NoError(t, err)
@@ -291,7 +296,7 @@ func TestProcessPaymentRequested(t *testing.T) {
 	runProcessPaymentRequested := func(t *testing.T,
 		dealState *retrievalmarket.ClientDealState) {
 		node := testnodes.NewTestRetrievalClientNode(testnodes.TestRetrievalClientNodeParams{})
-		environment := &fakeEnvironment{node, nil, nil, nil}
+		environment := &fakeEnvironment{node: node}
 		fsmCtx := fsmtest.NewTestContext(ctx, eventMachine)
 		err := clientstates.ProcessPaymentRequested(fsmCtx, environment, *dealState)
 		require.NoError(t, err)
@@ -361,7 +366,7 @@ func TestSendFunds(t *testing.T) {
 		nodeParams testnodes.TestRetrievalClientNodeParams,
 		dealState *retrievalmarket.ClientDealState) {
 		node := testnodes.NewTestRetrievalClientNode(nodeParams)
-		environment := &fakeEnvironment{node, nil, sendDataTransferVoucherError, nil}
+		environment := &fakeEnvironment{node: node, SendDataTransferVoucherError: sendDataTransferVoucherError}
 		fsmCtx := fsmtest.NewTestContext(ctx, eventMachine)
 		dealState.ChannelID = &datatransfer.ChannelID{
 			Initiator: "initiator",
@@ -613,7 +618,7 @@ func TestSendFunds(t *testing.T) {
 		dealState.TotalReceived = 1000
 		runSendFunds(t, sendVoucherError, nodeParams, dealState)
 		require.NotEmpty(t, dealState.Message)
-		require.Equal(t, dealState.Status, retrievalmarket.DealStatusErrored)
+		require.Equal(t, dealState.Status, retrievalmarket.DealStatusErroring)
 	})
 }
 
@@ -625,7 +630,7 @@ func TestCheckFunds(t *testing.T) {
 		params testnodes.TestRetrievalClientNodeParams,
 		dealState *retrievalmarket.ClientDealState) {
 		node := testnodes.NewTestRetrievalClientNode(params)
-		environment := &fakeEnvironment{node, nil, nil, nil}
+		environment := &fakeEnvironment{node: node}
 		fsmCtx := fsmtest.NewTestContext(ctx, eventMachine)
 		err := clientstates.CheckFunds(fsmCtx, environment, *dealState)
 		require.NoError(t, err)
@@ -688,9 +693,14 @@ func TestCancelDeal(t *testing.T) {
 	require.NoError(t, err)
 	runCancelDeal := func(t *testing.T,
 		closeError error,
+		finalizeBlockstoreError error,
 		dealState *retrievalmarket.ClientDealState) {
 		node := testnodes.NewTestRetrievalClientNode(testnodes.TestRetrievalClientNodeParams{})
-		environment := &fakeEnvironment{node, nil, nil, closeError}
+		environment := &fakeEnvironment{
+			node:                    node,
+			CloseDataTransferError:  closeError,
+			FinalizeBlockstoreError: finalizeBlockstoreError,
+		}
 		fsmCtx := fsmtest.NewTestContext(ctx, eventMachine)
 		dealState.ChannelID = &datatransfer.ChannelID{
 			Initiator: "initiator",
@@ -705,7 +715,7 @@ func TestCancelDeal(t *testing.T) {
 	t.Run("it works", func(t *testing.T) {
 		dealState := makeDealState(retrievalmarket.DealStatusFailing)
 		dealState.Message = "Previous error"
-		runCancelDeal(t, nil, dealState)
+		runCancelDeal(t, nil, nil, dealState)
 		require.Equal(t, "Previous error", dealState.Message)
 		require.Equal(t, retrievalmarket.DealStatusErrored, dealState.Status)
 	})
@@ -713,16 +723,25 @@ func TestCancelDeal(t *testing.T) {
 	t.Run("error closing stream", func(t *testing.T) {
 		dealState := makeDealState(retrievalmarket.DealStatusFailing)
 		dealState.Message = "Previous error"
-		runCancelDeal(t, errors.New("something went wrong"), dealState)
+		runCancelDeal(t, errors.New("something went wrong"), nil, dealState)
 		require.NotEqual(t, "Previous error", dealState.Message)
 		require.NotEmpty(t, dealState.Message)
-		require.Equal(t, retrievalmarket.DealStatusErrored, dealState.Status)
+		require.Equal(t, retrievalmarket.DealStatusErroring, dealState.Status)
+	})
+
+	// Note: we ignore a finalize blockstore error while cancelling
+	t.Run("error finalizing blockstore", func(t *testing.T) {
+		dealState := makeDealState(retrievalmarket.DealStatusCancelling)
+		dealState.Message = "Previous error"
+		runCancelDeal(t, nil, errors.New("finalize blockstore err"), dealState)
+		require.Equal(t, "Previous error", dealState.Message)
+		require.Equal(t, retrievalmarket.DealStatusCancelled, dealState.Status)
 	})
 
 	t.Run("it works, cancelling", func(t *testing.T) {
 		dealState := makeDealState(retrievalmarket.DealStatusCancelling)
 		dealState.Message = "Previous error"
-		runCancelDeal(t, nil, dealState)
+		runCancelDeal(t, nil, nil, dealState)
 		require.Equal(t, "Previous error", dealState.Message)
 		require.Equal(t, retrievalmarket.DealStatusCancelled, dealState.Status)
 	})
@@ -734,7 +753,7 @@ func TestCheckComplete(t *testing.T) {
 	require.NoError(t, err)
 	runCheckComplete := func(t *testing.T, dealState *retrievalmarket.ClientDealState) {
 		node := testnodes.NewTestRetrievalClientNode(testnodes.TestRetrievalClientNodeParams{})
-		environment := &fakeEnvironment{node, nil, nil, nil}
+		environment := &fakeEnvironment{node: node}
 		fsmCtx := fsmtest.NewTestContext(ctx, eventMachine)
 		err := clientstates.CheckComplete(fsmCtx, environment, *dealState)
 		require.NoError(t, err)
@@ -745,14 +764,14 @@ func TestCheckComplete(t *testing.T) {
 		dealState := makeDealState(retrievalmarket.DealStatusCheckComplete)
 		dealState.AllBlocksReceived = true
 		runCheckComplete(t, dealState)
-		require.Equal(t, retrievalmarket.DealStatusCompleted, dealState.Status)
+		require.Equal(t, retrievalmarket.DealStatusFinalizingBlockstore, dealState.Status)
 	})
 
 	t.Run("when not all blocks are received", func(t *testing.T) {
 		dealState := makeDealState(retrievalmarket.DealStatusCheckComplete)
 		dealState.AllBlocksReceived = false
 		runCheckComplete(t, dealState)
-		require.Equal(t, retrievalmarket.DealStatusErrored, dealState.Status)
+		require.Equal(t, retrievalmarket.DealStatusErroring, dealState.Status)
 		require.Equal(t, "Provider sent complete status without sending all data", dealState.Message)
 	})
 
@@ -763,6 +782,84 @@ func TestCheckComplete(t *testing.T) {
 		runCheckComplete(t, dealState)
 		require.Equal(t, retrievalmarket.DealStatusClientWaitingForLastBlocks, dealState.Status)
 	})
+}
+
+func TestFinalizeBlockstore(t *testing.T) {
+	ctx := context.Background()
+	eventMachine, err := fsm.NewEventProcessor(retrievalmarket.ClientDealState{}, "Status", clientstates.ClientEvents)
+	require.NoError(t, err)
+	runFinalizeBlockstore := func(t *testing.T,
+		finalizeBlockstoreError error,
+		dealState *retrievalmarket.ClientDealState,
+	) {
+		params := testnodes.TestRetrievalClientNodeParams{}
+		node := testnodes.NewTestRetrievalClientNode(params)
+		environment := &fakeEnvironment{node: node, FinalizeBlockstoreError: finalizeBlockstoreError}
+		fsmCtx := fsmtest.NewTestContext(ctx, eventMachine)
+		err := clientstates.FinalizeBlockstore(fsmCtx, environment, *dealState)
+		require.NoError(t, err)
+		fsmCtx.ReplayEvents(t, dealState)
+	}
+
+	t.Run("it succeeds", func(t *testing.T) {
+		dealState := makeDealState(retrievalmarket.DealStatusFinalizingBlockstore)
+		runFinalizeBlockstore(t, nil, dealState)
+		require.Equal(t, retrievalmarket.DealStatusCompleted, dealState.Status)
+	})
+
+	t.Run("if FinalizeBlockstore fails", func(t *testing.T) {
+		dealState := makeDealState(retrievalmarket.DealStatusFinalizingBlockstore)
+		err := errors.New("boom")
+		runFinalizeBlockstore(t, err, dealState)
+		require.Contains(t, dealState.Message, "boom")
+		require.Equal(t, dealState.Status, retrievalmarket.DealStatusErrored)
+	})
+}
+
+func TestFailsafeFinalizeBlockstore(t *testing.T) {
+	ctx := context.Background()
+	eventMachine, err := fsm.NewEventProcessor(retrievalmarket.ClientDealState{}, "Status", clientstates.ClientEvents)
+	require.NoError(t, err)
+	runFailsafeFinalizeBlockstore := func(t *testing.T,
+		finalizeBlockstoreError error,
+		dealState *retrievalmarket.ClientDealState,
+	) {
+		params := testnodes.TestRetrievalClientNodeParams{}
+		node := testnodes.NewTestRetrievalClientNode(params)
+		environment := &fakeEnvironment{node: node, FinalizeBlockstoreError: finalizeBlockstoreError}
+		fsmCtx := fsmtest.NewTestContext(ctx, eventMachine)
+		err := clientstates.FailsafeFinalizeBlockstore(fsmCtx, environment, *dealState)
+		require.NoError(t, err)
+		fsmCtx.ReplayEvents(t, dealState)
+	}
+
+	statuses := [][2]retrievalmarket.DealStatus{{
+		rm.DealStatusErroring, rm.DealStatusErrored,
+	}, {
+		rm.DealStatusRejecting, rm.DealStatusRejected,
+	}, {
+		rm.DealStatusDealNotFoundCleanup, rm.DealStatusDealNotFound,
+	}}
+	for _, states := range statuses {
+		startState := states[0]
+		endState := states[1]
+		t.Run("in state "+startState.String(), func(t *testing.T) {
+			t.Run("it succeeds", func(t *testing.T) {
+				dealState := makeDealState(startState)
+				runFailsafeFinalizeBlockstore(t, nil, dealState)
+				require.Equal(t, endState, dealState.Status)
+			})
+
+			// Note that even if FinalizeBlockstore fails we still expect to
+			// move to the correct end state
+			t.Run("if FinalizeBlockstore fails", func(t *testing.T) {
+				dealState := makeDealState(startState)
+				err := errors.New("boom")
+				runFailsafeFinalizeBlockstore(t, err, dealState)
+				require.Equal(t, endState, dealState.Status)
+			})
+		})
+	}
 }
 
 var defaultTotalFunds = abi.NewTokenAmount(4000000)

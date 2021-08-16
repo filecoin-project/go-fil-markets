@@ -32,6 +32,7 @@ import (
 	"github.com/filecoin-project/go-fil-markets/storagemarket"
 	"github.com/filecoin-project/go-fil-markets/storagemarket/impl/storedask"
 	"github.com/filecoin-project/go-fil-markets/storagemarket/testnodes"
+	"github.com/filecoin-project/go-fil-markets/stores"
 )
 
 // StorageDependencies are the dependencies required to initialize a storage client/provider
@@ -47,6 +48,7 @@ type StorageDependencies struct {
 	ProviderInfo                      storagemarket.StorageProviderInfo
 	TestData                          *shared_testutil.Libp2pTestData
 	PieceStore                        piecestore.PieceStore
+	DagStore                          stores.DAGStoreWrapper
 	DTClient                          datatransfer.Manager
 	DTProvider                        datatransfer.Manager
 	PeerResolver                      *discoveryimpl.Local
@@ -141,6 +143,8 @@ func (gen *DepGenerator) New(
 	fs, err := filestore.NewLocalFileStore(filestore.OsPath(tempPath))
 	assert.NoError(t, err)
 
+	dagStore := shared_testutil.NewMockDagStoreWrapper(nil, nil)
+
 	// create provider and client
 
 	gs1 := graphsyncimpl.New(ctx, network.NewFromLibp2pHost(td.Host1), td.Loader1, td.Storer1)
@@ -186,6 +190,7 @@ func (gen *DepGenerator) New(
 		TempFilePath:                      tempPath,
 		ClientDelayFakeCommonNode:         cd,
 		ProviderClientDelayFakeCommonNode: pd,
+		DagStore:                          dagStore,
 		DTClient:                          dt1,
 		DTProvider:                        dt2,
 		PeerResolver:                      discovery,

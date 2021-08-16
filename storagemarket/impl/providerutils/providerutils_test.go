@@ -8,15 +8,9 @@ import (
 	"testing"
 
 	"github.com/ipfs/go-cid"
-	"github.com/ipld/go-car"
-	"github.com/ipld/go-ipld-prime"
-	basicnode "github.com/ipld/go-ipld-prime/node/basic"
-	"github.com/ipld/go-ipld-prime/traversal/selector/builder"
 	"github.com/stretchr/testify/require"
 
 	"github.com/filecoin-project/go-address"
-	"github.com/filecoin-project/go-multistore"
-	"github.com/filecoin-project/go-state-types/abi"
 	"github.com/filecoin-project/go-state-types/crypto"
 	"github.com/filecoin-project/specs-actors/actors/builtin/market"
 
@@ -116,73 +110,6 @@ func TestSignMinerData(t *testing.T) {
 			require.Equal(t, err != nil, data.shouldErr)
 		})
 	}
-}
-
-func TestCommPGenerationWithMetadata(t *testing.T) {
-	tempFilePath := filestore.Path("applesauce.jpg")
-	tempFile := shared_testutil.NewTestFile(shared_testutil.TestFileParams{Path: tempFilePath})
-	payloadCid := shared_testutil.GenerateCids(1)[0]
-	ssb := builder.NewSelectorSpecBuilder(basicnode.Prototype.Any)
-	selector := ssb.ExploreAll(ssb.Matcher()).Node()
-	storeID := multistore.StoreID(4)
-	proofType := abi.RegisteredSealProof_StackedDrg2KiBV1
-	pieceCid := shared_testutil.GenerateCids(1)[0]
-	pieceSize := abi.UnpaddedPieceSize(rand.Uint64())
-	testCases := map[string]struct {
-		fileStoreParams      shared_testutil.TestFileStoreParams
-		commPErr             error
-		expectedPieceCid     cid.Cid
-		expectedMetadataPath filestore.Path
-		shouldErr            bool
-	}{
-		"success": {
-			fileStoreParams: shared_testutil.TestFileStoreParams{
-				AvailableTempFiles: []filestore.File{tempFile},
-			},
-			expectedPieceCid:     pieceCid,
-			expectedMetadataPath: tempFilePath,
-			shouldErr:            false,
-		},
-		"tempfile creations fails": {
-			fileStoreParams: shared_testutil.TestFileStoreParams{},
-			shouldErr:       true,
-		},
-		"commP generation fails": {
-			fileStoreParams: shared_testutil.TestFileStoreParams{
-				AvailableTempFiles: []filestore.File{tempFile},
-				ExpectedDeletions:  []filestore.Path{tempFile.Path()},
-			},
-			commPErr:  errors.New("Could not generate commP"),
-			shouldErr: true,
-		},
-	}
-
-	for testName, testCase := range testCases {
-		t.Run(testName, func(t *testing.T) {
-			fcp := &fakeCommPGenerator{pieceCid, pieceSize, testCase.commPErr}
-			fs := shared_testutil.NewTestFileStore(testCase.fileStoreParams)
-			resultPieceCid, _, resultMetadataPath, resultErr := providerutils.GeneratePieceCommitmentWithMetadata(
-				fs, fcp.GenerateCommPToFile, proofType, payloadCid, selector, &storeID)
-			require.Equal(t, resultPieceCid, testCase.expectedPieceCid)
-			require.Equal(t, resultMetadataPath, testCase.expectedMetadataPath)
-			if testCase.shouldErr {
-				require.Error(t, resultErr)
-			} else {
-				require.NoError(t, resultErr)
-			}
-			fs.VerifyExpectations(t)
-		})
-	}
-}
-
-type fakeCommPGenerator struct {
-	pieceCid cid.Cid
-	size     abi.UnpaddedPieceSize
-	err      error
-}
-
-func (fcp *fakeCommPGenerator) GenerateCommPToFile(abi.RegisteredSealProof, cid.Cid, ipld.Node, *multistore.StoreID, ...car.OnNewCarBlockFunc) (cid.Cid, abi.UnpaddedPieceSize, error) {
-	return fcp.pieceCid, fcp.size, fcp.err
 }
 
 func TestLoadBlockLocations(t *testing.T) {

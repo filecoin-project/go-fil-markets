@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"os"
 
 	"github.com/hannahhoward/go-pubsub"
 	"github.com/ipfs/go-cid"
@@ -13,14 +14,11 @@ import (
 	"github.com/filecoin-project/go-address"
 	cborutil "github.com/filecoin-project/go-cbor-util"
 	"github.com/filecoin-project/go-commp-utils/ffiwrapper"
-	"github.com/filecoin-project/go-commp-utils/pieceio"
-	"github.com/filecoin-project/go-commp-utils/pieceio/cario"
 	datatransfer "github.com/filecoin-project/go-data-transfer"
 	versioning "github.com/filecoin-project/go-ds-versioning/pkg"
 	versionedfsm "github.com/filecoin-project/go-ds-versioning/pkg/fsm"
 	commcid "github.com/filecoin-project/go-fil-commcid"
 	commp "github.com/filecoin-project/go-fil-commp-hashhash"
-	"github.com/filecoin-project/go-multistore"
 	"github.com/filecoin-project/go-padreader"
 	"github.com/filecoin-project/go-state-types/abi"
 	"github.com/filecoin-project/go-state-types/crypto"
@@ -38,6 +36,7 @@ import (
 	"github.com/filecoin-project/go-fil-markets/storagemarket/impl/requestvalidation"
 	"github.com/filecoin-project/go-fil-markets/storagemarket/migrations"
 	"github.com/filecoin-project/go-fil-markets/storagemarket/network"
+	"github.com/filecoin-project/go-fil-markets/stores"
 )
 
 var _ storagemarket.StorageProvider = &Provider{}
@@ -53,36 +52,28 @@ type StoredAsk interface {
 type Provider struct {
 	net network.StorageMarketNetwork
 
-	spn                       storagemarket.StorageProviderNode
-	fs                        filestore.FileStore
-	multiStore                *multistore.MultiStore
-	pio                       pieceio.PieceIO
-	pieceStore                piecestore.PieceStore
-	conns                     *connmanager.ConnManager
-	storedAsk                 StoredAsk
-	actor                     address.Address
-	dataTransfer              datatransfer.Manager
-	universalRetrievalEnabled bool
-	customDealDeciderFunc     DealDeciderFunc
-	pubSub                    *pubsub.PubSub
-	readyMgr                  *shared.ReadyManager
+	spn                   storagemarket.StorageProviderNode
+	fs                    filestore.FileStore
+	pieceStore            piecestore.PieceStore
+	conns                 *connmanager.ConnManager
+	storedAsk             StoredAsk
+	actor                 address.Address
+	dataTransfer          datatransfer.Manager
+	customDealDeciderFunc DealDeciderFunc
+	pubSub                *pubsub.PubSub
+	readyMgr              *shared.ReadyManager
 
 	deals        fsm.Group
 	migrateDeals func(context.Context) error
 
 	unsubDataTransfer datatransfer.Unsubscribe
+
+	dagStore stores.DAGStoreWrapper
+	stores   *stores.ReadWriteBlockstores
 }
 
 // StorageProviderOption allows custom configuration of a storage provider
 type StorageProviderOption func(p *Provider)
-
-// EnableUniversalRetrieval causes a storage provider to track all CIDs in a piece,
-// so that any CID, not just the root payload CID, can be retrieved
-func EnableUniversalRetrieval() StorageProviderOption {
-	return func(p *Provider) {
-		p.universalRetrievalEnabled = true
-	}
-}
 
 // DealDeciderFunc is a function which evaluates an incoming deal to decide if
 // it its accepted
@@ -104,7 +95,7 @@ func CustomDealDecisionLogic(decider DealDeciderFunc) StorageProviderOption {
 func NewProvider(net network.StorageMarketNetwork,
 	ds datastore.Batching,
 	fs filestore.FileStore,
-	multiStore *multistore.MultiStore,
+	dagStore stores.DAGStoreWrapper,
 	pieceStore piecestore.PieceStore,
 	dataTransfer datatransfer.Manager,
 	spn storagemarket.StorageProviderNode,
@@ -112,15 +103,10 @@ func NewProvider(net network.StorageMarketNetwork,
 	storedAsk StoredAsk,
 	options ...StorageProviderOption,
 ) (storagemarket.StorageProvider, error) {
-	carIO := cario.NewCarIO()
-	pio := pieceio.NewPieceIO(carIO, nil, multiStore)
-
 	h := &Provider{
 		net:          net,
 		spn:          spn,
 		fs:           fs,
-		multiStore:   multiStore,
-		pio:          pio,
 		pieceStore:   pieceStore,
 		conns:        connmanager.NewConnManager(),
 		storedAsk:    storedAsk,
@@ -128,6 +114,8 @@ func NewProvider(net network.StorageMarketNetwork,
 		dataTransfer: dataTransfer,
 		pubSub:       pubsub.New(providerDispatcher),
 		readyMgr:     shared.NewReadyManager(),
+		dagStore:     dagStore,
+		stores:       stores.NewReadWriteBlockstores(),
 	}
 	storageMigrations, err := migrations.ProviderMigrations.Build()
 	if err != nil {
@@ -239,16 +227,20 @@ func (p *Provider) receiveDeal(s network.StorageDealStream) error {
 		return p.resendProposalResponse(s, &md)
 	}
 
-	var storeIDForDeal *multistore.StoreID
+	var path string
+	// create an empty CARv2 file at a temp location that Graphysnc will write the incoming blocks to via a CARv2 ReadWrite blockstore wrapper.
 	if proposal.Piece.TransferType != storagemarket.TTManual {
-		nextStoreID := p.multiStore.Next()
-		// make sure store is initialized, even if we don't use it yet
-		_, err = p.multiStore.Get(nextStoreID)
+		tmp, err := p.fs.CreateTemp()
 		if err != nil {
-			return err
+			return xerrors.Errorf("failed to create an empty temp CARv2 file: %w", err)
 		}
-		storeIDForDeal = &nextStoreID
+		if err := tmp.Close(); err != nil {
+			_ = os.Remove(string(tmp.OsPath()))
+			return xerrors.Errorf("failed to close temp file: %w", err)
+		}
+		path = string(tmp.OsPath())
 	}
+
 	deal := &storagemarket.MinerDeal{
 		Client:             s.RemotePeer(),
 		Miner:              p.net.ID(),
@@ -257,8 +249,8 @@ func (p *Provider) receiveDeal(s network.StorageDealStream) error {
 		State:              storagemarket.StorageDealUnknown,
 		Ref:                proposal.Piece,
 		FastRetrieval:      proposal.FastRetrieval,
-		StoreID:            storeIDForDeal,
 		CreationTime:       curTime(),
+		InboundCAR:         path,
 	}
 
 	err = p.deals.Begin(proposalNd.Cid(), deal)
@@ -554,13 +546,6 @@ func (p *Provider) Configure(options ...StorageProviderOption) {
 	}
 }
 
-// UniversalRetrievalEnabled returns whether or not universal retrieval
-// (retrieval by any CID, not just the root payload CID) is enabled
-// for this provider
-func (p *Provider) UniversalRetrievalEnabled() bool {
-	return p.universalRetrievalEnabled
-}
-
 // SubscribeToEvents allows another component to listen for events on the StorageProvider
 // in order to track deals as they progress through the deal flow
 func (p *Provider) SubscribeToEvents(subscriber storagemarket.ProviderSubscriber) shared.Unsubscribe {
@@ -587,33 +572,62 @@ func (p *Provider) dispatch(eventName fsm.EventName, deal fsm.StateType) {
 }
 
 func (p *Provider) start(ctx context.Context) error {
-	err := p.migrateDeals(ctx)
+	// Run datastore and DAG store migrations
+	deals, err := p.runMigrations(ctx)
 	publishErr := p.readyMgr.FireReady(err)
 	if publishErr != nil {
-		log.Warnf("Publish storage provider ready event: %s", err.Error())
+		log.Warnf("publish storage provider ready event: %s", err.Error())
 	}
-	if err != nil {
-		return fmt.Errorf("Migrating storage provider state machines: %w", err)
-	}
-	if err := p.restartDeals(); err != nil {
-		return fmt.Errorf("Failed to restart deals: %w", err)
-	}
-	return nil
-}
-
-func (p *Provider) restartDeals() error {
-	var deals []storagemarket.MinerDeal
-	err := p.deals.List(&deals)
 	if err != nil {
 		return err
 	}
 
+	// Fire restart event on all active deals
+	if err := p.restartDeals(deals); err != nil {
+		return fmt.Errorf("failed to restart deals: %w", err)
+	}
+	return nil
+}
+
+func (p *Provider) runMigrations(ctx context.Context) ([]storagemarket.MinerDeal, error) {
+	// Perform datastore migration
+	err := p.migrateDeals(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("migrating storage provider state machines: %w", err)
+	}
+
+	var deals []storagemarket.MinerDeal
+	err = p.deals.List(&deals)
+	if err != nil {
+		return nil, xerrors.Errorf("failed to fetch deals during startup: %w", err)
+	}
+
+	// re-track all deals for whom we still have a local blockstore.
+	for _, d := range deals {
+		if _, err := os.Stat(d.InboundCAR); err == nil && d.Ref != nil {
+			_, _ = p.stores.GetOrOpen(d.ProposalCid.String(), d.InboundCAR, d.Ref.Root)
+		}
+	}
+
+	// migrate deals to the dagstore if still not migrated.
+	if ok, err := p.dagStore.MigrateDeals(ctx, deals); err != nil {
+		return nil, fmt.Errorf("failed to migrate deals to DAG store: %w", err)
+	} else if ok {
+		log.Info("dagstore migration completed successfully")
+	} else {
+		log.Info("no dagstore migration necessary")
+	}
+
+	return deals, nil
+}
+
+func (p *Provider) restartDeals(deals []storagemarket.MinerDeal) error {
 	for _, deal := range deals {
 		if p.deals.IsTerminated(deal) {
 			continue
 		}
 
-		err = p.deals.Send(deal.ProposalCid, storagemarket.ProviderEventRestart)
+		err := p.deals.Send(deal.ProposalCid, storagemarket.ProviderEventRestart)
 		if err != nil {
 			return err
 		}

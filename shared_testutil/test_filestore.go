@@ -157,7 +157,7 @@ func (f *TestFile) Path() filestore.Path {
 
 // OsPath is not implemented
 func (f *TestFile) OsPath() filestore.OsPath {
-	panic("not implemented")
+	return filestore.OsPath(f.path)
 }
 
 // Size returns the preset size

@@ -5,6 +5,7 @@ package migrations
 import (
 	"fmt"
 	"io"
+	"math"
 	"sort"
 
 	filestore "github.com/filecoin-project/go-fil-markets/filestore"
@@ -20,6 +21,7 @@ import (
 
 var _ = xerrors.Errorf
 var _ = cid.Undef
+var _ = math.E
 var _ = sort.Sort
 
 var lengthBufClientDeal0 = []byte{145}

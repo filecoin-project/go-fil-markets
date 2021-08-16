@@ -130,6 +130,14 @@ const (
 	// ClientEventPaymentNotSent indicates that payment was requested, but no
 	// payment was actually due, so a voucher was not sent to the provider
 	ClientEventPaymentNotSent
+
+	// ClientEventBlockstoreFinalized is fired when the blockstore has been
+	// finalized after receiving all blocks
+	ClientEventBlockstoreFinalized
+
+	// ClientEventFinalizeBlockstoreErrored is fired when there is an error
+	// finalizing the blockstore
+	ClientEventFinalizeBlockstoreErrored
 )
 
 // ClientEvents is a human readable map of client event name -> event description
@@ -171,6 +179,8 @@ var ClientEvents = map[ClientEvent]string{
 	ClientEventWaitForLastBlocks:             "ClientEventWaitForLastBlocks",
 	ClientEventPaymentChannelSkip:            "ClientEventPaymentChannelSkip",
 	ClientEventPaymentNotSent:                "ClientEventPaymentNotSent",
+	ClientEventBlockstoreFinalized:           "ClientEventBlockstoreFinalized",
+	ClientEventFinalizeBlockstoreErrored:     "ClientEventFinalizeBlockstoreErrored",
 }
 
 func (e ClientEvent) String() string {

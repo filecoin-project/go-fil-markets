@@ -14,16 +14,12 @@ type fileStore struct {
 }
 
 // NewLocalFileStore creates a filestore mounted on a given local directory path
-func NewLocalFileStore(basedirectory OsPath) (FileStore, error) {
-	base := filepath.Clean(string(basedirectory))
-	info, err := os.Stat(string(base))
+func NewLocalFileStore(baseDir OsPath) (FileStore, error) {
+	base, err := checkIsDir(string(baseDir))
 	if err != nil {
-		return nil, fmt.Errorf("error getting %s info: %s", base, err.Error())
+		return nil, err
 	}
-	if !info.IsDir() {
-		return nil, fmt.Errorf("%s is not a directory", base)
-	}
-	return &fileStore{string(base)}, nil
+	return &fileStore{base}, nil
 }
 
 func (fs fileStore) filename(p Path) string {
@@ -72,4 +68,16 @@ func (fs fileStore) CreateTemp() (File, error) {
 	}
 	filename := filepath.Base(f.Name())
 	return &fd{File: f, basepath: fs.base, filename: filename}, nil
+}
+
+func checkIsDir(baseDir string) (string, error) {
+	base := filepath.Clean(string(baseDir))
+	info, err := os.Stat(base)
+	if err != nil {
+		return "", fmt.Errorf("error getting %s info: %s", base, err.Error())
+	}
+	if !info.IsDir() {
+		return "", fmt.Errorf("%s is not a directory", base)
+	}
+	return base, nil
 }

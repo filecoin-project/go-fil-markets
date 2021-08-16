@@ -7,6 +7,7 @@ import (
 	"errors"
 	"io"
 	"io/ioutil"
+	"sync"
 	"testing"
 
 	"github.com/ipfs/go-cid"
@@ -345,6 +346,9 @@ type FakeProviderNode struct {
 	LocatePieceForDealWithinSectorError error
 	DataCap                             *verifreg.DataCap
 	GetDataCapErr                       error
+
+	lk     sync.Mutex
+	Sealed map[abi.SectorNumber]bool
 }
 
 // PublishDeals simulates publishing a deal by adding it to the storage market state

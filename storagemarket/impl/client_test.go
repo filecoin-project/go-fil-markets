@@ -119,12 +119,11 @@ func TestClient_Migrations(t *testing.T) {
 	}
 	client, err := storageimpl.NewClient(
 		network.NewFromLibp2pHost(deps.TestData.Host1, network.RetryParameters(0, 0, 0, 0)),
-		deps.TestData.Bs1,
-		deps.TestData.MultiStore1,
 		deps.DTClient,
 		deps.PeerResolver,
 		clientDs,
 		deps.ClientNode,
+		shared_testutil.NewTestStorageBlockstoreAccessor(),
 		storageimpl.DealPollingInterval(0),
 	)
 	require.NoError(t, err)
@@ -158,7 +157,6 @@ func TestClient_Migrations(t *testing.T) {
 			PollRetryCount: 0,
 			PollErrorCount: 0,
 			FastRetrieval:  fastRetrievals[i],
-			StoreID:        storeIDs[i],
 			FundsReserved:  fundsReserveds[i],
 			CreationTime:   creationTimes[i],
 		}

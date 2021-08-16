@@ -6,12 +6,13 @@ import (
 	"fmt"
 	"math"
 
+	"github.com/ipfs/go-graphsync/storeutil"
+	bstore "github.com/ipfs/go-ipfs-blockstore"
 	logging "github.com/ipfs/go-log/v2"
 	"github.com/ipld/go-ipld-prime"
 	peer "github.com/libp2p/go-libp2p-core/peer"
 
 	datatransfer "github.com/filecoin-project/go-data-transfer"
-	"github.com/filecoin-project/go-multistore"
 	"github.com/filecoin-project/go-statemachine/fsm"
 
 	rm "github.com/filecoin-project/go-fil-markets/retrievalmarket"
@@ -157,9 +158,9 @@ func ClientDataTransferSubscriber(deals EventReceiver) datatransfer.Subscriber {
 	}
 }
 
-// StoreGetter retrieves the store for a given proposal cid
+// StoreGetter retrieves the store for a given id
 type StoreGetter interface {
-	Get(otherPeer peer.ID, dealID rm.DealID) (*multistore.Store, error)
+	Get(otherPeer peer.ID, dealID rm.DealID) (bstore.Blockstore, error)
 }
 
 // StoreConfigurableTransport defines the methods needed to
@@ -188,7 +189,7 @@ func TransportConfigurer(thisPeer peer.ID, storeGetter StoreGetter) datatransfer
 		if store == nil {
 			return
 		}
-		err = gsTransport.UseStore(channelID, store.Loader, store.Storer)
+		err = gsTransport.UseStore(channelID, storeutil.LoaderForBlockstore(store), storeutil.StorerForBlockstore(store))
 		if err != nil {
 			log.Errorf("attempting to configure data store: %s", err)
 		}

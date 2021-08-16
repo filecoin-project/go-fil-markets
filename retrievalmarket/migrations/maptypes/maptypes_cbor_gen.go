@@ -5,6 +5,7 @@ package maptypes
 import (
 	"fmt"
 	"io"
+	"math"
 	"sort"
 
 	piecestore "github.com/filecoin-project/go-fil-markets/piecestore"
@@ -18,6 +19,7 @@ import (
 
 var _ = xerrors.Errorf
 var _ = cid.Undef
+var _ = math.E
 var _ = sort.Sort
 
 func (t *ClientDealState1) MarshalCBOR(w io.Writer) error {

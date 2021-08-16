@@ -4,9 +4,6 @@ import (
 	"bytes"
 	"context"
 	"encoding/base64"
-	"errors"
-	"io"
-	"io/ioutil"
 	"sort"
 	"sync"
 	"testing"
@@ -34,12 +31,6 @@ type expectedVoucherKey struct {
 	expectedAmount string
 }
 
-type sectorKey struct {
-	sectorID abi.SectorNumber
-	offset   abi.UnpaddedPieceSize
-	length   abi.UnpaddedPieceSize
-}
-
 type voucherResult struct {
 	amount abi.TokenAmount
 	err    error
@@ -49,9 +40,6 @@ type voucherResult struct {
 // responses are mocked
 type TestRetrievalProviderNode struct {
 	ChainHeadError   error
-	sectorStubs      map[sectorKey][]byte
-	expectations     map[sectorKey]struct{}
-	received         map[sectorKey]struct{}
 	lk               sync.Mutex
 	expectedVouchers map[expectedVoucherKey]voucherResult
 
@@ -61,7 +49,6 @@ type TestRetrievalProviderNode struct {
 	expectedPricingPieceCID cid.Cid
 	receivedPricingPieceCID cid.Cid
 
-	unsealed         map[sectorKey]struct{}
 	isVerified       bool
 	receivedVouchers []abi.TokenAmount
 	unsealPaused     chan struct{}
@@ -72,21 +59,8 @@ var _ retrievalmarket.RetrievalProviderNode = &TestRetrievalProviderNode{}
 // NewTestRetrievalProviderNode instantiates a new TestRetrievalProviderNode
 func NewTestRetrievalProviderNode() *TestRetrievalProviderNode {
 	return &TestRetrievalProviderNode{
-		sectorStubs:      make(map[sectorKey][]byte),
-		expectations:     make(map[sectorKey]struct{}),
-		received:         make(map[sectorKey]struct{}),
 		expectedVouchers: make(map[expectedVoucherKey]voucherResult),
-		unsealed:         make(map[sectorKey]struct{}),
 	}
-}
-
-func (trpn *TestRetrievalProviderNode) IsUnsealed(ctx context.Context, sectorID abi.SectorNumber, offset abi.UnpaddedPieceSize, length abi.UnpaddedPieceSize) (bool, error) {
-	_, ok := trpn.unsealed[sectorKey{sectorID, offset, length}]
-	return ok, nil
-}
-
-func (trpn *TestRetrievalProviderNode) MarkUnsealed(ctx context.Context, sectorID abi.SectorNumber, offset abi.UnpaddedPieceSize, length abi.UnpaddedPieceSize) {
-	trpn.unsealed[sectorKey{sectorID, offset, length}] = struct{}{}
 }
 
 func (trpn *TestRetrievalProviderNode) MarkVerified() {
@@ -107,64 +81,11 @@ func (trpn *TestRetrievalProviderNode) GetRetrievalPricingInput(_ context.Contex
 	}, nil
 }
 
-// StubUnseal stubs a response to attempting to unseal a sector with the given paramters
-func (trpn *TestRetrievalProviderNode) StubUnseal(sectorID abi.SectorNumber, offset, length abi.UnpaddedPieceSize, data []byte) {
-	trpn.sectorStubs[sectorKey{sectorID, offset, length}] = data
-}
-
-// ExpectFailedUnseal indicates an expectation that a call will be made to unseal
-// a sector with the given params and should fail
-func (trpn *TestRetrievalProviderNode) ExpectFailedUnseal(sectorID abi.SectorNumber, offset, length abi.UnpaddedPieceSize) {
-	trpn.expectations[sectorKey{sectorID, offset, length}] = struct{}{}
-}
-
-// ExpectUnseal indicates an expectation that a call will be made to unseal
-// a sector with the given params and should return the given data
-func (trpn *TestRetrievalProviderNode) ExpectUnseal(sectorID abi.SectorNumber, offset, length abi.UnpaddedPieceSize, data []byte) {
-	trpn.expectations[sectorKey{sectorID, offset, length}] = struct{}{}
-	trpn.StubUnseal(sectorID, offset, length, data)
-}
-
-func (trpn *TestRetrievalProviderNode) PauseUnseal() {
-	trpn.lk.Lock()
-	defer trpn.lk.Unlock()
-
-	trpn.unsealPaused = make(chan struct{})
-}
-
-func (trpn *TestRetrievalProviderNode) FinishUnseal() {
-	close(trpn.unsealPaused)
-}
-
-// UnsealSector simulates unsealing a sector by returning a stubbed response
-// or erroring
-func (trpn *TestRetrievalProviderNode) UnsealSector(ctx context.Context, sectorID abi.SectorNumber, offset, length abi.UnpaddedPieceSize) (io.ReadCloser, error) {
-	trpn.lk.Lock()
-	defer trpn.lk.Unlock()
-
-	if trpn.unsealPaused != nil {
-		select {
-		case <-ctx.Done():
-			return nil, ctx.Err()
-		case <-trpn.unsealPaused:
-		}
-	}
-
-	trpn.received[sectorKey{sectorID, offset, length}] = struct{}{}
-	data, ok := trpn.sectorStubs[sectorKey{sectorID, offset, length}]
-	if !ok {
-		return nil, errors.New("Could not unseal")
-	}
-	return ioutil.NopCloser(bytes.NewReader(data)), nil
-}
-
 // VerifyExpectations verifies that all expected calls were made and no other calls
 // were made
 func (trpn *TestRetrievalProviderNode) VerifyExpectations(t *testing.T) {
 	require.Equal(t, len(trpn.expectedVouchers), len(trpn.receivedVouchers))
-	require.Equal(t, trpn.expectations, trpn.received)
 	require.Equal(t, trpn.expectedPricingPieceCID, trpn.receivedPricingPieceCID)
-
 	require.Equal(t, trpn.expectedPricingParamDeals, trpn.receivedPricingParamDeals)
 }
 

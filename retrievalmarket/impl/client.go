@@ -9,6 +9,7 @@ import (
 	"github.com/hannahhoward/go-pubsub"
 	"github.com/ipfs/go-cid"
 	"github.com/ipfs/go-datastore"
+	bstore "github.com/ipfs/go-ipfs-blockstore"
 	logging "github.com/ipfs/go-log/v2"
 	"github.com/libp2p/go-libp2p-core/peer"
 	"golang.org/x/xerrors"
@@ -16,7 +17,6 @@ import (
 	"github.com/filecoin-project/go-address"
 	datatransfer "github.com/filecoin-project/go-data-transfer"
 	versionedfsm "github.com/filecoin-project/go-ds-versioning/pkg/fsm"
-	"github.com/filecoin-project/go-multistore"
 	"github.com/filecoin-project/go-state-types/abi"
 	"github.com/filecoin-project/go-state-types/big"
 	"github.com/filecoin-project/go-statemachine/fsm"
@@ -36,7 +36,6 @@ var log = logging.Logger("retrieval")
 type Client struct {
 	network      rmnet.RetrievalMarketNetwork
 	dataTransfer datatransfer.Manager
-	multiStore   *multistore.MultiStore
 	node         retrievalmarket.RetrievalClientNode
 	dealIDGen    *shared.TimeCounter
 
@@ -45,6 +44,7 @@ type Client struct {
 	resolver             discovery.PeerResolver
 	stateMachines        fsm.Group
 	migrateStateMachines func(context.Context) error
+	bstores              retrievalmarket.BlockstoreAccessor
 
 	// Guards concurrent access to Retrieve method
 	retrieveLk sync.Mutex
@@ -72,16 +72,23 @@ func dispatcher(evt pubsub.Event, subscriberFn pubsub.SubscriberFn) error {
 var _ retrievalmarket.RetrievalClient = &Client{}
 
 // NewClient creates a new retrieval client
-func NewClient(network rmnet.RetrievalMarketNetwork, multiStore *multistore.MultiStore, dataTransfer datatransfer.Manager, node retrievalmarket.RetrievalClientNode, resolver discovery.PeerResolver, ds datastore.Batching) (retrievalmarket.RetrievalClient, error) {
+func NewClient(
+	network rmnet.RetrievalMarketNetwork,
+	dataTransfer datatransfer.Manager,
+	node retrievalmarket.RetrievalClientNode,
+	resolver discovery.PeerResolver,
+	ds datastore.Batching,
+	ba retrievalmarket.BlockstoreAccessor,
+) (retrievalmarket.RetrievalClient, error) {
 	c := &Client{
 		network:      network,
-		multiStore:   multiStore,
 		dataTransfer: dataTransfer,
 		node:         node,
 		resolver:     resolver,
 		dealIDGen:    shared.NewTimeCounter(),
 		subscribers:  pubsub.New(dispatcher),
 		readySub:     pubsub.New(shared.ReadyDispatcher),
+		bstores:      ba,
 	}
 	retrievalMigrations, err := migrations.ClientMigrations.Build()
 	if err != nil {
@@ -136,6 +143,10 @@ func NewClient(network rmnet.RetrievalMarketNetwork, multiStore *multistore.Mult
 	return c, nil
 }
 
+func (c *Client) NextID() retrievalmarket.DealID {
+	return retrievalmarket.DealID(c.dealIDGen.Next())
+}
+
 // Start initialized the Client, performing relevant database migrations
 func (c *Client) Start(ctx context.Context) error {
 	go func() {
@@ -143,6 +154,7 @@ func (c *Client) Start(ctx context.Context) error {
 		if err != nil {
 			log.Errorf("Migrating retrieval client state machines: %s", err.Error())
 		}
+
 		err = c.readySub.Publish(err)
 		if err != nil {
 			log.Warnf("Publish retrieval client ready event: %s", err.Error())
@@ -199,35 +211,47 @@ func (c *Client) Query(ctx context.Context, p retrievalmarket.RetrievalPeer, pay
 	return s.ReadQueryResponse()
 }
 
-/*
-Retrieve initiates the retrieval deal flow, which involves multiple requests and responses
-
-To start this processes, the client creates a new `RetrievalDealStream`.  Currently, this connection is
-kept open through the entire deal until completion or failure.  Make deals pauseable as well as surviving
-a restart is a planned future feature.
-
-Retrieve should be called after using FindProviders and Query are used to identify an appropriate provider to
-retrieve the deal from. The parameters identified in Query should be passed to Retrieve to ensure the
-greatest likelihood the provider will accept the deal
-
-When called, the client takes the following actions:
-
-1. Creates a deal ID using the next value from its `storedCounter`.
-
-2. Constructs a `DealProposal` with deal terms
-
-3. Tells its statemachine to begin tracking this deal state by dealID.
-
-4. Constructs a `blockio.SelectorVerifier` and adds it to its dealID-keyed map of block verifiers.
-
-5. Triggers a `ClientEventOpen` event on its statemachine.
-
-From then on, the statemachine controls the deal flow in the client. Other components may listen for events in this flow by calling
-`SubscribeToEvents` on the Client. The Client handles consuming blocks it receives from the provider, via `ConsumeBlocks` function
-
-Documentation of the client state machine can be found at https://godoc.org/github.com/filecoin-project/go-fil-markets/retrievalmarket/impl/clientstates
-*/
-func (c *Client) Retrieve(ctx context.Context, payloadCID cid.Cid, params retrievalmarket.Params, totalFunds abi.TokenAmount, p retrievalmarket.RetrievalPeer, clientWallet address.Address, minerWallet address.Address, storeID *multistore.StoreID) (retrievalmarket.DealID, error) {
+// Retrieve initiates the retrieval deal flow, which involves multiple requests and responses
+//
+// To start this processes, the client creates a new `RetrievalDealStream`.  Currently, this connection is
+// kept open through the entire deal until completion or failure.  Make deals pauseable as well as surviving
+// a restart is a planned future feature.
+//
+// Retrieve should be called after using FindProviders and Query are used to identify an appropriate provider to
+// retrieve the deal from. The parameters identified in Query should be passed to Retrieve to ensure the
+// greatest likelihood the provider will accept the deal
+//
+// When called, the client takes the following actions:
+//
+// 1. Creates a deal ID using the next value from its `storedCounter`.
+//
+// 2. Constructs a `DealProposal` with deal terms
+//
+// 3. Tells its statemachine to begin tracking this deal state by dealID.
+//
+// 4. Constructs a `blockio.SelectorVerifier` and adds it to its dealID-keyed map of block verifiers.
+//
+// 5. Triggers a `ClientEventOpen` event on its statemachine.
+//
+// From then on, the statemachine controls the deal flow in the client. Other components may listen for events in this flow by calling
+// `SubscribeToEvents` on the Client. The Client handles consuming blocks it receives from the provider, via `ConsumeBlocks` function
+//
+// Retrieve can use an ID generated through NextID, or can generate an ID if the user passes a zero value.
+//
+// Use NextID when it's necessary to reserve an ID ahead of time, e.g. to
+// associate it with a given blockstore in the BlockstoreAccessor.
+//
+// Documentation of the client state machine can be found at https://godoc.org/github.com/filecoin-project/go-fil-markets/retrievalmarket/impl/clientstates
+func (c *Client) Retrieve(
+	ctx context.Context,
+	id retrievalmarket.DealID,
+	payloadCID cid.Cid,
+	params retrievalmarket.Params,
+	totalFunds abi.TokenAmount,
+	p retrievalmarket.RetrievalPeer,
+	clientWallet address.Address,
+	minerWallet address.Address,
+) (retrievalmarket.DealID, error) {
 	c.retrieveLk.Lock()
 	defer c.retrieveLk.Unlock()
 
@@ -243,20 +267,16 @@ func (c *Client) Retrieve(ctx context.Context, payloadCID cid.Cid, params retrie
 		return 0, err
 	}
 
-	// make sure the store is loadable
-	if storeID != nil {
-		_, err = c.multiStore.Get(*storeID)
-		if err != nil {
-			return 0, err
-		}
+	// assign a new ID.
+	if id == 0 {
+		next := c.dealIDGen.Next()
+		id = retrievalmarket.DealID(next)
 	}
 
-	next := c.dealIDGen.Next()
-	dealID := retrievalmarket.DealID(next)
 	dealState := retrievalmarket.ClientDealState{
 		DealProposal: retrievalmarket.DealProposal{
 			PayloadCID: payloadCID,
-			ID:         dealID,
+			ID:         id,
 			Params:     params,
 		},
 		TotalFunds:       totalFunds,
@@ -270,7 +290,6 @@ func (c *Client) Retrieve(ctx context.Context, payloadCID cid.Cid, params retrie
 		Status:           retrievalmarket.DealStatusNew,
 		Sender:           p.ID,
 		UnsealFundsPaid:  big.Zero(),
-		StoreID:          storeID,
 	}
 
 	// start the deal processing
@@ -284,7 +303,7 @@ func (c *Client) Retrieve(ctx context.Context, payloadCID cid.Cid, params retrie
 		return 0, err
 	}
 
-	return dealID, nil
+	return id, nil
 }
 
 // Check if there's already an active retrieval deal with the same peer
@@ -453,20 +472,22 @@ func (c *clientDealEnvironment) CloseDataTransfer(ctx context.Context, channelID
 	return err
 }
 
+// FinalizeBlockstore is called when all blocks have been received
+func (c *clientDealEnvironment) FinalizeBlockstore(ctx context.Context, dealID retrievalmarket.DealID) error {
+	return c.c.bstores.Done(dealID)
+}
+
 type clientStoreGetter struct {
 	c *Client
 }
 
-func (csg *clientStoreGetter) Get(otherPeer peer.ID, dealID retrievalmarket.DealID) (*multistore.Store, error) {
+func (csg *clientStoreGetter) Get(_ peer.ID, id retrievalmarket.DealID) (bstore.Blockstore, error) {
 	var deal retrievalmarket.ClientDealState
-	err := csg.c.stateMachines.Get(dealID).Get(&deal)
+	err := csg.c.stateMachines.Get(id).Get(&deal)
 	if err != nil {
 		return nil, err
 	}
-	if deal.StoreID == nil {
-		return nil, nil
-	}
-	return csg.c.multiStore.Get(*deal.StoreID)
+	return csg.c.bstores.Get(id, deal.PayloadCID)
 }
 
 // ClientFSMParameterSpec is a valid set of parameters for a client deal FSM - used in doc generation

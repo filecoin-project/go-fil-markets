@@ -5,6 +5,7 @@ package retrievalmarket
 import (
 	"fmt"
 	"io"
+	"math"
 	"sort"
 
 	datatransfer "github.com/filecoin-project/go-data-transfer"
@@ -19,6 +20,7 @@ import (
 
 var _ = xerrors.Errorf
 var _ = cid.Undef
+var _ = math.E
 var _ = sort.Sort
 
 func (t *Query) MarshalCBOR(w io.Writer) error {
