@@ -18,7 +18,7 @@ func (t *TestStorageBlockstoreAccessor) Get(storagemarket.PayloadCID) (bstore.Bl
 	return t.Blockstore, nil
 }
 
-func (t *TestStorageBlockstoreAccessor) Done(bstore.Blockstore) error {
+func (t *TestStorageBlockstoreAccessor) Done(storagemarket.PayloadCID) error {
 	return nil
 }
 
@@ -34,11 +34,11 @@ type TestRetrievalBlockstoreAccessor struct {
 
 var _ retrievalmarket.BlockstoreAccessor = (*TestRetrievalBlockstoreAccessor)(nil)
 
-func (t *TestRetrievalBlockstoreAccessor) Get(retrievalmarket.DealID) (bstore.Blockstore, error) {
+func (t *TestRetrievalBlockstoreAccessor) Get(retrievalmarket.DealID, retrievalmarket.PayloadCID) (bstore.Blockstore, error) {
 	return t.Blockstore, nil
 }
 
-func (t *TestRetrievalBlockstoreAccessor) Close(retrievalmarket.DealID) error {
+func (t *TestRetrievalBlockstoreAccessor) Done(retrievalmarket.DealID) error {
 	return nil
 }
 
