@@ -65,7 +65,7 @@ func (csg *clientStoreGetter) Get(proposalCid cid.Cid) (bstore.Blockstore, error
 		return nil, xerrors.Errorf("failed to get client deal state: %w", err)
 	}
 
-	bs, err := csg.c.bstores.Get(proposalCid)
+	bs, err := csg.c.bstores.Get(deal.DataRef.Root)
 	if err != nil {
 		return nil, xerrors.Errorf("failed to get blockstore for %s: %w", proposalCid, err)
 	}

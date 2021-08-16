@@ -317,8 +317,6 @@ func (c *Client) GetProviderDealState(ctx context.Context, proposalCid cid.Cid) 
 // its implementation of the Client FSM's ClientDealEnvironment.
 //
 // Documentation of the client state machine can be found at https://godoc.org/github.com/filecoin-project/go-fil-markets/storagemarket/impl/clientstates
-//
-// Note: This will fail for online deals if client does not give a valid CARv2 file path.
 func (c *Client) ProposeStorageDeal(ctx context.Context, params storagemarket.ProposeStorageDealParams) (*storagemarket.ProposeStorageDealResult, error) {
 	err := c.addMultiaddrs(ctx, params.Info.Address)
 	if err != nil {
