@@ -3,70 +3,39 @@ package providerstates
 import (
 	"context"
 	"errors"
-	"io"
 
-	"golang.org/x/xerrors"
+	"github.com/ipfs/go-cid"
+	logging "github.com/ipfs/go-log/v2"
 
 	datatransfer "github.com/filecoin-project/go-data-transfer"
-	"github.com/filecoin-project/go-multistore"
 	"github.com/filecoin-project/go-statemachine"
 	"github.com/filecoin-project/go-statemachine/fsm"
 
-	"github.com/filecoin-project/go-fil-markets/piecestore"
 	rm "github.com/filecoin-project/go-fil-markets/retrievalmarket"
 )
+
+var log = logging.Logger("retrieval-fsm")
 
 // ProviderDealEnvironment is a bridge to the environment a provider deal is executing in
 // It provides access to relevant functionality on the retrieval provider
 type ProviderDealEnvironment interface {
 	// Node returns the node interface for this deal
 	Node() rm.RetrievalProviderNode
-	ReadIntoBlockstore(storeID multistore.StoreID, pieceData io.ReadCloser) error
+	PrepareBlockstore(ctx context.Context, dealID rm.DealID, pieceCid cid.Cid) error
 	TrackTransfer(deal rm.ProviderDealState) error
 	UntrackTransfer(deal rm.ProviderDealState) error
-	DeleteStore(storeID multistore.StoreID) error
+	DeleteStore(dealID rm.DealID) error
 	ResumeDataTransfer(context.Context, datatransfer.ChannelID) error
 	CloseDataTransfer(context.Context, datatransfer.ChannelID) error
 }
 
-func firstSuccessfulUnseal(ctx context.Context, node rm.RetrievalProviderNode, pieceInfo piecestore.PieceInfo) (io.ReadCloser, error) {
-	// prefer an unsealed sector containing the piece if one exists
-	for _, deal := range pieceInfo.Deals {
-		isUnsealed, err := node.IsUnsealed(ctx, deal.SectorID, deal.Offset.Unpadded(), deal.Length.Unpadded())
-		if err != nil {
-			continue
-		}
-		if isUnsealed {
-			// UnsealSector will NOT unseal a sector if we already have an unsealed copy lying around.
-			reader, err := node.UnsealSector(ctx, deal.SectorID, deal.Offset.Unpadded(), deal.Length.Unpadded())
-			if err == nil {
-				return reader, nil
-			}
-		}
-	}
-
-	lastErr := xerrors.New("no sectors found to unseal from")
-	// if there is no unsealed sector containing the piece, just read the piece from the first sector we are able to unseal.
-	for _, deal := range pieceInfo.Deals {
-		reader, err := node.UnsealSector(ctx, deal.SectorID, deal.Offset.Unpadded(), deal.Length.Unpadded())
-		if err == nil {
-			return reader, nil
-		}
-		lastErr = err
-	}
-	return nil, lastErr
-}
-
-// UnsealData unseals the piece containing data for retrieval as needed
+// UnsealData fetches the piece containing data needed for the retrieval,
+// unsealing it if necessary
 func UnsealData(ctx fsm.Context, environment ProviderDealEnvironment, deal rm.ProviderDealState) error {
-	reader, err := firstSuccessfulUnseal(ctx.Context(), environment.Node(), *deal.PieceInfo)
-	if err != nil {
+	if err := environment.PrepareBlockstore(ctx.Context(), deal.ID, deal.PieceInfo.PieceCID); err != nil {
 		return ctx.Trigger(rm.ProviderEventUnsealError, err)
 	}
-	err = environment.ReadIntoBlockstore(deal.StoreID, reader)
-	if err != nil {
-		return ctx.Trigger(rm.ProviderEventUnsealError, err)
-	}
+	log.Debugf("blockstore prepared successfully, firing unseal complete for deal %d", deal.ID)
 	return ctx.Trigger(rm.ProviderEventUnsealComplete)
 }
 
@@ -81,11 +50,13 @@ func TrackTransfer(ctx fsm.Context, environment ProviderDealEnvironment, deal rm
 
 // UnpauseDeal resumes a deal so we can start sending data after its unsealed
 func UnpauseDeal(ctx fsm.Context, environment ProviderDealEnvironment, deal rm.ProviderDealState) error {
+	log.Debugf("unpausing data transfer for deal %d", deal.ID)
 	err := environment.TrackTransfer(deal)
 	if err != nil {
 		return ctx.Trigger(rm.ProviderEventDataTransferError, err)
 	}
 	if deal.ChannelID != nil {
+		log.Debugf("resuming data transfer for deal %d", deal.ID)
 		err = environment.ResumeDataTransfer(ctx.Context(), *deal.ChannelID)
 		if err != nil {
 			return ctx.Trigger(rm.ProviderEventDataTransferError, err)
@@ -101,7 +72,7 @@ func CancelDeal(ctx fsm.Context, environment ProviderDealEnvironment, deal rm.Pr
 	if err != nil {
 		return ctx.Trigger(rm.ProviderEventDataTransferError, err)
 	}
-	err = environment.DeleteStore(deal.StoreID)
+	err = environment.DeleteStore(deal.ID)
 	if err != nil {
 		return ctx.Trigger(rm.ProviderEventMultiStoreError, err)
 	}
@@ -120,7 +91,7 @@ func CleanupDeal(ctx fsm.Context, environment ProviderDealEnvironment, deal rm.P
 	if err != nil {
 		return ctx.Trigger(rm.ProviderEventDataTransferError, err)
 	}
-	err = environment.DeleteStore(deal.StoreID)
+	err = environment.DeleteStore(deal.ID)
 	if err != nil {
 		return ctx.Trigger(rm.ProviderEventMultiStoreError, err)
 	}

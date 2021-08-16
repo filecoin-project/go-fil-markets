@@ -3,16 +3,14 @@ package retrievalimpl
 import (
 	"context"
 	"errors"
-	"io"
-	"io/ioutil"
 
 	"github.com/ipfs/go-cid"
+	bstore "github.com/ipfs/go-ipfs-blockstore"
 	"github.com/libp2p/go-libp2p-core/peer"
 	"golang.org/x/xerrors"
 
-	"github.com/filecoin-project/go-commp-utils/pieceio/cario"
+	"github.com/filecoin-project/dagstore"
 	datatransfer "github.com/filecoin-project/go-data-transfer"
-	"github.com/filecoin-project/go-multistore"
 	"github.com/filecoin-project/go-state-types/abi"
 	"github.com/filecoin-project/go-state-types/big"
 
@@ -35,7 +33,7 @@ func (pve *providerValidationEnvironment) GetAsk(ctx context.Context, payloadCid
 
 	storageDeals, err := storageDealsForPiece(pieceCid != nil, payloadCid, piece, pve.p.pieceStore)
 	if err != nil {
-		return retrievalmarket.Ask{}, xerrors.Errorf("failed to fetch deals for payload, err=%s", err)
+		return retrievalmarket.Ask{}, xerrors.Errorf("failed to fetch deals for payload: %w", err)
 	}
 
 	input := retrievalmarket.PricingInput{
@@ -56,7 +54,7 @@ func (pve *providerValidationEnvironment) GetPiece(c cid.Cid, pieceCID *cid.Cid)
 		inPieceCid = *pieceCID
 	}
 
-	return getPieceInfoFromCid(context.TODO(), pve.p.node, pve.p.pieceStore, c, inPieceCid)
+	return pve.p.getPieceInfoFromCid(context.TODO(), c, inPieceCid)
 }
 
 // CheckDealParams verifies the given deal params are acceptable
@@ -98,13 +96,6 @@ func (pve *providerValidationEnvironment) BeginTracking(pds retrievalmarket.Prov
 	return pve.p.stateMachines.Send(pds.Identifier(), retrievalmarket.ProviderEventOpen)
 }
 
-// NextStoreID allocates a store for this deal
-func (pve *providerValidationEnvironment) NextStoreID() (multistore.StoreID, error) {
-	storeID := pve.p.multiStore.Next()
-	_, err := pve.p.multiStore.Get(storeID)
-	return storeID, err
-}
-
 type providerRevalidatorEnvironment struct {
 	p *Provider
 }
@@ -134,46 +125,19 @@ func (pde *providerDealEnvironment) Node() retrievalmarket.RetrievalProviderNode
 	return pde.p.node
 }
 
-func (pde *providerDealEnvironment) ReadIntoBlockstore(storeID multistore.StoreID, pieceData io.ReadCloser) error {
-	// Get the the destination multistore
-	store, loadErr := pde.p.multiStore.Get(storeID)
-	if loadErr != nil {
-		return xerrors.Errorf("failed to read file into blockstore: failed to get multistore %d: %w", storeID, loadErr)
+// PrepareBlockstore is called when the deal data has been unsealed and we need
+// to add all blocks to a blockstore that is used to serve retrieval
+func (pde *providerDealEnvironment) PrepareBlockstore(ctx context.Context, dealID retrievalmarket.DealID, pieceCid cid.Cid) error {
+	// Load the blockstore that has the deal data
+	bs, err := pde.p.dagStore.LoadShard(ctx, pieceCid)
+	if err != nil {
+		return xerrors.Errorf("failed to load blockstore for piece %s: %w", pieceCid, err)
 	}
 
-	// Load the CAR into the blockstore
-	_, loadErr = cario.NewCarIO().LoadCar(store.Bstore, pieceData)
-	if loadErr != nil {
-		// Just log the error, so we can drain and close the reader before
-		// returning the error
-		loadErr = xerrors.Errorf("failed to load car file into blockstore: %w", loadErr)
-		log.Error(loadErr.Error())
-	}
-
-	// Attempt to drain and close the reader before returning any error
-	_, drainErr := io.Copy(ioutil.Discard, pieceData)
-	closeErr := pieceData.Close()
-
-	// If there was an error loading the CAR file into the blockstore, throw that error
-	if loadErr != nil {
-		return loadErr
-	}
-
-	// If there was an error draining the reader, throw that error
-	if drainErr != nil {
-		err := xerrors.Errorf("failed to read file into blockstore: failed to drain piece reader: %w", drainErr)
-		log.Error(err.Error())
-		return err
-	}
-
-	// If there was an error closing the reader, throw that error
-	if closeErr != nil {
-		err := xerrors.Errorf("failed to read file into blockstore: failed to close reader: %w", closeErr)
-		log.Error(err.Error())
-		return err
-	}
-
-	return nil
+	log.Debugf("adding blockstore for deal %d to tracker", dealID)
+	_, err = pde.p.stores.Track(dealID.String(), bs)
+	log.Debugf("added blockstore for deal %d to tracker", dealID)
+	return err
 }
 
 func (pde *providerDealEnvironment) TrackTransfer(deal retrievalmarket.ProviderDealState) error {
@@ -205,23 +169,13 @@ func (pde *providerDealEnvironment) CloseDataTransfer(ctx context.Context, chid 
 	return err
 }
 
-func (pde *providerDealEnvironment) DeleteStore(storeID multistore.StoreID) error {
-	return pde.p.multiStore.Delete(storeID)
-}
-
-func pieceInUnsealedSector(ctx context.Context, n retrievalmarket.RetrievalProviderNode, pieceInfo piecestore.PieceInfo) bool {
-	for _, di := range pieceInfo.Deals {
-		isUnsealed, err := n.IsUnsealed(ctx, di.SectorID, di.Offset.Unpadded(), di.Length.Unpadded())
-		if err != nil {
-			log.Errorf("failed to find out if sector %d is unsealed, err=%s", di.SectorID, err)
-			continue
-		}
-		if isUnsealed {
-			return true
-		}
+func (pde *providerDealEnvironment) DeleteStore(dealID retrievalmarket.DealID) error {
+	// close the read-only blockstore and stop tracking it for the deal
+	if err := pde.p.stores.Untrack(dealID.String()); err != nil {
+		return xerrors.Errorf("failed to clean read-only blockstore for deal %d: %w", dealID, err)
 	}
 
-	return false
+	return nil
 }
 
 func storageDealsForPiece(clientSpecificPiece bool, payloadCID cid.Cid, pieceInfo piecestore.PieceInfo, pieceStore piecestore.PieceStore) ([]abi.DealID, error) {
@@ -279,63 +233,31 @@ func getAllDealsContainingPayload(pieceStore piecestore.PieceStore, payloadCID c
 	return dealsIds, nil
 }
 
-func getPieceInfoFromCid(ctx context.Context, n retrievalmarket.RetrievalProviderNode, pieceStore piecestore.PieceStore, payloadCID, pieceCID cid.Cid) (piecestore.PieceInfo, bool, error) {
-	cidInfo, err := pieceStore.GetCIDInfo(payloadCID)
-	if err != nil {
-		return piecestore.PieceInfoUndefined, false, xerrors.Errorf("get cid info: %w", err)
-	}
-	var lastErr error
-	var sealedPieceInfo *piecestore.PieceInfo
-
-	for _, pieceBlockLocation := range cidInfo.PieceBlockLocations {
-		pieceInfo, err := pieceStore.GetPieceInfo(pieceBlockLocation.PieceCID)
-		if err != nil {
-			lastErr = err
-			continue
-		}
-
-		// if client wants to retrieve the payload from a specific piece, just return that piece.
-		if pieceCID.Defined() && pieceInfo.PieceCID.Equals(pieceCID) {
-			return pieceInfo, pieceInUnsealedSector(ctx, n, pieceInfo), nil
-		}
-
-		// if client dosen't have a preference for a particular piece, prefer a piece
-		// for which an unsealed sector exists.
-		if pieceCID.Equals(cid.Undef) {
-			if pieceInUnsealedSector(ctx, n, pieceInfo) {
-				return pieceInfo, true, nil
-			}
-
-			if sealedPieceInfo == nil {
-				sealedPieceInfo = &pieceInfo
-			}
-		}
-
-	}
-
-	if sealedPieceInfo != nil {
-		return *sealedPieceInfo, false, nil
-	}
-
-	if lastErr == nil {
-		lastErr = xerrors.Errorf("unknown pieceCID %s", pieceCID.String())
-	}
-
-	return piecestore.PieceInfoUndefined, false, xerrors.Errorf("could not locate piece: %w", lastErr)
-}
-
 var _ dtutils.StoreGetter = &providerStoreGetter{}
 
 type providerStoreGetter struct {
 	p *Provider
 }
 
-func (psg *providerStoreGetter) Get(otherPeer peer.ID, dealID retrievalmarket.DealID) (*multistore.Store, error) {
+func (psg *providerStoreGetter) Get(otherPeer peer.ID, dealID retrievalmarket.DealID) (bstore.Blockstore, error) {
 	var deal retrievalmarket.ProviderDealState
 	provDealID := retrievalmarket.ProviderDealIdentifier{Receiver: otherPeer, DealID: dealID}
 	err := psg.p.stateMachines.Get(provDealID).Get(&deal)
 	if err != nil {
-		return nil, err
+		return nil, xerrors.Errorf("failed to get deal state: %w", err)
 	}
-	return psg.p.multiStore.Get(deal.StoreID)
+
+	//
+	// When a request for data is received
+	// 1. The data transfer layer calls Get to get the blockstore
+	// 2. The data for the deal is unsealed
+	// 3. The unsealed data is put into the blockstore (in this case a CAR file)
+	// 4. The data is served from the blockstore (using blockstore.Get)
+	//
+	// So we use a "lazy" blockstore that can be returned in step 1
+	// but is only accessed in step 4 after the data has been unsealed.
+	//
+	return newLazyBlockstore(func() (dagstore.ReadBlockstore, error) {
+		return psg.p.stores.Get(dealID.String())
+	}), nil
 }

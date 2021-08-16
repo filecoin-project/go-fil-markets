@@ -13,7 +13,6 @@ import (
 	"github.com/filecoin-project/go-address"
 	cborutil "github.com/filecoin-project/go-cbor-util"
 	datatransfer "github.com/filecoin-project/go-data-transfer"
-	"github.com/filecoin-project/go-multistore"
 	"github.com/filecoin-project/go-state-types/abi"
 	"github.com/filecoin-project/go-state-types/big"
 	"github.com/filecoin-project/go-state-types/crypto"
@@ -179,14 +178,12 @@ func MakeTestMinerDeal(state storagemarket.StorageDealStatus, clientDealProposal
 		return nil, err
 	}
 
-	id := multistore.StoreID(rand.Uint64())
 	return &storagemarket.MinerDeal{
 		ProposalCid:        proposalNd.Cid(),
 		ClientDealProposal: *clientDealProposal,
 		State:              state,
 		Client:             p,
 		Ref:                dataRef,
-		StoreID:            &id,
 	}, nil
 }
 

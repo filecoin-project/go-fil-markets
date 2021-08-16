@@ -5,6 +5,7 @@ package network
 import (
 	"fmt"
 	"io"
+	"math"
 	"sort"
 
 	storagemarket "github.com/filecoin-project/go-fil-markets/storagemarket"
@@ -17,6 +18,7 @@ import (
 
 var _ = xerrors.Errorf
 var _ = cid.Undef
+var _ = math.E
 var _ = sort.Sort
 
 func (t *AskRequest) MarshalCBOR(w io.Writer) error {

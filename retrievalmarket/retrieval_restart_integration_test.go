@@ -17,7 +17,9 @@ import (
 	"github.com/filecoin-project/go-state-types/big"
 
 	"github.com/filecoin-project/go-fil-markets/retrievalmarket"
+	testnodes2 "github.com/filecoin-project/go-fil-markets/retrievalmarket/impl/testnodes"
 	"github.com/filecoin-project/go-fil-markets/shared_testutil"
+	tut "github.com/filecoin-project/go-fil-markets/shared_testutil"
 	"github.com/filecoin-project/go-fil-markets/storagemarket/testharness"
 	"github.com/filecoin-project/go-fil-markets/storagemarket/testharness/dependencies"
 	"github.com/filecoin-project/go-fil-markets/storagemarket/testnodes"
@@ -56,7 +58,7 @@ func TestBounceConnectionDealTransferOngoing(t *testing.T) {
 			pricePerByte:            abi.NewTokenAmount(1000),
 			paymentInterval:         uint64(10000),
 			paymentIntervalIncrease: uint64(1000),
-			maxVoucherAmt:           abi.NewTokenAmount(19921000),
+			maxVoucherAmt:           abi.NewTokenAmount(19959000),
 		},
 
 		"zero unseal, non-zero price per byte": {
@@ -64,7 +66,7 @@ func TestBounceConnectionDealTransferOngoing(t *testing.T) {
 			pricePerByte:            abi.NewTokenAmount(1000),
 			paymentInterval:         uint64(10000),
 			paymentIntervalIncrease: uint64(1000),
-			maxVoucherAmt:           abi.NewTokenAmount(19920000),
+			maxVoucherAmt:           abi.NewTokenAmount(19958000),
 		},
 
 		"zero unseal, zero price per byte": {
@@ -99,8 +101,12 @@ func TestBounceConnectionDealTransferOngoing(t *testing.T) {
 				return dtimpl.NewDataTransfer(ds, dir, transferNetwork, transport, restartConf)
 			}
 			deps := depGen.New(t, bgCtx, td, testnodes.NewStorageMarketState(), "", noOpDelay, noOpDelay)
+			providerNode := testnodes2.NewTestRetrievalProviderNode()
+			sa := testnodes2.NewTestSectorAccessor()
+			pieceStore := shared_testutil.NewTestPieceStore()
+			deps.DagStore = tut.NewMockDagStoreWrapper(pieceStore, sa)
 
-			sh := testharness.NewHarnessWithTestData(t, td, deps, true, false)
+			sh := testharness.NewHarnessWithTestData(t, deps.TestData, deps, true, false)
 
 			// do a storage deal
 			storageClientSeenDeal := doStorage(t, bgCtx, sh)
@@ -108,12 +114,13 @@ func TestBounceConnectionDealTransferOngoing(t *testing.T) {
 			defer canc()
 
 			// create a retrieval test harness
-			rh := newRetrievalHarness(ctxTimeout, t, sh, storageClientSeenDeal, retrievalmarket.Params{
+			params := retrievalmarket.Params{
 				UnsealPrice:             tc.unSealPrice,
 				PricePerByte:            tc.pricePerByte,
 				PaymentInterval:         tc.paymentInterval,
 				PaymentIntervalIncrease: tc.paymentIntervalIncrease,
-			})
+			}
+			rh := newRetrievalHarnessWithDeps(ctxTimeout, t, sh, storageClientSeenDeal, providerNode, sa, pieceStore, params)
 			clientHost := rh.TestDataNet.Host1.ID()
 			providerHost := rh.TestDataNet.Host2.ID()
 
@@ -223,6 +230,10 @@ func TestBounceConnectionDealTransferUnsealing(t *testing.T) {
 				return dtimpl.NewDataTransfer(ds, dir, transferNetwork, transport, restartConf)
 			}
 			deps := depGen.New(t, bgCtx, td, testnodes.NewStorageMarketState(), "", noOpDelay, noOpDelay)
+			providerNode := testnodes2.NewTestRetrievalProviderNode()
+			sa := testnodes2.NewTestSectorAccessor()
+			pieceStore := shared_testutil.NewTestPieceStore()
+			deps.DagStore = tut.NewMockDagStoreWrapper(pieceStore, sa)
 
 			sh := testharness.NewHarnessWithTestData(t, td, deps, true, false)
 
@@ -232,18 +243,19 @@ func TestBounceConnectionDealTransferUnsealing(t *testing.T) {
 			defer canc()
 
 			// create a retrieval test harness
-			maxVoucherAmt := abi.NewTokenAmount(19921000)
-			rh := newRetrievalHarness(ctxTimeout, t, sh, storageClientSeenDeal, retrievalmarket.Params{
+			maxVoucherAmt := abi.NewTokenAmount(19959000)
+			params := retrievalmarket.Params{
 				UnsealPrice:             abi.NewTokenAmount(1000),
 				PricePerByte:            abi.NewTokenAmount(1000),
 				PaymentInterval:         uint64(10000),
 				PaymentIntervalIncrease: uint64(1000),
-			})
+			}
+			rh := newRetrievalHarnessWithDeps(ctxTimeout, t, sh, storageClientSeenDeal, providerNode, sa, pieceStore, params)
 			clientHost := rh.TestDataNet.Host1.ID()
 			providerHost := rh.TestDataNet.Host2.ID()
 
 			// Pause unsealing
-			rh.ProviderNode.PauseUnseal()
+			rh.SectorAccessor.PauseUnseal()
 
 			firstPayRcvd := false
 			rh.Provider.SubscribeToEvents(func(event retrievalmarket.ProviderEvent, state retrievalmarket.ProviderDealState) {
@@ -268,7 +280,7 @@ func TestBounceConnectionDealTransferUnsealing(t *testing.T) {
 					if tc.finishUnseal == beforeRestoringConnection {
 						// Finish unsealing
 						log.Debugf("finish unseal")
-						rh.ProviderNode.FinishUnseal()
+						rh.SectorAccessor.FinishUnseal()
 						time.Sleep(20 * time.Millisecond)
 					}
 
@@ -289,7 +301,7 @@ func TestBounceConnectionDealTransferUnsealing(t *testing.T) {
 						// Finish unsealing
 						time.Sleep(50 * time.Millisecond)
 						log.Debugf("finish unseal")
-						rh.ProviderNode.FinishUnseal()
+						rh.SectorAccessor.FinishUnseal()
 					}
 				}()
 			})

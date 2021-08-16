@@ -8,19 +8,15 @@ import (
 	"github.com/hannahhoward/go-pubsub"
 	"github.com/ipfs/go-cid"
 	"github.com/ipfs/go-datastore"
-	blockstore "github.com/ipfs/go-ipfs-blockstore"
 	logging "github.com/ipfs/go-log/v2"
 	cbg "github.com/whyrusleeping/cbor-gen"
 	"golang.org/x/xerrors"
 
 	"github.com/filecoin-project/go-address"
 	cborutil "github.com/filecoin-project/go-cbor-util"
-	"github.com/filecoin-project/go-commp-utils/pieceio"
-	"github.com/filecoin-project/go-commp-utils/pieceio/cario"
 	datatransfer "github.com/filecoin-project/go-data-transfer"
 	versioning "github.com/filecoin-project/go-ds-versioning/pkg"
 	versionedfsm "github.com/filecoin-project/go-ds-versioning/pkg/fsm"
-	"github.com/filecoin-project/go-multistore"
 	"github.com/filecoin-project/go-state-types/abi"
 	"github.com/filecoin-project/go-state-types/big"
 	"github.com/filecoin-project/go-state-types/exitcode"
@@ -51,9 +47,7 @@ type Client struct {
 	net network.StorageMarketNetwork
 
 	dataTransfer         datatransfer.Manager
-	multiStore           *multistore.MultiStore
 	discovery            *discoveryimpl.Local
-	pio                  pieceio.PieceIO
 	node                 storagemarket.StorageClientNode
 	pubSub               *pubsub.PubSub
 	readySub             *pubsub.PubSub
@@ -62,6 +56,8 @@ type Client struct {
 	pollingInterval      time.Duration
 
 	unsubDataTransfer datatransfer.Unsubscribe
+
+	bstores storagemarket.BlockstoreAccessor
 }
 
 // StorageClientOption allows custom configuration of a storage client
@@ -78,26 +74,22 @@ func DealPollingInterval(t time.Duration) StorageClientOption {
 // NewClient creates a new storage client
 func NewClient(
 	net network.StorageMarketNetwork,
-	bs blockstore.Blockstore,
-	multiStore *multistore.MultiStore,
 	dataTransfer datatransfer.Manager,
 	discovery *discoveryimpl.Local,
 	ds datastore.Batching,
 	scn storagemarket.StorageClientNode,
+	bstores storagemarket.BlockstoreAccessor,
 	options ...StorageClientOption,
 ) (*Client, error) {
-	carIO := cario.NewCarIO()
-	pio := pieceio.NewPieceIO(carIO, bs, multiStore)
 	c := &Client{
 		net:             net,
 		dataTransfer:    dataTransfer,
-		multiStore:      multiStore,
 		discovery:       discovery,
 		node:            scn,
-		pio:             pio,
 		pubSub:          pubsub.New(clientDispatcher),
 		readySub:        pubsub.New(shared.ReadyDispatcher),
 		pollingInterval: DefaultPollingInterval,
+		bstores:         bstores,
 	}
 	storageMigrations, err := migrations.ClientMigrations.Build()
 	if err != nil {
@@ -295,45 +287,48 @@ func (c *Client) GetProviderDealState(ctx context.Context, proposalCid cid.Cid) 
 	return &resp.DealState, nil
 }
 
-/*
-ProposeStorageDeal initiates the retrieval deal flow, which involves multiple requests and responses.
-
-This function is called after using ListProviders and QueryAs are used to identify an appropriate provider
-to store data. The parameters passed to ProposeStorageDeal should matched those returned by the miner from
-QueryAsk to ensure the greatest likelihood the provider will accept the deal.
-
-When called, the client takes the following actions:
-
-1. Calculates the PieceCID for this deal from the given PayloadCID. (by writing the payload to a CAR file then calculating
-a merkle root for the resulting data)
-
-2. Constructs a `DealProposal` (spec-actors type) with deal terms
-
-3. Signs the `DealProposal` to make a ClientDealProposal
-
-4. Gets the CID for the ClientDealProposal
-
-5. Construct a ClientDeal to track the state of this deal.
-
-6. Tells its statemachine to begin tracking the deal state by the CID of the ClientDealProposal
-
-7. Triggers a `ClientEventOpen` event on its statemachine.
-
-8. Records the Provider as a possible peer for retrieving this data in the future
-
-From then on, the statemachine controls the deal flow in the client. Other components may listen for events in this flow by calling
-`SubscribeToEvents` on the Client. The Client also provides access to the node and network and other functionality through
-its implementation of the Client FSM's ClientDealEnvironment.
-
-Documentation of the client state machine can be found at https://godoc.org/github.com/filecoin-project/go-fil-markets/storagemarket/impl/clientstates
-*/
+// ProposeStorageDeal initiates the retrieval deal flow, which involves multiple requests and responses.
+//
+// This function is called after using ListProviders and QueryAs are used to identify an appropriate provider
+// to store data. The parameters passed to ProposeStorageDeal should matched those returned by the miner from
+// QueryAsk to ensure the greatest likelihood the provider will accept the deal.
+//
+// When called, the client takes the following actions:
+//
+// 1. Calculates the PieceCID for this deal from the given PayloadCID. (by writing the payload to a CAR file then calculating
+// a merkle root for the resulting data)
+//
+// 2. Constructs a `DealProposal` (spec-actors type) with deal terms
+//
+// 3. Signs the `DealProposal` to make a ClientDealProposal
+//
+// 4. Gets the CID for the ClientDealProposal
+//
+// 5. Construct a ClientDeal to track the state of this deal.
+//
+// 6. Tells its statemachine to begin tracking the deal state by the CID of the ClientDealProposal
+//
+// 7. Triggers a `ClientEventOpen` event on its statemachine.
+//
+// 8. Records the Provider as a possible peer for retrieving this data in the future
+//
+// From then on, the statemachine controls the deal flow in the client. Other components may listen for events in this flow by calling
+// `SubscribeToEvents` on the Client. The Client also provides access to the node and network and other functionality through
+// its implementation of the Client FSM's ClientDealEnvironment.
+//
+// Documentation of the client state machine can be found at https://godoc.org/github.com/filecoin-project/go-fil-markets/storagemarket/impl/clientstates
 func (c *Client) ProposeStorageDeal(ctx context.Context, params storagemarket.ProposeStorageDealParams) (*storagemarket.ProposeStorageDealResult, error) {
 	err := c.addMultiaddrs(ctx, params.Info.Address)
 	if err != nil {
 		return nil, xerrors.Errorf("looking up addresses: %w", err)
 	}
 
-	commP, pieceSize, err := clientutils.CommP(ctx, c.pio, params.Rt, params.Data, params.StoreID)
+	bs, err := c.bstores.Get(params.Data.Root)
+	if err != nil {
+		return nil, xerrors.Errorf("failed to get blockstore for imported root %s: %w", params.Data.Root, err)
+	}
+
+	commP, pieceSize, err := clientutils.CommP(ctx, bs, params.Data)
 	if err != nil {
 		return nil, xerrors.Errorf("computing commP failed: %w", err)
 	}
@@ -387,7 +382,6 @@ func (c *Client) ProposeStorageDeal(ctx context.Context, params storagemarket.Pr
 		MinerWorker:        params.Info.Worker,
 		DataRef:            params.Data,
 		FastRetrieval:      params.FastRetrieval,
-		StoreID:            params.StoreID,
 		DealStages:         storagemarket.NewDealStages(),
 		CreationTime:       curTime(),
 	}

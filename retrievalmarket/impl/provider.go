@@ -16,7 +16,6 @@ import (
 	datatransfer "github.com/filecoin-project/go-data-transfer"
 	versioning "github.com/filecoin-project/go-ds-versioning/pkg"
 	versionedfsm "github.com/filecoin-project/go-ds-versioning/pkg/fsm"
-	"github.com/filecoin-project/go-multistore"
 	"github.com/filecoin-project/go-state-types/abi"
 	"github.com/filecoin-project/go-state-types/big"
 	"github.com/filecoin-project/go-statemachine/fsm"
@@ -30,6 +29,7 @@ import (
 	"github.com/filecoin-project/go-fil-markets/retrievalmarket/migrations"
 	rmnet "github.com/filecoin-project/go-fil-markets/retrievalmarket/network"
 	"github.com/filecoin-project/go-fil-markets/shared"
+	"github.com/filecoin-project/go-fil-markets/stores"
 )
 
 // RetrievalProviderOption is a function that configures a retrieval provider
@@ -44,9 +44,9 @@ var queryTimeout = 5 * time.Second
 
 // Provider is the production implementation of the RetrievalProvider interface
 type Provider struct {
-	multiStore           *multistore.MultiStore
 	dataTransfer         datatransfer.Manager
 	node                 retrievalmarket.RetrievalProviderNode
+	sa                   retrievalmarket.SectorAccessor
 	network              rmnet.RetrievalMarketNetwork
 	requestValidator     *requestvalidation.ProviderRequestValidator
 	revalidator          *requestvalidation.ProviderRevalidator
@@ -60,6 +60,8 @@ type Provider struct {
 	askStore             retrievalmarket.AskStore
 	disableNewDeals      bool
 	retrievalPricingFunc RetrievalPricingFunc
+	dagStore             stores.DAGStoreWrapper
+	stores               *stores.ReadOnlyBlockstores
 }
 
 type internalProviderEvent struct {
@@ -100,9 +102,10 @@ func DisableNewDeals() RetrievalProviderOption {
 // NewProvider returns a new retrieval Provider
 func NewProvider(minerAddress address.Address,
 	node retrievalmarket.RetrievalProviderNode,
+	sa retrievalmarket.SectorAccessor,
 	network rmnet.RetrievalMarketNetwork,
 	pieceStore piecestore.PieceStore,
-	multiStore *multistore.MultiStore,
+	dagStore stores.DAGStoreWrapper,
 	dataTransfer datatransfer.Manager,
 	ds datastore.Batching,
 	retrievalPricingFunc RetrievalPricingFunc,
@@ -114,15 +117,17 @@ func NewProvider(minerAddress address.Address,
 	}
 
 	p := &Provider{
-		multiStore:           multiStore,
 		dataTransfer:         dataTransfer,
 		node:                 node,
+		sa:                   sa,
 		network:              network,
 		minerAddress:         minerAddress,
 		pieceStore:           pieceStore,
 		subscribers:          pubsub.New(providerDispatcher),
 		readySub:             pubsub.New(shared.ReadyDispatcher),
 		retrievalPricingFunc: retrievalPricingFunc,
+		dagStore:             dagStore,
+		stores:               stores.NewReadOnlyBlockstores(),
 	}
 
 	err := shared.MoveKey(ds, "retrieval-ask", "retrieval-ask/latest")
@@ -333,7 +338,7 @@ func (p *Provider) HandleQueryStream(stream rmnet.RetrievalQueryStream) {
 	if query.PieceCID != nil {
 		pieceCID = *query.PieceCID
 	}
-	pieceInfo, isUnsealed, err := getPieceInfoFromCid(ctx, p.node, p.pieceStore, query.PayloadCID, pieceCID)
+	pieceInfo, isUnsealed, err := p.getPieceInfoFromCid(ctx, query.PayloadCID, pieceCID)
 	if err != nil {
 		log.Errorf("Retrieval query: getPieceInfoFromCid: %s", err)
 		if !xerrors.Is(err, retrievalmarket.ErrNotFound) {
@@ -381,6 +386,66 @@ func (p *Provider) HandleQueryStream(stream rmnet.RetrievalQueryStream) {
 	answer.MaxPaymentIntervalIncrease = ask.PaymentIntervalIncrease
 	answer.UnsealPrice = ask.UnsealPrice
 	sendResp(answer)
+}
+
+func (p *Provider) getPieceInfoFromCid(ctx context.Context, payloadCID, pieceCID cid.Cid) (piecestore.PieceInfo, bool, error) {
+	cidInfo, err := p.pieceStore.GetCIDInfo(payloadCID)
+	if err != nil {
+		return piecestore.PieceInfoUndefined, false, xerrors.Errorf("get cid info: %w", err)
+	}
+	var lastErr error
+	var sealedPieceInfo *piecestore.PieceInfo
+
+	for _, pieceBlockLocation := range cidInfo.PieceBlockLocations {
+		pieceInfo, err := p.pieceStore.GetPieceInfo(pieceBlockLocation.PieceCID)
+		if err != nil {
+			lastErr = err
+			continue
+		}
+
+		// if client wants to retrieve the payload from a specific piece, just return that piece.
+		if pieceCID.Defined() && pieceInfo.PieceCID.Equals(pieceCID) {
+			return pieceInfo, p.pieceInUnsealedSector(ctx, pieceInfo), nil
+		}
+
+		// if client dosen't have a preference for a particular piece, prefer a piece
+		// for which an unsealed sector exists.
+		if pieceCID.Equals(cid.Undef) {
+			if p.pieceInUnsealedSector(ctx, pieceInfo) {
+				return pieceInfo, true, nil
+			}
+
+			if sealedPieceInfo == nil {
+				sealedPieceInfo = &pieceInfo
+			}
+		}
+
+	}
+
+	if sealedPieceInfo != nil {
+		return *sealedPieceInfo, false, nil
+	}
+
+	if lastErr == nil {
+		lastErr = xerrors.Errorf("unknown pieceCID %s", pieceCID.String())
+	}
+
+	return piecestore.PieceInfoUndefined, false, xerrors.Errorf("could not locate piece: %w", lastErr)
+}
+
+func (p *Provider) pieceInUnsealedSector(ctx context.Context, pieceInfo piecestore.PieceInfo) bool {
+	for _, di := range pieceInfo.Deals {
+		isUnsealed, err := p.sa.IsUnsealed(ctx, di.SectorID, di.Offset.Unpadded(), di.Length.Unpadded())
+		if err != nil {
+			log.Errorf("failed to find out if sector %d is unsealed, err=%s", di.SectorID, err)
+			continue
+		}
+		if isUnsealed {
+			return true
+		}
+	}
+
+	return false
 }
 
 // GetDynamicAsk quotes a dynamic price for the retrieval deal by calling the user configured

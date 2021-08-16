@@ -25,6 +25,7 @@ type ClientDealEnvironment interface {
 	OpenDataTransfer(ctx context.Context, to peer.ID, proposal *rm.DealProposal, legacy bool) (datatransfer.ChannelID, error)
 	SendDataTransferVoucher(context.Context, datatransfer.ChannelID, *rm.DealPayment, bool) error
 	CloseDataTransfer(context.Context, datatransfer.ChannelID) error
+	FinalizeBlockstore(context.Context, rm.DealID) error
 }
 
 // ProposeDeal sends the proposal to the other party
@@ -220,6 +221,13 @@ func CheckFunds(ctx fsm.Context, environment ClientDealEnvironment, deal rm.Clie
 
 // CancelDeal clears a deal that went wrong for an unknown reason
 func CancelDeal(ctx fsm.Context, environment ClientDealEnvironment, deal rm.ClientDealState) error {
+	// Attempt to finalize the blockstore. If it fails just log an error as
+	// we want to make sure we end up in the cancelled state (not an error
+	// state)
+	if err := environment.FinalizeBlockstore(ctx.Context(), deal.ID); err != nil {
+		log.Errorf("failed to finalize blockstore for deal %s: %s", deal.ID, err)
+	}
+
 	// If the data transfer has started, cancel it
 	if deal.ChannelID != nil {
 		// Read next response (or fail)
@@ -252,4 +260,28 @@ func CheckComplete(ctx fsm.Context, environment ClientDealEnvironment, deal rm.C
 	// received. So if they haven't been received the provider is trying
 	// to terminate the deal early.
 	return ctx.Trigger(rm.ClientEventEarlyTermination)
+}
+
+// FinalizeBlockstore is called once all blocks have been received and the
+// blockstore needs to be finalized before completing the deal
+func FinalizeBlockstore(ctx fsm.Context, environment ClientDealEnvironment, deal rm.ClientDealState) error {
+	if err := environment.FinalizeBlockstore(ctx.Context(), deal.ID); err != nil {
+		return ctx.Trigger(rm.ClientEventFinalizeBlockstoreErrored, err)
+	}
+	return ctx.Trigger(rm.ClientEventBlockstoreFinalized)
+}
+
+// FailsafeFinalizeBlockstore is called when there is a termination state
+// because of some irregularity (eg deal not found).
+// It attempts to clean up the blockstore, but even if there's an error it
+// always fires a blockstore finalized event so that we still end up in the
+// appropriate termination state.
+func FailsafeFinalizeBlockstore(ctx fsm.Context, environment ClientDealEnvironment, deal rm.ClientDealState) error {
+	// Attempt to finalize the blockstore. If it fails just log an error as
+	// we want to make sure we end up in a specific termination state (not
+	// necessarily the error state)
+	if err := environment.FinalizeBlockstore(ctx.Context(), deal.ID); err != nil {
+		log.Errorf("failed to finalize blockstore for deal %s: %s", deal.ID, err)
+	}
+	return ctx.Trigger(rm.ClientEventBlockstoreFinalized)
 }

@@ -138,6 +138,7 @@ var ProviderEvents = fsm.Events{
 			deal.Message = xerrors.Errorf("accessing file store: %w", err).Error()
 			return nil
 		}),
+
 	fsm.Event(storagemarket.ProviderEventMultistoreErrored).
 		FromMany(storagemarket.StorageDealStaged).To(storagemarket.StorageDealFailing).
 		Action(func(deal *storagemarket.MinerDeal, err error) error {
@@ -185,7 +186,6 @@ var ProviderEvents = fsm.Events{
 	fsm.Event(storagemarket.ProviderEventFinalized).
 		From(storagemarket.StorageDealFinalizing).To(storagemarket.StorageDealActive).
 		Action(func(deal *storagemarket.MinerDeal) error {
-			deal.StoreID = nil
 			return nil
 		}),
 	fsm.Event(storagemarket.ProviderEventDealSlashed).
@@ -260,4 +260,14 @@ var ProviderFinalityStates = []fsm.StateKey{
 	storagemarket.StorageDealError,
 	storagemarket.StorageDealSlashed,
 	storagemarket.StorageDealExpired,
+}
+
+// StatesKnownBySealingSubsystem are the states on the happy path after hand-off to
+// the sealing subsystem
+var StatesKnownBySealingSubsystem = []fsm.StateKey{
+	storagemarket.StorageDealStaged,
+	storagemarket.StorageDealAwaitingPreCommit,
+	storagemarket.StorageDealSealing,
+	storagemarket.StorageDealFinalizing,
+	storagemarket.StorageDealActive,
 }

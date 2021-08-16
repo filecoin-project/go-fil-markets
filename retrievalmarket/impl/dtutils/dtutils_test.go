@@ -7,12 +7,13 @@ import (
 	"testing"
 
 	"github.com/ipfs/go-cid"
+	ds "github.com/ipfs/go-datastore"
+	bstore "github.com/ipfs/go-ipfs-blockstore"
 	"github.com/ipld/go-ipld-prime"
 	peer "github.com/libp2p/go-libp2p-core/peer"
 	"github.com/stretchr/testify/require"
 
 	datatransfer "github.com/filecoin-project/go-data-transfer"
-	"github.com/filecoin-project/go-multistore"
 	"github.com/filecoin-project/go-statemachine/fsm"
 
 	"github.com/filecoin-project/go-fil-markets/retrievalmarket"
@@ -379,7 +380,7 @@ func TestTransportConfigurer(t *testing.T) {
 	testCases := map[string]struct {
 		voucher          datatransfer.Voucher
 		transport        datatransfer.Transport
-		returnedStore    *multistore.Store
+		returnedStore    bstore.Blockstore
 		returnedStoreErr error
 		getterCalled     bool
 		useStoreCalled   bool
@@ -415,7 +416,7 @@ func TestTransportConfigurer(t *testing.T) {
 			transport:        &fakeGsTransport{Transport: &fakeTransport{}},
 			getterCalled:     true,
 			useStoreCalled:   true,
-			returnedStore:    &multistore.Store{},
+			returnedStore:    bstore.NewBlockstore(ds.NewMapDatastore()),
 			returnedStoreErr: nil,
 		},
 		"store getter succeeds, legacy": {
@@ -426,7 +427,7 @@ func TestTransportConfigurer(t *testing.T) {
 			transport:        &fakeGsTransport{Transport: &fakeTransport{}},
 			getterCalled:     true,
 			useStoreCalled:   true,
-			returnedStore:    &multistore.Store{},
+			returnedStore:    bstore.NewBlockstore(ds.NewMapDatastore()),
 			returnedStoreErr: nil,
 		},
 	}
@@ -458,11 +459,11 @@ type fakeStoreGetter struct {
 	lastDealID    rm.DealID
 	lastOtherPeer peer.ID
 	returnedErr   error
-	returnedStore *multistore.Store
+	returnedStore bstore.Blockstore
 	called        bool
 }
 
-func (fsg *fakeStoreGetter) Get(otherPeer peer.ID, dealID rm.DealID) (*multistore.Store, error) {
+func (fsg *fakeStoreGetter) Get(otherPeer peer.ID, dealID rm.DealID) (bstore.Blockstore, error) {
 	fsg.lastDealID = dealID
 	fsg.lastOtherPeer = otherPeer
 	fsg.called = true

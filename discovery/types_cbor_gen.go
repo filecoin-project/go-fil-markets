@@ -5,6 +5,7 @@ package discovery
 import (
 	"fmt"
 	"io"
+	"math"
 	"sort"
 
 	retrievalmarket "github.com/filecoin-project/go-fil-markets/retrievalmarket"
@@ -15,6 +16,7 @@ import (
 
 var _ = xerrors.Errorf
 var _ = cid.Undef
+var _ = math.E
 var _ = sort.Sort
 
 func (t *RetrievalPeers) MarshalCBOR(w io.Writer) error {

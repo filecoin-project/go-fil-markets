@@ -4,19 +4,38 @@ import (
 	"context"
 
 	"github.com/ipfs/go-cid"
+	bstore "github.com/ipfs/go-ipfs-blockstore"
 
 	"github.com/filecoin-project/go-address"
-	"github.com/filecoin-project/go-multistore"
 	"github.com/filecoin-project/go-state-types/abi"
 
 	"github.com/filecoin-project/go-fil-markets/shared"
 )
 
+type PayloadCID = cid.Cid
+
+// BlockstoreAccessor is used by the retrieval market client to get a
+// blockstore when needed, concretely to store blocks received from the provider.
+// This abstraction allows the caller to provider any blockstore implementation:
+// a CARv2 file, an IPFS blockstore, or something else.
+type BlockstoreAccessor interface {
+	Get(DealID, PayloadCID) (bstore.Blockstore, error)
+	Done(DealID) error
+}
+
 // ClientSubscriber is a callback that is registered to listen for retrieval events
 type ClientSubscriber func(event ClientEvent, state ClientDealState)
 
+type RetrieveResponse struct {
+	DealID      DealID
+	CarFilePath string
+}
+
 // RetrievalClient is a client interface for making retrieval deals
 type RetrievalClient interface {
+
+	// NextID generates a new deal ID.
+	NextID() DealID
 
 	// Start initializes the client by running migrations
 	Start(ctx context.Context) error
@@ -38,13 +57,13 @@ type RetrievalClient interface {
 	// Retrieve retrieves all or part of a piece with the given retrieval parameters
 	Retrieve(
 		ctx context.Context,
+		id DealID,
 		payloadCID cid.Cid,
 		params Params,
 		totalFunds abi.TokenAmount,
 		p RetrievalPeer,
 		clientWallet address.Address,
 		minerWallet address.Address,
-		storeID *multistore.StoreID,
 	) (DealID, error)
 
 	// SubscribeToEvents listens for events that happen related to client retrievals

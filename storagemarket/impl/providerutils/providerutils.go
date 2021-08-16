@@ -5,14 +5,10 @@ import (
 	"context"
 
 	"github.com/ipfs/go-cid"
-	"github.com/ipld/go-car"
-	"github.com/ipld/go-ipld-prime"
 	"golang.org/x/xerrors"
 
 	"github.com/filecoin-project/go-address"
 	cborutil "github.com/filecoin-project/go-cbor-util"
-	"github.com/filecoin-project/go-multistore"
-	"github.com/filecoin-project/go-state-types/abi"
 	"github.com/filecoin-project/go-state-types/crypto"
 	"github.com/filecoin-project/specs-actors/actors/builtin/market"
 
@@ -73,31 +69,6 @@ func SignMinerData(ctx context.Context, data interface{}, address address.Addres
 		return nil, xerrors.Errorf("failed to sign: %w", err)
 	}
 	return sig, nil
-}
-
-// CommPGenerator is a commP generating function that writes to a file
-type CommPGenerator func(abi.RegisteredSealProof, cid.Cid, ipld.Node, *multistore.StoreID, ...car.OnNewCarBlockFunc) (cid.Cid, abi.UnpaddedPieceSize, error)
-
-// GeneratePieceCommitmentWithMetadata generates a piece commitment along with block metadata
-func GeneratePieceCommitmentWithMetadata(
-	fileStore filestore.FileStore,
-	commPGenerator CommPGenerator,
-	proofType abi.RegisteredSealProof,
-	payloadCid cid.Cid,
-	selector ipld.Node,
-	storeID *multistore.StoreID) (cid.Cid, abi.UnpaddedPieceSize, filestore.Path, error) {
-	metadataFile, err := fileStore.CreateTemp()
-	if err != nil {
-		return cid.Cid{}, 0, "", err
-	}
-	blockRecorder := blockrecorder.RecordEachBlockTo(metadataFile)
-	pieceCid, psize, err := commPGenerator(proofType, payloadCid, selector, storeID, blockRecorder)
-	_ = metadataFile.Close()
-	if err != nil {
-		_ = fileStore.Delete(metadataFile.Path())
-		return cid.Cid{}, 0, "", err
-	}
-	return pieceCid, psize, metadataFile.Path(), err
 }
 
 // LoadBlockLocations loads a metadata file then converts it to a map of cid -> blockLocation

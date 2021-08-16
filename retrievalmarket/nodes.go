@@ -2,7 +2,6 @@ package retrievalmarket
 
 import (
 	"context"
-	"io"
 
 	"github.com/ipfs/go-cid"
 	ma "github.com/multiformats/go-multiaddr"
@@ -44,16 +43,13 @@ type RetrievalClientNode interface {
 	GetKnownAddresses(ctx context.Context, p RetrievalPeer, tok shared.TipSetToken) ([]ma.Multiaddr, error)
 }
 
-// RetrievalProviderNode are the node depedencies for a RetrevalProvider
+// RetrievalProviderNode are the node dependencies for a RetrievalProvider
 type RetrievalProviderNode interface {
 	GetChainHead(ctx context.Context) (shared.TipSetToken, abi.ChainEpoch, error)
 
 	// returns the worker address associated with a miner
 	GetMinerWorkerAddress(ctx context.Context, miner address.Address, tok shared.TipSetToken) (address.Address, error)
-	UnsealSector(ctx context.Context, sectorID abi.SectorNumber, offset abi.UnpaddedPieceSize, length abi.UnpaddedPieceSize) (io.ReadCloser, error)
 	SavePaymentVoucher(ctx context.Context, paymentChannel address.Address, voucher *paych.SignedVoucher, proof []byte, expectedAmount abi.TokenAmount, tok shared.TipSetToken) (abi.TokenAmount, error)
-
-	IsUnsealed(ctx context.Context, sectorID abi.SectorNumber, offset abi.UnpaddedPieceSize, length abi.UnpaddedPieceSize) (bool, error)
 
 	GetRetrievalPricingInput(ctx context.Context, pieceCID cid.Cid, storageDeals []abi.DealID) (PricingInput, error)
 }
