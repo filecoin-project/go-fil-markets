@@ -1,5 +1,10 @@
 # go-fil-markets changelog
 
+# go-fil-markets v1.8.0
+
+- Migrate to DAG store + CARv2 blockstores for storage and retrieval (#576) ([filecoin-project/go-fil-markets#576](https://github.com/filecoin-project/go-fil-markets/pull/576))
+- Revert "Pass deal proposal instead of deal ID to OnDealExpiredOrSlashed (#476) ([filecoin-project/go-fil-markets#476](https://github.com/filecoin-project/go-fil-markets/pull/476))"
+
 # go-fil-markets v1.7.0
 
 - Pass deal proposal instead of deal ID to OnDealExpiredOrSlashed (#476) ([filecoin-project/go-fil-markets#476](https://github.com/filecoin-project/go-fil-markets/pull/476)) 
