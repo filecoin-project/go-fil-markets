@@ -231,7 +231,7 @@ func (n *FakeCommonNode) OnDealSectorCommitted(ctx context.Context, provider add
 }
 
 // OnDealExpiredOrSlashed simulates waiting for a deal to be expired or slashed, but provides stubbed behavior
-func (n *FakeCommonNode) OnDealExpiredOrSlashed(ctx context.Context, publishCid cid.Cid, proposal market.DealProposal, onDealExpired storagemarket.DealExpiredCallback, onDealSlashed storagemarket.DealSlashedCallback) error {
+func (n *FakeCommonNode) OnDealExpiredOrSlashed(ctx context.Context, dealID abi.DealID, onDealExpired storagemarket.DealExpiredCallback, onDealSlashed storagemarket.DealSlashedCallback) error {
 	if n.DelayFakeCommonNode.OnDealExpiredOrSlashed {
 		select {
 		case <-ctx.Done():
