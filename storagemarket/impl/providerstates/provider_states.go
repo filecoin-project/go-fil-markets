@@ -311,6 +311,7 @@ func HandoffDeal(ctx fsm.Context, environment ProviderDealEnvironment, deal stor
 		carFilePath = string(file.OsPath())
 
 		// Hand the deal off to the process that adds it to a sector
+		log.Infow("handing off deal to sealing subsystem", "pieceCid", deal.Proposal.PieceCID, "proposalCid", deal.ProposalCid)
 		packingInfo, err = handoffDeal(ctx.Context(), environment, deal, file, uint64(file.Size()))
 		if err != nil {
 			err = xerrors.Errorf("packing piece at path %s: %w", deal.PiecePath, err)
@@ -327,6 +328,7 @@ func HandoffDeal(ctx fsm.Context, environment ProviderDealEnvironment, deal stor
 
 		// Hand the deal off to the process that adds it to a sector
 		var packingErr error
+		log.Infow("handing off deal to sealing subsystem", "pieceCid", deal.Proposal.PieceCID, "proposalCid", deal.ProposalCid)
 		packingInfo, packingErr = handoffDeal(ctx.Context(), environment, deal, v2r.DataReader(), v2r.Header.DataSize)
 		// Close the reader as we're done reading from it.
 		if err := v2r.Close(); err != nil {
@@ -351,6 +353,7 @@ func HandoffDeal(ctx fsm.Context, environment ProviderDealEnvironment, deal stor
 		log.Error(err)
 	}
 
+	log.Infow("successfully handed off deal to sealing subsystem", "pieceCid", deal.Proposal.PieceCID, "proposalCid", deal.ProposalCid)
 	return ctx.Trigger(storagemarket.ProviderEventDealHandedOff)
 }
 
