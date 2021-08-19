@@ -11,7 +11,7 @@ type safeReaderCloser struct {
 	r io.Reader
 	c io.Closer
 
-	lk sync.Mutex
+	lk       sync.Mutex
 	isClosed bool
 }
 
