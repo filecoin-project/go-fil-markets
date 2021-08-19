@@ -310,12 +310,19 @@ func HandoffDeal(ctx fsm.Context, environment ProviderDealEnvironment, deal stor
 		}
 		carFilePath = string(file.OsPath())
 
+		sr := &safeReaderCloser{
+			c: file,
+			r: file,
+		}
+		defer sr.Close()
+
 		// Hand the deal off to the process that adds it to a sector
-		packingInfo, err = handoffDeal(ctx.Context(), environment, deal, file, uint64(file.Size()))
+		packingInfo, err = handoffDeal(ctx.Context(), environment, deal, sr, uint64(file.Size()))
 		if err != nil {
 			err = xerrors.Errorf("packing piece at path %s: %w", deal.PiecePath, err)
 			return ctx.Trigger(storagemarket.ProviderEventDealHandoffFailed, err)
 		}
+
 	} else {
 		carFilePath = deal.InboundCAR
 
@@ -325,11 +332,16 @@ func HandoffDeal(ctx fsm.Context, environment ProviderDealEnvironment, deal stor
 				deal.ProposalCid, err))
 		}
 
+		sr := &safeReaderCloser{
+			c: v2r,
+			r: v2r.DataReader(),
+		}
+
 		// Hand the deal off to the process that adds it to a sector
 		var packingErr error
-		packingInfo, packingErr = handoffDeal(ctx.Context(), environment, deal, v2r.DataReader(), v2r.Header.DataSize)
+		packingInfo, packingErr = handoffDeal(ctx.Context(), environment, deal, sr, v2r.Header.DataSize)
 		// Close the reader as we're done reading from it.
-		if err := v2r.Close(); err != nil {
+		if err := sr.Close(); err != nil {
 			return ctx.Trigger(storagemarket.ProviderEventDealHandoffFailed, xerrors.Errorf("failed to close CARv2 reader: %w", err))
 		}
 		if packingErr != nil {
