@@ -311,7 +311,12 @@ func HandoffDeal(ctx fsm.Context, environment ProviderDealEnvironment, deal stor
 		carFilePath = string(file.OsPath())
 
 		// Hand the deal off to the process that adds it to a sector
+		log.Infow("handing off deal to sealing subsystem", "pieceCid", deal.Proposal.PieceCID, "proposalCid", deal.ProposalCid)
 		packingInfo, err = handoffDeal(ctx.Context(), environment, deal, file, uint64(file.Size()))
+		if err := file.Close(); err != nil {
+			log.Errorw("failed to close imported CAR file", "pieceCid", deal.Proposal.PieceCID, "proposalCid", deal.ProposalCid, "err", err)
+		}
+
 		if err != nil {
 			err = xerrors.Errorf("packing piece at path %s: %w", deal.PiecePath, err)
 			return ctx.Trigger(storagemarket.ProviderEventDealHandoffFailed, err)
@@ -327,11 +332,13 @@ func HandoffDeal(ctx fsm.Context, environment ProviderDealEnvironment, deal stor
 
 		// Hand the deal off to the process that adds it to a sector
 		var packingErr error
+		log.Infow("handing off deal to sealing subsystem", "pieceCid", deal.Proposal.PieceCID, "proposalCid", deal.ProposalCid)
 		packingInfo, packingErr = handoffDeal(ctx.Context(), environment, deal, v2r.DataReader(), v2r.Header.DataSize)
 		// Close the reader as we're done reading from it.
 		if err := v2r.Close(); err != nil {
 			return ctx.Trigger(storagemarket.ProviderEventDealHandoffFailed, xerrors.Errorf("failed to close CARv2 reader: %w", err))
 		}
+		log.Infow("closed car datareader after handing off deal to sealing subsystem", "pieceCid", deal.Proposal.PieceCID, "proposalCid", deal.ProposalCid)
 		if packingErr != nil {
 			err = xerrors.Errorf("packing piece %s: %w", deal.Ref.PieceCid, packingErr)
 			return ctx.Trigger(storagemarket.ProviderEventDealHandoffFailed, err)
@@ -351,6 +358,7 @@ func HandoffDeal(ctx fsm.Context, environment ProviderDealEnvironment, deal stor
 		log.Error(err)
 	}
 
+	log.Infow("successfully handed off deal to sealing subsystem", "pieceCid", deal.Proposal.PieceCID, "proposalCid", deal.ProposalCid)
 	return ctx.Trigger(storagemarket.ProviderEventDealHandedOff)
 }
 
