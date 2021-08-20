@@ -338,7 +338,7 @@ func HandoffDeal(ctx fsm.Context, environment ProviderDealEnvironment, deal stor
 		if err := v2r.Close(); err != nil {
 			return ctx.Trigger(storagemarket.ProviderEventDealHandoffFailed, xerrors.Errorf("failed to close CARv2 reader: %w", err))
 		}
-		log.Infow("closed CARv1 reader after handing off deal to sealing subsystem", "pieceCid", deal.Proposal.PieceCID, "proposalCid", deal.ProposalCid)
+		log.Infow("closed car datareader after handing off deal to sealing subsystem", "pieceCid", deal.Proposal.PieceCID, "proposalCid", deal.ProposalCid)
 		if packingErr != nil {
 			err = xerrors.Errorf("packing piece %s: %w", deal.Ref.PieceCid, packingErr)
 			return ctx.Trigger(storagemarket.ProviderEventDealHandoffFailed, err)
