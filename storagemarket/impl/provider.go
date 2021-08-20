@@ -289,16 +289,19 @@ func (p *Provider) ImportDataForDeal(ctx context.Context, propCid cid.Cid, data 
 	if err != nil {
 		return xerrors.Errorf("failed to create temp file for data import: %w", err)
 	}
+	defer tempfi.Close()
 	cleanup := func() {
 		_ = tempfi.Close()
 		_ = p.fs.Delete(tempfi.Path())
 	}
 
+	log.Debugw("will copy imported file to local file", "propCid", propCid)
 	n, err := io.Copy(tempfi, data)
 	if err != nil {
 		cleanup()
 		return xerrors.Errorf("importing deal data failed: %w", err)
 	}
+	log.Debugw("finished copying imported file to local file", propCid, "propCid")
 
 	_ = n // TODO: verify n?
 
@@ -315,12 +318,14 @@ func (p *Provider) ImportDataForDeal(ctx context.Context, propCid cid.Cid, data 
 		cleanup()
 		return xerrors.Errorf("failed to determine proof type: %w", err)
 	}
+	log.Debugw("fetched proof type", propCid, "propCid")
 
 	pieceCid, err := generatePieceCommitment(proofType, tempfi, carSize)
 	if err != nil {
 		cleanup()
 		return xerrors.Errorf("failed to generate commP: %w", err)
 	}
+	log.Debugw("generated pieceCid for imported file", propCid, "propCid")
 
 	if carSizePadded := padreader.PaddedSize(carSize).Padded(); carSizePadded < d.Proposal.PieceSize {
 		// need to pad up!
@@ -342,6 +347,10 @@ func (p *Provider) ImportDataForDeal(ctx context.Context, propCid cid.Cid, data 
 		return xerrors.Errorf("given data does not match expected commP (got: %s, expected %s)", pieceCid, d.Proposal.PieceCID)
 	}
 
+	log.Debugw("will fire ProviderEventVerifiedData for imported file", "propCid", propCid)
+	if err := tempfi.Close(); err != nil {
+		log.Errorw("failed to close temp imported local file", "propCid", propCid, "err", err)
+	}
 	return p.deals.Send(propCid, storagemarket.ProviderEventVerifiedData, tempfi.Path(), filestore.Path(""))
 }
 
