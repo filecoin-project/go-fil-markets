@@ -336,6 +336,7 @@ func (p *Provider) ImportDataForDeal(ctx context.Context, propCid cid.Cid, data 
 			uint64(d.Proposal.PieceSize),
 		)
 		if err != nil {
+			cleanup()
 			return err
 		}
 		pieceCid, _ = commcid.DataCommitmentV1ToCID(rawPaddedCommp)
@@ -348,9 +349,7 @@ func (p *Provider) ImportDataForDeal(ctx context.Context, propCid cid.Cid, data 
 	}
 
 	log.Debugw("will fire ProviderEventVerifiedData for imported file", "propCid", propCid)
-	if err := tempfi.Close(); err != nil {
-		log.Errorw("failed to close temp imported local file", "propCid", propCid, "err", err)
-	}
+
 	return p.deals.Send(propCid, storagemarket.ProviderEventVerifiedData, tempfi.Path(), filestore.Path(""))
 }
 
