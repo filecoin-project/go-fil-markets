@@ -26,7 +26,7 @@ require (
 	github.com/ipfs/go-cidutil v0.0.2
 	github.com/ipfs/go-datastore v0.4.5
 	github.com/ipfs/go-filestore v1.0.0
-	github.com/ipfs/go-graphsync v0.6.8
+	github.com/ipfs/go-graphsync v0.6.9
 	github.com/ipfs/go-ipfs-blockstore v1.0.4
 	github.com/ipfs/go-ipfs-blocksutil v0.0.1
 	github.com/ipfs/go-ipfs-chunker v0.0.5
