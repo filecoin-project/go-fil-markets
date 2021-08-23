@@ -263,6 +263,19 @@ func TestValidateDealProposal(t *testing.T) {
 				require.True(t, strings.Contains(deal.Message, "deal rejected: deal duration out of bounds"))
 			},
 		},
+		"end epoch too long after current epoch": {
+			nodeParams: nodeParams{
+				Height: defaultHeight - 10,
+			},
+			dealParams: dealParams{
+				StartEpoch: defaultHeight,
+				EndEpoch:   defaultHeight + builtin.EpochsInDay*540,
+			},
+			dealInspector: func(t *testing.T, deal storagemarket.MinerDeal, env *fakeEnvironment) {
+				tut.AssertDealState(t, storagemarket.StorageDealRejecting, deal.State)
+				require.True(t, strings.Contains(deal.Message, "invalid deal end epoch"))
+			},
+		},
 	}
 	for test, data := range tests {
 		t.Run(test, func(t *testing.T) {
