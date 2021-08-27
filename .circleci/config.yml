@@ -7,7 +7,7 @@ orbs:
 executors:
   golang:
     docker:
-      - image: circleci/golang:1.16.4
+      - image: circleci/golang:1.16.4-node
     resource_class: large
 
 commands:
@@ -53,12 +53,12 @@ jobs:
       - run: git --no-pager diff
       - run: git --no-pager diff --quiet
 
-  
+
   docs-check:
     executor: golang
     steps:
       - install-deps
-      - prepare 
+      - prepare
       - node/install-packages
       - run: make docsgen
       - run: git --no-pager diff
