@@ -189,7 +189,7 @@ func TransportConfigurer(thisPeer peer.ID, storeGetter StoreGetter) datatransfer
 		if store == nil {
 			return
 		}
-		err = gsTransport.UseStore(channelID, storeutil.LinkSystemForBlockStore(store))
+		err = gsTransport.UseStore(channelID, storeutil.LinkSystemForBlockstore(store))
 		if err != nil {
 			log.Errorf("attempting to configure data store: %s", err)
 		}

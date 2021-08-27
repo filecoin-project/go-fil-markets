@@ -1,8 +1,6 @@
 package shared_testutil
 
 import (
-	"bytes"
-	"io"
 	"io/ioutil"
 	"os"
 	"testing"
