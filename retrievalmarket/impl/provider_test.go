@@ -20,7 +20,6 @@ import (
 
 	"github.com/filecoin-project/go-address"
 	datatransfer "github.com/filecoin-project/go-data-transfer"
-	"github.com/filecoin-project/go-multistore"
 	"github.com/filecoin-project/go-state-types/abi"
 	"github.com/filecoin-project/go-state-types/big"
 	spect "github.com/filecoin-project/specs-actors/support/testing"
@@ -1083,7 +1082,7 @@ func TestProviderMigrations(t *testing.T) {
 	paymentIntervals := make([]uint64, numDeals)
 	paymentIntervalIncreases := make([]uint64, numDeals)
 	unsealPrices := make([]abi.TokenAmount, numDeals)
-	storeIDs := make([]multistore.StoreID, numDeals)
+	storeIDs := make([]uint64, numDeals)
 	channelIDs := make([]datatransfer.ChannelID, numDeals)
 	receivers := make([]peer.ID, numDeals)
 	totalSents := make([]uint64, numDeals)
@@ -1109,7 +1108,7 @@ func TestProviderMigrations(t *testing.T) {
 		paymentIntervals[i] = rand.Uint64()
 		paymentIntervalIncreases[i] = rand.Uint64()
 		unsealPrices[i] = big.NewInt(rand.Int63())
-		storeIDs[i] = multistore.StoreID(rand.Uint64())
+		storeIDs[i] = rand.Uint64()
 		receivers[i] = tut.GeneratePeers(1)[0]
 		channelIDs[i] = datatransfer.ChannelID{
 			Responder: selfPeer,

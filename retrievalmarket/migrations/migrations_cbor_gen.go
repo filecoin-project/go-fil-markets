@@ -10,7 +10,6 @@ import (
 
 	migrations "github.com/filecoin-project/go-fil-markets/piecestore/migrations"
 	retrievalmarket "github.com/filecoin-project/go-fil-markets/retrievalmarket"
-	multistore "github.com/filecoin-project/go-multistore"
 	paych "github.com/filecoin-project/specs-actors/actors/builtin/paych"
 	cid "github.com/ipfs/go-cid"
 	peer "github.com/libp2p/go-libp2p-core/peer"
@@ -827,7 +826,7 @@ func (t *ClientDealState0) MarshalCBOR(w io.Writer) error {
 		return err
 	}
 
-	// t.StoreID (multistore.StoreID) (uint64)
+	// t.StoreID (uint64) (uint64)
 
 	if t.StoreID == nil {
 		if _, err := w.Write(cbg.CborNull); err != nil {
@@ -983,7 +982,7 @@ func (t *ClientDealState0) UnmarshalCBOR(r io.Reader) error {
 		}
 
 	}
-	// t.StoreID (multistore.StoreID) (uint64)
+	// t.StoreID (uint64) (uint64)
 
 	{
 
@@ -1002,7 +1001,7 @@ func (t *ClientDealState0) UnmarshalCBOR(r io.Reader) error {
 			if maj != cbg.MajUnsignedInt {
 				return fmt.Errorf("wrong type for uint64 field")
 			}
-			typed := multistore.StoreID(extra)
+			typed := uint64(extra)
 			t.StoreID = &typed
 		}
 
@@ -1251,7 +1250,7 @@ func (t *ProviderDealState0) MarshalCBOR(w io.Writer) error {
 		return err
 	}
 
-	// t.StoreID (multistore.StoreID) (uint64)
+	// t.StoreID (uint64) (uint64)
 
 	if err := cbg.WriteMajorTypeHeaderBuf(scratch, w, cbg.MajUnsignedInt, uint64(t.StoreID)); err != nil {
 		return err
@@ -1344,7 +1343,7 @@ func (t *ProviderDealState0) UnmarshalCBOR(r io.Reader) error {
 		}
 
 	}
-	// t.StoreID (multistore.StoreID) (uint64)
+	// t.StoreID (uint64) (uint64)
 
 	{
 
@@ -1355,7 +1354,7 @@ func (t *ProviderDealState0) UnmarshalCBOR(r io.Reader) error {
 		if maj != cbg.MajUnsignedInt {
 			return fmt.Errorf("wrong type for uint64 field")
 		}
-		t.StoreID = multistore.StoreID(extra)
+		t.StoreID = uint64(extra)
 
 	}
 	// t.ChannelID (datatransfer.ChannelID) (struct)

@@ -17,7 +17,6 @@ import (
 
 	"github.com/filecoin-project/go-address"
 	cborutil "github.com/filecoin-project/go-cbor-util"
-	"github.com/filecoin-project/go-multistore"
 	"github.com/filecoin-project/go-state-types/abi"
 	"github.com/filecoin-project/go-state-types/big"
 	"github.com/filecoin-project/specs-actors/actors/builtin/market"
@@ -61,7 +60,7 @@ func TestClient_Migrations(t *testing.T) {
 	messages := make([]string, numDeals)
 	publishMessages := make([]*cid.Cid, numDeals)
 	fastRetrievals := make([]bool, numDeals)
-	storeIDs := make([]*multistore.StoreID, numDeals)
+	storeIDs := make([]*uint64, numDeals)
 	fundsReserveds := make([]abi.TokenAmount, numDeals)
 	creationTimes := make([]cbg.CborTime, numDeals)
 
@@ -71,7 +70,7 @@ func TestClient_Migrations(t *testing.T) {
 		require.NoError(t, err)
 		proposalCids[i] = proposalNd.Cid()
 		payloadCids[i] = shared_testutil.GenerateCids(1)[0]
-		storeID := multistore.StoreID(rand.Uint64())
+		storeID := rand.Uint64()
 		storeIDs[i] = &storeID
 		messages[i] = string(shared_testutil.RandomBytes(20))
 		fundsReserveds[i] = big.NewInt(rand.Int63())

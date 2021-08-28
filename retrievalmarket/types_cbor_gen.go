@@ -10,7 +10,6 @@ import (
 
 	datatransfer "github.com/filecoin-project/go-data-transfer"
 	piecestore "github.com/filecoin-project/go-fil-markets/piecestore"
-	multistore "github.com/filecoin-project/go-multistore"
 	paych "github.com/filecoin-project/specs-actors/actors/builtin/paych"
 	cid "github.com/ipfs/go-cid"
 	peer "github.com/libp2p/go-libp2p-core/peer"
@@ -1290,7 +1289,7 @@ func (t *ClientDealState) MarshalCBOR(w io.Writer) error {
 		return err
 	}
 
-	// t.StoreID (multistore.StoreID) (uint64)
+	// t.StoreID (uint64) (uint64)
 	if len("StoreID") > cbg.MaxLength {
 		return xerrors.Errorf("Value in field \"StoreID\" was too long")
 	}
@@ -1681,7 +1680,7 @@ func (t *ClientDealState) UnmarshalCBOR(r io.Reader) error {
 				}
 
 			}
-			// t.StoreID (multistore.StoreID) (uint64)
+			// t.StoreID (uint64) (uint64)
 		case "StoreID":
 
 			{
@@ -1701,7 +1700,7 @@ func (t *ClientDealState) UnmarshalCBOR(r io.Reader) error {
 					if maj != cbg.MajUnsignedInt {
 						return fmt.Errorf("wrong type for uint64 field")
 					}
-					typed := multistore.StoreID(extra)
+					typed := uint64(extra)
 					t.StoreID = &typed
 				}
 
@@ -2011,7 +2010,7 @@ func (t *ProviderDealState) MarshalCBOR(w io.Writer) error {
 		return err
 	}
 
-	// t.StoreID (multistore.StoreID) (uint64)
+	// t.StoreID (uint64) (uint64)
 	if len("StoreID") > cbg.MaxLength {
 		return xerrors.Errorf("Value in field \"StoreID\" was too long")
 	}
@@ -2230,7 +2229,7 @@ func (t *ProviderDealState) UnmarshalCBOR(r io.Reader) error {
 				}
 
 			}
-			// t.StoreID (multistore.StoreID) (uint64)
+			// t.StoreID (uint64) (uint64)
 		case "StoreID":
 
 			{
@@ -2242,7 +2241,7 @@ func (t *ProviderDealState) UnmarshalCBOR(r io.Reader) error {
 				if maj != cbg.MajUnsignedInt {
 					return fmt.Errorf("wrong type for uint64 field")
 				}
-				t.StoreID = multistore.StoreID(extra)
+				t.StoreID = uint64(extra)
 
 			}
 			// t.ChannelID (datatransfer.ChannelID) (struct)
