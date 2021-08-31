@@ -9,7 +9,6 @@ import (
 	"sort"
 
 	filestore "github.com/filecoin-project/go-fil-markets/filestore"
-	multistore "github.com/filecoin-project/go-multistore"
 	abi "github.com/filecoin-project/go-state-types/abi"
 	crypto "github.com/filecoin-project/go-state-types/crypto"
 	market "github.com/filecoin-project/specs-actors/actors/builtin/market"
@@ -146,7 +145,7 @@ func (t *ClientDeal0) MarshalCBOR(w io.Writer) error {
 		return err
 	}
 
-	// t.StoreID (multistore.StoreID) (uint64)
+	// t.StoreID (uint64) (uint64)
 
 	if t.StoreID == nil {
 		if _, err := w.Write(cbg.CborNull); err != nil {
@@ -399,7 +398,7 @@ func (t *ClientDeal0) UnmarshalCBOR(r io.Reader) error {
 	default:
 		return fmt.Errorf("booleans are either major type 7, value 20 or 21 (got %d)", extra)
 	}
-	// t.StoreID (multistore.StoreID) (uint64)
+	// t.StoreID (uint64) (uint64)
 
 	{
 
@@ -418,7 +417,7 @@ func (t *ClientDeal0) UnmarshalCBOR(r io.Reader) error {
 			if maj != cbg.MajUnsignedInt {
 				return fmt.Errorf("wrong type for uint64 field")
 			}
-			typed := multistore.StoreID(extra)
+			typed := uint64(extra)
 			t.StoreID = &typed
 		}
 
@@ -574,7 +573,7 @@ func (t *MinerDeal0) MarshalCBOR(w io.Writer) error {
 		return err
 	}
 
-	// t.StoreID (multistore.StoreID) (uint64)
+	// t.StoreID (uint64) (uint64)
 
 	if t.StoreID == nil {
 		if _, err := w.Write(cbg.CborNull); err != nil {
@@ -803,7 +802,7 @@ func (t *MinerDeal0) UnmarshalCBOR(r io.Reader) error {
 
 		t.Message = string(sval)
 	}
-	// t.StoreID (multistore.StoreID) (uint64)
+	// t.StoreID (uint64) (uint64)
 
 	{
 
@@ -822,7 +821,7 @@ func (t *MinerDeal0) UnmarshalCBOR(r io.Reader) error {
 			if maj != cbg.MajUnsignedInt {
 				return fmt.Errorf("wrong type for uint64 field")
 			}
-			typed := multistore.StoreID(extra)
+			typed := uint64(extra)
 			t.StoreID = &typed
 		}
 

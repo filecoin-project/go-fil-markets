@@ -12,7 +12,6 @@ import (
 
 	datatransfer "github.com/filecoin-project/go-data-transfer"
 	versionedfsm "github.com/filecoin-project/go-ds-versioning/pkg/fsm"
-	"github.com/filecoin-project/go-multistore"
 	"github.com/filecoin-project/go-state-types/abi"
 	"github.com/filecoin-project/go-state-types/big"
 	"github.com/filecoin-project/go-statemachine/fsm"
@@ -30,7 +29,7 @@ func TestClientStateMigration(t *testing.T) {
 
 	// Create a v0 client deal state
 	dealID := retrievalmarket.DealID(1)
-	storeID := multistore.StoreID(1)
+	storeID := uint64(1)
 	dummyCid, err := cid.Parse("bafkqaaa")
 	require.NoError(t, err)
 	dealState := ClientDealState0{
@@ -136,7 +135,7 @@ func TestProviderStateMigration(t *testing.T) {
 
 	// Create a v0 provider deal state
 	dealID := retrievalmarket.DealID(1)
-	storeID := multistore.StoreID(1)
+	storeID := uint64(1)
 	dummyCid, err := cid.Parse("bafkqaaa")
 	require.NoError(t, err)
 	dealState := ProviderDealState0{

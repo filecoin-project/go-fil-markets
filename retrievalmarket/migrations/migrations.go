@@ -2,14 +2,13 @@ package migrations
 
 import (
 	"github.com/ipfs/go-cid"
-	peer "github.com/libp2p/go-libp2p-core/peer"
+	"github.com/libp2p/go-libp2p-core/peer"
 	cbg "github.com/whyrusleeping/cbor-gen"
 
 	"github.com/filecoin-project/go-address"
 	datatransfer "github.com/filecoin-project/go-data-transfer"
 	versioning "github.com/filecoin-project/go-ds-versioning/pkg"
 	"github.com/filecoin-project/go-ds-versioning/pkg/versioned"
-	"github.com/filecoin-project/go-multistore"
 	"github.com/filecoin-project/go-state-types/abi"
 	"github.com/filecoin-project/specs-actors/actors/builtin/paych"
 
@@ -30,7 +29,7 @@ type PaymentInfo0 struct {
 // ClientDealState0 is version 0 of ClientDealState
 type ClientDealState0 struct {
 	DealProposal0
-	StoreID              *multistore.StoreID
+	StoreID              *uint64
 	ChannelID            datatransfer.ChannelID
 	LastPaymentRequested bool
 	AllBlocksReceived    bool
@@ -54,7 +53,7 @@ type ClientDealState0 struct {
 // ProviderDealState0 is version 0 of ProviderDealState
 type ProviderDealState0 struct {
 	DealProposal0
-	StoreID         multistore.StoreID
+	StoreID         uint64
 	ChannelID       datatransfer.ChannelID
 	PieceInfo       *piecemigrations.PieceInfo0
 	Status          retrievalmarket.DealStatus

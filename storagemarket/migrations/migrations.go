@@ -10,7 +10,6 @@ import (
 	"github.com/filecoin-project/go-address"
 	versioning "github.com/filecoin-project/go-ds-versioning/pkg"
 	"github.com/filecoin-project/go-ds-versioning/pkg/versioned"
-	"github.com/filecoin-project/go-multistore"
 	"github.com/filecoin-project/go-state-types/abi"
 	"github.com/filecoin-project/go-state-types/crypto"
 	"github.com/filecoin-project/specs-actors/actors/builtin/market"
@@ -60,7 +59,7 @@ type MinerDeal0 struct {
 	SlashEpoch            abi.ChainEpoch
 	FastRetrieval         bool
 	Message               string
-	StoreID               *multistore.StoreID
+	StoreID               *uint64
 	FundsReserved         abi.TokenAmount
 	Ref                   *DataRef0
 	AvailableForRetrieval bool
@@ -85,7 +84,7 @@ type ClientDeal0 struct {
 	PollRetryCount uint64
 	PollErrorCount uint64
 	FastRetrieval  bool
-	StoreID        *multistore.StoreID
+	StoreID        *uint64
 	FundsReserved  abi.TokenAmount
 	CreationTime   cbg.CborTime
 }

@@ -11,7 +11,6 @@ require (
 	github.com/filecoin-project/go-ds-versioning v0.1.0
 	github.com/filecoin-project/go-fil-commcid v0.1.0
 	github.com/filecoin-project/go-fil-commp-hashhash v0.1.0
-	github.com/filecoin-project/go-multistore v0.0.3
 	github.com/filecoin-project/go-padreader v0.0.0-20210723183308-812a16dc01b1
 	github.com/filecoin-project/go-state-types v0.1.1-0.20210506134452-99b279731c48
 	github.com/filecoin-project/go-statemachine v0.0.0-20200925024713-05bd7c71fbfe

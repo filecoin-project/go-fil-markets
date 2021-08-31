@@ -15,7 +15,6 @@ import (
 
 	"github.com/filecoin-project/go-address"
 	datatransfer "github.com/filecoin-project/go-data-transfer"
-	"github.com/filecoin-project/go-multistore"
 	"github.com/filecoin-project/go-state-types/abi"
 	"github.com/filecoin-project/go-state-types/big"
 	"github.com/filecoin-project/specs-actors/actors/builtin/paych"
@@ -46,7 +45,7 @@ type PaymentInfo struct {
 // of a retrieval client
 type ClientDealState struct {
 	DealProposal
-	StoreID *multistore.StoreID
+	StoreID *uint64
 	// Set when the data transfer is started
 	ChannelID            *datatransfer.ChannelID
 	LastPaymentRequested bool
@@ -77,7 +76,7 @@ func (deal *ClientDealState) NextInterval() uint64 {
 // of a retrieval provider
 type ProviderDealState struct {
 	DealProposal
-	StoreID multistore.StoreID
+	StoreID uint64
 
 	ChannelID       *datatransfer.ChannelID
 	PieceInfo       *piecestore.PieceInfo

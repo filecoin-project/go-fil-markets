@@ -6,7 +6,6 @@ import (
 
 	"github.com/filecoin-project/go-address"
 	datatransfer "github.com/filecoin-project/go-data-transfer"
-	"github.com/filecoin-project/go-multistore"
 	"github.com/filecoin-project/go-state-types/abi"
 
 	"github.com/filecoin-project/go-fil-markets/piecestore"
@@ -18,7 +17,7 @@ import (
 // Version 1 of the ClientDealState
 type ClientDealState1 struct {
 	retrievalmarket.DealProposal
-	StoreID              *multistore.StoreID
+	StoreID              *uint64
 	ChannelID            datatransfer.ChannelID
 	LastPaymentRequested bool
 	AllBlocksReceived    bool
@@ -43,7 +42,7 @@ type ClientDealState1 struct {
 // Version 1 of the ProviderDealState
 type ProviderDealState1 struct {
 	retrievalmarket.DealProposal
-	StoreID         multistore.StoreID
+	StoreID         uint64
 	ChannelID       datatransfer.ChannelID
 	PieceInfo       *piecestore.PieceInfo
 	Status          retrievalmarket.DealStatus
