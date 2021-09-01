@@ -1,5 +1,65 @@
 # go-fil-markets changelog
 
+# go-fil-markets 1.10.0
+
+Update to graphsync v0.9.0, remove multistore, other minor fixes
+
+### Changelog
+
+- github.com/filecoin-project/go-fil-markets:
+  - Update to unified graphsync v0.9.0 (#615) ([filecoin-project/go-fil-markets#615](https://github.com/filecoin-project/go-fil-markets/pull/615))
+  - fix: TestCancelDataTransfer (#622) ([filecoin-project/go-fil-markets#622](https://github.com/filecoin-project/go-fil-markets/pull/622))
+  - rm go-multistore dependency. (#619) ([filecoin-project/go-fil-markets#619](https://github.com/filecoin-project/go-fil-markets/pull/619))
+  - revert: OnDealExpiredOrSlashed changes (#620) ([filecoin-project/go-fil-markets#620](https://github.com/filecoin-project/go-fil-markets/pull/620))
+  - fix(ci): include node in circle orb to fix docsgen (#618) ([filecoin-project/go-fil-markets#618](https://github.com/filecoin-project/go-fil-markets/pull/618))
+  - release: v1.9.0 ([filecoin-project/go-fil-markets#617](https://github.com/filecoin-project/go-fil-markets/pull/617))
+- github.com/filecoin-project/go-data-transfer (v1.7.6 -> v1.8.0):
+  - docs(CHANGELOG): update for v1.8.0
+  - Update  to unified go graphsync v0.9.0 (#246) ([filecoin-project/go-data-transfer#246](https://github.com/filecoin-project/go-data-transfer/pull/246))
+  - send cancel async (#245) ([filecoin-project/go-data-transfer#245](https://github.com/filecoin-project/go-data-transfer/pull/245))
+  - release: v1.7.7 ([filecoin-project/go-data-transfer#242](https://github.com/filecoin-project/go-data-transfer/pull/242))
+  - reduce channel monitor log verbosity (#241) ([filecoin-project/go-data-transfer#241](https://github.com/filecoin-project/go-data-transfer/pull/241))
+  - release: v1.7.6 ([filecoin-project/go-data-transfer#239](https://github.com/filecoin-project/go-data-transfer/pull/239))
+- github.com/ipfs/go-graphsync (v0.6.9 -> v0.9.0):
+  - docs(CHANGELOG): update change log
+  - feat(deps): update go-ipld-prime v0.12.0 (#206) ([ipfs/go-graphsync#206](https://github.com/ipfs/go-graphsync/pull/206))
+  - fix(graphsync): make sure linkcontext is passed (#207) ([ipfs/go-graphsync#207](https://github.com/ipfs/go-graphsync/pull/207))
+  - Merge final v0.6.x commit history, and 0.8.0 changelog (#205) ([ipfs/go-graphsync#205](https://github.com/ipfs/go-graphsync/pull/205))
+  - Fix broken link to IPLD selector documentation (#189) ([ipfs/go-graphsync#189](https://github.com/ipfs/go-graphsync/pull/189))
+  - fix: check errors before defering a close (#200) ([ipfs/go-graphsync#200](https://github.com/ipfs/go-graphsync/pull/200))
+  - chore: fix checks (#197) ([ipfs/go-graphsync#197](https://github.com/ipfs/go-graphsync/pull/197))
+  - Merge the v0.6.x commit history (#190) ([ipfs/go-graphsync#190](https://github.com/ipfs/go-graphsync/pull/190))
+  - Ready for universal CI (#187) ([ipfs/go-graphsync#187](https://github.com/ipfs/go-graphsync/pull/187))
+  - fix(requestmanager): pass through linksystem (#166) ([ipfs/go-graphsync#166](https://github.com/ipfs/go-graphsync/pull/166))
+  - fix missing word in section title (#179) ([ipfs/go-graphsync#179](https://github.com/ipfs/go-graphsync/pull/179))
+  - Update for LinkSystem (#161) ([ipfs/go-graphsync#161](https://github.com/ipfs/go-graphsync/pull/161))
+  - Round out diagnostic parameters (#157) ([ipfs/go-graphsync#157](https://github.com/ipfs/go-graphsync/pull/157))
+  - map response codes to names (#148) ([ipfs/go-graphsync#148](https://github.com/ipfs/go-graphsync/pull/148))
+  - Discard http output (#156) ([ipfs/go-graphsync#156](https://github.com/ipfs/go-graphsync/pull/156))
+  - Add debug logging (#121) ([ipfs/go-graphsync#121](https://github.com/ipfs/go-graphsync/pull/121))
+  - Add optional HTTP comparison (#153) ([ipfs/go-graphsync#153](https://github.com/ipfs/go-graphsync/pull/153))
+  - docs(architecture): update architecture docs (#154) ([ipfs/go-graphsync#154](https://github.com/ipfs/go-graphsync/pull/154))
+  - release v0.7.0 ([ipfs/go-graphsync#152](https://github.com/ipfs/go-graphsync/pull/152))
+  - chore: update deps (#151) ([ipfs/go-graphsync#151](https://github.com/ipfs/go-graphsync/pull/151))
+  - Automatically record heap profiles in testplans (#147) ([ipfs/go-graphsync#147](https://github.com/ipfs/go-graphsync/pull/147))
+  - feat(deps): update go-ipld-prime v0.7.0 (#145) ([ipfs/go-graphsync#145](https://github.com/ipfs/go-graphsync/pull/145))
+  - Release/v0.6.0 ([ipfs/go-graphsync#144](https://github.com/ipfs/go-graphsync/pull/144))
+
+### Contributors
+
+| Contributor | Commits | Lines ± | Files Changed |
+|-------------|---------|---------|---------------|
+| Hannah Howard | 15 | +6491/-4743 | 207 |
+| Steven Allen | 4 | +135/-280 | 10 |
+| hannahhoward | 2 | +208/-1 | 3 |
+| dirkmc | 4 | +125/-73 | 10 |
+| raulk | 1 | +43/-60 | 15 |
+| Aarsh Shah | 2 | +26/-23 | 4 |
+| Jacob Heun | 1 | +3/-3 | 1 |
+| Dirk McCormick | 1 | +4/-0 | 1 |
+| Masih H. Derkani | 1 | +1/-1 | 1 |
+| Ismail Khoffi | 1 | +1/-1 | 1 |
+
 # go-fil-markets v1.9.0
 
 - "Pass deal proposal instead of deal ID to OnDealExpiredOrSlashed (#616) ([filecoin-project/go-fil-markets#616](https://github.com/filecoin-project/go-fil-markets/pull/616))"
