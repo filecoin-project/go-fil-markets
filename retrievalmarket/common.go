@@ -14,7 +14,7 @@ import (
 func DecodeNode(defnode *cbg.Deferred) (ipld.Node, error) {
 	reader := bytes.NewReader(defnode.Raw)
 	nb := basicnode.Prototype.Any.NewBuilder()
-	err := dagcbor.Decoder(nb, reader)
+	err := dagcbor.Decode(nb, reader)
 	if err != nil {
 		return nil, err
 	}
