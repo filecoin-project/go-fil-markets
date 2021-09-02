@@ -1095,7 +1095,7 @@ func TestProviderMigrations(t *testing.T) {
 	offsets := make([]abi.PaddedPieceSize, numDeals)
 	lengths := make([]abi.PaddedPieceSize, numDeals)
 	allSelectorBuf := new(bytes.Buffer)
-	err := dagcbor.Encode(shared.AllSelector(), allSelectorBuf)
+	err := dagcbor.Encoder(shared.AllSelector(), allSelectorBuf)
 	require.NoError(t, err)
 	allSelectorBytes := allSelectorBuf.Bytes()
 
