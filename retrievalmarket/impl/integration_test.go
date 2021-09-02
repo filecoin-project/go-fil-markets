@@ -111,7 +111,7 @@ func requireSetupTestClientAndProvider(ctx context.Context, t *testing.T, payChA
 		AddFundsCID:    cids[1],
 	})
 
-	gs1 := graphsyncimpl.New(ctx, network.NewFromLibp2pHost(testData.Host1), testData.LinkSystem1)
+	gs1 := graphsyncimpl.New(ctx, network.NewFromLibp2pHost(testData.Host1), testData.Loader1, testData.Storer1)
 	dtTransport1 := dtgstransport.NewTransport(testData.Host1.ID(), gs1)
 	dt1, err := dtimpl.NewDataTransfer(testData.DTStore1, testData.DTTmpDir1, testData.DTNet1, dtTransport1)
 	require.NoError(t, err)
@@ -153,7 +153,7 @@ func requireSetupTestClientAndProvider(ctx context.Context, t *testing.T, payChA
 
 	paymentAddress := address.TestAddress2
 
-	gs2 := graphsyncimpl.New(ctx, network.NewFromLibp2pHost(testData.Host2), testData.LinkSystem2)
+	gs2 := graphsyncimpl.New(ctx, network.NewFromLibp2pHost(testData.Host2), testData.Loader2, testData.Storer2)
 	dtTransport2 := dtgstransport.NewTransport(testData.Host2.ID(), gs2)
 	dt2, err := dtimpl.NewDataTransfer(testData.DTStore2, testData.DTTmpDir2, testData.DTNet2, dtTransport2)
 	require.NoError(t, err)
@@ -647,7 +647,7 @@ func setupClient(
 		ChannelAvailableFunds:  channelAvailableFunds,
 	})
 
-	gs1 := graphsyncimpl.New(ctx, network.NewFromLibp2pHost(testData.Host1), testData.LinkSystem1)
+	gs1 := graphsyncimpl.New(ctx, network.NewFromLibp2pHost(testData.Host1), testData.Loader1, testData.Storer1)
 	dtTransport1 := dtgstransport.NewTransport(testData.Host1.ID(), gs1)
 	dt1, err := dtimpl.NewDataTransfer(testData.DTStore1, testData.DTTmpDir1, testData.DTNet1, dtTransport1)
 	require.NoError(t, err)
@@ -687,7 +687,7 @@ func setupProvider(
 	pieceStore.ExpectCID(payloadCID, cidInfo)
 	pieceStore.ExpectPiece(expectedPiece, pieceInfo)
 
-	gs2 := graphsyncimpl.New(ctx, network.NewFromLibp2pHost(testData.Host2), testData.LinkSystem2)
+	gs2 := graphsyncimpl.New(ctx, network.NewFromLibp2pHost(testData.Host2), testData.Loader2, testData.Storer2)
 	dtTransport2 := dtgstransport.NewTransport(testData.Host2.ID(), gs2)
 	dt2, err := dtimpl.NewDataTransfer(testData.DTStore2, testData.DTTmpDir2, testData.DTNet2, dtTransport2)
 	require.NoError(t, err)

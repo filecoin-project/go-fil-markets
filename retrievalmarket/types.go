@@ -296,7 +296,7 @@ func NewParamsV1(pricePerByte abi.TokenAmount, paymentInterval uint64, paymentIn
 		return Params{}, xerrors.New("selector required for NewParamsV1")
 	}
 
-	err := dagcbor.Encode(sel, &buffer)
+	err := dagcbor.Encoder(sel, &buffer)
 	if err != nil {
 		return Params{}, xerrors.Errorf("error encoding selector: %w", err)
 	}
