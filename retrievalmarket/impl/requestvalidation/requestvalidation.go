@@ -27,7 +27,7 @@ var askTimeout = 5 * time.Second
 
 func init() {
 	buf := new(bytes.Buffer)
-	_ = dagcbor.Encoder(shared.AllSelector(), buf)
+	_ = dagcbor.Encode(shared.AllSelector(), buf)
 	allSelectorBytes = buf.Bytes()
 }
 
@@ -102,7 +102,7 @@ func (rv *ProviderRequestValidator) validatePull(isRestart bool, receiver peer.I
 
 	// Check the proposal selector matches
 	buf := new(bytes.Buffer)
-	err := dagcbor.Encoder(selector, buf)
+	err := dagcbor.Encode(selector, buf)
 	if err != nil {
 		return nil, err
 	}
