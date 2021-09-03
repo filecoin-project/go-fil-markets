@@ -1,5 +1,9 @@
 # go-fil-markets changelog
 
+# go-data-transfer 1.12.0
+
+Reinstate update to graphsync v0.9.0 with new Linksystem IPLD prime
+
 # go-fil-markets v1.11.0
 
 - Remove go-multistore dependency
