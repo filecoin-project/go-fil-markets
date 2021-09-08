@@ -42,10 +42,6 @@ type RetrievalPricingFunc func(ctx context.Context, dealPricingParams retrievalm
 
 var queryTimeout = 5 * time.Second
 
-// GetPiecesContainingBlock returns all pieces that contain the block with the
-// given CID
-type GetPiecesContainingBlock func(blockCid cid.Cid) ([]cid.Cid, error)
-
 // Provider is the production implementation of the RetrievalProvider interface
 type Provider struct {
 	dataTransfer         datatransfer.Manager
@@ -56,7 +52,6 @@ type Provider struct {
 	revalidator          *requestvalidation.ProviderRevalidator
 	minerAddress         address.Address
 	pieceStore           piecestore.PieceStore
-	piecesWithBlock      GetPiecesContainingBlock
 	readySub             *pubsub.PubSub
 	subscribers          *pubsub.PubSub
 	stateMachines        fsm.Group
@@ -114,7 +109,6 @@ func NewProvider(minerAddress address.Address,
 	dataTransfer datatransfer.Manager,
 	ds datastore.Batching,
 	retrievalPricingFunc RetrievalPricingFunc,
-	piecesWithBlock GetPiecesContainingBlock,
 	opts ...RetrievalProviderOption,
 ) (retrievalmarket.RetrievalProvider, error) {
 
@@ -132,7 +126,6 @@ func NewProvider(minerAddress address.Address,
 		subscribers:          pubsub.New(providerDispatcher),
 		readySub:             pubsub.New(shared.ReadyDispatcher),
 		retrievalPricingFunc: retrievalPricingFunc,
-		piecesWithBlock:      piecesWithBlock,
 		dagStore:             dagStore,
 		stores:               stores.NewReadOnlyBlockstores(),
 	}
@@ -400,7 +393,7 @@ func (p *Provider) HandleQueryStream(stream rmnet.RetrievalQueryStream) {
 // Otherwise prefer pieces that are already unsealed.
 func (p *Provider) getPieceInfoFromCid(ctx context.Context, payloadCID, clientPieceCID cid.Cid) (piecestore.PieceInfo, bool, error) {
 	// Get all pieces that contain the target block
-	piecesWithPayloadCID, err := p.piecesWithBlock(payloadCID)
+	piecesWithTargetBlock, err := p.dagStore.GetPiecesContainingBlock(payloadCID)
 	if err != nil {
 		return piecestore.PieceInfoUndefined, false, xerrors.Errorf("getting pieces for cid %s: %w", payloadCID, err)
 	}
@@ -408,9 +401,9 @@ func (p *Provider) getPieceInfoFromCid(ctx context.Context, payloadCID, clientPi
 	// For each piece that contains the target block
 	var lastErr error
 	var sealedPieceInfo *piecestore.PieceInfo
-	for _, pieceWithPayloadCID := range piecesWithPayloadCID {
+	for _, pieceWithTargetBlock := range piecesWithTargetBlock {
 		// Get the deals for the piece
-		pieceInfo, err := p.pieceStore.GetPieceInfo(pieceWithPayloadCID)
+		pieceInfo, err := p.pieceStore.GetPieceInfo(pieceWithTargetBlock)
 		if err != nil {
 			lastErr = err
 			continue
