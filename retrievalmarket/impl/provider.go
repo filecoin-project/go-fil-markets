@@ -42,6 +42,10 @@ type RetrievalPricingFunc func(ctx context.Context, dealPricingParams retrievalm
 
 var queryTimeout = 5 * time.Second
 
+// GetPiecesContainingBlock returns all pieces that contain the block with the
+// given CID
+type GetPiecesContainingBlock func(blockCid cid.Cid) ([]cid.Cid, error)
+
 // Provider is the production implementation of the RetrievalProvider interface
 type Provider struct {
 	dataTransfer         datatransfer.Manager
@@ -52,6 +56,7 @@ type Provider struct {
 	revalidator          *requestvalidation.ProviderRevalidator
 	minerAddress         address.Address
 	pieceStore           piecestore.PieceStore
+	piecesWithBlock      GetPiecesContainingBlock
 	readySub             *pubsub.PubSub
 	subscribers          *pubsub.PubSub
 	stateMachines        fsm.Group
@@ -109,6 +114,7 @@ func NewProvider(minerAddress address.Address,
 	dataTransfer datatransfer.Manager,
 	ds datastore.Batching,
 	retrievalPricingFunc RetrievalPricingFunc,
+	piecesWithBlock GetPiecesContainingBlock,
 	opts ...RetrievalProviderOption,
 ) (retrievalmarket.RetrievalProvider, error) {
 
@@ -126,6 +132,7 @@ func NewProvider(minerAddress address.Address,
 		subscribers:          pubsub.New(providerDispatcher),
 		readySub:             pubsub.New(shared.ReadyDispatcher),
 		retrievalPricingFunc: retrievalPricingFunc,
+		piecesWithBlock:      piecesWithBlock,
 		dagStore:             dagStore,
 		stores:               stores.NewReadOnlyBlockstores(),
 	}
@@ -388,48 +395,61 @@ func (p *Provider) HandleQueryStream(stream rmnet.RetrievalQueryStream) {
 	sendResp(answer)
 }
 
-func (p *Provider) getPieceInfoFromCid(ctx context.Context, payloadCID, pieceCID cid.Cid) (piecestore.PieceInfo, bool, error) {
-	cidInfo, err := p.pieceStore.GetCIDInfo(payloadCID)
+// Given the CID of a block, find a piece that contains that block.
+// If the client has specified which piece they want, return that piece.
+// Otherwise prefer pieces that are already unsealed.
+func (p *Provider) getPieceInfoFromCid(ctx context.Context, payloadCID, clientPieceCID cid.Cid) (piecestore.PieceInfo, bool, error) {
+	// Get all pieces that contain the target block
+	piecesWithPayloadCID, err := p.piecesWithBlock(payloadCID)
 	if err != nil {
-		return piecestore.PieceInfoUndefined, false, xerrors.Errorf("get cid info: %w", err)
+		return piecestore.PieceInfoUndefined, false, xerrors.Errorf("getting pieces for cid %s: %w", payloadCID, err)
 	}
+
+	// For each piece that contains the target block
 	var lastErr error
 	var sealedPieceInfo *piecestore.PieceInfo
-
-	for _, pieceBlockLocation := range cidInfo.PieceBlockLocations {
-		pieceInfo, err := p.pieceStore.GetPieceInfo(pieceBlockLocation.PieceCID)
+	for _, pieceWithPayloadCID := range piecesWithPayloadCID {
+		// Get the deals for the piece
+		pieceInfo, err := p.pieceStore.GetPieceInfo(pieceWithPayloadCID)
 		if err != nil {
 			lastErr = err
 			continue
 		}
 
 		// if client wants to retrieve the payload from a specific piece, just return that piece.
-		if pieceCID.Defined() && pieceInfo.PieceCID.Equals(pieceCID) {
+		if clientPieceCID.Defined() && pieceInfo.PieceCID.Equals(clientPieceCID) {
 			return pieceInfo, p.pieceInUnsealedSector(ctx, pieceInfo), nil
 		}
 
-		// if client dosen't have a preference for a particular piece, prefer a piece
+		// if client doesn't have a preference for a particular piece, prefer a piece
 		// for which an unsealed sector exists.
-		if pieceCID.Equals(cid.Undef) {
+		if clientPieceCID.Equals(cid.Undef) {
 			if p.pieceInUnsealedSector(ctx, pieceInfo) {
+				// The piece is in an unsealed sector, so just return it
 				return pieceInfo, true, nil
 			}
 
 			if sealedPieceInfo == nil {
+				// The piece is not in an unsealed sector, so save it but keep
+				// checking other pieces to see if there is one that is in an
+				// unsealed sector
 				sealedPieceInfo = &pieceInfo
 			}
 		}
 
 	}
 
+	// Found a piece containing the target block, piece is in a sealed sector
 	if sealedPieceInfo != nil {
 		return *sealedPieceInfo, false, nil
 	}
 
+	// Couldn't find a piece containing the target block
 	if lastErr == nil {
-		lastErr = xerrors.Errorf("unknown pieceCID %s", pieceCID.String())
+		lastErr = xerrors.Errorf("unknown pieceCID %s", clientPieceCID.String())
 	}
 
+	// Error finding a piece containing the target block
 	return piecestore.PieceInfoUndefined, false, xerrors.Errorf("could not locate piece: %w", lastErr)
 }
 
