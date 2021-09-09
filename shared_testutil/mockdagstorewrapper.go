@@ -141,7 +141,12 @@ func (m *MockDagStoreWrapper) GetPiecesContainingBlock(blockCID cid.Cid) ([]cid.
 	m.lk.Lock()
 	defer m.lk.Unlock()
 
-	return m.piecesWithBlock[blockCID], nil
+	pieces, ok := m.piecesWithBlock[blockCID]
+	if !ok {
+		return nil, retrievalmarket.ErrNotFound
+	}
+
+	return pieces, nil
 }
 
 // Used by the tests to add an entry to the index of block CID -> []piece CID

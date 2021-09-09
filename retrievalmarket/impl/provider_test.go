@@ -721,9 +721,15 @@ func TestHandleQueryStream(t *testing.T) {
 		return qs
 	}
 
-	receiveStreamOnProvider := func(t *testing.T, node *testnodes.TestRetrievalProviderNode, sa *testnodes.TestSectorAccessor, qs network.RetrievalQueryStream, pieceStore piecestore.PieceStore) {
+	receiveStreamOnProvider := func(
+		t *testing.T,
+		node *testnodes.TestRetrievalProviderNode,
+		sa *testnodes.TestSectorAccessor,
+		qs network.RetrievalQueryStream,
+		pieceStore piecestore.PieceStore,
+		dagStore *tut.MockDagStoreWrapper,
+	) {
 		ds := dss.MutexWrap(datastore.NewMapDatastore())
-		dagStore := tut.NewMockDagStoreWrapper(pieceStore, sa)
 		dt := tut.NewTestDataTransfer()
 		net := tut.NewTestRetrievalMarketNetwork(tut.TestNetworkParams{})
 
@@ -754,7 +760,7 @@ func TestHandleQueryStream(t *testing.T) {
 		query              retrievalmarket.Query
 		expResp            retrievalmarket.QueryResponse
 		expErr             string
-		expFunc            func(t *testing.T, pieceStore *tut.TestPieceStore)
+		expFunc            func(t *testing.T, pieceStore *tut.TestPieceStore, dagStore *tut.MockDagStoreWrapper)
 		sectorAccessorFunc func(sa *testnodes.TestSectorAccessor)
 
 		expectedPricePerByte            abi.TokenAmount
@@ -763,10 +769,12 @@ func TestHandleQueryStream(t *testing.T) {
 		expectedUnsealPrice             abi.TokenAmount
 	}{
 		{name: "When PieceCID is not provided and PayloadCID is found",
-			expFunc: func(t *testing.T, pieceStore *tut.TestPieceStore) {
+			expFunc: func(t *testing.T, pieceStore *tut.TestPieceStore, dagStore *tut.MockDagStoreWrapper) {
 				pieceStore.ExpectCID(payloadCID, expectedCIDInfo)
 				pieceStore.ExpectPiece(expectedPieceCID, expectedPiece)
 				pieceStore.ExpectPiece(expectedPieceCID2, expectedPiece2)
+				dagStore.AddBlockToPieceIndex(payloadCID, expectedPieceCID)
+				dagStore.AddBlockToPieceIndex(payloadCID, expectedPieceCID2)
 			},
 			query: retrievalmarket.Query{PayloadCID: payloadCID},
 			expResp: retrievalmarket.QueryResponse{
@@ -785,10 +793,12 @@ func TestHandleQueryStream(t *testing.T) {
 				p := expectedPiece2.Deals[0]
 				sa.MarkUnsealed(context.TODO(), p.SectorID, p.Offset.Unpadded(), p.Length.Unpadded())
 			},
-			expFunc: func(t *testing.T, pieceStore *tut.TestPieceStore) {
+			expFunc: func(t *testing.T, pieceStore *tut.TestPieceStore, dagStore *tut.MockDagStoreWrapper) {
 				pieceStore.ExpectCID(payloadCID, expectedCIDInfo)
 				pieceStore.ExpectPiece(expectedPieceCID, expectedPiece)
 				pieceStore.ExpectPiece(expectedPieceCID2, expectedPiece2)
+				dagStore.AddBlockToPieceIndex(payloadCID, expectedPieceCID)
+				dagStore.AddBlockToPieceIndex(payloadCID, expectedPieceCID2)
 			},
 			query: retrievalmarket.Query{PayloadCID: payloadCID},
 			expResp: retrievalmarket.QueryResponse{
@@ -803,8 +813,9 @@ func TestHandleQueryStream(t *testing.T) {
 		},
 
 		{name: "When PieceCID is provided and both PieceCID and PayloadCID are found",
-			expFunc: func(t *testing.T, pieceStore *tut.TestPieceStore) {
+			expFunc: func(t *testing.T, pieceStore *tut.TestPieceStore, dagStore *tut.MockDagStoreWrapper) {
 				loadPieceCIDS(t, pieceStore, payloadCID, expectedPieceCID)
+				dagStore.AddBlockToPieceIndex(payloadCID, expectedPieceCID)
 			},
 			query: retrievalmarket.Query{
 				PayloadCID:  payloadCID,
@@ -821,12 +832,12 @@ func TestHandleQueryStream(t *testing.T) {
 			expectedUnsealPrice:             expectedUnsealPrice,
 		},
 		{name: "When QueryParams has PieceCID and is missing",
-			expFunc: func(t *testing.T, ps *tut.TestPieceStore) {
+			expFunc: func(t *testing.T, ps *tut.TestPieceStore, dagStore *tut.MockDagStoreWrapper) {
 				loadPieceCIDS(t, ps, payloadCID, cid.Undef)
-				ps.ExpectCID(payloadCID, expectedCIDInfo)
 				ps.ExpectMissingPiece(expectedPieceCID)
 				ps.ExpectMissingPiece(expectedPieceCID2)
-
+				dagStore.AddBlockToPieceIndex(payloadCID, expectedPieceCID)
+				dagStore.AddBlockToPieceIndex(payloadCID, expectedPieceCID2)
 			},
 			query: retrievalmarket.Query{
 				PayloadCID:  payloadCID,
@@ -841,10 +852,8 @@ func TestHandleQueryStream(t *testing.T) {
 			expectedPaymentIntervalIncrease: 0,
 			expectedUnsealPrice:             big.Zero(),
 		},
-		{name: "When CID info not found",
-			expFunc: func(t *testing.T, ps *tut.TestPieceStore) {
-				ps.ExpectMissingCID(payloadCID)
-			},
+		{name: "When payload CID not found",
+			expFunc: func(t *testing.T, ps *tut.TestPieceStore, dagStore *tut.MockDagStoreWrapper) {},
 			query: retrievalmarket.Query{
 				PayloadCID:  payloadCID,
 				QueryParams: retrievalmarket.QueryParams{PieceCID: &expectedPieceCID},
@@ -867,13 +876,14 @@ func TestHandleQueryStream(t *testing.T) {
 			err := qs.WriteQuery(tc.query)
 			require.NoError(t, err)
 			pieceStore := tut.NewTestPieceStore()
+			dagStore := tut.NewMockDagStoreWrapper(pieceStore, sa)
 			if tc.sectorAccessorFunc != nil {
 				tc.sectorAccessorFunc(sa)
 			}
 
-			tc.expFunc(t, pieceStore)
+			tc.expFunc(t, pieceStore, dagStore)
 
-			receiveStreamOnProvider(t, node, sa, qs, pieceStore)
+			receiveStreamOnProvider(t, node, sa, qs, pieceStore, dagStore)
 
 			actualResp, err := qs.ReadQueryResponse()
 			pieceStore.VerifyExpectations(t)
@@ -902,8 +912,10 @@ func TestHandleQueryStream(t *testing.T) {
 		})
 		require.NoError(t, err)
 		pieceStore := tut.NewTestPieceStore()
+		dagStore := tut.NewMockDagStoreWrapper(pieceStore, sa)
+		dagStore.AddBlockToPieceIndex(payloadCID, expectedPieceCID)
 
-		receiveStreamOnProvider(t, node, sa, qs, pieceStore)
+		receiveStreamOnProvider(t, node, sa, qs, pieceStore, dagStore)
 
 		response, err := qs.ReadQueryResponse()
 		require.NoError(t, err)
@@ -916,8 +928,9 @@ func TestHandleQueryStream(t *testing.T) {
 		sa := testnodes.NewTestSectorAccessor()
 		qs := readWriteQueryStream()
 		pieceStore := tut.NewTestPieceStore()
+		dagStore := tut.NewMockDagStoreWrapper(pieceStore, sa)
 
-		receiveStreamOnProvider(t, node, sa, qs, pieceStore)
+		receiveStreamOnProvider(t, node, sa, qs, pieceStore, dagStore)
 
 		response, err := qs.ReadQueryResponse()
 		require.NotNil(t, err)
@@ -942,8 +955,10 @@ func TestHandleQueryStream(t *testing.T) {
 		pieceStore.ExpectCID(payloadCID, expectedCIDInfo)
 		pieceStore.ExpectPiece(expectedPieceCID, expectedPiece)
 		pieceStore.ExpectPiece(expectedPieceCID2, expectedPiece2)
+		dagStore := tut.NewMockDagStoreWrapper(pieceStore, sa)
+		dagStore.AddBlockToPieceIndex(payloadCID, expectedPieceCID)
 
-		receiveStreamOnProvider(t, node, sa, qs, pieceStore)
+		receiveStreamOnProvider(t, node, sa, qs, pieceStore, dagStore)
 
 		pieceStore.VerifyExpectations(t)
 	})
@@ -1079,8 +1094,8 @@ func loadPieceCIDS(t *testing.T, pieceStore *tut.TestPieceStore, expPayloadCID, 
 	if expectedPieceCID != cid.Undef {
 		pieceStore.ExpectPiece(expectedPieceCID, expectedPieceInfo)
 	}
-	expectedCIDInfo := piecestore.CIDInfo{PieceBlockLocations: blockLocs}
-	pieceStore.ExpectCID(expPayloadCID, expectedCIDInfo)
+	//expectedCIDInfo := piecestore.CIDInfo{PieceBlockLocations: blockLocs}
+	//pieceStore.ExpectCID(expPayloadCID, expectedCIDInfo)
 }
 
 func TestProviderMigrations(t *testing.T) {
