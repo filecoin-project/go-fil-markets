@@ -11,6 +11,7 @@ import (
 	"github.com/ipfs/go-datastore/namespace"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"golang.org/x/xerrors"
 
 	"github.com/filecoin-project/go-state-types/abi"
 	"github.com/filecoin-project/go-statestore"
@@ -18,12 +19,14 @@ import (
 	"github.com/filecoin-project/go-fil-markets/piecestore"
 	piecestoreimpl "github.com/filecoin-project/go-fil-markets/piecestore/impl"
 	"github.com/filecoin-project/go-fil-markets/piecestore/migrations"
+	"github.com/filecoin-project/go-fil-markets/retrievalmarket"
 	"github.com/filecoin-project/go-fil-markets/shared_testutil"
 )
 
 func TestStorePieceInfo(t *testing.T) {
 	ctx := context.Background()
 	pieceCid := shared_testutil.GenerateCids(1)[0]
+	pieceCid2 := shared_testutil.GenerateCids(1)[0]
 	initializePieceStore := func(t *testing.T, ctx context.Context) piecestore.PieceStore {
 		ps, err := piecestoreimpl.NewPieceStore(datastore.NewMapDatastore())
 		require.NoError(t, err)
@@ -51,6 +54,11 @@ func TestStorePieceInfo(t *testing.T) {
 		assert.NoError(t, err)
 		assert.Len(t, pi.Deals, 1)
 		assert.Equal(t, pi.Deals[0], dealInfo)
+
+		// Verify that getting a piece with a non-existent CID returns ErrNotFound
+		pi, err = ps.GetPieceInfo(pieceCid2)
+		assert.Error(t, err)
+		assert.True(t, xerrors.Is(err, retrievalmarket.ErrNotFound))
 	})
 
 	t.Run("adding same deal twice does not dup", func(t *testing.T) {
@@ -86,7 +94,7 @@ func TestStoreCIDInfo(t *testing.T) {
 	pieceCids := shared_testutil.GenerateCids(2)
 	pieceCid1 := pieceCids[0]
 	pieceCid2 := pieceCids[1]
-	testCIDs := shared_testutil.GenerateCids(3)
+	testCIDs := shared_testutil.GenerateCids(4)
 	blockLocations := make([]piecestore.BlockLocation, 0, 3)
 	for i := 0; i < 3; i++ {
 		blockLocations = append(blockLocations, piecestore.BlockLocation{
@@ -129,6 +137,11 @@ func TestStoreCIDInfo(t *testing.T) {
 		assert.NoError(t, err)
 		assert.Len(t, ci.PieceBlockLocations, 1)
 		assert.Equal(t, ci.PieceBlockLocations[0], piecestore.PieceBlockLocation{BlockLocation: blockLocations[2], PieceCID: pieceCid1})
+
+		// Verify that getting CID info with a non-existent CID returns ErrNotFound
+		ci, err = ps.GetCIDInfo(testCIDs[3])
+		assert.Error(t, err)
+		assert.True(t, xerrors.Is(err, retrievalmarket.ErrNotFound))
 	})
 
 	t.Run("overlapping adds", func(t *testing.T) {
