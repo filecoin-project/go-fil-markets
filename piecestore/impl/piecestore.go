@@ -8,12 +8,14 @@ import (
 	"github.com/ipfs/go-datastore"
 	"github.com/ipfs/go-datastore/namespace"
 	logging "github.com/ipfs/go-log/v2"
+	"golang.org/x/xerrors"
 
 	versioning "github.com/filecoin-project/go-ds-versioning/pkg"
 	versioned "github.com/filecoin-project/go-ds-versioning/pkg/statestore"
 
 	"github.com/filecoin-project/go-fil-markets/piecestore"
 	"github.com/filecoin-project/go-fil-markets/piecestore/migrations"
+	"github.com/filecoin-project/go-fil-markets/retrievalmarket"
 	"github.com/filecoin-project/go-fil-markets/shared"
 )
 
@@ -144,6 +146,9 @@ func (ps *pieceStore) ListCidInfoKeys() ([]cid.Cid, error) {
 func (ps *pieceStore) GetPieceInfo(pieceCID cid.Cid) (piecestore.PieceInfo, error) {
 	var out piecestore.PieceInfo
 	if err := ps.pieces.Get(pieceCID).Get(&out); err != nil {
+		if xerrors.Is(err, datastore.ErrNotFound) {
+			return piecestore.PieceInfo{}, xerrors.Errorf("piece with CID %s: %w", pieceCID, retrievalmarket.ErrNotFound)
+		}
 		return piecestore.PieceInfo{}, err
 	}
 	return out, nil
@@ -153,6 +158,9 @@ func (ps *pieceStore) GetPieceInfo(pieceCID cid.Cid) (piecestore.PieceInfo, erro
 func (ps *pieceStore) GetCIDInfo(payloadCID cid.Cid) (piecestore.CIDInfo, error) {
 	var out piecestore.CIDInfo
 	if err := ps.cidInfos.Get(payloadCID).Get(&out); err != nil {
+		if xerrors.Is(err, datastore.ErrNotFound) {
+			return piecestore.CIDInfo{}, xerrors.Errorf("payload CID %s: %w", payloadCID, retrievalmarket.ErrNotFound)
+		}
 		return piecestore.CIDInfo{}, err
 	}
 	return out, nil
