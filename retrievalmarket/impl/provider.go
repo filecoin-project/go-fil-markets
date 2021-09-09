@@ -354,7 +354,7 @@ func (p *Provider) HandleQueryStream(stream rmnet.RetrievalQueryStream) {
 	answer.Size = uint64(pieceInfo.Deals[0].Length.Unpadded()) // TODO: verify on intermediate
 	answer.PieceCIDFound = retrievalmarket.QueryItemAvailable
 
-	storageDeals, err := storageDealsForPiece(query.PieceCID != nil, query.PayloadCID, pieceInfo, p.pieceStore)
+	storageDeals, err := p.storageDealsForPiece(query.PieceCID != nil, query.PayloadCID, pieceInfo)
 	if err != nil {
 		log.Errorf("Retrieval query: storageDealsForPiece: %s", err)
 		answer.Status = retrievalmarket.QueryResponseError
@@ -459,6 +459,65 @@ func (p *Provider) pieceInUnsealedSector(ctx context.Context, pieceInfo piecesto
 	}
 
 	return false
+}
+
+func (p *Provider) storageDealsForPiece(clientSpecificPiece bool, payloadCID cid.Cid, pieceInfo piecestore.PieceInfo) ([]abi.DealID, error) {
+	var storageDeals []abi.DealID
+	var err error
+	if clientSpecificPiece {
+		// If the user wants to retrieve the payload from a specific piece,
+		// we only need to inspect storage deals made for that piece to quote a price.
+		for _, d := range pieceInfo.Deals {
+			storageDeals = append(storageDeals, d.DealID)
+		}
+	} else {
+		// If the user does NOT want to retrieve from a specific piece, we'll have to inspect all storage deals
+		// made for that piece to quote a price.
+		storageDeals, err = p.getAllDealsContainingPayload(payloadCID)
+		if err != nil {
+			return nil, xerrors.Errorf("failed to fetch deals for payload: %w", err)
+		}
+	}
+
+	if len(storageDeals) == 0 {
+		return nil, xerrors.New("no storage deals found")
+	}
+
+	return storageDeals, nil
+}
+
+func (p *Provider) getAllDealsContainingPayload(payloadCID cid.Cid) ([]abi.DealID, error) {
+	// Get all pieces that contain the target block
+	piecesWithTargetBlock, err := p.dagStore.GetPiecesContainingBlock(payloadCID)
+	if err != nil {
+		return nil, xerrors.Errorf("getting pieces for cid %s: %w", payloadCID, err)
+	}
+
+	// For each piece that contains the target block
+	var lastErr error
+	var dealsIds []abi.DealID
+	for _, pieceWithTargetBlock := range piecesWithTargetBlock {
+		// Get the deals for the piece
+		pieceInfo, err := p.pieceStore.GetPieceInfo(pieceWithTargetBlock)
+		if err != nil {
+			lastErr = err
+			continue
+		}
+
+		for _, d := range pieceInfo.Deals {
+			dealsIds = append(dealsIds, d.DealID)
+		}
+	}
+
+	if lastErr == nil && len(dealsIds) == 0 {
+		return nil, xerrors.New("no deals found")
+	}
+
+	if lastErr != nil && len(dealsIds) == 0 {
+		return nil, xerrors.Errorf("failed to fetch deals containing payload %s: %w", payloadCID, lastErr)
+	}
+
+	return dealsIds, nil
 }
 
 // GetDynamicAsk quotes a dynamic price for the retrieval deal by calling the user configured

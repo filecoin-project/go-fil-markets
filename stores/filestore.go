@@ -80,7 +80,7 @@ func FilestoreOf(bs bstore.Blockstore) (bstore.Blockstore, error) {
 	return bs, nil
 }
 
-var cidBuilder = cid.V1Builder{Codec: cid.Raw, MhType: mh.IDENTITY}
+var cidBuilder = cid.V1Builder{Codec: cid.Raw, MhType: mh.SHA2_256}
 
 // dsCoercer coerces a Blockstore to present a datastore interface, apt for
 // usage with the Filestore/FileManager. Only PosInfos will be written through

@@ -69,17 +69,6 @@ func TestDynamicPricing(t *testing.T) {
 	piece2SizePadded := uint64(2234)
 	piece2Size := uint64(abi.PaddedPieceSize(piece2SizePadded).Unpadded())
 
-	expectedCIDInfo := piecestore.CIDInfo{
-		PieceBlockLocations: []piecestore.PieceBlockLocation{
-			{
-				PieceCID: expectedPieceCID1,
-			},
-			{
-				PieceCID: expectedPieceCID2,
-			},
-		},
-	}
-
 	piece1 := piecestore.PieceInfo{
 		PieceCID: expectedPieceCID1,
 		Deals: []piecestore.DealInfo{
@@ -194,7 +183,6 @@ func TestDynamicPricing(t *testing.T) {
 				n.ExpectPricingParams(expectedPieceCID1, []abi.DealID{1, 11, 2, 22, 222})
 			},
 			expFunc: func(t *testing.T, pieceStore *tut.TestPieceStore, dagStore *tut.MockDagStoreWrapper) {
-				pieceStore.ExpectCID(payloadCID, expectedCIDInfo)
 				pieceStore.ExpectPiece(expectedPieceCID1, piece1)
 				pieceStore.ExpectPiece(expectedPieceCID2, piece2)
 				dagStore.AddBlockToPieceIndex(payloadCID, expectedPieceCID1)
@@ -219,7 +207,6 @@ func TestDynamicPricing(t *testing.T) {
 				n.ExpectPricingParams(expectedPieceCID1, []abi.DealID{1, 11, 2, 22, 222})
 			},
 			expFunc: func(t *testing.T, pieceStore *tut.TestPieceStore, dagStore *tut.MockDagStoreWrapper) {
-				pieceStore.ExpectCID(payloadCID, expectedCIDInfo)
 				pieceStore.ExpectPiece(expectedPieceCID1, piece1)
 				pieceStore.ExpectPiece(expectedPieceCID2, piece2)
 				dagStore.AddBlockToPieceIndex(payloadCID, expectedPieceCID1)
@@ -245,7 +232,6 @@ func TestDynamicPricing(t *testing.T) {
 				n.ExpectPricingParams(expectedPieceCID1, []abi.DealID{1, 11, 2, 22, 222})
 			},
 			expFunc: func(t *testing.T, pieceStore *tut.TestPieceStore, dagStore *tut.MockDagStoreWrapper) {
-				pieceStore.ExpectCID(payloadCID, expectedCIDInfo)
 				pieceStore.ExpectPiece(expectedPieceCID1, piece1)
 				pieceStore.ExpectPiece(expectedPieceCID2, piece2)
 				dagStore.AddBlockToPieceIndex(payloadCID, expectedPieceCID1)
@@ -274,7 +260,7 @@ func TestDynamicPricing(t *testing.T) {
 				sa.MarkUnsealed(context.TODO(), p.SectorID, p.Offset.Unpadded(), p.Length.Unpadded())
 			},
 			expFunc: func(t *testing.T, pieceStore *tut.TestPieceStore, dagStore *tut.MockDagStoreWrapper) {
-				pieceStore.ExpectCID(payloadCID, expectedCIDInfo)
+				//pieceStore.ExpectCID(payloadCID, expectedCIDInfo)
 				pieceStore.ExpectPiece(expectedPieceCID1, piece1)
 				pieceStore.ExpectPiece(expectedPieceCID2, piece2)
 				dagStore.AddBlockToPieceIndex(payloadCID, expectedPieceCID1)
@@ -304,7 +290,6 @@ func TestDynamicPricing(t *testing.T) {
 				sa.MarkUnsealed(context.TODO(), p.SectorID, p.Offset.Unpadded(), p.Length.Unpadded())
 			},
 			expFunc: func(t *testing.T, pieceStore *tut.TestPieceStore, dagStore *tut.MockDagStoreWrapper) {
-				pieceStore.ExpectCID(payloadCID, expectedCIDInfo)
 				pieceStore.ExpectPiece(expectedPieceCID1, piece1)
 				pieceStore.ExpectPiece(expectedPieceCID2, piece2)
 				dagStore.AddBlockToPieceIndex(payloadCID, expectedPieceCID1)
@@ -334,7 +319,6 @@ func TestDynamicPricing(t *testing.T) {
 				sa.MarkUnsealed(context.TODO(), p.SectorID, p.Offset.Unpadded(), p.Length.Unpadded())
 			},
 			expFunc: func(t *testing.T, pieceStore *tut.TestPieceStore, dagStore *tut.MockDagStoreWrapper) {
-				pieceStore.ExpectCID(payloadCID, expectedCIDInfo)
 				pieceStore.ExpectPiece(expectedPieceCID1, piece1)
 				pieceStore.ExpectPiece(expectedPieceCID2, piece2)
 				dagStore.AddBlockToPieceIndex(payloadCID, expectedPieceCID1)
@@ -371,7 +355,6 @@ func TestDynamicPricing(t *testing.T) {
 				sa.MarkUnsealed(context.TODO(), p.SectorID, p.Offset.Unpadded(), p.Length.Unpadded())
 			},
 			expFunc: func(t *testing.T, pieceStore *tut.TestPieceStore, dagStore *tut.MockDagStoreWrapper) {
-				pieceStore.ExpectCID(payloadCID, expectedCIDInfo)
 				pieceStore.ExpectPiece(expectedPieceCID1, piece1)
 				pieceStore.ExpectPiece(expectedPieceCID2, piece2)
 				dagStore.AddBlockToPieceIndex(payloadCID, expectedPieceCID1)
@@ -405,7 +388,6 @@ func TestDynamicPricing(t *testing.T) {
 				n.ExpectPricingParams(expectedPieceCID1, []abi.DealID{1, 11, 2, 22, 222})
 			},
 			expFunc: func(t *testing.T, pieceStore *tut.TestPieceStore, dagStore *tut.MockDagStoreWrapper) {
-				pieceStore.ExpectCID(payloadCID, expectedCIDInfo)
 				pieceStore.ExpectPiece(expectedPieceCID1, piece1)
 				pieceStore.ExpectPiece(expectedPieceCID2, piece2)
 				dagStore.AddBlockToPieceIndex(payloadCID, expectedPieceCID1)
@@ -590,7 +572,6 @@ func TestDynamicPricing(t *testing.T) {
 				n.ExpectPricingParams(expectedPieceCID1, []abi.DealID{1, 11, 2, 22, 222})
 			},
 			expFunc: func(t *testing.T, pieceStore *tut.TestPieceStore, dagStore *tut.MockDagStoreWrapper) {
-				pieceStore.ExpectCID(payloadCID, expectedCIDInfo)
 				pieceStore.ExpectPiece(expectedPieceCID1, piece1)
 				pieceStore.ExpectPiece(expectedPieceCID2, piece2)
 				dagStore.AddBlockToPieceIndex(payloadCID, expectedPieceCID1)
@@ -671,16 +652,6 @@ func TestHandleQueryStream(t *testing.T) {
 	expectedPieceCID := tut.GenerateCids(1)[0]
 	expectedPieceCID2 := tut.GenerateCids(1)[0]
 
-	expectedCIDInfo := piecestore.CIDInfo{
-		PieceBlockLocations: []piecestore.PieceBlockLocation{
-			{
-				PieceCID: expectedPieceCID,
-			},
-			{
-				PieceCID: expectedPieceCID2,
-			},
-		},
-	}
 	expectedPiece := piecestore.PieceInfo{
 		PieceCID: expectedPieceCID,
 		Deals: []piecestore.DealInfo{
@@ -770,7 +741,6 @@ func TestHandleQueryStream(t *testing.T) {
 	}{
 		{name: "When PieceCID is not provided and PayloadCID is found",
 			expFunc: func(t *testing.T, pieceStore *tut.TestPieceStore, dagStore *tut.MockDagStoreWrapper) {
-				pieceStore.ExpectCID(payloadCID, expectedCIDInfo)
 				pieceStore.ExpectPiece(expectedPieceCID, expectedPiece)
 				pieceStore.ExpectPiece(expectedPieceCID2, expectedPiece2)
 				dagStore.AddBlockToPieceIndex(payloadCID, expectedPieceCID)
@@ -794,7 +764,6 @@ func TestHandleQueryStream(t *testing.T) {
 				sa.MarkUnsealed(context.TODO(), p.SectorID, p.Offset.Unpadded(), p.Length.Unpadded())
 			},
 			expFunc: func(t *testing.T, pieceStore *tut.TestPieceStore, dagStore *tut.MockDagStoreWrapper) {
-				pieceStore.ExpectCID(payloadCID, expectedCIDInfo)
 				pieceStore.ExpectPiece(expectedPieceCID, expectedPiece)
 				pieceStore.ExpectPiece(expectedPieceCID2, expectedPiece2)
 				dagStore.AddBlockToPieceIndex(payloadCID, expectedPieceCID)
@@ -952,9 +921,7 @@ func TestHandleQueryStream(t *testing.T) {
 		})
 		require.NoError(t, err)
 		pieceStore := tut.NewTestPieceStore()
-		pieceStore.ExpectCID(payloadCID, expectedCIDInfo)
 		pieceStore.ExpectPiece(expectedPieceCID, expectedPiece)
-		pieceStore.ExpectPiece(expectedPieceCID2, expectedPiece2)
 		dagStore := tut.NewMockDagStoreWrapper(pieceStore, sa)
 		dagStore.AddBlockToPieceIndex(payloadCID, expectedPieceCID)
 
@@ -1094,8 +1061,6 @@ func loadPieceCIDS(t *testing.T, pieceStore *tut.TestPieceStore, expPayloadCID, 
 	if expectedPieceCID != cid.Undef {
 		pieceStore.ExpectPiece(expectedPieceCID, expectedPieceInfo)
 	}
-	//expectedCIDInfo := piecestore.CIDInfo{PieceBlockLocations: blockLocs}
-	//pieceStore.ExpectCID(expPayloadCID, expectedCIDInfo)
 }
 
 func TestProviderMigrations(t *testing.T) {
