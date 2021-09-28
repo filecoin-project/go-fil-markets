@@ -10,6 +10,7 @@ import (
 
 	datatransfer "github.com/filecoin-project/go-data-transfer"
 	piecestore "github.com/filecoin-project/go-fil-markets/piecestore"
+	crypto "github.com/filecoin-project/go-state-types/crypto"
 	paych "github.com/filecoin-project/specs-actors/actors/builtin/paych"
 	cid "github.com/ipfs/go-cid"
 	peer "github.com/libp2p/go-libp2p-core/peer"
@@ -2821,6 +2822,133 @@ func (t *Ask) UnmarshalCBOR(r io.Reader) error {
 					return fmt.Errorf("wrong type for uint64 field")
 				}
 				t.PaymentIntervalIncrease = uint64(extra)
+
+			}
+
+		default:
+			// Field doesn't exist on this type, so ignore it
+			cbg.ScanForLinks(r, func(cid.Cid) {})
+		}
+	}
+
+	return nil
+}
+func (t *SignedRetrievalAsk) MarshalCBOR(w io.Writer) error {
+	if t == nil {
+		_, err := w.Write(cbg.CborNull)
+		return err
+	}
+	if _, err := w.Write([]byte{162}); err != nil {
+		return err
+	}
+
+	scratch := make([]byte, 9)
+
+	// t.Ask (retrievalmarket.Ask) (struct)
+	if len("Ask") > cbg.MaxLength {
+		return xerrors.Errorf("Value in field \"Ask\" was too long")
+	}
+
+	if err := cbg.WriteMajorTypeHeaderBuf(scratch, w, cbg.MajTextString, uint64(len("Ask"))); err != nil {
+		return err
+	}
+	if _, err := io.WriteString(w, string("Ask")); err != nil {
+		return err
+	}
+
+	if err := t.Ask.MarshalCBOR(w); err != nil {
+		return err
+	}
+
+	// t.Signature (crypto.Signature) (struct)
+	if len("Signature") > cbg.MaxLength {
+		return xerrors.Errorf("Value in field \"Signature\" was too long")
+	}
+
+	if err := cbg.WriteMajorTypeHeaderBuf(scratch, w, cbg.MajTextString, uint64(len("Signature"))); err != nil {
+		return err
+	}
+	if _, err := io.WriteString(w, string("Signature")); err != nil {
+		return err
+	}
+
+	if err := t.Signature.MarshalCBOR(w); err != nil {
+		return err
+	}
+	return nil
+}
+
+func (t *SignedRetrievalAsk) UnmarshalCBOR(r io.Reader) error {
+	*t = SignedRetrievalAsk{}
+
+	br := cbg.GetPeeker(r)
+	scratch := make([]byte, 8)
+
+	maj, extra, err := cbg.CborReadHeaderBuf(br, scratch)
+	if err != nil {
+		return err
+	}
+	if maj != cbg.MajMap {
+		return fmt.Errorf("cbor input should be of type map")
+	}
+
+	if extra > cbg.MaxLength {
+		return fmt.Errorf("SignedRetrievalAsk: map struct too large (%d)", extra)
+	}
+
+	var name string
+	n := extra
+
+	for i := uint64(0); i < n; i++ {
+
+		{
+			sval, err := cbg.ReadStringBuf(br, scratch)
+			if err != nil {
+				return err
+			}
+
+			name = string(sval)
+		}
+
+		switch name {
+		// t.Ask (retrievalmarket.Ask) (struct)
+		case "Ask":
+
+			{
+
+				b, err := br.ReadByte()
+				if err != nil {
+					return err
+				}
+				if b != cbg.CborNull[0] {
+					if err := br.UnreadByte(); err != nil {
+						return err
+					}
+					t.Ask = new(Ask)
+					if err := t.Ask.UnmarshalCBOR(br); err != nil {
+						return xerrors.Errorf("unmarshaling t.Ask pointer: %w", err)
+					}
+				}
+
+			}
+			// t.Signature (crypto.Signature) (struct)
+		case "Signature":
+
+			{
+
+				b, err := br.ReadByte()
+				if err != nil {
+					return err
+				}
+				if b != cbg.CborNull[0] {
+					if err := br.UnreadByte(); err != nil {
+						return err
+					}
+					t.Signature = new(crypto.Signature)
+					if err := t.Signature.UnmarshalCBOR(br); err != nil {
+						return xerrors.Errorf("unmarshaling t.Signature pointer: %w", err)
+					}
+				}
 
 			}
 

@@ -8,6 +8,7 @@ import (
 
 	"github.com/filecoin-project/go-address"
 	"github.com/filecoin-project/go-state-types/abi"
+	"github.com/filecoin-project/go-state-types/crypto"
 	"github.com/filecoin-project/specs-actors/actors/builtin/paych"
 
 	"github.com/filecoin-project/go-fil-markets/shared"
@@ -41,6 +42,9 @@ type RetrievalClientNode interface {
 
 	// GetKnownAddresses gets any on known multiaddrs for a given address, so we can add to the peer store
 	GetKnownAddresses(ctx context.Context, p RetrievalPeer, tok shared.TipSetToken) ([]ma.Multiaddr, error)
+
+	// VerifySignature verifies a given set of data was signed properly by a given address's private key
+	VerifySignature(ctx context.Context, signature crypto.Signature, signer address.Address, plaintext []byte, tok shared.TipSetToken) (bool, error)
 }
 
 // RetrievalProviderNode are the node dependencies for a RetrievalProvider
@@ -52,4 +56,5 @@ type RetrievalProviderNode interface {
 	SavePaymentVoucher(ctx context.Context, paymentChannel address.Address, voucher *paych.SignedVoucher, proof []byte, expectedAmount abi.TokenAmount, tok shared.TipSetToken) (abi.TokenAmount, error)
 
 	GetRetrievalPricingInput(ctx context.Context, pieceCID cid.Cid, storageDeals []abi.DealID) (PricingInput, error)
+	SignBytes(context.Context, address.Address, []byte) (*crypto.Signature, error)
 }

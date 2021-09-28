@@ -13,6 +13,7 @@ import (
 	"github.com/filecoin-project/go-address"
 	"github.com/filecoin-project/go-state-types/abi"
 	"github.com/filecoin-project/go-state-types/big"
+	"github.com/filecoin-project/go-state-types/crypto"
 	"github.com/filecoin-project/specs-actors/actors/builtin/paych"
 
 	"github.com/filecoin-project/go-fil-markets/retrievalmarket"
@@ -188,6 +189,10 @@ func (trcn *TestRetrievalClientNode) VerifyExpectations(t *testing.T) {
 // CheckAvailableFunds returns the amount of available funds in a payment channel
 func (trcn *TestRetrievalClientNode) CheckAvailableFunds(ctx context.Context, payCh address.Address) (retrievalmarket.ChannelAvailableFunds, error) {
 	return trcn.channelAvailableFunds, trcn.checkAvailableFundsErr
+}
+
+func (trcn *TestRetrievalClientNode) VerifySignature(ctx context.Context, signature crypto.Signature, signer address.Address, plaintext []byte, tok shared.TipSetToken) (bool, error) {
+	return true, nil
 }
 
 func addZeroesToAvailableFunds(channelAvailableFunds retrievalmarket.ChannelAvailableFunds) retrievalmarket.ChannelAvailableFunds {

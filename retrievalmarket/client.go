@@ -46,6 +46,10 @@ type RetrievalClient interface {
 	// Find Providers finds retrieval providers who may be storing a given piece
 	FindProviders(payloadCID cid.Cid) []RetrievalPeer
 
+	// GetAsk gets the retrieval ask from the provider (the cost of retrieval).
+	// The miner worker address is needed to verify the signature in the response.
+	GetAsk(ctx context.Context, p RetrievalPeer, worker address.Address) (*Ask, error)
+
 	// Query asks a provider for information about a piece it is storing
 	Query(
 		ctx context.Context,

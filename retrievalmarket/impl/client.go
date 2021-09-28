@@ -179,6 +179,56 @@ func (c *Client) FindProviders(payloadCID cid.Cid) []retrievalmarket.RetrievalPe
 	return peers
 }
 
+// GetAsk queries a provider for its current retrieval ask (how much does a
+// retrieval cost).
+// The miner worker address is needed to verify the signature in the response.
+func (c *Client) GetAsk(ctx context.Context, p retrievalmarket.RetrievalPeer, worker address.Address) (*retrievalmarket.Ask, error) {
+	err := c.addMultiaddrs(ctx, p)
+	if err != nil {
+		log.Warn(err)
+		return nil, err
+	}
+
+	// Open a stream to the provider over the ask protocol
+	s, err := c.network.NewAskStream(ctx, p.ID)
+	if err != nil {
+		return nil, xerrors.Errorf("failed to open stream to miner: %w", err)
+	}
+
+	// Send a request for the provider's ask
+	request := rmnet.AskRequest{Miner: p.Address}
+	if err := s.WriteAskRequest(request); err != nil {
+		return nil, xerrors.Errorf("failed to send ask request: %w", err)
+	}
+
+	// Read the response
+	out, origBytes, err := s.ReadAskResponse()
+	if err != nil {
+		return nil, xerrors.Errorf("failed to read ask response: %w", err)
+	}
+
+	if out.Ask == nil {
+		return nil, xerrors.Errorf("got no ask back")
+	}
+
+	// Verify that the response is signed by the miner
+	tok, _, err := c.node.GetChainHead(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	isValid, err := c.node.VerifySignature(ctx, *out.Ask.Signature, worker, origBytes, tok)
+	if err != nil {
+		return nil, err
+	}
+
+	if !isValid {
+		return nil, xerrors.Errorf("ask was not properly signed")
+	}
+
+	return out.Ask.Ask, nil
+}
+
 /*
 Query sends a retrieval query to a specific retrieval provider, to determine
 if the provider can serve a retrieval request and what its specific parameters for

@@ -16,6 +16,7 @@ import (
 	"github.com/filecoin-project/go-address"
 	"github.com/filecoin-project/go-state-types/abi"
 	"github.com/filecoin-project/go-state-types/big"
+	"github.com/filecoin-project/go-state-types/crypto"
 	"github.com/filecoin-project/specs-actors/actors/builtin/paych"
 
 	"github.com/filecoin-project/go-fil-markets/retrievalmarket"
@@ -193,4 +194,8 @@ func (trpn *TestRetrievalProviderNode) MaxReceivedVoucher() abi.TokenAmount {
 		max = big.Max(max, amt)
 	}
 	return max
+}
+
+func (trpn *TestRetrievalProviderNode) SignBytes(ctx context.Context, a address.Address, i []byte) (*crypto.Signature, error) {
+	return &crypto.Signature{Type: crypto.SigTypeSecp256k1, Data: i}, nil
 }

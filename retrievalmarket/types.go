@@ -17,12 +17,13 @@ import (
 	datatransfer "github.com/filecoin-project/go-data-transfer"
 	"github.com/filecoin-project/go-state-types/abi"
 	"github.com/filecoin-project/go-state-types/big"
+	"github.com/filecoin-project/go-state-types/crypto"
 	"github.com/filecoin-project/specs-actors/actors/builtin/paych"
 
 	"github.com/filecoin-project/go-fil-markets/piecestore"
 )
 
-//go:generate cbor-gen-for --map-encoding Query QueryResponse DealProposal DealResponse Params QueryParams DealPayment ClientDealState ProviderDealState PaymentInfo RetrievalPeer Ask
+//go:generate cbor-gen-for --map-encoding Query QueryResponse DealProposal DealResponse Params QueryParams DealPayment ClientDealState ProviderDealState PaymentInfo RetrievalPeer Ask SignedRetrievalAsk
 
 // QueryProtocolID is the protocol for querying information about retrieval
 // deal parameters
@@ -30,6 +31,9 @@ const QueryProtocolID = protocol.ID("/fil/retrieval/qry/1.0.0")
 
 // OldQueryProtocolID is the old query protocol for tuple structs
 const OldQueryProtocolID = protocol.ID("/fil/retrieval/qry/0.0.1")
+
+// AskProtocolID is the ID for the libp2p protocol for querying miners for their current retrieval ask.
+const AskProtocolID = protocol.ID("/fil/retrieval/ask/1.0.0")
 
 // Unsubscribe is a function that unsubscribes a subscriber for either the
 // client or the provider
@@ -118,6 +122,12 @@ type RetrievalPeer struct {
 	Address  address.Address
 	ID       peer.ID // optional
 	PieceCID *cid.Cid
+}
+
+// SignedRetrievalAsk is an ask signed by the miner's private key
+type SignedRetrievalAsk struct {
+	Ask       *Ask
+	Signature *crypto.Signature
 }
 
 // QueryResponseStatus indicates whether a queried piece is available

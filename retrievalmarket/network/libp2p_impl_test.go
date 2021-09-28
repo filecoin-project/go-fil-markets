@@ -10,6 +10,10 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/filecoin-project/go-address"
+	"github.com/filecoin-project/go-state-types/abi"
+	"github.com/filecoin-project/go-state-types/crypto"
+
 	"github.com/filecoin-project/go-fil-markets/retrievalmarket"
 	"github.com/filecoin-project/go-fil-markets/retrievalmarket/network"
 	"github.com/filecoin-project/go-fil-markets/shared_testutil"
@@ -18,6 +22,14 @@ import (
 type testReceiver struct {
 	t                  *testing.T
 	queryStreamHandler func(network.RetrievalQueryStream)
+	askStreamHandler   func(network.RetrievalAskStream)
+}
+
+func (tr *testReceiver) HandleAskStream(s network.RetrievalAskStream) {
+	defer s.Close()
+	if tr.askStreamHandler != nil {
+		tr.askStreamHandler(s)
+	}
 }
 
 func (tr *testReceiver) HandleQueryStream(s network.RetrievalQueryStream) {
@@ -220,10 +232,7 @@ func assertQueryReceived(inCtx context.Context, t *testing.T, fromNetwork networ
 }
 
 // assertQueryResponseReceived performs the verification that a DealStatusResponse is received
-func assertQueryResponseReceived(inCtx context.Context, t *testing.T,
-	fromNetwork network.RetrievalMarketNetwork,
-	toHost peer.ID,
-	qchan chan retrievalmarket.QueryResponse) {
+func assertQueryResponseReceived(inCtx context.Context, t *testing.T, fromNetwork network.RetrievalMarketNetwork, toHost peer.ID, qchan chan retrievalmarket.QueryResponse) {
 	ctx, cancel := context.WithTimeout(inCtx, 10*time.Second)
 	defer cancel()
 
@@ -245,4 +254,111 @@ func assertQueryResponseReceived(inCtx context.Context, t *testing.T,
 
 	require.NotNil(t, inqr)
 	assert.Equal(t, qr, inqr)
+}
+
+func TestAskStreamSendReceiveAskRequest(t *testing.T) {
+	ctx := context.Background()
+
+	td := shared_testutil.NewLibp2pTestData(ctx, t)
+	fromNetwork := network.NewFromLibp2pHost(td.Host1)
+	toNetwork := network.NewFromLibp2pHost(td.Host2)
+	toHost := td.Host2.ID()
+
+	// host1 gets no-op receiver
+	tr := &testReceiver{t: t}
+	require.NoError(t, fromNetwork.SetDelegate(tr))
+
+	// host2 gets receiver
+	reqchan := make(chan network.AskRequest)
+	tr2 := &testReceiver{t: t, askStreamHandler: func(s network.RetrievalAskStream) {
+		read, err := s.ReadAskRequest()
+		require.NoError(t, err)
+		reqchan <- read
+	}}
+	require.NoError(t, toNetwork.SetDelegate(tr2))
+
+	// setup query stream host1 --> host 2
+	assertAskReceived(ctx, t, fromNetwork, toHost, reqchan)
+}
+
+func assertAskReceived(inCtx context.Context, t *testing.T, fromNetwork network.RetrievalMarketNetwork, toHost peer.ID, reqchan chan network.AskRequest) {
+	ctx, cancel := context.WithTimeout(inCtx, time.Second)
+	defer cancel()
+
+	askStream, err := fromNetwork.NewAskStream(ctx, toHost)
+	require.NoError(t, err)
+
+	// send query to host2
+	miner := address.TestAddress
+	err = askStream.WriteAskRequest(network.AskRequest{Miner: miner})
+	require.NoError(t, err)
+
+	var inreq network.AskRequest
+	select {
+	case <-ctx.Done():
+		t.Error("msg not received")
+	case inreq = <-reqchan:
+	}
+	require.NotNil(t, inreq)
+	assert.Equal(t, miner, inreq.Miner)
+}
+
+func TestAskStreamSendReceiveAskResponse(t *testing.T) {
+	ctx := context.Background()
+
+	td := shared_testutil.NewLibp2pTestData(ctx, t)
+	fromNetwork := network.NewFromLibp2pHost(td.Host1)
+	toNetwork := network.NewFromLibp2pHost(td.Host2)
+	toHost := td.Host2.ID()
+
+	// host1 gets no-op receiver
+	tr := &testReceiver{t: t}
+	require.NoError(t, fromNetwork.SetDelegate(tr))
+
+	// host2 gets receiver
+	reschan := make(chan network.AskResponse)
+	tr2 := &testReceiver{t: t, askStreamHandler: func(s network.RetrievalAskStream) {
+		res, _, err := s.ReadAskResponse()
+		require.NoError(t, err)
+		reschan <- res
+	}}
+	require.NoError(t, toNetwork.SetDelegate(tr2))
+
+	assertAskResponseReceived(ctx, t, fromNetwork, toHost, reschan)
+}
+
+func assertAskResponseReceived(inCtx context.Context, t *testing.T, fromNetwork network.RetrievalMarketNetwork, toHost peer.ID, reschan chan network.AskResponse) {
+	ctx, cancel := context.WithTimeout(inCtx, time.Second)
+	defer cancel()
+
+	// setup query stream host1 --> host 2
+	askStream, err := fromNetwork.NewAskStream(ctx, toHost)
+	require.NoError(t, err)
+
+	// send queryresponse to host2
+	resp := network.AskResponse{
+		Ask: &retrievalmarket.SignedRetrievalAsk{
+			Ask: &retrievalmarket.Ask{
+				PricePerByte:            abi.NewTokenAmount(10),
+				UnsealPrice:             abi.NewTokenAmount(5),
+				PaymentInterval:         10,
+				PaymentIntervalIncrease: 20,
+			},
+			Signature: &crypto.Signature{
+				Type: crypto.SigTypeSecp256k1,
+				Data: []byte("sig"),
+			},
+		},
+	}
+	require.NoError(t, askStream.WriteAskResponse(resp))
+
+	var inres network.AskResponse
+	select {
+	case <-ctx.Done():
+		t.Error("msg not received")
+	case inres = <-reschan:
+	}
+
+	require.NotNil(t, inres)
+	assert.Equal(t, resp, inres)
 }

@@ -135,7 +135,8 @@ func NewProvider(minerAddress address.Address,
 		return nil, err
 	}
 
-	askStore, err := askstore.NewAskStore(namespace.Wrap(ds, datastore.NewKey("retrieval-ask")), datastore.NewKey("latest"))
+	askStoreDS := namespace.Wrap(ds, datastore.NewKey("retrieval-ask"))
+	askStore, err := askstore.NewAskStore(askStoreDS, datastore.NewKey("latest"), node, minerAddress)
 	if err != nil {
 		return nil, err
 	}
@@ -273,6 +274,42 @@ func (p *Provider) ListDeals() map[retrievalmarket.ProviderDealIdentifier]retrie
 		dealMap[retrievalmarket.ProviderDealIdentifier{Receiver: deal.Receiver, DealID: deal.ID}] = deal
 	}
 	return dealMap
+}
+
+// HandleAskStream is called when the provider receives a request for the
+// retrieval ask (how much the provider charges for retrieval)
+func (p *Provider) HandleAskStream(s rmnet.RetrievalAskStream) {
+	defer s.Close()
+
+	// Read the ask request from the stream
+	ar, err := s.ReadAskRequest()
+	if err != nil {
+		log.Errorf("failed to read AskRequest from incoming stream: %s", err)
+		return
+	}
+
+	var ask *retrievalmarket.SignedRetrievalAsk
+	if p.minerAddress != ar.Miner {
+		// Request is for the ask of a different miner, just return nil ask
+		log.Warnf("retrieval provider for address %s received ask for miner with address %s", p.minerAddress, ar.Miner)
+	} else {
+		// Get the retrieval ask from the ask store
+		ask, err = p.askStore.GetSignedAsk()
+		if err != nil {
+			log.Errorf("failed to get signed ask from ask store: %s", err)
+			return
+		}
+	}
+
+	resp := rmnet.AskResponse{
+		Ask: ask,
+	}
+
+	// Send the ask response on the ask stream
+	if err := s.WriteAskResponse(resp); err != nil {
+		log.Errorf("failed to write ask response: %s", err)
+		return
+	}
 }
 
 /*

@@ -1,6 +1,7 @@
 package shared_testutil
 
 import (
+	"context"
 	"errors"
 	"testing"
 
@@ -16,6 +17,36 @@ import (
 	rmnet "github.com/filecoin-project/go-fil-markets/retrievalmarket/network"
 	smnet "github.com/filecoin-project/go-fil-markets/storagemarket/network"
 )
+
+type TestRetrievalAskStream struct {
+	askResponse rmnet.AskResponse
+}
+
+var _ rmnet.RetrievalAskStream = (*TestRetrievalAskStream)(nil)
+
+func NewTestRetrievalAskStream(askResponse rmnet.AskResponse) *TestRetrievalAskStream {
+	return &TestRetrievalAskStream{askResponse: askResponse}
+}
+
+func (t *TestRetrievalAskStream) ReadAskRequest() (rmnet.AskRequest, error) {
+	return rmnet.AskRequest{}, nil
+}
+
+func (t *TestRetrievalAskStream) WriteAskRequest(request rmnet.AskRequest) error {
+	return nil
+}
+
+func (t *TestRetrievalAskStream) ReadAskResponse() (rmnet.AskResponse, []byte, error) {
+	return t.askResponse, nil, nil
+}
+
+func (t *TestRetrievalAskStream) WriteAskResponse(response rmnet.AskResponse) error {
+	return nil
+}
+
+func (t *TestRetrievalAskStream) Close() error {
+	return nil
+}
 
 // QueryReader is a function to mock reading queries.
 type QueryReader func() (rm.Query, error)
@@ -150,11 +181,14 @@ type TestDealStreamParams struct {
 // QueryStreamBuilder is a function that builds retrieval query streams.
 type QueryStreamBuilder func(peer.ID) (rmnet.RetrievalQueryStream, error)
 
+type AskStreamBuilder func() rmnet.RetrievalAskStream
+
 // TestRetrievalMarketNetwork is a test network that has stubbed behavior
 // for testing the retrieval market implementation
 type TestRetrievalMarketNetwork struct {
-	receiver  rmnet.RetrievalReceiver
-	qsbuilder QueryStreamBuilder
+	receiver         rmnet.RetrievalReceiver
+	qsbuilder        QueryStreamBuilder
+	askStreamBuilder AskStreamBuilder
 }
 
 // TestNetworkParams are parameters for setting up a test network. All
@@ -162,20 +196,26 @@ type TestRetrievalMarketNetwork struct {
 type TestNetworkParams struct {
 	QueryStreamBuilder QueryStreamBuilder
 	Receiver           rmnet.RetrievalReceiver
+	AskStreamBuilder   AskStreamBuilder
 }
 
 // NewTestRetrievalMarketNetwork returns a new TestRetrievalMarketNetwork with the
 // behavior specified by the paramaters, or default behaviors if not specified.
 func NewTestRetrievalMarketNetwork(params TestNetworkParams) *TestRetrievalMarketNetwork {
 	trmn := TestRetrievalMarketNetwork{
-		qsbuilder: TrivialNewQueryStream,
-		receiver:  params.Receiver,
+		qsbuilder:        TrivialNewQueryStream,
+		askStreamBuilder: params.AskStreamBuilder,
+		receiver:         params.Receiver,
 	}
 
 	if params.QueryStreamBuilder != nil {
 		trmn.qsbuilder = params.QueryStreamBuilder
 	}
 	return &trmn
+}
+
+func (trmn *TestRetrievalMarketNetwork) NewAskStream(ctx context.Context, id peer.ID) (rmnet.RetrievalAskStream, error) {
+	return trmn.askStreamBuilder(), nil
 }
 
 // NewDealStatusStream returns a query stream.

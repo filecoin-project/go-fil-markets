@@ -24,6 +24,8 @@ import (
 	datatransfer "github.com/filecoin-project/go-data-transfer"
 	"github.com/filecoin-project/go-state-types/abi"
 	"github.com/filecoin-project/go-state-types/big"
+	"github.com/filecoin-project/go-state-types/crypto"
+	tutils "github.com/filecoin-project/specs-actors/v2/support/testing"
 
 	"github.com/filecoin-project/go-fil-markets/retrievalmarket"
 	retrievalimpl "github.com/filecoin-project/go-fil-markets/retrievalmarket/impl"
@@ -63,6 +65,55 @@ func TestClient_Construction(t *testing.T) {
 	_, ok = dt.RegisteredTransportConfigurers[0].VoucherType.(*retrievalmarket.DealProposal)
 	_, ok = dt.RegisteredTransportConfigurers[1].VoucherType.(*migrations.DealProposal0)
 	require.True(t, ok)
+}
+
+func TestClient_QueryAsk(t *testing.T) {
+	ctx := context.Background()
+
+	ds := dss.MutexWrap(datastore.NewMapDatastore())
+	dt := tut.NewTestDataTransfer()
+	ba := tut.NewTestRetrievalBlockstoreAccessor()
+
+	expectedPeer := peer.ID("somevalue")
+	workerAddress := tutils.NewActorAddr(t, "worker")
+	rpeer := retrievalmarket.RetrievalPeer{
+		Address: address.TestAddress2,
+		ID:      expectedPeer,
+	}
+
+	expectedAsk := &retrievalmarket.Ask{
+		PricePerByte:            abi.NewTokenAmount(10),
+		UnsealPrice:             abi.NewTokenAmount(20),
+		PaymentInterval:         5,
+		PaymentIntervalIncrease: 8,
+	}
+
+	t.Run("it works", func(t *testing.T) {
+		net := tut.NewTestRetrievalMarketNetwork(tut.TestNetworkParams{
+			AskStreamBuilder: func() rmnet.RetrievalAskStream {
+				askResponse := rmnet.AskResponse{
+					Ask: &retrievalmarket.SignedRetrievalAsk{
+						Ask: expectedAsk,
+						Signature: &crypto.Signature{
+							Type: crypto.SigTypeSecp256k1,
+							Data: []byte("sig"),
+						},
+					},
+				}
+				return tut.NewTestRetrievalAskStream(askResponse)
+			},
+		})
+		node := testnodes.NewTestRetrievalClientNode(testnodes.TestRetrievalClientNodeParams{})
+		node.ExpectKnownAddresses(rpeer, nil)
+		c, err := retrievalimpl.NewClient(net, dt, node, &tut.TestPeerResolver{}, ds, ba)
+		require.NoError(t, err)
+
+		resp, err := c.GetAsk(ctx, rpeer, workerAddress)
+		require.NoError(t, err)
+		assert.NotNil(t, resp)
+		assert.Equal(t, expectedAsk, resp)
+		node.VerifyExpectations(t)
+	})
 }
 
 func TestClient_Query(t *testing.T) {
