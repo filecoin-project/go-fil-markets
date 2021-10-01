@@ -26,7 +26,7 @@ import (
 // We can't rely on the CARv1 payload in the given CARv2 file being deterministic as the client could have
 // written a "non-deterministic/unordered" CARv2 file.
 // So, we need to do a CARv1 traversal here by giving the traverser a random access CARv2 blockstore that wraps the given CARv2 file.
-func CommP(ctx context.Context, bs bstore.Blockstore, data *storagemarket.DataRef) (cid.Cid, abi.UnpaddedPieceSize, error) {
+func CommP(ctx context.Context, bs bstore.Blockstore, data *storagemarket.DataRef, maxTraversalLinks uint64) (cid.Cid, abi.UnpaddedPieceSize, error) {
 	// if we already have the PieceCid, there's no need to do anything here.
 	if data.PieceCid != nil {
 		return *data.PieceCid, data.PieceSize, nil
@@ -50,7 +50,7 @@ func CommP(ctx context.Context, bs bstore.Blockstore, data *storagemarket.DataRe
 	// defer fs.Close()
 
 	// do a CARv1 traversal with the DFS selector.
-	sc := car.NewSelectiveCar(ctx, bs, []car.Dag{{Root: data.Root, Selector: shared.AllSelector()}})
+	sc := car.NewSelectiveCar(ctx, bs, []car.Dag{{Root: data.Root, Selector: shared.AllSelector()}}, car.MaxTraversalLinks(maxTraversalLinks))
 	prepared, err := sc.Prepare()
 	if err != nil {
 		return cid.Undef, 0, xerrors.Errorf("failed to prepare CAR: %w", err)

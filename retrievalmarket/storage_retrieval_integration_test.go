@@ -174,7 +174,7 @@ func TestOfflineStorageRetrieval(t *testing.T) {
 				// hacky but need it for now because if it's manual, we wont get a CommP.
 				TransferType: storagemarket.TTGraphsync,
 				Root:         sh.PayloadCid,
-			})
+			}, 2<<29)
 			require.NoError(t, err)
 
 			// propose deal

@@ -40,6 +40,10 @@ var log = logging.Logger("storagemarket_impl")
 // DefaultPollingInterval is the frequency with which we query the provider for a status update
 const DefaultPollingInterval = 30 * time.Second
 
+// DefaultMaxTraversalLinks is the maximum number of links to traverse during CommP calculation
+// before returning an error
+const DefaultMaxTraversalLinks = 2 << 29
+
 var _ storagemarket.StorageClient = &Client{}
 
 // Client is the production implementation of the StorageClient interface
@@ -54,6 +58,7 @@ type Client struct {
 	statemachines        fsm.Group
 	migrateStateMachines func(context.Context) error
 	pollingInterval      time.Duration
+	maxTraversalLinks    uint64
 
 	unsubDataTransfer datatransfer.Unsubscribe
 
@@ -71,6 +76,14 @@ func DealPollingInterval(t time.Duration) StorageClientOption {
 	}
 }
 
+// MaxTraversalLinks sets the maximum number of links in a DAG to traverse when calculating CommP,
+// sets a budget that limits the depth and density of a DAG that can be traversed
+func MaxTraversalLinks(m uint64) StorageClientOption {
+	return func(c *Client) {
+		c.maxTraversalLinks = m
+	}
+}
+
 // NewClient creates a new storage client
 func NewClient(
 	net network.StorageMarketNetwork,
@@ -82,14 +95,15 @@ func NewClient(
 	options ...StorageClientOption,
 ) (*Client, error) {
 	c := &Client{
-		net:             net,
-		dataTransfer:    dataTransfer,
-		discovery:       discovery,
-		node:            scn,
-		pubSub:          pubsub.New(clientDispatcher),
-		readySub:        pubsub.New(shared.ReadyDispatcher),
-		pollingInterval: DefaultPollingInterval,
-		bstores:         bstores,
+		net:               net,
+		dataTransfer:      dataTransfer,
+		discovery:         discovery,
+		node:              scn,
+		pubSub:            pubsub.New(clientDispatcher),
+		readySub:          pubsub.New(shared.ReadyDispatcher),
+		pollingInterval:   DefaultPollingInterval,
+		maxTraversalLinks: DefaultMaxTraversalLinks,
+		bstores:           bstores,
 	}
 	storageMigrations, err := migrations.ClientMigrations.Build()
 	if err != nil {
@@ -328,7 +342,7 @@ func (c *Client) ProposeStorageDeal(ctx context.Context, params storagemarket.Pr
 		return nil, xerrors.Errorf("failed to get blockstore for imported root %s: %w", params.Data.Root, err)
 	}
 
-	commP, pieceSize, err := clientutils.CommP(ctx, bs, params.Data)
+	commP, pieceSize, err := clientutils.CommP(ctx, bs, params.Data, c.maxTraversalLinks)
 	if err != nil {
 		return nil, xerrors.Errorf("computing commP failed: %w", err)
 	}
