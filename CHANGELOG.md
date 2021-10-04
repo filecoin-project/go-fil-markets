@@ -1,6 +1,40 @@
 # go-fil-markets changelog
 
-# go-data-transfer 1.12.0
+# go-fil-markets 1.13.0
+
+- github.com/filecoin-project/go-fil-markets:
+  - commp: expose MaxTraversalLinks option for generating CommP (#633) ([filecoin-project/go-fil-markets#633](https://github.com/filecoin-project/go-fil-markets/pull/633))
+  - fix: retrieval not found error (#630) ([filecoin-project/go-fil-markets#630](https://github.com/filecoin-project/go-fil-markets/pull/630))
+- github.com/filecoin-project/go-data-transfer (v1.10.0 -> v1.11.0):
+  - feat: update to go-ipld-prime v0.12.3 (#261) ([filecoin-project/go-data-transfer#261](https://github.com/filecoin-project/go-data-transfer/pull/261))
+  - refactor: remove libp2p protocol cache (#259) ([filecoin-project/go-data-transfer#259](https://github.com/filecoin-project/go-data-transfer/pull/259))
+  - feat: update to graphsync v0.10.0-rc3 (#258) ([filecoin-project/go-data-transfer#258](https://github.com/filecoin-project/go-data-transfer/pull/258))
+  - Use do-not-send-first-blocks extension for restarts (#257) ([filecoin-project/go-data-transfer#257](https://github.com/filecoin-project/go-data-transfer/pull/257))
+  - Fix parallel transfers between same two peers (#254) ([filecoin-project/go-data-transfer#254](https://github.com/filecoin-project/go-data-transfer/pull/254))
+- github.com/ipfs/go-graphsync (v0.9.0 -> v0.10.0-rc3):
+  - Do not send first blocks extension (#230) ([ipfs/go-graphsync#230](https://github.com/ipfs/go-graphsync/pull/230))
+  - Protect Libp2p Connections (#229) ([ipfs/go-graphsync#229](https://github.com/ipfs/go-graphsync/pull/229))
+  - test(responsemanager): remove check (#228) ([ipfs/go-graphsync#228](https://github.com/ipfs/go-graphsync/pull/228))
+  - feat(graphsync): give missing blocks a named error (#227) ([ipfs/go-graphsync#227](https://github.com/ipfs/go-graphsync/pull/227))
+  - Add request limits (#224) ([ipfs/go-graphsync#224](https://github.com/ipfs/go-graphsync/pull/224))
+  - Tech Debt Cleanup and Docs Update (#219) ([ipfs/go-graphsync#219](https://github.com/ipfs/go-graphsync/pull/219))
+  - fix(requestmanager): remove main thread block on allocation (#216) ([ipfs/go-graphsync#216](https://github.com/ipfs/go-graphsync/pull/216))
+  - feat(allocator): add debug logging (#213) ([ipfs/go-graphsync#213](https://github.com/ipfs/go-graphsync/pull/213))
+  - fix: spurious warn log (#210) ([ipfs/go-graphsync#210](https://github.com/ipfs/go-graphsync/pull/210))
+  - fix(message): fix dropping of response extensions (#211) ([ipfs/go-graphsync#211](https://github.com/ipfs/go-graphsync/pull/211))
+  - docs(CHANGELOG): update change log ([ipfs/go-graphsync#208](https://github.com/ipfs/go-graphsync/pull/208))
+  - docs(README): add notice about branch rename
+
+Contributors
+
+| Contributor | Commits | Lines ± | Files Changed |
+|-------------|---------|---------|---------------|
+| Hannah Howard | 14 | +3315/-2461 | 98 |
+| dirkmc | 7 | +837/-363 | 51 |
+| hannahhoward | 8 | +138/-3 | 9 |
+| Dirk McCormick | 2 | +38/-3 | 2 |
+
+# go-fil-markets 1.12.0
 
 Reinstate update to graphsync v0.9.0 with new Linksystem IPLD prime
 
