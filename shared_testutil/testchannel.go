@@ -127,6 +127,10 @@ func (tc *TestChannel) ReceivedCidsLen() int {
 	return len(tc.receivedCids)
 }
 
+func (tc *TestChannel) ReceivedCidsTotal() int64 {
+	return int64(len(tc.receivedCids))
+}
+
 // TransferID returns the transfer id for this channel
 func (tc *TestChannel) TransferID() datatransfer.TransferID {
 	return tc.transferID
