@@ -35,7 +35,7 @@ func TestCommP(t *testing.T) {
 			PieceCid:     pieceCid,
 			PieceSize:    pieceSize,
 		}
-		respcid, ressize, err := clientutils.CommP(ctx, nil, data)
+		respcid, ressize, err := clientutils.CommP(ctx, nil, data, 2<<29)
 		require.NoError(t, err)
 		require.Equal(t, respcid, *pieceCid)
 		require.Equal(t, ressize, pieceSize)
@@ -47,7 +47,7 @@ func TestCommP(t *testing.T) {
 			Root:         root,
 		}
 
-		respcid, _, err := clientutils.CommP(ctx, bs, data)
+		respcid, _, err := clientutils.CommP(ctx, bs, data, 2<<29)
 		require.NoError(t, err)
 		require.NotEqual(t, respcid, cid.Undef)
 		return respcid

@@ -200,7 +200,7 @@ func TestMakeDealOffline(t *testing.T) {
 				// hacky but need it for now because if it's manual, we wont get a CommP.
 				TransferType: storagemarket.TTGraphsync,
 				Root:         h.PayloadCid,
-			})
+			}, 2<<29)
 			require.NoError(t, err)
 
 			dataRef := &storagemarket.DataRef{
