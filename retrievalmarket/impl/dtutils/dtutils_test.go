@@ -6,7 +6,6 @@ import (
 	"math/rand"
 	"testing"
 
-	"github.com/ipfs/go-cid"
 	ds "github.com/ipfs/go-datastore"
 	bstore "github.com/ipfs/go-ipfs-blockstore"
 	"github.com/ipld/go-ipld-prime"
@@ -472,8 +471,9 @@ func (fsg *fakeStoreGetter) Get(otherPeer peer.ID, dealID rm.DealID) (bstore.Blo
 
 type fakeTransport struct{}
 
-func (ft *fakeTransport) OpenChannel(ctx context.Context, dataSender peer.ID, channelID datatransfer.ChannelID, root ipld.Link, stor ipld.Node,
-	doNotSend []cid.Cid, msg datatransfer.Message) error {
+var _ datatransfer.Transport = (*fakeTransport)(nil)
+
+func (ft *fakeTransport) OpenChannel(ctx context.Context, dataSender peer.ID, channelID datatransfer.ChannelID, root ipld.Link, stor ipld.Node, channel datatransfer.ChannelState, msg datatransfer.Message) error {
 	return nil
 }
 
