@@ -1,5 +1,21 @@
 # go-fil-markets changelog
 
+# go-fil-markets 1.13.1
+
+- github.com/filecoin-project/go-fil-markets:
+  - feat: upgrade to go-data-transfer v1.11.1 (#636) ([filecoin-project/go-fil-markets#636](https://github.com/filecoin-project/go-fil-markets/pull/636))
+- github.com/filecoin-project/go-data-transfer (v1.11.0 -> v1.11.1):
+  - feat: update to go-graphsync v0.10.0 (#263) ([filecoin-project/go-data-transfer#263](https://github.com/filecoin-project/go-data-transfer/pull/263))
+- github.com/ipfs/go-graphsync (v0.10.0-rc3 -> v0.10.0):
+  - feat: update to go-ipld-prime v0.12.3 (#237) ([ipfs/go-graphsync#237](https://github.com/ipfs/go-graphsync/pull/237))
+
+Contributors
+
+| Contributor | Commits | Lines ± | Files Changed |
+|-------------|---------|---------|---------------|
+| Dirk McCormick | 2 | +33/-0 | 2 |
+| dirkmc | 3 | +14/-16 | 7 |
+
 # go-fil-markets 1.13.0
 
 - github.com/filecoin-project/go-fil-markets:
