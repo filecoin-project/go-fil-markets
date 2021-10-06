@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"strings"
 
 	"github.com/ipfs/go-cid"
 	logging "github.com/ipfs/go-log/v2"
@@ -284,6 +285,11 @@ func PublishDeal(ctx fsm.Context, environment ProviderDealEnvironment, deal stor
 
 	mcid, err := environment.Node().PublishDeals(ctx.Context(), smDeal)
 	if err != nil {
+		if strings.Contains(err.Error(), "not enough funds") {
+			log.Warnf("publishing deal failed due to lack of funds: %s", err)
+
+			return nil
+		}
 		return ctx.Trigger(storagemarket.ProviderEventNodeErrored, xerrors.Errorf("publishing deal: %w", err))
 	}
 
