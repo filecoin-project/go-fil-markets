@@ -6,7 +6,7 @@ require (
 	github.com/filecoin-project/dagstore v0.4.2
 	github.com/filecoin-project/go-address v0.0.5
 	github.com/filecoin-project/go-cbor-util v0.0.0-20191219014500-08c40a1e63a2
-	github.com/filecoin-project/go-commp-utils v0.1.1-0.20210427191551-70bf140d31c7
+	github.com/filecoin-project/go-commp-utils v0.1.3
 	github.com/filecoin-project/go-data-transfer v1.11.1
 	github.com/filecoin-project/go-ds-versioning v0.1.0
 	github.com/filecoin-project/go-fil-commcid v0.1.0
@@ -36,7 +36,7 @@ require (
 	github.com/ipfs/go-log/v2 v2.3.0
 	github.com/ipfs/go-merkledag v0.3.2
 	github.com/ipfs/go-unixfs v0.2.6
-	github.com/ipld/go-car v0.3.2-0.20211001225732-32d0d9933823
+	github.com/ipld/go-car v0.3.2
 	github.com/ipld/go-car/v2 v2.0.2
 	github.com/ipld/go-ipld-prime v0.12.3
 	github.com/jbenet/go-random v0.0.0-20190219211222-123a90aedc0c
