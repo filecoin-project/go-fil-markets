@@ -2,15 +2,9 @@ package shared
 
 import (
 	"github.com/ipld/go-ipld-prime"
-	basicnode "github.com/ipld/go-ipld-prime/node/basic"
-	"github.com/ipld/go-ipld-prime/traversal/selector"
-	"github.com/ipld/go-ipld-prime/traversal/selector/builder"
+	selectorparse "github.com/ipld/go-ipld-prime/traversal/selector/parse"
 )
 
-// entire DAG selector
-func AllSelector() ipld.Node {
-	ssb := builder.NewSelectorSpecBuilder(basicnode.Prototype.Any)
-	return ssb.ExploreRecursive(selector.RecursionLimitNone(),
-		ssb.ExploreAll(ssb.ExploreRecursiveEdge())).
-		Node()
-}
+// AllSelector is a compatibility alias for an entire DAG non-matching-selector
+// Use selectorparse.CommonSelector_ExploreAllRecursively directly in new code
+func AllSelector() ipld.Node { return selectorparse.CommonSelector_ExploreAllRecursively }
