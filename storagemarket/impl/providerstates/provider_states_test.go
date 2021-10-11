@@ -530,6 +530,15 @@ func TestPublishDeal(t *testing.T) {
 				tut.AssertDealState(t, storagemarket.StorageDealPublishing, deal.State)
 			},
 		},
+		"PublishDealsErrors returns not enough funds error": {
+			nodeParams: nodeParams{
+				PublishDealsError: errors.New("not enough funds"),
+			},
+			dealInspector: func(t *testing.T, deal storagemarket.MinerDeal, env *fakeEnvironment) {
+				tut.AssertDealState(t, storagemarket.StorageDealPublish, deal.State)
+				require.Equal(t, "", deal.Message)
+			},
+		},
 		"PublishDealsErrors errors": {
 			nodeParams: nodeParams{
 				PublishDealsError: errors.New("could not post to chain"),
