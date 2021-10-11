@@ -7,6 +7,7 @@ import (
 	"github.com/ipfs/go-cid"
 	logging "github.com/ipfs/go-log/v2"
 	"github.com/ipld/go-ipld-prime"
+	selectorparse "github.com/ipld/go-ipld-prime/traversal/selector/parse"
 	"github.com/libp2p/go-libp2p-core/peer"
 	"golang.org/x/xerrors"
 
@@ -15,7 +16,6 @@ import (
 	"github.com/filecoin-project/go-state-types/exitcode"
 	"github.com/filecoin-project/go-statemachine/fsm"
 
-	"github.com/filecoin-project/go-fil-markets/shared"
 	"github.com/filecoin-project/go-fil-markets/storagemarket"
 	"github.com/filecoin-project/go-fil-markets/storagemarket/impl/requestvalidation"
 	"github.com/filecoin-project/go-fil-markets/storagemarket/network"
@@ -165,7 +165,7 @@ func InitiateDataTransfer(ctx fsm.Context, environment ClientDealEnvironment, de
 		deal.Miner,
 		&requestvalidation.StorageDataTransferVoucher{Proposal: deal.ProposalCid},
 		deal.DataRef.Root,
-		shared.AllSelector(),
+		selectorparse.CommonSelector_ExploreAllRecursively,
 	)
 
 	if err != nil {

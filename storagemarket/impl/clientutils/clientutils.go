@@ -7,6 +7,7 @@ import (
 	"github.com/ipfs/go-cid"
 	bstore "github.com/ipfs/go-ipfs-blockstore"
 	"github.com/ipld/go-car"
+	selectorparse "github.com/ipld/go-ipld-prime/traversal/selector/parse"
 	"github.com/multiformats/go-multibase"
 	"golang.org/x/xerrors"
 
@@ -50,7 +51,7 @@ func CommP(ctx context.Context, bs bstore.Blockstore, data *storagemarket.DataRe
 	// defer fs.Close()
 
 	// do a CARv1 traversal with the DFS selector.
-	sc := car.NewSelectiveCar(ctx, bs, []car.Dag{{Root: data.Root, Selector: shared.AllSelector()}}, car.MaxTraversalLinks(maxTraversalLinks))
+	sc := car.NewSelectiveCar(ctx, bs, []car.Dag{{Root: data.Root, Selector: selectorparse.CommonSelector_ExploreAllRecursively}}, car.MaxTraversalLinks(maxTraversalLinks))
 	prepared, err := sc.Prepare()
 	if err != nil {
 		return cid.Undef, 0, xerrors.Errorf("failed to prepare CAR: %w", err)

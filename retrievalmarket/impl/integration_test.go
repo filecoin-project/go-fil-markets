@@ -19,6 +19,7 @@ import (
 	cidlink "github.com/ipld/go-ipld-prime/linking/cid"
 	basicnode "github.com/ipld/go-ipld-prime/node/basic"
 	"github.com/ipld/go-ipld-prime/traversal/selector/builder"
+	selectorparse "github.com/ipld/go-ipld-prime/traversal/selector/parse"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -36,7 +37,6 @@ import (
 	"github.com/filecoin-project/go-fil-markets/retrievalmarket/impl/testnodes"
 	rmnet "github.com/filecoin-project/go-fil-markets/retrievalmarket/network"
 	rmtesting "github.com/filecoin-project/go-fil-markets/retrievalmarket/testing"
-	"github.com/filecoin-project/go-fil-markets/shared"
 	tut "github.com/filecoin-project/go-fil-markets/shared_testutil"
 	"github.com/filecoin-project/go-fil-markets/stores"
 )
@@ -232,7 +232,7 @@ func TestClientCanMakeDealWithProvider(t *testing.T) {
 			filesize:    410,
 			unsealPrice: abi.NewTokenAmount(100),
 			voucherAmts: []abi.TokenAmount{abi.NewTokenAmount(100), abi.NewTokenAmount(410100)},
-			selector:    shared.AllSelector(),
+			selector:    selectorparse.CommonSelector_ExploreAllRecursively,
 			paramsV1:    true,
 		},
 		{name: "1 block file retrieval succeeds with existing payment channel",
@@ -294,7 +294,7 @@ func TestClientCanMakeDealWithProvider(t *testing.T) {
 			filesize:    19000,
 			voucherAmts: []abi.TokenAmount{abi.NewTokenAmount(10174000), abi.NewTokenAmount(19958000)},
 			paramsV1:    true,
-			selector:    shared.AllSelector()},
+			selector:    selectorparse.CommonSelector_ExploreAllRecursively},
 		{name: "partial file retrieval succeeds with V1 params and selector recursion depth 1",
 			filename:    "lorem.txt",
 			filesize:    1024,
@@ -372,7 +372,7 @@ func TestClientCanMakeDealWithProvider(t *testing.T) {
 			fs, err := stores.ReadOnlyFilestore(path)
 			require.NoError(t, err)
 
-			sc := car.NewSelectiveCar(bgCtx, fs, []car.Dag{{Root: payloadCID, Selector: shared.AllSelector()}})
+			sc := car.NewSelectiveCar(bgCtx, fs, []car.Dag{{Root: payloadCID, Selector: selectorparse.CommonSelector_ExploreAllRecursively}})
 			prepared, err := sc.Prepare()
 			require.NoError(t, err)
 			carBuf := new(bytes.Buffer)

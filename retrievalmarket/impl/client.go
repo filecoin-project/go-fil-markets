@@ -11,6 +11,7 @@ import (
 	"github.com/ipfs/go-datastore"
 	bstore "github.com/ipfs/go-ipfs-blockstore"
 	logging "github.com/ipfs/go-log/v2"
+	selectorparse "github.com/ipld/go-ipld-prime/traversal/selector/parse"
 	"github.com/libp2p/go-libp2p-core/peer"
 	"golang.org/x/xerrors"
 
@@ -418,7 +419,7 @@ func (c *clientDealEnvironment) Node() retrievalmarket.RetrievalClientNode {
 }
 
 func (c *clientDealEnvironment) OpenDataTransfer(ctx context.Context, to peer.ID, proposal *retrievalmarket.DealProposal, legacy bool) (datatransfer.ChannelID, error) {
-	sel := shared.AllSelector()
+	sel := selectorparse.CommonSelector_ExploreAllRecursively
 	if proposal.SelectorSpecified() {
 		var err error
 		sel, err = retrievalmarket.DecodeNode(proposal.Selector)
