@@ -1,5 +1,18 @@
 # go-fil-markets changelog
 
+# go-fil-markets 1.13.2
+
+- github.com/filecoin-project/go-fil-markets:
+  - block in Publish state when message sending fails due to lack of funds (#638) ([filecoin-project/go-fil-markets#638](https://github.com/filecoin-project/go-fil-markets/pull/638))
+  - Standardize definition of a recursive non-matching selector (#640) ([filecoin-project/go-fil-markets#640](https://github.com/filecoin-project/go-fil-markets/pull/640))
+
+Contributors
+
+| Contributor | Commits | Lines ± | Files Changed |
+|-------------|---------|---------|---------------|
+| Peter Rabbitson | 1 | +42/-48 | 14 |
+| Anton Evangelatov | 1 | +21/-0 | 4 |
+
 # go-fil-markets 1.13.1
 
 - github.com/filecoin-project/go-fil-markets:
