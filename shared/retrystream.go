@@ -89,7 +89,7 @@ func (impl *RetryStream) OpenStream(ctx context.Context, id peer.ID, protocols [
 		}
 
 		duration := b.Duration()
-		log.Warnf("failed to open stream to %s on attempt %d of %d, waiting %s to try again, err: %w",
+		log.Warnf("failed to open stream to %s on attempt %.0f of %.0f, waiting %s to try again, err: %s",
 			id, nAttempts, impl.maxStreamOpenAttempts, duration, err)
 
 		ebt := time.NewTimer(duration)
