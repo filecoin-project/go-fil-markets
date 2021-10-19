@@ -1,5 +1,23 @@
 # go-fil-markets changelog
 
+# go-fil-markets 1.13.3
+
+- github.com/filecoin-project/go-fil-markets:
+  - Fix network error log (#643) ([filecoin-project/go-fil-markets#643](https://github.com/filecoin-project/go-fil-markets/pull/643))
+- github.com/filecoin-project/go-data-transfer (v1.11.1 -> v1.11.4):
+  - fix: clear error message on channel open after restart (#273) ([filecoin-project/go-data-transfer#273](https://github.com/filecoin-project/go-data-transfer/pull/273))
+  - fix: flaky TestAutoRestartAfterBouncingInitiator (sleep before starting new initiator) (#275) ([filecoin-project/go-data-transfer#275](https://github.com/filecoin-project/go-data-transfer/pull/275))
+  - fix: check channel cancel on pause / resume (#271) ([filecoin-project/go-data-transfer#271](https://github.com/filecoin-project/go-data-transfer/pull/271))
+  - fix: startup channel monitor when a channel is restarted (#269) ([filecoin-project/go-data-transfer#269](https://github.com/filecoin-project/go-data-transfer/pull/269))
+
+Contributors
+
+| Contributor | Commits | Lines ± | Files Changed |
+|-------------|---------|---------|---------------|
+| dirkmc | 7 | +297/-18 | 14 |
+| Dirk McCormick | 3 | +35/-0 | 3 |
+| Aarsh Shah | 1 | +1/-1 | 1 |
+
 # go-fil-markets 1.13.2
 
 - github.com/filecoin-project/go-fil-markets:
