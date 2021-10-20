@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"github.com/filecoin-project/go-fil-markets/retrievalmarket/impl/askstore"
 	"math/rand"
 	"testing"
 	"time"
@@ -150,7 +151,9 @@ func TestDynamicPricing(t *testing.T) {
 		ds := dss.MutexWrap(datastore.NewMapDatastore())
 		dagStore := tut.NewMockDagStoreWrapper(pieceStore, sa)
 		dt := tut.NewTestDataTransfer()
-		c, err := retrievalimpl.NewProvider(expectedAddress, node, sa, net, pieceStore, dagStore, dt, ds, pFnc)
+		askStore, err := askstore.NewAskStore(namespace.Wrap(ds, datastore.NewKey("retrieval-ask")), datastore.NewKey("latest"))
+		require.NoError(t, err)
+		c, err := retrievalimpl.NewProvider(expectedAddress, node, sa, net, pieceStore, dagStore, dt, ds, askStore, pFnc)
 		require.NoError(t, err)
 		tut.StartAndWaitForReady(ctx, t, c)
 		return c
@@ -701,6 +704,8 @@ func TestHandleQueryStream(t *testing.T) {
 
 	receiveStreamOnProvider := func(t *testing.T, node *testnodes.TestRetrievalProviderNode, sa *testnodes.TestSectorAccessor, qs network.RetrievalQueryStream, pieceStore piecestore.PieceStore) {
 		ds := dss.MutexWrap(datastore.NewMapDatastore())
+		as, err := askstore.NewAskStore(namespace.Wrap(ds, datastore.NewKey("retrieval-ask")), datastore.NewKey("latest"))
+		require.NoError(t, err)
 		dagStore := tut.NewMockDagStoreWrapper(pieceStore, sa)
 		dt := tut.NewTestDataTransfer()
 		net := tut.NewTestRetrievalMarketNetwork(tut.TestNetworkParams{})
@@ -719,7 +724,7 @@ func TestHandleQueryStream(t *testing.T) {
 			return ask, nil
 		}
 
-		c, err := retrievalimpl.NewProvider(expectedAddress, node, sa, net, pieceStore, dagStore, dt, ds, priceFunc)
+		c, err := retrievalimpl.NewProvider(expectedAddress, node, sa, net, pieceStore, dagStore, dt, ds, as, priceFunc)
 		require.NoError(t, err)
 
 		tut.StartAndWaitForReady(ctx, t, c)
@@ -930,6 +935,8 @@ func TestHandleQueryStream(t *testing.T) {
 
 func TestProvider_Construct(t *testing.T) {
 	ds := datastore.NewMapDatastore()
+	as, err := askstore.NewAskStore(namespace.Wrap(ds, datastore.NewKey("retrieval-ask")), datastore.NewKey("latest"))
+	require.NoError(t, err)
 	pieceStore := tut.NewTestPieceStore()
 	node := testnodes.NewTestRetrievalProviderNode()
 	sa := testnodes.NewTestSectorAccessor()
@@ -941,7 +948,7 @@ func TestProvider_Construct(t *testing.T) {
 		return ask, nil
 	}
 
-	_, err := retrievalimpl.NewProvider(
+	_, err = retrievalimpl.NewProvider(
 		spect.NewIDAddr(t, 2344),
 		node,
 		sa,
@@ -950,6 +957,7 @@ func TestProvider_Construct(t *testing.T) {
 		dagStore,
 		dt,
 		ds,
+		as,
 		priceFunc,
 	)
 	require.NoError(t, err)
@@ -987,6 +995,8 @@ func TestProviderConfigOpts(t *testing.T) {
 	opt1 := func(p *retrievalimpl.Provider) { sawOpt++ }
 	opt2 := func(p *retrievalimpl.Provider) { sawOpt += 2 }
 	ds := datastore.NewMapDatastore()
+	as, err := askstore.NewAskStore(namespace.Wrap(ds, datastore.NewKey("retrieval-ask")), datastore.NewKey("latest"))
+	require.NoError(t, err)
 	pieceStore := tut.NewTestPieceStore()
 	node := testnodes.NewTestRetrievalProviderNode()
 	sa := testnodes.NewTestSectorAccessor()
@@ -1005,7 +1015,7 @@ func TestProviderConfigOpts(t *testing.T) {
 		pieceStore,
 		dagStore,
 		tut.NewTestDataTransfer(),
-		ds, priceFunc, opt1, opt2,
+		ds, as, priceFunc, opt1, opt2,
 	)
 	require.NoError(t, err)
 	assert.NotNil(t, p)
@@ -1026,7 +1036,7 @@ func TestProviderConfigOpts(t *testing.T) {
 		tut.NewTestPieceStore(),
 		dagStore,
 		tut.NewTestDataTransfer(),
-		ds, priceFunc, ddOpt)
+		ds, as, priceFunc, ddOpt)
 	require.NoError(t, err)
 	require.NotNil(t, p)
 }
@@ -1073,7 +1083,8 @@ func TestProviderMigrations(t *testing.T) {
 	dt := tut.NewTestDataTransfer()
 
 	providerDs := namespace.Wrap(ds, datastore.NewKey("/retrievals/provider"))
-
+	as, err := askstore.NewAskStore(namespace.Wrap(providerDs, datastore.NewKey("retrieval-ask")), datastore.NewKey("latest"))
+	require.NoError(t, err)
 	numDeals := 5
 	payloadCIDs := make([]cid.Cid, numDeals)
 	iDs := make([]retrievalmarket.DealID, numDeals)
@@ -1095,7 +1106,7 @@ func TestProviderMigrations(t *testing.T) {
 	offsets := make([]abi.PaddedPieceSize, numDeals)
 	lengths := make([]abi.PaddedPieceSize, numDeals)
 	allSelectorBuf := new(bytes.Buffer)
-	err := dagcbor.Encode(selectorparse.CommonSelector_ExploreAllRecursively, allSelectorBuf)
+	err = dagcbor.Encode(selectorparse.CommonSelector_ExploreAllRecursively, allSelectorBuf)
 	require.NoError(t, err)
 	allSelectorBytes := allSelectorBuf.Bytes()
 
@@ -1190,6 +1201,7 @@ func TestProviderMigrations(t *testing.T) {
 		dagStore,
 		dt,
 		providerDs,
+		as,
 		priceFunc,
 	)
 	require.NoError(t, err)

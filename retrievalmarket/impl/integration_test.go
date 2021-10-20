@@ -3,6 +3,7 @@ package retrievalimpl_test
 import (
 	"bytes"
 	"context"
+	"github.com/filecoin-project/go-fil-markets/retrievalmarket/impl/askstore"
 	"io"
 	"os"
 	"path/filepath"
@@ -160,6 +161,8 @@ func requireSetupTestClientAndProvider(ctx context.Context, t *testing.T, payChA
 	testutil.StartAndWaitForReady(ctx, t, dt2)
 	require.NoError(t, err)
 	providerDs := namespace.Wrap(testData.Ds2, datastore.NewKey("/retrievals/provider"))
+	as, err := askstore.NewAskStore(namespace.Wrap(providerDs, datastore.NewKey("retrieval-ask")), datastore.NewKey("latest"))
+	require.NoError(t, err)
 
 	priceFunc := func(ctx context.Context, dealPricingParams retrievalmarket.PricingInput) (retrievalmarket.Ask, error) {
 		ask := retrievalmarket.Ask{}
@@ -173,7 +176,7 @@ func requireSetupTestClientAndProvider(ctx context.Context, t *testing.T, payChA
 	// Set up a DAG store
 	dagstoreWrapper := tut.NewMockDagStoreWrapper(pieceStore, sectorAccessor)
 	provider, err := retrievalimpl.NewProvider(
-		paymentAddress, providerNode, sectorAccessor, nw2, pieceStore, dagstoreWrapper, dt2, providerDs,
+		paymentAddress, providerNode, sectorAccessor, nw2, pieceStore, dagstoreWrapper, dt2, providerDs, as,
 		priceFunc)
 	require.NoError(t, err)
 
@@ -694,6 +697,8 @@ func setupProvider(
 	testutil.StartAndWaitForReady(ctx, t, dt2)
 	require.NoError(t, err)
 	providerDs := namespace.Wrap(testData.Ds2, datastore.NewKey("/retrievals/provider"))
+	as, err := askstore.NewAskStore(namespace.Wrap(providerDs, datastore.NewKey("retrieval-ask")), datastore.NewKey("latest"))
+	require.NoError(t, err)
 
 	opts := []retrievalimpl.RetrievalProviderOption{retrievalimpl.DealDeciderOpt(decider)}
 	if disableNewDeals {
@@ -721,7 +726,7 @@ func setupProvider(
 	_ = os.Remove(carFilePath)
 
 	provider, err := retrievalimpl.NewProvider(providerPaymentAddr, providerNode, sectorAccessor,
-		nw2, pieceStore, dagstoreWrapper, dt2, providerDs, priceFunc, opts...)
+		nw2, pieceStore, dagstoreWrapper, dt2, providerDs, as, priceFunc, opts...)
 	require.NoError(t, err)
 
 	return provider
