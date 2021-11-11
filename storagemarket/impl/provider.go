@@ -153,29 +153,6 @@ func NewProvider(net network.StorageMarketNetwork,
 		return nil, err
 	}
 
-	indexer.RegisterCallback(func(ctx context.Context, contextID []byte) (provider.MultihashIterator, error) {
-		proposalCid, err := cid.Cast(contextID)
-		if err != nil {
-			return nil, fmt.Errorf("failed to cast context ID to a cid")
-		}
-
-		deal, err := pph.Get(proposalCid)
-		if err != nil {
-			return nil, fmt.Errorf("failed to lookup deal with proposal cid %s: %w", proposalCid, err)
-		}
-
-		ii, err := dagStore.GetIterableIndexForPiece(deal.Proposal.PieceCID)
-		if err != nil {
-			return nil, fmt.Errorf("failed to get iterable index: %w", err)
-		}
-
-		mhi, err := provider.CarMultihashIterator(ii)
-		if err != nil {
-			return nil, fmt.Errorf("failed to get mhiterator: %w", err)
-		}
-		return mhi, nil
-	})
-
 	return h, nil
 }
 
@@ -646,6 +623,31 @@ func (p *Provider) start(ctx context.Context) error {
 	if err := p.restartDeals(deals); err != nil {
 		return fmt.Errorf("failed to restart deals: %w", err)
 	}
+
+	// register indexer provider callback now that everything has booted up.
+	p.indexProvider.RegisterCallback(func(ctx context.Context, contextID []byte) (provider.MultihashIterator, error) {
+		proposalCid, err := cid.Cast(contextID)
+		if err != nil {
+			return nil, fmt.Errorf("failed to cast context ID to a cid")
+		}
+
+		var deal storagemarket.MinerDeal
+		if err := p.deals.Get(proposalCid).Get(&deal); err != nil {
+			return nil, xerrors.Errorf("failed getting deal %s: %w", proposalCid, err)
+		}
+
+		ii, err := p.dagStore.GetIterableIndexForPiece(deal.Proposal.PieceCID)
+		if err != nil {
+			return nil, fmt.Errorf("failed to get iterable index: %w", err)
+		}
+
+		mhi, err := provider.CarMultihashIterator(ii)
+		if err != nil {
+			return nil, fmt.Errorf("failed to get mhiterator: %w", err)
+		}
+		return mhi, nil
+	})
+
 	return nil
 }
 
