@@ -449,6 +449,8 @@ func (p *Provider) SetAsk(price abi.TokenAmount, verifiedPrice abi.TokenAmount, 
 	return p.storedAsk.SetAsk(price, verifiedPrice, duration, options...)
 }
 
+// AnnounceDealToIndexer informs indexer nodes that a new deal was received,
+// so they can download its index
 func (p *Provider) AnnounceDealToIndexer(ctx context.Context, proposalCid cid.Cid) error {
 	var deal storagemarket.MinerDeal
 	if err := p.deals.Get(proposalCid).Get(&deal); err != nil {

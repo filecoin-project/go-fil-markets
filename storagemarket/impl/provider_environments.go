@@ -40,6 +40,8 @@ func (p *providerDealEnvironment) RegisterShard(ctx context.Context, pieceCid ci
 	return stores.RegisterShardSync(ctx, p.p.dagStore, pieceCid, carPath, eagerInit)
 }
 
+// AnnounceIndex informs indexer nodes that a new deal was received,
+// so they can download its index
 func (p *providerDealEnvironment) AnnounceIndex(ctx context.Context, deal storagemarket.MinerDeal) error {
 	fm := metadata2.FilecoinV1Data{
 		PieceCID:      deal.Proposal.PieceCID,
