@@ -1576,6 +1576,10 @@ func (fe *fakeEnvironment) ReadCAR(_ string) (*carv2.Reader, error) {
 	return fe.carV2Reader, fe.carV2Error
 }
 
+func (fe *fakeEnvironment) AnnounceIndex(ctx context.Context, deal storagemarket.MinerDeal) error {
+	return nil
+}
+
 var _ providerstates.ProviderDealEnvironment = &fakeEnvironment{}
 
 type stubbedReadCloser struct {

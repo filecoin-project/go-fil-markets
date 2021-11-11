@@ -2,8 +2,11 @@ package storageimpl
 
 import (
 	"context"
+	"fmt"
 	"io"
 	"os"
+
+	metadata2 "github.com/filecoin-project/indexer-reference-provider/metadata"
 
 	"github.com/ipfs/go-cid"
 	bstore "github.com/ipfs/go-ipfs-blockstore"
@@ -35,6 +38,21 @@ type providerDealEnvironment struct {
 
 func (p *providerDealEnvironment) RegisterShard(ctx context.Context, pieceCid cid.Cid, carPath string, eagerInit bool) error {
 	return stores.RegisterShardSync(ctx, p.p.dagStore, pieceCid, carPath, eagerInit)
+}
+
+func (p *providerDealEnvironment) AnnounceIndex(ctx context.Context, deal storagemarket.MinerDeal) error {
+	fm := metadata2.FilecoinV1Data{
+		PieceCID:      deal.Proposal.PieceCID,
+		FastRetrieval: deal.FastRetrieval,
+		IsFree:        deal.Proposal.VerifiedDeal,
+	}
+	dtm, err := fm.Encode(metadata2.GraphSyncV1)
+	if err != nil {
+		return fmt.Errorf("failed to encode metadata: %w", err)
+	}
+
+	_, err = p.p.indexProvider.NotifyPut(ctx, deal.ProposalCid.Bytes(), dtm.ToIndexerMetadata())
+	return err
 }
 
 func (p *providerDealEnvironment) ReadCAR(path string) (*carv2.Reader, error) {
