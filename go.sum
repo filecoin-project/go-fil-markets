@@ -187,8 +187,8 @@ github.com/envoyproxy/protoc-gen-validate v0.1.0/go.mod h1:iSmxcyjqTsJpI2R4NaDN7
 github.com/facebookgo/atomicfile v0.0.0-20151019160806-2de1f203e7d5/go.mod h1:JpoxHjuQauoxiFMl1ie8Xc/7TfLuMZ5eOCONd1sUBHg=
 github.com/fatih/color v1.7.0/go.mod h1:Zm6kSWBoL9eyXnKyktHP6abPY2pDugNf5KwzbycvMj4=
 github.com/fatih/color v1.9.0/go.mod h1:eQcE1qtQxscV5RaZvpXrrb8Drkc3/DdQ+uUYCNjL+zU=
-github.com/filecoin-project/dagstore v0.4.4-0.20211110134120-3b2ba428bb0f h1:H4WnTD9FPH01adoNlUmW+XhGGqPKTgc28XLl2yUYb98=
-github.com/filecoin-project/dagstore v0.4.4-0.20211110134120-3b2ba428bb0f/go.mod h1:Id2VG7uZxnF6NWR3JX1evNA83JonnU0U7Fc2r14Vltc=
+github.com/filecoin-project/dagstore v0.5.0 h1:akiheGtSCU7aGon6T74bwNbDhYW0XZCTsnORKNmzSgU=
+github.com/filecoin-project/dagstore v0.5.0/go.mod h1:Id2VG7uZxnF6NWR3JX1evNA83JonnU0U7Fc2r14Vltc=
 github.com/filecoin-project/go-address v0.0.3/go.mod h1:jr8JxKsYx+lQlQZmF5i2U0Z+cGQ59wMIps/8YW/lDj8=
 github.com/filecoin-project/go-address v0.0.5 h1:SSaFT/5aLfPXycUlFyemoHYhRgdyXClXCyDdNJKPlDM=
 github.com/filecoin-project/go-address v0.0.5/go.mod h1:jr8JxKsYx+lQlQZmF5i2U0Z+cGQ59wMIps/8YW/lDj8=
