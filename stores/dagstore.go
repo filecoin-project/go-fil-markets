@@ -4,10 +4,9 @@ import (
 	"context"
 	"io"
 
-	carindex "github.com/ipld/go-car/v2/index"
-
 	"github.com/ipfs/go-cid"
 	bstore "github.com/ipfs/go-ipfs-blockstore"
+	carindex "github.com/ipld/go-car/v2/index"
 
 	"github.com/filecoin-project/dagstore"
 

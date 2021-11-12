@@ -6,8 +6,6 @@ import (
 	"io"
 	"os"
 
-	metadata2 "github.com/filecoin-project/indexer-reference-provider/metadata"
-
 	"github.com/ipfs/go-cid"
 	bstore "github.com/ipfs/go-ipfs-blockstore"
 	carv2 "github.com/ipld/go-car/v2"
@@ -19,6 +17,7 @@ import (
 	commcid "github.com/filecoin-project/go-fil-commcid"
 	commp "github.com/filecoin-project/go-fil-commp-hashhash"
 	"github.com/filecoin-project/go-state-types/abi"
+	metadata2 "github.com/filecoin-project/indexer-reference-provider/metadata"
 
 	"github.com/filecoin-project/go-fil-markets/filestore"
 	"github.com/filecoin-project/go-fil-markets/piecestore"

@@ -6,8 +6,6 @@ import (
 	"io"
 	"os"
 
-	metadata2 "github.com/filecoin-project/indexer-reference-provider/metadata"
-
 	"github.com/hannahhoward/go-pubsub"
 	"github.com/ipfs/go-cid"
 	"github.com/ipfs/go-datastore"
@@ -26,6 +24,8 @@ import (
 	"github.com/filecoin-project/go-state-types/crypto"
 	"github.com/filecoin-project/go-state-types/exitcode"
 	"github.com/filecoin-project/go-statemachine/fsm"
+	provider "github.com/filecoin-project/indexer-reference-provider"
+	metadata2 "github.com/filecoin-project/indexer-reference-provider/metadata"
 
 	"github.com/filecoin-project/go-fil-markets/filestore"
 	"github.com/filecoin-project/go-fil-markets/piecestore"
@@ -39,7 +39,6 @@ import (
 	"github.com/filecoin-project/go-fil-markets/storagemarket/migrations"
 	"github.com/filecoin-project/go-fil-markets/storagemarket/network"
 	"github.com/filecoin-project/go-fil-markets/stores"
-	provider "github.com/filecoin-project/indexer-reference-provider"
 )
 
 var _ storagemarket.StorageProvider = &Provider{}

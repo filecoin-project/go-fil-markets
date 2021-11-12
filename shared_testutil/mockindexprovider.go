@@ -4,10 +4,10 @@ import (
 	"context"
 	"sync"
 
-	stiapi "github.com/filecoin-project/storetheindex/api/v0"
 	"github.com/ipfs/go-cid"
 
 	provider "github.com/filecoin-project/indexer-reference-provider"
+	stiapi "github.com/filecoin-project/storetheindex/api/v0"
 )
 
 type MockIndexProvider struct {
