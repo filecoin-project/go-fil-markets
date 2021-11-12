@@ -9,6 +9,7 @@ import (
 	"github.com/ipld/go-ipld-prime"
 	basicnode "github.com/ipld/go-ipld-prime/node/basic"
 	"github.com/ipld/go-ipld-prime/traversal/selector/builder"
+	selectorparse "github.com/ipld/go-ipld-prime/traversal/selector/parse"
 	peer "github.com/libp2p/go-libp2p-core/peer"
 	"github.com/stretchr/testify/require"
 
@@ -19,7 +20,6 @@ import (
 	"github.com/filecoin-project/go-fil-markets/retrievalmarket"
 	"github.com/filecoin-project/go-fil-markets/retrievalmarket/impl/requestvalidation"
 	"github.com/filecoin-project/go-fil-markets/retrievalmarket/migrations"
-	"github.com/filecoin-project/go-fil-markets/shared"
 	"github.com/filecoin-project/go-fil-markets/shared_testutil"
 )
 
@@ -28,7 +28,7 @@ func TestValidatePush(t *testing.T) {
 	sender := shared_testutil.GeneratePeers(1)[0]
 	voucher := shared_testutil.MakeTestDealProposal()
 	requestValidator := requestvalidation.NewProviderRequestValidator(fve)
-	voucherResult, err := requestValidator.ValidatePush(false, datatransfer.ChannelID{}, sender, &voucher, voucher.PayloadCID, shared.AllSelector())
+	voucherResult, err := requestValidator.ValidatePush(false, datatransfer.ChannelID{}, sender, &voucher, voucher.PayloadCID, selectorparse.CommonSelector_ExploreAllRecursively)
 	require.Equal(t, nil, voucherResult)
 	require.Error(t, err)
 }
@@ -77,7 +77,7 @@ func TestValidatePull(t *testing.T) {
 				GetPieceErr:                     errors.New("something went wrong"),
 			},
 			baseCid:       proposal.PayloadCID,
-			selector:      shared.AllSelector(),
+			selector:      selectorparse.CommonSelector_ExploreAllRecursively,
 			voucher:       &proposal,
 			expectedError: errors.New("something went wrong"),
 			expectedVoucherResult: &retrievalmarket.DealResponse{
@@ -92,7 +92,7 @@ func TestValidatePull(t *testing.T) {
 				GetPieceErr:                     retrievalmarket.ErrNotFound,
 			},
 			baseCid:       proposal.PayloadCID,
-			selector:      shared.AllSelector(),
+			selector:      selectorparse.CommonSelector_ExploreAllRecursively,
 			voucher:       &proposal,
 			expectedError: retrievalmarket.ErrNotFound,
 			expectedVoucherResult: &retrievalmarket.DealResponse{
@@ -106,7 +106,7 @@ func TestValidatePull(t *testing.T) {
 				CheckDealParamsError: errors.New("something went wrong"),
 			},
 			baseCid:       proposal.PayloadCID,
-			selector:      shared.AllSelector(),
+			selector:      selectorparse.CommonSelector_ExploreAllRecursively,
 			voucher:       &proposal,
 			expectedError: errors.New("something went wrong"),
 			expectedVoucherResult: &retrievalmarket.DealResponse{
@@ -120,7 +120,7 @@ func TestValidatePull(t *testing.T) {
 				RunDealDecisioningLogicError: errors.New("something went wrong"),
 			},
 			baseCid:       proposal.PayloadCID,
-			selector:      shared.AllSelector(),
+			selector:      selectorparse.CommonSelector_ExploreAllRecursively,
 			voucher:       &proposal,
 			expectedError: errors.New("something went wrong"),
 			expectedVoucherResult: &retrievalmarket.DealResponse{
@@ -134,7 +134,7 @@ func TestValidatePull(t *testing.T) {
 				RunDealDecisioningLogicFailReason: "something went wrong",
 			},
 			baseCid:       proposal.PayloadCID,
-			selector:      shared.AllSelector(),
+			selector:      selectorparse.CommonSelector_ExploreAllRecursively,
 			voucher:       &proposal,
 			expectedError: errors.New("something went wrong"),
 			expectedVoucherResult: &retrievalmarket.DealResponse{
@@ -149,7 +149,7 @@ func TestValidatePull(t *testing.T) {
 				RunDealDecisioningLogicAccepted: true,
 			},
 			baseCid:       proposal.PayloadCID,
-			selector:      shared.AllSelector(),
+			selector:      selectorparse.CommonSelector_ExploreAllRecursively,
 			voucher:       &proposal,
 			expectedError: errors.New("everything is awful"),
 		},
@@ -158,7 +158,7 @@ func TestValidatePull(t *testing.T) {
 				RunDealDecisioningLogicAccepted: true,
 			},
 			baseCid:       proposal.PayloadCID,
-			selector:      shared.AllSelector(),
+			selector:      selectorparse.CommonSelector_ExploreAllRecursively,
 			voucher:       &proposal,
 			expectedError: datatransfer.ErrPause,
 			expectedVoucherResult: &retrievalmarket.DealResponse{
@@ -171,7 +171,7 @@ func TestValidatePull(t *testing.T) {
 				RunDealDecisioningLogicAccepted: true,
 			},
 			baseCid:       proposal.PayloadCID,
-			selector:      shared.AllSelector(),
+			selector:      selectorparse.CommonSelector_ExploreAllRecursively,
 			voucher:       &legacyProposal,
 			expectedError: datatransfer.ErrPause,
 			expectedVoucherResult: &migrations.DealResponse0{
@@ -185,7 +185,7 @@ func TestValidatePull(t *testing.T) {
 				RunDealDecisioningLogicAccepted: true,
 			},
 			baseCid:               proposal.PayloadCID,
-			selector:              shared.AllSelector(),
+			selector:              selectorparse.CommonSelector_ExploreAllRecursively,
 			voucher:               &proposal,
 			expectedError:         nil,
 			expectedVoucherResult: nil,

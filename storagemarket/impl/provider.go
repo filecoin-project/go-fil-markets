@@ -410,6 +410,10 @@ func (p *Provider) GetStorageCollateral(ctx context.Context) (storagemarket.Bala
 	return p.spn.GetBalance(ctx, p.actor, tok)
 }
 
+func (p *Provider) RetryDealPublishing(propcid cid.Cid) error {
+	return p.deals.Send(propcid, storagemarket.ProviderEventRestart)
+}
+
 // ListLocalDeals lists deals processed by this storage provider
 func (p *Provider) ListLocalDeals() ([]storagemarket.MinerDeal, error) {
 	var out []storagemarket.MinerDeal

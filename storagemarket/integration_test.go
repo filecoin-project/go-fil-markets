@@ -11,6 +11,7 @@ import (
 
 	"github.com/ipfs/go-datastore"
 	"github.com/ipld/go-car"
+	selectorparse "github.com/ipld/go-ipld-prime/traversal/selector/parse"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -20,7 +21,6 @@ import (
 	dtnet "github.com/filecoin-project/go-data-transfer/network"
 	"github.com/filecoin-project/go-state-types/big"
 
-	"github.com/filecoin-project/go-fil-markets/shared"
 	"github.com/filecoin-project/go-fil-markets/shared_testutil"
 	"github.com/filecoin-project/go-fil-markets/storagemarket"
 	"github.com/filecoin-project/go-fil-markets/storagemarket/impl/clientutils"
@@ -206,7 +206,7 @@ func TestMakeDealOffline(t *testing.T) {
 				// hacky but need it for now because if it's manual, we wont get a CommP.
 				TransferType: storagemarket.TTGraphsync,
 				Root:         h.PayloadCid,
-			})
+			}, 2<<29)
 			require.NoError(t, err)
 
 			dataRef := &storagemarket.DataRef{
@@ -241,7 +241,7 @@ func TestMakeDealOffline(t *testing.T) {
 
 			// Do a selective CARv1 traversal on the CARv2 file to get a
 			// deterministic CARv1 that we can import on the miner side.
-			sc := car.NewSelectiveCar(ctx, h.Data, []car.Dag{{Root: h.PayloadCid, Selector: shared.AllSelector()}})
+			sc := car.NewSelectiveCar(ctx, h.Data, []car.Dag{{Root: h.PayloadCid, Selector: selectorparse.CommonSelector_ExploreAllRecursively}})
 			prepared, err := sc.Prepare()
 			require.NoError(t, err)
 			carBuf := new(bytes.Buffer)

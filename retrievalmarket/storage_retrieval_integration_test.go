@@ -14,6 +14,7 @@ import (
 	"github.com/ipld/go-car"
 	"github.com/ipld/go-ipld-prime"
 	cidlink "github.com/ipld/go-ipld-prime/linking/cid"
+	selectorparse "github.com/ipld/go-ipld-prime/traversal/selector/parse"
 	"github.com/libp2p/go-libp2p-core/peer"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -29,7 +30,6 @@ import (
 	retrievalimpl "github.com/filecoin-project/go-fil-markets/retrievalmarket/impl"
 	testnodes2 "github.com/filecoin-project/go-fil-markets/retrievalmarket/impl/testnodes"
 	rmnet "github.com/filecoin-project/go-fil-markets/retrievalmarket/network"
-	"github.com/filecoin-project/go-fil-markets/shared"
 	"github.com/filecoin-project/go-fil-markets/shared_testutil"
 	tut "github.com/filecoin-project/go-fil-markets/shared_testutil"
 	"github.com/filecoin-project/go-fil-markets/storagemarket"
@@ -166,7 +166,7 @@ func TestOfflineStorageRetrieval(t *testing.T) {
 			shared_testutil.StartAndWaitForReady(ctx, t, sh.Client)
 
 			// Do a Selective CARv1 traversal on the CARv2 file to get a deterministic CARv1 that we can import on the miner side.
-			sc := car.NewSelectiveCar(ctx, sh.Data, []car.Dag{{Root: sh.PayloadCid, Selector: shared.AllSelector()}})
+			sc := car.NewSelectiveCar(ctx, sh.Data, []car.Dag{{Root: sh.PayloadCid, Selector: selectorparse.CommonSelector_ExploreAllRecursively}})
 			prepared, err := sc.Prepare()
 			require.NoError(t, err)
 			carBuf := new(bytes.Buffer)
@@ -176,7 +176,7 @@ func TestOfflineStorageRetrieval(t *testing.T) {
 				// hacky but need it for now because if it's manual, we wont get a CommP.
 				TransferType: storagemarket.TTGraphsync,
 				Root:         sh.PayloadCid,
-			})
+			}, 2<<29)
 			require.NoError(t, err)
 
 			// propose deal
@@ -585,7 +585,7 @@ func doRetrieve(t *testing.T, ctx context.Context, rh *retrievalHarness, sh *tes
 
 	// testing V1 only
 	rmParams, err := retrievalmarket.NewParamsV1(rh.RetrievalParams.PricePerByte, rh.RetrievalParams.PaymentInterval, rh.RetrievalParams.PaymentIntervalIncrease,
-		shared.AllSelector(), nil,
+		selectorparse.CommonSelector_ExploreAllRecursively, nil,
 		rh.RetrievalParams.UnsealPrice)
 	require.NoError(t, err)
 

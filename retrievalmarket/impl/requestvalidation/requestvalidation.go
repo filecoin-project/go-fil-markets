@@ -9,6 +9,7 @@ import (
 	"github.com/ipfs/go-cid"
 	"github.com/ipld/go-ipld-prime"
 	"github.com/ipld/go-ipld-prime/codec/dagcbor"
+	selectorparse "github.com/ipld/go-ipld-prime/traversal/selector/parse"
 	peer "github.com/libp2p/go-libp2p-core/peer"
 
 	datatransfer "github.com/filecoin-project/go-data-transfer"
@@ -18,7 +19,6 @@ import (
 	"github.com/filecoin-project/go-fil-markets/piecestore"
 	"github.com/filecoin-project/go-fil-markets/retrievalmarket"
 	"github.com/filecoin-project/go-fil-markets/retrievalmarket/migrations"
-	"github.com/filecoin-project/go-fil-markets/shared"
 )
 
 var allSelectorBytes []byte
@@ -27,7 +27,7 @@ var askTimeout = 5 * time.Second
 
 func init() {
 	buf := new(bytes.Buffer)
-	_ = dagcbor.Encode(shared.AllSelector(), buf)
+	_ = dagcbor.Encode(selectorparse.CommonSelector_ExploreAllRecursively, buf)
 	allSelectorBytes = buf.Bytes()
 }
 

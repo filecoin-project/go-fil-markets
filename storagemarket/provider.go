@@ -51,5 +51,7 @@ type StorageProvider interface {
 	// SubscribeToEvents listens for events that happen related to storage deals on a provider
 	SubscribeToEvents(subscriber ProviderSubscriber) shared.Unsubscribe
 
+	RetryDealPublishing(propCid cid.Cid) error
+
 	AnnounceDealToIndexer(ctx context.Context, proposalCid cid.Cid) error
 }

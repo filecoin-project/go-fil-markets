@@ -1,6 +1,87 @@
 # go-fil-markets changelog
 
-# go-data-transfer 1.12.0
+# go-fil-markets 1.13.3
+
+- github.com/filecoin-project/go-fil-markets:
+  - Fix network error log (#643) ([filecoin-project/go-fil-markets#643](https://github.com/filecoin-project/go-fil-markets/pull/643))
+- github.com/filecoin-project/go-data-transfer (v1.11.1 -> v1.11.4):
+  - fix: clear error message on channel open after restart (#273) ([filecoin-project/go-data-transfer#273](https://github.com/filecoin-project/go-data-transfer/pull/273))
+  - fix: flaky TestAutoRestartAfterBouncingInitiator (sleep before starting new initiator) (#275) ([filecoin-project/go-data-transfer#275](https://github.com/filecoin-project/go-data-transfer/pull/275))
+  - fix: check channel cancel on pause / resume (#271) ([filecoin-project/go-data-transfer#271](https://github.com/filecoin-project/go-data-transfer/pull/271))
+  - fix: startup channel monitor when a channel is restarted (#269) ([filecoin-project/go-data-transfer#269](https://github.com/filecoin-project/go-data-transfer/pull/269))
+
+Contributors
+
+| Contributor | Commits | Lines ± | Files Changed |
+|-------------|---------|---------|---------------|
+| dirkmc | 7 | +297/-18 | 14 |
+| Dirk McCormick | 3 | +35/-0 | 3 |
+| Aarsh Shah | 1 | +1/-1 | 1 |
+
+# go-fil-markets 1.13.2
+
+- github.com/filecoin-project/go-fil-markets:
+  - block in Publish state when message sending fails due to lack of funds (#638) ([filecoin-project/go-fil-markets#638](https://github.com/filecoin-project/go-fil-markets/pull/638))
+  - Standardize definition of a recursive non-matching selector (#640) ([filecoin-project/go-fil-markets#640](https://github.com/filecoin-project/go-fil-markets/pull/640))
+
+Contributors
+
+| Contributor | Commits | Lines ± | Files Changed |
+|-------------|---------|---------|---------------|
+| Peter Rabbitson | 1 | +42/-48 | 14 |
+| Anton Evangelatov | 1 | +21/-0 | 4 |
+
+# go-fil-markets 1.13.1
+
+- github.com/filecoin-project/go-fil-markets:
+  - feat: upgrade to go-data-transfer v1.11.1 (#636) ([filecoin-project/go-fil-markets#636](https://github.com/filecoin-project/go-fil-markets/pull/636))
+- github.com/filecoin-project/go-data-transfer (v1.11.0 -> v1.11.1):
+  - feat: update to go-graphsync v0.10.0 (#263) ([filecoin-project/go-data-transfer#263](https://github.com/filecoin-project/go-data-transfer/pull/263))
+- github.com/ipfs/go-graphsync (v0.10.0-rc3 -> v0.10.0):
+  - feat: update to go-ipld-prime v0.12.3 (#237) ([ipfs/go-graphsync#237](https://github.com/ipfs/go-graphsync/pull/237))
+
+Contributors
+
+| Contributor | Commits | Lines ± | Files Changed |
+|-------------|---------|---------|---------------|
+| Dirk McCormick | 2 | +33/-0 | 2 |
+| dirkmc | 3 | +14/-16 | 7 |
+
+# go-fil-markets 1.13.0
+
+- github.com/filecoin-project/go-fil-markets:
+  - commp: expose MaxTraversalLinks option for generating CommP (#633) ([filecoin-project/go-fil-markets#633](https://github.com/filecoin-project/go-fil-markets/pull/633))
+  - fix: retrieval not found error (#630) ([filecoin-project/go-fil-markets#630](https://github.com/filecoin-project/go-fil-markets/pull/630))
+- github.com/filecoin-project/go-data-transfer (v1.10.0 -> v1.11.0):
+  - feat: update to go-ipld-prime v0.12.3 (#261) ([filecoin-project/go-data-transfer#261](https://github.com/filecoin-project/go-data-transfer/pull/261))
+  - refactor: remove libp2p protocol cache (#259) ([filecoin-project/go-data-transfer#259](https://github.com/filecoin-project/go-data-transfer/pull/259))
+  - feat: update to graphsync v0.10.0-rc3 (#258) ([filecoin-project/go-data-transfer#258](https://github.com/filecoin-project/go-data-transfer/pull/258))
+  - Use do-not-send-first-blocks extension for restarts (#257) ([filecoin-project/go-data-transfer#257](https://github.com/filecoin-project/go-data-transfer/pull/257))
+  - Fix parallel transfers between same two peers (#254) ([filecoin-project/go-data-transfer#254](https://github.com/filecoin-project/go-data-transfer/pull/254))
+- github.com/ipfs/go-graphsync (v0.9.0 -> v0.10.0-rc3):
+  - Do not send first blocks extension (#230) ([ipfs/go-graphsync#230](https://github.com/ipfs/go-graphsync/pull/230))
+  - Protect Libp2p Connections (#229) ([ipfs/go-graphsync#229](https://github.com/ipfs/go-graphsync/pull/229))
+  - test(responsemanager): remove check (#228) ([ipfs/go-graphsync#228](https://github.com/ipfs/go-graphsync/pull/228))
+  - feat(graphsync): give missing blocks a named error (#227) ([ipfs/go-graphsync#227](https://github.com/ipfs/go-graphsync/pull/227))
+  - Add request limits (#224) ([ipfs/go-graphsync#224](https://github.com/ipfs/go-graphsync/pull/224))
+  - Tech Debt Cleanup and Docs Update (#219) ([ipfs/go-graphsync#219](https://github.com/ipfs/go-graphsync/pull/219))
+  - fix(requestmanager): remove main thread block on allocation (#216) ([ipfs/go-graphsync#216](https://github.com/ipfs/go-graphsync/pull/216))
+  - feat(allocator): add debug logging (#213) ([ipfs/go-graphsync#213](https://github.com/ipfs/go-graphsync/pull/213))
+  - fix: spurious warn log (#210) ([ipfs/go-graphsync#210](https://github.com/ipfs/go-graphsync/pull/210))
+  - fix(message): fix dropping of response extensions (#211) ([ipfs/go-graphsync#211](https://github.com/ipfs/go-graphsync/pull/211))
+  - docs(CHANGELOG): update change log ([ipfs/go-graphsync#208](https://github.com/ipfs/go-graphsync/pull/208))
+  - docs(README): add notice about branch rename
+
+Contributors
+
+| Contributor | Commits | Lines ± | Files Changed |
+|-------------|---------|---------|---------------|
+| Hannah Howard | 14 | +3315/-2461 | 98 |
+| dirkmc | 7 | +837/-363 | 51 |
+| hannahhoward | 8 | +138/-3 | 9 |
+| Dirk McCormick | 2 | +38/-3 | 2 |
+
+# go-fil-markets 1.12.0
 
 Reinstate update to graphsync v0.9.0 with new Linksystem IPLD prime
 

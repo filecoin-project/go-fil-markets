@@ -3,12 +3,11 @@ package shared_testutil
 import (
 	"github.com/ipfs/go-cid"
 	"github.com/ipld/go-ipld-prime"
+	selectorparse "github.com/ipld/go-ipld-prime/traversal/selector/parse"
 	"github.com/libp2p/go-libp2p-core/peer"
 	"golang.org/x/exp/rand"
 
 	datatransfer "github.com/filecoin-project/go-data-transfer"
-
-	"github.com/filecoin-project/go-fil-markets/shared"
 )
 
 // TestChannelParams are params for a new test data transfer channel
@@ -65,7 +64,7 @@ func NewTestChannel(params TestChannelParams) datatransfer.ChannelState {
 		selfPeer:       peers[0],
 		transferID:     datatransfer.TransferID(rand.Uint64()),
 		baseCID:        GenerateCids(1)[0],
-		selector:       shared.AllSelector(),
+		selector:       selectorparse.CommonSelector_ExploreAllRecursively,
 		sender:         peers[0],
 		recipient:      peers[1],
 		totalSize:      rand.Uint64(),
@@ -125,6 +124,10 @@ func NewTestChannel(params TestChannelParams) datatransfer.ChannelState {
 
 func (tc *TestChannel) ReceivedCidsLen() int {
 	return len(tc.receivedCids)
+}
+
+func (tc *TestChannel) ReceivedCidsTotal() int64 {
+	return int64(len(tc.receivedCids))
 }
 
 // TransferID returns the transfer id for this channel
