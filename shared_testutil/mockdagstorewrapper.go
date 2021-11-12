@@ -9,6 +9,7 @@ import (
 	"github.com/ipfs/go-cid"
 	carv2 "github.com/ipld/go-car/v2"
 	"github.com/ipld/go-car/v2/blockstore"
+	carindex "github.com/ipld/go-car/v2/index"
 	"golang.org/x/xerrors"
 
 	"github.com/filecoin-project/dagstore"
@@ -59,6 +60,10 @@ func (m *MockDagStoreWrapper) RegisterShard(ctx context.Context, pieceCid cid.Ci
 
 	resch <- dagstore.ShardResult{}
 	return nil
+}
+
+func (m *MockDagStoreWrapper) GetIterableIndexForPiece(c cid.Cid) (carindex.IterableIndex, error) {
+	return nil, nil
 }
 
 func (m *MockDagStoreWrapper) MigrateDeals(ctx context.Context, deals []storagemarket.MinerDeal) (bool, error) {

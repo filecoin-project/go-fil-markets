@@ -38,6 +38,7 @@ type ProviderDealEnvironment interface {
 	ReadCAR(path string) (*carv2.Reader, error)
 
 	RegisterShard(ctx context.Context, pieceCid cid.Cid, path string, eagerInit bool) error
+	AnnounceIndex(ctx context.Context, deal storagemarket.MinerDeal) error
 
 	FinalizeBlockstore(proposalCid cid.Cid) error
 	TerminateBlockstore(proposalCid cid.Cid, path string) error
@@ -365,6 +366,11 @@ func HandoffDeal(ctx fsm.Context, environment ProviderDealEnvironment, deal stor
 	if err := environment.RegisterShard(ctx.Context(), deal.Proposal.PieceCID, carFilePath, true); err != nil {
 		err = xerrors.Errorf("failed to activate shard: %w", err)
 		log.Error(err)
+	} else {
+		// announce the deal to the network indexer
+		if err := environment.AnnounceIndex(ctx.Context(), deal); err != nil {
+			log.Errorw("failed to announce index via reference provider", "proposalCid", deal.ProposalCid, "err", err)
+		}
 	}
 
 	log.Infow("successfully handed off deal to sealing subsystem", "pieceCid", deal.Proposal.PieceCID, "proposalCid", deal.ProposalCid)

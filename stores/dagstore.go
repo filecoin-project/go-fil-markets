@@ -6,6 +6,7 @@ import (
 
 	"github.com/ipfs/go-cid"
 	bstore "github.com/ipfs/go-ipfs-blockstore"
+	carindex "github.com/ipld/go-car/v2/index"
 
 	"github.com/filecoin-project/dagstore"
 
@@ -36,6 +37,8 @@ type DAGStoreWrapper interface {
 	// GetPiecesContainingBlock returns the CID of all pieces that contain
 	// the block with the given CID
 	GetPiecesContainingBlock(blockCID cid.Cid) ([]cid.Cid, error)
+
+	GetIterableIndexForPiece(pieceCid cid.Cid) (carindex.IterableIndex, error)
 
 	// Close closes the dag store wrapper.
 	Close() error

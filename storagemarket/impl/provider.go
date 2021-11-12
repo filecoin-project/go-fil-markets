@@ -24,6 +24,8 @@ import (
 	"github.com/filecoin-project/go-state-types/crypto"
 	"github.com/filecoin-project/go-state-types/exitcode"
 	"github.com/filecoin-project/go-statemachine/fsm"
+	provider "github.com/filecoin-project/indexer-reference-provider"
+	metadata2 "github.com/filecoin-project/indexer-reference-provider/metadata"
 
 	"github.com/filecoin-project/go-fil-markets/filestore"
 	"github.com/filecoin-project/go-fil-markets/piecestore"
@@ -68,8 +70,9 @@ type Provider struct {
 
 	unsubDataTransfer datatransfer.Unsubscribe
 
-	dagStore stores.DAGStoreWrapper
-	stores   *stores.ReadWriteBlockstores
+	dagStore      stores.DAGStoreWrapper
+	indexProvider provider.Interface
+	stores        *stores.ReadWriteBlockstores
 }
 
 // StorageProviderOption allows custom configuration of a storage provider
@@ -96,6 +99,7 @@ func NewProvider(net network.StorageMarketNetwork,
 	ds datastore.Batching,
 	fs filestore.FileStore,
 	dagStore stores.DAGStoreWrapper,
+	indexer provider.Interface,
 	pieceStore piecestore.PieceStore,
 	dataTransfer datatransfer.Manager,
 	spn storagemarket.StorageProviderNode,
@@ -104,18 +108,19 @@ func NewProvider(net network.StorageMarketNetwork,
 	options ...StorageProviderOption,
 ) (storagemarket.StorageProvider, error) {
 	h := &Provider{
-		net:          net,
-		spn:          spn,
-		fs:           fs,
-		pieceStore:   pieceStore,
-		conns:        connmanager.NewConnManager(),
-		storedAsk:    storedAsk,
-		actor:        minerAddress,
-		dataTransfer: dataTransfer,
-		pubSub:       pubsub.New(providerDispatcher),
-		readyMgr:     shared.NewReadyManager(),
-		dagStore:     dagStore,
-		stores:       stores.NewReadWriteBlockstores(),
+		indexProvider: indexer,
+		net:           net,
+		spn:           spn,
+		fs:            fs,
+		pieceStore:    pieceStore,
+		conns:         connmanager.NewConnManager(),
+		storedAsk:     storedAsk,
+		actor:         minerAddress,
+		dataTransfer:  dataTransfer,
+		pubSub:        pubsub.New(providerDispatcher),
+		readyMgr:      shared.NewReadyManager(),
+		dagStore:      dagStore,
+		stores:        stores.NewReadWriteBlockstores(),
 	}
 	storageMigrations, err := migrations.ProviderMigrations.Build()
 	if err != nil {
@@ -136,7 +141,8 @@ func NewProvider(net network.StorageMarketNetwork,
 	// register a data transfer event handler -- this will send events to the state machines based on DT events
 	h.unsubDataTransfer = dataTransfer.SubscribeToEvents(dtutils.ProviderDataTransferSubscriber(h.deals))
 
-	err = dataTransfer.RegisterVoucherType(&requestvalidation.StorageDataTransferVoucher{}, requestvalidation.NewUnifiedRequestValidator(&providerPushDeals{h}, nil))
+	pph := &providerPushDeals{h}
+	err = dataTransfer.RegisterVoucherType(&requestvalidation.StorageDataTransferVoucher{}, requestvalidation.NewUnifiedRequestValidator(pph, nil))
 	if err != nil {
 		return nil, err
 	}
@@ -419,6 +425,28 @@ func (p *Provider) SetAsk(price abi.TokenAmount, verifiedPrice abi.TokenAmount, 
 	return p.storedAsk.SetAsk(price, verifiedPrice, duration, options...)
 }
 
+// AnnounceDealToIndexer informs indexer nodes that a new deal was received,
+// so they can download its index
+func (p *Provider) AnnounceDealToIndexer(ctx context.Context, proposalCid cid.Cid) error {
+	var deal storagemarket.MinerDeal
+	if err := p.deals.Get(proposalCid).Get(&deal); err != nil {
+		return xerrors.Errorf("failed getting deal %s: %w", proposalCid, err)
+	}
+
+	fm := metadata2.FilecoinV1Data{
+		PieceCID:      deal.Proposal.PieceCID,
+		FastRetrieval: deal.FastRetrieval,
+		IsFree:        deal.Proposal.VerifiedDeal,
+	}
+	dtm, err := fm.Encode(metadata2.GraphSyncV1)
+	if err != nil {
+		return fmt.Errorf("failed to encode metadata: %w", err)
+	}
+
+	_, err = p.indexProvider.NotifyPut(ctx, deal.ProposalCid.Bytes(), dtm.ToIndexerMetadata())
+	return err
+}
+
 /*
 HandleAskStream is called by the network implementation whenever a new message is received on the ask protocol
 
@@ -594,6 +622,31 @@ func (p *Provider) start(ctx context.Context) error {
 	if err := p.restartDeals(deals); err != nil {
 		return fmt.Errorf("failed to restart deals: %w", err)
 	}
+
+	// register indexer provider callback now that everything has booted up.
+	p.indexProvider.RegisterCallback(func(ctx context.Context, contextID []byte) (provider.MultihashIterator, error) {
+		proposalCid, err := cid.Cast(contextID)
+		if err != nil {
+			return nil, fmt.Errorf("failed to cast context ID to a cid")
+		}
+
+		var deal storagemarket.MinerDeal
+		if err := p.deals.Get(proposalCid).Get(&deal); err != nil {
+			return nil, xerrors.Errorf("failed getting deal %s: %w", proposalCid, err)
+		}
+
+		ii, err := p.dagStore.GetIterableIndexForPiece(deal.Proposal.PieceCID)
+		if err != nil {
+			return nil, fmt.Errorf("failed to get iterable index: %w", err)
+		}
+
+		mhi, err := provider.CarMultihashIterator(ii)
+		if err != nil {
+			return nil, fmt.Errorf("failed to get mhiterator: %w", err)
+		}
+		return mhi, nil
+	})
+
 	return nil
 }
 
