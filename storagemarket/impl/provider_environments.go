@@ -17,7 +17,7 @@ import (
 	commcid "github.com/filecoin-project/go-fil-commcid"
 	commp "github.com/filecoin-project/go-fil-commp-hashhash"
 	"github.com/filecoin-project/go-state-types/abi"
-	metadata2 "github.com/filecoin-project/indexer-reference-provider/metadata"
+	metadata2 "github.com/filecoin-project/index-provider/metadata"
 
 	"github.com/filecoin-project/go-fil-markets/filestore"
 	"github.com/filecoin-project/go-fil-markets/piecestore"
@@ -45,7 +45,7 @@ func (p *providerDealEnvironment) AnnounceIndex(ctx context.Context, deal storag
 	fm := metadata2.FilecoinV1Data{
 		PieceCID:      deal.Proposal.PieceCID,
 		FastRetrieval: deal.FastRetrieval,
-		IsFree:        deal.Proposal.VerifiedDeal,
+		VerifiedDeal:  deal.Proposal.VerifiedDeal,
 	}
 	dtm, err := fm.Encode(metadata2.GraphSyncV1)
 	if err != nil {

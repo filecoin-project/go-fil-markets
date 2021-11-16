@@ -24,8 +24,8 @@ import (
 	"github.com/filecoin-project/go-state-types/crypto"
 	"github.com/filecoin-project/go-state-types/exitcode"
 	"github.com/filecoin-project/go-statemachine/fsm"
-	provider "github.com/filecoin-project/indexer-reference-provider"
-	metadata2 "github.com/filecoin-project/indexer-reference-provider/metadata"
+	provider "github.com/filecoin-project/index-provider"
+	metadata2 "github.com/filecoin-project/index-provider/metadata"
 
 	"github.com/filecoin-project/go-fil-markets/filestore"
 	"github.com/filecoin-project/go-fil-markets/piecestore"
@@ -440,7 +440,7 @@ func (p *Provider) AnnounceDealToIndexer(ctx context.Context, proposalCid cid.Ci
 	fm := metadata2.FilecoinV1Data{
 		PieceCID:      deal.Proposal.PieceCID,
 		FastRetrieval: deal.FastRetrieval,
-		IsFree:        deal.Proposal.VerifiedDeal,
+		VerifiedDeal:  deal.Proposal.VerifiedDeal,
 	}
 	dtm, err := fm.Encode(metadata2.GraphSyncV1)
 	if err != nil {

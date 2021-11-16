@@ -6,7 +6,7 @@ import (
 
 	"github.com/ipfs/go-cid"
 
-	provider "github.com/filecoin-project/indexer-reference-provider"
+	provider "github.com/filecoin-project/index-provider"
 	stiapi "github.com/filecoin-project/storetheindex/api/v0"
 )
 
