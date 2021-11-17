@@ -7,7 +7,7 @@ require (
 	github.com/filecoin-project/go-address v0.0.5
 	github.com/filecoin-project/go-cbor-util v0.0.0-20191219014500-08c40a1e63a2
 	github.com/filecoin-project/go-commp-utils v0.1.1-0.20210427191551-70bf140d31c7
-	github.com/filecoin-project/go-data-transfer v1.11.6-0.20211116162442-2d8068920bda
+	github.com/filecoin-project/go-data-transfer v1.11.6
 	github.com/filecoin-project/go-ds-versioning v0.1.0
 	github.com/filecoin-project/go-fil-commcid v0.1.0
 	github.com/filecoin-project/go-fil-commp-hashhash v0.1.0
@@ -15,7 +15,7 @@ require (
 	github.com/filecoin-project/go-state-types v0.1.1-0.20210506134452-99b279731c48
 	github.com/filecoin-project/go-statemachine v0.0.0-20200925024713-05bd7c71fbfe
 	github.com/filecoin-project/go-statestore v0.1.1
-	github.com/filecoin-project/index-provider v0.0.0-20211116104945-9f8f1785e3c2
+	github.com/filecoin-project/index-provider v0.0.0-20211116211010-ae6b83454d89
 	github.com/filecoin-project/specs-actors v0.9.13
 	github.com/filecoin-project/specs-actors/v2 v2.3.5-0.20210114162132-5b58b773f4fb
 	github.com/filecoin-project/storetheindex v0.0.0-20211019180831-2704585e5f99
