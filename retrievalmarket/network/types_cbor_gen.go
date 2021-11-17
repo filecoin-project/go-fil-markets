@@ -111,7 +111,7 @@ func (t *AskResponse) MarshalCBOR(w io.Writer) error {
 
 	scratch := make([]byte, 9)
 
-	// t.Ask (retrievalmarket.SignedRetrievalAsk) (struct)
+	// t.Ask (retrievalmarket.Ask) (struct)
 	if len("Ask") > cbg.MaxLength {
 		return xerrors.Errorf("Value in field \"Ask\" was too long")
 	}
@@ -162,7 +162,7 @@ func (t *AskResponse) UnmarshalCBOR(r io.Reader) error {
 		}
 
 		switch name {
-		// t.Ask (retrievalmarket.SignedRetrievalAsk) (struct)
+		// t.Ask (retrievalmarket.Ask) (struct)
 		case "Ask":
 
 			{
@@ -175,7 +175,7 @@ func (t *AskResponse) UnmarshalCBOR(r io.Reader) error {
 					if err := br.UnreadByte(); err != nil {
 						return err
 					}
-					t.Ask = new(retrievalmarket.SignedRetrievalAsk)
+					t.Ask = new(retrievalmarket.Ask)
 					if err := t.Ask.UnmarshalCBOR(br); err != nil {
 						return xerrors.Errorf("unmarshaling t.Ask pointer: %w", err)
 					}

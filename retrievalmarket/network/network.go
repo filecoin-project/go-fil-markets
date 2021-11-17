@@ -17,7 +17,7 @@ import (
 type RetrievalAskStream interface {
 	ReadAskRequest() (AskRequest, error)
 	WriteAskRequest(AskRequest) error
-	ReadAskResponse() (AskResponse, []byte, error)
+	ReadAskResponse() (AskResponse, error)
 	WriteAskResponse(AskResponse) error
 	Close() error
 }

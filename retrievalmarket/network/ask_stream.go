@@ -3,11 +3,10 @@ package network
 import (
 	"bufio"
 
+	cborutil "github.com/filecoin-project/go-cbor-util"
 	"github.com/libp2p/go-libp2p-core/mux"
 	"github.com/libp2p/go-libp2p-core/peer"
-	"golang.org/x/xerrors"
-
-	cborutil "github.com/filecoin-project/go-cbor-util"
+	xerrors "golang.org/x/xerrors"
 )
 
 // askStream implements the RetrievalAskStream interface.
@@ -36,22 +35,16 @@ func (as *askStream) WriteAskRequest(q AskRequest) error {
 	return cborutil.WriteCborRPC(as.rw, &q)
 }
 
-func (as *askStream) ReadAskResponse() (AskResponse, []byte, error) {
+func (as *askStream) ReadAskResponse() (AskResponse, error) {
 	var resp AskResponse
 
 	if err := resp.UnmarshalCBOR(as.buffered); err != nil {
 		err = xerrors.Errorf("unmarshalling ask response buffer: %w", err)
 		log.Warn(err)
-		return AskResponseUndefined, nil, err
+		return AskResponseUndefined, err
 	}
 
-	origBytes, err := cborutil.Dump(resp.Ask.Ask)
-	if err != nil {
-		err = xerrors.Errorf("remarshalling ask response: %w", err)
-		log.Warn(err)
-		return AskResponseUndefined, nil, err
-	}
-	return resp, origBytes, nil
+	return resp, nil
 }
 
 func (as *askStream) WriteAskResponse(qr AskResponse) error {

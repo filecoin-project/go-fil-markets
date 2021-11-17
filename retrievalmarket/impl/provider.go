@@ -136,7 +136,7 @@ func NewProvider(minerAddress address.Address,
 	}
 
 	askStoreDS := namespace.Wrap(ds, datastore.NewKey("retrieval-ask"))
-	askStore, err := askstore.NewAskStore(askStoreDS, datastore.NewKey("latest"), node, minerAddress)
+	askStore, err := askstore.NewAskStore(askStoreDS, datastore.NewKey("latest"))
 	if err != nil {
 		return nil, err
 	}
@@ -288,13 +288,13 @@ func (p *Provider) HandleAskStream(s rmnet.RetrievalAskStream) {
 		return
 	}
 
-	var ask *retrievalmarket.SignedRetrievalAsk
+	var ask *retrievalmarket.Ask
 	if p.minerAddress != ar.Miner {
 		// Request is for the ask of a different miner, just return nil ask
 		log.Warnf("retrieval provider for address %s received ask for miner with address %s", p.minerAddress, ar.Miner)
 	} else {
 		// Get the retrieval ask from the ask store
-		ask, err = p.askStore.GetSignedAsk()
+		ask = p.askStore.GetAsk()
 		if err != nil {
 			log.Errorf("failed to get signed ask from ask store: %s", err)
 			return

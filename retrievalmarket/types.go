@@ -17,13 +17,12 @@ import (
 	datatransfer "github.com/filecoin-project/go-data-transfer"
 	"github.com/filecoin-project/go-state-types/abi"
 	"github.com/filecoin-project/go-state-types/big"
-	"github.com/filecoin-project/go-state-types/crypto"
 	"github.com/filecoin-project/specs-actors/actors/builtin/paych"
 
 	"github.com/filecoin-project/go-fil-markets/piecestore"
 )
 
-//go:generate cbor-gen-for --map-encoding Query QueryResponse DealProposal DealResponse Params QueryParams DealPayment ClientDealState ProviderDealState PaymentInfo RetrievalPeer Ask SignedRetrievalAsk
+//go:generate cbor-gen-for --map-encoding Query QueryResponse DealProposal DealResponse Params QueryParams DealPayment ClientDealState ProviderDealState PaymentInfo RetrievalPeer Ask
 
 // QueryProtocolID is the protocol for querying information about retrieval
 // deal parameters
@@ -122,12 +121,6 @@ type RetrievalPeer struct {
 	Address  address.Address
 	ID       peer.ID // optional
 	PieceCID *cid.Cid
-}
-
-// SignedRetrievalAsk is an ask signed by the miner's private key
-type SignedRetrievalAsk struct {
-	Ask       *Ask
-	Signature *crypto.Signature
 }
 
 // QueryResponseStatus indicates whether a queried piece is available

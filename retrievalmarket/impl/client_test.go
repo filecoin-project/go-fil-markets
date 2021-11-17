@@ -24,8 +24,6 @@ import (
 	datatransfer "github.com/filecoin-project/go-data-transfer"
 	"github.com/filecoin-project/go-state-types/abi"
 	"github.com/filecoin-project/go-state-types/big"
-	"github.com/filecoin-project/go-state-types/crypto"
-	tutils "github.com/filecoin-project/specs-actors/v2/support/testing"
 
 	"github.com/filecoin-project/go-fil-markets/retrievalmarket"
 	retrievalimpl "github.com/filecoin-project/go-fil-markets/retrievalmarket/impl"
@@ -75,7 +73,6 @@ func TestClient_QueryAsk(t *testing.T) {
 	ba := tut.NewTestRetrievalBlockstoreAccessor()
 
 	expectedPeer := peer.ID("somevalue")
-	workerAddress := tutils.NewActorAddr(t, "worker")
 	rpeer := retrievalmarket.RetrievalPeer{
 		Address: address.TestAddress2,
 		ID:      expectedPeer,
@@ -92,13 +89,7 @@ func TestClient_QueryAsk(t *testing.T) {
 		net := tut.NewTestRetrievalMarketNetwork(tut.TestNetworkParams{
 			AskStreamBuilder: func() rmnet.RetrievalAskStream {
 				askResponse := rmnet.AskResponse{
-					Ask: &retrievalmarket.SignedRetrievalAsk{
-						Ask: expectedAsk,
-						Signature: &crypto.Signature{
-							Type: crypto.SigTypeSecp256k1,
-							Data: []byte("sig"),
-						},
-					},
+					Ask: expectedAsk,
 				}
 				return tut.NewTestRetrievalAskStream(askResponse)
 			},
@@ -108,7 +99,7 @@ func TestClient_QueryAsk(t *testing.T) {
 		c, err := retrievalimpl.NewClient(net, dt, node, &tut.TestPeerResolver{}, ds, ba)
 		require.NoError(t, err)
 
-		resp, err := c.GetAsk(ctx, rpeer, workerAddress)
+		resp, err := c.GetAsk(ctx, rpeer)
 		require.NoError(t, err)
 		assert.NotNil(t, resp)
 		assert.Equal(t, expectedAsk, resp)

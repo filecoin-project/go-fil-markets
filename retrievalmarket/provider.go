@@ -36,6 +36,5 @@ type RetrievalProvider interface {
 // AskStore is an interface which provides access to a persisted retrieval Ask
 type AskStore interface {
 	GetAsk() *Ask
-	GetSignedAsk() (*SignedRetrievalAsk, error)
 	SetAsk(ask *Ask) error
 }

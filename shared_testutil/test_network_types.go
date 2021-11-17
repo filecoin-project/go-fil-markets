@@ -36,8 +36,8 @@ func (t *TestRetrievalAskStream) WriteAskRequest(request rmnet.AskRequest) error
 	return nil
 }
 
-func (t *TestRetrievalAskStream) ReadAskResponse() (rmnet.AskResponse, []byte, error) {
-	return t.askResponse, nil, nil
+func (t *TestRetrievalAskStream) ReadAskResponse() (rmnet.AskResponse, error) {
+	return t.askResponse, nil
 }
 
 func (t *TestRetrievalAskStream) WriteAskResponse(response rmnet.AskResponse) error {

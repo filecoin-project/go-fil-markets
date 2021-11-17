@@ -5,14 +5,14 @@ import (
 	"testing"
 	"time"
 
+	"github.com/filecoin-project/go-address"
+
 	"github.com/libp2p/go-libp2p-core/peer"
 	"github.com/libp2p/go-libp2p-core/protocol"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/filecoin-project/go-address"
 	"github.com/filecoin-project/go-state-types/abi"
-	"github.com/filecoin-project/go-state-types/crypto"
 
 	"github.com/filecoin-project/go-fil-markets/retrievalmarket"
 	"github.com/filecoin-project/go-fil-markets/retrievalmarket/network"
@@ -289,8 +289,7 @@ func assertAskReceived(inCtx context.Context, t *testing.T, fromNetwork network.
 	require.NoError(t, err)
 
 	// send query to host2
-	miner := address.TestAddress
-	err = askStream.WriteAskRequest(network.AskRequest{Miner: miner})
+	err = askStream.WriteAskRequest(network.AskRequest{Miner: address.TestAddress})
 	require.NoError(t, err)
 
 	var inreq network.AskRequest
@@ -300,7 +299,6 @@ func assertAskReceived(inCtx context.Context, t *testing.T, fromNetwork network.
 	case inreq = <-reqchan:
 	}
 	require.NotNil(t, inreq)
-	assert.Equal(t, miner, inreq.Miner)
 }
 
 func TestAskStreamSendReceiveAskResponse(t *testing.T) {
@@ -318,7 +316,7 @@ func TestAskStreamSendReceiveAskResponse(t *testing.T) {
 	// host2 gets receiver
 	reschan := make(chan network.AskResponse)
 	tr2 := &testReceiver{t: t, askStreamHandler: func(s network.RetrievalAskStream) {
-		res, _, err := s.ReadAskResponse()
+		res, err := s.ReadAskResponse()
 		require.NoError(t, err)
 		reschan <- res
 	}}
@@ -337,17 +335,11 @@ func assertAskResponseReceived(inCtx context.Context, t *testing.T, fromNetwork 
 
 	// send queryresponse to host2
 	resp := network.AskResponse{
-		Ask: &retrievalmarket.SignedRetrievalAsk{
-			Ask: &retrievalmarket.Ask{
-				PricePerByte:            abi.NewTokenAmount(10),
-				UnsealPrice:             abi.NewTokenAmount(5),
-				PaymentInterval:         10,
-				PaymentIntervalIncrease: 20,
-			},
-			Signature: &crypto.Signature{
-				Type: crypto.SigTypeSecp256k1,
-				Data: []byte("sig"),
-			},
+		Ask: &retrievalmarket.Ask{
+			PricePerByte:            abi.NewTokenAmount(10),
+			UnsealPrice:             abi.NewTokenAmount(5),
+			PaymentInterval:         10,
+			PaymentIntervalIncrease: 20,
 		},
 	}
 	require.NoError(t, askStream.WriteAskResponse(resp))
