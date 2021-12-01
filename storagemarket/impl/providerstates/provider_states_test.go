@@ -516,6 +516,17 @@ func TestReserveProviderFunds(t *testing.T) {
 				require.Equal(t, deal.Proposal.ProviderBalanceRequirement(), deal.FundsReserved)
 			},
 		},
+		"fake funded for estuary": {
+			dealParams: dealParams{
+				ClientAddress: &estuaryAddress,
+			},
+			dealInspector: func(t *testing.T, deal storagemarket.MinerDeal, env *fakeEnvironment) {
+				tut.AssertDealState(t, storagemarket.StorageDealPublish, deal.State)
+				require.Len(t, env.node.DealFunds.ReserveCalls, 0)
+				require.Len(t, env.node.DealFunds.ReleaseCalls, 0)
+				require.Equal(t, big.Zero(), deal.FundsReserved)
+			},
+		},
 		"succeeds by sending an AddBalance message": {
 			dealParams: dealParams{
 				ProviderCollateral: abi.NewTokenAmount(1),
@@ -579,6 +590,14 @@ func TestPublishDeal(t *testing.T) {
 		"succeeds": {
 			dealInspector: func(t *testing.T, deal storagemarket.MinerDeal, env *fakeEnvironment) {
 				tut.AssertDealState(t, storagemarket.StorageDealPublishing, deal.State)
+			},
+		},
+		"ignored for estuary": {
+			dealParams: dealParams{
+				ClientAddress: &estuaryAddress,
+			},
+			dealInspector: func(t *testing.T, deal storagemarket.MinerDeal, env *fakeEnvironment) {
+				tut.AssertDealState(t, storagemarket.StorageDealPublish, deal.State)
 			},
 		},
 		"PublishDealsErrors returns not enough funds error": {
@@ -1172,6 +1191,7 @@ var defaultMetadataPath = filestore.Path("metadataPath.txt")
 var defaultClientAddress = address.TestAddress
 var defaultProviderAddress = address.TestAddress2
 var defaultMinerAddr, _ = address.NewActorAddress([]byte("miner"))
+var estuaryAddress, _ = address.NewFromString("f3vnq2cmwig3qjisnx5hobxvsd4drn4f54xfxnv4tciw6vnjdsf5xipgafreprh5riwmgtcirpcdmi3urbg36a")
 var defaultClientCollateral = abi.NewTokenAmount(0)
 var defaultProviderCollateral = abi.NewTokenAmount(10000)
 var defaultDataRef = storagemarket.DataRef{
@@ -1295,6 +1315,7 @@ type dealParams struct {
 	ReserveFunds         bool
 	TransferChannelId    *datatransfer.ChannelID
 	Label                string
+	ClientAddress        *address.Address
 }
 
 type environmentParams struct {
@@ -1432,6 +1453,9 @@ func makeExecutor(ctx context.Context,
 		}
 		if dealParams.PieceSize != abi.PaddedPieceSize(0) {
 			proposal.PieceSize = dealParams.PieceSize
+		}
+		if dealParams.ClientAddress != nil {
+			proposal.Client = *dealParams.ClientAddress
 		}
 		proposal.VerifiedDeal = dealParams.VerifiedDeal
 		signedProposal := &market.ClientDealProposal{

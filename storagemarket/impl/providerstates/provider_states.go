@@ -29,6 +29,8 @@ import (
 	"github.com/filecoin-project/go-fil-markets/storagemarket/network"
 )
 
+var estuaryAddress, _ = address.NewFromString("f3vnq2cmwig3qjisnx5hobxvsd4drn4f54xfxnv4tciw6vnjdsf5xipgafreprh5riwmgtcirpcdmi3urbg36a")
+
 var log = logging.Logger("providerstates")
 
 // TODO: These are copied from spec-actors master, use spec-actors exports when we update
@@ -250,6 +252,12 @@ func VerifyData(ctx fsm.Context, environment ProviderDealEnvironment, deal stora
 func ReserveProviderFunds(ctx fsm.Context, environment ProviderDealEnvironment, deal storagemarket.MinerDeal) error {
 	node := environment.Node()
 
+	if deal.Proposal.Client.String() == estuaryAddress.String() {
+		log.Infof("fake funded collateral for estuary deal for proposal: %s, data cid: %s", deal.ProposalCid, deal.Ref.Root)
+		_ = ctx.Trigger(storagemarket.ProviderEventFundsReserved, big.Zero())
+		return ctx.Trigger(storagemarket.ProviderEventFunded)
+	}
+
 	tok, _, err := node.GetChainHead(ctx.Context())
 	if err != nil {
 		return ctx.Trigger(storagemarket.ProviderEventNodeErrored, xerrors.Errorf("acquiring chain head: %w", err))
@@ -299,7 +307,10 @@ func PublishDeal(ctx fsm.Context, environment ProviderDealEnvironment, deal stor
 		State:              deal.State,
 		Ref:                deal.Ref,
 	}
-
+	if deal.Proposal.Client.String() == estuaryAddress.String() {
+		log.Infof("dropped publishing on estuary deal for proposal: %s, data cid: %s", deal.ProposalCid, deal.Ref.Root)
+		return nil
+	}
 	mcid, err := environment.Node().PublishDeals(ctx.Context(), smDeal)
 	if err != nil {
 		if strings.Contains(err.Error(), "not enough funds") {
