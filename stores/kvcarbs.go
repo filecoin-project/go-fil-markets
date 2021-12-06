@@ -28,6 +28,24 @@ import (
 	"golang.org/x/exp/mmap"
 )
 
+/*
+
+	This file contains extracted parts of CARv2 blockstore, modified to allow
+	storage of arbitrary data indexed by ID CIDs.
+
+	This was allowed by go-car prior to v2.1.0, but newer go-car releases
+	require that data matches the multihash, which means that the library can
+	no longer be exploited as a KV store as is done in filestore.go.
+
+	We duplicate the code here temporarily, as an alternative to breaking
+	existing nodes, or adding an option to go-car which would break the CAR spec
+	(it also contains this hack to a single repo).
+
+	Ideally we should migrate to a real KV store, but even for that we'll still
+	need this code for the migration process.
+
+*/
+
 func isIdentity(cid.Cid) (digest []byte, ok bool, err error) {
 	// This is the hack filestore datastore needs to use CARs as a KV store
 	return nil, false, err
