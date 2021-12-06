@@ -17,7 +17,7 @@ import (
 // blockstore, and fronts it with a Filestore whose positional mappings are
 // stored inside the CAR itself. It must be closed after done.
 func ReadOnlyFilestore(path string) (ClosableBlockstore, error) {
-	ro, err := blockstore.OpenReadOnly(path,
+	ro, err := OpenReadOnly(path,
 		carv2.ZeroLengthSectionAsEOF(true),
 		blockstore.UseWholeCIDs(true),
 	)
@@ -39,7 +39,7 @@ func ReadOnlyFilestore(path string) (ClosableBlockstore, error) {
 // stored inside the CAR itself. It must be closed after done. Closing will
 // finalize the CAR blockstore.
 func ReadWriteFilestore(path string, roots ...cid.Cid) (ClosableBlockstore, error) {
-	rw, err := blockstore.OpenReadWrite(path, roots,
+	rw, err := OpenReadWrite(path, roots,
 		carv2.ZeroLengthSectionAsEOF(true),
 		blockstore.UseWholeCIDs(true),
 	)
