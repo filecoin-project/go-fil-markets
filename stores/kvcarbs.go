@@ -46,10 +46,23 @@ import (
 
 */
 
+// Modified vs go-car/v2
 func isIdentity(cid.Cid) (digest []byte, ok bool, err error) {
+	/*
+		dmh, err := multihash.Decode(key.Hash())
+		if err != nil {
+			return nil, false, err
+		}
+		ok = dmh.Code == multihash.IDENTITY
+		digest = dmh.Digest
+		return digest, ok, nil
+	*/
+
 	// This is the hack filestore datastore needs to use CARs as a KV store
 	return nil, false, err
 }
+
+// Code below was copied from go-car/v2
 
 var (
 	_ io.ReaderAt   = (*OffsetReadSeeker)(nil)
