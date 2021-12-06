@@ -1,5 +1,16 @@
 # go-fil-markets changelog
 
+# go-fil-markets 1.13.4
+
+- github.com/filecoin-project/go-fil-markets:
+  - Update go-car to v2.1.0  (#650) ([filecoin-project/go-fil-markets#650](https://github.com/filecoin-project/go-fil-markets/pull/650))
+
+Contributors
+
+| Contributor | Commits | Lines ± | Files Changed |
+|-------------|---------|---------|---------------|
+| Łukasz Magiera | 1 | +1670/-6 | 4 |
+
 # go-fil-markets 1.13.3
 
 - github.com/filecoin-project/go-fil-markets:
