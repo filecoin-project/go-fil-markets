@@ -25,40 +25,40 @@ func newLazyBlockstore(load func() (dagstore.ReadBlockstore, error)) *lazyBlocks
 	}
 }
 
-func (l *lazyBlockstore) DeleteBlock(c cid.Cid) error {
+func (l *lazyBlockstore) DeleteBlock(ctx context.Context, c cid.Cid) error {
 	panic("cannot call DeleteBlock on read-only blockstore")
 }
 
-func (l *lazyBlockstore) Put(block blocks.Block) error {
+func (l *lazyBlockstore) Put(ctx context.Context, block blocks.Block) error {
 	panic("cannot call Put on read-only blockstore")
 }
 
-func (l *lazyBlockstore) PutMany(blocks []blocks.Block) error {
+func (l *lazyBlockstore) PutMany(ctx context.Context, blocks []blocks.Block) error {
 	panic("cannot call PutMany on read-only blockstore")
 }
 
-func (l *lazyBlockstore) Has(c cid.Cid) (bool, error) {
+func (l *lazyBlockstore) Has(ctx context.Context, c cid.Cid) (bool, error) {
 	bs, err := l.init()
 	if err != nil {
 		return false, err
 	}
-	return bs.Has(c)
+	return bs.Has(ctx, c)
 }
 
-func (l *lazyBlockstore) Get(c cid.Cid) (blocks.Block, error) {
+func (l *lazyBlockstore) Get(ctx context.Context, c cid.Cid) (blocks.Block, error) {
 	bs, err := l.init()
 	if err != nil {
 		return nil, err
 	}
-	return bs.Get(c)
+	return bs.Get(ctx, c)
 }
 
-func (l *lazyBlockstore) GetSize(c cid.Cid) (int, error) {
+func (l *lazyBlockstore) GetSize(ctx context.Context, c cid.Cid) (int, error) {
 	bs, err := l.init()
 	if err != nil {
 		return 0, err
 	}
-	return bs.GetSize(c)
+	return bs.GetSize(ctx, c)
 }
 
 func (l *lazyBlockstore) AllKeysChan(ctx context.Context) (<-chan cid.Cid, error) {

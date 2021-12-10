@@ -115,7 +115,7 @@ func NewTestIPLDTree() TestIPLDTree {
 }
 
 // Get makes a test tree behave like a block read store
-func (tt TestIPLDTree) Get(c cid.Cid) (blocks.Block, error) {
+func (tt TestIPLDTree) Get(ctx context.Context, c cid.Cid) (blocks.Block, error) {
 	data, ok := tt.Storage[cidlink.Link{Cid: c}]
 	if !ok {
 		return nil, errors.New("No block found")

@@ -57,9 +57,9 @@ func (l *Local) OnReady(ready shared.ReadyFunc) {
 	l.readySub.Subscribe(ready)
 }
 
-func (l *Local) AddPeer(cid cid.Cid, peer retrievalmarket.RetrievalPeer) error {
+func (l *Local) AddPeer(ctx context.Context, cid cid.Cid, peer retrievalmarket.RetrievalPeer) error {
 	key := dshelp.MultihashToDsKey(cid.Hash())
-	exists, err := l.ds.Has(key)
+	exists, err := l.ds.Has(ctx, key)
 	if err != nil {
 		return err
 	}
@@ -73,7 +73,7 @@ func (l *Local) AddPeer(cid cid.Cid, peer retrievalmarket.RetrievalPeer) error {
 			return err
 		}
 	} else {
-		entry, err := l.ds.Get(key)
+		entry, err := l.ds.Get(ctx, key)
 		if err != nil {
 			return err
 		}
@@ -91,7 +91,7 @@ func (l *Local) AddPeer(cid cid.Cid, peer retrievalmarket.RetrievalPeer) error {
 		}
 	}
 
-	return l.ds.Put(key, newRecord.Bytes())
+	return l.ds.Put(ctx, key, newRecord.Bytes())
 }
 
 func hasPeer(peerList discovery.RetrievalPeers, peer retrievalmarket.RetrievalPeer) bool {
@@ -104,7 +104,7 @@ func hasPeer(peerList discovery.RetrievalPeers, peer retrievalmarket.RetrievalPe
 }
 
 func (l *Local) GetPeers(payloadCID cid.Cid) ([]retrievalmarket.RetrievalPeer, error) {
-	entry, err := l.ds.Get(dshelp.MultihashToDsKey(payloadCID.Hash()))
+	entry, err := l.ds.Get(context.TODO(), dshelp.MultihashToDsKey(payloadCID.Hash()))
 	if err == datastore.ErrNotFound {
 		return []retrievalmarket.RetrievalPeer{}, nil
 	}

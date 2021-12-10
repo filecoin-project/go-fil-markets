@@ -754,13 +754,13 @@ func (b *ReadOnly) readBlock(idx int64) (cid.Cid, []byte, error) {
 }
 
 // DeleteBlock is unsupported and always errors.
-func (b *ReadOnly) DeleteBlock(_ cid.Cid) error {
+func (b *ReadOnly) DeleteBlock(_ context.Context, _ cid.Cid) error {
 	return errReadOnly
 }
 
 // Has indicates if the store contains a block that corresponds to the given key.
 // This function always returns true for any given key with multihash.IDENTITY code.
-func (b *ReadOnly) Has(key cid.Cid) (bool, error) {
+func (b *ReadOnly) Has(ctx context.Context, key cid.Cid) (bool, error) {
 	// Check if the given CID has multihash.IDENTITY code
 	// Note, we do this without locking, since there is no shared information to lock for in order to perform the check.
 	if _, ok, err := isIdentity(key); err != nil {
@@ -809,7 +809,7 @@ func (b *ReadOnly) Has(key cid.Cid) (bool, error) {
 
 // Get gets a block corresponding to the given key.
 // This API will always return true if the given key has multihash.IDENTITY code.
-func (b *ReadOnly) Get(key cid.Cid) (blocks.Block, error) {
+func (b *ReadOnly) Get(ctx context.Context, key cid.Cid) (blocks.Block, error) {
 	// Check if the given CID has multihash.IDENTITY code
 	// Note, we do this without locking, since there is no shared information to lock for in order to perform the check.
 	if digest, ok, err := isIdentity(key); err != nil {
@@ -861,7 +861,7 @@ func (b *ReadOnly) Get(key cid.Cid) (blocks.Block, error) {
 }
 
 // GetSize gets the size of an item corresponding to the given key.
-func (b *ReadOnly) GetSize(key cid.Cid) (int, error) {
+func (b *ReadOnly) GetSize(ctx context.Context, key cid.Cid) (int, error) {
 	// Check if the given CID has multihash.IDENTITY code
 	// Note, we do this without locking, since there is no shared information to lock for in order to perform the check.
 	if digest, ok, err := isIdentity(key); err != nil {
@@ -919,12 +919,12 @@ func (b *ReadOnly) GetSize(key cid.Cid) (int, error) {
 }
 
 // Put is not supported and always returns an error.
-func (b *ReadOnly) Put(blocks.Block) error {
+func (b *ReadOnly) Put(context.Context, blocks.Block) error {
 	return errReadOnly
 }
 
 // PutMany is not supported and always returns an error.
-func (b *ReadOnly) PutMany([]blocks.Block) error {
+func (b *ReadOnly) PutMany(context.Context, []blocks.Block) error {
 	return errReadOnly
 }
 
@@ -1156,10 +1156,13 @@ func (ii *insertionIndex) GetAll(c cid.Cid, fn func(uint64) bool) error {
 	return nil
 }
 
-func (ii *insertionIndex) Marshal(w io.Writer) error {
+func (ii *insertionIndex) Marshal(w io.Writer) (uint64, error) {
+	l := uint64(0)
 	if err := binary.Write(w, binary.LittleEndian, int64(ii.items.Len())); err != nil {
-		return err
+		return l, err
 	}
+
+	l += 8
 	var err error
 	iter := func(i llrb.Item) bool {
 		if err = cborg.Encode(w, i.(recordDigest).Record); err != nil {
@@ -1168,7 +1171,7 @@ func (ii *insertionIndex) Marshal(w io.Writer) error {
 		return true
 	}
 	ii.items.AscendGreaterOrEqual(ii.items.Min(), iter)
-	return err
+	return l, err
 }
 
 func (ii *insertionIndex) Unmarshal(r io.Reader) error {
@@ -1519,14 +1522,14 @@ func (b *ReadWrite) unfinalize() error {
 }
 
 // Put puts a given block to the underlying datastore
-func (b *ReadWrite) Put(blk blocks.Block) error {
+func (b *ReadWrite) Put(ctx context.Context, blk blocks.Block) error {
 	// PutMany already checks b.ronly.closed.
-	return b.PutMany([]blocks.Block{blk})
+	return b.PutMany(ctx, []blocks.Block{blk})
 }
 
 // PutMany puts a slice of blocks at the same time using batching
 // capabilities of the underlying datastore whenever possible.
-func (b *ReadWrite) PutMany(blks []blocks.Block) error {
+func (b *ReadWrite) PutMany(ctx context.Context, blks []blocks.Block) error {
 	b.ronly.mu.Lock()
 	defer b.ronly.mu.Unlock()
 
@@ -1616,7 +1619,7 @@ func (b *ReadWrite) Finalize() error {
 	if err != nil {
 		return err
 	}
-	if err := index.WriteTo(fi, NewOffsetWriter(b.f, int64(b.header.IndexOffset))); err != nil {
+	if _, err := index.WriteTo(fi, NewOffsetWriter(b.f, int64(b.header.IndexOffset))); err != nil {
 		return err
 	}
 	if _, err := b.header.WriteTo(NewOffsetWriter(b.f, carv2.PragmaSize)); err != nil {
@@ -1633,19 +1636,19 @@ func (b *ReadWrite) AllKeysChan(ctx context.Context) (<-chan cid.Cid, error) {
 	return b.ronly.AllKeysChan(ctx)
 }
 
-func (b *ReadWrite) Has(key cid.Cid) (bool, error) {
-	return b.ronly.Has(key)
+func (b *ReadWrite) Has(ctx context.Context, key cid.Cid) (bool, error) {
+	return b.ronly.Has(ctx, key)
 }
 
-func (b *ReadWrite) Get(key cid.Cid) (blocks.Block, error) {
-	return b.ronly.Get(key)
+func (b *ReadWrite) Get(ctx context.Context, key cid.Cid) (blocks.Block, error) {
+	return b.ronly.Get(ctx, key)
 }
 
-func (b *ReadWrite) GetSize(key cid.Cid) (int, error) {
-	return b.ronly.GetSize(key)
+func (b *ReadWrite) GetSize(ctx context.Context, key cid.Cid) (int, error) {
+	return b.ronly.GetSize(ctx, key)
 }
 
-func (b *ReadWrite) DeleteBlock(_ cid.Cid) error {
+func (b *ReadWrite) DeleteBlock(_ context.Context, _ cid.Cid) error {
 	return fmt.Errorf("ReadWrite blockstore does not support deleting blocks")
 }
 

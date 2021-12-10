@@ -62,7 +62,7 @@ func TestLocal_AddPeer(t *testing.T) {
 
 			payloadCID := shared_testutil.GenerateCids(1)[0]
 			for _, testpeer := range tc.peers2add {
-				require.NoError(t, l.AddPeer(payloadCID, testpeer))
+				require.NoError(t, l.AddPeer(ctx, payloadCID, testpeer))
 			}
 			actualPeers, err := l.GetPeers(payloadCID)
 			require.NoError(t, err)
@@ -99,7 +99,7 @@ func TestLocalMigrations(t *testing.T) {
 		buf := new(bytes.Buffer)
 		err := rps.MarshalCBOR(buf)
 		require.NoError(t, err)
-		err = ds.Put(dshelp.MultihashToDsKey(c.Hash()), buf.Bytes())
+		err = ds.Put(ctx, dshelp.MultihashToDsKey(c.Hash()), buf.Bytes())
 		require.NoError(t, err)
 	}
 

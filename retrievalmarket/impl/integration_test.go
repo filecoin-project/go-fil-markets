@@ -376,7 +376,7 @@ func TestClientCanMakeDealWithProvider(t *testing.T) {
 			prepared, err := sc.Prepare()
 			require.NoError(t, err)
 			carBuf := new(bytes.Buffer)
-			require.NoError(t, prepared.Dump(carBuf))
+			require.NoError(t, prepared.Dump(context.TODO(), carBuf))
 			carDataBuf := new(bytes.Buffer)
 			tr := io.TeeReader(carBuf, carDataBuf)
 			require.NoError(t, fs.Close())

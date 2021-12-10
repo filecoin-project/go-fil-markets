@@ -2,6 +2,7 @@ package askstore_test
 
 import (
 	"bytes"
+	"context"
 	"math/rand"
 	"testing"
 
@@ -61,7 +62,7 @@ func TestMigrations(t *testing.T) {
 	buf := new(bytes.Buffer)
 	err := oldAsk.MarshalCBOR(buf)
 	require.NoError(t, err)
-	ds.Put(datastore.NewKey("retrieval-ask"), buf.Bytes())
+	ds.Put(context.TODO(), datastore.NewKey("retrieval-ask"), buf.Bytes())
 	newStore, err := askstore.NewAskStore(ds, datastore.NewKey("retrieval-ask"))
 	require.NoError(t, err)
 	ask := newStore.GetAsk()

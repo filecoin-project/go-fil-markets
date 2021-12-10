@@ -1,6 +1,8 @@
 package stores
 
 import (
+	"context"
+
 	blocks "github.com/ipfs/go-block-format"
 	"github.com/ipfs/go-cid"
 	"github.com/ipfs/go-datastore"
@@ -91,20 +93,20 @@ type dsCoercer struct {
 
 var _ datastore.Batching = (*dsCoercer)(nil)
 
-func (crcr *dsCoercer) Get(key datastore.Key) (value []byte, err error) {
+func (crcr *dsCoercer) Get(ctx context.Context, key datastore.Key) (value []byte, err error) {
 	c, err := cidBuilder.Sum(key.Bytes())
 	if err != nil {
 		return nil, xerrors.Errorf("failed to create cid: %w", err)
 	}
 
-	blk, err := crcr.Blockstore.Get(c)
+	blk, err := crcr.Blockstore.Get(ctx, c)
 	if err != nil {
 		return nil, xerrors.Errorf("failed to get cid %s: %w", c, err)
 	}
 	return blk.RawData(), nil
 }
 
-func (crcr *dsCoercer) Put(key datastore.Key, value []byte) error {
+func (crcr *dsCoercer) Put(ctx context.Context, key datastore.Key, value []byte) error {
 	c, err := cidBuilder.Sum(key.Bytes())
 	if err != nil {
 		return xerrors.Errorf("failed to create cid: %w", err)
@@ -113,37 +115,37 @@ func (crcr *dsCoercer) Put(key datastore.Key, value []byte) error {
 	if err != nil {
 		return xerrors.Errorf("failed to create block: %w", err)
 	}
-	if err := crcr.Blockstore.Put(blk); err != nil {
+	if err := crcr.Blockstore.Put(ctx, blk); err != nil {
 		return xerrors.Errorf("failed to put block: %w", err)
 	}
 	return nil
 }
 
-func (crcr *dsCoercer) Has(key datastore.Key) (exists bool, err error) {
+func (crcr *dsCoercer) Has(ctx context.Context, key datastore.Key) (exists bool, err error) {
 	c, err := cidBuilder.Sum(key.Bytes())
 	if err != nil {
 		return false, xerrors.Errorf("failed to create cid: %w", err)
 	}
-	return crcr.Blockstore.Has(c)
+	return crcr.Blockstore.Has(ctx, c)
 }
 
-func (crcr *dsCoercer) Batch() (datastore.Batch, error) {
+func (crcr *dsCoercer) Batch(_ context.Context) (datastore.Batch, error) {
 	return datastore.NewBasicBatch(crcr), nil
 }
 
-func (crcr *dsCoercer) GetSize(_ datastore.Key) (size int, err error) {
+func (crcr *dsCoercer) GetSize(_ context.Context, _ datastore.Key) (size int, err error) {
 	return 0, xerrors.New("operation NOT supported: GetSize")
 }
 
-func (crcr *dsCoercer) Query(_ query.Query) (query.Results, error) {
+func (crcr *dsCoercer) Query(_ context.Context, _ query.Query) (query.Results, error) {
 	return nil, xerrors.New("operation NOT supported: Query")
 }
 
-func (crcr *dsCoercer) Delete(_ datastore.Key) error {
+func (crcr *dsCoercer) Delete(_ context.Context, _ datastore.Key) error {
 	return xerrors.New("operation NOT supported: Delete")
 }
 
-func (crcr *dsCoercer) Sync(_ datastore.Key) error {
+func (crcr *dsCoercer) Sync(_ context.Context, _ datastore.Key) error {
 	return xerrors.New("operation NOT supported: Sync")
 }
 
