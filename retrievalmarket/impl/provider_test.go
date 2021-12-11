@@ -1161,7 +1161,7 @@ func TestProviderMigrations(t *testing.T) {
 		buf := new(bytes.Buffer)
 		err := deal.MarshalCBOR(buf)
 		require.NoError(t, err)
-		err = providerDs.Put(datastore.NewKey(fmt.Sprint(deal.ID)), buf.Bytes())
+		err = providerDs.Put(ctx, datastore.NewKey(fmt.Sprint(deal.ID)), buf.Bytes())
 		require.NoError(t, err)
 	}
 	oldAsk := &migrations.Ask0{
@@ -1173,7 +1173,7 @@ func TestProviderMigrations(t *testing.T) {
 	askBuf := new(bytes.Buffer)
 	err = oldAsk.MarshalCBOR(askBuf)
 	require.NoError(t, err)
-	err = providerDs.Put(datastore.NewKey("retrieval-ask"), askBuf.Bytes())
+	err = providerDs.Put(ctx, datastore.NewKey("retrieval-ask"), askBuf.Bytes())
 	require.NoError(t, err)
 
 	priceFunc := func(ctx context.Context, dealPricingParams retrievalmarket.PricingInput) (retrievalmarket.Ask, error) {

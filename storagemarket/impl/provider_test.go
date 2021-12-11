@@ -110,7 +110,7 @@ func TestProvider_Migrations(t *testing.T) {
 		buf := new(bytes.Buffer)
 		err = deal.MarshalCBOR(buf)
 		require.NoError(t, err)
-		err = providerDs.Put(datastore.NewKey(deal.ProposalCid.String()), buf.Bytes())
+		err = providerDs.Put(ctx, datastore.NewKey(deal.ProposalCid.String()), buf.Bytes())
 		require.NoError(t, err)
 	}
 	provider, err := storageimpl.NewProvider(
@@ -200,7 +200,7 @@ func TestHandleDealStream(t *testing.T) {
 		buf := new(bytes.Buffer)
 		err = deal.MarshalCBOR(buf)
 		require.NoError(t, err)
-		err = namespaced.Put(datastore.NewKey(deal.ProposalCid.String()), buf.Bytes())
+		err = namespaced.Put(ctx, datastore.NewKey(deal.ProposalCid.String()), buf.Bytes())
 		require.NoError(t, err)
 
 		provider, err := storageimpl.NewProvider(

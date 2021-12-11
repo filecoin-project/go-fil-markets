@@ -461,7 +461,7 @@ func TestMigrations(t *testing.T) {
 		buf := new(bytes.Buffer)
 		err := deal.MarshalCBOR(buf)
 		require.NoError(t, err)
-		err = retrievalDs.Put(datastore.NewKey(fmt.Sprint(deal.ID)), buf.Bytes())
+		err = retrievalDs.Put(ctx, datastore.NewKey(fmt.Sprint(deal.ID)), buf.Bytes())
 		require.NoError(t, err)
 	}
 	retrievalClient, err := retrievalimpl.NewClient(net, dt, testnodes.NewTestRetrievalClientNode(testnodes.TestRetrievalClientNodeParams{}), &tut.TestPeerResolver{}, retrievalDs, ba)
