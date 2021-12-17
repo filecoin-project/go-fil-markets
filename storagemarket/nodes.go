@@ -2,7 +2,6 @@ package storagemarket
 
 import (
 	"context"
-	"io"
 
 	"github.com/ipfs/go-cid"
 
@@ -95,7 +94,7 @@ type StorageProviderNode interface {
 	WaitForPublishDeals(ctx context.Context, mcid cid.Cid, proposal market.DealProposal) (*PublishDealsWaitResult, error)
 
 	// OnDealComplete is called when a deal is complete and on chain, and data has been transferred and is ready to be added to a sector
-	OnDealComplete(ctx context.Context, deal MinerDeal, pieceSize abi.UnpaddedPieceSize, pieceReader io.Reader) (*PackingResult, error)
+	OnDealComplete(ctx context.Context, deal MinerDeal, pieceSize abi.UnpaddedPieceSize, pieceReader shared.ReadSeekStarter) (*PackingResult, error)
 
 	// GetMinerWorkerAddress returns the worker address associated with a miner
 	GetMinerWorkerAddress(ctx context.Context, addr address.Address, tok shared.TipSetToken) (address.Address, error)

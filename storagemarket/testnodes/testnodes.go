@@ -5,7 +5,6 @@ package testnodes
 import (
 	"context"
 	"errors"
-	"io"
 	"io/ioutil"
 	"sync"
 	"testing"
@@ -378,7 +377,7 @@ func (n *FakeProviderNode) WaitForPublishDeals(ctx context.Context, mcid cid.Cid
 }
 
 // OnDealComplete simulates passing of the deal to the storage miner, and does nothing
-func (n *FakeProviderNode) OnDealComplete(ctx context.Context, deal storagemarket.MinerDeal, pieceSize abi.UnpaddedPieceSize, pieceReader io.Reader) (*storagemarket.PackingResult, error) {
+func (n *FakeProviderNode) OnDealComplete(ctx context.Context, deal storagemarket.MinerDeal, pieceSize abi.UnpaddedPieceSize, pieceReader shared.ReadSeekStarter) (*storagemarket.PackingResult, error) {
 	n.OnDealCompleteCalls = append(n.OnDealCompleteCalls, deal)
 	n.LastOnDealCompleteBytes, _ = ioutil.ReadAll(pieceReader)
 	// TODO: probably need to return some mock value here
