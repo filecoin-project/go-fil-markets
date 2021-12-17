@@ -4,6 +4,7 @@ import (
 	"context"
 	"io"
 	"os"
+	"time"
 
 	"github.com/ipfs/go-cid"
 	bstore "github.com/ipfs/go-ipfs-blockstore"
@@ -188,6 +189,11 @@ func (p *providerDealEnvironment) TagPeer(id peer.ID, s string) {
 
 func (p *providerDealEnvironment) UntagPeer(id peer.ID, s string) {
 	p.p.net.UntagPeer(id, s)
+}
+
+func (p *providerDealEnvironment) AwaitRestartTimeout() <-chan time.Time {
+	timer := time.NewTimer(p.p.awaitTransferRestartTimeout)
+	return timer.C
 }
 
 var _ providerstates.ProviderDealEnvironment = &providerDealEnvironment{}

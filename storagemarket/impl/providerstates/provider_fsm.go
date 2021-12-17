@@ -1,6 +1,8 @@
 package providerstates
 
 import (
+	"fmt"
+
 	"github.com/ipfs/go-cid"
 	"golang.org/x/xerrors"
 
@@ -212,6 +214,15 @@ var ProviderEvents = fsm.Events{
 		To(storagemarket.StorageDealProviderTransferAwaitRestart).
 		FromAny().ToNoChange(),
 
+	fsm.Event(storagemarket.ProviderEventAwaitTransferRestartTimeout).
+		From(storagemarket.StorageDealProviderTransferAwaitRestart).To(storagemarket.StorageDealFailing).
+		FromAny().ToJustRecord().
+		Action(func(deal *storagemarket.MinerDeal) error {
+			if deal.State == storagemarket.StorageDealProviderTransferAwaitRestart {
+				deal.Message = fmt.Sprintf("timed out waiting for client to restart transfer")
+			}
+			return nil
+		}),
 	fsm.Event(storagemarket.ProviderEventTrackFundsFailed).
 		From(storagemarket.StorageDealReserveProviderFunds).To(storagemarket.StorageDealFailing).
 		Action(func(deal *storagemarket.MinerDeal, err error) error {
@@ -238,20 +249,21 @@ var ProviderEvents = fsm.Events{
 
 // ProviderStateEntryFuncs are the handlers for different states in a storage client
 var ProviderStateEntryFuncs = fsm.StateEntryFuncs{
-	storagemarket.StorageDealValidating:           ValidateDealProposal,
-	storagemarket.StorageDealAcceptWait:           DecideOnProposal,
-	storagemarket.StorageDealVerifyData:           VerifyData,
-	storagemarket.StorageDealReserveProviderFunds: ReserveProviderFunds,
-	storagemarket.StorageDealProviderFunding:      WaitForFunding,
-	storagemarket.StorageDealPublish:              PublishDeal,
-	storagemarket.StorageDealPublishing:           WaitForPublish,
-	storagemarket.StorageDealStaged:               HandoffDeal,
-	storagemarket.StorageDealAwaitingPreCommit:    VerifyDealPreCommitted,
-	storagemarket.StorageDealSealing:              VerifyDealActivated,
-	storagemarket.StorageDealRejecting:            RejectDeal,
-	storagemarket.StorageDealFinalizing:           CleanupDeal,
-	storagemarket.StorageDealActive:               WaitForDealCompletion,
-	storagemarket.StorageDealFailing:              FailDeal,
+	storagemarket.StorageDealValidating:                   ValidateDealProposal,
+	storagemarket.StorageDealAcceptWait:                   DecideOnProposal,
+	storagemarket.StorageDealProviderTransferAwaitRestart: WaitForTransferRestart,
+	storagemarket.StorageDealVerifyData:                   VerifyData,
+	storagemarket.StorageDealReserveProviderFunds:         ReserveProviderFunds,
+	storagemarket.StorageDealProviderFunding:              WaitForFunding,
+	storagemarket.StorageDealPublish:                      PublishDeal,
+	storagemarket.StorageDealPublishing:                   WaitForPublish,
+	storagemarket.StorageDealStaged:                       HandoffDeal,
+	storagemarket.StorageDealAwaitingPreCommit:            VerifyDealPreCommitted,
+	storagemarket.StorageDealSealing:                      VerifyDealActivated,
+	storagemarket.StorageDealRejecting:                    RejectDeal,
+	storagemarket.StorageDealFinalizing:                   CleanupDeal,
+	storagemarket.StorageDealActive:                       WaitForDealCompletion,
+	storagemarket.StorageDealFailing:                      FailDeal,
 }
 
 // ProviderFinalityStates are the states that terminate deal processing for a deal.
