@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"strings"
+	"time"
 
 	"github.com/ipfs/go-cid"
 	logging "github.com/ipfs/go-log/v2"
@@ -53,6 +54,7 @@ type ProviderDealEnvironment interface {
 	FileStore() filestore.FileStore
 	PieceStore() piecestore.PieceStore
 	RunCustomDecisionLogic(context.Context, storagemarket.MinerDeal) (bool, string, error)
+	AwaitRestartTimeout() <-chan time.Time
 	network.PeerTagger
 }
 
@@ -206,6 +208,21 @@ func DecideOnProposal(ctx fsm.Context, environment ProviderDealEnvironment, deal
 	}
 
 	return ctx.Trigger(storagemarket.ProviderEventDataRequested)
+}
+
+// WaitForTransferRestart fires a timeout after a set amount of time. If the restart hasn't started at this point,
+// the transfer fails
+func WaitForTransferRestart(ctx fsm.Context, environment ProviderDealEnvironment, deal storagemarket.MinerDeal) error {
+
+	timeout := environment.AwaitRestartTimeout()
+	go func() {
+		select {
+		case <-ctx.Context().Done():
+		case <-timeout:
+			ctx.Trigger(storagemarket.ProviderEventAwaitTransferRestartTimeout)
+		}
+	}()
+	return nil
 }
 
 // VerifyData verifies that data received for a deal matches the pieceCID
