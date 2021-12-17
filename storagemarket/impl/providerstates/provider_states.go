@@ -210,8 +210,6 @@ func DecideOnProposal(ctx fsm.Context, environment ProviderDealEnvironment, deal
 	return ctx.Trigger(storagemarket.ProviderEventDataRequested)
 }
 
-const restartTimeout = 1 * time.Hour
-
 // WaitForTransferRestart fires a timeout after a set amount of time. If the restart hasn't started at this point,
 // the transfer fails
 func WaitForTransferRestart(ctx fsm.Context, environment ProviderDealEnvironment, deal storagemarket.MinerDeal) error {
