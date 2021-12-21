@@ -22,6 +22,7 @@ import (
 	"github.com/filecoin-project/specs-actors/actors/builtin/market"
 	"github.com/filecoin-project/specs-actors/actors/builtin/verifreg"
 
+	"github.com/filecoin-project/go-fil-markets/commp"
 	"github.com/filecoin-project/go-fil-markets/shared"
 	"github.com/filecoin-project/go-fil-markets/shared_testutil"
 	"github.com/filecoin-project/go-fil-markets/storagemarket"
@@ -394,7 +395,7 @@ func (n *FakeProviderNode) OnDealComplete(ctx context.Context, deal storagemarke
 	}
 
 	// Generate commP
-	pieceCID, err := shared.GenerateCommp(pieceReader, uint64(pieceSize), uint64(pieceSize))
+	pieceCID, err := commp.GenerateCommp(pieceReader, uint64(pieceSize), uint64(pieceSize))
 	if err != nil {
 		return nil, fmt.Errorf("on deal complete: generating commp: %w", err)
 	}
