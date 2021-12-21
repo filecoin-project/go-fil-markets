@@ -1,5 +1,16 @@
 # go-fil-markets changelog
 
+# go-fil-markets v1.14.1
+
+- github.com/filecoin-project/go-fil-markets:
+  - refactor: isolate commp in its own package to avoid exposing pulling filecoin-ffi (#659) ([filecoin-project/go-fil-markets#659](https://github.com/filecoin-project/go-fil-markets/pull/659))
+
+Contributors
+
+| Contributor | Commits | Lines ± | Files Changed |
+|-------------|---------|---------|---------------|
+| dirkmc | 1 | +5/-4 | 3 |
+
 # go-fil-markets v1.14.0
 
 - github.com/filecoin-project/go-fil-markets:
