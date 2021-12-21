@@ -1,5 +1,16 @@
 # go-fil-markets changelog
 
+# go-fil-markets v1.14.0
+
+- github.com/filecoin-project/go-fil-markets:
+  - add SeekStart method to inflator reader (#656) ([filecoin-project/go-fil-markets#656](https://github.com/filecoin-project/go-fil-markets/pull/656))
+
+Contributors
+
+| Contributor | Commits | Lines ± | Files Changed |
+|-------------|---------|---------|---------------|
+| dirkmc | 1 | +317/-52 | 10 |
+
 # go-fil-markets v1.13.6 
 
 Add timeout for awaiting restart
