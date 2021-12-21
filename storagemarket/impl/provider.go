@@ -628,13 +628,6 @@ func (p *Provider) runMigrations(ctx context.Context) ([]storagemarket.MinerDeal
 		return nil, xerrors.Errorf("failed to fetch deals during startup: %w", err)
 	}
 
-	// re-track all deals for whom we still have a local blockstore.
-	for _, d := range deals {
-		if _, err := os.Stat(d.InboundCAR); err == nil && d.Ref != nil {
-			_, _ = p.stores.GetOrOpen(d.ProposalCid.String(), d.InboundCAR, d.Ref.Root)
-		}
-	}
-
 	// migrate deals to the dagstore if still not migrated.
 	if ok, err := p.dagStore.MigrateDeals(ctx, deals); err != nil {
 		return nil, fmt.Errorf("failed to migrate deals to DAG store: %w", err)

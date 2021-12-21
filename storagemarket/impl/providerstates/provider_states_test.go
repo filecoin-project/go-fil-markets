@@ -1391,6 +1391,7 @@ func makeExecutor(ctx context.Context,
 			PublishDealID:            nodeParams.PublishDealID,
 			WaitForPublishDealsError: nodeParams.WaitForPublishDealsError,
 			OnDealCompleteError:      nodeParams.OnDealCompleteError,
+			OnDealCompleteSkipCommP:  true,
 			DataCap:                  nodeParams.DataCap,
 			GetDataCapErr:            nodeParams.GetDataCapError,
 		}

@@ -5,7 +5,7 @@ package testnodes
 import (
 	"context"
 	"errors"
-	"io"
+	"fmt"
 	"io/ioutil"
 	"sync"
 	"testing"
@@ -341,6 +341,7 @@ type FakeProviderNode struct {
 	PublishDealsError                   error
 	WaitForPublishDealsError            error
 	OnDealCompleteError                 error
+	OnDealCompleteSkipCommP             bool
 	LastOnDealCompleteBytes             []byte
 	OnDealCompleteCalls                 []storagemarket.MinerDeal
 	LocatePieceForDealWithinSectorError error
@@ -378,10 +379,31 @@ func (n *FakeProviderNode) WaitForPublishDeals(ctx context.Context, mcid cid.Cid
 }
 
 // OnDealComplete simulates passing of the deal to the storage miner, and does nothing
-func (n *FakeProviderNode) OnDealComplete(ctx context.Context, deal storagemarket.MinerDeal, pieceSize abi.UnpaddedPieceSize, pieceReader io.Reader) (*storagemarket.PackingResult, error) {
+func (n *FakeProviderNode) OnDealComplete(ctx context.Context, deal storagemarket.MinerDeal, pieceSize abi.UnpaddedPieceSize, pieceReader shared.ReadSeekStarter) (*storagemarket.PackingResult, error) {
 	n.OnDealCompleteCalls = append(n.OnDealCompleteCalls, deal)
 	n.LastOnDealCompleteBytes, _ = ioutil.ReadAll(pieceReader)
-	// TODO: probably need to return some mock value here
+
+	if n.OnDealCompleteError != nil || n.OnDealCompleteSkipCommP {
+		return &storagemarket.PackingResult{}, n.OnDealCompleteError
+	}
+
+	// We read in all the bytes from the reader above, so seek back to the start
+	err := pieceReader.SeekStart()
+	if err != nil {
+		return nil, fmt.Errorf("on deal complete: seeking to start of piece data: %w", err)
+	}
+
+	// Generate commP
+	pieceCID, err := shared.GenerateCommp(pieceReader, uint64(pieceSize), uint64(pieceSize))
+	if err != nil {
+		return nil, fmt.Errorf("on deal complete: generating commp: %w", err)
+	}
+
+	// Check that commP of the data matches the proposal piece CID
+	if pieceCID != deal.Proposal.PieceCID {
+		return nil, fmt.Errorf("on deal complete: proposal piece CID %s does not match calculated commP %s", deal.Proposal.PieceCID, pieceCID)
+	}
+
 	return &storagemarket.PackingResult{}, n.OnDealCompleteError
 }
 
