@@ -40,6 +40,7 @@ type ProviderDealEnvironment interface {
 
 	RegisterShard(ctx context.Context, pieceCid cid.Cid, path string, eagerInit bool) error
 	AnnounceIndex(ctx context.Context, deal storagemarket.MinerDeal) error
+	RemoveIndex(ctx context.Context, proposalCid cid.Cid) error
 
 	FinalizeBlockstore(proposalCid cid.Cid) error
 	TerminateBlockstore(proposalCid cid.Cid, path string) error
@@ -520,6 +521,9 @@ func WaitForDealCompletion(ctx fsm.Context, environment ProviderDealEnvironment,
 
 	// Called when the deal expires
 	expiredCb := func(err error) {
+		// Ask the indexer to remove this deal
+		environment.RemoveIndex(ctx.Context(), deal.ProposalCid)
+
 		if err != nil {
 			_ = ctx.Trigger(storagemarket.ProviderEventDealCompletionFailed, xerrors.Errorf("deal expiration err: %w", err))
 		} else {
@@ -529,6 +533,9 @@ func WaitForDealCompletion(ctx fsm.Context, environment ProviderDealEnvironment,
 
 	// Called when the deal is slashed
 	slashedCb := func(slashEpoch abi.ChainEpoch, err error) {
+		// Ask the indexer to remove this deal
+		environment.RemoveIndex(ctx.Context(), deal.ProposalCid)
+
 		if err != nil {
 			_ = ctx.Trigger(storagemarket.ProviderEventDealCompletionFailed, xerrors.Errorf("deal slashing err: %w", err))
 		} else {

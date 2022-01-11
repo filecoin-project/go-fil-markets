@@ -41,6 +41,13 @@ func (m *MockIndexProvider) NotifyPut(ctx context.Context, contextID []byte, met
 	return cid.Undef, nil
 }
 
+func (m *MockIndexProvider) NotifyRemove(ctx context.Context, contextID []byte) (cid.Cid, error) {
+	m.lk.Lock()
+	defer m.lk.Unlock()
+
+	return cid.Undef, nil
+}
+
 func (m *MockIndexProvider) GetNotifs() map[string]stiapi.Metadata {
 	m.lk.Lock()
 	defer m.lk.Unlock()

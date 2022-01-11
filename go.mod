@@ -21,6 +21,7 @@ require (
 	github.com/filecoin-project/storetheindex v0.0.0-20211019180831-2704585e5f99
 	github.com/hannahhoward/cbor-gen-for v0.0.0-20200817222906-ea96cece81f1
 	github.com/hannahhoward/go-pubsub v0.0.0-20200423002714-8d62886cc36e
+	github.com/hashicorp/go-multierror v1.1.0
 	github.com/ipfs/go-block-format v0.0.3
 	github.com/ipfs/go-blockservice v0.1.7
 	github.com/ipfs/go-cid v0.1.0

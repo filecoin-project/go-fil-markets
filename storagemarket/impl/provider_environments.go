@@ -56,6 +56,11 @@ func (p *providerDealEnvironment) AnnounceIndex(ctx context.Context, deal storag
 	return err
 }
 
+func (p *providerDealEnvironment) RemoveIndex(ctx context.Context, proposalCid cid.Cid) error {
+	_, err := p.p.indexProvider.NotifyRemove(ctx, proposalCid.Bytes())
+	return err
+}
+
 func (p *providerDealEnvironment) ReadCAR(path string) (*carv2.Reader, error) {
 	return carv2.OpenReader(path)
 }

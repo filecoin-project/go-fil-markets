@@ -1515,6 +1515,10 @@ type fakeEnvironment struct {
 	shardActivationError error
 }
 
+func (fe *fakeEnvironment) RemoveIndex(ctx context.Context, proposalCid cid.Cid) error {
+	return nil
+}
+
 func (fe *fakeEnvironment) RestartDataTransfer(_ context.Context, chId datatransfer.ChannelID) error {
 	fe.restartDataTransferCalls = append(fe.restartDataTransferCalls, restartDataTransferCall{chId})
 	return fe.restartDataTransferError

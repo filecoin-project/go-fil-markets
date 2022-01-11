@@ -6,6 +6,8 @@ import (
 	"io"
 	"os"
 
+	"github.com/hashicorp/go-multierror"
+
 	"github.com/hannahhoward/go-pubsub"
 	"github.com/ipfs/go-cid"
 	"github.com/ipfs/go-datastore"
@@ -449,6 +451,25 @@ func (p *Provider) AnnounceDealToIndexer(ctx context.Context, proposalCid cid.Ci
 
 	_, err = p.indexProvider.NotifyPut(ctx, deal.ProposalCid.Bytes(), dtm.ToIndexerMetadata())
 	return err
+}
+
+func (p *Provider) AnnounceAllDealsToIndexer(ctx context.Context) error {
+	var out []storagemarket.MinerDeal
+	if err := p.deals.List(&out); err != nil {
+		return err
+	}
+
+	var merr error
+	for _, d := range out {
+		log.Infow("announcing deal to Indexer", "proposalCid", d.ProposalCid)
+		if err := p.AnnounceDealToIndexer(ctx, d.ProposalCid); err != nil {
+			merr = multierror.Append(merr, err)
+			log.Errorw("failed to announce deal to Indexer", "proposalCid", d.ProposalCid, "err", err)
+			continue
+		}
+		log.Infow("successfully announced deal to Indexer", "proposalCid", d.ProposalCid)
+	}
+	return merr
 }
 
 /*
