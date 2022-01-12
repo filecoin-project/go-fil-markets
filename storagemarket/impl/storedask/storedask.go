@@ -179,7 +179,7 @@ func (s *StoredAsk) tryLoadAsk() error {
 }
 
 func (s *StoredAsk) loadAsk() error {
-	askb, err := s.ds.Get(s.dsKey)
+	askb, err := s.ds.Get(context.TODO(), s.dsKey)
 	if err != nil {
 		return xerrors.Errorf("failed to load most recent ask from disk: %w", err)
 	}
@@ -199,7 +199,7 @@ func (s *StoredAsk) saveAsk(a *storagemarket.SignedStorageAsk) error {
 		return err
 	}
 
-	if err := s.ds.Put(s.dsKey, b); err != nil {
+	if err := s.ds.Put(context.TODO(), s.dsKey, b); err != nil {
 		return err
 	}
 

@@ -164,7 +164,7 @@ func TestMigrations(t *testing.T) {
 	buf := new(bytes.Buffer)
 	err = oldSignedAsk.MarshalCBOR(buf)
 	require.NoError(t, err)
-	err = ds.Put(datastore.NewKey("latest-ask"), buf.Bytes())
+	err = ds.Put(ctx, datastore.NewKey("latest-ask"), buf.Bytes())
 	require.NoError(t, err)
 	storedAsk, err := storedask.NewStoredAsk(ds, datastore.NewKey("latest-ask"), spn, actor)
 	require.NoError(t, err)

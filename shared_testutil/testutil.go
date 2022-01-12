@@ -2,6 +2,7 @@ package shared_testutil
 
 import (
 	"bytes"
+	"context"
 	"fmt"
 	"testing"
 
@@ -128,7 +129,7 @@ func GenerateCid(t *testing.T, o interface{}) cid.Cid {
 }
 
 func DatastoreAtVersion(t *testing.T, ds datastore.Batching, version versioning.VersionKey) datastore.Batching {
-	err := ds.Put(datastore.NewKey("/versions/current"), []byte(version))
+	err := ds.Put(context.TODO(), datastore.NewKey("/versions/current"), []byte(version))
 	require.NoError(t, err)
 	return namespace.Wrap(ds, datastore.NewKey(fmt.Sprintf("/%s", version)))
 }

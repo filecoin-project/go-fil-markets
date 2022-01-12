@@ -412,7 +412,7 @@ func (c *Client) ProposeStorageDeal(ctx context.Context, params storagemarket.Pr
 
 	return &storagemarket.ProposeStorageDealResult{
 			ProposalCid: deal.ProposalCid,
-		}, c.discovery.AddPeer(params.Data.Root, retrievalmarket.RetrievalPeer{
+		}, c.discovery.AddPeer(ctx, params.Data.Root, retrievalmarket.RetrievalPeer{
 			Address:  dealProposal.Provider,
 			ID:       deal.Miner,
 			PieceCID: &commP,

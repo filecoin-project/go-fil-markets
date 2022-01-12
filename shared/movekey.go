@@ -1,27 +1,32 @@
 package shared
 
-import "github.com/ipfs/go-datastore"
+import (
+	"context"
+
+	"github.com/ipfs/go-datastore"
+)
 
 // MoveKey moves a key in a data store
 func MoveKey(ds datastore.Datastore, old string, new string) error {
+	ctx := context.TODO()
 	oldKey := datastore.NewKey(old)
 	newKey := datastore.NewKey(new)
-	has, err := ds.Has(oldKey)
+	has, err := ds.Has(ctx, oldKey)
 	if err != nil {
 		return err
 	}
 	if !has {
 		return nil
 	}
-	value, err := ds.Get(oldKey)
+	value, err := ds.Get(ctx, oldKey)
 	if err != nil {
 		return err
 	}
-	err = ds.Put(newKey, value)
+	err = ds.Put(ctx, newKey, value)
 	if err != nil {
 		return err
 	}
-	err = ds.Delete(oldKey)
+	err = ds.Delete(ctx, oldKey)
 	if err != nil {
 		return err
 	}

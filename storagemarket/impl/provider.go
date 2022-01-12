@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"time"
 
 	"github.com/hashicorp/go-multierror"
 
@@ -46,6 +47,8 @@ import (
 var _ storagemarket.StorageProvider = &Provider{}
 var _ network.StorageReceiver = &Provider{}
 
+const defaultAwaitRestartTimeout = 1 * time.Hour
+
 // StoredAsk is an interface which provides access to a StorageAsk
 type StoredAsk interface {
 	GetAsk() *storagemarket.SignedStorageAsk
@@ -56,16 +59,17 @@ type StoredAsk interface {
 type Provider struct {
 	net network.StorageMarketNetwork
 
-	spn                   storagemarket.StorageProviderNode
-	fs                    filestore.FileStore
-	pieceStore            piecestore.PieceStore
-	conns                 *connmanager.ConnManager
-	storedAsk             StoredAsk
-	actor                 address.Address
-	dataTransfer          datatransfer.Manager
-	customDealDeciderFunc DealDeciderFunc
-	pubSub                *pubsub.PubSub
-	readyMgr              *shared.ReadyManager
+	spn                         storagemarket.StorageProviderNode
+	fs                          filestore.FileStore
+	pieceStore                  piecestore.PieceStore
+	conns                       *connmanager.ConnManager
+	storedAsk                   StoredAsk
+	actor                       address.Address
+	dataTransfer                datatransfer.Manager
+	customDealDeciderFunc       DealDeciderFunc
+	awaitTransferRestartTimeout time.Duration
+	pubSub                      *pubsub.PubSub
+	readyMgr                    *shared.ReadyManager
 
 	deals        fsm.Group
 	migrateDeals func(context.Context) error
@@ -96,6 +100,15 @@ func CustomDealDecisionLogic(decider DealDeciderFunc) StorageProviderOption {
 	}
 }
 
+// AwaitTransferRestartTimeout sets the maximum amount of time a provider will
+// wait for a client to restart a data transfer when the node starts up before
+// failing the deal
+func AwaitTransferRestartTimeout(waitTime time.Duration) StorageProviderOption {
+	return func(p *Provider) {
+		p.awaitTransferRestartTimeout = waitTime
+	}
+}
+
 // NewProvider returns a new storage provider
 func NewProvider(net network.StorageMarketNetwork,
 	ds datastore.Batching,
@@ -110,19 +123,20 @@ func NewProvider(net network.StorageMarketNetwork,
 	options ...StorageProviderOption,
 ) (storagemarket.StorageProvider, error) {
 	h := &Provider{
-		indexProvider: indexer,
-		net:           net,
-		spn:           spn,
-		fs:            fs,
-		pieceStore:    pieceStore,
-		conns:         connmanager.NewConnManager(),
-		storedAsk:     storedAsk,
-		actor:         minerAddress,
-		dataTransfer:  dataTransfer,
-		pubSub:        pubsub.New(providerDispatcher),
-		readyMgr:      shared.NewReadyManager(),
-		dagStore:      dagStore,
-		stores:        stores.NewReadWriteBlockstores(),
+		net:                         net,
+		spn:                         spn,
+		fs:                          fs,
+		pieceStore:                  pieceStore,
+		conns:                       connmanager.NewConnManager(),
+		storedAsk:                   storedAsk,
+		actor:                       minerAddress,
+		dataTransfer:                dataTransfer,
+		pubSub:                      pubsub.New(providerDispatcher),
+		readyMgr:                    shared.NewReadyManager(),
+		dagStore:                    dagStore,
+		stores:                      stores.NewReadWriteBlockstores(),
+		awaitTransferRestartTimeout: defaultAwaitRestartTimeout,
+		indexProvider:               indexer,
 	}
 	storageMigrations, err := migrations.ProviderMigrations.Build()
 	if err != nil {
@@ -686,13 +700,6 @@ func (p *Provider) runMigrations(ctx context.Context) ([]storagemarket.MinerDeal
 	err = p.deals.List(&deals)
 	if err != nil {
 		return nil, xerrors.Errorf("failed to fetch deals during startup: %w", err)
-	}
-
-	// re-track all deals for whom we still have a local blockstore.
-	for _, d := range deals {
-		if _, err := os.Stat(d.InboundCAR); err == nil && d.Ref != nil {
-			_, _ = p.stores.GetOrOpen(d.ProposalCid.String(), d.InboundCAR, d.Ref.Root)
-		}
 	}
 
 	// migrate deals to the dagstore if still not migrated.

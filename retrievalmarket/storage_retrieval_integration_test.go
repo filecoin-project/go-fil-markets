@@ -439,7 +439,7 @@ func newRetrievalHarnessWithDeps(
 	allCids, err := sh.TestData.Bs2.AllKeysChan(sh.Ctx)
 	require.NoError(t, err)
 	for c := range allCids {
-		err = sh.TestData.Bs2.DeleteBlock(c)
+		err = sh.TestData.Bs2.DeleteBlock(ctx, c)
 		require.NoError(t, err)
 	}
 

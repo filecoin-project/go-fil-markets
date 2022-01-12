@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"strings"
+	"time"
 
 	"github.com/ipfs/go-cid"
 	logging "github.com/ipfs/go-log/v2"
@@ -12,7 +13,6 @@ import (
 	"golang.org/x/xerrors"
 
 	"github.com/filecoin-project/go-address"
-	padreader "github.com/filecoin-project/go-padreader"
 	"github.com/filecoin-project/go-state-types/abi"
 	"github.com/filecoin-project/go-state-types/big"
 	"github.com/filecoin-project/go-state-types/exitcode"
@@ -23,6 +23,7 @@ import (
 
 	"github.com/filecoin-project/go-fil-markets/filestore"
 	"github.com/filecoin-project/go-fil-markets/piecestore"
+	"github.com/filecoin-project/go-fil-markets/shared"
 	"github.com/filecoin-project/go-fil-markets/storagemarket"
 	"github.com/filecoin-project/go-fil-markets/storagemarket/impl/providerutils"
 	"github.com/filecoin-project/go-fil-markets/storagemarket/network"
@@ -55,6 +56,7 @@ type ProviderDealEnvironment interface {
 	FileStore() filestore.FileStore
 	PieceStore() piecestore.PieceStore
 	RunCustomDecisionLogic(context.Context, storagemarket.MinerDeal) (bool, string, error)
+	AwaitRestartTimeout() <-chan time.Time
 	network.PeerTagger
 }
 
@@ -208,6 +210,21 @@ func DecideOnProposal(ctx fsm.Context, environment ProviderDealEnvironment, deal
 	}
 
 	return ctx.Trigger(storagemarket.ProviderEventDataRequested)
+}
+
+// WaitForTransferRestart fires a timeout after a set amount of time. If the restart hasn't started at this point,
+// the transfer fails
+func WaitForTransferRestart(ctx fsm.Context, environment ProviderDealEnvironment, deal storagemarket.MinerDeal) error {
+
+	timeout := environment.AwaitRestartTimeout()
+	go func() {
+		select {
+		case <-ctx.Context().Done():
+		case <-timeout:
+			ctx.Trigger(storagemarket.ProviderEventAwaitTransferRestartTimeout)
+		}
+	}()
+	return nil
 }
 
 // VerifyData verifies that data received for a deal matches the pieceCID
@@ -384,12 +401,12 @@ func HandoffDeal(ctx fsm.Context, environment ProviderDealEnvironment, deal stor
 	return ctx.Trigger(storagemarket.ProviderEventDealHandedOff)
 }
 
-func handoffDeal(ctx context.Context, environment ProviderDealEnvironment, deal storagemarket.MinerDeal, reader io.Reader, payloadSize uint64) (*storagemarket.PackingResult, error) {
-	// because we use the PadReader directly during AP we need to produce the
+func handoffDeal(ctx context.Context, environment ProviderDealEnvironment, deal storagemarket.MinerDeal, reader io.ReadSeeker, payloadSize uint64) (*storagemarket.PackingResult, error) {
+	// because we use the PadReader directly during Add Piece we need to produce the
 	// correct amount of zeroes
 	// (alternative would be to keep precise track of sector offsets for each
 	// piece which is just too much work for a seldom used feature)
-	paddedReader, err := padreader.NewInflator(reader, payloadSize, deal.Proposal.PieceSize.Unpadded())
+	paddedReader, err := shared.NewInflatorReader(reader, payloadSize, deal.Proposal.PieceSize.Unpadded())
 	if err != nil {
 		return nil, err
 	}

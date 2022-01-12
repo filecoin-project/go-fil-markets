@@ -11,6 +11,7 @@ import (
 	"math/rand"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/ipfs/go-cid"
 	carv2 "github.com/ipld/go-car/v2"
@@ -338,6 +339,56 @@ func TestDecideOnProposal(t *testing.T) {
 	}
 }
 
+func TestWaitForTransferRestart(t *testing.T) {
+	ctx := context.Background()
+	eventProcessor, err := fsm.NewEventProcessor(storagemarket.MinerDeal{}, "State", providerstates.ProviderEvents)
+	require.NoError(t, err)
+	awaitRestartTimeout := make(chan time.Time)
+	tests := map[string]struct {
+		nodeParams        nodeParams
+		dealParams        dealParams
+		environmentParams environmentParams
+		fileStoreParams   tut.TestFileStoreParams
+		pieceStoreParams  tut.TestPieceStoreParams
+		state             storagemarket.StorageDealStatus
+		dealInspector     func(t *testing.T, deal storagemarket.MinerDeal, env *fakeEnvironment)
+	}{
+		"no timeout fired": {
+			environmentParams: environmentParams{},
+			state:             storagemarket.StorageDealProviderTransferAwaitRestart,
+			dealInspector: func(t *testing.T, deal storagemarket.MinerDeal, env *fakeEnvironment) {
+				tut.AssertDealState(t, storagemarket.StorageDealProviderTransferAwaitRestart, deal.State)
+			},
+		},
+
+		"fires after state change": {
+			environmentParams: environmentParams{
+				AwaitRestartTimeout: awaitRestartTimeout,
+			},
+			state: storagemarket.StorageDealTransferring,
+			dealInspector: func(t *testing.T, deal storagemarket.MinerDeal, env *fakeEnvironment) {
+				tut.AssertDealState(t, storagemarket.StorageDealTransferring, deal.State)
+			},
+		},
+
+		"firsts without state change": {
+			environmentParams: environmentParams{
+				AwaitRestartTimeout: awaitRestartTimeout,
+			},
+			state: storagemarket.StorageDealProviderTransferAwaitRestart,
+			dealInspector: func(t *testing.T, deal storagemarket.MinerDeal, env *fakeEnvironment) {
+				tut.AssertDealState(t, storagemarket.StorageDealFailing, deal.State)
+				require.Equal(t, "timed out waiting for client to restart transfer", deal.Message)
+			},
+		},
+	}
+	for test, data := range tests {
+		t.Run(test, func(t *testing.T) {
+			runWaitForTransferRestart := makeExecutor(ctx, eventProcessor, providerstates.WaitForTransferRestart, data.state)
+			runWaitForTransferRestart(t, data.nodeParams, data.environmentParams, data.dealParams, data.fileStoreParams, data.pieceStoreParams, data.dealInspector)
+		})
+	}
+}
 func TestVerifyData(t *testing.T) {
 	ctx := context.Background()
 	eventProcessor, err := fsm.NewEventProcessor(storagemarket.MinerDeal{}, "State", providerstates.ProviderEvents)
@@ -1262,8 +1313,8 @@ type environmentParams struct {
 	RejectReason             string
 	DecisionError            error
 	RestartDataTransferError error
-
-	FinalizeBlockstoreError error
+	AwaitRestartTimeout      chan time.Time
+	FinalizeBlockstoreError  error
 
 	Carv2Reader *carv2.Reader
 	Carv2Error  error
@@ -1340,6 +1391,7 @@ func makeExecutor(ctx context.Context,
 			PublishDealID:            nodeParams.PublishDealID,
 			WaitForPublishDealsError: nodeParams.WaitForPublishDealsError,
 			OnDealCompleteError:      nodeParams.OnDealCompleteError,
+			OnDealCompleteSkipCommP:  true,
 			DataCap:                  nodeParams.DataCap,
 			GetDataCapErr:            nodeParams.GetDataCapError,
 		}
@@ -1446,6 +1498,7 @@ func makeExecutor(ctx context.Context,
 			carV2Reader:          params.Carv2Reader,
 			carV2Error:           params.Carv2Error,
 			shardActivationError: params.ShardActivationError,
+			awaitRestartTimeout:  params.AwaitRestartTimeout,
 		}
 		if environment.pieceCid == cid.Undef {
 			environment.pieceCid = defaultPieceCid
@@ -1469,6 +1522,10 @@ func makeExecutor(ctx context.Context,
 		fsmCtx := fsmtest.NewTestContext(ctx, eventProcessor)
 		err = stateEntryFunc(fsmCtx, environment, *dealState)
 		require.NoError(t, err)
+		if environment.awaitRestartTimeout != nil {
+			environment.awaitRestartTimeout <- time.Now()
+			time.Sleep(10 * time.Millisecond)
+		}
 		fsmCtx.ReplayEvents(t, dealState)
 		dealInspector(t, *dealState, environment)
 
@@ -1509,9 +1566,9 @@ type fakeEnvironment struct {
 	restartDataTransferCalls []restartDataTransferCall
 	restartDataTransferError error
 
-	carV2Reader *carv2.Reader
-	carV2Error  error
-
+	carV2Reader          *carv2.Reader
+	carV2Error           error
+	awaitRestartTimeout  chan time.Time
 	shardActivationError error
 }
 
@@ -1587,6 +1644,10 @@ func (fe *fakeEnvironment) FinalizeBlockstore(proposalCid cid.Cid) error {
 
 func (fe *fakeEnvironment) ReadCAR(_ string) (*carv2.Reader, error) {
 	return fe.carV2Reader, fe.carV2Error
+}
+
+func (fe *fakeEnvironment) AwaitRestartTimeout() <-chan time.Time {
+	return fe.awaitRestartTimeout
 }
 
 func (fe *fakeEnvironment) AnnounceIndex(ctx context.Context, deal storagemarket.MinerDeal) error {

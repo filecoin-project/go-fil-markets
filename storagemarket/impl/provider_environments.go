@@ -3,8 +3,8 @@ package storageimpl
 import (
 	"context"
 	"fmt"
-	"io"
 	"os"
+	"time"
 
 	"github.com/ipfs/go-cid"
 	bstore "github.com/ipfs/go-ipfs-blockstore"
@@ -13,12 +13,10 @@ import (
 	"golang.org/x/xerrors"
 
 	"github.com/filecoin-project/go-address"
-	"github.com/filecoin-project/go-commp-utils/writer"
-	commcid "github.com/filecoin-project/go-fil-commcid"
-	commp "github.com/filecoin-project/go-fil-commp-hashhash"
 	"github.com/filecoin-project/go-state-types/abi"
 	metadata2 "github.com/filecoin-project/index-provider/metadata"
 
+	"github.com/filecoin-project/go-fil-markets/commp"
 	"github.com/filecoin-project/go-fil-markets/filestore"
 	"github.com/filecoin-project/go-fil-markets/piecestore"
 	"github.com/filecoin-project/go-fil-markets/storagemarket"
@@ -68,6 +66,10 @@ func (p *providerDealEnvironment) ReadCAR(path string) (*carv2.Reader, error) {
 func (p *providerDealEnvironment) FinalizeBlockstore(proposalCid cid.Cid) error {
 	bs, err := p.p.stores.Get(proposalCid.String())
 	if err != nil {
+		if xerrors.Is(err, stores.ErrNotFound) {
+			// The blockstore has already been cleaned up
+			return nil
+		}
 		return xerrors.Errorf("failed to get read/write blockstore: %w", err)
 	}
 
@@ -131,36 +133,8 @@ func (p *providerDealEnvironment) GeneratePieceCommitment(proposalCid cid.Cid, c
 		}
 	}()
 
-	// dump the CARv1 payload of the CARv2 file to the Commp Writer and get back the CommP.
-	w := &writer.Writer{}
-	written, err := io.Copy(w, rd.DataReader())
-	if err != nil {
-		return cid.Undef, "", xerrors.Errorf("failed to write to CommP writer: %w", err)
-	}
-	if written != int64(rd.Header.DataSize) {
-		return cid.Undef, "", xerrors.Errorf("number of bytes written to CommP writer %d not equal to the CARv1 payload size %d", written, rd.Header.DataSize)
-	}
-
-	cidAndSize, err := w.Sum()
-	if err != nil {
-		return cid.Undef, "", xerrors.Errorf("failed to get CommP: %w", err)
-	}
-
-	if cidAndSize.PieceSize < dealSize {
-		// need to pad up!
-		rawPaddedCommp, err := commp.PadCommP(
-			// we know how long a pieceCid "hash" is, just blindly extract the trailing 32 bytes
-			cidAndSize.PieceCID.Hash()[len(cidAndSize.PieceCID.Hash())-32:],
-			uint64(cidAndSize.PieceSize),
-			uint64(dealSize),
-		)
-		if err != nil {
-			return cid.Undef, "", err
-		}
-		cidAndSize.PieceCID, _ = commcid.DataCommitmentV1ToCID(rawPaddedCommp)
-	}
-
-	return cidAndSize.PieceCID, filestore.Path(""), err
+	pieceCID, err := commp.GenerateCommp(rd.DataReader(), rd.Header.DataSize, uint64(dealSize))
+	return pieceCID, "", err
 }
 
 func (p *providerDealEnvironment) FileStore() filestore.FileStore {
@@ -212,6 +186,11 @@ func (p *providerDealEnvironment) TagPeer(id peer.ID, s string) {
 
 func (p *providerDealEnvironment) UntagPeer(id peer.ID, s string) {
 	p.p.net.UntagPeer(id, s)
+}
+
+func (p *providerDealEnvironment) AwaitRestartTimeout() <-chan time.Time {
+	timer := time.NewTimer(p.p.awaitTransferRestartTimeout)
+	return timer.C
 }
 
 var _ providerstates.ProviderDealEnvironment = &providerDealEnvironment{}

@@ -59,7 +59,7 @@ func CommP(ctx context.Context, bs bstore.Blockstore, data *storagemarket.DataRe
 
 	// write out the deterministic CARv1 payload to the CommP writer and calculate the CommP.
 	commpWriter := &writer.Writer{}
-	err = prepared.Dump(commpWriter)
+	err = prepared.Dump(ctx, commpWriter)
 	if err != nil {
 		return cid.Undef, 0, xerrors.Errorf("failed to write CARv1 to commP writer: %w", err)
 	}

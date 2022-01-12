@@ -113,7 +113,7 @@ func TestClient_Migrations(t *testing.T) {
 		buf := new(bytes.Buffer)
 		err = deal.MarshalCBOR(buf)
 		require.NoError(t, err)
-		err = clientDs.Put(datastore.NewKey(deal.ProposalCid.String()), buf.Bytes())
+		err = clientDs.Put(ctx, datastore.NewKey(deal.ProposalCid.String()), buf.Bytes())
 		require.NoError(t, err)
 	}
 	client, err := storageimpl.NewClient(

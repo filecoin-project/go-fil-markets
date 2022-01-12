@@ -33,6 +33,7 @@ stateDiagram-v2
 	22 : On entry runs WaitForFunding
 	24 : On entry runs PublishDeal
 	25 : On entry runs WaitForPublish
+	27 : On entry runs WaitForTransferRestart
 	29 : On entry runs VerifyDealPreCommitted
 	[*] --> 0
 	note right of 0
@@ -40,6 +41,7 @@ stateDiagram-v2
 
 		ProviderEventNodeErrored - transitions state to StorageDealFailing
 		ProviderEventRestart - does not transition state
+		ProviderEventAwaitTransferRestartTimeout - just records
 	end note
 	0 --> 14 : ProviderEventOpen
 	14 --> 10 : ProviderEventDealRejected
@@ -91,6 +93,7 @@ stateDiagram-v2
 	14 --> 26 : ProviderEventRestart
 	15 --> 26 : ProviderEventRestart
 	17 --> 27 : ProviderEventRestart
+	27 --> 11 : ProviderEventAwaitTransferRestartTimeout
 	20 --> 11 : ProviderEventTrackFundsFailed
 
 	note left of 4 : The following events only record in this state.<br><br>ProviderEventPieceStoreErrored

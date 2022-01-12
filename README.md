@@ -4,7 +4,7 @@
 [![codecov](https://codecov.io/gh/filecoin-project/go-fil-markets/branch/master/graph/badge.svg)](https://codecov.io/gh/filecoin-project/go-fil-markets)
 [![GoDoc](https://godoc.org/github.com/filecoin-project/go-fil-markets?status.svg)](https://godoc.org/github.com/filecoin-project/go-fil-markets)
 
-This repository contains modular implementations of the [storage and retrieval market subsystems](https://filecoin-project.github.io/specs/#systems__filecoin_markets) of Filecoin. 
+This repository contains modular implementations of the [storage and retrieval market subsystems][1] of Filecoin. 
 They are guided by the [v1.0 and 1.1 Filecoin specification updates](https://filecoin-project.github.io/specs/#intro__changelog). 
 
 Separating implementations into a blockchain component and one or more mining and market components presents an opportunity to encourage implementation diversity while reusing non-security-critical components.
@@ -29,7 +29,7 @@ Related components in other repos:
 
 ### Background reading
 
-* The [Markets in Filecoin](https://filecoin-project.github.io/specs/#systems__filecoin_markets) 
+* The [Markets in Filecoin][1]
 section of the Filecoin Specification contains the canonical spec.
 
 ### Technical Documentation
@@ -56,3 +56,5 @@ The filecoin-project has a [community repo](https://github.com/filecoin-project/
 This repository is dual-licensed under Apache 2.0 and MIT terms.
 
 Copyright 2019. Protocol Labs, Inc.
+
+[1]:https://spec.filecoin.io/#section-systems.filecoin_markets

@@ -100,7 +100,7 @@ func (s *AskStoreImpl) tryLoadAsk() error {
 }
 
 func (s *AskStoreImpl) loadAsk() error {
-	askb, err := s.ds.Get(s.key)
+	askb, err := s.ds.Get(context.TODO(), s.key)
 	if err != nil {
 		return xerrors.Errorf("failed to load most recent retrieval ask from disk: %w", err)
 	}
@@ -120,7 +120,7 @@ func (s *AskStoreImpl) saveAsk(a *retrievalmarket.Ask) error {
 		return err
 	}
 
-	if err := s.ds.Put(s.key, b); err != nil {
+	if err := s.ds.Put(context.TODO(), s.key, b); err != nil {
 		return err
 	}
 

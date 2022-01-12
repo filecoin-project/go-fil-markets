@@ -1,5 +1,57 @@
 # go-fil-markets changelog
 
+# go-fil-markets v1.14.1
+
+- github.com/filecoin-project/go-fil-markets:
+  - refactor: isolate commp in its own package to avoid exposing pulling filecoin-ffi (#659) ([filecoin-project/go-fil-markets#659](https://github.com/filecoin-project/go-fil-markets/pull/659))
+
+Contributors
+
+| Contributor | Commits | Lines ± | Files Changed |
+|-------------|---------|---------|---------------|
+| dirkmc | 1 | +5/-4 | 3 |
+
+# go-fil-markets v1.14.0
+
+- github.com/filecoin-project/go-fil-markets:
+  - add SeekStart method to inflator reader (#656) ([filecoin-project/go-fil-markets#656](https://github.com/filecoin-project/go-fil-markets/pull/656))
+
+Contributors
+
+| Contributor | Commits | Lines ± | Files Changed |
+|-------------|---------|---------|---------------|
+| dirkmc | 1 | +317/-52 | 10 |
+
+# go-fil-markets v1.13.6 
+
+Add timeout for awaiting restart
+
+### Changelog
+
+- github.com/filecoin-project/go-fil-markets:
+  - Timeout provider after waiting a period of time for transfer to restart (#655) ([filecoin-project/go-fil-markets#655](https://github.com/filecoin-project/go-fil-markets/pull/655))
+
+### Contributors
+
+| Contributor | Commits | Lines ± | Files Changed |
+|-------------|---------|---------|---------------|
+| Hannah Howard | 1 | +204/-86 | 10 |
+
+# go-fil-markets v1.13.5
+
+Update to context data stores
+
+# go-fil-markets 1.13.4
+
+- github.com/filecoin-project/go-fil-markets:
+  - Update go-car to v2.1.0  (#650) ([filecoin-project/go-fil-markets#650](https://github.com/filecoin-project/go-fil-markets/pull/650))
+
+Contributors
+
+| Contributor | Commits | Lines ± | Files Changed |
+|-------------|---------|---------|---------------|
+| Łukasz Magiera | 1 | +1670/-6 | 4 |
+
 # go-fil-markets 1.13.3
 
 - github.com/filecoin-project/go-fil-markets:
