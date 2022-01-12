@@ -15,7 +15,7 @@ require (
 	github.com/filecoin-project/go-state-types v0.1.1-0.20210506134452-99b279731c48
 	github.com/filecoin-project/go-statemachine v0.0.0-20200925024713-05bd7c71fbfe
 	github.com/filecoin-project/go-statestore v0.2.0
-	github.com/filecoin-project/index-provider v0.1.0
+	github.com/filecoin-project/index-provider v0.1.1-0.20220107223914-37c38e2b284d
 	github.com/filecoin-project/specs-actors v0.9.13
 	github.com/filecoin-project/specs-actors/v2 v2.3.5-0.20210114162132-5b58b773f4fb
 	github.com/filecoin-project/storetheindex v0.2.1
@@ -55,7 +55,7 @@ require (
 	github.com/petar/GoLLRB v0.0.0-20210522233825-ae3b015fd3e9
 	github.com/stretchr/testify v1.7.0
 	github.com/whyrusleeping/cbor v0.0.0-20171005072247-63513f603b11
-	github.com/whyrusleeping/cbor-gen v0.0.0-20210713220151-be142a5ae1a8
+	github.com/whyrusleeping/cbor-gen v0.0.0-20211110122933-f57984553008
 	golang.org/x/exp v0.0.0-20210715201039-d37aa40e8013
 	golang.org/x/net v0.0.0-20211112202133-69e39bad7dc2
 	golang.org/x/xerrors v0.0.0-20200804184101-5ec99f83aff1
