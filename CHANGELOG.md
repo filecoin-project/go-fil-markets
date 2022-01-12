@@ -1,5 +1,16 @@
 # go-fil-markets changelog
 
+# go-fil-markets v1.15.0
+
+- github.com/filecoin-project/go-fil-markets:
+  - retrieve by any CID (not just root CID) and reference provider integration (#629) ([filecoin-project/go-fil-markets#629](https://github.com/filecoin-project/go-fil-markets/pull/629))
+
+Contributors
+
+| Contributor | Commits | Lines ± | Files Changed |
+|-------------|---------|---------|---------------|
+| dirkmc | 1 | +811/-227 | 22 |
+
 # go-fil-markets v1.14.1
 
 - github.com/filecoin-project/go-fil-markets:
