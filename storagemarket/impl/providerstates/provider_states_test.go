@@ -1572,6 +1572,10 @@ type fakeEnvironment struct {
 	shardActivationError error
 }
 
+func (fe *fakeEnvironment) RemoveIndex(ctx context.Context, proposalCid cid.Cid) error {
+	return nil
+}
+
 func (fe *fakeEnvironment) RestartDataTransfer(_ context.Context, chId datatransfer.ChannelID) error {
 	fe.restartDataTransferCalls = append(fe.restartDataTransferCalls, restartDataTransferCall{chId})
 	return fe.restartDataTransferError
@@ -1644,6 +1648,10 @@ func (fe *fakeEnvironment) ReadCAR(_ string) (*carv2.Reader, error) {
 
 func (fe *fakeEnvironment) AwaitRestartTimeout() <-chan time.Time {
 	return fe.awaitRestartTimeout
+}
+
+func (fe *fakeEnvironment) AnnounceIndex(ctx context.Context, deal storagemarket.MinerDeal) error {
+	return nil
 }
 
 var _ providerstates.ProviderDealEnvironment = &fakeEnvironment{}

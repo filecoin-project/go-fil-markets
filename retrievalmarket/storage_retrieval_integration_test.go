@@ -87,6 +87,7 @@ func TestStorageRetrieval(t *testing.T) {
 			sa := testnodes2.NewTestSectorAccessor()
 			pieceStore := tut.NewTestPieceStore()
 			deps := setupDepsWithDagStore(bgCtx, t, sa, pieceStore)
+			dagStore := deps.DagStore.(*tut.MockDagStoreWrapper)
 			sh := testharness.NewHarnessWithTestData(t, deps.TestData, deps, true, false)
 
 			storageProviderSeenDeal := doStorage(t, bgCtx, sh)
@@ -99,7 +100,7 @@ func TestStorageRetrieval(t *testing.T) {
 				PaymentInterval:         tc.paymentInterval,
 				PaymentIntervalIncrease: tc.paymentIntervalIncrease,
 			}
-			rh := newRetrievalHarnessWithDeps(ctxTimeout, t, sh, storageProviderSeenDeal, providerNode, sa, pieceStore, params)
+			rh := newRetrievalHarnessWithDeps(ctxTimeout, t, sh, storageProviderSeenDeal, providerNode, sa, pieceStore, dagStore, params)
 
 			checkRetrieve(t, bgCtx, rh, sh, tc.voucherAmts)
 		})
@@ -155,6 +156,7 @@ func TestOfflineStorageRetrieval(t *testing.T) {
 			sa := testnodes2.NewTestSectorAccessor()
 			pieceStore := tut.NewTestPieceStore()
 			deps := setupDepsWithDagStore(bgCtx, t, sa, pieceStore)
+			dagStore := deps.DagStore.(*tut.MockDagStoreWrapper)
 			sh := testharness.NewHarnessWithTestData(t, deps.TestData, deps, true, false)
 
 			// start and wait for client/provider
@@ -238,7 +240,7 @@ func TestOfflineStorageRetrieval(t *testing.T) {
 				PaymentInterval:         tc.paymentInterval,
 				PaymentIntervalIncrease: tc.paymentIntervalIncrease,
 			}
-			rh := newRetrievalHarnessWithDeps(ctxTimeout, t, sh, cd, providerNode, sa, pieceStore, params)
+			rh := newRetrievalHarnessWithDeps(ctxTimeout, t, sh, cd, providerNode, sa, pieceStore, dagStore, params)
 
 			checkRetrieve(t, bgCtx, rh, sh, tc.voucherAmts)
 		})
@@ -371,6 +373,7 @@ func newRetrievalHarnessWithDeps(
 	providerNode *testnodes2.TestRetrievalProviderNode,
 	sa *testnodes2.TestSectorAccessor,
 	pieceStore *tut.TestPieceStore,
+	dagStore *tut.MockDagStoreWrapper,
 	params ...retrievalmarket.Params,
 ) *retrievalHarness {
 	var newPaychAmt abi.TokenAmount
@@ -450,6 +453,7 @@ func newRetrievalHarnessWithDeps(
 	}
 	pieceStore.ExpectCID(payloadCID, cidInfo)
 	pieceStore.ExpectPiece(expectedPiece, pieceInfo)
+	dagStore.AddBlockToPieceIndex(payloadCID, expectedPiece)
 	providerDs := namespace.Wrap(sh.TestData.Ds2, datastore.NewKey("/retrievals/provider"))
 
 	var p retrievalmarket.Params

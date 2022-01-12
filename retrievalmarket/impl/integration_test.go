@@ -22,6 +22,7 @@ import (
 	selectorparse "github.com/ipld/go-ipld-prime/traversal/selector/parse"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"golang.org/x/xerrors"
 
 	"github.com/filecoin-project/go-address"
 	dtimpl "github.com/filecoin-project/go-data-transfer/impl"
@@ -45,7 +46,7 @@ func TestClientCanMakeQueryToProvider(t *testing.T) {
 	bgCtx := context.Background()
 	payChAddr := address.TestAddress
 
-	client, expectedCIDs, missingPiece, expectedQR, retrievalPeer, _ := requireSetupTestClientAndProvider(bgCtx, t, payChAddr)
+	client, expectedCIDs, missingPiece, expectedQR, retrievalPeer, _, pieceStore := requireSetupTestClientAndProvider(bgCtx, t, payChAddr)
 
 	t.Run("when piece is found, returns piece and price data", func(t *testing.T) {
 		expectedQR.Status = retrievalmarket.QueryResponseAvailable
@@ -69,10 +70,12 @@ func TestClientCanMakeQueryToProvider(t *testing.T) {
 	})
 
 	t.Run("when there is some other error, returns error", func(t *testing.T) {
-		unknownPiece := tut.GenerateCids(1)[0]
+		pieceStore.ReturnErrorFromGetPieceInfo(xerrors.Errorf("someerr"))
 		expectedQR.Status = retrievalmarket.QueryResponseError
-		expectedQR.Message = "failed to fetch piece to retrieve from: get cid info: GetCIDInfo failed"
-		actualQR, err := client.Query(bgCtx, retrievalPeer, unknownPiece, retrievalmarket.QueryParams{})
+		expectedQR.PieceCIDFound = retrievalmarket.QueryItemUnavailable
+		expectedQR.Size = 0
+		expectedQR.Message = "failed to fetch piece to retrieve from: could not locate piece: someerr"
+		actualQR, err := client.Query(bgCtx, retrievalPeer, expectedCIDs[0], retrievalmarket.QueryParams{})
 		assert.NoError(t, err)
 		actualQR.MaxPaymentInterval = expectedQR.MaxPaymentInterval
 		actualQR.MinPricePerByte = expectedQR.MinPricePerByte
@@ -89,19 +92,22 @@ func TestProvider_Stop(t *testing.T) {
 	}
 	bgCtx := context.Background()
 	payChAddr := address.TestAddress
-	client, expectedCIDs, _, _, retrievalPeer, provider := requireSetupTestClientAndProvider(bgCtx, t, payChAddr)
+	client, expectedCIDs, _, _, retrievalPeer, provider, _ := requireSetupTestClientAndProvider(bgCtx, t, payChAddr)
 	require.NoError(t, provider.Stop())
 	_, err := client.Query(bgCtx, retrievalPeer, expectedCIDs[0], retrievalmarket.QueryParams{})
 
 	assert.EqualError(t, err, "exhausted 5 attempts but failed to open stream, err: protocol not supported")
 }
 
-func requireSetupTestClientAndProvider(ctx context.Context, t *testing.T, payChAddr address.Address) (retrievalmarket.RetrievalClient,
+func requireSetupTestClientAndProvider(ctx context.Context, t *testing.T, payChAddr address.Address) (
+	retrievalmarket.RetrievalClient,
 	[]cid.Cid,
 	cid.Cid,
 	retrievalmarket.QueryResponse,
 	retrievalmarket.RetrievalPeer,
-	retrievalmarket.RetrievalProvider) {
+	retrievalmarket.RetrievalProvider,
+	*tut.TestPieceStore,
+) {
 	testData := tut.NewLibp2pTestData(ctx, t)
 	nw1 := rmnet.NewFromLibp2pHost(testData.Host1, rmnet.RetryParameters(100*time.Millisecond, 1*time.Second, 5, 5))
 	cids := tut.GenerateCids(2)
@@ -130,6 +136,7 @@ func requireSetupTestClientAndProvider(ctx context.Context, t *testing.T, payChA
 	expectedPieceCIDs := tut.GenerateCids(3)
 	missingCID := tut.GenerateCids(1)[0]
 	expectedQR := tut.MakeTestQueryResponse()
+	dagstoreWrapper := tut.NewMockDagStoreWrapper(pieceStore, sectorAccessor)
 
 	pieceStore.ExpectMissingCID(missingCID)
 	for i, c := range expectedCIDs {
@@ -140,6 +147,7 @@ func requireSetupTestClientAndProvider(ctx context.Context, t *testing.T, payChA
 				},
 			},
 		})
+		dagstoreWrapper.AddBlockToPieceIndex(c, expectedPieceCIDs[i])
 	}
 	for i, piece := range expectedPieceCIDs {
 		pieceStore.ExpectPiece(piece, piecestore.PieceInfo{
@@ -170,8 +178,6 @@ func requireSetupTestClientAndProvider(ctx context.Context, t *testing.T, payChA
 		return ask, nil
 	}
 
-	// Set up a DAG store
-	dagstoreWrapper := tut.NewMockDagStoreWrapper(pieceStore, sectorAccessor)
 	provider, err := retrievalimpl.NewProvider(
 		paymentAddress, providerNode, sectorAccessor, nw2, pieceStore, dagstoreWrapper, dt2, providerDs,
 		priceFunc)
@@ -186,7 +192,7 @@ func requireSetupTestClientAndProvider(ctx context.Context, t *testing.T, payChA
 
 	expectedQR.Size = uint64(abi.PaddedPieceSize(expectedQR.Size).Unpadded())
 
-	return client, expectedCIDs, missingCID, expectedQR, retrievalPeer, provider
+	return client, expectedCIDs, missingCID, expectedQR, retrievalPeer, provider, pieceStore
 }
 
 func TestClientCanMakeDealWithProvider(t *testing.T) {
@@ -711,6 +717,7 @@ func setupProvider(
 
 	// Create a DAG store wrapper
 	dagstoreWrapper := tut.NewMockDagStoreWrapper(pieceStore, sectorAccessor)
+	dagstoreWrapper.AddBlockToPieceIndex(payloadCID, pieceInfo.PieceCID)
 
 	// Register the piece with the DAG store wrapper
 	err = stores.RegisterShardSync(ctx, dagstoreWrapper, pieceInfo.PieceCID, carFilePath, true)
