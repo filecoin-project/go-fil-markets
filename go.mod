@@ -3,7 +3,7 @@ module github.com/filecoin-project/go-fil-markets
 go 1.13
 
 require (
-	github.com/filecoin-project/dagstore v0.4.3-0.20211211192320-72b849e131d2
+	github.com/filecoin-project/dagstore v0.5.1-0.20220112075533-ee91088affb1
 	github.com/filecoin-project/go-address v0.0.5
 	github.com/filecoin-project/go-cbor-util v0.0.0-20191219014500-08c40a1e63a2
 	github.com/filecoin-project/go-commp-utils v0.1.3
@@ -41,7 +41,7 @@ require (
 	github.com/ipfs/go-merkledag v0.5.1
 	github.com/ipfs/go-unixfs v0.3.1
 	github.com/ipld/go-car v0.3.3-0.20211210032800-e6f244225a16
-	github.com/ipld/go-car/v2 v2.1.1-0.20211211000942-be2525f6bf2d
+	github.com/ipld/go-car/v2 v2.1.1
 	github.com/ipld/go-ipld-prime v0.14.3
 	github.com/jbenet/go-random v0.0.0-20190219211222-123a90aedc0c
 	github.com/jpillora/backoff v1.0.0
