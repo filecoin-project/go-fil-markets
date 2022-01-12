@@ -7,9 +7,8 @@ import (
 	"os"
 	"time"
 
-	"github.com/hashicorp/go-multierror"
-
 	"github.com/hannahhoward/go-pubsub"
+	"github.com/hashicorp/go-multierror"
 	"github.com/ipfs/go-cid"
 	"github.com/ipfs/go-datastore"
 	"golang.org/x/xerrors"
