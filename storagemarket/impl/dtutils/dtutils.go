@@ -43,7 +43,7 @@ func ProviderDataTransferSubscriber(deals EventReceiver) datatransfer.Subscriber
 		log.Debugw("processing storage provider dt event", "event", datatransfer.Events[event.Code], "proposalCid", voucher.Proposal, "channelID",
 			channelState.ChannelID(), "channelState", datatransfer.Statuses[channelState.Status()])
 
-		if channelState.Status() == datatransfer.Completed {
+		if channelState.Status() == datatransfer.Completed || channelState.Status() == datatransfer.PartiallyCompleted {
 			err := deals.Send(voucher.Proposal, storagemarket.ProviderEventDataTransferCompleted)
 			if err != nil {
 				log.Errorf("processing dt event: %s", err)
@@ -91,7 +91,7 @@ func ClientDataTransferSubscriber(deals EventReceiver) datatransfer.Subscriber {
 		log.Debugw("processing storage client dt event", "event", datatransfer.Events[event.Code], "proposalCid", voucher.Proposal, "channelID",
 			channelState.ChannelID(), "channelState", datatransfer.Statuses[channelState.Status()])
 
-		if channelState.Status() == datatransfer.Completed {
+		if channelState.Status() == datatransfer.Completed || channelState.Status() == datatransfer.PartiallyCompleted {
 			err := deals.Send(voucher.Proposal, storagemarket.ClientEventDataTransferComplete)
 			if err != nil {
 				log.Errorf("processing dt event: %s", err)

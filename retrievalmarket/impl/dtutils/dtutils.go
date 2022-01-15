@@ -56,7 +56,7 @@ func ProviderDataTransferSubscriber(deals EventReceiver) datatransfer.Subscriber
 			return
 		}
 
-		if channelState.Status() == datatransfer.Completed {
+		if channelState.Status() == datatransfer.Completed || channelState.Status() == datatransfer.PartiallyCompleted {
 			err := deals.Send(rm.ProviderDealIdentifier{DealID: dealProposal.ID, Receiver: channelState.Recipient()}, rm.ProviderEventComplete)
 			if err != nil {
 				log.Errorf("processing dt event: %s", err)
@@ -123,6 +123,8 @@ func clientEvent(event datatransfer.Event, channelState datatransfer.ChannelStat
 			return rm.ClientEventDealRejected, []interface{}{"rejected for unknown reasons"}
 		}
 		return rm.ClientEventDataTransferError, []interface{}{fmt.Errorf("deal data transfer failed: %s", event.Message)}
+	case datatransfer.CIDMissing:
+		return rm.ClientEventCIDMissing, nil
 	default:
 	}
 
