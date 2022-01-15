@@ -1267,7 +1267,7 @@ func (t *ClientDealState) MarshalCBOR(w io.Writer) error {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	if _, err := w.Write([]byte{181}); err != nil {
+	if _, err := w.Write([]byte{182}); err != nil {
 		return err
 	}
 
@@ -1634,6 +1634,22 @@ func (t *ClientDealState) MarshalCBOR(w io.Writer) error {
 	if err := cbg.WriteBool(w, t.LegacyProtocol); err != nil {
 		return err
 	}
+
+	// t.HasMissingCids (bool) (bool)
+	if len("HasMissingCids") > cbg.MaxLength {
+		return xerrors.Errorf("Value in field \"HasMissingCids\" was too long")
+	}
+
+	if err := cbg.WriteMajorTypeHeaderBuf(scratch, w, cbg.MajTextString, uint64(len("HasMissingCids"))); err != nil {
+		return err
+	}
+	if _, err := io.WriteString(w, string("HasMissingCids")); err != nil {
+		return err
+	}
+
+	if err := cbg.WriteBool(w, t.HasMissingCids); err != nil {
+		return err
+	}
 	return nil
 }
 
@@ -1971,6 +1987,24 @@ func (t *ClientDealState) UnmarshalCBOR(r io.Reader) error {
 				t.LegacyProtocol = false
 			case 21:
 				t.LegacyProtocol = true
+			default:
+				return fmt.Errorf("booleans are either major type 7, value 20 or 21 (got %d)", extra)
+			}
+			// t.HasMissingCids (bool) (bool)
+		case "HasMissingCids":
+
+			maj, extra, err = cbg.CborReadHeaderBuf(br, scratch)
+			if err != nil {
+				return err
+			}
+			if maj != cbg.MajOther {
+				return fmt.Errorf("booleans must be major type 7")
+			}
+			switch extra {
+			case 20:
+				t.HasMissingCids = false
+			case 21:
+				t.HasMissingCids = true
 			default:
 				return fmt.Errorf("booleans are either major type 7, value 20 or 21 (got %d)", extra)
 			}

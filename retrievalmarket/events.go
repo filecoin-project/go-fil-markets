@@ -138,6 +138,10 @@ const (
 	// ClientEventFinalizeBlockstoreErrored is fired when there is an error
 	// finalizing the blockstore
 	ClientEventFinalizeBlockstoreErrored
+
+	// ClientEventCIDMissing is fired when data transfer reports a cid was
+	// missing from the remote on the server
+	ClientEventCIDMissing
 )
 
 // ClientEvents is a human readable map of client event name -> event description

@@ -116,6 +116,18 @@ func TestProviderDataTransferSubscriber(t *testing.T) {
 			expectedID:    rm.ProviderDealIdentifier{DealID: dealProposal.ID, Receiver: testPeers[1]},
 			expectedEvent: rm.ProviderEventComplete,
 		},
+		"partially completed": {
+			code: datatransfer.ResumeResponder,
+			state: shared_testutil.TestChannelParams{
+				IsPull:     true,
+				TransferID: transferID,
+				Sender:     testPeers[0],
+				Recipient:  testPeers[1],
+				Vouchers:   []datatransfer.Voucher{&dealProposal},
+				Status:     datatransfer.PartiallyCompleted},
+			expectedID:    rm.ProviderDealIdentifier{DealID: dealProposal.ID, Receiver: testPeers[1]},
+			expectedEvent: rm.ProviderEventComplete,
+		},
 		"cancel": {
 			code: datatransfer.Cancel,
 			state: shared_testutil.TestChannelParams{
@@ -124,7 +136,7 @@ func TestProviderDataTransferSubscriber(t *testing.T) {
 				Sender:     testPeers[0],
 				Recipient:  testPeers[1],
 				Vouchers:   []datatransfer.Voucher{&dealProposal},
-				Status:     datatransfer.Completed},
+				Status:     datatransfer.Ongoing},
 			expectedID:    rm.ProviderDealIdentifier{DealID: dealProposal.ID, Receiver: testPeers[1]},
 			expectedEvent: rm.ProviderEventClientCancelled,
 		},
@@ -182,6 +194,15 @@ func TestClientDataTransferSubscriber(t *testing.T) {
 			expectedID:    dealProposal.ID,
 			expectedEvent: rm.ClientEventBlocksReceived,
 			expectedArgs:  []interface{}{uint64(1000)},
+		},
+		"missing cid": {
+			code: datatransfer.CIDMissing,
+			state: shared_testutil.TestChannelParams{
+				Vouchers: []datatransfer.Voucher{&dealProposal},
+				Status:   datatransfer.Ongoing,
+				Received: 1000},
+			expectedID:    dealProposal.ID,
+			expectedEvent: rm.ClientEventCIDMissing,
 		},
 		"finish transfer": {
 			code: datatransfer.FinishTransfer,

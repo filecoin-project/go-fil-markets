@@ -40,8 +40,6 @@ type Libp2pTestData struct {
 	DTNet2      dtnet.DataTransferNetwork
 	DTStore1    datastore.Batching
 	DTStore2    datastore.Batching
-	DTTmpDir1   string
-	DTTmpDir2   string
 	LinkSystem1 ipld.LinkSystem
 	LinkSystem2 ipld.LinkSystem
 	Host1       host.Host
@@ -90,15 +88,6 @@ func NewLibp2pTestData(ctx context.Context, t *testing.T) *Libp2pTestData {
 
 	testData.DTStore1 = namespace.Wrap(testData.Ds1, datastore.NewKey("DataTransfer1"))
 	testData.DTStore2 = namespace.Wrap(testData.Ds1, datastore.NewKey("DataTransfer2"))
-
-	testData.DTTmpDir1, err = ioutil.TempDir("", "dt-tmp-1")
-	require.NoError(t, err)
-	testData.DTTmpDir2, err = ioutil.TempDir("", "dt-tmp-2")
-	require.NoError(t, err)
-	t.Cleanup(func() {
-		_ = os.RemoveAll(testData.DTTmpDir1)
-		_ = os.RemoveAll(testData.DTTmpDir2)
-	})
 
 	testData.MockNet = mn
 

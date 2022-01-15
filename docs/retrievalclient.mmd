@@ -60,6 +60,7 @@ stateDiagram-v2
 		ClientEventWriteDealPaymentErrored - transitions state to DealStatusErroring
 		ClientEventProviderCancelled - transitions state to DealStatusCancelling
 		ClientEventCancel - transitions state to DealStatusCancelling
+		<invalid reflect.Value> - just records
 	end note
 	DealStatusNew --> DealStatusNew : ClientEventOpen
 	DealStatusNew --> DealStatusWaitForAcceptance : ClientEventDealProposed
