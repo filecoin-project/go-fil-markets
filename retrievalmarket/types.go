@@ -66,6 +66,7 @@ type ClientDealState struct {
 	WaitMsgCID           *cid.Cid // the CID of any message the client deal is waiting for
 	VoucherShortfall     abi.TokenAmount
 	LegacyProtocol       bool
+	HasMissingCids       bool
 }
 
 func (deal *ClientDealState) NextInterval() uint64 {

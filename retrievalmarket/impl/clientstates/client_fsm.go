@@ -385,6 +385,12 @@ var ClientEvents = fsm.Events{
 
 	// payment channel receives more money, we believe there may be reason to recheck the funds for this channel
 	fsm.Event(rm.ClientEventRecheckFunds).From(rm.DealStatusInsufficientFunds).To(rm.DealStatusCheckFunds),
+
+	// data transfer reports a CID was missing
+	fsm.Event(rm.ClientEventCIDMissing).FromAny().ToJustRecord().Action(func(deal *rm.ClientDealState) error {
+		deal.HasMissingCids = true
+		return nil
+	}),
 }
 
 // ClientFinalityStates are terminal states after which no further events are received

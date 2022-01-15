@@ -83,6 +83,18 @@ func TestProviderDataTransferSubscriber(t *testing.T) {
 			expectedID:    expectedProposalCID,
 			expectedEvent: storagemarket.ProviderEventDataTransferCompleted,
 		},
+
+		"partial completion status": {
+			code:   datatransfer.Complete,
+			status: datatransfer.PartiallyCompleted,
+			called: true,
+			voucher: &requestvalidation.StorageDataTransferVoucher{
+				Proposal: expectedProposalCID,
+			},
+			expectedID:    expectedProposalCID,
+			expectedEvent: storagemarket.ProviderEventDataTransferCompleted,
+		},
+
 		"data received": {
 			code:   datatransfer.DataReceived,
 			status: datatransfer.Ongoing,
@@ -164,6 +176,18 @@ func TestClientDataTransferSubscriber(t *testing.T) {
 			expectedID:    expectedProposalCID,
 			expectedEvent: storagemarket.ClientEventDataTransferComplete,
 		},
+
+		"partial completion event": {
+			code:   datatransfer.Complete,
+			status: datatransfer.PartiallyCompleted,
+			called: true,
+			voucher: &requestvalidation.StorageDataTransferVoucher{
+				Proposal: expectedProposalCID,
+			},
+			expectedID:    expectedProposalCID,
+			expectedEvent: storagemarket.ClientEventDataTransferComplete,
+		},
+
 		"restart event": {
 			code:   datatransfer.Restart,
 			status: datatransfer.Ongoing,

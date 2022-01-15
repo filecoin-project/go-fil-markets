@@ -12,42 +12,48 @@ import (
 
 // TestChannelParams are params for a new test data transfer channel
 type TestChannelParams struct {
-	TransferID     datatransfer.TransferID
-	BaseCID        cid.Cid
-	Selector       ipld.Node
-	SelfPeer       peer.ID
-	Sender         peer.ID
-	Recipient      peer.ID
-	TotalSize      uint64
-	IsPull         bool
-	Message        string
-	Sent           uint64
-	Received       uint64
-	Queued         uint64
-	Status         datatransfer.Status
-	Vouchers       []datatransfer.Voucher
-	VoucherResults []datatransfer.VoucherResult
-	ReceivedCids   []cid.Cid
+	TransferID        datatransfer.TransferID
+	BaseCID           cid.Cid
+	Selector          ipld.Node
+	SelfPeer          peer.ID
+	Sender            peer.ID
+	Recipient         peer.ID
+	TotalSize         uint64
+	IsPull            bool
+	Message           string
+	Sent              uint64
+	Received          uint64
+	Queued            uint64
+	Status            datatransfer.Status
+	Vouchers          []datatransfer.Voucher
+	VoucherResults    []datatransfer.VoucherResult
+	ReceivedCidsTotal int64
+	SentCidsTotal     int64
+	QueuedCidsTotal   int64
+	MissingCids       []cid.Cid
 }
 
 // TestChannel implements a datatransfer channel with set values
 type TestChannel struct {
-	selfPeer       peer.ID
-	transferID     datatransfer.TransferID
-	baseCID        cid.Cid
-	selector       ipld.Node
-	sender         peer.ID
-	recipient      peer.ID
-	totalSize      uint64
-	message        string
-	isPull         bool
-	sent           uint64
-	received       uint64
-	queued         uint64
-	status         datatransfer.Status
-	vouchers       []datatransfer.Voucher
-	voucherResults []datatransfer.VoucherResult
-	receivedCids   []cid.Cid
+	selfPeer          peer.ID
+	transferID        datatransfer.TransferID
+	baseCID           cid.Cid
+	selector          ipld.Node
+	sender            peer.ID
+	recipient         peer.ID
+	totalSize         uint64
+	message           string
+	isPull            bool
+	sent              uint64
+	received          uint64
+	queued            uint64
+	status            datatransfer.Status
+	vouchers          []datatransfer.Voucher
+	voucherResults    []datatransfer.VoucherResult
+	receivedCidsTotal int64
+	sentCidsTotal     int64
+	queuedCidsTotal   int64
+	missingCids       []cid.Cid
 }
 
 // FakeDTType is a fake voucher type
@@ -61,23 +67,38 @@ func (f FakeDTType) Type() datatransfer.TypeIdentifier { return "Fake" }
 func NewTestChannel(params TestChannelParams) datatransfer.ChannelState {
 	peers := GeneratePeers(2)
 	tc := &TestChannel{
-		selfPeer:       peers[0],
-		transferID:     datatransfer.TransferID(rand.Uint64()),
-		baseCID:        GenerateCids(1)[0],
-		selector:       selectorparse.CommonSelector_ExploreAllRecursively,
-		sender:         peers[0],
-		recipient:      peers[1],
-		totalSize:      rand.Uint64(),
-		isPull:         params.IsPull,
-		status:         params.Status,
-		sent:           rand.Uint64(),
-		received:       rand.Uint64(),
-		queued:         rand.Uint64(),
+		selfPeer:   peers[0],
+		transferID: datatransfer.TransferID(rand.Uint64()),
+		baseCID:    GenerateCids(1)[0],
+		selector:   selectorparse.CommonSelector_ExploreAllRecursively,
+		sender:     peers[0],
+		recipient:  peers[1],
+		totalSize:  rand.Uint64(),
+		isPull:     params.IsPull,
+		status:     params.Status,
+		sent:       rand.Uint64(),
+		received:   rand.Uint64(),
+		queued:     rand.Uint64(),
+
 		vouchers:       []datatransfer.Voucher{FakeDTType{}},
 		voucherResults: []datatransfer.VoucherResult{FakeDTType{}},
 	}
 
-	tc.receivedCids = params.ReceivedCids
+	if params.ReceivedCidsTotal != 0 {
+		tc.receivedCidsTotal = params.ReceivedCidsTotal
+	}
+
+	if params.SentCidsTotal != 0 {
+		tc.sentCidsTotal = params.SentCidsTotal
+	}
+
+	if params.QueuedCidsTotal != 0 {
+		tc.queuedCidsTotal = params.QueuedCidsTotal
+	}
+
+	if len(params.MissingCids) > 0 {
+		tc.missingCids = params.MissingCids
+	}
 
 	if params.TransferID != 0 {
 		tc.transferID = params.TransferID
@@ -122,12 +143,19 @@ func NewTestChannel(params TestChannelParams) datatransfer.ChannelState {
 	return tc
 }
 
-func (tc *TestChannel) ReceivedCidsLen() int {
-	return len(tc.receivedCids)
+func (tc *TestChannel) ReceivedCidsTotal() int64 {
+	return tc.receivedCidsTotal
+}
+func (tc *TestChannel) SentCidsTotal() int64 {
+	return tc.sentCidsTotal
 }
 
-func (tc *TestChannel) ReceivedCidsTotal() int64 {
-	return int64(len(tc.receivedCids))
+func (tc *TestChannel) QueuedCidsTotal() int64 {
+	return tc.queuedCidsTotal
+}
+
+func (tc *TestChannel) MissingCids() []cid.Cid {
+	return tc.missingCids
 }
 
 // TransferID returns the transfer id for this channel
@@ -144,11 +172,6 @@ func (tc *TestChannel) BaseCID() cid.Cid {
 // an IPLD node)
 func (tc *TestChannel) Selector() ipld.Node {
 	return tc.selector
-}
-
-// ReceivedCids returns the cids received so far
-func (tc *TestChannel) ReceivedCids() []cid.Cid {
-	return tc.receivedCids
 }
 
 // Voucher returns the voucher for this data transfer

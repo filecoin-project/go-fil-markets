@@ -97,8 +97,8 @@ func TestBounceConnectionDealTransferOngoing(t *testing.T) {
 			td := shared_testutil.NewLibp2pTestData(bgCtx, t)
 			td.DTNet1 = dtnet.NewFromLibp2pHost(td.Host1, dtClientNetRetry)
 			depGen := dependencies.NewDepGenerator()
-			depGen.ClientNewDataTransfer = func(ds datastore.Batching, dir string, transferNetwork dtnet.DataTransferNetwork, transport datatransfer.Transport) (datatransfer.Manager, error) {
-				return dtimpl.NewDataTransfer(ds, dir, transferNetwork, transport, restartConf)
+			depGen.ClientNewDataTransfer = func(ds datastore.Batching, transferNetwork dtnet.DataTransferNetwork, transport datatransfer.Transport) (datatransfer.Manager, error) {
+				return dtimpl.NewDataTransfer(ds, transferNetwork, transport, restartConf)
 			}
 			deps := depGen.New(t, bgCtx, td, testnodes.NewStorageMarketState(), "", noOpDelay, noOpDelay)
 			providerNode := testnodes2.NewTestRetrievalProviderNode()
@@ -226,8 +226,8 @@ func TestBounceConnectionDealTransferUnsealing(t *testing.T) {
 			td := shared_testutil.NewLibp2pTestData(bgCtx, t)
 			td.DTNet1 = dtnet.NewFromLibp2pHost(td.Host1, dtClientNetRetry)
 			depGen := dependencies.NewDepGenerator()
-			depGen.ClientNewDataTransfer = func(ds datastore.Batching, dir string, transferNetwork dtnet.DataTransferNetwork, transport datatransfer.Transport) (datatransfer.Manager, error) {
-				return dtimpl.NewDataTransfer(ds, dir, transferNetwork, transport, restartConf)
+			depGen.ClientNewDataTransfer = func(ds datastore.Batching, transferNetwork dtnet.DataTransferNetwork, transport datatransfer.Transport) (datatransfer.Manager, error) {
+				return dtimpl.NewDataTransfer(ds, transferNetwork, transport, restartConf)
 			}
 			deps := depGen.New(t, bgCtx, td, testnodes.NewStorageMarketState(), "", noOpDelay, noOpDelay)
 			providerNode := testnodes2.NewTestRetrievalProviderNode()

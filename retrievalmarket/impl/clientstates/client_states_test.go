@@ -99,6 +99,16 @@ func TestProposeDeal(t *testing.T) {
 	})
 }
 
+func TestMissingCIDEvent(t *testing.T) {
+	ctx := context.Background()
+	eventMachine, err := fsm.NewEventProcessor(retrievalmarket.ClientDealState{}, "Status", clientstates.ClientEvents)
+	require.NoError(t, err)
+	fsmCtx := fsmtest.NewTestContext(ctx, eventMachine)
+	fsmCtx.Trigger(retrievalmarket.ClientEventCIDMissing)
+	dealState := makeDealState(retrievalmarket.DealStatusOngoing)
+	fsmCtx.ReplayEvents(t, dealState)
+	require.True(t, dealState.HasMissingCids)
+}
 func TestSetupPaymentChannel(t *testing.T) {
 	ctx := context.Background()
 	expectedPayCh := address.TestAddress2
