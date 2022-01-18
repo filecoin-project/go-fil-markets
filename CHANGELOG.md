@@ -1,5 +1,18 @@
 # go-fil-markets changelog
 
+# go-fil-markets v1.16.0
+
+- github.com/filecoin-project/go-fil-markets:
+  - fix: add string value for ClientEventCIDMissing
+  - feat(deps): update for go-data-transfer v1.13.0
+
+Contributors
+
+| Contributor | Commits | Lines ± | Files Changed |
+|-------------|---------|---------|---------------|
+| hannahhoward | 1 | +226/-104 | 21 |
+| Dirk McCormick | 1 | +5/-4 | 4 |
+
 # go-fil-markets v1.15.0
 
 - github.com/filecoin-project/go-fil-markets:
