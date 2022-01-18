@@ -185,6 +185,7 @@ var ClientEvents = map[ClientEvent]string{
 	ClientEventPaymentNotSent:                "ClientEventPaymentNotSent",
 	ClientEventBlockstoreFinalized:           "ClientEventBlockstoreFinalized",
 	ClientEventFinalizeBlockstoreErrored:     "ClientEventFinalizeBlockstoreErrored",
+	ClientEventCIDMissing:                    "ClientEventCIDMissing",
 }
 
 func (e ClientEvent) String() string {
