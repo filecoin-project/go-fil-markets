@@ -45,8 +45,9 @@ require (
 	github.com/ipld/go-ipld-prime v0.14.3
 	github.com/jbenet/go-random v0.0.0-20190219211222-123a90aedc0c
 	github.com/jpillora/backoff v1.0.0
-	github.com/libp2p/go-libp2p v0.17.0
-	github.com/libp2p/go-libp2p-core v0.13.0
+	github.com/libp2p/go-libp2p v0.18.0-rc1
+	github.com/libp2p/go-libp2p-core v0.14.0
+	github.com/libp2p/go-yamux/v3 v3.0.2 // indirect
 	github.com/multiformats/go-multiaddr v0.5.0
 	github.com/multiformats/go-multibase v0.0.3
 	github.com/multiformats/go-multicodec v0.4.0
