@@ -34,7 +34,7 @@ require (
 	github.com/ipfs/go-ipfs-files v0.0.8
 	github.com/ipfs/go-ipld-cbor v0.0.5
 	github.com/ipfs/go-ipld-format v0.2.0
-	github.com/ipfs/go-log/v2 v2.3.0
+	github.com/ipfs/go-log/v2 v2.5.0
 	github.com/ipfs/go-merkledag v0.5.1
 	github.com/ipfs/go-unixfs v0.2.6
 	github.com/ipld/go-car v0.3.3-0.20211210032800-e6f244225a16
@@ -42,9 +42,10 @@ require (
 	github.com/ipld/go-ipld-prime v0.14.3-0.20211207234443-319145880958
 	github.com/jbenet/go-random v0.0.0-20190219211222-123a90aedc0c
 	github.com/jpillora/backoff v1.0.0
-	github.com/libp2p/go-libp2p v0.16.0
-	github.com/libp2p/go-libp2p-core v0.11.0
-	github.com/multiformats/go-multiaddr v0.4.0
+	github.com/libp2p/go-libp2p v0.18.0-rc1
+	github.com/libp2p/go-libp2p-core v0.14.0
+	github.com/libp2p/go-yamux/v3 v3.0.2 // indirect
+	github.com/multiformats/go-multiaddr v0.5.0
 	github.com/multiformats/go-multibase v0.0.3
 	github.com/multiformats/go-multicodec v0.3.1-0.20210902112759-1539a079fd61
 	github.com/multiformats/go-multihash v0.1.0
