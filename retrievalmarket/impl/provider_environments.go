@@ -31,7 +31,7 @@ type providerValidationEnvironment struct {
 func (pve *providerValidationEnvironment) GetAsk(ctx context.Context, payloadCid cid.Cid, pieceCid *cid.Cid,
 	piece piecestore.PieceInfo, isUnsealed bool, client peer.ID) (retrievalmarket.Ask, error) {
 
-	storageDeals, err := pve.p.storageDealsForPiece(pieceCid != nil, payloadCid, piece)
+	storageDeals, err := storageDealsForPiece(pieceCid != nil, payloadCid, piece, pve.p.pieceStore)
 	if err != nil {
 		return retrievalmarket.Ask{}, xerrors.Errorf("failed to fetch deals for payload: %w", err)
 	}
@@ -176,6 +176,61 @@ func (pde *providerDealEnvironment) DeleteStore(dealID retrievalmarket.DealID) e
 	}
 
 	return nil
+}
+
+func storageDealsForPiece(clientSpecificPiece bool, payloadCID cid.Cid, pieceInfo piecestore.PieceInfo, pieceStore piecestore.PieceStore) ([]abi.DealID, error) {
+	var storageDeals []abi.DealID
+	var err error
+	if clientSpecificPiece {
+		//  If the user wants to retrieve the payload from a specific piece,
+		//  we only need to inspect storage deals made for that piece to quote a price.
+		for _, d := range pieceInfo.Deals {
+			storageDeals = append(storageDeals, d.DealID)
+		}
+	} else {
+		// If the user does NOT want to retrieve from a specific piece, we'll have to inspect all storage deals
+		// made for that piece to quote a price.
+		storageDeals, err = getAllDealsContainingPayload(pieceStore, payloadCID)
+		if err != nil {
+			return nil, xerrors.Errorf("failed to fetch deals for payload: %w", err)
+		}
+	}
+
+	if len(storageDeals) == 0 {
+		return nil, xerrors.New("no storage deals found")
+	}
+
+	return storageDeals, nil
+}
+
+func getAllDealsContainingPayload(pieceStore piecestore.PieceStore, payloadCID cid.Cid) ([]abi.DealID, error) {
+	cidInfo, err := pieceStore.GetCIDInfo(payloadCID)
+	if err != nil {
+		return nil, xerrors.Errorf("get cid info: %w", err)
+	}
+	var dealsIds []abi.DealID
+	var lastErr error
+
+	for _, pieceBlockLocation := range cidInfo.PieceBlockLocations {
+		pieceInfo, err := pieceStore.GetPieceInfo(pieceBlockLocation.PieceCID)
+		if err != nil {
+			lastErr = err
+			continue
+		}
+		for _, d := range pieceInfo.Deals {
+			dealsIds = append(dealsIds, d.DealID)
+		}
+	}
+
+	if lastErr == nil && len(dealsIds) == 0 {
+		return nil, xerrors.New("no deals found")
+	}
+
+	if lastErr != nil && len(dealsIds) == 0 {
+		return nil, xerrors.Errorf("failed to fetch deals containing payload %s: %w", payloadCID, lastErr)
+	}
+
+	return dealsIds, nil
 }
 
 var _ dtutils.StoreGetter = &providerStoreGetter{}

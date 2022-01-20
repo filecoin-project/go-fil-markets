@@ -52,8 +52,4 @@ type StorageProvider interface {
 	SubscribeToEvents(subscriber ProviderSubscriber) shared.Unsubscribe
 
 	RetryDealPublishing(propCid cid.Cid) error
-
-	AnnounceDealToIndexer(ctx context.Context, proposalCid cid.Cid) error
-
-	AnnounceAllDealsToIndexer(ctx context.Context) error
 }
