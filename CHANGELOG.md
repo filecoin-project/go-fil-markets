@@ -1,5 +1,17 @@
 # go-fil-markets changelog
 
+# go-fil-markets v1.19.0
+
+- github.com/filecoin-project/go-fil-markets:
+  - Update to go-data-transfer v1.14.0 / go-libp2p v0.18.0-rc1 (#669) ([filecoin-project/go-fil-markets#669](https://github.com/filecoin-project/go-fil-markets/pull/669))
+
+Contributors
+
+| Contributor | Commits | Lines ± | Files Changed |
+|-------------|---------|---------|---------------|
+| Hannah Howard | 1 | +163/-119 | 9 |
+| dirkmc | 1 | +20/-0 | 1 |
+
 # go-fil-markets v1.18.0
 
 Reverts the following commits:
