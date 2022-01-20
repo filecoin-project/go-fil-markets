@@ -390,15 +390,15 @@ func HandoffDeal(ctx fsm.Context, environment ProviderDealEnvironment, deal stor
 	if err := environment.RegisterShard(ctx.Context(), deal.Proposal.PieceCID, carFilePath, true); err != nil {
 		err = xerrors.Errorf("failed to activate shard: %w", err)
 		log.Error(err)
+	}
+
+	// announce the deal to the network indexer
+	annCid, err := environment.AnnounceIndex(ctx.Context(), deal)
+	if err != nil {
+		log.Errorw("failed to announce index via reference provider", "proposalCid", deal.ProposalCid, "err", err)
 	} else {
-		// announce the deal to the network indexer
-		annCid, err := environment.AnnounceIndex(ctx.Context(), deal)
-		if err != nil {
-			log.Errorw("failed to announce index via reference provider", "proposalCid", deal.ProposalCid, "err", err)
-		} else {
-			log.Infow("deal announcement sent to index provider", "advertisementCid", annCid, "shard-key", deal.Proposal.PieceCID,
-				"proposalCid", deal.ProposalCid)
-		}
+		log.Infow("deal announcement sent to index provider", "advertisementCid", annCid, "shard-key", deal.Proposal.PieceCID,
+			"proposalCid", deal.ProposalCid)
 	}
 
 	log.Infow("successfully handed off deal to sealing subsystem", "pieceCid", deal.Proposal.PieceCID, "proposalCid", deal.ProposalCid)
