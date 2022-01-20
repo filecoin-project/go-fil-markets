@@ -37,11 +37,10 @@ import (
 
 type StorageHarness struct {
 	*dependencies.StorageDependencies
-	PayloadCid        cid.Cid
-	Client            storagemarket.StorageClient
-	Provider          storagemarket.StorageProvider
-	Data              bstore.Blockstore
-	ReferenceProvider *shared_testutil.MockIndexProvider
+	PayloadCid cid.Cid
+	Client     storagemarket.StorageClient
+	Provider   storagemarket.StorageProvider
+	Data       bstore.Blockstore
 }
 
 func NewHarness(t *testing.T, ctx context.Context, useStore bool, cd testnodes.DelayFakeCommonNode, pd testnodes.DelayFakeCommonNode,
@@ -103,14 +102,11 @@ func NewHarnessWithTestData(t *testing.T, td *shared_testutil.Libp2pTestData, de
 			network.SupportedDealStatusProtocols([]protocol.ID{storagemarket.OldDealStatusProtocolID}),
 		)
 	}
-
-	rp := shared_testutil.NewMockIndexProvider()
 	provider, err := storageimpl.NewProvider(
 		network.NewFromLibp2pHost(td.Host2, networkOptions...),
 		providerDs,
 		deps.Fs,
 		deps.DagStore,
-		rp,
 		deps.PieceStore,
 		deps.DTProvider,
 		deps.ProviderNode,
@@ -129,7 +125,6 @@ func NewHarnessWithTestData(t *testing.T, td *shared_testutil.Libp2pTestData, de
 		Client:              client,
 		Provider:            provider,
 		Data:                bs,
-		ReferenceProvider:   rp,
 	}
 }
 
@@ -141,13 +136,11 @@ func (h *StorageHarness) CreateNewProvider(t *testing.T, ctx context.Context, td
 	testutil.StartAndWaitForReady(ctx, t, dt2)
 
 	providerDs := namespace.Wrap(td.Ds1, datastore.NewKey("/deals/provider"))
-	pi := shared_testutil.NewMockIndexProvider()
 	provider, err := storageimpl.NewProvider(
 		network.NewFromLibp2pHost(td.Host2, network.RetryParameters(0, 0, 0, 0)),
 		providerDs,
 		h.Fs,
 		h.DagStore,
-		pi,
 		h.PieceStore,
 		dt2,
 		h.ProviderNode,

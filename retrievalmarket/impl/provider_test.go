@@ -69,6 +69,17 @@ func TestDynamicPricing(t *testing.T) {
 	piece2SizePadded := uint64(2234)
 	piece2Size := uint64(abi.PaddedPieceSize(piece2SizePadded).Unpadded())
 
+	expectedCIDInfo := piecestore.CIDInfo{
+		PieceBlockLocations: []piecestore.PieceBlockLocation{
+			{
+				PieceCID: expectedPieceCID1,
+			},
+			{
+				PieceCID: expectedPieceCID2,
+			},
+		},
+	}
+
 	piece1 := piecestore.PieceInfo{
 		PieceCID: expectedPieceCID1,
 		Deals: []piecestore.DealInfo{
@@ -133,11 +144,11 @@ func TestDynamicPricing(t *testing.T) {
 		sa retrievalmarket.SectorAccessor,
 		qs network.RetrievalQueryStream,
 		pieceStore piecestore.PieceStore,
-		dagStore *tut.MockDagStoreWrapper,
 		net *tut.TestRetrievalMarketNetwork,
 		pFnc retrievalimpl.RetrievalPricingFunc,
 	) retrievalmarket.RetrievalProvider {
 		ds := dss.MutexWrap(datastore.NewMapDatastore())
+		dagStore := tut.NewMockDagStoreWrapper(pieceStore, sa)
 		dt := tut.NewTestDataTransfer()
 		c, err := retrievalimpl.NewProvider(expectedAddress, node, sa, net, pieceStore, dagStore, dt, ds, pFnc)
 		require.NoError(t, err)
@@ -159,7 +170,7 @@ func TestDynamicPricing(t *testing.T) {
 
 	tcs := map[string]struct {
 		query              retrievalmarket.Query
-		expFunc            func(t *testing.T, pieceStore *tut.TestPieceStore, dagStore *tut.MockDagStoreWrapper)
+		expFunc            func(t *testing.T, pieceStore *tut.TestPieceStore)
 		nodeFunc           func(n *testnodes.TestRetrievalProviderNode)
 		sectorAccessorFunc func(sa *testnodes.TestSectorAccessor)
 		peerIdFnc          func(stream *tut.TestRetrievalQueryStream)
@@ -182,11 +193,10 @@ func TestDynamicPricing(t *testing.T) {
 			nodeFunc: func(n *testnodes.TestRetrievalProviderNode) {
 				n.ExpectPricingParams(expectedPieceCID1, []abi.DealID{1, 11, 2, 22, 222})
 			},
-			expFunc: func(t *testing.T, pieceStore *tut.TestPieceStore, dagStore *tut.MockDagStoreWrapper) {
+			expFunc: func(t *testing.T, pieceStore *tut.TestPieceStore) {
+				pieceStore.ExpectCID(payloadCID, expectedCIDInfo)
 				pieceStore.ExpectPiece(expectedPieceCID1, piece1)
 				pieceStore.ExpectPiece(expectedPieceCID2, piece2)
-				dagStore.AddBlockToPieceIndex(payloadCID, expectedPieceCID1)
-				dagStore.AddBlockToPieceIndex(payloadCID, expectedPieceCID2)
 			},
 			providerFnc: func(provider retrievalmarket.RetrievalProvider) {},
 			pricingFnc:  dPriceFunc,
@@ -206,11 +216,10 @@ func TestDynamicPricing(t *testing.T) {
 			nodeFunc: func(n *testnodes.TestRetrievalProviderNode) {
 				n.ExpectPricingParams(expectedPieceCID1, []abi.DealID{1, 11, 2, 22, 222})
 			},
-			expFunc: func(t *testing.T, pieceStore *tut.TestPieceStore, dagStore *tut.MockDagStoreWrapper) {
+			expFunc: func(t *testing.T, pieceStore *tut.TestPieceStore) {
+				pieceStore.ExpectCID(payloadCID, expectedCIDInfo)
 				pieceStore.ExpectPiece(expectedPieceCID1, piece1)
 				pieceStore.ExpectPiece(expectedPieceCID2, piece2)
-				dagStore.AddBlockToPieceIndex(payloadCID, expectedPieceCID1)
-				dagStore.AddBlockToPieceIndex(payloadCID, expectedPieceCID2)
 			},
 			providerFnc: func(provider retrievalmarket.RetrievalProvider) {},
 			pricingFnc:  dPriceFunc,
@@ -231,11 +240,10 @@ func TestDynamicPricing(t *testing.T) {
 				n.MarkVerified()
 				n.ExpectPricingParams(expectedPieceCID1, []abi.DealID{1, 11, 2, 22, 222})
 			},
-			expFunc: func(t *testing.T, pieceStore *tut.TestPieceStore, dagStore *tut.MockDagStoreWrapper) {
+			expFunc: func(t *testing.T, pieceStore *tut.TestPieceStore) {
+				pieceStore.ExpectCID(payloadCID, expectedCIDInfo)
 				pieceStore.ExpectPiece(expectedPieceCID1, piece1)
 				pieceStore.ExpectPiece(expectedPieceCID2, piece2)
-				dagStore.AddBlockToPieceIndex(payloadCID, expectedPieceCID1)
-				dagStore.AddBlockToPieceIndex(payloadCID, expectedPieceCID2)
 			},
 			providerFnc: func(provider retrievalmarket.RetrievalProvider) {},
 			pricingFnc:  dPriceFunc,
@@ -259,12 +267,10 @@ func TestDynamicPricing(t *testing.T) {
 				p := piece2.Deals[0]
 				sa.MarkUnsealed(context.TODO(), p.SectorID, p.Offset.Unpadded(), p.Length.Unpadded())
 			},
-			expFunc: func(t *testing.T, pieceStore *tut.TestPieceStore, dagStore *tut.MockDagStoreWrapper) {
-				//pieceStore.ExpectCID(payloadCID, expectedCIDInfo)
+			expFunc: func(t *testing.T, pieceStore *tut.TestPieceStore) {
+				pieceStore.ExpectCID(payloadCID, expectedCIDInfo)
 				pieceStore.ExpectPiece(expectedPieceCID1, piece1)
 				pieceStore.ExpectPiece(expectedPieceCID2, piece2)
-				dagStore.AddBlockToPieceIndex(payloadCID, expectedPieceCID1)
-				dagStore.AddBlockToPieceIndex(payloadCID, expectedPieceCID2)
 			},
 			providerFnc: func(provider retrievalmarket.RetrievalProvider) {},
 			pricingFnc:  dPriceFunc,
@@ -289,11 +295,10 @@ func TestDynamicPricing(t *testing.T) {
 				p := piece2.Deals[0]
 				sa.MarkUnsealed(context.TODO(), p.SectorID, p.Offset.Unpadded(), p.Length.Unpadded())
 			},
-			expFunc: func(t *testing.T, pieceStore *tut.TestPieceStore, dagStore *tut.MockDagStoreWrapper) {
+			expFunc: func(t *testing.T, pieceStore *tut.TestPieceStore) {
+				pieceStore.ExpectCID(payloadCID, expectedCIDInfo)
 				pieceStore.ExpectPiece(expectedPieceCID1, piece1)
 				pieceStore.ExpectPiece(expectedPieceCID2, piece2)
-				dagStore.AddBlockToPieceIndex(payloadCID, expectedPieceCID1)
-				dagStore.AddBlockToPieceIndex(payloadCID, expectedPieceCID2)
 			},
 			providerFnc: func(provider retrievalmarket.RetrievalProvider) {},
 			pricingFnc:  dPriceFunc,
@@ -318,11 +323,10 @@ func TestDynamicPricing(t *testing.T) {
 				p := piece2.Deals[0]
 				sa.MarkUnsealed(context.TODO(), p.SectorID, p.Offset.Unpadded(), p.Length.Unpadded())
 			},
-			expFunc: func(t *testing.T, pieceStore *tut.TestPieceStore, dagStore *tut.MockDagStoreWrapper) {
+			expFunc: func(t *testing.T, pieceStore *tut.TestPieceStore) {
+				pieceStore.ExpectCID(payloadCID, expectedCIDInfo)
 				pieceStore.ExpectPiece(expectedPieceCID1, piece1)
 				pieceStore.ExpectPiece(expectedPieceCID2, piece2)
-				dagStore.AddBlockToPieceIndex(payloadCID, expectedPieceCID1)
-				dagStore.AddBlockToPieceIndex(payloadCID, expectedPieceCID2)
 			},
 
 			providerFnc: func(provider retrievalmarket.RetrievalProvider) {
@@ -354,11 +358,10 @@ func TestDynamicPricing(t *testing.T) {
 				p := piece2.Deals[0]
 				sa.MarkUnsealed(context.TODO(), p.SectorID, p.Offset.Unpadded(), p.Length.Unpadded())
 			},
-			expFunc: func(t *testing.T, pieceStore *tut.TestPieceStore, dagStore *tut.MockDagStoreWrapper) {
+			expFunc: func(t *testing.T, pieceStore *tut.TestPieceStore) {
+				pieceStore.ExpectCID(payloadCID, expectedCIDInfo)
 				pieceStore.ExpectPiece(expectedPieceCID1, piece1)
 				pieceStore.ExpectPiece(expectedPieceCID2, piece2)
-				dagStore.AddBlockToPieceIndex(payloadCID, expectedPieceCID1)
-				dagStore.AddBlockToPieceIndex(payloadCID, expectedPieceCID2)
 			},
 
 			providerFnc: func(provider retrievalmarket.RetrievalProvider) {
@@ -387,11 +390,10 @@ func TestDynamicPricing(t *testing.T) {
 				n.MarkVerified()
 				n.ExpectPricingParams(expectedPieceCID1, []abi.DealID{1, 11, 2, 22, 222})
 			},
-			expFunc: func(t *testing.T, pieceStore *tut.TestPieceStore, dagStore *tut.MockDagStoreWrapper) {
+			expFunc: func(t *testing.T, pieceStore *tut.TestPieceStore) {
+				pieceStore.ExpectCID(payloadCID, expectedCIDInfo)
 				pieceStore.ExpectPiece(expectedPieceCID1, piece1)
 				pieceStore.ExpectPiece(expectedPieceCID2, piece2)
-				dagStore.AddBlockToPieceIndex(payloadCID, expectedPieceCID1)
-				dagStore.AddBlockToPieceIndex(payloadCID, expectedPieceCID2)
 			},
 			providerFnc: func(provider retrievalmarket.RetrievalProvider) {
 				ask := provider.GetAsk()
@@ -426,9 +428,9 @@ func TestDynamicPricing(t *testing.T) {
 				p := piece2.Deals[0]
 				sa.MarkUnsealed(context.TODO(), p.SectorID, p.Offset.Unpadded(), p.Length.Unpadded())
 			},
-			expFunc: func(t *testing.T, pieceStore *tut.TestPieceStore, dagStore *tut.MockDagStoreWrapper) {
+			expFunc: func(t *testing.T, pieceStore *tut.TestPieceStore) {
+				pieceStore.ExpectCID(payloadCID, expectedCIDInfo)
 				pieceStore.ExpectPiece(expectedPieceCID1, piece1)
-				dagStore.AddBlockToPieceIndex(payloadCID, expectedPieceCID1)
 			},
 			providerFnc: func(provider retrievalmarket.RetrievalProvider) {},
 			pricingFnc:  dPriceFunc,
@@ -455,11 +457,10 @@ func TestDynamicPricing(t *testing.T) {
 				p := piece1.Deals[0]
 				sa.MarkUnsealed(context.TODO(), p.SectorID, p.Offset.Unpadded(), p.Length.Unpadded())
 			},
-			expFunc: func(t *testing.T, pieceStore *tut.TestPieceStore, dagStore *tut.MockDagStoreWrapper) {
+			expFunc: func(t *testing.T, pieceStore *tut.TestPieceStore) {
+				pieceStore.ExpectCID(payloadCID, expectedCIDInfo)
 				pieceStore.ExpectPiece(expectedPieceCID1, piece1)
 				pieceStore.ExpectPiece(expectedPieceCID1, piece2)
-				dagStore.AddBlockToPieceIndex(payloadCID, expectedPieceCID1)
-				dagStore.AddBlockToPieceIndex(payloadCID, expectedPieceCID2)
 			},
 			providerFnc: func(provider retrievalmarket.RetrievalProvider) {},
 			pricingFnc:  dPriceFunc,
@@ -487,9 +488,9 @@ func TestDynamicPricing(t *testing.T) {
 				p := piece2.Deals[0]
 				sa.MarkUnsealed(context.TODO(), p.SectorID, p.Offset.Unpadded(), p.Length.Unpadded())
 			},
-			expFunc: func(t *testing.T, pieceStore *tut.TestPieceStore, dagStore *tut.MockDagStoreWrapper) {
+			expFunc: func(t *testing.T, pieceStore *tut.TestPieceStore) {
+				pieceStore.ExpectCID(payloadCID, expectedCIDInfo)
 				pieceStore.ExpectPiece(expectedPieceCID1, piece1)
-				dagStore.AddBlockToPieceIndex(payloadCID, expectedPieceCID1)
 			},
 			providerFnc: func(provider retrievalmarket.RetrievalProvider) {},
 			pricingFnc:  dPriceFunc,
@@ -517,9 +518,9 @@ func TestDynamicPricing(t *testing.T) {
 				p := piece1.Deals[0]
 				sa.MarkUnsealed(context.TODO(), p.SectorID, p.Offset.Unpadded(), p.Length.Unpadded())
 			},
-			expFunc: func(t *testing.T, pieceStore *tut.TestPieceStore, dagStore *tut.MockDagStoreWrapper) {
+			expFunc: func(t *testing.T, pieceStore *tut.TestPieceStore) {
+				pieceStore.ExpectCID(payloadCID, expectedCIDInfo)
 				pieceStore.ExpectPiece(expectedPieceCID1, piece1)
-				dagStore.AddBlockToPieceIndex(payloadCID, expectedPieceCID1)
 			},
 			providerFnc: func(provider retrievalmarket.RetrievalProvider) {},
 			pricingFnc:  dPriceFunc,
@@ -547,11 +548,10 @@ func TestDynamicPricing(t *testing.T) {
 				p := piece2.Deals[0]
 				sa.MarkUnsealed(context.TODO(), p.SectorID, p.Offset.Unpadded(), p.Length.Unpadded())
 			},
-			expFunc: func(t *testing.T, pieceStore *tut.TestPieceStore, dagStore *tut.MockDagStoreWrapper) {
+			expFunc: func(t *testing.T, pieceStore *tut.TestPieceStore) {
+				pieceStore.ExpectCID(payloadCID, expectedCIDInfo)
 				pieceStore.ExpectPiece(expectedPieceCID1, piece1)
 				pieceStore.ExpectPiece(expectedPieceCID2, piece2)
-				dagStore.AddBlockToPieceIndex(payloadCID, expectedPieceCID1)
-				dagStore.AddBlockToPieceIndex(payloadCID, expectedPieceCID2)
 			},
 			providerFnc: func(provider retrievalmarket.RetrievalProvider) {},
 			pricingFnc:  dPriceFunc,
@@ -562,7 +562,6 @@ func TestDynamicPricing(t *testing.T) {
 			expectedPaymentIntervalIncrease: expectedPaymentIntervalIncrease,
 			expectedSize:                    piece2Size,
 		},
-
 		"pieceCid no-op: quote correct price for sealed, unverified, peer1 based on a pre-existing ask": {
 			query: retrievalmarket.Query{PayloadCID: payloadCID},
 			peerIdFnc: func(qs *tut.TestRetrievalQueryStream) {
@@ -571,11 +570,10 @@ func TestDynamicPricing(t *testing.T) {
 			nodeFunc: func(n *testnodes.TestRetrievalProviderNode) {
 				n.ExpectPricingParams(expectedPieceCID1, []abi.DealID{1, 11, 2, 22, 222})
 			},
-			expFunc: func(t *testing.T, pieceStore *tut.TestPieceStore, dagStore *tut.MockDagStoreWrapper) {
+			expFunc: func(t *testing.T, pieceStore *tut.TestPieceStore) {
+				pieceStore.ExpectCID(payloadCID, expectedCIDInfo)
 				pieceStore.ExpectPiece(expectedPieceCID1, piece1)
 				pieceStore.ExpectPiece(expectedPieceCID2, piece2)
-				dagStore.AddBlockToPieceIndex(payloadCID, expectedPieceCID1)
-				dagStore.AddBlockToPieceIndex(payloadCID, expectedPieceCID2)
 			},
 			providerFnc: func(provider retrievalmarket.RetrievalProvider) {
 				ask := provider.GetAsk()
@@ -610,15 +608,14 @@ func TestDynamicPricing(t *testing.T) {
 			err := qs.WriteQuery(tc.query)
 			require.NoError(t, err)
 			pieceStore := tut.NewTestPieceStore()
-			dagStore := tut.NewMockDagStoreWrapper(pieceStore, sectorAccessor)
 			tc.nodeFunc(node)
 			if tc.sectorAccessorFunc != nil {
 				tc.sectorAccessorFunc(sectorAccessor)
 			}
-			tc.expFunc(t, pieceStore, dagStore)
+			tc.expFunc(t, pieceStore)
 
 			net := tut.NewTestRetrievalMarketNetwork(tut.TestNetworkParams{})
-			p := buildProvider(t, node, sectorAccessor, qs, pieceStore, dagStore, net, tc.pricingFnc)
+			p := buildProvider(t, node, sectorAccessor, qs, pieceStore, net, tc.pricingFnc)
 			tc.providerFnc(p)
 			net.ReceiveQueryStream(qs)
 
@@ -652,6 +649,16 @@ func TestHandleQueryStream(t *testing.T) {
 	expectedPieceCID := tut.GenerateCids(1)[0]
 	expectedPieceCID2 := tut.GenerateCids(1)[0]
 
+	expectedCIDInfo := piecestore.CIDInfo{
+		PieceBlockLocations: []piecestore.PieceBlockLocation{
+			{
+				PieceCID: expectedPieceCID,
+			},
+			{
+				PieceCID: expectedPieceCID2,
+			},
+		},
+	}
 	expectedPiece := piecestore.PieceInfo{
 		PieceCID: expectedPieceCID,
 		Deals: []piecestore.DealInfo{
@@ -692,15 +699,9 @@ func TestHandleQueryStream(t *testing.T) {
 		return qs
 	}
 
-	receiveStreamOnProvider := func(
-		t *testing.T,
-		node *testnodes.TestRetrievalProviderNode,
-		sa *testnodes.TestSectorAccessor,
-		qs network.RetrievalQueryStream,
-		pieceStore piecestore.PieceStore,
-		dagStore *tut.MockDagStoreWrapper,
-	) {
+	receiveStreamOnProvider := func(t *testing.T, node *testnodes.TestRetrievalProviderNode, sa *testnodes.TestSectorAccessor, qs network.RetrievalQueryStream, pieceStore piecestore.PieceStore) {
 		ds := dss.MutexWrap(datastore.NewMapDatastore())
+		dagStore := tut.NewMockDagStoreWrapper(pieceStore, sa)
 		dt := tut.NewTestDataTransfer()
 		net := tut.NewTestRetrievalMarketNetwork(tut.TestNetworkParams{})
 
@@ -731,7 +732,7 @@ func TestHandleQueryStream(t *testing.T) {
 		query              retrievalmarket.Query
 		expResp            retrievalmarket.QueryResponse
 		expErr             string
-		expFunc            func(t *testing.T, pieceStore *tut.TestPieceStore, dagStore *tut.MockDagStoreWrapper)
+		expFunc            func(t *testing.T, pieceStore *tut.TestPieceStore)
 		sectorAccessorFunc func(sa *testnodes.TestSectorAccessor)
 
 		expectedPricePerByte            abi.TokenAmount
@@ -740,11 +741,10 @@ func TestHandleQueryStream(t *testing.T) {
 		expectedUnsealPrice             abi.TokenAmount
 	}{
 		{name: "When PieceCID is not provided and PayloadCID is found",
-			expFunc: func(t *testing.T, pieceStore *tut.TestPieceStore, dagStore *tut.MockDagStoreWrapper) {
+			expFunc: func(t *testing.T, pieceStore *tut.TestPieceStore) {
+				pieceStore.ExpectCID(payloadCID, expectedCIDInfo)
 				pieceStore.ExpectPiece(expectedPieceCID, expectedPiece)
 				pieceStore.ExpectPiece(expectedPieceCID2, expectedPiece2)
-				dagStore.AddBlockToPieceIndex(payloadCID, expectedPieceCID)
-				dagStore.AddBlockToPieceIndex(payloadCID, expectedPieceCID2)
 			},
 			query: retrievalmarket.Query{PayloadCID: payloadCID},
 			expResp: retrievalmarket.QueryResponse{
@@ -763,11 +763,10 @@ func TestHandleQueryStream(t *testing.T) {
 				p := expectedPiece2.Deals[0]
 				sa.MarkUnsealed(context.TODO(), p.SectorID, p.Offset.Unpadded(), p.Length.Unpadded())
 			},
-			expFunc: func(t *testing.T, pieceStore *tut.TestPieceStore, dagStore *tut.MockDagStoreWrapper) {
+			expFunc: func(t *testing.T, pieceStore *tut.TestPieceStore) {
+				pieceStore.ExpectCID(payloadCID, expectedCIDInfo)
 				pieceStore.ExpectPiece(expectedPieceCID, expectedPiece)
 				pieceStore.ExpectPiece(expectedPieceCID2, expectedPiece2)
-				dagStore.AddBlockToPieceIndex(payloadCID, expectedPieceCID)
-				dagStore.AddBlockToPieceIndex(payloadCID, expectedPieceCID2)
 			},
 			query: retrievalmarket.Query{PayloadCID: payloadCID},
 			expResp: retrievalmarket.QueryResponse{
@@ -782,9 +781,8 @@ func TestHandleQueryStream(t *testing.T) {
 		},
 
 		{name: "When PieceCID is provided and both PieceCID and PayloadCID are found",
-			expFunc: func(t *testing.T, pieceStore *tut.TestPieceStore, dagStore *tut.MockDagStoreWrapper) {
+			expFunc: func(t *testing.T, pieceStore *tut.TestPieceStore) {
 				loadPieceCIDS(t, pieceStore, payloadCID, expectedPieceCID)
-				dagStore.AddBlockToPieceIndex(payloadCID, expectedPieceCID)
 			},
 			query: retrievalmarket.Query{
 				PayloadCID:  payloadCID,
@@ -801,12 +799,12 @@ func TestHandleQueryStream(t *testing.T) {
 			expectedUnsealPrice:             expectedUnsealPrice,
 		},
 		{name: "When QueryParams has PieceCID and is missing",
-			expFunc: func(t *testing.T, ps *tut.TestPieceStore, dagStore *tut.MockDagStoreWrapper) {
+			expFunc: func(t *testing.T, ps *tut.TestPieceStore) {
 				loadPieceCIDS(t, ps, payloadCID, cid.Undef)
+				ps.ExpectCID(payloadCID, expectedCIDInfo)
 				ps.ExpectMissingPiece(expectedPieceCID)
 				ps.ExpectMissingPiece(expectedPieceCID2)
-				dagStore.AddBlockToPieceIndex(payloadCID, expectedPieceCID)
-				dagStore.AddBlockToPieceIndex(payloadCID, expectedPieceCID2)
+
 			},
 			query: retrievalmarket.Query{
 				PayloadCID:  payloadCID,
@@ -821,8 +819,10 @@ func TestHandleQueryStream(t *testing.T) {
 			expectedPaymentIntervalIncrease: 0,
 			expectedUnsealPrice:             big.Zero(),
 		},
-		{name: "When payload CID not found",
-			expFunc: func(t *testing.T, ps *tut.TestPieceStore, dagStore *tut.MockDagStoreWrapper) {},
+		{name: "When CID info not found",
+			expFunc: func(t *testing.T, ps *tut.TestPieceStore) {
+				ps.ExpectMissingCID(payloadCID)
+			},
 			query: retrievalmarket.Query{
 				PayloadCID:  payloadCID,
 				QueryParams: retrievalmarket.QueryParams{PieceCID: &expectedPieceCID},
@@ -845,14 +845,13 @@ func TestHandleQueryStream(t *testing.T) {
 			err := qs.WriteQuery(tc.query)
 			require.NoError(t, err)
 			pieceStore := tut.NewTestPieceStore()
-			dagStore := tut.NewMockDagStoreWrapper(pieceStore, sa)
 			if tc.sectorAccessorFunc != nil {
 				tc.sectorAccessorFunc(sa)
 			}
 
-			tc.expFunc(t, pieceStore, dagStore)
+			tc.expFunc(t, pieceStore)
 
-			receiveStreamOnProvider(t, node, sa, qs, pieceStore, dagStore)
+			receiveStreamOnProvider(t, node, sa, qs, pieceStore)
 
 			actualResp, err := qs.ReadQueryResponse()
 			pieceStore.VerifyExpectations(t)
@@ -881,10 +880,8 @@ func TestHandleQueryStream(t *testing.T) {
 		})
 		require.NoError(t, err)
 		pieceStore := tut.NewTestPieceStore()
-		dagStore := tut.NewMockDagStoreWrapper(pieceStore, sa)
-		dagStore.AddBlockToPieceIndex(payloadCID, expectedPieceCID)
 
-		receiveStreamOnProvider(t, node, sa, qs, pieceStore, dagStore)
+		receiveStreamOnProvider(t, node, sa, qs, pieceStore)
 
 		response, err := qs.ReadQueryResponse()
 		require.NoError(t, err)
@@ -897,9 +894,8 @@ func TestHandleQueryStream(t *testing.T) {
 		sa := testnodes.NewTestSectorAccessor()
 		qs := readWriteQueryStream()
 		pieceStore := tut.NewTestPieceStore()
-		dagStore := tut.NewMockDagStoreWrapper(pieceStore, sa)
 
-		receiveStreamOnProvider(t, node, sa, qs, pieceStore, dagStore)
+		receiveStreamOnProvider(t, node, sa, qs, pieceStore)
 
 		response, err := qs.ReadQueryResponse()
 		require.NotNil(t, err)
@@ -921,11 +917,11 @@ func TestHandleQueryStream(t *testing.T) {
 		})
 		require.NoError(t, err)
 		pieceStore := tut.NewTestPieceStore()
+		pieceStore.ExpectCID(payloadCID, expectedCIDInfo)
 		pieceStore.ExpectPiece(expectedPieceCID, expectedPiece)
-		dagStore := tut.NewMockDagStoreWrapper(pieceStore, sa)
-		dagStore.AddBlockToPieceIndex(payloadCID, expectedPieceCID)
+		pieceStore.ExpectPiece(expectedPieceCID2, expectedPiece2)
 
-		receiveStreamOnProvider(t, node, sa, qs, pieceStore, dagStore)
+		receiveStreamOnProvider(t, node, sa, qs, pieceStore)
 
 		pieceStore.VerifyExpectations(t)
 	})
@@ -1061,6 +1057,8 @@ func loadPieceCIDS(t *testing.T, pieceStore *tut.TestPieceStore, expPayloadCID, 
 	if expectedPieceCID != cid.Undef {
 		pieceStore.ExpectPiece(expectedPieceCID, expectedPieceInfo)
 	}
+	expectedCIDInfo := piecestore.CIDInfo{PieceBlockLocations: blockLocs}
+	pieceStore.ExpectCID(expPayloadCID, expectedCIDInfo)
 }
 
 func TestProviderMigrations(t *testing.T) {

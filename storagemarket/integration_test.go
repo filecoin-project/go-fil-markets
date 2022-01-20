@@ -176,12 +176,6 @@ func TestMakeDeal(t *testing.T) {
 				assert.Len(t, h.ProviderNode.OnDealCompleteCalls, 1)
 				assert.True(t, h.ProviderNode.OnDealCompleteCalls[0].FastRetrieval)
 				h.ClientNode.VerifyExpectations(t)
-
-				// ensure reference provider was called
-				notifs := h.ReferenceProvider.GetNotifs()
-				require.Len(t, notifs, 1)
-				_, ok := notifs[string(proposalCid.Bytes())]
-				require.True(t, ok)
 			})
 		}
 	}

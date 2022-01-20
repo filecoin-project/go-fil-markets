@@ -105,10 +105,6 @@ func (tps *TestPieceStore) AddPieceBlockLocations(pieceCID cid.Cid, blockLocatio
 	return tps.addPieceBlockLocationsError
 }
 
-func (tps *TestPieceStore) ReturnErrorFromGetPieceInfo(err error) {
-	tps.getPieceInfoError = err
-}
-
 // GetPieceInfo returns a piece info if it's been stubbed
 func (tps *TestPieceStore) GetPieceInfo(pieceCID cid.Cid) (piecestore.PieceInfo, error) {
 	if tps.getPieceInfoError != nil {
