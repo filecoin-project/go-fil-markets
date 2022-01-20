@@ -1,5 +1,37 @@
 # go-fil-markets changelog
 
+# go-fil-markets v1.19.0
+
+- github.com/filecoin-project/go-fil-markets:
+  - Update to go-data-transfer v1.14.0 / go-libp2p v0.18.0-rc1 (#669) ([filecoin-project/go-fil-markets#669](https://github.com/filecoin-project/go-fil-markets/pull/669))
+
+Contributors
+
+| Contributor | Commits | Lines ± | Files Changed |
+|-------------|---------|---------|---------------|
+| Hannah Howard | 1 | +163/-119 | 9 |
+| dirkmc | 1 | +20/-0 | 1 |
+
+# go-fil-markets v1.18.0
+
+Reverts the following commits:
+- github.com/filecoin-project/go-fil-markets:
+  - log advertisement cid for announcement and update deps (#667) ([filecoin-project/go-fil-markets#667](https://github.com/filecoin-project/go-fil-markets/pull/667))
+  - release: v1.15.0 ([filecoin-project/go-fil-markets#661](https://github.com/filecoin-project/go-fil-markets/pull/661))
+  - retrieve by any CID (not just root CID) and reference provider integration (#629) ([filecoin-project/go-fil-markets#629](https://github.com/filecoin-project/go-fil-markets/pull/629))
+
+The revert commit is:
+- github.com/filecoin-project/go-fil-markets:
+  - revert index provider PR #629 and associated PRs (#670) ([filecoin-project/go-fil-markets#670](https://github.com/filecoin-project/go-fil-markets/pull/670))
+
+Contributors
+
+| Contributor | Commits | Lines ± | Files Changed |
+|-------------|---------|---------|---------------|
+| dirkmc | 2 | +1038/-1053 | 45 |
+| Aarsh Shah | 1 | +23/-19 | 5 |
+| Dirk McCormick | 1 | +11/-0 | 1 |
+
 # go-fil-markets v1.14.1
 
 - github.com/filecoin-project/go-fil-markets:

@@ -358,7 +358,7 @@ func TestRestartOnlyProviderDataTransfer(t *testing.T) {
 	smState := testnodes.NewStorageMarketState()
 	depGen := dependencies.NewDepGenerator()
 	depGen.ClientNewDataTransfer = func(ds datastore.Batching, dir string, transferNetwork dtnet.DataTransferNetwork, transport datatransfer.Transport) (datatransfer.Manager, error) {
-		return dtimpl.NewDataTransfer(ds, dir, transferNetwork, transport, restartConf)
+		return dtimpl.NewDataTransfer(ds, transferNetwork, transport, restartConf)
 	}
 	deps := depGen.New(t, ctx, td, smState, "", noOpDelay, noOpDelay)
 	h := testharness.NewHarnessWithTestData(t, td, deps, true, false)
@@ -797,7 +797,7 @@ func TestBounceConnectionDataTransfer(t *testing.T) {
 	smState := testnodes.NewStorageMarketState()
 	depGen := dependencies.NewDepGenerator()
 	depGen.ClientNewDataTransfer = func(ds datastore.Batching, dir string, transferNetwork dtnet.DataTransferNetwork, transport datatransfer.Transport) (datatransfer.Manager, error) {
-		return dtimpl.NewDataTransfer(ds, dir, transferNetwork, transport, restartConf)
+		return dtimpl.NewDataTransfer(ds, transferNetwork, transport, restartConf)
 	}
 	deps := depGen.New(t, ctx, td, smState, "", noOpDelay, noOpDelay)
 	h := testharness.NewHarnessWithTestData(t, td, deps, true, false)

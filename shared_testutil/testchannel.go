@@ -151,6 +151,19 @@ func (tc *TestChannel) ReceivedCids() []cid.Cid {
 	return tc.receivedCids
 }
 
+// TODO actual implementation of those
+func (tc *TestChannel) MissingCids() []cid.Cid {
+	return nil
+}
+
+func (tc *TestChannel) QueuedCidsTotal() int64 {
+	return 0
+}
+
+func (tc *TestChannel) SentCidsTotal() int64 {
+	return 0
+}
+
 // Voucher returns the voucher for this data transfer
 func (tc *TestChannel) Voucher() datatransfer.Voucher {
 	return tc.vouchers[0]
