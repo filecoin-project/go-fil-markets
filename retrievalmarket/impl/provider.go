@@ -6,21 +6,19 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/filecoin-project/dagstore"
-	"github.com/filecoin-project/dagstore/shard"
-	exchange "github.com/ipfs/go-ipfs-exchange-interface"
-
+	"github.com/hannahhoward/go-pubsub"
 	"github.com/ipfs/go-bitswap"
 	bsnetwork "github.com/ipfs/go-bitswap/network"
-	nilrouting "github.com/ipfs/go-ipfs-routing/none"
-	"github.com/libp2p/go-libp2p-core/host"
-
-	"github.com/hannahhoward/go-pubsub"
 	"github.com/ipfs/go-cid"
 	"github.com/ipfs/go-datastore"
 	"github.com/ipfs/go-datastore/namespace"
+	exchange "github.com/ipfs/go-ipfs-exchange-interface"
+	nilrouting "github.com/ipfs/go-ipfs-routing/none"
+	"github.com/libp2p/go-libp2p-core/host"
 	"golang.org/x/xerrors"
 
+	"github.com/filecoin-project/dagstore"
+	"github.com/filecoin-project/dagstore/shard"
 	"github.com/filecoin-project/go-address"
 	datatransfer "github.com/filecoin-project/go-data-transfer"
 	versioning "github.com/filecoin-project/go-ds-versioning/pkg"
