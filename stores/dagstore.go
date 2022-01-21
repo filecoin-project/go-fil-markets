@@ -40,6 +40,8 @@ type DAGStoreWrapper interface {
 
 	GetIterableIndexForPiece(pieceCid cid.Cid) (carindex.IterableIndex, error)
 
+	AllShardsReadBlockstore(f dagstore.ShardSelectorF) (bstore.Blockstore, error)
+
 	// Close closes the dag store wrapper.
 	Close() error
 }

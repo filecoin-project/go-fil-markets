@@ -8,6 +8,8 @@ import (
 	"testing"
 	"time"
 
+	mocknet "github.com/libp2p/go-libp2p/p2p/net/mock"
+
 	"github.com/ipfs/go-cid"
 	"github.com/ipfs/go-datastore"
 	"github.com/ipfs/go-datastore/namespace"
@@ -137,9 +139,12 @@ func TestDynamicPricing(t *testing.T) {
 		net *tut.TestRetrievalMarketNetwork,
 		pFnc retrievalimpl.RetrievalPricingFunc,
 	) retrievalmarket.RetrievalProvider {
+		h, err := mocknet.New().GenPeer()
+		require.NoError(t, err)
+
 		ds := dss.MutexWrap(datastore.NewMapDatastore())
 		dt := tut.NewTestDataTransfer()
-		c, err := retrievalimpl.NewProvider(expectedAddress, node, sa, net, pieceStore, dagStore, dt, ds, pFnc)
+		c, err := retrievalimpl.NewProvider(h, expectedAddress, node, sa, net, pieceStore, dagStore, dt, ds, pFnc)
 		require.NoError(t, err)
 		tut.StartAndWaitForReady(ctx, t, c)
 		return c
@@ -718,7 +723,10 @@ func TestHandleQueryStream(t *testing.T) {
 			return ask, nil
 		}
 
-		c, err := retrievalimpl.NewProvider(expectedAddress, node, sa, net, pieceStore, dagStore, dt, ds, priceFunc)
+		h, err := mocknet.New().GenPeer()
+		require.NoError(t, err)
+
+		c, err := retrievalimpl.NewProvider(h, expectedAddress, node, sa, net, pieceStore, dagStore, dt, ds, priceFunc)
 		require.NoError(t, err)
 
 		tut.StartAndWaitForReady(ctx, t, c)
@@ -945,7 +953,7 @@ func TestProvider_Construct(t *testing.T) {
 		return ask, nil
 	}
 
-	_, err := retrievalimpl.NewProvider(
+	_, err := retrievalimpl.NewProvider(nil,
 		spect.NewIDAddr(t, 2344),
 		node,
 		sa,
@@ -1002,6 +1010,7 @@ func TestProviderConfigOpts(t *testing.T) {
 	}
 
 	p, err := retrievalimpl.NewProvider(
+		nil,
 		spect.NewIDAddr(t, 2344),
 		node,
 		sa,
@@ -1022,7 +1031,7 @@ func TestProviderConfigOpts(t *testing.T) {
 			return true, "yes", nil
 		})
 
-	p, err = retrievalimpl.NewProvider(
+	p, err = retrievalimpl.NewProvider(nil,
 		spect.NewIDAddr(t, 2344),
 		testnodes.NewTestRetrievalProviderNode(),
 		testnodes.NewTestSectorAccessor(),
@@ -1183,7 +1192,10 @@ func TestProviderMigrations(t *testing.T) {
 		return ask, nil
 	}
 
-	retrievalProvider, err := retrievalimpl.NewProvider(
+	h, err := mocknet.New().GenPeer()
+	require.NoError(t, err)
+
+	retrievalProvider, err := retrievalimpl.NewProvider(h,
 		spect.NewIDAddr(t, 2344),
 		node,
 		sa,
