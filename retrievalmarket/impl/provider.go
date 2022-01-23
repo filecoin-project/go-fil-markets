@@ -274,6 +274,8 @@ func (p *Provider) Start(ctx context.Context) error {
 	bsServer := bitswap.New(ctx, bsnetwork.NewFromIpfsHost(p.h, nilRouter), abs, bsopts...)
 	p.bsServer = bsServer
 
+	log.Infow("bitswap server running on SP", "multiaddrs", p.h.Addrs(), "peerId", p.h.ID())
+
 	return p.network.SetDelegate(p)
 }
 
