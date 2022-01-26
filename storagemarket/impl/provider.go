@@ -462,26 +462,30 @@ func (p *Provider) AnnounceDealToIndexer(ctx context.Context, proposalCid cid.Ci
 		return fmt.Errorf("failed to encode metadata: %w", err)
 	}
 
-	_, err = p.indexProvider.NotifyPut(ctx, deal.ProposalCid.Bytes(), dtm.ToIndexerMetadata())
+	annCid, err := p.indexProvider.NotifyPut(ctx, deal.ProposalCid.Bytes(), dtm.ToIndexerMetadata())
+	log.Infow("deal announcement sent to index provider", "advertisementCid", annCid, "shard-key", deal.Proposal.PieceCID,
+		"proposalCid", deal.ProposalCid)
 	return err
 }
 
 func (p *Provider) AnnounceAllDealsToIndexer(ctx context.Context) error {
+	log.Info("will announce all active deals to Indexer")
 	var out []storagemarket.MinerDeal
 	if err := p.deals.List(&out); err != nil {
-		return err
+		return fmt.Errorf("failed to list deals: %w", err)
 	}
 
 	var merr error
 	for _, d := range out {
-		log.Infow("announcing deal to Indexer", "proposalCid", d.ProposalCid)
 		if err := p.AnnounceDealToIndexer(ctx, d.ProposalCid); err != nil {
 			merr = multierror.Append(merr, err)
-			log.Errorw("failed to announce deal to Indexer", "proposalCid", d.ProposalCid, "err", err)
+			log.Errorw("failed to announce deal to Index provider", "proposalCid", d.ProposalCid, "err", err)
 			continue
 		}
-		log.Infow("successfully announced deal to Indexer", "proposalCid", d.ProposalCid)
 	}
+
+	log.Infow("finished announcing all active deals to Indexer", "know errors", merr)
+
 	return merr
 }
 
