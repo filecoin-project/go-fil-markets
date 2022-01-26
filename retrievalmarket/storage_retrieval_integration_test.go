@@ -478,7 +478,7 @@ func newRetrievalHarnessWithDeps(
 		return ask, nil
 	}
 
-	provider, err := retrievalimpl.NewProvider(
+	provider, err := retrievalimpl.NewProvider(sh.TestData.Host2,
 		providerPaymentAddr, providerNode, sa, nw2, pieceStore,
 		sh.DagStore, sh.DTProvider, providerDs, priceFunc)
 	require.NoError(t, err)

@@ -7,11 +7,18 @@ import (
 	"time"
 
 	"github.com/hannahhoward/go-pubsub"
+	"github.com/ipfs/go-bitswap"
+	bsnetwork "github.com/ipfs/go-bitswap/network"
 	"github.com/ipfs/go-cid"
 	"github.com/ipfs/go-datastore"
 	"github.com/ipfs/go-datastore/namespace"
+	exchange "github.com/ipfs/go-ipfs-exchange-interface"
+	nilrouting "github.com/ipfs/go-ipfs-routing/none"
+	"github.com/libp2p/go-libp2p-core/host"
 	"golang.org/x/xerrors"
 
+	"github.com/filecoin-project/dagstore"
+	"github.com/filecoin-project/dagstore/shard"
 	"github.com/filecoin-project/go-address"
 	datatransfer "github.com/filecoin-project/go-data-transfer"
 	versioning "github.com/filecoin-project/go-ds-versioning/pkg"
@@ -44,6 +51,7 @@ var queryTimeout = 5 * time.Second
 
 // Provider is the production implementation of the RetrievalProvider interface
 type Provider struct {
+	h                    host.Host
 	dataTransfer         datatransfer.Manager
 	node                 retrievalmarket.RetrievalProviderNode
 	sa                   retrievalmarket.SectorAccessor
@@ -62,6 +70,7 @@ type Provider struct {
 	retrievalPricingFunc RetrievalPricingFunc
 	dagStore             stores.DAGStoreWrapper
 	stores               *stores.ReadOnlyBlockstores
+	bsServer             exchange.Interface
 }
 
 type internalProviderEvent struct {
@@ -100,7 +109,9 @@ func DisableNewDeals() RetrievalProviderOption {
 }
 
 // NewProvider returns a new retrieval Provider
-func NewProvider(minerAddress address.Address,
+func NewProvider(
+	h host.Host,
+	minerAddress address.Address,
 	node retrievalmarket.RetrievalProviderNode,
 	sa retrievalmarket.SectorAccessor,
 	network rmnet.RetrievalMarketNetwork,
@@ -117,6 +128,7 @@ func NewProvider(minerAddress address.Address,
 	}
 
 	p := &Provider{
+		h:                    h,
 		dataTransfer:         dataTransfer,
 		node:                 node,
 		sa:                   sa,
@@ -214,12 +226,34 @@ func NewProvider(minerAddress address.Address,
 
 // Stop stops handling incoming requests.
 func (p *Provider) Stop() error {
+	p.bsServer.Close()
 	return p.network.StopHandlingRequests()
 }
 
 // Start begins listening for deals on the given host.
 // Start must be called in order to accept incoming deals.
 func (p *Provider) Start(ctx context.Context) error {
+	abs, err := p.dagStore.AllShardsReadBlockstore(dagstore.ShardSelectorF(func(c cid.Cid, shards []shard.Key) (shard.Key, error) {
+		for _, sk := range shards {
+			pieceCid, err := cid.Parse(sk.String())
+			if err != nil {
+				return shard.Key{}, fmt.Errorf("failed to parse cid")
+			}
+			b, err := p.isFreeAndUnsealed(ctx, c, pieceCid)
+			if err != nil {
+				return shard.Key{}, fmt.Errorf("failed to verify is piece is free and unsealed")
+			}
+			if b {
+				return sk, nil
+			}
+		}
+
+		return shard.Key{}, errors.New("no shard is free and unsealed")
+	}))
+	if err != nil {
+		return fmt.Errorf("failed to create blockstore for bitswap retrievals: %w", err)
+	}
+
 	go func() {
 		err := p.migrateStateMachines(ctx)
 		if err != nil {
@@ -230,6 +264,18 @@ func (p *Provider) Start(ctx context.Context) error {
 			log.Warnf("Publish retrieval provider ready event: %s", err.Error())
 		}
 	}()
+
+	// start a bitswap session on the provider
+	nilRouter, err := nilrouting.ConstructNilRouting(nil, nil, nil, nil)
+	if err != nil {
+		return err
+	}
+	bsopts := []bitswap.Option{bitswap.MaxOutstandingBytesPerPeer(1 << 20)}
+	bsServer := bitswap.New(ctx, bsnetwork.NewFromIpfsHost(p.h, nilRouter), abs, bsopts...)
+	p.bsServer = bsServer
+
+	log.Infow("bitswap server running on SP", "multiaddrs", p.h.Addrs(), "peerId", p.h.ID())
+
 	return p.network.SetDelegate(p)
 }
 
@@ -388,9 +434,42 @@ func (p *Provider) HandleQueryStream(stream rmnet.RetrievalQueryStream) {
 	sendResp(answer)
 }
 
+// Can the piece `pieceCid`  be served from an unsealed sector and will the corresponding retrieval be free ?
+func (p *Provider) isFreeAndUnsealed(ctx context.Context, c cid.Cid, pieceCid cid.Cid) (bool, error) {
+	pieceInfo, err := p.pieceStore.GetPieceInfo(pieceCid)
+	if err != nil {
+		return false, fmt.Errorf("failed to get piece info: %w", err)
+	}
+
+	if !p.pieceInUnsealedSector(ctx, pieceInfo) {
+		return false, nil
+	}
+
+	// The piece is in an unsealed sector
+	// Is it marked for free retrieval ?
+	input := retrievalmarket.PricingInput{
+		// piece from which the payload will be retrieved
+		PieceCID:   pieceInfo.PieceCID,
+		PayloadCID: c,
+		Unsealed:   true,
+	}
+
+	var dealsIds []abi.DealID
+	for _, d := range pieceInfo.Deals {
+		dealsIds = append(dealsIds, d.DealID)
+	}
+
+	ask, err := p.GetDynamicAsk(ctx, input, dealsIds)
+	if err != nil {
+		return false, fmt.Errorf("failed to get retrieval ask: %w", err)
+	}
+
+	return ask.PricePerByte.NilOrZero(), nil
+}
+
 // Given the CID of a block, find a piece that contains that block.
 // If the client has specified which piece they want, return that piece.
-// Otherwise prefer pieces that are already unsealed.
+// Otherwise prefer pieces that are already unsealed & free.
 func (p *Provider) getPieceInfoFromCid(ctx context.Context, payloadCID, clientPieceCID cid.Cid) (piecestore.PieceInfo, bool, error) {
 	// Get all pieces that contain the target block
 	piecesWithTargetBlock, err := p.dagStore.GetPiecesContainingBlock(payloadCID)

@@ -178,7 +178,7 @@ func requireSetupTestClientAndProvider(ctx context.Context, t *testing.T, payChA
 		return ask, nil
 	}
 
-	provider, err := retrievalimpl.NewProvider(
+	provider, err := retrievalimpl.NewProvider(testData.Host2,
 		paymentAddress, providerNode, sectorAccessor, nw2, pieceStore, dagstoreWrapper, dt2, providerDs,
 		priceFunc)
 	require.NoError(t, err)
@@ -727,7 +727,7 @@ func setupProvider(
 	// (instead of using the cached CAR file)
 	_ = os.Remove(carFilePath)
 
-	provider, err := retrievalimpl.NewProvider(providerPaymentAddr, providerNode, sectorAccessor,
+	provider, err := retrievalimpl.NewProvider(testData.Host2, providerPaymentAddr, providerNode, sectorAccessor,
 		nw2, pieceStore, dagstoreWrapper, dt2, providerDs, priceFunc, opts...)
 	require.NoError(t, err)
 

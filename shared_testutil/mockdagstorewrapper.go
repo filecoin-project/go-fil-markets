@@ -7,6 +7,8 @@ import (
 	"sync"
 
 	"github.com/ipfs/go-cid"
+	"github.com/ipfs/go-datastore"
+	bstore "github.com/ipfs/go-ipfs-blockstore"
 	carv2 "github.com/ipld/go-car/v2"
 	"github.com/ipld/go-car/v2/blockstore"
 	carindex "github.com/ipld/go-car/v2/index"
@@ -90,6 +92,9 @@ func (m *MockDagStoreWrapper) ClearRegistrations() {
 	defer m.lk.Unlock()
 
 	m.registrations = make(map[cid.Cid]registration)
+}
+func (m *MockDagStoreWrapper) AllShardsReadBlockstore(f dagstore.ShardSelectorF) (bstore.Blockstore, error) {
+	return bstore.NewBlockstore(datastore.NewMapDatastore()), nil
 }
 
 func (m *MockDagStoreWrapper) LoadShard(ctx context.Context, pieceCid cid.Cid) (stores.ClosableBlockstore, error) {
