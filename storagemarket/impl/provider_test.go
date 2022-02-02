@@ -25,6 +25,7 @@ import (
 	storageimpl "github.com/filecoin-project/go-fil-markets/storagemarket/impl"
 	"github.com/filecoin-project/go-fil-markets/storagemarket/migrations"
 	"github.com/filecoin-project/go-fil-markets/storagemarket/network"
+	"github.com/filecoin-project/go-fil-markets/storagemarket/testharness"
 	"github.com/filecoin-project/go-fil-markets/storagemarket/testharness/dependencies"
 	"github.com/filecoin-project/go-fil-markets/storagemarket/testnodes"
 )
@@ -137,7 +138,7 @@ func TestProvider_Migrations(t *testing.T) {
 		deps.ProviderNode,
 		deps.ProviderAddr,
 		deps.StoredAsk,
-		fai,
+		&testharness.NetAddListenerStub{fai},
 		idxH,
 	)
 	require.NoError(t, err)
@@ -240,7 +241,7 @@ func TestHandleDealStream(t *testing.T) {
 			deps.ProviderNode,
 			deps.ProviderAddr,
 			deps.StoredAsk,
-			fai,
+			&testharness.NetAddListenerStub{fai},
 			idxH,
 		)
 		require.NoError(t, err)

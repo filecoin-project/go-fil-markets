@@ -56,10 +56,14 @@ type StoredAsk interface {
 	SetAsk(price abi.TokenAmount, verifiedPrice abi.TokenAmount, duration abi.ChainEpoch, options ...storagemarket.StorageAskOption) error
 }
 
+type NetAddrsListener interface {
+	NetAddrsListen(context.Context) (peer.AddrInfo, error)
+}
+
 // Provider is the production implementation of the StorageProvider interface
 type Provider struct {
 	net              network.StorageMarketNetwork
-	fullNodeAddrInfo peer.AddrInfo
+	fullNodeAddrsApi NetAddrsListener
 	idxProvHost      host.Host
 
 	spn                         storagemarket.StorageProviderNode
@@ -123,13 +127,13 @@ func NewProvider(net network.StorageMarketNetwork,
 	spn storagemarket.StorageProviderNode,
 	minerAddress address.Address,
 	storedAsk StoredAsk,
-	fullNodeAddrInfo peer.AddrInfo,
+	listenApi NetAddrsListener,
 	idxProvHost host.Host,
 	options ...StorageProviderOption,
 ) (storagemarket.StorageProvider, error) {
 	h := &Provider{
 		net:                         net,
-		fullNodeAddrInfo:            fullNodeAddrInfo,
+		fullNodeAddrsApi:            listenApi,
 		idxProvHost:                 idxProvHost,
 		spn:                         spn,
 		fs:                          fs,
@@ -502,11 +506,17 @@ func (p *Provider) AnnounceDealToIndexer(ctx context.Context, proposalCid cid.Ci
 }
 
 func (p *Provider) connectIndexProviderToFullNode(ctx context.Context) error {
-	if err := p.idxProvHost.Connect(ctx, p.fullNodeAddrInfo); err != nil {
+
+	addrs, err := p.fullNodeAddrsApi.NetAddrsListen(ctx)
+	if err != nil {
+		return err
+	}
+
+	if err := p.idxProvHost.Connect(ctx, addrs); err != nil {
 		return fmt.Errorf("failed to connect index provider host with the full node: %w", err)
 	}
-	p.idxProvHost.ConnManager().Protect(p.fullNodeAddrInfo.ID, "markets")
-	log.Debugw("successfully connected to full node", "fullNodeInfo", p.fullNodeAddrInfo.String())
+	p.idxProvHost.ConnManager().Protect(addrs.ID, "markets")
+	log.Debugw("successfully connected to full node", "fullNodeInfo", addrs.String())
 
 	return nil
 }
