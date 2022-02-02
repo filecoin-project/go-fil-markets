@@ -494,7 +494,12 @@ func (p *Provider) AnnounceDealToIndexer(ctx context.Context, proposalCid cid.Ci
 		return fmt.Errorf("cannot publish index record as indexer host failed to connect to the full node: %w", err)
 	}
 
-	_, err = p.indexProvider.NotifyPut(ctx, deal.ProposalCid.Bytes(), dtm.ToIndexerMetadata())
+
+	annCid, err := p.indexProvider.NotifyPut(ctx, deal.ProposalCid.Bytes(), dtm.ToIndexerMetadata())
+	if err == nil {
+		log.Infow("deal announcement sent to index provider", "advertisementCid", annCid, "shard-key", deal.Proposal.PieceCID,
+			"proposalCid", deal.ProposalCid)
+	}
 	return err
 }
 
@@ -508,21 +513,46 @@ func (p *Provider) connectIndexProviderToFullNode(ctx context.Context) error {
 }
 
 func (p *Provider) AnnounceAllDealsToIndexer(ctx context.Context) error {
-	var out []storagemarket.MinerDeal
-	if err := p.deals.List(&out); err != nil {
-		return err
+	inSealingSubsystem := make(map[fsm.StateKey]struct{}, len(providerstates.StatesKnownBySealingSubsystem))
+	for _, s := range providerstates.StatesKnownBySealingSubsystem {
+		inSealingSubsystem[s] = struct{}{}
 	}
 
+	expiredStates := make(map[fsm.StateKey]struct{}, len(providerstates.ProviderFinalityStates))
+	for _, s := range providerstates.ProviderFinalityStates {
+		expiredStates[s] = struct{}{}
+	}
+
+	log.Info("will announce all active deals to Indexer")
+	var out []storagemarket.MinerDeal
+	if err := p.deals.List(&out); err != nil {
+		return fmt.Errorf("failed to list deals: %w", err)
+	}
+
+	shards := make(map[string]struct{})
+	var nSuccess int
 	var merr error
+
 	for _, d := range out {
-		log.Infow("announcing deal to Indexer", "proposalCid", d.ProposalCid)
-		if err := p.AnnounceDealToIndexer(ctx, d.ProposalCid); err != nil {
-			merr = multierror.Append(merr, err)
-			log.Errorw("failed to announce deal to Indexer", "proposalCid", d.ProposalCid, "err", err)
+		// only announce deals that have been handed off to the sealing subsystem as the rest will get announced anyways
+		if _, ok := inSealingSubsystem[d.State]; !ok {
 			continue
 		}
-		log.Infow("successfully announced deal to Indexer", "proposalCid", d.ProposalCid)
+		// only announce deals that have not expired
+		if _, ok := expiredStates[d.State]; ok {
+			continue
+		}
+
+		if err := p.AnnounceDealToIndexer(ctx, d.ProposalCid); err != nil {
+			merr = multierror.Append(merr, err)
+			log.Errorw("failed to announce deal to Index provider", "proposalCid", d.ProposalCid, "err", err)
+			continue
+		}
+		shards[d.Proposal.PieceCID.String()] = struct{}{}
+		nSuccess++
 	}
+
+	log.Infow("finished announcing active deals to index provider", "number of deals", nSuccess, "number of shards", shards)
 	return merr
 }
 

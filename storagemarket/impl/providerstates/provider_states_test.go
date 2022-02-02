@@ -1650,8 +1650,8 @@ func (fe *fakeEnvironment) AwaitRestartTimeout() <-chan time.Time {
 	return fe.awaitRestartTimeout
 }
 
-func (fe *fakeEnvironment) AnnounceIndex(ctx context.Context, deal storagemarket.MinerDeal) error {
-	return nil
+func (fe *fakeEnvironment) AnnounceIndex(ctx context.Context, deal storagemarket.MinerDeal) (cid.Cid, error) {
+	return cid.Undef, nil
 }
 
 var _ providerstates.ProviderDealEnvironment = &fakeEnvironment{}
