@@ -28,6 +28,7 @@ import (
 	"github.com/filecoin-project/go-statemachine/fsm"
 	provider "github.com/filecoin-project/index-provider"
 	metadata2 "github.com/filecoin-project/index-provider/metadata"
+	"github.com/filecoin-project/lotus/api"
 
 	"github.com/filecoin-project/go-fil-markets/filestore"
 	"github.com/filecoin-project/go-fil-markets/piecestore"
@@ -56,7 +57,8 @@ type StoredAsk interface {
 
 // Provider is the production implementation of the StorageProvider interface
 type Provider struct {
-	net network.StorageMarketNetwork
+	net         network.StorageMarketNetwork
+	fullnodeApi api.FullNode
 
 	spn                         storagemarket.StorageProviderNode
 	fs                          filestore.FileStore
@@ -119,10 +121,12 @@ func NewProvider(net network.StorageMarketNetwork,
 	spn storagemarket.StorageProviderNode,
 	minerAddress address.Address,
 	storedAsk StoredAsk,
+	fullnodeApi api.FullNode,
 	options ...StorageProviderOption,
 ) (storagemarket.StorageProvider, error) {
 	h := &Provider{
 		net:                         net,
+		fullnodeApi:                 fullnodeApi,
 		spn:                         spn,
 		fs:                          fs,
 		pieceStore:                  pieceStore,
