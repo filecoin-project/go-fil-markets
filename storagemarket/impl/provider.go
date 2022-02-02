@@ -11,6 +11,7 @@ import (
 	"github.com/hashicorp/go-multierror"
 	"github.com/ipfs/go-cid"
 	"github.com/ipfs/go-datastore"
+	"github.com/libp2p/go-libp2p-core/host"
 	"golang.org/x/xerrors"
 
 	"github.com/filecoin-project/go-address"
@@ -59,6 +60,7 @@ type StoredAsk interface {
 type Provider struct {
 	net         network.StorageMarketNetwork
 	fullnodeApi api.FullNode
+	idxProvHost host.Host
 
 	spn                         storagemarket.StorageProviderNode
 	fs                          filestore.FileStore
@@ -122,11 +124,13 @@ func NewProvider(net network.StorageMarketNetwork,
 	minerAddress address.Address,
 	storedAsk StoredAsk,
 	fullnodeApi api.FullNode,
+	idxProvHost host.Host,
 	options ...StorageProviderOption,
 ) (storagemarket.StorageProvider, error) {
 	h := &Provider{
 		net:                         net,
 		fullnodeApi:                 fullnodeApi,
+		idxProvHost:                 idxProvHost,
 		spn:                         spn,
 		fs:                          fs,
 		pieceStore:                  pieceStore,
