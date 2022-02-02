@@ -506,6 +506,7 @@ func (p *Provider) connectIndexProviderToFullNode(ctx context.Context) error {
 		return fmt.Errorf("failed to connect index provider host with the full node: %w", err)
 	}
 	p.idxProvHost.ConnManager().Protect(p.fullNodeAddrInfo.ID, "markets")
+	log.Debugw("successfully connected to full node", "fullNodeInfo", p.fullNodeAddrInfo.String())
 
 	return nil
 }
