@@ -6,6 +6,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/filecoin-project/go-fil-markets/storagemarket/testharness"
+
 	"github.com/ipfs/go-cid"
 	"github.com/ipfs/go-datastore"
 	"github.com/ipfs/go-datastore/namespace"
@@ -137,7 +139,7 @@ func TestProvider_Migrations(t *testing.T) {
 		deps.ProviderNode,
 		deps.ProviderAddr,
 		deps.StoredAsk,
-		fai,
+		&testharness.NetAddListenerStub{fai},
 		idxH,
 	)
 	require.NoError(t, err)
@@ -240,7 +242,7 @@ func TestHandleDealStream(t *testing.T) {
 			deps.ProviderNode,
 			deps.ProviderAddr,
 			deps.StoredAsk,
-			fai,
+			&testharness.NetAddListenerStub{fai},
 			idxH,
 		)
 		require.NoError(t, err)

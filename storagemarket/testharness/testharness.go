@@ -54,6 +54,14 @@ func NewHarness(t *testing.T, ctx context.Context, useStore bool, cd testnodes.D
 	return NewHarnessWithTestData(t, td, deps, useStore, disableNewDeals, fName...)
 }
 
+type NetAddListenerStub struct {
+	Addrs peer.AddrInfo
+}
+
+func (n *NetAddListenerStub) NetAddrsListen(context.Context) (peer.AddrInfo, error) {
+	return n.Addrs, nil
+}
+
 func NewHarnessWithTestData(t *testing.T, td *shared_testutil.Libp2pTestData, deps *dependencies.StorageDependencies, useStore bool, disableNewDeals bool, files ...string) *StorageHarness {
 	var file string
 	if len(files) == 0 {
@@ -126,7 +134,7 @@ func NewHarnessWithTestData(t *testing.T, td *shared_testutil.Libp2pTestData, de
 		deps.ProviderNode,
 		deps.ProviderAddr,
 		deps.StoredAsk,
-		fai,
+		&NetAddListenerStub{fai},
 		idxH,
 	)
 	assert.NoError(t, err)
@@ -174,7 +182,7 @@ func (h *StorageHarness) CreateNewProvider(t *testing.T, ctx context.Context, td
 		h.ProviderNode,
 		h.ProviderAddr,
 		h.StoredAsk,
-		fai,
+		&NetAddListenerStub{fai},
 		idxH,
 	)
 	require.NoError(t, err)

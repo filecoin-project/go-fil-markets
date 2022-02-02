@@ -62,9 +62,9 @@ type NetAddrsListener interface {
 
 // Provider is the production implementation of the StorageProvider interface
 type Provider struct {
-	net         network.StorageMarketNetwork
-	listenApi   NetAddrsListener
-	idxProvHost host.Host
+	net              network.StorageMarketNetwork
+	fullNodeAddrsApi NetAddrsListener
+	idxProvHost      host.Host
 
 	spn                         storagemarket.StorageProviderNode
 	fs                          filestore.FileStore
@@ -133,7 +133,7 @@ func NewProvider(net network.StorageMarketNetwork,
 ) (storagemarket.StorageProvider, error) {
 	h := &Provider{
 		net:                         net,
-		listenApi:                   listenApi,
+		fullNodeAddrsApi:            listenApi,
 		idxProvHost:                 idxProvHost,
 		spn:                         spn,
 		fs:                          fs,
@@ -507,7 +507,7 @@ func (p *Provider) AnnounceDealToIndexer(ctx context.Context, proposalCid cid.Ci
 
 func (p *Provider) connectIndexProviderToFullNode(ctx context.Context) error {
 
-	addrs, err := p.listenApi.NetAddrsListen(ctx)
+	addrs, err := p.fullNodeAddrsApi.NetAddrsListen(ctx)
 	if err != nil {
 		return err
 	}
