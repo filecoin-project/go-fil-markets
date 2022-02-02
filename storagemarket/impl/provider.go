@@ -494,7 +494,6 @@ func (p *Provider) AnnounceDealToIndexer(ctx context.Context, proposalCid cid.Ci
 		return fmt.Errorf("cannot publish index record as indexer host failed to connect to the full node: %w", err)
 	}
 
-
 	annCid, err := p.indexProvider.NotifyPut(ctx, deal.ProposalCid.Bytes(), dtm.ToIndexerMetadata())
 	if err == nil {
 		log.Infow("deal announcement sent to index provider", "advertisementCid", annCid, "shard-key", deal.Proposal.PieceCID,
