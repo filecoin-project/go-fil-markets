@@ -50,6 +50,12 @@ func (p *providerDealEnvironment) AnnounceIndex(ctx context.Context, deal storag
 		return fmt.Errorf("failed to encode metadata: %w", err)
 	}
 
+	// ensure we have a connection with the full node host so that the index provider gossip sub announcements make their
+	// way to the filecoin bootstrapper network
+	if err := p.p.connectIndexProviderToFullNode(ctx); err != nil {
+		return fmt.Errorf("cannot publish index record as indexer host failed to connect to the full node: %w", err)
+	}
+
 	_, err = p.p.indexProvider.NotifyPut(ctx, deal.ProposalCid.Bytes(), dtm.ToIndexerMetadata())
 	return err
 }

@@ -7,6 +7,8 @@ import (
 	"os"
 	"time"
 
+	"github.com/libp2p/go-libp2p-core/peer"
+
 	"github.com/hannahhoward/go-pubsub"
 	"github.com/hashicorp/go-multierror"
 	"github.com/ipfs/go-cid"
@@ -29,7 +31,6 @@ import (
 	"github.com/filecoin-project/go-statemachine/fsm"
 	provider "github.com/filecoin-project/index-provider"
 	metadata2 "github.com/filecoin-project/index-provider/metadata"
-	"github.com/filecoin-project/lotus/api"
 
 	"github.com/filecoin-project/go-fil-markets/filestore"
 	"github.com/filecoin-project/go-fil-markets/piecestore"
@@ -58,9 +59,9 @@ type StoredAsk interface {
 
 // Provider is the production implementation of the StorageProvider interface
 type Provider struct {
-	net         network.StorageMarketNetwork
-	fullnodeApi api.FullNode
-	idxProvHost host.Host
+	net              network.StorageMarketNetwork
+	fullNodeAddrInfo peer.AddrInfo
+	idxProvHost      host.Host
 
 	spn                         storagemarket.StorageProviderNode
 	fs                          filestore.FileStore
@@ -123,13 +124,13 @@ func NewProvider(net network.StorageMarketNetwork,
 	spn storagemarket.StorageProviderNode,
 	minerAddress address.Address,
 	storedAsk StoredAsk,
-	fullnodeApi api.FullNode,
+	fullNodeAddrInfo peer.AddrInfo,
 	idxProvHost host.Host,
 	options ...StorageProviderOption,
 ) (storagemarket.StorageProvider, error) {
 	h := &Provider{
 		net:                         net,
-		fullnodeApi:                 fullnodeApi,
+		fullNodeAddrInfo:            fullNodeAddrInfo,
 		idxProvHost:                 idxProvHost,
 		spn:                         spn,
 		fs:                          fs,
@@ -192,6 +193,25 @@ func (p *Provider) Start(ctx context.Context) error {
 			log.Error(err.Error())
 		}
 	}()
+
+	// connect the index provider node with the full node and protect that connection
+	if err := p.connectIndexProviderToFullNode(ctx); err != nil {
+		return fmt.Errorf("failed to connect index provider host with the full node: %w", err)
+	}
+
+	go func() {
+		for {
+			select {
+			case <-time.After(time.Minute):
+				if err := p.connectIndexProviderToFullNode(ctx); err != nil {
+					log.Errorf("failed to connect index provider host with the full node: %s", err)
+				}
+			case <-ctx.Done():
+				return
+			}
+		}
+	}()
+
 	return nil
 }
 
@@ -470,8 +490,21 @@ func (p *Provider) AnnounceDealToIndexer(ctx context.Context, proposalCid cid.Ci
 		return fmt.Errorf("failed to encode metadata: %w", err)
 	}
 
+	if err := p.connectIndexProviderToFullNode(ctx); err != nil {
+		return fmt.Errorf("cannot publish index record as indexer host failed to connect to the full node: %w", err)
+	}
+
 	_, err = p.indexProvider.NotifyPut(ctx, deal.ProposalCid.Bytes(), dtm.ToIndexerMetadata())
 	return err
+}
+
+func (p *Provider) connectIndexProviderToFullNode(ctx context.Context) error {
+	if err := p.idxProvHost.Connect(ctx, p.fullNodeAddrInfo); err != nil {
+		return fmt.Errorf("failed to connect index provider host with the full node: %w", err)
+	}
+	p.idxProvHost.ConnManager().Protect(p.fullNodeAddrInfo.ID, "markets")
+
+	return nil
 }
 
 func (p *Provider) AnnounceAllDealsToIndexer(ctx context.Context) error {

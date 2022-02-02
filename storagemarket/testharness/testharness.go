@@ -6,6 +6,8 @@ import (
 	"sync"
 	"testing"
 
+	"github.com/libp2p/go-libp2p-core/peer"
+
 	"github.com/ipfs/go-cid"
 	"github.com/ipfs/go-datastore"
 	"github.com/ipfs/go-datastore/namespace"
@@ -105,6 +107,15 @@ func NewHarnessWithTestData(t *testing.T, td *shared_testutil.Libp2pTestData, de
 	}
 
 	rp := shared_testutil.NewMockIndexProvider()
+	idxH, err := deps.TestData.MockNet.GenPeer()
+	require.NoError(t, err)
+	fullH, err := deps.TestData.MockNet.GenPeer()
+	deps.TestData.MockNet.LinkAll()
+	fai := peer.AddrInfo{
+		ID:    fullH.ID(),
+		Addrs: fullH.Addrs(),
+	}
+
 	provider, err := storageimpl.NewProvider(
 		network.NewFromLibp2pHost(td.Host2, networkOptions...),
 		providerDs,
@@ -116,6 +127,8 @@ func NewHarnessWithTestData(t *testing.T, td *shared_testutil.Libp2pTestData, de
 		deps.ProviderNode,
 		deps.ProviderAddr,
 		deps.StoredAsk,
+		fai,
+		idxH,
 	)
 	assert.NoError(t, err)
 
@@ -142,6 +155,15 @@ func (h *StorageHarness) CreateNewProvider(t *testing.T, ctx context.Context, td
 
 	providerDs := namespace.Wrap(td.Ds1, datastore.NewKey("/deals/provider"))
 	pi := shared_testutil.NewMockIndexProvider()
+	idxH, err := td.MockNet.GenPeer()
+	require.NoError(t, err)
+	fullH, err := td.MockNet.GenPeer()
+	td.MockNet.LinkAll()
+	fai := peer.AddrInfo{
+		ID:    fullH.ID(),
+		Addrs: fullH.Addrs(),
+	}
+
 	provider, err := storageimpl.NewProvider(
 		network.NewFromLibp2pHost(td.Host2, network.RetryParameters(0, 0, 0, 0)),
 		providerDs,
@@ -153,6 +175,8 @@ func (h *StorageHarness) CreateNewProvider(t *testing.T, ctx context.Context, td
 		h.ProviderNode,
 		h.ProviderAddr,
 		h.StoredAsk,
+		fai,
+		idxH,
 	)
 	require.NoError(t, err)
 	return provider
