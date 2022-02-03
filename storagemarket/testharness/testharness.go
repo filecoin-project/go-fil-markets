@@ -14,7 +14,6 @@ import (
 	bstore "github.com/ipfs/go-ipfs-blockstore"
 	"github.com/ipld/go-ipld-prime"
 	cidlink "github.com/ipld/go-ipld-prime/linking/cid"
-	"github.com/libp2p/go-libp2p-core/peer"
 	"github.com/libp2p/go-libp2p-core/protocol"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -54,12 +53,11 @@ func NewHarness(t *testing.T, ctx context.Context, useStore bool, cd testnodes.D
 	return NewHarnessWithTestData(t, td, deps, useStore, disableNewDeals, fName...)
 }
 
-type NetAddListenerStub struct {
-	Addrs peer.AddrInfo
+type MeshCreatorStub struct {
 }
 
-func (n *NetAddListenerStub) NetAddrsListen(context.Context) (peer.AddrInfo, error) {
-	return n.Addrs, nil
+func (m *MeshCreatorStub) Connect(context.Context) error {
+	return nil
 }
 
 func NewHarnessWithTestData(t *testing.T, td *shared_testutil.Libp2pTestData, deps *dependencies.StorageDependencies, useStore bool, disableNewDeals bool, files ...string) *StorageHarness {
@@ -114,14 +112,6 @@ func NewHarnessWithTestData(t *testing.T, td *shared_testutil.Libp2pTestData, de
 	}
 
 	rp := shared_testutil.NewMockIndexProvider()
-	idxH, err := deps.TestData.MockNet.GenPeer()
-	require.NoError(t, err)
-	fullH, err := deps.TestData.MockNet.GenPeer()
-	deps.TestData.MockNet.LinkAll()
-	fai := peer.AddrInfo{
-		ID:    fullH.ID(),
-		Addrs: fullH.Addrs(),
-	}
 
 	provider, err := storageimpl.NewProvider(
 		network.NewFromLibp2pHost(td.Host2, networkOptions...),
@@ -134,8 +124,7 @@ func NewHarnessWithTestData(t *testing.T, td *shared_testutil.Libp2pTestData, de
 		deps.ProviderNode,
 		deps.ProviderAddr,
 		deps.StoredAsk,
-		&NetAddListenerStub{fai},
-		idxH,
+		&MeshCreatorStub{},
 	)
 	assert.NoError(t, err)
 
@@ -162,14 +151,6 @@ func (h *StorageHarness) CreateNewProvider(t *testing.T, ctx context.Context, td
 
 	providerDs := namespace.Wrap(td.Ds1, datastore.NewKey("/deals/provider"))
 	pi := shared_testutil.NewMockIndexProvider()
-	idxH, err := td.MockNet.GenPeer()
-	require.NoError(t, err)
-	fullH, err := td.MockNet.GenPeer()
-	td.MockNet.LinkAll()
-	fai := peer.AddrInfo{
-		ID:    fullH.ID(),
-		Addrs: fullH.Addrs(),
-	}
 
 	provider, err := storageimpl.NewProvider(
 		network.NewFromLibp2pHost(td.Host2, network.RetryParameters(0, 0, 0, 0)),
@@ -182,8 +163,7 @@ func (h *StorageHarness) CreateNewProvider(t *testing.T, ctx context.Context, td
 		h.ProviderNode,
 		h.ProviderAddr,
 		h.StoredAsk,
-		&NetAddListenerStub{fai},
-		idxH,
+		&MeshCreatorStub{},
 	)
 	require.NoError(t, err)
 	return provider

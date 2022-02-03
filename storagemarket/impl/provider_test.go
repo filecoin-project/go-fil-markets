@@ -117,15 +117,6 @@ func TestProvider_Migrations(t *testing.T) {
 
 	pi := shared_testutil.NewMockIndexProvider()
 
-	idxH, err := deps.TestData.MockNet.GenPeer()
-	require.NoError(t, err)
-	fullH, err := deps.TestData.MockNet.GenPeer()
-	deps.TestData.MockNet.LinkAll()
-	fai := peer.AddrInfo{
-		ID:    fullH.ID(),
-		Addrs: fullH.Addrs(),
-	}
-
 	provider, err := storageimpl.NewProvider(
 
 		network.NewFromLibp2pHost(deps.TestData.Host2, network.RetryParameters(0, 0, 0, 0)),
@@ -138,8 +129,7 @@ func TestProvider_Migrations(t *testing.T) {
 		deps.ProviderNode,
 		deps.ProviderAddr,
 		deps.StoredAsk,
-		&testharness.NetAddListenerStub{fai},
-		idxH,
+		&testharness.MeshCreatorStub{},
 	)
 	require.NoError(t, err)
 
@@ -221,14 +211,6 @@ func TestHandleDealStream(t *testing.T) {
 		require.NoError(t, err)
 
 		pi := shared_testutil.NewMockIndexProvider()
-		idxH, err := deps.TestData.MockNet.GenPeer()
-		require.NoError(t, err)
-		fullH, err := deps.TestData.MockNet.GenPeer()
-		deps.TestData.MockNet.LinkAll()
-		fai := peer.AddrInfo{
-			ID:    fullH.ID(),
-			Addrs: fullH.Addrs(),
-		}
 
 		provider, err := storageimpl.NewProvider(
 			network.NewFromLibp2pHost(deps.TestData.Host2, network.RetryParameters(0, 0, 0, 0)),
@@ -241,8 +223,7 @@ func TestHandleDealStream(t *testing.T) {
 			deps.ProviderNode,
 			deps.ProviderAddr,
 			deps.StoredAsk,
-			&testharness.NetAddListenerStub{fai},
-			idxH,
+			&testharness.MeshCreatorStub{},
 		)
 		require.NoError(t, err)
 
