@@ -6,6 +6,7 @@ import (
 	"math/rand"
 	"testing"
 
+	"github.com/ipfs/go-cid"
 	peer "github.com/libp2p/go-libp2p-core/peer"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -138,6 +139,19 @@ func TestSetupPaymentChannel(t *testing.T) {
 		require.Empty(t, dealState.Message)
 		require.Equal(t, envParams.AddFundsCID, *dealState.WaitMsgCID)
 		require.Equal(t, retrievalmarket.DealStatusPaymentChannelAddingInitialFunds, dealState.Status)
+		require.Equal(t, expectedPayCh, dealState.PaymentInfo.PayCh)
+	})
+
+	t.Run("payment channel fully ready", func(t *testing.T) {
+		envParams := testnodes.TestRetrievalClientNodeParams{
+			AddFundsOnly: true,
+			PayCh:        expectedPayCh,
+			AddFundsCID:  cid.Undef,
+		}
+		dealState := makeDealState(retrievalmarket.DealStatusAccepted)
+		runSetupPaymentChannel(t, envParams, dealState)
+		require.Empty(t, dealState.Message)
+		require.Equal(t, dealState.Status, retrievalmarket.DealStatusPaymentChannelAllocatingLane)
 		require.Equal(t, expectedPayCh, dealState.PaymentInfo.PayCh)
 	})
 
