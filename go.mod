@@ -18,7 +18,7 @@ require (
 	github.com/filecoin-project/go-state-types v0.1.1
 	github.com/filecoin-project/go-statemachine v1.0.1
 	github.com/filecoin-project/go-statestore v0.2.0
-	github.com/filecoin-project/index-provider v0.2.6
+	github.com/filecoin-project/index-provider v0.3.0
 	github.com/filecoin-project/specs-actors v0.9.13
 	github.com/filecoin-project/specs-actors/v2 v2.3.6
 	github.com/filecoin-project/storetheindex v0.3.0
