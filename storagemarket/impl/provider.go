@@ -193,7 +193,7 @@ func (p *Provider) Start(ctx context.Context) error {
 
 	// connect the index provider node with the full node and protect that connection
 	if err := p.meshCreator.Connect(ctx); err != nil {
-		return fmt.Errorf("failed to connect index provider host with the full node: %w", err)
+		log.Errorf("failed to connect index provider host with the full node: %s", err)
 	}
 
 	go func() {
