@@ -9,7 +9,6 @@ import (
 	"github.com/hannahhoward/go-pubsub"
 	"github.com/ipfs/go-cid"
 	"github.com/ipfs/go-datastore"
-	"github.com/ipfs/go-datastore/namespace"
 	"golang.org/x/xerrors"
 
 	"github.com/filecoin-project/go-address"
@@ -22,7 +21,6 @@ import (
 
 	"github.com/filecoin-project/go-fil-markets/piecestore"
 	"github.com/filecoin-project/go-fil-markets/retrievalmarket"
-	"github.com/filecoin-project/go-fil-markets/retrievalmarket/impl/askstore"
 	"github.com/filecoin-project/go-fil-markets/retrievalmarket/impl/dtutils"
 	"github.com/filecoin-project/go-fil-markets/retrievalmarket/impl/providerstates"
 	"github.com/filecoin-project/go-fil-markets/retrievalmarket/impl/requestvalidation"
@@ -108,6 +106,7 @@ func NewProvider(minerAddress address.Address,
 	dagStore stores.DAGStoreWrapper,
 	dataTransfer datatransfer.Manager,
 	ds datastore.Batching,
+	askStore retrievalmarket.AskStore,
 	retrievalPricingFunc RetrievalPricingFunc,
 	opts ...RetrievalProviderOption,
 ) (retrievalmarket.RetrievalProvider, error) {
@@ -127,6 +126,7 @@ func NewProvider(minerAddress address.Address,
 		readySub:             pubsub.New(shared.ReadyDispatcher),
 		retrievalPricingFunc: retrievalPricingFunc,
 		dagStore:             dagStore,
+		askStore:             askStore,
 		stores:               stores.NewReadOnlyBlockstores(),
 	}
 
@@ -134,12 +134,6 @@ func NewProvider(minerAddress address.Address,
 	if err != nil {
 		return nil, err
 	}
-
-	askStore, err := askstore.NewAskStore(namespace.Wrap(ds, datastore.NewKey("retrieval-ask")), datastore.NewKey("latest"))
-	if err != nil {
-		return nil, err
-	}
-	p.askStore = askStore
 
 	retrievalMigrations, err := migrations.ProviderMigrations.Build()
 	if err != nil {
