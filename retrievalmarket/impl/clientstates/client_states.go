@@ -3,6 +3,7 @@ package clientstates
 import (
 	"context"
 
+	"github.com/ipfs/go-cid"
 	logging "github.com/ipfs/go-log/v2"
 	peer "github.com/libp2p/go-libp2p-core/peer"
 
@@ -59,6 +60,9 @@ func SetupPaymentChannelStart(ctx fsm.Context, environment ClientDealEnvironment
 		return ctx.Trigger(rm.ClientEventPaymentChannelCreateInitiated, msgCID)
 	}
 
+	if msgCID == cid.Undef {
+		return ctx.Trigger(rm.ClientEventPaymentChannelReady, paych)
+	}
 	return ctx.Trigger(rm.ClientEventPaymentChannelAddingFunds, msgCID, paych)
 }
 

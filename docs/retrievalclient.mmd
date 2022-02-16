@@ -79,6 +79,7 @@ stateDiagram-v2
 	DealStatusCheckFunds --> DealStatusPaymentChannelAddingFunds : ClientEventPaymentChannelAddingFunds
 	DealStatusPaymentChannelCreating --> DealStatusPaymentChannelAllocatingLane : ClientEventPaymentChannelReady
 	DealStatusPaymentChannelAddingFunds --> DealStatusOngoing : ClientEventPaymentChannelReady
+	DealStatusAccepted --> DealStatusPaymentChannelAllocatingLane : ClientEventPaymentChannelReady
 	DealStatusCheckFunds --> DealStatusOngoing : ClientEventPaymentChannelReady
 	DealStatusPaymentChannelAddingInitialFunds --> DealStatusPaymentChannelAllocatingLane : ClientEventPaymentChannelReady
 	DealStatusPaymentChannelAllocatingLane --> DealStatusFailing : ClientEventAllocateLaneErrored
