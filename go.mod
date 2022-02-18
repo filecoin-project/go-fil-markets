@@ -4,7 +4,7 @@ go 1.13
 
 require (
 	github.com/cespare/xxhash/v2 v2.1.2 // indirect
-	github.com/filecoin-project/dagstore v0.5.1
+	github.com/filecoin-project/dagstore v0.5.2-0.20220218085910-7a019acb8c58
 	github.com/filecoin-project/go-address v0.0.6
 	github.com/filecoin-project/go-bitfield v0.2.4 // indirect
 	github.com/filecoin-project/go-cbor-util v0.0.1
