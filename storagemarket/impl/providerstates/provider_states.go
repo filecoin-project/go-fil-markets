@@ -40,7 +40,7 @@ type ProviderDealEnvironment interface {
 	ReadCAR(path string) (*carv2.Reader, error)
 
 	RegisterShard(ctx context.Context, pieceCid cid.Cid, path string, eagerInit bool) error
-	AnnounceIndex(ctx context.Context, deal storagemarket.MinerDeal) (cid.Cid, error)
+	AnnounceIndex(ctx context.Context, proposalCid cid.Cid, proposal market.DealProposal) (cid.Cid, error)
 	RemoveIndex(ctx context.Context, proposalCid cid.Cid) error
 
 	FinalizeBlockstore(proposalCid cid.Cid) error
@@ -393,7 +393,7 @@ func HandoffDeal(ctx fsm.Context, environment ProviderDealEnvironment, deal stor
 	}
 
 	// announce the deal to the network indexer
-	annCid, err := environment.AnnounceIndex(ctx.Context(), deal)
+	annCid, err := environment.AnnounceIndex(ctx.Context(), deal.ProposalCid, deal.Proposal)
 	if err != nil {
 		log.Errorw("failed to announce index via reference provider", "proposalCid", deal.ProposalCid, "err", err)
 	} else {

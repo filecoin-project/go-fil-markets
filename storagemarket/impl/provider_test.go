@@ -130,6 +130,7 @@ func TestProvider_Migrations(t *testing.T) {
 		deps.ProviderAddr,
 		deps.StoredAsk,
 		&testharness.MeshCreatorStub{},
+		&testharness.BoostDealGetter{},
 	)
 	require.NoError(t, err)
 
@@ -224,6 +225,7 @@ func TestHandleDealStream(t *testing.T) {
 			deps.ProviderAddr,
 			deps.StoredAsk,
 			&testharness.MeshCreatorStub{},
+			&testharness.BoostDealGetter{},
 		)
 		require.NoError(t, err)
 

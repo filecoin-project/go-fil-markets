@@ -60,6 +60,16 @@ func (m *MeshCreatorStub) Connect(context.Context) error {
 	return nil
 }
 
+type BoostDealGetter struct{}
+
+func (bdg *BoostDealGetter) Get(proposalCid cid.Cid) (storagemarket.MinerDeal, error) {
+	return storagemarket.MinerDeal{}, nil
+}
+
+func (bdg *BoostDealGetter) GetAll() ([]storagemarket.MinerDeal, error) {
+	return nil, nil
+}
+
 func NewHarnessWithTestData(t *testing.T, td *shared_testutil.Libp2pTestData, deps *dependencies.StorageDependencies, useStore bool, disableNewDeals bool, files ...string) *StorageHarness {
 	var file string
 	if len(files) == 0 {
@@ -125,6 +135,7 @@ func NewHarnessWithTestData(t *testing.T, td *shared_testutil.Libp2pTestData, de
 		deps.ProviderAddr,
 		deps.StoredAsk,
 		&MeshCreatorStub{},
+		&BoostDealGetter{},
 	)
 	assert.NoError(t, err)
 
@@ -164,6 +175,7 @@ func (h *StorageHarness) CreateNewProvider(t *testing.T, ctx context.Context, td
 		h.ProviderAddr,
 		h.StoredAsk,
 		&MeshCreatorStub{},
+		&BoostDealGetter{},
 	)
 	require.NoError(t, err)
 	return provider
