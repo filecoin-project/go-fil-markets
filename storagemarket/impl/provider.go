@@ -7,8 +7,6 @@ import (
 	"os"
 	"time"
 
-	"github.com/filecoin-project/specs-actors/actors/builtin/market"
-
 	"github.com/hannahhoward/go-pubsub"
 	"github.com/hashicorp/go-multierror"
 	"github.com/ipfs/go-cid"
@@ -30,6 +28,7 @@ import (
 	"github.com/filecoin-project/go-statemachine/fsm"
 	provider "github.com/filecoin-project/index-provider"
 	metadata2 "github.com/filecoin-project/index-provider/metadata"
+	"github.com/filecoin-project/specs-actors/actors/builtin/market"
 
 	"github.com/filecoin-project/go-fil-markets/filestore"
 	"github.com/filecoin-project/go-fil-markets/piecestore"

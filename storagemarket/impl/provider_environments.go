@@ -6,8 +6,6 @@ import (
 	"os"
 	"time"
 
-	"github.com/filecoin-project/specs-actors/actors/builtin/market"
-
 	"github.com/ipfs/go-cid"
 	bstore "github.com/ipfs/go-ipfs-blockstore"
 	carv2 "github.com/ipld/go-car/v2"
@@ -17,6 +15,7 @@ import (
 	"github.com/filecoin-project/go-address"
 	"github.com/filecoin-project/go-state-types/abi"
 	metadata2 "github.com/filecoin-project/index-provider/metadata"
+	"github.com/filecoin-project/specs-actors/actors/builtin/market"
 
 	"github.com/filecoin-project/go-fil-markets/commp"
 	"github.com/filecoin-project/go-fil-markets/filestore"
