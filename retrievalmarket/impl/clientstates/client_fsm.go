@@ -119,8 +119,7 @@ var ClientEvents = fsm.Events{
 		// created for an earlier deal but the initial funding for this deal
 		// was being added, then we still need to allocate a payment channel
 		// lane
-		From(rm.DealStatusPaymentChannelCreating).To(rm.DealStatusPaymentChannelAllocatingLane).
-		From(rm.DealStatusPaymentChannelAddingInitialFunds).To(rm.DealStatusPaymentChannelAllocatingLane).
+		FromMany(rm.DealStatusPaymentChannelCreating, rm.DealStatusPaymentChannelAddingInitialFunds, rm.DealStatusAccepted).To(rm.DealStatusPaymentChannelAllocatingLane).
 		// If the payment channel ran out of funds and needed to be topped up,
 		// then the payment channel lane already exists so just move straight
 		// to the ongoing state

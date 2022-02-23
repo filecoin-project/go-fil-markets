@@ -1,5 +1,17 @@
 # go-fil-markets changelog
 
+# go-fil-markets v1.19.1
+
+- github.com/filecoin-project/go-fil-markets:
+  - feat(clientstates): handle payment chanel ready to go (#677) ([filecoin-project/go-fil-markets#677](https://github.com/filecoin-project/go-fil-markets/pull/677))
+  - release: v1.19.0 ([filecoin-project/go-fil-markets#672](https://github.com/filecoin-project/go-fil-markets/pull/672))
+
+Contributors
+
+| Contributor | Commits | Lines ± | Files Changed |
+|-------------|---------|---------|---------------|
+| Hannah Howard | 1 | +23/-5 | 6 |
+
 # go-fil-markets v1.19.0
 
 - github.com/filecoin-project/go-fil-markets:
