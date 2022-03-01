@@ -104,7 +104,8 @@ func TestBounceConnectionDealTransferOngoing(t *testing.T) {
 			providerNode := testnodes2.NewTestRetrievalProviderNode()
 			sa := testnodes2.NewTestSectorAccessor()
 			pieceStore := shared_testutil.NewTestPieceStore()
-			deps.DagStore = tut.NewMockDagStoreWrapper(pieceStore, sa)
+			dagStore := tut.NewMockDagStoreWrapper(pieceStore, sa)
+			deps.DagStore = dagStore
 
 			sh := testharness.NewHarnessWithTestData(t, deps.TestData, deps, true, false)
 
@@ -120,7 +121,7 @@ func TestBounceConnectionDealTransferOngoing(t *testing.T) {
 				PaymentInterval:         tc.paymentInterval,
 				PaymentIntervalIncrease: tc.paymentIntervalIncrease,
 			}
-			rh := newRetrievalHarnessWithDeps(ctxTimeout, t, sh, storageClientSeenDeal, providerNode, sa, pieceStore, params)
+			rh := newRetrievalHarnessWithDeps(ctxTimeout, t, sh, storageClientSeenDeal, providerNode, sa, pieceStore, dagStore, params)
 			clientHost := rh.TestDataNet.Host1.ID()
 			providerHost := rh.TestDataNet.Host2.ID()
 
@@ -233,7 +234,8 @@ func TestBounceConnectionDealTransferUnsealing(t *testing.T) {
 			providerNode := testnodes2.NewTestRetrievalProviderNode()
 			sa := testnodes2.NewTestSectorAccessor()
 			pieceStore := shared_testutil.NewTestPieceStore()
-			deps.DagStore = tut.NewMockDagStoreWrapper(pieceStore, sa)
+			dagStore := tut.NewMockDagStoreWrapper(pieceStore, sa)
+			deps.DagStore = dagStore
 
 			sh := testharness.NewHarnessWithTestData(t, td, deps, true, false)
 
@@ -250,7 +252,7 @@ func TestBounceConnectionDealTransferUnsealing(t *testing.T) {
 				PaymentInterval:         uint64(10000),
 				PaymentIntervalIncrease: uint64(1000),
 			}
-			rh := newRetrievalHarnessWithDeps(ctxTimeout, t, sh, storageClientSeenDeal, providerNode, sa, pieceStore, params)
+			rh := newRetrievalHarnessWithDeps(ctxTimeout, t, sh, storageClientSeenDeal, providerNode, sa, pieceStore, dagStore, params)
 			clientHost := rh.TestDataNet.Host1.ID()
 			providerHost := rh.TestDataNet.Host2.ID()
 

@@ -6,6 +6,7 @@ import (
 
 	"github.com/ipfs/go-cid"
 	bstore "github.com/ipfs/go-ipfs-blockstore"
+	carindex "github.com/ipld/go-car/v2/index"
 
 	"github.com/filecoin-project/dagstore"
 
@@ -32,6 +33,12 @@ type DAGStoreWrapper interface {
 
 	// MigrateDeals migrates the supplied storage deals into the DAG store.
 	MigrateDeals(ctx context.Context, deals []storagemarket.MinerDeal) (bool, error)
+
+	// GetPiecesContainingBlock returns the CID of all pieces that contain
+	// the block with the given CID
+	GetPiecesContainingBlock(blockCID cid.Cid) ([]cid.Cid, error)
+
+	GetIterableIndexForPiece(pieceCid cid.Cid) (carindex.IterableIndex, error)
 
 	// Close closes the dag store wrapper.
 	Close() error

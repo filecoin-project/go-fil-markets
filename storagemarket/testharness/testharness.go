@@ -37,10 +37,11 @@ import (
 
 type StorageHarness struct {
 	*dependencies.StorageDependencies
-	PayloadCid cid.Cid
-	Client     storagemarket.StorageClient
-	Provider   storagemarket.StorageProvider
-	Data       bstore.Blockstore
+	PayloadCid        cid.Cid
+	Client            storagemarket.StorageClient
+	Provider          storagemarket.StorageProvider
+	Data              bstore.Blockstore
+	ReferenceProvider *shared_testutil.MockIndexProvider
 }
 
 func NewHarness(t *testing.T, ctx context.Context, useStore bool, cd testnodes.DelayFakeCommonNode, pd testnodes.DelayFakeCommonNode,
@@ -50,6 +51,13 @@ func NewHarness(t *testing.T, ctx context.Context, useStore bool, cd testnodes.D
 	deps := dependencies.NewDependenciesWithTestData(t, ctx, td, smState, "", cd, pd)
 
 	return NewHarnessWithTestData(t, td, deps, useStore, disableNewDeals, fName...)
+}
+
+type MeshCreatorStub struct {
+}
+
+func (m *MeshCreatorStub) Connect(context.Context) error {
+	return nil
 }
 
 func NewHarnessWithTestData(t *testing.T, td *shared_testutil.Libp2pTestData, deps *dependencies.StorageDependencies, useStore bool, disableNewDeals bool, files ...string) *StorageHarness {
@@ -102,16 +110,21 @@ func NewHarnessWithTestData(t *testing.T, td *shared_testutil.Libp2pTestData, de
 			network.SupportedDealStatusProtocols([]protocol.ID{storagemarket.OldDealStatusProtocolID}),
 		)
 	}
+
+	rp := shared_testutil.NewMockIndexProvider()
+
 	provider, err := storageimpl.NewProvider(
 		network.NewFromLibp2pHost(td.Host2, networkOptions...),
 		providerDs,
 		deps.Fs,
 		deps.DagStore,
+		rp,
 		deps.PieceStore,
 		deps.DTProvider,
 		deps.ProviderNode,
 		deps.ProviderAddr,
 		deps.StoredAsk,
+		&MeshCreatorStub{},
 	)
 	assert.NoError(t, err)
 
@@ -125,6 +138,7 @@ func NewHarnessWithTestData(t *testing.T, td *shared_testutil.Libp2pTestData, de
 		Client:              client,
 		Provider:            provider,
 		Data:                bs,
+		ReferenceProvider:   rp,
 	}
 }
 
@@ -136,16 +150,20 @@ func (h *StorageHarness) CreateNewProvider(t *testing.T, ctx context.Context, td
 	testutil.StartAndWaitForReady(ctx, t, dt2)
 
 	providerDs := namespace.Wrap(td.Ds1, datastore.NewKey("/deals/provider"))
+	pi := shared_testutil.NewMockIndexProvider()
+
 	provider, err := storageimpl.NewProvider(
 		network.NewFromLibp2pHost(td.Host2, network.RetryParameters(0, 0, 0, 0)),
 		providerDs,
 		h.Fs,
 		h.DagStore,
+		pi,
 		h.PieceStore,
 		dt2,
 		h.ProviderNode,
 		h.ProviderAddr,
 		h.StoredAsk,
+		&MeshCreatorStub{},
 	)
 	require.NoError(t, err)
 	return provider

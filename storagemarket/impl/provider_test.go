@@ -25,6 +25,7 @@ import (
 	storageimpl "github.com/filecoin-project/go-fil-markets/storagemarket/impl"
 	"github.com/filecoin-project/go-fil-markets/storagemarket/migrations"
 	"github.com/filecoin-project/go-fil-markets/storagemarket/network"
+	"github.com/filecoin-project/go-fil-markets/storagemarket/testharness"
 	"github.com/filecoin-project/go-fil-markets/storagemarket/testharness/dependencies"
 	"github.com/filecoin-project/go-fil-markets/storagemarket/testnodes"
 )
@@ -113,16 +114,22 @@ func TestProvider_Migrations(t *testing.T) {
 		err = providerDs.Put(ctx, datastore.NewKey(deal.ProposalCid.String()), buf.Bytes())
 		require.NoError(t, err)
 	}
+
+	pi := shared_testutil.NewMockIndexProvider()
+
 	provider, err := storageimpl.NewProvider(
+
 		network.NewFromLibp2pHost(deps.TestData.Host2, network.RetryParameters(0, 0, 0, 0)),
 		providerDs,
 		deps.Fs,
 		deps.DagStore,
+		pi,
 		deps.PieceStore,
 		deps.DTProvider,
 		deps.ProviderNode,
 		deps.ProviderAddr,
 		deps.StoredAsk,
+		&testharness.MeshCreatorStub{},
 	)
 	require.NoError(t, err)
 
@@ -203,16 +210,20 @@ func TestHandleDealStream(t *testing.T) {
 		err = namespaced.Put(ctx, datastore.NewKey(deal.ProposalCid.String()), buf.Bytes())
 		require.NoError(t, err)
 
+		pi := shared_testutil.NewMockIndexProvider()
+
 		provider, err := storageimpl.NewProvider(
 			network.NewFromLibp2pHost(deps.TestData.Host2, network.RetryParameters(0, 0, 0, 0)),
 			providerDs,
 			deps.Fs,
 			deps.DagStore,
+			pi,
 			deps.PieceStore,
 			deps.DTProvider,
 			deps.ProviderNode,
 			deps.ProviderAddr,
 			deps.StoredAsk,
+			&testharness.MeshCreatorStub{},
 		)
 		require.NoError(t, err)
 

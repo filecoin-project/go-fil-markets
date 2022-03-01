@@ -9,6 +9,7 @@ import (
 	"github.com/ipfs/go-cid"
 	carv2 "github.com/ipld/go-car/v2"
 	"github.com/ipld/go-car/v2/blockstore"
+	carindex "github.com/ipld/go-car/v2/index"
 	"golang.org/x/xerrors"
 
 	"github.com/filecoin-project/dagstore"
@@ -32,17 +33,19 @@ type MockDagStoreWrapper struct {
 	pieceStore piecestore.PieceStore
 	sa         retrievalmarket.SectorAccessor
 
-	lk            sync.Mutex
-	registrations map[cid.Cid]registration
+	lk              sync.Mutex
+	registrations   map[cid.Cid]registration
+	piecesWithBlock map[cid.Cid][]cid.Cid
 }
 
 var _ stores.DAGStoreWrapper = (*MockDagStoreWrapper)(nil)
 
 func NewMockDagStoreWrapper(pieceStore piecestore.PieceStore, sa retrievalmarket.SectorAccessor) *MockDagStoreWrapper {
 	return &MockDagStoreWrapper{
-		pieceStore:    pieceStore,
-		sa:            sa,
-		registrations: make(map[cid.Cid]registration),
+		pieceStore:      pieceStore,
+		sa:              sa,
+		registrations:   make(map[cid.Cid]registration),
+		piecesWithBlock: make(map[cid.Cid][]cid.Cid),
 	}
 }
 
@@ -57,6 +60,10 @@ func (m *MockDagStoreWrapper) RegisterShard(ctx context.Context, pieceCid cid.Ci
 
 	resch <- dagstore.ShardResult{}
 	return nil
+}
+
+func (m *MockDagStoreWrapper) GetIterableIndexForPiece(c cid.Cid) (carindex.IterableIndex, error) {
+	return nil, nil
 }
 
 func (m *MockDagStoreWrapper) MigrateDeals(ctx context.Context, deals []storagemarket.MinerDeal) (bool, error) {
@@ -133,4 +140,29 @@ func getBlockstoreFromReader(r io.ReadCloser, pieceCid cid.Cid) (stores.Closable
 
 func (m *MockDagStoreWrapper) Close() error {
 	return nil
+}
+
+func (m *MockDagStoreWrapper) GetPiecesContainingBlock(blockCID cid.Cid) ([]cid.Cid, error) {
+	m.lk.Lock()
+	defer m.lk.Unlock()
+
+	pieces, ok := m.piecesWithBlock[blockCID]
+	if !ok {
+		return nil, retrievalmarket.ErrNotFound
+	}
+
+	return pieces, nil
+}
+
+// Used by the tests to add an entry to the index of block CID -> []piece CID
+func (m *MockDagStoreWrapper) AddBlockToPieceIndex(blockCID cid.Cid, pieceCid cid.Cid) {
+	m.lk.Lock()
+	defer m.lk.Unlock()
+
+	pieces, ok := m.piecesWithBlock[blockCID]
+	if !ok {
+		m.piecesWithBlock[blockCID] = []cid.Cid{pieceCid}
+	} else {
+		m.piecesWithBlock[blockCID] = append(pieces, pieceCid)
+	}
 }
