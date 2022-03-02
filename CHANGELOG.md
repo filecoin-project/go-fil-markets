@@ -1,5 +1,19 @@
 # go-fil-markets changelog
 
+# go-fil-markets v1.19.2
+
+reverts to libp2p 0.17.0
+
+### Changelog
+- github.com/filecoin-project/go-fil-markets:
+  - Downgrade libp2p (#687) ([filecoin-project/go-fil-markets#687](https://github.com/filecoin-project/go-fil-markets/pull/687))
+
+### Contributors
+
+| Contributor | Commits | Lines ± | Files Changed |
+|-------------|---------|---------|---------------|
+| Hannah Howard | 1 | +42/-96 | 3 |
+
 # go-fil-markets v1.19.1
 
 - github.com/filecoin-project/go-fil-markets:
