@@ -1,5 +1,16 @@
 # go-fil-markets changelog
 
+# go-fil-markets v1.20.0
+- github.com/filecoin-project/go-fil-markets:
+  - Index publishing work (#673) ([filecoin-project/go-fil-markets#673](https://github.com/filecoin-project/go-fil-markets/pull/673))
+  - Merge branch 'release/v1.19.1'
+
+Contributors
+
+| Contributor | Commits | Lines ± | Files Changed |
+|-------------|---------|---------|---------------|
+| Aarsh Shah | 1 | +890/-219 | 22 |
+
 # go-fil-markets v1.19.1
 
 - github.com/filecoin-project/go-fil-markets:
