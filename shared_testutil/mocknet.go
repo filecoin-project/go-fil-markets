@@ -73,7 +73,7 @@ func NewLibp2pTestData(ctx context.Context, t *testing.T) *Libp2pTestData {
 	// setup an IPLD link system for bstore 2
 	testData.LinkSystem2 = storeutil.LinkSystemForBlockstore(testData.Bs2)
 
-	mn := mocknet.New()
+	mn := mocknet.New(ctx)
 
 	// setup network
 	testData.Host1, err = mn.GenPeer()
