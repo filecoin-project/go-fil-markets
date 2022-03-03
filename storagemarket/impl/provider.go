@@ -477,12 +477,12 @@ func (p *Provider) AnnounceDealToIndexer(ctx context.Context, proposalCid cid.Ci
 		return xerrors.Errorf("failed getting deal %s: %w", proposalCid, err)
 	}
 
-	fm := metadata2.FilecoinV1Data{
+	fm := metadata2.GraphsyncFilecoinV1Metadata{
 		PieceCID:      deal.Proposal.PieceCID,
 		FastRetrieval: deal.FastRetrieval,
 		VerifiedDeal:  deal.Proposal.VerifiedDeal,
 	}
-	dtm, err := fm.Encode(metadata2.GraphSyncV1)
+	dtm, err := fm.ToIndexerMetadata()
 	if err != nil {
 		return fmt.Errorf("failed to encode metadata: %w", err)
 	}
@@ -491,7 +491,7 @@ func (p *Provider) AnnounceDealToIndexer(ctx context.Context, proposalCid cid.Ci
 		return fmt.Errorf("cannot publish index record as indexer host failed to connect to the full node: %w", err)
 	}
 
-	annCid, err := p.indexProvider.NotifyPut(ctx, deal.ProposalCid.Bytes(), dtm.ToIndexerMetadata())
+	annCid, err := p.indexProvider.NotifyPut(ctx, deal.ProposalCid.Bytes(), dtm)
 	if err == nil {
 		log.Infow("deal announcement sent to index provider", "advertisementCid", annCid, "shard-key", deal.Proposal.PieceCID,
 			"proposalCid", deal.ProposalCid)
