@@ -1,5 +1,16 @@
 # go-fil-markets changelog
 
+# go-fil-markets v1.20.1
+- github.com/filecoin-project/go-fil-markets:
+  - Upgrade index-provider with the latest metadata format (#688) ([filecoin-project/go-fil-markets#688](https://github.com/filecoin-project/go-fil-markets/pull/688))
+  - release: v1.20.0 ([filecoin-project/go-fil-markets#686](https://github.com/filecoin-project/go-fil-markets/pull/686))
+
+Contributors
+
+| Contributor | Commits | Lines ± | Files Changed |
+|-------------|---------|---------|---------------|
+| Masih H. Derkani | 1 | +34/-28 | 4 |
+
 # go-fil-markets v1.20.0
 - github.com/filecoin-project/go-fil-markets:
   - Index publishing work (#673) ([filecoin-project/go-fil-markets#673](https://github.com/filecoin-project/go-fil-markets/pull/673))
