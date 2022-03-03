@@ -40,12 +40,12 @@ func (p *providerDealEnvironment) RegisterShard(ctx context.Context, pieceCid ci
 // AnnounceIndex informs indexer nodes that a new deal was received,
 // so they can download its index
 func (p *providerDealEnvironment) AnnounceIndex(ctx context.Context, deal storagemarket.MinerDeal) (advertCid cid.Cid, err error) {
-	fm := metadata2.FilecoinV1Data{
+	fm := metadata2.GraphsyncFilecoinV1Metadata{
 		PieceCID:      deal.Proposal.PieceCID,
 		FastRetrieval: deal.FastRetrieval,
 		VerifiedDeal:  deal.Proposal.VerifiedDeal,
 	}
-	dtm, err := fm.Encode(metadata2.GraphSyncV1)
+	dtm, err := fm.ToIndexerMetadata()
 	if err != nil {
 		return cid.Undef, fmt.Errorf("failed to encode metadata: %w", err)
 	}
@@ -55,7 +55,7 @@ func (p *providerDealEnvironment) AnnounceIndex(ctx context.Context, deal storag
 		return cid.Undef, fmt.Errorf("cannot publish index record as indexer host failed to connect to the full node: %w", err)
 	}
 
-	return p.p.indexProvider.NotifyPut(ctx, deal.ProposalCid.Bytes(), dtm.ToIndexerMetadata())
+	return p.p.indexProvider.NotifyPut(ctx, deal.ProposalCid.Bytes(), dtm)
 }
 
 func (p *providerDealEnvironment) RemoveIndex(ctx context.Context, proposalCid cid.Cid) error {
