@@ -168,6 +168,47 @@ func TestProvider_Migrations(t *testing.T) {
 		}
 		require.Equal(t, expectedDeal, deal)
 	}
+
+	// Verify get deal by signed proposal cid
+	deal, err := provider.GetLocalDeal(deals[0].ProposalCid)
+	require.NoError(t, err)
+	require.Equal(t, deals[0].ProposalCid, deal.ProposalCid)
+
+	// Verify the deal count
+	count, err := provider.LocalDealCount()
+	require.NoError(t, err)
+	require.Equal(t, len(deals), count)
+
+	// Verify get a page of deals without a nil offset proposal cid
+	listedDeals, err := provider.ListLocalDealsPage(nil, len(deals))
+	require.NoError(t, err)
+	require.Len(t, listedDeals, len(deals))
+	for i, dl := range listedDeals {
+		if i == 0 {
+			continue
+		}
+		// Verify descending order by creation time
+		require.True(t, dl.CreationTime.Time().Before(listedDeals[i-1].CreationTime.Time()))
+	}
+	firstDeal := listedDeals[0]
+	secondDeal := listedDeals[1]
+	thirdDeal := listedDeals[2]
+
+	// Verify get a page of deals with a nil offset proposal cid and with a limit
+	listedDeals, err = provider.ListLocalDealsPage(nil, 2)
+	require.NoError(t, err)
+	require.Len(t, listedDeals, 2)
+	// Verify correct deals
+	require.Equal(t, firstDeal.ProposalCid, listedDeals[0].ProposalCid)
+	require.Equal(t, secondDeal.ProposalCid, listedDeals[1].ProposalCid)
+
+	// Verify get a page of deals with an offset proposal cid and with a limit
+	listedDeals, err = provider.ListLocalDealsPage(&secondDeal.ProposalCid, 2)
+	require.NoError(t, err)
+	require.Len(t, listedDeals, 2)
+	// Verify correct deals
+	require.Equal(t, secondDeal.ProposalCid, listedDeals[0].ProposalCid)
+	require.Equal(t, thirdDeal.ProposalCid, listedDeals[1].ProposalCid)
 }
 
 func TestHandleDealStream(t *testing.T) {
