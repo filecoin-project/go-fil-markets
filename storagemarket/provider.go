@@ -39,6 +39,8 @@ type StorageProvider interface {
 	// ListLocalDeals lists deals processed by this storage provider
 	ListLocalDeals() ([]MinerDeal, error)
 
+	GetLocalDeal(propCid cid.Cid) (MinerDeal, error)
+
 	// AddStorageCollateral adds storage collateral
 	AddStorageCollateral(ctx context.Context, amount abi.TokenAmount) error
 

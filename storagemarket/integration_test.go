@@ -166,6 +166,10 @@ func TestMakeDeal(t *testing.T) {
 				assert.True(t, pd.FastRetrieval)
 				shared_testutil.AssertDealState(t, storagemarket.StorageDealExpired, pd.State)
 
+				dl, err := h.Provider.GetLocalDeal(pd.ProposalCid)
+				require.NoError(t, err)
+				assert.True(t, dl.FastRetrieval)
+
 				// test out query protocol
 				status, err := h.Client.GetProviderDealState(ctx, proposalCid)
 				assert.NoError(t, err)

@@ -463,6 +463,12 @@ func (p *Provider) ListLocalDeals() ([]storagemarket.MinerDeal, error) {
 	return out, nil
 }
 
+func (p *Provider) GetLocalDeal(propCid cid.Cid) (storagemarket.MinerDeal, error) {
+	var d storagemarket.MinerDeal
+	err := p.deals.Get(propCid).Get(&d)
+	return d, err
+}
+
 // SetAsk configures the storage miner's ask with the provided price,
 // duration, and options. Any previously-existing ask is replaced.
 func (p *Provider) SetAsk(price abi.TokenAmount, verifiedPrice abi.TokenAmount, duration abi.ChainEpoch, options ...storagemarket.StorageAskOption) error {
