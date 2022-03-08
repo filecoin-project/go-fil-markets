@@ -344,6 +344,8 @@ func (p *Provider) HandleQueryStream(stream rmnet.RetrievalQueryStream) {
 		if !xerrors.Is(err, retrievalmarket.ErrNotFound) {
 			answer.Status = retrievalmarket.QueryResponseError
 			answer.Message = fmt.Sprintf("failed to fetch piece to retrieve from: %s", err)
+		} else {
+			answer.Message = "piece info for cid not found (deal has not been added to a piece yet)"
 		}
 
 		sendResp(answer)

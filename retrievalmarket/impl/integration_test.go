@@ -59,6 +59,7 @@ func TestClientCanMakeQueryToProvider(t *testing.T) {
 	t.Run("when piece is not found, returns unavailable", func(t *testing.T) {
 		expectedQR.PieceCIDFound = retrievalmarket.QueryItemUnavailable
 		expectedQR.Status = retrievalmarket.QueryResponseUnavailable
+		expectedQR.Message = "piece info for cid not found (deal has not been added to a piece yet)"
 		expectedQR.Size = 0
 		actualQR, err := client.Query(bgCtx, retrievalPeer, missingPiece, retrievalmarket.QueryParams{})
 		actualQR.MaxPaymentInterval = expectedQR.MaxPaymentInterval
