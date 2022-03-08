@@ -15,6 +15,7 @@ import (
 	"github.com/filecoin-project/go-address"
 	"github.com/filecoin-project/go-state-types/abi"
 	metadata2 "github.com/filecoin-project/index-provider/metadata"
+	"github.com/filecoin-project/specs-actors/actors/builtin/market"
 
 	"github.com/filecoin-project/go-fil-markets/commp"
 	"github.com/filecoin-project/go-fil-markets/filestore"
@@ -39,11 +40,11 @@ func (p *providerDealEnvironment) RegisterShard(ctx context.Context, pieceCid ci
 
 // AnnounceIndex informs indexer nodes that a new deal was received,
 // so they can download its index
-func (p *providerDealEnvironment) AnnounceIndex(ctx context.Context, deal storagemarket.MinerDeal) (advertCid cid.Cid, err error) {
+func (p *providerDealEnvironment) AnnounceIndex(ctx context.Context, proposalCid cid.Cid, proposal market.DealProposal) (advertCid cid.Cid, err error) {
 	fm := metadata2.FilecoinV1Data{
-		PieceCID:      deal.Proposal.PieceCID,
-		FastRetrieval: deal.FastRetrieval,
-		VerifiedDeal:  deal.Proposal.VerifiedDeal,
+		PieceCID:      proposal.PieceCID,
+		FastRetrieval: true,
+		VerifiedDeal:  proposal.VerifiedDeal,
 	}
 	dtm, err := fm.Encode(metadata2.GraphSyncV1)
 	if err != nil {
@@ -55,7 +56,7 @@ func (p *providerDealEnvironment) AnnounceIndex(ctx context.Context, deal storag
 		return cid.Undef, fmt.Errorf("cannot publish index record as indexer host failed to connect to the full node: %w", err)
 	}
 
-	return p.p.indexProvider.NotifyPut(ctx, deal.ProposalCid.Bytes(), dtm.ToIndexerMetadata())
+	return p.p.indexProvider.NotifyPut(ctx, proposalCid.Bytes(), dtm.ToIndexerMetadata())
 }
 
 func (p *providerDealEnvironment) RemoveIndex(ctx context.Context, proposalCid cid.Cid) error {

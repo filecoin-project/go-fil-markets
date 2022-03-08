@@ -28,6 +28,7 @@ import (
 	"github.com/filecoin-project/go-statemachine/fsm"
 	provider "github.com/filecoin-project/index-provider"
 	metadata2 "github.com/filecoin-project/index-provider/metadata"
+	"github.com/filecoin-project/specs-actors/actors/builtin/market"
 
 	"github.com/filecoin-project/go-fil-markets/filestore"
 	"github.com/filecoin-project/go-fil-markets/piecestore"
@@ -58,6 +59,20 @@ type MeshCreator interface {
 	Connect(context.Context) error
 }
 
+type BoostDealGetter interface {
+	Get(proposalCid cid.Cid) (storagemarket.MinerDeal, error)
+	GetAll() ([]storagemarket.MinerDeal, error)
+}
+
+type NoOpBoostDealGetter struct{}
+
+func (n *NoOpBoostDealGetter) Get(proposalCid cid.Cid) (storagemarket.MinerDeal, error) {
+	return storagemarket.MinerDeal{}, xerrors.New("not found")
+}
+func (n *NoOpBoostDealGetter) GetAll() ([]storagemarket.MinerDeal, error) {
+	return nil, nil
+}
+
 // Provider is the production implementation of the StorageProvider interface
 type Provider struct {
 	net                         network.StorageMarketNetwork
@@ -79,9 +94,11 @@ type Provider struct {
 
 	unsubDataTransfer datatransfer.Unsubscribe
 
-	dagStore      stores.DAGStoreWrapper
-	indexProvider provider.Interface
-	stores        *stores.ReadWriteBlockstores
+	dagStore        stores.DAGStoreWrapper
+	indexProvider   provider.Interface
+	stores          *stores.ReadWriteBlockstores
+	env             *providerDealEnvironment
+	boostDealGetter BoostDealGetter
 }
 
 // StorageProviderOption allows custom configuration of a storage provider
@@ -124,6 +141,7 @@ func NewProvider(net network.StorageMarketNetwork,
 	minerAddress address.Address,
 	storedAsk StoredAsk,
 	meshCreator MeshCreator,
+	bdg BoostDealGetter,
 	options ...StorageProviderOption,
 ) (storagemarket.StorageProvider, error) {
 	h := &Provider{
@@ -142,14 +160,18 @@ func NewProvider(net network.StorageMarketNetwork,
 		stores:                      stores.NewReadWriteBlockstores(),
 		awaitTransferRestartTimeout: defaultAwaitRestartTimeout,
 		indexProvider:               indexer,
+		boostDealGetter:             bdg,
 	}
+
+	h.env = &providerDealEnvironment{h}
+
 	storageMigrations, err := migrations.ProviderMigrations.Build()
 	if err != nil {
 		return nil, err
 	}
 	h.deals, h.migrateDeals, err = newProviderStateMachine(
 		ds,
-		&providerDealEnvironment{h},
+		h.env,
 		h.dispatch,
 		storageMigrations,
 		versioning.VersionKey("1"),
@@ -474,7 +496,12 @@ func (p *Provider) SetAsk(price abi.TokenAmount, verifiedPrice abi.TokenAmount, 
 func (p *Provider) AnnounceDealToIndexer(ctx context.Context, proposalCid cid.Cid) error {
 	var deal storagemarket.MinerDeal
 	if err := p.deals.Get(proposalCid).Get(&deal); err != nil {
-		return xerrors.Errorf("failed getting deal %s: %w", proposalCid, err)
+		if bd, err := p.boostDealGetter.Get(proposalCid); err != nil {
+			return xerrors.Errorf("failed getting deal %s: %w", proposalCid, err)
+		} else {
+			log.Infow("found deal in Boost", "proposalCid", proposalCid.String())
+			deal = bd
+		}
 	}
 
 	fm := metadata2.FilecoinV1Data{
@@ -515,6 +542,13 @@ func (p *Provider) AnnounceAllDealsToIndexer(ctx context.Context) error {
 	if err := p.deals.List(&out); err != nil {
 		return fmt.Errorf("failed to list deals: %w", err)
 	}
+
+	// announce all boost deals as well to the network Indexer
+	boostOut, err := p.boostDealGetter.GetAll()
+	if err != nil {
+		return fmt.Errorf("failed to list boost deals: %w", err)
+	}
+	out = append(out, boostOut...)
 
 	shards := make(map[string]struct{})
 	var nSuccess int
@@ -635,8 +669,12 @@ func (p *Provider) processDealStatusRequest(ctx context.Context, request *networ
 	// fetch deal state
 	var md = storagemarket.MinerDeal{}
 	if err := p.deals.Get(request.Proposal).Get(&md); err != nil {
-		log.Errorf("proposal doesn't exist in state store: %s", err)
-		return nil, xerrors.Errorf("no such proposal")
+		if bd, err := p.boostDealGetter.Get(request.Proposal); err != nil {
+			log.Errorf("proposal doesn't exist in state store: %s", err)
+			return nil, xerrors.Errorf("no such proposal")
+		} else {
+			md = bd
+		}
 	}
 
 	// verify query signature
@@ -728,7 +766,12 @@ func (p *Provider) start(ctx context.Context) error {
 
 		var deal storagemarket.MinerDeal
 		if err := p.deals.Get(proposalCid).Get(&deal); err != nil {
-			return nil, xerrors.Errorf("failed getting deal %s: %w", proposalCid, err)
+			// could be a boost deal too
+			if md, err := p.boostDealGetter.Get(proposalCid); err != nil {
+				return nil, xerrors.Errorf("failed getting deal %s: %w", proposalCid, err)
+			} else {
+				deal = md
+			}
 		}
 
 		ii, err := p.dagStore.GetIterableIndexForPiece(deal.Proposal.PieceCID)
@@ -758,6 +801,12 @@ func (p *Provider) runMigrations(ctx context.Context) ([]storagemarket.MinerDeal
 	if err != nil {
 		return nil, xerrors.Errorf("failed to fetch deals during startup: %w", err)
 	}
+
+	boostDeals, err := p.boostDealGetter.GetAll()
+	if err != nil {
+		return nil, fmt.Errorf("failed to fetch boost deals: %w", err)
+	}
+	deals = append(deals, boostDeals...)
 
 	// migrate deals to the dagstore if still not migrated.
 	if ok, err := p.dagStore.MigrateDeals(ctx, deals); err != nil {
@@ -808,6 +857,39 @@ func (p *Provider) resendProposalResponse(s network.StorageDealStream, md *stora
 	}
 
 	return err
+}
+
+type BoostDeal struct {
+	market.ClientDealProposal
+	ChainDealID abi.DealID
+	PackingInfo *storagemarket.PackingResult
+	CARFilePath string
+	ProposalCid cid.Cid
+}
+
+func (p *Provider) MakeBoostDealRetrievable(ctx context.Context, bd *BoostDeal) (annCid cid.Cid, err error) {
+	if err := p.pieceStore.AddDealForPiece(bd.Proposal.PieceCID, piecestore.DealInfo{
+		DealID:   bd.ChainDealID,
+		SectorID: bd.PackingInfo.SectorNumber,
+		Offset:   bd.PackingInfo.Offset,
+		Length:   bd.PackingInfo.Size,
+	}); err != nil {
+		return cid.Undef, fmt.Errorf("failed to add deal to piecestore: %w", err)
+	}
+
+	// Register the deal data as a "shard" with the DAG store. Later it can be
+	// fetched from the DAG store during retrieval.
+	if err := stores.RegisterShardSync(ctx, p.dagStore, bd.Proposal.PieceCID, bd.CARFilePath, true); err != nil {
+		return cid.Undef, fmt.Errorf("failed to register deal with dagstore")
+	}
+
+	// announce the deal to the network indexer
+	annCid, err = p.env.AnnounceIndex(ctx, bd.ProposalCid, bd.Proposal)
+	if err != nil {
+		return cid.Undef, fmt.Errorf("failed to announce deal to network indexer: %w", err)
+	}
+
+	return annCid, nil
 }
 
 func newProviderStateMachine(ds datastore.Batching, env fsm.Environment, notifier fsm.Notifier, storageMigrations versioning.VersionedMigrationList, target versioning.VersionKey) (fsm.Group, func(context.Context) error, error) {
