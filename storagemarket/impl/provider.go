@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"sort"
 	"time"
 
 	"github.com/hannahhoward/go-pubsub"
@@ -454,6 +455,14 @@ func (p *Provider) RetryDealPublishing(propcid cid.Cid) error {
 	return p.deals.Send(propcid, storagemarket.ProviderEventRestart)
 }
 
+func (p *Provider) LocalDealCount() (int, error) {
+	var out []storagemarket.MinerDeal
+	if err := p.deals.List(&out); err != nil {
+		return 0, err
+	}
+	return len(out), nil
+}
+
 // ListLocalDeals lists deals processed by this storage provider
 func (p *Provider) ListLocalDeals() ([]storagemarket.MinerDeal, error) {
 	var out []storagemarket.MinerDeal
@@ -467,6 +476,38 @@ func (p *Provider) GetLocalDeal(propCid cid.Cid) (storagemarket.MinerDeal, error
 	var d storagemarket.MinerDeal
 	err := p.deals.Get(propCid).Get(&d)
 	return d, err
+}
+
+func (p *Provider) ListLocalDealsPage(offsetPropCid *cid.Cid, count int) ([]storagemarket.MinerDeal, error) {
+	if count == 0 {
+		return []storagemarket.MinerDeal{}, nil
+	}
+
+	// Get all deals
+	var deals []storagemarket.MinerDeal
+	if err := p.deals.List(&deals); err != nil {
+		return nil, err
+	}
+
+	// Sort by creation time descending
+	sort.Slice(deals, func(i, j int) bool {
+		return deals[i].CreationTime.Time().After(deals[j].CreationTime.Time())
+	})
+
+	// Iterate through deals until we reach the target signed proposal cid,
+	// then add deals from that point up to count
+	page := make([]storagemarket.MinerDeal, 0, count)
+	for _, dl := range deals {
+		if offsetPropCid == nil || dl.ProposalCid == *offsetPropCid {
+			page = append(page, dl)
+			offsetPropCid = nil // add all deals from this point on
+		}
+		if len(page) == count {
+			return page, nil
+		}
+	}
+
+	return page, nil
 }
 
 // SetAsk configures the storage miner's ask with the provided price,
