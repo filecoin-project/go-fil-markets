@@ -3,6 +3,7 @@ package clientutils
 
 import (
 	"context"
+	"github.com/filecoin-project/specs-actors/v7/actors/builtin/market"
 
 	"github.com/ipfs/go-cid"
 	bstore "github.com/ipfs/go-ipfs-blockstore"
@@ -95,9 +96,18 @@ func VerifyResponse(ctx context.Context, resp network.SignedResponse, minerAddr 
 
 // LabelField makes a label field for a deal proposal as a multibase encoding
 // of the payload CID (B58BTC for V0, B64 for V1)
-func LabelField(payloadCID cid.Cid) (string, error) {
+func LabelField(payloadCID cid.Cid) (market.DealLabel, error) {
+	var cidStr string
+	var err error
 	if payloadCID.Version() == 0 {
-		return payloadCID.StringOfBase(multibase.Base58BTC)
+		cidStr, err = payloadCID.StringOfBase(multibase.Base58BTC)
+	} else {
+		cidStr, err = payloadCID.StringOfBase(multibase.Base64)
 	}
-	return payloadCID.StringOfBase(multibase.Base64)
+
+	if err != nil {
+		return market.EmptyDealLabel, err
+	}
+
+	return market.NewDealLabelFromString(cidStr)
 }
