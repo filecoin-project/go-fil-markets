@@ -9,8 +9,8 @@ import (
 	"github.com/filecoin-project/go-state-types/abi"
 	"github.com/filecoin-project/go-state-types/crypto"
 	"github.com/filecoin-project/go-state-types/exitcode"
-	"github.com/filecoin-project/specs-actors/actors/builtin/market"
-	"github.com/filecoin-project/specs-actors/actors/builtin/verifreg"
+	"github.com/filecoin-project/specs-actors/v7/actors/builtin/market"
+	"github.com/filecoin-project/specs-actors/v7/actors/builtin/verifreg"
 
 	"github.com/filecoin-project/go-fil-markets/shared"
 )

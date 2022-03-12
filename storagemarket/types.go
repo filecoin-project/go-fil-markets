@@ -14,7 +14,7 @@ import (
 	datatransfer "github.com/filecoin-project/go-data-transfer"
 	"github.com/filecoin-project/go-state-types/abi"
 	"github.com/filecoin-project/go-state-types/crypto"
-	"github.com/filecoin-project/specs-actors/actors/builtin/market"
+	"github.com/filecoin-project/specs-actors/v7/actors/builtin/market"
 
 	"github.com/filecoin-project/go-fil-markets/filestore"
 )
@@ -87,9 +87,11 @@ func MaxPieceSize(maxPieceSize abi.PaddedPieceSize) StorageAskOption {
 // StorageAskUndefined represents an empty value for StorageAsk
 var StorageAskUndefined = StorageAsk{}
 
+type ClientDealProposal = market.ClientDealProposal
+
 // MinerDeal is the local state tracked for a deal by a StorageProvider
 type MinerDeal struct {
-	market.ClientDealProposal
+	ClientDealProposal
 	ProposalCid           cid.Cid
 	AddFundsCid           *cid.Cid
 	PublishCid            *cid.Cid

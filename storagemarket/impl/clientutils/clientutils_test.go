@@ -94,7 +94,9 @@ func TestLabelField(t *testing.T) {
 	payloadCID := shared_testutil.GenerateCids(1)[0]
 	label, err := clientutils.LabelField(payloadCID)
 	require.NoError(t, err)
-	resultCid, err := cid.Decode(label)
+	labelStr, err := label.ToString()
+	require.NoError(t, err)
+	resultCid, err := cid.Decode(labelStr)
 	require.NoError(t, err)
 	require.True(t, payloadCID.Equals(resultCid))
 }
