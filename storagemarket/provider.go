@@ -46,9 +46,9 @@ type StorageProvider interface {
 	ListLocalDeals() ([]MinerDeal, error)
 
 	// ListLocalDealsPage lists deals by creation time descending, starting
-	// at the deal with the given signed proposal cid and returning up to
-	// count deals
-	ListLocalDealsPage(offsetPropCid *cid.Cid, count int) ([]MinerDeal, error)
+	// at the deal with the given signed proposal cid, skipping offset deals
+	// and returning up to limit deals
+	ListLocalDealsPage(startPropCid *cid.Cid, offset int, limit int) ([]MinerDeal, error)
 
 	// AddStorageCollateral adds storage collateral
 	AddStorageCollateral(ctx context.Context, amount abi.TokenAmount) error
