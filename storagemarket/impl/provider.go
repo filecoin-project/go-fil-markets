@@ -478,8 +478,8 @@ func (p *Provider) GetLocalDeal(propCid cid.Cid) (storagemarket.MinerDeal, error
 	return d, err
 }
 
-func (p *Provider) ListLocalDealsPage(offsetPropCid *cid.Cid, count int) ([]storagemarket.MinerDeal, error) {
-	if count == 0 {
+func (p *Provider) ListLocalDealsPage(startPropCid *cid.Cid, offset int, limit int) ([]storagemarket.MinerDeal, error) {
+	if limit == 0 {
 		return []storagemarket.MinerDeal{}, nil
 	}
 
@@ -495,14 +495,23 @@ func (p *Provider) ListLocalDealsPage(offsetPropCid *cid.Cid, count int) ([]stor
 	})
 
 	// Iterate through deals until we reach the target signed proposal cid,
-	// then add deals from that point up to count
-	page := make([]storagemarket.MinerDeal, 0, count)
-	for _, dl := range deals {
-		if offsetPropCid == nil || dl.ProposalCid == *offsetPropCid {
-			page = append(page, dl)
-			offsetPropCid = nil // add all deals from this point on
+	// find the offset from there, then add deals from that point up to limit
+	page := make([]storagemarket.MinerDeal, 0, limit)
+	startIndex := -1
+	if startPropCid == nil {
+		startIndex = 0
+	}
+	for i, dl := range deals {
+		// Find the deal with a proposal cid matching startPropCid
+		if startPropCid != nil && dl.ProposalCid == *startPropCid {
+			// Start adding deals from offset after the first matching deal
+			startIndex = i + offset
 		}
-		if len(page) == count {
+
+		if startIndex >= 0 && i >= startIndex {
+			page = append(page, dl)
+		}
+		if len(page) == limit {
 			return page, nil
 		}
 	}
