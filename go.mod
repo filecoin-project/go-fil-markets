@@ -16,12 +16,12 @@ require (
 	github.com/filecoin-project/go-fil-commp-hashhash v0.1.0
 	github.com/filecoin-project/go-padreader v0.0.1
 	github.com/filecoin-project/go-state-types v0.1.1
-	github.com/filecoin-project/go-statemachine v1.0.1
+	github.com/filecoin-project/go-statemachine v1.0.2-0.20220322104818-27f8fbb86dfd
 	github.com/filecoin-project/go-statestore v0.2.0
-	github.com/filecoin-project/index-provider v0.5.0
+	github.com/filecoin-project/index-provider v0.6.1
 	github.com/filecoin-project/specs-actors v0.9.13
 	github.com/filecoin-project/specs-actors/v2 v2.3.6
-	github.com/filecoin-project/storetheindex v0.3.5
+	github.com/filecoin-project/storetheindex v0.4.0
 	github.com/hannahhoward/cbor-gen-for v0.0.0-20200817222906-ea96cece81f1
 	github.com/hannahhoward/go-pubsub v0.0.0-20200423002714-8d62886cc36e
 	github.com/hashicorp/go-multierror v1.1.1
@@ -45,10 +45,10 @@ require (
 	github.com/ipfs/go-unixfs v0.3.1
 	github.com/ipld/go-car v0.3.3-0.20211210032800-e6f244225a16
 	github.com/ipld/go-car/v2 v2.1.1
-	github.com/ipld/go-ipld-prime v0.14.4
+	github.com/ipld/go-ipld-prime v0.16.0
 	github.com/jbenet/go-random v0.0.0-20190219211222-123a90aedc0c
 	github.com/jpillora/backoff v1.0.0
-	github.com/libp2p/go-libp2p v0.18.0-rc3
+	github.com/libp2p/go-libp2p v0.18.0-rc5
 	github.com/libp2p/go-libp2p-core v0.14.0
 	github.com/multiformats/go-multiaddr v0.5.0
 	github.com/multiformats/go-multibase v0.0.3

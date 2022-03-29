@@ -28,7 +28,7 @@ import (
 	"github.com/filecoin-project/go-state-types/exitcode"
 	"github.com/filecoin-project/go-statemachine/fsm"
 	provider "github.com/filecoin-project/index-provider"
-	metadata2 "github.com/filecoin-project/index-provider/metadata"
+	"github.com/filecoin-project/index-provider/metadata"
 
 	"github.com/filecoin-project/go-fil-markets/filestore"
 	"github.com/filecoin-project/go-fil-markets/piecestore"
@@ -533,21 +533,17 @@ func (p *Provider) AnnounceDealToIndexer(ctx context.Context, proposalCid cid.Ci
 		return xerrors.Errorf("failed getting deal %s: %w", proposalCid, err)
 	}
 
-	fm := metadata2.GraphsyncFilecoinV1Metadata{
+	mt := metadata.New(&metadata.GraphsyncFilecoinV1{
 		PieceCID:      deal.Proposal.PieceCID,
 		FastRetrieval: deal.FastRetrieval,
 		VerifiedDeal:  deal.Proposal.VerifiedDeal,
-	}
-	dtm, err := fm.ToIndexerMetadata()
-	if err != nil {
-		return fmt.Errorf("failed to encode metadata: %w", err)
-	}
+	})
 
 	if err := p.meshCreator.Connect(ctx); err != nil {
 		return fmt.Errorf("cannot publish index record as indexer host failed to connect to the full node: %w", err)
 	}
 
-	annCid, err := p.indexProvider.NotifyPut(ctx, deal.ProposalCid.Bytes(), dtm)
+	annCid, err := p.indexProvider.NotifyPut(ctx, deal.ProposalCid.Bytes(), mt)
 	if err == nil {
 		log.Infow("deal announcement sent to index provider", "advertisementCid", annCid, "shard-key", deal.Proposal.PieceCID,
 			"proposalCid", deal.ProposalCid)
@@ -776,7 +772,7 @@ func (p *Provider) start(ctx context.Context) error {
 	}
 
 	// register indexer provider callback now that everything has booted up.
-	p.indexProvider.RegisterCallback(func(ctx context.Context, contextID []byte) (provider.MultihashIterator, error) {
+	p.indexProvider.RegisterMultihashLister(func(ctx context.Context, contextID []byte) (provider.MultihashIterator, error) {
 		proposalCid, err := cid.Cast(contextID)
 		if err != nil {
 			return nil, fmt.Errorf("failed to cast context ID to a cid")

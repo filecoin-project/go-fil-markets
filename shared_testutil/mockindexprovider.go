@@ -4,35 +4,36 @@ import (
 	"context"
 	"sync"
 
+	"github.com/filecoin-project/index-provider/metadata"
+
 	"github.com/ipfs/go-cid"
 
 	provider "github.com/filecoin-project/index-provider"
-	stiapi "github.com/filecoin-project/storetheindex/api/v0"
 )
 
 type MockIndexProvider struct {
 	provider.Interface
 
 	lk       sync.Mutex
-	callback provider.Callback
-	notifs   map[string]stiapi.Metadata
+	callback provider.MultihashLister
+	notifs   map[string]metadata.Metadata
 }
 
 func NewMockIndexProvider() *MockIndexProvider {
 	return &MockIndexProvider{
-		notifs: make(map[string]stiapi.Metadata),
+		notifs: make(map[string]metadata.Metadata),
 	}
 
 }
 
-func (m *MockIndexProvider) RegisterCallback(cb provider.Callback) {
+func (m *MockIndexProvider) RegisterMultihashLister(cb provider.MultihashLister) {
 	m.lk.Lock()
 	defer m.lk.Unlock()
 
 	m.callback = cb
 }
 
-func (m *MockIndexProvider) NotifyPut(ctx context.Context, contextID []byte, metadata stiapi.Metadata) (cid.Cid, error) {
+func (m *MockIndexProvider) NotifyPut(ctx context.Context, contextID []byte, metadata metadata.Metadata) (cid.Cid, error) {
 	m.lk.Lock()
 	defer m.lk.Unlock()
 
@@ -48,7 +49,7 @@ func (m *MockIndexProvider) NotifyRemove(ctx context.Context, contextID []byte) 
 	return cid.Undef, nil
 }
 
-func (m *MockIndexProvider) GetNotifs() map[string]stiapi.Metadata {
+func (m *MockIndexProvider) GetNotifs() map[string]metadata.Metadata {
 	m.lk.Lock()
 	defer m.lk.Unlock()
 
