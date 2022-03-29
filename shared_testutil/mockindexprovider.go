@@ -4,11 +4,10 @@ import (
 	"context"
 	"sync"
 
-	"github.com/filecoin-project/index-provider/metadata"
-
 	"github.com/ipfs/go-cid"
 
 	provider "github.com/filecoin-project/index-provider"
+	"github.com/filecoin-project/index-provider/metadata"
 )
 
 type MockIndexProvider struct {
