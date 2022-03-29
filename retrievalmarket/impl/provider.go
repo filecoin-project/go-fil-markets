@@ -254,6 +254,40 @@ func (p *Provider) GetAsk() *retrievalmarket.Ask {
 	return p.askStore.GetAsk()
 }
 
+// IsFreeAndUnsealed checks if the the piece `pieceCid`  can be served from an unsealed sector and if the corresponding retrieval for the block
+// with cid `c` is free ?
+func (p *Provider) IsFreeAndUnsealed(ctx context.Context, c cid.Cid, pieceCid cid.Cid) (bool, error) {
+	pieceInfo, err := p.pieceStore.GetPieceInfo(pieceCid)
+	if err != nil {
+		return false, fmt.Errorf("failed to get piece info: %w", err)
+	}
+
+	if !p.pieceInUnsealedSector(ctx, pieceInfo) {
+		return false, nil
+	}
+
+	// The piece is in an unsealed sector
+	// Is it marked for free retrieval ?
+	input := retrievalmarket.PricingInput{
+		// piece from which the payload will be retrieved
+		PieceCID:   pieceInfo.PieceCID,
+		PayloadCID: c,
+		Unsealed:   true,
+	}
+
+	var dealsIds []abi.DealID
+	for _, d := range pieceInfo.Deals {
+		dealsIds = append(dealsIds, d.DealID)
+	}
+
+	ask, err := p.GetDynamicAsk(ctx, input, dealsIds)
+	if err != nil {
+		return false, fmt.Errorf("failed to get retrieval ask: %w", err)
+	}
+
+	return ask.PricePerByte.NilOrZero(), nil
+}
+
 // SetAsk sets the deal parameters this provider accepts
 func (p *Provider) SetAsk(ask *retrievalmarket.Ask) {
 
