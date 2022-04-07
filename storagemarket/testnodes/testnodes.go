@@ -18,9 +18,9 @@ import (
 	"github.com/filecoin-project/go-state-types/big"
 	"github.com/filecoin-project/go-state-types/crypto"
 	"github.com/filecoin-project/go-state-types/exitcode"
-	"github.com/filecoin-project/specs-actors/v7/actors/builtin"
-	"github.com/filecoin-project/specs-actors/v7/actors/builtin/market"
-	"github.com/filecoin-project/specs-actors/v7/actors/builtin/verifreg"
+	"github.com/filecoin-project/specs-actors/v8/actors/builtin"
+	"github.com/filecoin-project/specs-actors/v8/actors/builtin/market"
+	"github.com/filecoin-project/specs-actors/v8/actors/builtin/verifreg"
 
 	"github.com/filecoin-project/go-fil-markets/commp"
 	"github.com/filecoin-project/go-fil-markets/shared"

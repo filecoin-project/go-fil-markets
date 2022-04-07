@@ -15,7 +15,7 @@ import (
 	"github.com/filecoin-project/go-state-types/abi"
 	"github.com/filecoin-project/go-state-types/big"
 	"github.com/filecoin-project/go-statemachine/fsm"
-	tutils "github.com/filecoin-project/specs-actors/v7/support/testing"
+	tutils "github.com/filecoin-project/specs-actors/v8/support/testing"
 
 	"github.com/filecoin-project/go-fil-markets/piecestore/migrations"
 	"github.com/filecoin-project/go-fil-markets/retrievalmarket"
