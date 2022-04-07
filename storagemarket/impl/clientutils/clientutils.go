@@ -3,7 +3,6 @@ package clientutils
 
 import (
 	"context"
-	"github.com/filecoin-project/specs-actors/v7/actors/builtin/market"
 
 	"github.com/ipfs/go-cid"
 	bstore "github.com/ipfs/go-ipfs-blockstore"
@@ -17,6 +16,7 @@ import (
 	"github.com/filecoin-project/go-commp-utils/writer"
 	"github.com/filecoin-project/go-state-types/abi"
 	"github.com/filecoin-project/go-state-types/crypto"
+	"github.com/filecoin-project/specs-actors/v8/actors/builtin/market"
 
 	"github.com/filecoin-project/go-fil-markets/shared"
 	"github.com/filecoin-project/go-fil-markets/storagemarket"
@@ -104,10 +104,9 @@ func LabelField(payloadCID cid.Cid) (market.DealLabel, error) {
 	} else {
 		cidStr, err = payloadCID.StringOfBase(multibase.Base64)
 	}
-
 	if err != nil {
 		return market.EmptyDealLabel, err
 	}
 
-	return market.NewDealLabelFromString(cidStr)
+	return market.NewLabelFromString(cidStr)
 }
