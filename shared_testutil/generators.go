@@ -16,8 +16,8 @@ import (
 	"github.com/filecoin-project/go-state-types/abi"
 	"github.com/filecoin-project/go-state-types/big"
 	"github.com/filecoin-project/go-state-types/crypto"
-	"github.com/filecoin-project/specs-actors/actors/builtin/market"
 	"github.com/filecoin-project/specs-actors/actors/builtin/paych"
+	"github.com/filecoin-project/specs-actors/v8/actors/builtin/market"
 
 	"github.com/filecoin-project/go-fil-markets/retrievalmarket"
 	"github.com/filecoin-project/go-fil-markets/storagemarket"
@@ -104,6 +104,7 @@ func MakeTestChannelID() datatransfer.ChannelID {
 func MakeTestUnsignedDealProposal() market.DealProposal {
 	start := uint64(rand.Int31())
 	end := start + uint64(rand.Int31())
+	l, _ := market.NewLabelFromString("")
 
 	return market.DealProposal{
 		PieceCID:  GenerateCids(1)[0],
@@ -111,6 +112,7 @@ func MakeTestUnsignedDealProposal() market.DealProposal {
 
 		Client:   address.TestAddress,
 		Provider: address.TestAddress2,
+		Label:    l,
 
 		StartEpoch: abi.ChainEpoch(start),
 		EndEpoch:   abi.ChainEpoch(end),

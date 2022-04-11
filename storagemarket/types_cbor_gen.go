@@ -12,7 +12,7 @@ import (
 	filestore "github.com/filecoin-project/go-fil-markets/filestore"
 	abi "github.com/filecoin-project/go-state-types/abi"
 	crypto "github.com/filecoin-project/go-state-types/crypto"
-	market "github.com/filecoin-project/specs-actors/actors/builtin/market"
+	market "github.com/filecoin-project/specs-actors/v8/actors/builtin/market"
 	cid "github.com/ipfs/go-cid"
 	peer "github.com/libp2p/go-libp2p-core/peer"
 	cbg "github.com/whyrusleeping/cbor-gen"

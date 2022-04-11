@@ -13,7 +13,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/filecoin-project/go-address"
-	specst "github.com/filecoin-project/specs-actors/support/testing"
+	specst "github.com/filecoin-project/specs-actors/v8/support/testing"
 
 	discoveryimpl "github.com/filecoin-project/go-fil-markets/discovery/impl"
 	"github.com/filecoin-project/go-fil-markets/discovery/migrations"
