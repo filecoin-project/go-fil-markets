@@ -1,5 +1,15 @@
 # go-fil-markets changelog
 
+# go-fil-markets v1.20.3
+- github.com/filecoin-project/go-fil-markets:
+  - validate deal proposal (#702) ([filecoin-project/go-fil-markets#702](https://github.com/filecoin-project/go-fil-markets/pull/702))
+
+Contributors
+
+| Contributor | Commits | Lines ± | Files Changed |
+|-------------|---------|---------|---------------|
+| Anton Evangelatov | 1 | +8/-0 | 1 |
+
 # go-fil-markets v1.20.1
 - github.com/filecoin-project/go-fil-markets:
   - Upgrade index-provider with the latest metadata format (#688) ([filecoin-project/go-fil-markets#688](https://github.com/filecoin-project/go-fil-markets/pull/688))
