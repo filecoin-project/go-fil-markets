@@ -261,6 +261,10 @@ func (p *Provider) receiveDeal(s network.StorageDealStream) error {
 		return xerrors.Errorf("failed to read proposal message: %w", err)
 	}
 
+	if proposal.DealProposal == nil {
+		return xerrors.Errorf("failed to get deal proposal from proposal message")
+	}
+
 	proposalNd, err := cborutil.AsIpld(proposal.DealProposal)
 	if err != nil {
 		return err
@@ -272,6 +276,10 @@ func (p *Provider) receiveDeal(s network.StorageDealStream) error {
 		// We are already tracking this deal, for some reason it was re-proposed, perhaps because of a client restart
 		// this is ok, just send a response back.
 		return p.resendProposalResponse(s, &md)
+	}
+
+	if proposal.Piece == nil {
+		return xerrors.Errorf("failed to get proposal piece from proposal message")
 	}
 
 	var path string
