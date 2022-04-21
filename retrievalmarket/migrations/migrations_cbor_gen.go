@@ -10,7 +10,7 @@ import (
 
 	migrations "github.com/filecoin-project/go-fil-markets/piecestore/migrations"
 	retrievalmarket "github.com/filecoin-project/go-fil-markets/retrievalmarket"
-	paych "github.com/filecoin-project/specs-actors/actors/builtin/paych"
+	paychtypes "github.com/filecoin-project/go-state-types/builtin/v8/paych"
 	cid "github.com/ipfs/go-cid"
 	peer "github.com/libp2p/go-libp2p-core/peer"
 	cbg "github.com/whyrusleeping/cbor-gen"
@@ -798,7 +798,7 @@ func (t *DealPayment0) UnmarshalCBOR(r io.Reader) error {
 			if err := br.UnreadByte(); err != nil {
 				return err
 			}
-			t.PaymentVoucher = new(paych.SignedVoucher)
+			t.PaymentVoucher = new(paychtypes.SignedVoucher)
 			if err := t.PaymentVoucher.UnmarshalCBOR(br); err != nil {
 				return xerrors.Errorf("unmarshaling t.PaymentVoucher pointer: %w", err)
 			}

@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/base64"
+	paychtypes "github.com/filecoin-project/go-state-types/builtin/v8/paych"
 	"sort"
 	"sync"
 	"testing"
@@ -16,7 +17,6 @@ import (
 	"github.com/filecoin-project/go-address"
 	"github.com/filecoin-project/go-state-types/abi"
 	"github.com/filecoin-project/go-state-types/big"
-	"github.com/filecoin-project/specs-actors/actors/builtin/paych"
 
 	"github.com/filecoin-project/go-fil-markets/retrievalmarket"
 	"github.com/filecoin-project/go-fil-markets/shared"
@@ -93,7 +93,7 @@ func (trpn *TestRetrievalProviderNode) VerifyExpectations(t *testing.T) {
 func (trpn *TestRetrievalProviderNode) SavePaymentVoucher(
 	ctx context.Context,
 	paymentChannel address.Address,
-	voucher *paych.SignedVoucher,
+	voucher *paychtypes.SignedVoucher,
 	proof []byte,
 	expectedAmount abi.TokenAmount,
 	tok shared.TipSetToken) (abi.TokenAmount, error) {
@@ -147,7 +147,7 @@ func (trpn *TestRetrievalProviderNode) GetChainHead(ctx context.Context) (shared
 // --- Non-interface Functions
 
 // to ExpectedVoucherKey creates a lookup key for expected vouchers.
-func (trpn *TestRetrievalProviderNode) toExpectedVoucherKey(paymentChannel address.Address, voucher *paych.SignedVoucher, proof []byte, expectedAmount abi.TokenAmount) (expectedVoucherKey, error) {
+func (trpn *TestRetrievalProviderNode) toExpectedVoucherKey(paymentChannel address.Address, voucher *paychtypes.SignedVoucher, proof []byte, expectedAmount abi.TokenAmount) (expectedVoucherKey, error) {
 	pcString := paymentChannel.String()
 	buf := new(bytes.Buffer)
 	if err := voucher.MarshalCBOR(buf); err != nil {
@@ -168,7 +168,7 @@ func (trpn *TestRetrievalProviderNode) toExpectedVoucherKey(paymentChannel addre
 //     expectedErr:  an error message to expect
 func (trpn *TestRetrievalProviderNode) ExpectVoucher(
 	paymentChannel address.Address,
-	voucher *paych.SignedVoucher,
+	voucher *paychtypes.SignedVoucher,
 	proof []byte,
 	expectedAmount abi.TokenAmount,
 	actualAmount abi.TokenAmount, // the actual amount it should have (same unless you want to trigger an error)

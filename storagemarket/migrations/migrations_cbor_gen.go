@@ -10,8 +10,8 @@ import (
 
 	filestore "github.com/filecoin-project/go-fil-markets/filestore"
 	abi "github.com/filecoin-project/go-state-types/abi"
+	market "github.com/filecoin-project/go-state-types/builtin/v8/market"
 	crypto "github.com/filecoin-project/go-state-types/crypto"
-	market "github.com/filecoin-project/specs-actors/v8/actors/builtin/market"
 	cid "github.com/ipfs/go-cid"
 	peer "github.com/libp2p/go-libp2p-core/peer"
 	cbg "github.com/whyrusleeping/cbor-gen"
@@ -30,38 +30,39 @@ func (t *ClientDeal0) MarshalCBOR(w io.Writer) error {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	if _, err := w.Write(lengthBufClientDeal0); err != nil {
+
+	cw := cbg.NewCborWriter(w)
+
+	if _, err := cw.Write(lengthBufClientDeal0); err != nil {
 		return err
 	}
 
-	scratch := make([]byte, 9)
-
 	// t.ClientDealProposal (market.ClientDealProposal) (struct)
-	if err := t.ClientDealProposal.MarshalCBOR(w); err != nil {
+	if err := t.ClientDealProposal.MarshalCBOR(cw); err != nil {
 		return err
 	}
 
 	// t.ProposalCid (cid.Cid) (struct)
 
-	if err := cbg.WriteCidBuf(scratch, w, t.ProposalCid); err != nil {
+	if err := cbg.WriteCid(cw, t.ProposalCid); err != nil {
 		return xerrors.Errorf("failed to write cid field t.ProposalCid: %w", err)
 	}
 
 	// t.AddFundsCid (cid.Cid) (struct)
 
 	if t.AddFundsCid == nil {
-		if _, err := w.Write(cbg.CborNull); err != nil {
+		if _, err := cw.Write(cbg.CborNull); err != nil {
 			return err
 		}
 	} else {
-		if err := cbg.WriteCidBuf(scratch, w, *t.AddFundsCid); err != nil {
+		if err := cbg.WriteCid(cw, *t.AddFundsCid); err != nil {
 			return xerrors.Errorf("failed to write cid field t.AddFundsCid: %w", err)
 		}
 	}
 
 	// t.State (uint64) (uint64)
 
-	if err := cbg.WriteMajorTypeHeaderBuf(scratch, w, cbg.MajUnsignedInt, uint64(t.State)); err != nil {
+	if err := cw.WriteMajorTypeHeader(cbg.MajUnsignedInt, uint64(t.State)); err != nil {
 		return err
 	}
 
@@ -70,7 +71,7 @@ func (t *ClientDeal0) MarshalCBOR(w io.Writer) error {
 		return xerrors.Errorf("Value in field t.Miner was too long")
 	}
 
-	if err := cbg.WriteMajorTypeHeaderBuf(scratch, w, cbg.MajTextString, uint64(len(t.Miner))); err != nil {
+	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len(t.Miner))); err != nil {
 		return err
 	}
 	if _, err := io.WriteString(w, string(t.Miner)); err != nil {
@@ -78,18 +79,18 @@ func (t *ClientDeal0) MarshalCBOR(w io.Writer) error {
 	}
 
 	// t.MinerWorker (address.Address) (struct)
-	if err := t.MinerWorker.MarshalCBOR(w); err != nil {
+	if err := t.MinerWorker.MarshalCBOR(cw); err != nil {
 		return err
 	}
 
 	// t.DealID (abi.DealID) (uint64)
 
-	if err := cbg.WriteMajorTypeHeaderBuf(scratch, w, cbg.MajUnsignedInt, uint64(t.DealID)); err != nil {
+	if err := cw.WriteMajorTypeHeader(cbg.MajUnsignedInt, uint64(t.DealID)); err != nil {
 		return err
 	}
 
 	// t.DataRef (migrations.DataRef0) (struct)
-	if err := t.DataRef.MarshalCBOR(w); err != nil {
+	if err := t.DataRef.MarshalCBOR(cw); err != nil {
 		return err
 	}
 
@@ -98,7 +99,7 @@ func (t *ClientDeal0) MarshalCBOR(w io.Writer) error {
 		return xerrors.Errorf("Value in field t.Message was too long")
 	}
 
-	if err := cbg.WriteMajorTypeHeaderBuf(scratch, w, cbg.MajTextString, uint64(len(t.Message))); err != nil {
+	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len(t.Message))); err != nil {
 		return err
 	}
 	if _, err := io.WriteString(w, string(t.Message)); err != nil {
@@ -108,35 +109,35 @@ func (t *ClientDeal0) MarshalCBOR(w io.Writer) error {
 	// t.PublishMessage (cid.Cid) (struct)
 
 	if t.PublishMessage == nil {
-		if _, err := w.Write(cbg.CborNull); err != nil {
+		if _, err := cw.Write(cbg.CborNull); err != nil {
 			return err
 		}
 	} else {
-		if err := cbg.WriteCidBuf(scratch, w, *t.PublishMessage); err != nil {
+		if err := cbg.WriteCid(cw, *t.PublishMessage); err != nil {
 			return xerrors.Errorf("failed to write cid field t.PublishMessage: %w", err)
 		}
 	}
 
 	// t.SlashEpoch (abi.ChainEpoch) (int64)
 	if t.SlashEpoch >= 0 {
-		if err := cbg.WriteMajorTypeHeaderBuf(scratch, w, cbg.MajUnsignedInt, uint64(t.SlashEpoch)); err != nil {
+		if err := cw.WriteMajorTypeHeader(cbg.MajUnsignedInt, uint64(t.SlashEpoch)); err != nil {
 			return err
 		}
 	} else {
-		if err := cbg.WriteMajorTypeHeaderBuf(scratch, w, cbg.MajNegativeInt, uint64(-t.SlashEpoch-1)); err != nil {
+		if err := cw.WriteMajorTypeHeader(cbg.MajNegativeInt, uint64(-t.SlashEpoch-1)); err != nil {
 			return err
 		}
 	}
 
 	// t.PollRetryCount (uint64) (uint64)
 
-	if err := cbg.WriteMajorTypeHeaderBuf(scratch, w, cbg.MajUnsignedInt, uint64(t.PollRetryCount)); err != nil {
+	if err := cw.WriteMajorTypeHeader(cbg.MajUnsignedInt, uint64(t.PollRetryCount)); err != nil {
 		return err
 	}
 
 	// t.PollErrorCount (uint64) (uint64)
 
-	if err := cbg.WriteMajorTypeHeaderBuf(scratch, w, cbg.MajUnsignedInt, uint64(t.PollErrorCount)); err != nil {
+	if err := cw.WriteMajorTypeHeader(cbg.MajUnsignedInt, uint64(t.PollErrorCount)); err != nil {
 		return err
 	}
 
@@ -148,37 +149,42 @@ func (t *ClientDeal0) MarshalCBOR(w io.Writer) error {
 	// t.StoreID (uint64) (uint64)
 
 	if t.StoreID == nil {
-		if _, err := w.Write(cbg.CborNull); err != nil {
+		if _, err := cw.Write(cbg.CborNull); err != nil {
 			return err
 		}
 	} else {
-		if err := cbg.WriteMajorTypeHeaderBuf(scratch, w, cbg.MajUnsignedInt, uint64(*t.StoreID)); err != nil {
+		if err := cw.WriteMajorTypeHeader(cbg.MajUnsignedInt, uint64(*t.StoreID)); err != nil {
 			return err
 		}
 	}
 
 	// t.FundsReserved (big.Int) (struct)
-	if err := t.FundsReserved.MarshalCBOR(w); err != nil {
+	if err := t.FundsReserved.MarshalCBOR(cw); err != nil {
 		return err
 	}
 
 	// t.CreationTime (typegen.CborTime) (struct)
-	if err := t.CreationTime.MarshalCBOR(w); err != nil {
+	if err := t.CreationTime.MarshalCBOR(cw); err != nil {
 		return err
 	}
 	return nil
 }
 
-func (t *ClientDeal0) UnmarshalCBOR(r io.Reader) error {
+func (t *ClientDeal0) UnmarshalCBOR(r io.Reader) (err error) {
 	*t = ClientDeal0{}
 
-	br := cbg.GetPeeker(r)
-	scratch := make([]byte, 8)
+	cr := cbg.NewCborReader(r)
 
-	maj, extra, err := cbg.CborReadHeaderBuf(br, scratch)
+	maj, extra, err := cr.ReadHeader()
 	if err != nil {
 		return err
 	}
+	defer func() {
+		if err == io.EOF {
+			err = io.ErrUnexpectedEOF
+		}
+	}()
+
 	if maj != cbg.MajArray {
 		return fmt.Errorf("cbor input should be of type array")
 	}
@@ -191,7 +197,7 @@ func (t *ClientDeal0) UnmarshalCBOR(r io.Reader) error {
 
 	{
 
-		if err := t.ClientDealProposal.UnmarshalCBOR(br); err != nil {
+		if err := t.ClientDealProposal.UnmarshalCBOR(cr); err != nil {
 			return xerrors.Errorf("unmarshaling t.ClientDealProposal: %w", err)
 		}
 
@@ -200,7 +206,7 @@ func (t *ClientDeal0) UnmarshalCBOR(r io.Reader) error {
 
 	{
 
-		c, err := cbg.ReadCid(br)
+		c, err := cbg.ReadCid(cr)
 		if err != nil {
 			return xerrors.Errorf("failed to read cid field t.ProposalCid: %w", err)
 		}
@@ -212,16 +218,16 @@ func (t *ClientDeal0) UnmarshalCBOR(r io.Reader) error {
 
 	{
 
-		b, err := br.ReadByte()
+		b, err := cr.ReadByte()
 		if err != nil {
 			return err
 		}
 		if b != cbg.CborNull[0] {
-			if err := br.UnreadByte(); err != nil {
+			if err := cr.UnreadByte(); err != nil {
 				return err
 			}
 
-			c, err := cbg.ReadCid(br)
+			c, err := cbg.ReadCid(cr)
 			if err != nil {
 				return xerrors.Errorf("failed to read cid field t.AddFundsCid: %w", err)
 			}
@@ -234,7 +240,7 @@ func (t *ClientDeal0) UnmarshalCBOR(r io.Reader) error {
 
 	{
 
-		maj, extra, err = cbg.CborReadHeaderBuf(br, scratch)
+		maj, extra, err = cr.ReadHeader()
 		if err != nil {
 			return err
 		}
@@ -247,7 +253,7 @@ func (t *ClientDeal0) UnmarshalCBOR(r io.Reader) error {
 	// t.Miner (peer.ID) (string)
 
 	{
-		sval, err := cbg.ReadStringBuf(br, scratch)
+		sval, err := cbg.ReadString(cr)
 		if err != nil {
 			return err
 		}
@@ -258,7 +264,7 @@ func (t *ClientDeal0) UnmarshalCBOR(r io.Reader) error {
 
 	{
 
-		if err := t.MinerWorker.UnmarshalCBOR(br); err != nil {
+		if err := t.MinerWorker.UnmarshalCBOR(cr); err != nil {
 			return xerrors.Errorf("unmarshaling t.MinerWorker: %w", err)
 		}
 
@@ -267,7 +273,7 @@ func (t *ClientDeal0) UnmarshalCBOR(r io.Reader) error {
 
 	{
 
-		maj, extra, err = cbg.CborReadHeaderBuf(br, scratch)
+		maj, extra, err = cr.ReadHeader()
 		if err != nil {
 			return err
 		}
@@ -281,16 +287,16 @@ func (t *ClientDeal0) UnmarshalCBOR(r io.Reader) error {
 
 	{
 
-		b, err := br.ReadByte()
+		b, err := cr.ReadByte()
 		if err != nil {
 			return err
 		}
 		if b != cbg.CborNull[0] {
-			if err := br.UnreadByte(); err != nil {
+			if err := cr.UnreadByte(); err != nil {
 				return err
 			}
 			t.DataRef = new(DataRef0)
-			if err := t.DataRef.UnmarshalCBOR(br); err != nil {
+			if err := t.DataRef.UnmarshalCBOR(cr); err != nil {
 				return xerrors.Errorf("unmarshaling t.DataRef pointer: %w", err)
 			}
 		}
@@ -299,7 +305,7 @@ func (t *ClientDeal0) UnmarshalCBOR(r io.Reader) error {
 	// t.Message (string) (string)
 
 	{
-		sval, err := cbg.ReadStringBuf(br, scratch)
+		sval, err := cbg.ReadString(cr)
 		if err != nil {
 			return err
 		}
@@ -310,16 +316,16 @@ func (t *ClientDeal0) UnmarshalCBOR(r io.Reader) error {
 
 	{
 
-		b, err := br.ReadByte()
+		b, err := cr.ReadByte()
 		if err != nil {
 			return err
 		}
 		if b != cbg.CborNull[0] {
-			if err := br.UnreadByte(); err != nil {
+			if err := cr.UnreadByte(); err != nil {
 				return err
 			}
 
-			c, err := cbg.ReadCid(br)
+			c, err := cbg.ReadCid(cr)
 			if err != nil {
 				return xerrors.Errorf("failed to read cid field t.PublishMessage: %w", err)
 			}
@@ -330,7 +336,7 @@ func (t *ClientDeal0) UnmarshalCBOR(r io.Reader) error {
 	}
 	// t.SlashEpoch (abi.ChainEpoch) (int64)
 	{
-		maj, extra, err := cbg.CborReadHeaderBuf(br, scratch)
+		maj, extra, err := cr.ReadHeader()
 		var extraI int64
 		if err != nil {
 			return err
@@ -357,7 +363,7 @@ func (t *ClientDeal0) UnmarshalCBOR(r io.Reader) error {
 
 	{
 
-		maj, extra, err = cbg.CborReadHeaderBuf(br, scratch)
+		maj, extra, err = cr.ReadHeader()
 		if err != nil {
 			return err
 		}
@@ -371,7 +377,7 @@ func (t *ClientDeal0) UnmarshalCBOR(r io.Reader) error {
 
 	{
 
-		maj, extra, err = cbg.CborReadHeaderBuf(br, scratch)
+		maj, extra, err = cr.ReadHeader()
 		if err != nil {
 			return err
 		}
@@ -383,7 +389,7 @@ func (t *ClientDeal0) UnmarshalCBOR(r io.Reader) error {
 	}
 	// t.FastRetrieval (bool) (bool)
 
-	maj, extra, err = cbg.CborReadHeaderBuf(br, scratch)
+	maj, extra, err = cr.ReadHeader()
 	if err != nil {
 		return err
 	}
@@ -402,15 +408,15 @@ func (t *ClientDeal0) UnmarshalCBOR(r io.Reader) error {
 
 	{
 
-		b, err := br.ReadByte()
+		b, err := cr.ReadByte()
 		if err != nil {
 			return err
 		}
 		if b != cbg.CborNull[0] {
-			if err := br.UnreadByte(); err != nil {
+			if err := cr.UnreadByte(); err != nil {
 				return err
 			}
-			maj, extra, err = cbg.CborReadHeaderBuf(br, scratch)
+			maj, extra, err = cr.ReadHeader()
 			if err != nil {
 				return err
 			}
@@ -426,7 +432,7 @@ func (t *ClientDeal0) UnmarshalCBOR(r io.Reader) error {
 
 	{
 
-		if err := t.FundsReserved.UnmarshalCBOR(br); err != nil {
+		if err := t.FundsReserved.UnmarshalCBOR(cr); err != nil {
 			return xerrors.Errorf("unmarshaling t.FundsReserved: %w", err)
 		}
 
@@ -435,7 +441,7 @@ func (t *ClientDeal0) UnmarshalCBOR(r io.Reader) error {
 
 	{
 
-		if err := t.CreationTime.UnmarshalCBOR(br); err != nil {
+		if err := t.CreationTime.UnmarshalCBOR(cr); err != nil {
 			return xerrors.Errorf("unmarshaling t.CreationTime: %w", err)
 		}
 
@@ -450,31 +456,32 @@ func (t *MinerDeal0) MarshalCBOR(w io.Writer) error {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	if _, err := w.Write(lengthBufMinerDeal0); err != nil {
+
+	cw := cbg.NewCborWriter(w)
+
+	if _, err := cw.Write(lengthBufMinerDeal0); err != nil {
 		return err
 	}
 
-	scratch := make([]byte, 9)
-
 	// t.ClientDealProposal (market.ClientDealProposal) (struct)
-	if err := t.ClientDealProposal.MarshalCBOR(w); err != nil {
+	if err := t.ClientDealProposal.MarshalCBOR(cw); err != nil {
 		return err
 	}
 
 	// t.ProposalCid (cid.Cid) (struct)
 
-	if err := cbg.WriteCidBuf(scratch, w, t.ProposalCid); err != nil {
+	if err := cbg.WriteCid(cw, t.ProposalCid); err != nil {
 		return xerrors.Errorf("failed to write cid field t.ProposalCid: %w", err)
 	}
 
 	// t.AddFundsCid (cid.Cid) (struct)
 
 	if t.AddFundsCid == nil {
-		if _, err := w.Write(cbg.CborNull); err != nil {
+		if _, err := cw.Write(cbg.CborNull); err != nil {
 			return err
 		}
 	} else {
-		if err := cbg.WriteCidBuf(scratch, w, *t.AddFundsCid); err != nil {
+		if err := cbg.WriteCid(cw, *t.AddFundsCid); err != nil {
 			return xerrors.Errorf("failed to write cid field t.AddFundsCid: %w", err)
 		}
 	}
@@ -482,11 +489,11 @@ func (t *MinerDeal0) MarshalCBOR(w io.Writer) error {
 	// t.PublishCid (cid.Cid) (struct)
 
 	if t.PublishCid == nil {
-		if _, err := w.Write(cbg.CborNull); err != nil {
+		if _, err := cw.Write(cbg.CborNull); err != nil {
 			return err
 		}
 	} else {
-		if err := cbg.WriteCidBuf(scratch, w, *t.PublishCid); err != nil {
+		if err := cbg.WriteCid(cw, *t.PublishCid); err != nil {
 			return xerrors.Errorf("failed to write cid field t.PublishCid: %w", err)
 		}
 	}
@@ -496,7 +503,7 @@ func (t *MinerDeal0) MarshalCBOR(w io.Writer) error {
 		return xerrors.Errorf("Value in field t.Miner was too long")
 	}
 
-	if err := cbg.WriteMajorTypeHeaderBuf(scratch, w, cbg.MajTextString, uint64(len(t.Miner))); err != nil {
+	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len(t.Miner))); err != nil {
 		return err
 	}
 	if _, err := io.WriteString(w, string(t.Miner)); err != nil {
@@ -508,7 +515,7 @@ func (t *MinerDeal0) MarshalCBOR(w io.Writer) error {
 		return xerrors.Errorf("Value in field t.Client was too long")
 	}
 
-	if err := cbg.WriteMajorTypeHeaderBuf(scratch, w, cbg.MajTextString, uint64(len(t.Client))); err != nil {
+	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len(t.Client))); err != nil {
 		return err
 	}
 	if _, err := io.WriteString(w, string(t.Client)); err != nil {
@@ -517,7 +524,7 @@ func (t *MinerDeal0) MarshalCBOR(w io.Writer) error {
 
 	// t.State (uint64) (uint64)
 
-	if err := cbg.WriteMajorTypeHeaderBuf(scratch, w, cbg.MajUnsignedInt, uint64(t.State)); err != nil {
+	if err := cw.WriteMajorTypeHeader(cbg.MajUnsignedInt, uint64(t.State)); err != nil {
 		return err
 	}
 
@@ -526,7 +533,7 @@ func (t *MinerDeal0) MarshalCBOR(w io.Writer) error {
 		return xerrors.Errorf("Value in field t.PiecePath was too long")
 	}
 
-	if err := cbg.WriteMajorTypeHeaderBuf(scratch, w, cbg.MajTextString, uint64(len(t.PiecePath))); err != nil {
+	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len(t.PiecePath))); err != nil {
 		return err
 	}
 	if _, err := io.WriteString(w, string(t.PiecePath)); err != nil {
@@ -538,7 +545,7 @@ func (t *MinerDeal0) MarshalCBOR(w io.Writer) error {
 		return xerrors.Errorf("Value in field t.MetadataPath was too long")
 	}
 
-	if err := cbg.WriteMajorTypeHeaderBuf(scratch, w, cbg.MajTextString, uint64(len(t.MetadataPath))); err != nil {
+	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len(t.MetadataPath))); err != nil {
 		return err
 	}
 	if _, err := io.WriteString(w, string(t.MetadataPath)); err != nil {
@@ -547,11 +554,11 @@ func (t *MinerDeal0) MarshalCBOR(w io.Writer) error {
 
 	// t.SlashEpoch (abi.ChainEpoch) (int64)
 	if t.SlashEpoch >= 0 {
-		if err := cbg.WriteMajorTypeHeaderBuf(scratch, w, cbg.MajUnsignedInt, uint64(t.SlashEpoch)); err != nil {
+		if err := cw.WriteMajorTypeHeader(cbg.MajUnsignedInt, uint64(t.SlashEpoch)); err != nil {
 			return err
 		}
 	} else {
-		if err := cbg.WriteMajorTypeHeaderBuf(scratch, w, cbg.MajNegativeInt, uint64(-t.SlashEpoch-1)); err != nil {
+		if err := cw.WriteMajorTypeHeader(cbg.MajNegativeInt, uint64(-t.SlashEpoch-1)); err != nil {
 			return err
 		}
 	}
@@ -566,7 +573,7 @@ func (t *MinerDeal0) MarshalCBOR(w io.Writer) error {
 		return xerrors.Errorf("Value in field t.Message was too long")
 	}
 
-	if err := cbg.WriteMajorTypeHeaderBuf(scratch, w, cbg.MajTextString, uint64(len(t.Message))); err != nil {
+	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len(t.Message))); err != nil {
 		return err
 	}
 	if _, err := io.WriteString(w, string(t.Message)); err != nil {
@@ -576,22 +583,22 @@ func (t *MinerDeal0) MarshalCBOR(w io.Writer) error {
 	// t.StoreID (uint64) (uint64)
 
 	if t.StoreID == nil {
-		if _, err := w.Write(cbg.CborNull); err != nil {
+		if _, err := cw.Write(cbg.CborNull); err != nil {
 			return err
 		}
 	} else {
-		if err := cbg.WriteMajorTypeHeaderBuf(scratch, w, cbg.MajUnsignedInt, uint64(*t.StoreID)); err != nil {
+		if err := cw.WriteMajorTypeHeader(cbg.MajUnsignedInt, uint64(*t.StoreID)); err != nil {
 			return err
 		}
 	}
 
 	// t.FundsReserved (big.Int) (struct)
-	if err := t.FundsReserved.MarshalCBOR(w); err != nil {
+	if err := t.FundsReserved.MarshalCBOR(cw); err != nil {
 		return err
 	}
 
 	// t.Ref (migrations.DataRef0) (struct)
-	if err := t.Ref.MarshalCBOR(w); err != nil {
+	if err := t.Ref.MarshalCBOR(cw); err != nil {
 		return err
 	}
 
@@ -602,27 +609,32 @@ func (t *MinerDeal0) MarshalCBOR(w io.Writer) error {
 
 	// t.DealID (abi.DealID) (uint64)
 
-	if err := cbg.WriteMajorTypeHeaderBuf(scratch, w, cbg.MajUnsignedInt, uint64(t.DealID)); err != nil {
+	if err := cw.WriteMajorTypeHeader(cbg.MajUnsignedInt, uint64(t.DealID)); err != nil {
 		return err
 	}
 
 	// t.CreationTime (typegen.CborTime) (struct)
-	if err := t.CreationTime.MarshalCBOR(w); err != nil {
+	if err := t.CreationTime.MarshalCBOR(cw); err != nil {
 		return err
 	}
 	return nil
 }
 
-func (t *MinerDeal0) UnmarshalCBOR(r io.Reader) error {
+func (t *MinerDeal0) UnmarshalCBOR(r io.Reader) (err error) {
 	*t = MinerDeal0{}
 
-	br := cbg.GetPeeker(r)
-	scratch := make([]byte, 8)
+	cr := cbg.NewCborReader(r)
 
-	maj, extra, err := cbg.CborReadHeaderBuf(br, scratch)
+	maj, extra, err := cr.ReadHeader()
 	if err != nil {
 		return err
 	}
+	defer func() {
+		if err == io.EOF {
+			err = io.ErrUnexpectedEOF
+		}
+	}()
+
 	if maj != cbg.MajArray {
 		return fmt.Errorf("cbor input should be of type array")
 	}
@@ -635,7 +647,7 @@ func (t *MinerDeal0) UnmarshalCBOR(r io.Reader) error {
 
 	{
 
-		if err := t.ClientDealProposal.UnmarshalCBOR(br); err != nil {
+		if err := t.ClientDealProposal.UnmarshalCBOR(cr); err != nil {
 			return xerrors.Errorf("unmarshaling t.ClientDealProposal: %w", err)
 		}
 
@@ -644,7 +656,7 @@ func (t *MinerDeal0) UnmarshalCBOR(r io.Reader) error {
 
 	{
 
-		c, err := cbg.ReadCid(br)
+		c, err := cbg.ReadCid(cr)
 		if err != nil {
 			return xerrors.Errorf("failed to read cid field t.ProposalCid: %w", err)
 		}
@@ -656,16 +668,16 @@ func (t *MinerDeal0) UnmarshalCBOR(r io.Reader) error {
 
 	{
 
-		b, err := br.ReadByte()
+		b, err := cr.ReadByte()
 		if err != nil {
 			return err
 		}
 		if b != cbg.CborNull[0] {
-			if err := br.UnreadByte(); err != nil {
+			if err := cr.UnreadByte(); err != nil {
 				return err
 			}
 
-			c, err := cbg.ReadCid(br)
+			c, err := cbg.ReadCid(cr)
 			if err != nil {
 				return xerrors.Errorf("failed to read cid field t.AddFundsCid: %w", err)
 			}
@@ -678,16 +690,16 @@ func (t *MinerDeal0) UnmarshalCBOR(r io.Reader) error {
 
 	{
 
-		b, err := br.ReadByte()
+		b, err := cr.ReadByte()
 		if err != nil {
 			return err
 		}
 		if b != cbg.CborNull[0] {
-			if err := br.UnreadByte(); err != nil {
+			if err := cr.UnreadByte(); err != nil {
 				return err
 			}
 
-			c, err := cbg.ReadCid(br)
+			c, err := cbg.ReadCid(cr)
 			if err != nil {
 				return xerrors.Errorf("failed to read cid field t.PublishCid: %w", err)
 			}
@@ -699,7 +711,7 @@ func (t *MinerDeal0) UnmarshalCBOR(r io.Reader) error {
 	// t.Miner (peer.ID) (string)
 
 	{
-		sval, err := cbg.ReadStringBuf(br, scratch)
+		sval, err := cbg.ReadString(cr)
 		if err != nil {
 			return err
 		}
@@ -709,7 +721,7 @@ func (t *MinerDeal0) UnmarshalCBOR(r io.Reader) error {
 	// t.Client (peer.ID) (string)
 
 	{
-		sval, err := cbg.ReadStringBuf(br, scratch)
+		sval, err := cbg.ReadString(cr)
 		if err != nil {
 			return err
 		}
@@ -720,7 +732,7 @@ func (t *MinerDeal0) UnmarshalCBOR(r io.Reader) error {
 
 	{
 
-		maj, extra, err = cbg.CborReadHeaderBuf(br, scratch)
+		maj, extra, err = cr.ReadHeader()
 		if err != nil {
 			return err
 		}
@@ -733,7 +745,7 @@ func (t *MinerDeal0) UnmarshalCBOR(r io.Reader) error {
 	// t.PiecePath (filestore.Path) (string)
 
 	{
-		sval, err := cbg.ReadStringBuf(br, scratch)
+		sval, err := cbg.ReadString(cr)
 		if err != nil {
 			return err
 		}
@@ -743,7 +755,7 @@ func (t *MinerDeal0) UnmarshalCBOR(r io.Reader) error {
 	// t.MetadataPath (filestore.Path) (string)
 
 	{
-		sval, err := cbg.ReadStringBuf(br, scratch)
+		sval, err := cbg.ReadString(cr)
 		if err != nil {
 			return err
 		}
@@ -752,7 +764,7 @@ func (t *MinerDeal0) UnmarshalCBOR(r io.Reader) error {
 	}
 	// t.SlashEpoch (abi.ChainEpoch) (int64)
 	{
-		maj, extra, err := cbg.CborReadHeaderBuf(br, scratch)
+		maj, extra, err := cr.ReadHeader()
 		var extraI int64
 		if err != nil {
 			return err
@@ -777,7 +789,7 @@ func (t *MinerDeal0) UnmarshalCBOR(r io.Reader) error {
 	}
 	// t.FastRetrieval (bool) (bool)
 
-	maj, extra, err = cbg.CborReadHeaderBuf(br, scratch)
+	maj, extra, err = cr.ReadHeader()
 	if err != nil {
 		return err
 	}
@@ -795,7 +807,7 @@ func (t *MinerDeal0) UnmarshalCBOR(r io.Reader) error {
 	// t.Message (string) (string)
 
 	{
-		sval, err := cbg.ReadStringBuf(br, scratch)
+		sval, err := cbg.ReadString(cr)
 		if err != nil {
 			return err
 		}
@@ -806,15 +818,15 @@ func (t *MinerDeal0) UnmarshalCBOR(r io.Reader) error {
 
 	{
 
-		b, err := br.ReadByte()
+		b, err := cr.ReadByte()
 		if err != nil {
 			return err
 		}
 		if b != cbg.CborNull[0] {
-			if err := br.UnreadByte(); err != nil {
+			if err := cr.UnreadByte(); err != nil {
 				return err
 			}
-			maj, extra, err = cbg.CborReadHeaderBuf(br, scratch)
+			maj, extra, err = cr.ReadHeader()
 			if err != nil {
 				return err
 			}
@@ -830,7 +842,7 @@ func (t *MinerDeal0) UnmarshalCBOR(r io.Reader) error {
 
 	{
 
-		if err := t.FundsReserved.UnmarshalCBOR(br); err != nil {
+		if err := t.FundsReserved.UnmarshalCBOR(cr); err != nil {
 			return xerrors.Errorf("unmarshaling t.FundsReserved: %w", err)
 		}
 
@@ -839,16 +851,16 @@ func (t *MinerDeal0) UnmarshalCBOR(r io.Reader) error {
 
 	{
 
-		b, err := br.ReadByte()
+		b, err := cr.ReadByte()
 		if err != nil {
 			return err
 		}
 		if b != cbg.CborNull[0] {
-			if err := br.UnreadByte(); err != nil {
+			if err := cr.UnreadByte(); err != nil {
 				return err
 			}
 			t.Ref = new(DataRef0)
-			if err := t.Ref.UnmarshalCBOR(br); err != nil {
+			if err := t.Ref.UnmarshalCBOR(cr); err != nil {
 				return xerrors.Errorf("unmarshaling t.Ref pointer: %w", err)
 			}
 		}
@@ -856,7 +868,7 @@ func (t *MinerDeal0) UnmarshalCBOR(r io.Reader) error {
 	}
 	// t.AvailableForRetrieval (bool) (bool)
 
-	maj, extra, err = cbg.CborReadHeaderBuf(br, scratch)
+	maj, extra, err = cr.ReadHeader()
 	if err != nil {
 		return err
 	}
@@ -875,7 +887,7 @@ func (t *MinerDeal0) UnmarshalCBOR(r io.Reader) error {
 
 	{
 
-		maj, extra, err = cbg.CborReadHeaderBuf(br, scratch)
+		maj, extra, err = cr.ReadHeader()
 		if err != nil {
 			return err
 		}
@@ -889,7 +901,7 @@ func (t *MinerDeal0) UnmarshalCBOR(r io.Reader) error {
 
 	{
 
-		if err := t.CreationTime.UnmarshalCBOR(br); err != nil {
+		if err := t.CreationTime.UnmarshalCBOR(cr); err != nil {
 			return xerrors.Errorf("unmarshaling t.CreationTime: %w", err)
 		}
 
@@ -904,32 +916,40 @@ func (t *Balance0) MarshalCBOR(w io.Writer) error {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	if _, err := w.Write(lengthBufBalance0); err != nil {
+
+	cw := cbg.NewCborWriter(w)
+
+	if _, err := cw.Write(lengthBufBalance0); err != nil {
 		return err
 	}
 
 	// t.Locked (big.Int) (struct)
-	if err := t.Locked.MarshalCBOR(w); err != nil {
+	if err := t.Locked.MarshalCBOR(cw); err != nil {
 		return err
 	}
 
 	// t.Available (big.Int) (struct)
-	if err := t.Available.MarshalCBOR(w); err != nil {
+	if err := t.Available.MarshalCBOR(cw); err != nil {
 		return err
 	}
 	return nil
 }
 
-func (t *Balance0) UnmarshalCBOR(r io.Reader) error {
+func (t *Balance0) UnmarshalCBOR(r io.Reader) (err error) {
 	*t = Balance0{}
 
-	br := cbg.GetPeeker(r)
-	scratch := make([]byte, 8)
+	cr := cbg.NewCborReader(r)
 
-	maj, extra, err := cbg.CborReadHeaderBuf(br, scratch)
+	maj, extra, err := cr.ReadHeader()
 	if err != nil {
 		return err
 	}
+	defer func() {
+		if err == io.EOF {
+			err = io.ErrUnexpectedEOF
+		}
+	}()
+
 	if maj != cbg.MajArray {
 		return fmt.Errorf("cbor input should be of type array")
 	}
@@ -942,7 +962,7 @@ func (t *Balance0) UnmarshalCBOR(r io.Reader) error {
 
 	{
 
-		if err := t.Locked.UnmarshalCBOR(br); err != nil {
+		if err := t.Locked.UnmarshalCBOR(cr); err != nil {
 			return xerrors.Errorf("unmarshaling t.Locked: %w", err)
 		}
 
@@ -951,7 +971,7 @@ func (t *Balance0) UnmarshalCBOR(r io.Reader) error {
 
 	{
 
-		if err := t.Available.UnmarshalCBOR(br); err != nil {
+		if err := t.Available.UnmarshalCBOR(cr); err != nil {
 			return xerrors.Errorf("unmarshaling t.Available: %w", err)
 		}
 
@@ -966,32 +986,40 @@ func (t *SignedStorageAsk0) MarshalCBOR(w io.Writer) error {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	if _, err := w.Write(lengthBufSignedStorageAsk0); err != nil {
+
+	cw := cbg.NewCborWriter(w)
+
+	if _, err := cw.Write(lengthBufSignedStorageAsk0); err != nil {
 		return err
 	}
 
 	// t.Ask (migrations.StorageAsk0) (struct)
-	if err := t.Ask.MarshalCBOR(w); err != nil {
+	if err := t.Ask.MarshalCBOR(cw); err != nil {
 		return err
 	}
 
 	// t.Signature (crypto.Signature) (struct)
-	if err := t.Signature.MarshalCBOR(w); err != nil {
+	if err := t.Signature.MarshalCBOR(cw); err != nil {
 		return err
 	}
 	return nil
 }
 
-func (t *SignedStorageAsk0) UnmarshalCBOR(r io.Reader) error {
+func (t *SignedStorageAsk0) UnmarshalCBOR(r io.Reader) (err error) {
 	*t = SignedStorageAsk0{}
 
-	br := cbg.GetPeeker(r)
-	scratch := make([]byte, 8)
+	cr := cbg.NewCborReader(r)
 
-	maj, extra, err := cbg.CborReadHeaderBuf(br, scratch)
+	maj, extra, err := cr.ReadHeader()
 	if err != nil {
 		return err
 	}
+	defer func() {
+		if err == io.EOF {
+			err = io.ErrUnexpectedEOF
+		}
+	}()
+
 	if maj != cbg.MajArray {
 		return fmt.Errorf("cbor input should be of type array")
 	}
@@ -1004,16 +1032,16 @@ func (t *SignedStorageAsk0) UnmarshalCBOR(r io.Reader) error {
 
 	{
 
-		b, err := br.ReadByte()
+		b, err := cr.ReadByte()
 		if err != nil {
 			return err
 		}
 		if b != cbg.CborNull[0] {
-			if err := br.UnreadByte(); err != nil {
+			if err := cr.UnreadByte(); err != nil {
 				return err
 			}
 			t.Ask = new(StorageAsk0)
-			if err := t.Ask.UnmarshalCBOR(br); err != nil {
+			if err := t.Ask.UnmarshalCBOR(cr); err != nil {
 				return xerrors.Errorf("unmarshaling t.Ask pointer: %w", err)
 			}
 		}
@@ -1023,16 +1051,16 @@ func (t *SignedStorageAsk0) UnmarshalCBOR(r io.Reader) error {
 
 	{
 
-		b, err := br.ReadByte()
+		b, err := cr.ReadByte()
 		if err != nil {
 			return err
 		}
 		if b != cbg.CborNull[0] {
-			if err := br.UnreadByte(); err != nil {
+			if err := cr.UnreadByte(); err != nil {
 				return err
 			}
 			t.Signature = new(crypto.Signature)
-			if err := t.Signature.UnmarshalCBOR(br); err != nil {
+			if err := t.Signature.UnmarshalCBOR(cr); err != nil {
 				return xerrors.Errorf("unmarshaling t.Signature pointer: %w", err)
 			}
 		}
@@ -1048,80 +1076,86 @@ func (t *StorageAsk0) MarshalCBOR(w io.Writer) error {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	if _, err := w.Write(lengthBufStorageAsk0); err != nil {
+
+	cw := cbg.NewCborWriter(w)
+
+	if _, err := cw.Write(lengthBufStorageAsk0); err != nil {
 		return err
 	}
 
-	scratch := make([]byte, 9)
-
 	// t.Price (big.Int) (struct)
-	if err := t.Price.MarshalCBOR(w); err != nil {
+	if err := t.Price.MarshalCBOR(cw); err != nil {
 		return err
 	}
 
 	// t.VerifiedPrice (big.Int) (struct)
-	if err := t.VerifiedPrice.MarshalCBOR(w); err != nil {
+	if err := t.VerifiedPrice.MarshalCBOR(cw); err != nil {
 		return err
 	}
 
 	// t.MinPieceSize (abi.PaddedPieceSize) (uint64)
 
-	if err := cbg.WriteMajorTypeHeaderBuf(scratch, w, cbg.MajUnsignedInt, uint64(t.MinPieceSize)); err != nil {
+	if err := cw.WriteMajorTypeHeader(cbg.MajUnsignedInt, uint64(t.MinPieceSize)); err != nil {
 		return err
 	}
 
 	// t.MaxPieceSize (abi.PaddedPieceSize) (uint64)
 
-	if err := cbg.WriteMajorTypeHeaderBuf(scratch, w, cbg.MajUnsignedInt, uint64(t.MaxPieceSize)); err != nil {
+	if err := cw.WriteMajorTypeHeader(cbg.MajUnsignedInt, uint64(t.MaxPieceSize)); err != nil {
 		return err
 	}
 
 	// t.Miner (address.Address) (struct)
-	if err := t.Miner.MarshalCBOR(w); err != nil {
+	if err := t.Miner.MarshalCBOR(cw); err != nil {
 		return err
 	}
 
 	// t.Timestamp (abi.ChainEpoch) (int64)
 	if t.Timestamp >= 0 {
-		if err := cbg.WriteMajorTypeHeaderBuf(scratch, w, cbg.MajUnsignedInt, uint64(t.Timestamp)); err != nil {
+		if err := cw.WriteMajorTypeHeader(cbg.MajUnsignedInt, uint64(t.Timestamp)); err != nil {
 			return err
 		}
 	} else {
-		if err := cbg.WriteMajorTypeHeaderBuf(scratch, w, cbg.MajNegativeInt, uint64(-t.Timestamp-1)); err != nil {
+		if err := cw.WriteMajorTypeHeader(cbg.MajNegativeInt, uint64(-t.Timestamp-1)); err != nil {
 			return err
 		}
 	}
 
 	// t.Expiry (abi.ChainEpoch) (int64)
 	if t.Expiry >= 0 {
-		if err := cbg.WriteMajorTypeHeaderBuf(scratch, w, cbg.MajUnsignedInt, uint64(t.Expiry)); err != nil {
+		if err := cw.WriteMajorTypeHeader(cbg.MajUnsignedInt, uint64(t.Expiry)); err != nil {
 			return err
 		}
 	} else {
-		if err := cbg.WriteMajorTypeHeaderBuf(scratch, w, cbg.MajNegativeInt, uint64(-t.Expiry-1)); err != nil {
+		if err := cw.WriteMajorTypeHeader(cbg.MajNegativeInt, uint64(-t.Expiry-1)); err != nil {
 			return err
 		}
 	}
 
 	// t.SeqNo (uint64) (uint64)
 
-	if err := cbg.WriteMajorTypeHeaderBuf(scratch, w, cbg.MajUnsignedInt, uint64(t.SeqNo)); err != nil {
+	if err := cw.WriteMajorTypeHeader(cbg.MajUnsignedInt, uint64(t.SeqNo)); err != nil {
 		return err
 	}
 
 	return nil
 }
 
-func (t *StorageAsk0) UnmarshalCBOR(r io.Reader) error {
+func (t *StorageAsk0) UnmarshalCBOR(r io.Reader) (err error) {
 	*t = StorageAsk0{}
 
-	br := cbg.GetPeeker(r)
-	scratch := make([]byte, 8)
+	cr := cbg.NewCborReader(r)
 
-	maj, extra, err := cbg.CborReadHeaderBuf(br, scratch)
+	maj, extra, err := cr.ReadHeader()
 	if err != nil {
 		return err
 	}
+	defer func() {
+		if err == io.EOF {
+			err = io.ErrUnexpectedEOF
+		}
+	}()
+
 	if maj != cbg.MajArray {
 		return fmt.Errorf("cbor input should be of type array")
 	}
@@ -1134,7 +1168,7 @@ func (t *StorageAsk0) UnmarshalCBOR(r io.Reader) error {
 
 	{
 
-		if err := t.Price.UnmarshalCBOR(br); err != nil {
+		if err := t.Price.UnmarshalCBOR(cr); err != nil {
 			return xerrors.Errorf("unmarshaling t.Price: %w", err)
 		}
 
@@ -1143,7 +1177,7 @@ func (t *StorageAsk0) UnmarshalCBOR(r io.Reader) error {
 
 	{
 
-		if err := t.VerifiedPrice.UnmarshalCBOR(br); err != nil {
+		if err := t.VerifiedPrice.UnmarshalCBOR(cr); err != nil {
 			return xerrors.Errorf("unmarshaling t.VerifiedPrice: %w", err)
 		}
 
@@ -1152,7 +1186,7 @@ func (t *StorageAsk0) UnmarshalCBOR(r io.Reader) error {
 
 	{
 
-		maj, extra, err = cbg.CborReadHeaderBuf(br, scratch)
+		maj, extra, err = cr.ReadHeader()
 		if err != nil {
 			return err
 		}
@@ -1166,7 +1200,7 @@ func (t *StorageAsk0) UnmarshalCBOR(r io.Reader) error {
 
 	{
 
-		maj, extra, err = cbg.CborReadHeaderBuf(br, scratch)
+		maj, extra, err = cr.ReadHeader()
 		if err != nil {
 			return err
 		}
@@ -1180,14 +1214,14 @@ func (t *StorageAsk0) UnmarshalCBOR(r io.Reader) error {
 
 	{
 
-		if err := t.Miner.UnmarshalCBOR(br); err != nil {
+		if err := t.Miner.UnmarshalCBOR(cr); err != nil {
 			return xerrors.Errorf("unmarshaling t.Miner: %w", err)
 		}
 
 	}
 	// t.Timestamp (abi.ChainEpoch) (int64)
 	{
-		maj, extra, err := cbg.CborReadHeaderBuf(br, scratch)
+		maj, extra, err := cr.ReadHeader()
 		var extraI int64
 		if err != nil {
 			return err
@@ -1212,7 +1246,7 @@ func (t *StorageAsk0) UnmarshalCBOR(r io.Reader) error {
 	}
 	// t.Expiry (abi.ChainEpoch) (int64)
 	{
-		maj, extra, err := cbg.CborReadHeaderBuf(br, scratch)
+		maj, extra, err := cr.ReadHeader()
 		var extraI int64
 		if err != nil {
 			return err
@@ -1239,7 +1273,7 @@ func (t *StorageAsk0) UnmarshalCBOR(r io.Reader) error {
 
 	{
 
-		maj, extra, err = cbg.CborReadHeaderBuf(br, scratch)
+		maj, extra, err = cr.ReadHeader()
 		if err != nil {
 			return err
 		}
@@ -1259,18 +1293,19 @@ func (t *DataRef0) MarshalCBOR(w io.Writer) error {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	if _, err := w.Write(lengthBufDataRef0); err != nil {
+
+	cw := cbg.NewCborWriter(w)
+
+	if _, err := cw.Write(lengthBufDataRef0); err != nil {
 		return err
 	}
-
-	scratch := make([]byte, 9)
 
 	// t.TransferType (string) (string)
 	if len(t.TransferType) > cbg.MaxLength {
 		return xerrors.Errorf("Value in field t.TransferType was too long")
 	}
 
-	if err := cbg.WriteMajorTypeHeaderBuf(scratch, w, cbg.MajTextString, uint64(len(t.TransferType))); err != nil {
+	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len(t.TransferType))); err != nil {
 		return err
 	}
 	if _, err := io.WriteString(w, string(t.TransferType)); err != nil {
@@ -1279,41 +1314,46 @@ func (t *DataRef0) MarshalCBOR(w io.Writer) error {
 
 	// t.Root (cid.Cid) (struct)
 
-	if err := cbg.WriteCidBuf(scratch, w, t.Root); err != nil {
+	if err := cbg.WriteCid(cw, t.Root); err != nil {
 		return xerrors.Errorf("failed to write cid field t.Root: %w", err)
 	}
 
 	// t.PieceCid (cid.Cid) (struct)
 
 	if t.PieceCid == nil {
-		if _, err := w.Write(cbg.CborNull); err != nil {
+		if _, err := cw.Write(cbg.CborNull); err != nil {
 			return err
 		}
 	} else {
-		if err := cbg.WriteCidBuf(scratch, w, *t.PieceCid); err != nil {
+		if err := cbg.WriteCid(cw, *t.PieceCid); err != nil {
 			return xerrors.Errorf("failed to write cid field t.PieceCid: %w", err)
 		}
 	}
 
 	// t.PieceSize (abi.UnpaddedPieceSize) (uint64)
 
-	if err := cbg.WriteMajorTypeHeaderBuf(scratch, w, cbg.MajUnsignedInt, uint64(t.PieceSize)); err != nil {
+	if err := cw.WriteMajorTypeHeader(cbg.MajUnsignedInt, uint64(t.PieceSize)); err != nil {
 		return err
 	}
 
 	return nil
 }
 
-func (t *DataRef0) UnmarshalCBOR(r io.Reader) error {
+func (t *DataRef0) UnmarshalCBOR(r io.Reader) (err error) {
 	*t = DataRef0{}
 
-	br := cbg.GetPeeker(r)
-	scratch := make([]byte, 8)
+	cr := cbg.NewCborReader(r)
 
-	maj, extra, err := cbg.CborReadHeaderBuf(br, scratch)
+	maj, extra, err := cr.ReadHeader()
 	if err != nil {
 		return err
 	}
+	defer func() {
+		if err == io.EOF {
+			err = io.ErrUnexpectedEOF
+		}
+	}()
+
 	if maj != cbg.MajArray {
 		return fmt.Errorf("cbor input should be of type array")
 	}
@@ -1325,7 +1365,7 @@ func (t *DataRef0) UnmarshalCBOR(r io.Reader) error {
 	// t.TransferType (string) (string)
 
 	{
-		sval, err := cbg.ReadStringBuf(br, scratch)
+		sval, err := cbg.ReadString(cr)
 		if err != nil {
 			return err
 		}
@@ -1336,7 +1376,7 @@ func (t *DataRef0) UnmarshalCBOR(r io.Reader) error {
 
 	{
 
-		c, err := cbg.ReadCid(br)
+		c, err := cbg.ReadCid(cr)
 		if err != nil {
 			return xerrors.Errorf("failed to read cid field t.Root: %w", err)
 		}
@@ -1348,16 +1388,16 @@ func (t *DataRef0) UnmarshalCBOR(r io.Reader) error {
 
 	{
 
-		b, err := br.ReadByte()
+		b, err := cr.ReadByte()
 		if err != nil {
 			return err
 		}
 		if b != cbg.CborNull[0] {
-			if err := br.UnreadByte(); err != nil {
+			if err := cr.UnreadByte(); err != nil {
 				return err
 			}
 
-			c, err := cbg.ReadCid(br)
+			c, err := cbg.ReadCid(cr)
 			if err != nil {
 				return xerrors.Errorf("failed to read cid field t.PieceCid: %w", err)
 			}
@@ -1370,7 +1410,7 @@ func (t *DataRef0) UnmarshalCBOR(r io.Reader) error {
 
 	{
 
-		maj, extra, err = cbg.CborReadHeaderBuf(br, scratch)
+		maj, extra, err = cr.ReadHeader()
 		if err != nil {
 			return err
 		}
@@ -1390,15 +1430,16 @@ func (t *ProviderDealState0) MarshalCBOR(w io.Writer) error {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	if _, err := w.Write(lengthBufProviderDealState0); err != nil {
+
+	cw := cbg.NewCborWriter(w)
+
+	if _, err := cw.Write(lengthBufProviderDealState0); err != nil {
 		return err
 	}
 
-	scratch := make([]byte, 9)
-
 	// t.State (uint64) (uint64)
 
-	if err := cbg.WriteMajorTypeHeaderBuf(scratch, w, cbg.MajUnsignedInt, uint64(t.State)); err != nil {
+	if err := cw.WriteMajorTypeHeader(cbg.MajUnsignedInt, uint64(t.State)); err != nil {
 		return err
 	}
 
@@ -1407,7 +1448,7 @@ func (t *ProviderDealState0) MarshalCBOR(w io.Writer) error {
 		return xerrors.Errorf("Value in field t.Message was too long")
 	}
 
-	if err := cbg.WriteMajorTypeHeaderBuf(scratch, w, cbg.MajTextString, uint64(len(t.Message))); err != nil {
+	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len(t.Message))); err != nil {
 		return err
 	}
 	if _, err := io.WriteString(w, string(t.Message)); err != nil {
@@ -1415,18 +1456,18 @@ func (t *ProviderDealState0) MarshalCBOR(w io.Writer) error {
 	}
 
 	// t.Proposal (market.DealProposal) (struct)
-	if err := t.Proposal.MarshalCBOR(w); err != nil {
+	if err := t.Proposal.MarshalCBOR(cw); err != nil {
 		return err
 	}
 
 	// t.ProposalCid (cid.Cid) (struct)
 
 	if t.ProposalCid == nil {
-		if _, err := w.Write(cbg.CborNull); err != nil {
+		if _, err := cw.Write(cbg.CborNull); err != nil {
 			return err
 		}
 	} else {
-		if err := cbg.WriteCidBuf(scratch, w, *t.ProposalCid); err != nil {
+		if err := cbg.WriteCid(cw, *t.ProposalCid); err != nil {
 			return xerrors.Errorf("failed to write cid field t.ProposalCid: %w", err)
 		}
 	}
@@ -1434,11 +1475,11 @@ func (t *ProviderDealState0) MarshalCBOR(w io.Writer) error {
 	// t.AddFundsCid (cid.Cid) (struct)
 
 	if t.AddFundsCid == nil {
-		if _, err := w.Write(cbg.CborNull); err != nil {
+		if _, err := cw.Write(cbg.CborNull); err != nil {
 			return err
 		}
 	} else {
-		if err := cbg.WriteCidBuf(scratch, w, *t.AddFundsCid); err != nil {
+		if err := cbg.WriteCid(cw, *t.AddFundsCid); err != nil {
 			return xerrors.Errorf("failed to write cid field t.AddFundsCid: %w", err)
 		}
 	}
@@ -1446,18 +1487,18 @@ func (t *ProviderDealState0) MarshalCBOR(w io.Writer) error {
 	// t.PublishCid (cid.Cid) (struct)
 
 	if t.PublishCid == nil {
-		if _, err := w.Write(cbg.CborNull); err != nil {
+		if _, err := cw.Write(cbg.CborNull); err != nil {
 			return err
 		}
 	} else {
-		if err := cbg.WriteCidBuf(scratch, w, *t.PublishCid); err != nil {
+		if err := cbg.WriteCid(cw, *t.PublishCid); err != nil {
 			return xerrors.Errorf("failed to write cid field t.PublishCid: %w", err)
 		}
 	}
 
 	// t.DealID (abi.DealID) (uint64)
 
-	if err := cbg.WriteMajorTypeHeaderBuf(scratch, w, cbg.MajUnsignedInt, uint64(t.DealID)); err != nil {
+	if err := cw.WriteMajorTypeHeader(cbg.MajUnsignedInt, uint64(t.DealID)); err != nil {
 		return err
 	}
 
@@ -1468,16 +1509,21 @@ func (t *ProviderDealState0) MarshalCBOR(w io.Writer) error {
 	return nil
 }
 
-func (t *ProviderDealState0) UnmarshalCBOR(r io.Reader) error {
+func (t *ProviderDealState0) UnmarshalCBOR(r io.Reader) (err error) {
 	*t = ProviderDealState0{}
 
-	br := cbg.GetPeeker(r)
-	scratch := make([]byte, 8)
+	cr := cbg.NewCborReader(r)
 
-	maj, extra, err := cbg.CborReadHeaderBuf(br, scratch)
+	maj, extra, err := cr.ReadHeader()
 	if err != nil {
 		return err
 	}
+	defer func() {
+		if err == io.EOF {
+			err = io.ErrUnexpectedEOF
+		}
+	}()
+
 	if maj != cbg.MajArray {
 		return fmt.Errorf("cbor input should be of type array")
 	}
@@ -1490,7 +1536,7 @@ func (t *ProviderDealState0) UnmarshalCBOR(r io.Reader) error {
 
 	{
 
-		maj, extra, err = cbg.CborReadHeaderBuf(br, scratch)
+		maj, extra, err = cr.ReadHeader()
 		if err != nil {
 			return err
 		}
@@ -1503,7 +1549,7 @@ func (t *ProviderDealState0) UnmarshalCBOR(r io.Reader) error {
 	// t.Message (string) (string)
 
 	{
-		sval, err := cbg.ReadStringBuf(br, scratch)
+		sval, err := cbg.ReadString(cr)
 		if err != nil {
 			return err
 		}
@@ -1514,16 +1560,16 @@ func (t *ProviderDealState0) UnmarshalCBOR(r io.Reader) error {
 
 	{
 
-		b, err := br.ReadByte()
+		b, err := cr.ReadByte()
 		if err != nil {
 			return err
 		}
 		if b != cbg.CborNull[0] {
-			if err := br.UnreadByte(); err != nil {
+			if err := cr.UnreadByte(); err != nil {
 				return err
 			}
 			t.Proposal = new(market.DealProposal)
-			if err := t.Proposal.UnmarshalCBOR(br); err != nil {
+			if err := t.Proposal.UnmarshalCBOR(cr); err != nil {
 				return xerrors.Errorf("unmarshaling t.Proposal pointer: %w", err)
 			}
 		}
@@ -1533,16 +1579,16 @@ func (t *ProviderDealState0) UnmarshalCBOR(r io.Reader) error {
 
 	{
 
-		b, err := br.ReadByte()
+		b, err := cr.ReadByte()
 		if err != nil {
 			return err
 		}
 		if b != cbg.CborNull[0] {
-			if err := br.UnreadByte(); err != nil {
+			if err := cr.UnreadByte(); err != nil {
 				return err
 			}
 
-			c, err := cbg.ReadCid(br)
+			c, err := cbg.ReadCid(cr)
 			if err != nil {
 				return xerrors.Errorf("failed to read cid field t.ProposalCid: %w", err)
 			}
@@ -1555,16 +1601,16 @@ func (t *ProviderDealState0) UnmarshalCBOR(r io.Reader) error {
 
 	{
 
-		b, err := br.ReadByte()
+		b, err := cr.ReadByte()
 		if err != nil {
 			return err
 		}
 		if b != cbg.CborNull[0] {
-			if err := br.UnreadByte(); err != nil {
+			if err := cr.UnreadByte(); err != nil {
 				return err
 			}
 
-			c, err := cbg.ReadCid(br)
+			c, err := cbg.ReadCid(cr)
 			if err != nil {
 				return xerrors.Errorf("failed to read cid field t.AddFundsCid: %w", err)
 			}
@@ -1577,16 +1623,16 @@ func (t *ProviderDealState0) UnmarshalCBOR(r io.Reader) error {
 
 	{
 
-		b, err := br.ReadByte()
+		b, err := cr.ReadByte()
 		if err != nil {
 			return err
 		}
 		if b != cbg.CborNull[0] {
-			if err := br.UnreadByte(); err != nil {
+			if err := cr.UnreadByte(); err != nil {
 				return err
 			}
 
-			c, err := cbg.ReadCid(br)
+			c, err := cbg.ReadCid(cr)
 			if err != nil {
 				return xerrors.Errorf("failed to read cid field t.PublishCid: %w", err)
 			}
@@ -1599,7 +1645,7 @@ func (t *ProviderDealState0) UnmarshalCBOR(r io.Reader) error {
 
 	{
 
-		maj, extra, err = cbg.CborReadHeaderBuf(br, scratch)
+		maj, extra, err = cr.ReadHeader()
 		if err != nil {
 			return err
 		}
@@ -1611,7 +1657,7 @@ func (t *ProviderDealState0) UnmarshalCBOR(r io.Reader) error {
 	}
 	// t.FastRetrieval (bool) (bool)
 
-	maj, extra, err = cbg.CborReadHeaderBuf(br, scratch)
+	maj, extra, err = cr.ReadHeader()
 	if err != nil {
 		return err
 	}
@@ -1636,27 +1682,35 @@ func (t *AskRequest0) MarshalCBOR(w io.Writer) error {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	if _, err := w.Write(lengthBufAskRequest0); err != nil {
+
+	cw := cbg.NewCborWriter(w)
+
+	if _, err := cw.Write(lengthBufAskRequest0); err != nil {
 		return err
 	}
 
 	// t.Miner (address.Address) (struct)
-	if err := t.Miner.MarshalCBOR(w); err != nil {
+	if err := t.Miner.MarshalCBOR(cw); err != nil {
 		return err
 	}
 	return nil
 }
 
-func (t *AskRequest0) UnmarshalCBOR(r io.Reader) error {
+func (t *AskRequest0) UnmarshalCBOR(r io.Reader) (err error) {
 	*t = AskRequest0{}
 
-	br := cbg.GetPeeker(r)
-	scratch := make([]byte, 8)
+	cr := cbg.NewCborReader(r)
 
-	maj, extra, err := cbg.CborReadHeaderBuf(br, scratch)
+	maj, extra, err := cr.ReadHeader()
 	if err != nil {
 		return err
 	}
+	defer func() {
+		if err == io.EOF {
+			err = io.ErrUnexpectedEOF
+		}
+	}()
+
 	if maj != cbg.MajArray {
 		return fmt.Errorf("cbor input should be of type array")
 	}
@@ -1669,7 +1723,7 @@ func (t *AskRequest0) UnmarshalCBOR(r io.Reader) error {
 
 	{
 
-		if err := t.Miner.UnmarshalCBOR(br); err != nil {
+		if err := t.Miner.UnmarshalCBOR(cr); err != nil {
 			return xerrors.Errorf("unmarshaling t.Miner: %w", err)
 		}
 
@@ -1684,27 +1738,35 @@ func (t *AskResponse0) MarshalCBOR(w io.Writer) error {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	if _, err := w.Write(lengthBufAskResponse0); err != nil {
+
+	cw := cbg.NewCborWriter(w)
+
+	if _, err := cw.Write(lengthBufAskResponse0); err != nil {
 		return err
 	}
 
 	// t.Ask (migrations.SignedStorageAsk0) (struct)
-	if err := t.Ask.MarshalCBOR(w); err != nil {
+	if err := t.Ask.MarshalCBOR(cw); err != nil {
 		return err
 	}
 	return nil
 }
 
-func (t *AskResponse0) UnmarshalCBOR(r io.Reader) error {
+func (t *AskResponse0) UnmarshalCBOR(r io.Reader) (err error) {
 	*t = AskResponse0{}
 
-	br := cbg.GetPeeker(r)
-	scratch := make([]byte, 8)
+	cr := cbg.NewCborReader(r)
 
-	maj, extra, err := cbg.CborReadHeaderBuf(br, scratch)
+	maj, extra, err := cr.ReadHeader()
 	if err != nil {
 		return err
 	}
+	defer func() {
+		if err == io.EOF {
+			err = io.ErrUnexpectedEOF
+		}
+	}()
+
 	if maj != cbg.MajArray {
 		return fmt.Errorf("cbor input should be of type array")
 	}
@@ -1717,16 +1779,16 @@ func (t *AskResponse0) UnmarshalCBOR(r io.Reader) error {
 
 	{
 
-		b, err := br.ReadByte()
+		b, err := cr.ReadByte()
 		if err != nil {
 			return err
 		}
 		if b != cbg.CborNull[0] {
-			if err := br.UnreadByte(); err != nil {
+			if err := cr.UnreadByte(); err != nil {
 				return err
 			}
 			t.Ask = new(SignedStorageAsk0)
-			if err := t.Ask.UnmarshalCBOR(br); err != nil {
+			if err := t.Ask.UnmarshalCBOR(cr); err != nil {
 				return xerrors.Errorf("unmarshaling t.Ask pointer: %w", err)
 			}
 		}
@@ -1742,17 +1804,20 @@ func (t *Proposal0) MarshalCBOR(w io.Writer) error {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	if _, err := w.Write(lengthBufProposal0); err != nil {
+
+	cw := cbg.NewCborWriter(w)
+
+	if _, err := cw.Write(lengthBufProposal0); err != nil {
 		return err
 	}
 
 	// t.DealProposal (market.ClientDealProposal) (struct)
-	if err := t.DealProposal.MarshalCBOR(w); err != nil {
+	if err := t.DealProposal.MarshalCBOR(cw); err != nil {
 		return err
 	}
 
 	// t.Piece (migrations.DataRef0) (struct)
-	if err := t.Piece.MarshalCBOR(w); err != nil {
+	if err := t.Piece.MarshalCBOR(cw); err != nil {
 		return err
 	}
 
@@ -1763,16 +1828,21 @@ func (t *Proposal0) MarshalCBOR(w io.Writer) error {
 	return nil
 }
 
-func (t *Proposal0) UnmarshalCBOR(r io.Reader) error {
+func (t *Proposal0) UnmarshalCBOR(r io.Reader) (err error) {
 	*t = Proposal0{}
 
-	br := cbg.GetPeeker(r)
-	scratch := make([]byte, 8)
+	cr := cbg.NewCborReader(r)
 
-	maj, extra, err := cbg.CborReadHeaderBuf(br, scratch)
+	maj, extra, err := cr.ReadHeader()
 	if err != nil {
 		return err
 	}
+	defer func() {
+		if err == io.EOF {
+			err = io.ErrUnexpectedEOF
+		}
+	}()
+
 	if maj != cbg.MajArray {
 		return fmt.Errorf("cbor input should be of type array")
 	}
@@ -1785,16 +1855,16 @@ func (t *Proposal0) UnmarshalCBOR(r io.Reader) error {
 
 	{
 
-		b, err := br.ReadByte()
+		b, err := cr.ReadByte()
 		if err != nil {
 			return err
 		}
 		if b != cbg.CborNull[0] {
-			if err := br.UnreadByte(); err != nil {
+			if err := cr.UnreadByte(); err != nil {
 				return err
 			}
 			t.DealProposal = new(market.ClientDealProposal)
-			if err := t.DealProposal.UnmarshalCBOR(br); err != nil {
+			if err := t.DealProposal.UnmarshalCBOR(cr); err != nil {
 				return xerrors.Errorf("unmarshaling t.DealProposal pointer: %w", err)
 			}
 		}
@@ -1804,16 +1874,16 @@ func (t *Proposal0) UnmarshalCBOR(r io.Reader) error {
 
 	{
 
-		b, err := br.ReadByte()
+		b, err := cr.ReadByte()
 		if err != nil {
 			return err
 		}
 		if b != cbg.CborNull[0] {
-			if err := br.UnreadByte(); err != nil {
+			if err := cr.UnreadByte(); err != nil {
 				return err
 			}
 			t.Piece = new(DataRef0)
-			if err := t.Piece.UnmarshalCBOR(br); err != nil {
+			if err := t.Piece.UnmarshalCBOR(cr); err != nil {
 				return xerrors.Errorf("unmarshaling t.Piece pointer: %w", err)
 			}
 		}
@@ -1821,7 +1891,7 @@ func (t *Proposal0) UnmarshalCBOR(r io.Reader) error {
 	}
 	// t.FastRetrieval (bool) (bool)
 
-	maj, extra, err = cbg.CborReadHeaderBuf(br, scratch)
+	maj, extra, err = cr.ReadHeader()
 	if err != nil {
 		return err
 	}
@@ -1846,15 +1916,16 @@ func (t *Response0) MarshalCBOR(w io.Writer) error {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	if _, err := w.Write(lengthBufResponse0); err != nil {
+
+	cw := cbg.NewCborWriter(w)
+
+	if _, err := cw.Write(lengthBufResponse0); err != nil {
 		return err
 	}
 
-	scratch := make([]byte, 9)
-
 	// t.State (uint64) (uint64)
 
-	if err := cbg.WriteMajorTypeHeaderBuf(scratch, w, cbg.MajUnsignedInt, uint64(t.State)); err != nil {
+	if err := cw.WriteMajorTypeHeader(cbg.MajUnsignedInt, uint64(t.State)); err != nil {
 		return err
 	}
 
@@ -1863,7 +1934,7 @@ func (t *Response0) MarshalCBOR(w io.Writer) error {
 		return xerrors.Errorf("Value in field t.Message was too long")
 	}
 
-	if err := cbg.WriteMajorTypeHeaderBuf(scratch, w, cbg.MajTextString, uint64(len(t.Message))); err != nil {
+	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len(t.Message))); err != nil {
 		return err
 	}
 	if _, err := io.WriteString(w, string(t.Message)); err != nil {
@@ -1872,18 +1943,18 @@ func (t *Response0) MarshalCBOR(w io.Writer) error {
 
 	// t.Proposal (cid.Cid) (struct)
 
-	if err := cbg.WriteCidBuf(scratch, w, t.Proposal); err != nil {
+	if err := cbg.WriteCid(cw, t.Proposal); err != nil {
 		return xerrors.Errorf("failed to write cid field t.Proposal: %w", err)
 	}
 
 	// t.PublishMessage (cid.Cid) (struct)
 
 	if t.PublishMessage == nil {
-		if _, err := w.Write(cbg.CborNull); err != nil {
+		if _, err := cw.Write(cbg.CborNull); err != nil {
 			return err
 		}
 	} else {
-		if err := cbg.WriteCidBuf(scratch, w, *t.PublishMessage); err != nil {
+		if err := cbg.WriteCid(cw, *t.PublishMessage); err != nil {
 			return xerrors.Errorf("failed to write cid field t.PublishMessage: %w", err)
 		}
 	}
@@ -1891,16 +1962,21 @@ func (t *Response0) MarshalCBOR(w io.Writer) error {
 	return nil
 }
 
-func (t *Response0) UnmarshalCBOR(r io.Reader) error {
+func (t *Response0) UnmarshalCBOR(r io.Reader) (err error) {
 	*t = Response0{}
 
-	br := cbg.GetPeeker(r)
-	scratch := make([]byte, 8)
+	cr := cbg.NewCborReader(r)
 
-	maj, extra, err := cbg.CborReadHeaderBuf(br, scratch)
+	maj, extra, err := cr.ReadHeader()
 	if err != nil {
 		return err
 	}
+	defer func() {
+		if err == io.EOF {
+			err = io.ErrUnexpectedEOF
+		}
+	}()
+
 	if maj != cbg.MajArray {
 		return fmt.Errorf("cbor input should be of type array")
 	}
@@ -1913,7 +1989,7 @@ func (t *Response0) UnmarshalCBOR(r io.Reader) error {
 
 	{
 
-		maj, extra, err = cbg.CborReadHeaderBuf(br, scratch)
+		maj, extra, err = cr.ReadHeader()
 		if err != nil {
 			return err
 		}
@@ -1926,7 +2002,7 @@ func (t *Response0) UnmarshalCBOR(r io.Reader) error {
 	// t.Message (string) (string)
 
 	{
-		sval, err := cbg.ReadStringBuf(br, scratch)
+		sval, err := cbg.ReadString(cr)
 		if err != nil {
 			return err
 		}
@@ -1937,7 +2013,7 @@ func (t *Response0) UnmarshalCBOR(r io.Reader) error {
 
 	{
 
-		c, err := cbg.ReadCid(br)
+		c, err := cbg.ReadCid(cr)
 		if err != nil {
 			return xerrors.Errorf("failed to read cid field t.Proposal: %w", err)
 		}
@@ -1949,16 +2025,16 @@ func (t *Response0) UnmarshalCBOR(r io.Reader) error {
 
 	{
 
-		b, err := br.ReadByte()
+		b, err := cr.ReadByte()
 		if err != nil {
 			return err
 		}
 		if b != cbg.CborNull[0] {
-			if err := br.UnreadByte(); err != nil {
+			if err := cr.UnreadByte(); err != nil {
 				return err
 			}
 
-			c, err := cbg.ReadCid(br)
+			c, err := cbg.ReadCid(cr)
 			if err != nil {
 				return xerrors.Errorf("failed to read cid field t.PublishMessage: %w", err)
 			}
@@ -1977,32 +2053,40 @@ func (t *SignedResponse0) MarshalCBOR(w io.Writer) error {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	if _, err := w.Write(lengthBufSignedResponse0); err != nil {
+
+	cw := cbg.NewCborWriter(w)
+
+	if _, err := cw.Write(lengthBufSignedResponse0); err != nil {
 		return err
 	}
 
 	// t.Response (migrations.Response0) (struct)
-	if err := t.Response.MarshalCBOR(w); err != nil {
+	if err := t.Response.MarshalCBOR(cw); err != nil {
 		return err
 	}
 
 	// t.Signature (crypto.Signature) (struct)
-	if err := t.Signature.MarshalCBOR(w); err != nil {
+	if err := t.Signature.MarshalCBOR(cw); err != nil {
 		return err
 	}
 	return nil
 }
 
-func (t *SignedResponse0) UnmarshalCBOR(r io.Reader) error {
+func (t *SignedResponse0) UnmarshalCBOR(r io.Reader) (err error) {
 	*t = SignedResponse0{}
 
-	br := cbg.GetPeeker(r)
-	scratch := make([]byte, 8)
+	cr := cbg.NewCborReader(r)
 
-	maj, extra, err := cbg.CborReadHeaderBuf(br, scratch)
+	maj, extra, err := cr.ReadHeader()
 	if err != nil {
 		return err
 	}
+	defer func() {
+		if err == io.EOF {
+			err = io.ErrUnexpectedEOF
+		}
+	}()
+
 	if maj != cbg.MajArray {
 		return fmt.Errorf("cbor input should be of type array")
 	}
@@ -2015,7 +2099,7 @@ func (t *SignedResponse0) UnmarshalCBOR(r io.Reader) error {
 
 	{
 
-		if err := t.Response.UnmarshalCBOR(br); err != nil {
+		if err := t.Response.UnmarshalCBOR(cr); err != nil {
 			return xerrors.Errorf("unmarshaling t.Response: %w", err)
 		}
 
@@ -2024,16 +2108,16 @@ func (t *SignedResponse0) UnmarshalCBOR(r io.Reader) error {
 
 	{
 
-		b, err := br.ReadByte()
+		b, err := cr.ReadByte()
 		if err != nil {
 			return err
 		}
 		if b != cbg.CborNull[0] {
-			if err := br.UnreadByte(); err != nil {
+			if err := cr.UnreadByte(); err != nil {
 				return err
 			}
 			t.Signature = new(crypto.Signature)
-			if err := t.Signature.UnmarshalCBOR(br); err != nil {
+			if err := t.Signature.UnmarshalCBOR(cr); err != nil {
 				return xerrors.Errorf("unmarshaling t.Signature pointer: %w", err)
 			}
 		}
@@ -2049,35 +2133,41 @@ func (t *DealStatusRequest0) MarshalCBOR(w io.Writer) error {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	if _, err := w.Write(lengthBufDealStatusRequest0); err != nil {
+
+	cw := cbg.NewCborWriter(w)
+
+	if _, err := cw.Write(lengthBufDealStatusRequest0); err != nil {
 		return err
 	}
 
-	scratch := make([]byte, 9)
-
 	// t.Proposal (cid.Cid) (struct)
 
-	if err := cbg.WriteCidBuf(scratch, w, t.Proposal); err != nil {
+	if err := cbg.WriteCid(cw, t.Proposal); err != nil {
 		return xerrors.Errorf("failed to write cid field t.Proposal: %w", err)
 	}
 
 	// t.Signature (crypto.Signature) (struct)
-	if err := t.Signature.MarshalCBOR(w); err != nil {
+	if err := t.Signature.MarshalCBOR(cw); err != nil {
 		return err
 	}
 	return nil
 }
 
-func (t *DealStatusRequest0) UnmarshalCBOR(r io.Reader) error {
+func (t *DealStatusRequest0) UnmarshalCBOR(r io.Reader) (err error) {
 	*t = DealStatusRequest0{}
 
-	br := cbg.GetPeeker(r)
-	scratch := make([]byte, 8)
+	cr := cbg.NewCborReader(r)
 
-	maj, extra, err := cbg.CborReadHeaderBuf(br, scratch)
+	maj, extra, err := cr.ReadHeader()
 	if err != nil {
 		return err
 	}
+	defer func() {
+		if err == io.EOF {
+			err = io.ErrUnexpectedEOF
+		}
+	}()
+
 	if maj != cbg.MajArray {
 		return fmt.Errorf("cbor input should be of type array")
 	}
@@ -2090,7 +2180,7 @@ func (t *DealStatusRequest0) UnmarshalCBOR(r io.Reader) error {
 
 	{
 
-		c, err := cbg.ReadCid(br)
+		c, err := cbg.ReadCid(cr)
 		if err != nil {
 			return xerrors.Errorf("failed to read cid field t.Proposal: %w", err)
 		}
@@ -2102,7 +2192,7 @@ func (t *DealStatusRequest0) UnmarshalCBOR(r io.Reader) error {
 
 	{
 
-		if err := t.Signature.UnmarshalCBOR(br); err != nil {
+		if err := t.Signature.UnmarshalCBOR(cr); err != nil {
 			return xerrors.Errorf("unmarshaling t.Signature: %w", err)
 		}
 
@@ -2117,32 +2207,40 @@ func (t *DealStatusResponse0) MarshalCBOR(w io.Writer) error {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	if _, err := w.Write(lengthBufDealStatusResponse0); err != nil {
+
+	cw := cbg.NewCborWriter(w)
+
+	if _, err := cw.Write(lengthBufDealStatusResponse0); err != nil {
 		return err
 	}
 
 	// t.DealState (migrations.ProviderDealState0) (struct)
-	if err := t.DealState.MarshalCBOR(w); err != nil {
+	if err := t.DealState.MarshalCBOR(cw); err != nil {
 		return err
 	}
 
 	// t.Signature (crypto.Signature) (struct)
-	if err := t.Signature.MarshalCBOR(w); err != nil {
+	if err := t.Signature.MarshalCBOR(cw); err != nil {
 		return err
 	}
 	return nil
 }
 
-func (t *DealStatusResponse0) UnmarshalCBOR(r io.Reader) error {
+func (t *DealStatusResponse0) UnmarshalCBOR(r io.Reader) (err error) {
 	*t = DealStatusResponse0{}
 
-	br := cbg.GetPeeker(r)
-	scratch := make([]byte, 8)
+	cr := cbg.NewCborReader(r)
 
-	maj, extra, err := cbg.CborReadHeaderBuf(br, scratch)
+	maj, extra, err := cr.ReadHeader()
 	if err != nil {
 		return err
 	}
+	defer func() {
+		if err == io.EOF {
+			err = io.ErrUnexpectedEOF
+		}
+	}()
+
 	if maj != cbg.MajArray {
 		return fmt.Errorf("cbor input should be of type array")
 	}
@@ -2155,7 +2253,7 @@ func (t *DealStatusResponse0) UnmarshalCBOR(r io.Reader) error {
 
 	{
 
-		if err := t.DealState.UnmarshalCBOR(br); err != nil {
+		if err := t.DealState.UnmarshalCBOR(cr); err != nil {
 			return xerrors.Errorf("unmarshaling t.DealState: %w", err)
 		}
 
@@ -2164,7 +2262,7 @@ func (t *DealStatusResponse0) UnmarshalCBOR(r io.Reader) error {
 
 	{
 
-		if err := t.Signature.UnmarshalCBOR(br); err != nil {
+		if err := t.Signature.UnmarshalCBOR(cr); err != nil {
 			return xerrors.Errorf("unmarshaling t.Signature: %w", err)
 		}
 

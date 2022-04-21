@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	paychtypes "github.com/filecoin-project/go-state-types/builtin/v8/paych"
 	"testing"
 
 	"github.com/ipfs/go-cid"
@@ -13,7 +14,6 @@ import (
 	"github.com/filecoin-project/go-address"
 	"github.com/filecoin-project/go-state-types/abi"
 	"github.com/filecoin-project/go-state-types/big"
-	"github.com/filecoin-project/specs-actors/actors/builtin/paych"
 
 	"github.com/filecoin-project/go-fil-markets/retrievalmarket"
 	"github.com/filecoin-project/go-fil-markets/shared"
@@ -29,7 +29,7 @@ type TestRetrievalClientNode struct {
 	createPaychMsgCID, addFundsMsgCID cid.Cid
 	lane                              uint64
 	laneError                         error
-	voucher                           *paych.SignedVoucher
+	voucher                           *paychtypes.SignedVoucher
 	voucherError, waitErr             error
 	channelAvailableFunds             retrievalmarket.ChannelAvailableFunds
 	checkAvailableFundsErr            error
@@ -39,7 +39,7 @@ type TestRetrievalClientNode struct {
 	receivedKnownAddresses            map[retrievalmarket.RetrievalPeer]struct{}
 	expectedKnownAddresses            map[retrievalmarket.RetrievalPeer]struct{}
 	allocateLaneRecorder              func(address.Address)
-	createPaymentVoucherRecorder      func(voucher *paych.SignedVoucher)
+	createPaymentVoucherRecorder      func(voucher *paychtypes.SignedVoucher)
 	getCreatePaymentChannelRecorder   func(address.Address, address.Address, abi.TokenAmount)
 }
 
@@ -50,10 +50,10 @@ type TestRetrievalClientNodeParams struct {
 	CreatePaychCID, AddFundsCID cid.Cid
 	Lane                        uint64
 	LaneError                   error
-	Voucher                     *paych.SignedVoucher
+	Voucher                     *paychtypes.SignedVoucher
 	VoucherError                error
 	AllocateLaneRecorder        func(address.Address)
-	PaymentVoucherRecorder      func(voucher *paych.SignedVoucher)
+	PaymentVoucherRecorder      func(voucher *paychtypes.SignedVoucher)
 	PaymentChannelRecorder      func(address.Address, address.Address, abi.TokenAmount)
 	AddFundsOnly                bool
 	WaitForReadyErr             error
@@ -113,7 +113,7 @@ func (trcn *TestRetrievalClientNode) AllocateLane(ctx context.Context, paymentCh
 }
 
 // CreatePaymentVoucher creates a mock payment voucher based on a channel and lane
-func (trcn *TestRetrievalClientNode) CreatePaymentVoucher(ctx context.Context, paymentChannel address.Address, amount abi.TokenAmount, lane uint64, tok shared.TipSetToken) (*paych.SignedVoucher, error) {
+func (trcn *TestRetrievalClientNode) CreatePaymentVoucher(ctx context.Context, paymentChannel address.Address, amount abi.TokenAmount, lane uint64, tok shared.TipSetToken) (*paychtypes.SignedVoucher, error) {
 	if trcn.createPaymentVoucherRecorder != nil {
 		trcn.createPaymentVoucherRecorder(trcn.voucher)
 	}

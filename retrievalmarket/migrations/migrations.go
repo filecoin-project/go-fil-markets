@@ -1,6 +1,7 @@
 package migrations
 
 import (
+	paychtypes "github.com/filecoin-project/go-state-types/builtin/v8/paych"
 	"github.com/ipfs/go-cid"
 	"github.com/libp2p/go-libp2p-core/peer"
 	cbg "github.com/whyrusleeping/cbor-gen"
@@ -9,13 +10,11 @@ import (
 	datatransfer "github.com/filecoin-project/go-data-transfer"
 	versioning "github.com/filecoin-project/go-ds-versioning/pkg"
 	"github.com/filecoin-project/go-ds-versioning/pkg/versioned"
-	"github.com/filecoin-project/go-state-types/abi"
-	"github.com/filecoin-project/specs-actors/actors/builtin/paych"
-
 	"github.com/filecoin-project/go-fil-markets/piecestore"
 	piecemigrations "github.com/filecoin-project/go-fil-markets/piecestore/migrations"
 	"github.com/filecoin-project/go-fil-markets/retrievalmarket"
 	"github.com/filecoin-project/go-fil-markets/retrievalmarket/migrations/maptypes"
+	"github.com/filecoin-project/go-state-types/abi"
 )
 
 //go:generate cbor-gen-for Query0 QueryResponse0 DealProposal0 DealResponse0 Params0 QueryParams0 DealPayment0 ClientDealState0 ProviderDealState0 PaymentInfo0 RetrievalPeer0 Ask0
@@ -145,7 +144,7 @@ func (dr *DealResponse0) Type() datatransfer.TypeIdentifier {
 type DealPayment0 struct {
 	ID             retrievalmarket.DealID
 	PaymentChannel address.Address
-	PaymentVoucher *paych.SignedVoucher
+	PaymentVoucher *paychtypes.SignedVoucher
 }
 
 // Type method makes DealPayment0 usable as a voucher

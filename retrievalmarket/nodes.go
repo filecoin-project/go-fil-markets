@@ -7,10 +7,9 @@ import (
 	ma "github.com/multiformats/go-multiaddr"
 
 	"github.com/filecoin-project/go-address"
-	"github.com/filecoin-project/go-state-types/abi"
-	"github.com/filecoin-project/specs-actors/actors/builtin/paych"
-
 	"github.com/filecoin-project/go-fil-markets/shared"
+	"github.com/filecoin-project/go-state-types/abi"
+	paychtypes "github.com/filecoin-project/go-state-types/builtin/v8/paych"
 )
 
 // RetrievalClientNode are the node dependencies for a RetrievalClient
@@ -34,7 +33,7 @@ type RetrievalClientNode interface {
 	// given payment channel so that all the payment vouchers in the lane add up
 	// to the given amount (so the payment voucher will be for the difference)
 	CreatePaymentVoucher(ctx context.Context, paymentChannel address.Address, amount abi.TokenAmount,
-		lane uint64, tok shared.TipSetToken) (*paych.SignedVoucher, error)
+		lane uint64, tok shared.TipSetToken) (*paychtypes.SignedVoucher, error)
 
 	// WaitForPaymentChannelReady just waits for the payment channel's pending operations to complete
 	WaitForPaymentChannelReady(ctx context.Context, waitSentinel cid.Cid) (address.Address, error)
@@ -49,7 +48,7 @@ type RetrievalProviderNode interface {
 
 	// returns the worker address associated with a miner
 	GetMinerWorkerAddress(ctx context.Context, miner address.Address, tok shared.TipSetToken) (address.Address, error)
-	SavePaymentVoucher(ctx context.Context, paymentChannel address.Address, voucher *paych.SignedVoucher, proof []byte, expectedAmount abi.TokenAmount, tok shared.TipSetToken) (abi.TokenAmount, error)
+	SavePaymentVoucher(ctx context.Context, paymentChannel address.Address, voucher *paychtypes.SignedVoucher, proof []byte, expectedAmount abi.TokenAmount, tok shared.TipSetToken) (abi.TokenAmount, error)
 
 	GetRetrievalPricingInput(ctx context.Context, pieceCID cid.Cid, storageDeals []abi.DealID) (PricingInput, error)
 }
