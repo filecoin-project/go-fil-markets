@@ -26,7 +26,6 @@ import (
 
 	"github.com/filecoin-project/go-address"
 	dtimpl "github.com/filecoin-project/go-data-transfer/impl"
-	"github.com/filecoin-project/go-data-transfer/testutil"
 	dtgstransport "github.com/filecoin-project/go-data-transfer/transport/graphsync"
 	"github.com/filecoin-project/go-state-types/abi"
 	"github.com/filecoin-project/go-state-types/big"
@@ -122,7 +121,7 @@ func requireSetupTestClientAndProvider(ctx context.Context, t *testing.T, payChA
 	dtTransport1 := dtgstransport.NewTransport(testData.Host1.ID(), gs1)
 	dt1, err := dtimpl.NewDataTransfer(testData.DTStore1, testData.DTNet1, dtTransport1)
 	require.NoError(t, err)
-	testutil.StartAndWaitForReady(ctx, t, dt1)
+	tut.StartAndWaitForReadyDT(ctx, t, dt1)
 	require.NoError(t, err)
 	clientDs := namespace.Wrap(testData.Ds1, datastore.NewKey("/retrievals/client"))
 	ba := tut.NewTestRetrievalBlockstoreAccessor()
@@ -166,7 +165,7 @@ func requireSetupTestClientAndProvider(ctx context.Context, t *testing.T, payChA
 	dtTransport2 := dtgstransport.NewTransport(testData.Host2.ID(), gs2)
 	dt2, err := dtimpl.NewDataTransfer(testData.DTStore2, testData.DTNet2, dtTransport2)
 	require.NoError(t, err)
-	testutil.StartAndWaitForReady(ctx, t, dt2)
+	tut.StartAndWaitForReadyDT(ctx, t, dt2)
 	require.NoError(t, err)
 	providerDs := namespace.Wrap(testData.Ds2, datastore.NewKey("/retrievals/provider"))
 
@@ -658,7 +657,7 @@ func setupClient(
 	dtTransport1 := dtgstransport.NewTransport(testData.Host1.ID(), gs1)
 	dt1, err := dtimpl.NewDataTransfer(testData.DTStore1, testData.DTNet1, dtTransport1)
 	require.NoError(t, err)
-	testutil.StartAndWaitForReady(ctx, t, dt1)
+	tut.StartAndWaitForReadyDT(ctx, t, dt1)
 	require.NoError(t, err)
 	clientDs := namespace.Wrap(testData.Ds1, datastore.NewKey("/retrievals/client"))
 	ba := tut.NewTestRetrievalBlockstoreAccessor()
@@ -698,7 +697,7 @@ func setupProvider(
 	dtTransport2 := dtgstransport.NewTransport(testData.Host2.ID(), gs2)
 	dt2, err := dtimpl.NewDataTransfer(testData.DTStore2, testData.DTNet2, dtTransport2)
 	require.NoError(t, err)
-	testutil.StartAndWaitForReady(ctx, t, dt2)
+	tut.StartAndWaitForReadyDT(ctx, t, dt2)
 	require.NoError(t, err)
 	providerDs := namespace.Wrap(testData.Ds2, datastore.NewKey("/retrievals/provider"))
 
