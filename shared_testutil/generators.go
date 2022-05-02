@@ -32,8 +32,8 @@ func MakeTestSignedVoucher() *paych.SignedVoucher {
 		TimeLockMax:    0,
 		SecretPreimage: []byte("secret-preimage"),
 		Extra:          MakeTestModVerifyParams(),
-		Lane:           rand.Uint64(),
-		Nonce:          rand.Uint64(),
+		Lane:           uint64(rand.Uint32()),
+		Nonce:          uint64(rand.Uint32()),
 		Amount:         MakeTestTokenAmount(),
 		Merges:         []paych.Merge{MakeTestMerge()},
 		Signature:      MakeTestSignature(),
@@ -52,8 +52,8 @@ func MakeTestModVerifyParams() *paych.ModVerifyParams {
 // MakeTestMerge generates a random Merge that has all non-zero fields
 func MakeTestMerge() paych.Merge {
 	return paych.Merge{
-		Lane:  rand.Uint64(),
-		Nonce: rand.Uint64(),
+		Lane:  uint64(rand.Uint32()),
+		Nonce: uint64(rand.Uint32()),
 	}
 }
 
@@ -293,12 +293,16 @@ func RequireGenerateRetrievalPeers(t *testing.T, numPeers int) []retrievalmarket
 
 type FakeDTValidator struct{}
 
-func (v *FakeDTValidator) ValidatePush(isRestart bool, _ datatransfer.ChannelID, sender peer.ID, voucher datatransfer.Voucher, baseCid cid.Cid, selector ipld.Node) (datatransfer.VoucherResult, error) {
-	return nil, nil
+func (v *FakeDTValidator) ValidatePush(_ datatransfer.ChannelID, sender peer.ID, voucher datatransfer.Voucher, baseCid cid.Cid, selector ipld.Node) (datatransfer.ValidationResult, error) {
+	return datatransfer.ValidationResult{Accepted: true}, nil
 }
 
-func (v *FakeDTValidator) ValidatePull(isRestart bool, _ datatransfer.ChannelID, receiver peer.ID, voucher datatransfer.Voucher, baseCid cid.Cid, selector ipld.Node) (datatransfer.VoucherResult, error) {
-	return nil, nil
+func (v *FakeDTValidator) ValidatePull(_ datatransfer.ChannelID, receiver peer.ID, voucher datatransfer.Voucher, baseCid cid.Cid, selector ipld.Node) (datatransfer.ValidationResult, error) {
+	return datatransfer.ValidationResult{Accepted: true}, nil
+}
+
+func (v *FakeDTValidator) ValidateRestart(_ datatransfer.ChannelID, channelState datatransfer.ChannelState) (datatransfer.ValidationResult, error) {
+	return datatransfer.ValidationResult{Accepted: true}, nil
 }
 
 var _ datatransfer.RequestValidator = (*FakeDTValidator)(nil)

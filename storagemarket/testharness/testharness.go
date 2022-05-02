@@ -20,7 +20,6 @@ import (
 	"golang.org/x/net/context"
 
 	dtimpl "github.com/filecoin-project/go-data-transfer/impl"
-	"github.com/filecoin-project/go-data-transfer/testutil"
 	dtgstransport "github.com/filecoin-project/go-data-transfer/transport/graphsync"
 	"github.com/filecoin-project/go-state-types/abi"
 	"github.com/filecoin-project/go-state-types/big"
@@ -147,7 +146,7 @@ func (h *StorageHarness) CreateNewProvider(t *testing.T, ctx context.Context, td
 	dtTransport2 := dtgstransport.NewTransport(td.Host2.ID(), gs2)
 	dt2, err := dtimpl.NewDataTransfer(td.DTStore2, td.DTNet2, dtTransport2)
 	require.NoError(t, err)
-	testutil.StartAndWaitForReady(ctx, t, dt2)
+	shared_testutil.StartAndWaitForReadyDT(ctx, t, dt2)
 
 	providerDs := namespace.Wrap(td.Ds1, datastore.NewKey("/deals/provider"))
 	pi := shared_testutil.NewMockIndexProvider()

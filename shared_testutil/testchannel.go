@@ -267,3 +267,11 @@ func (tc *TestChannel) LastVoucherResult() datatransfer.VoucherResult {
 func (tc *TestChannel) Stages() *datatransfer.ChannelStages {
 	return nil
 }
+
+func (tc *TestChannel) DataLimit() uint64 {
+	return 0
+}
+
+func (tc *TestChannel) RequiresFinalization() bool {
+	return false
+}
