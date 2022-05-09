@@ -763,13 +763,20 @@ func (p *Provider) dispatch(eventName fsm.EventName, deal fsm.StateType) {
 	}
 }
 
-func (p *Provider) start(ctx context.Context) error {
+func (p *Provider) start(ctx context.Context) (err error) {
+	defer func() {
+		publishErr := p.readyMgr.FireReady(err)
+		if publishErr != nil {
+			if err != nil {
+				log.Warnf("failed to publish storage provider ready event with err %s: %s", err, publishErr)
+			} else {
+				log.Warnf("failed to publish storage provider ready event: %s", publishErr)
+			}
+		}
+	}()
+
 	// Run datastore and DAG store migrations
 	deals, err := p.runMigrations(ctx)
-	publishErr := p.readyMgr.FireReady(err)
-	if publishErr != nil {
-		log.Warnf("publish storage provider ready event: %s", err.Error())
-	}
 	if err != nil {
 		return err
 	}
