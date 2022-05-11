@@ -10,13 +10,13 @@ require (
 	github.com/filecoin-project/go-cbor-util v0.0.1
 	github.com/filecoin-project/go-commp-utils v0.1.3
 	github.com/filecoin-project/go-crypto v0.0.1 // indirect
-	github.com/filecoin-project/go-data-transfer v1.15.2-0.20220502094343-56cdb10f0a3b
+	github.com/filecoin-project/go-data-transfer v1.15.2-0.20220503202907-8d028dc26188
 	github.com/filecoin-project/go-ds-versioning v0.1.1
 	github.com/filecoin-project/go-fil-commcid v0.1.0
 	github.com/filecoin-project/go-fil-commp-hashhash v0.1.0
 	github.com/filecoin-project/go-padreader v0.0.1
 	github.com/filecoin-project/go-state-types v0.1.3
-	github.com/filecoin-project/go-statemachine v1.0.2-0.20220322104818-27f8fbb86dfd
+	github.com/filecoin-project/go-statemachine v1.0.3-0.20220503191431-4b76c4109ae3
 	github.com/filecoin-project/go-statestore v0.2.0
 	github.com/filecoin-project/index-provider v0.6.1
 	github.com/filecoin-project/specs-actors v0.9.13

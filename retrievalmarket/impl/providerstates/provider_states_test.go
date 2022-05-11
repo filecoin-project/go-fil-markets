@@ -6,19 +6,25 @@ import (
 	"math/rand"
 	"testing"
 
+	"github.com/ipfs/go-cid"
+	selectorparse "github.com/ipld/go-ipld-prime/traversal/selector/parse"
 	"github.com/stretchr/testify/require"
 
+	"github.com/filecoin-project/go-address"
 	datatransfer "github.com/filecoin-project/go-data-transfer"
 	"github.com/filecoin-project/go-state-types/abi"
 	"github.com/filecoin-project/go-state-types/big"
 	"github.com/filecoin-project/go-statemachine/fsm"
 	fsmtest "github.com/filecoin-project/go-statemachine/fsm/testutil"
+	"github.com/filecoin-project/specs-actors/actors/builtin/paych"
 
 	"github.com/filecoin-project/go-fil-markets/piecestore"
+	"github.com/filecoin-project/go-fil-markets/retrievalmarket"
 	rm "github.com/filecoin-project/go-fil-markets/retrievalmarket"
 	"github.com/filecoin-project/go-fil-markets/retrievalmarket/impl/providerstates"
 	"github.com/filecoin-project/go-fil-markets/retrievalmarket/impl/testnodes"
 	rmtesting "github.com/filecoin-project/go-fil-markets/retrievalmarket/testing"
+	"github.com/filecoin-project/go-fil-markets/shared"
 	testnet "github.com/filecoin-project/go-fil-markets/shared_testutil"
 )
 
@@ -77,7 +83,6 @@ func TestUnsealData(t *testing.T) {
 					},
 				},
 			},
-			TotalSent:     0,
 			FundsReceived: abi.NewTokenAmount(0),
 		}
 	}
@@ -130,15 +135,6 @@ func TestUnpauseDeal(t *testing.T) {
 		runUnpauseDeal(t, setupEnv, dealState)
 		require.Equal(t, dealState.Status, rm.DealStatusUnsealed)
 	})
-	t.Run("error tracking channel", func(t *testing.T) {
-		dealState := makeDealState(rm.DealStatusUnsealed)
-		setupEnv := func(fe *rmtesting.TestProviderDealEnvironment) {
-			fe.TrackTransferError = errors.New("something went wrong tracking")
-		}
-		runUnpauseDeal(t, setupEnv, dealState)
-		require.Equal(t, dealState.Status, rm.DealStatusErrored)
-		require.Equal(t, dealState.Message, "something went wrong tracking")
-	})
 	t.Run("error resuming channel", func(t *testing.T) {
 		dealState := makeDealState(rm.DealStatusUnsealed)
 		setupEnv := func(fe *rmtesting.TestProviderDealEnvironment) {
@@ -148,6 +144,388 @@ func TestUnpauseDeal(t *testing.T) {
 		require.Equal(t, dealState.Status, rm.DealStatusErrored)
 		require.Equal(t, dealState.Message, "something went wrong resuming")
 	})
+}
+
+func TestUpdateFunding(t *testing.T) {
+	ctx := context.Background()
+	eventMachine, err := fsm.NewEventProcessor(rm.ProviderDealState{}, "Status", providerstates.ProviderEvents)
+	require.NoError(t, err)
+	testCases := map[string]struct {
+		status                     rm.DealStatus
+		emptyChannelID             bool
+		fundReceived               abi.TokenAmount
+		lastVoucher                datatransfer.Voucher
+		queued                     uint64
+		dtStatus                   datatransfer.Status
+		channelStateErr            error
+		chainHeadErr               error
+		savePaymentErr             error
+		savePaymentAmount          abi.TokenAmount
+		updateValidationStatusErr  error
+		expectedFinalStatus        rm.DealStatus
+		expectedFundsReceived      abi.TokenAmount
+		expectedReceivedValidation datatransfer.ValidationResult
+		expectedMessage            string
+	}{
+		"when empty channel id does nothing": {
+			status:              rm.DealStatusFundsNeededUnseal,
+			emptyChannelID:      true,
+			expectedFinalStatus: rm.DealStatusFundsNeededUnseal,
+		},
+		"when error getting channel state, errors channel": {
+			status:              rm.DealStatusFundsNeededUnseal,
+			channelStateErr:     errors.New("couldn't get channel state"),
+			expectedFinalStatus: rm.DealStatusErrored,
+			expectedMessage:     "couldn't get channel state",
+		},
+		"when last voucher incorrect type, sends response": {
+			status:              rm.DealStatusFundsNeededUnseal,
+			lastVoucher:         &testnet.FakeDTType{},
+			expectedFinalStatus: rm.DealStatusFundsNeededUnseal,
+			expectedReceivedValidation: datatransfer.ValidationResult{
+				Accepted: false,
+				VoucherResult: &rm.DealResponse{
+					ID:      dealID,
+					Message: "wrong voucher type",
+					Status:  rm.DealStatusErrored,
+				},
+			},
+		},
+		"when received payment with nothing owed on unseal, updates status, forces pause": {
+			status:                rm.DealStatusFundsNeededUnseal,
+			lastVoucher:           &rm.DealPayment{},
+			queued:                0,
+			dtStatus:              datatransfer.ResponderPaused,
+			savePaymentAmount:     defaultUnsealPrice,
+			expectedFinalStatus:   rm.DealStatusUnsealing,
+			expectedFundsReceived: defaultUnsealPrice,
+			expectedReceivedValidation: datatransfer.ValidationResult{
+				Accepted:             true,
+				RequiresFinalization: true,
+				ForcePause:           true,
+				DataLimit:            defaultCurrentInterval,
+			},
+		},
+		"when received payment with nothing owed, updates data limits, funds, and status": {
+			status:                rm.DealStatusFundsNeeded,
+			fundReceived:          defaultUnsealPrice,
+			lastVoucher:           &rm.DealPayment{},
+			queued:                defaultCurrentInterval,
+			dtStatus:              datatransfer.ResponderPaused,
+			savePaymentAmount:     defaultPaymentPerInterval,
+			expectedFinalStatus:   rm.DealStatusOngoing,
+			expectedFundsReceived: big.Add(defaultUnsealPrice, defaultPaymentPerInterval),
+			expectedReceivedValidation: datatransfer.ValidationResult{
+				Accepted:             true,
+				RequiresFinalization: true,
+				DataLimit:            defaultCurrentInterval + defaultCurrentInterval + defaultIntervalIncrease,
+			},
+		},
+		"when received payment with nothing owed on last payment, sends response, sets finalization false, updates status": {
+			status:                rm.DealStatusFundsNeededLastPayment,
+			fundReceived:          big.Add(defaultUnsealPrice, defaultPaymentPerInterval),
+			lastVoucher:           &rm.DealPayment{},
+			queued:                defaultCurrentInterval + defaultCurrentInterval,
+			dtStatus:              datatransfer.Finalizing,
+			savePaymentAmount:     defaultPaymentPerInterval,
+			expectedFinalStatus:   rm.DealStatusFinalizing,
+			expectedFundsReceived: big.Add(defaultUnsealPrice, big.Add(defaultPaymentPerInterval, defaultPaymentPerInterval)),
+			expectedReceivedValidation: datatransfer.ValidationResult{
+				Accepted: true,
+				VoucherResult: &rm.DealResponse{
+					ID:     dealID,
+					Status: rm.DealStatusCompleted,
+				},
+				RequiresFinalization: false,
+				DataLimit:            defaultCurrentInterval + defaultCurrentInterval + defaultIntervalIncrease,
+			},
+		},
+		"when received payment with more owed on unseal, sends response, stays paused": {
+			status:                rm.DealStatusFundsNeededUnseal,
+			lastVoucher:           &rm.DealPayment{},
+			queued:                0,
+			dtStatus:              datatransfer.ResponderPaused,
+			savePaymentAmount:     big.Div(defaultUnsealPrice, big.NewInt(2)),
+			expectedFinalStatus:   rm.DealStatusFundsNeededUnseal,
+			expectedFundsReceived: big.Div(defaultUnsealPrice, big.NewInt(2)),
+			expectedReceivedValidation: datatransfer.ValidationResult{
+				Accepted: true,
+				VoucherResult: &rm.DealResponse{
+					ID:          dealID,
+					Status:      rm.DealStatusFundsNeededUnseal,
+					PaymentOwed: big.Div(defaultUnsealPrice, big.NewInt(2)),
+				},
+				RequiresFinalization: true,
+				ForcePause:           true,
+				DataLimit:            defaultCurrentInterval,
+			},
+		},
+		"when received payment with more owed, sends response and does not change data limit": {
+			status:                rm.DealStatusFundsNeeded,
+			fundReceived:          defaultUnsealPrice,
+			lastVoucher:           &rm.DealPayment{},
+			queued:                defaultCurrentInterval,
+			dtStatus:              datatransfer.ResponderPaused,
+			savePaymentAmount:     big.Div(defaultPaymentPerInterval, big.NewInt(2)),
+			expectedFinalStatus:   rm.DealStatusFundsNeeded,
+			expectedFundsReceived: big.Add(defaultUnsealPrice, big.Div(defaultPaymentPerInterval, big.NewInt(2))),
+			expectedReceivedValidation: datatransfer.ValidationResult{
+				Accepted: true,
+				VoucherResult: &rm.DealResponse{
+					ID:          dealID,
+					Status:      rm.DealStatusFundsNeeded,
+					PaymentOwed: big.Div(defaultPaymentPerInterval, big.NewInt(2)),
+				},
+				RequiresFinalization: true,
+				DataLimit:            defaultCurrentInterval,
+			},
+		},
+		"when received payment with more owed on last payment, sends response and does not change finalization status": {
+			status:                rm.DealStatusFundsNeededLastPayment,
+			fundReceived:          big.Add(defaultUnsealPrice, defaultPaymentPerInterval),
+			lastVoucher:           &rm.DealPayment{},
+			queued:                defaultCurrentInterval + defaultCurrentInterval,
+			dtStatus:              datatransfer.Finalizing,
+			savePaymentAmount:     big.Div(defaultPaymentPerInterval, big.NewInt(2)),
+			expectedFinalStatus:   rm.DealStatusFundsNeededLastPayment,
+			expectedFundsReceived: big.Add(defaultUnsealPrice, big.Add(defaultPaymentPerInterval, big.Div(defaultPaymentPerInterval, big.NewInt(2)))),
+			expectedReceivedValidation: datatransfer.ValidationResult{
+				Accepted: true,
+				VoucherResult: &rm.DealResponse{
+					ID:          dealID,
+					Status:      rm.DealStatusFundsNeededLastPayment,
+					PaymentOwed: big.Div(defaultPaymentPerInterval, big.NewInt(2)),
+				},
+				RequiresFinalization: true,
+				DataLimit:            defaultCurrentInterval + defaultCurrentInterval + defaultIntervalIncrease,
+			},
+		},
+		"when money owed with no payment on unseal, leaves request paused": {
+			status:              rm.DealStatusFundsNeededUnseal,
+			lastVoucher:         &rm.DealProposal{},
+			queued:              0,
+			dtStatus:            datatransfer.ResponderPaused,
+			expectedFinalStatus: rm.DealStatusFundsNeededUnseal,
+			expectedReceivedValidation: datatransfer.ValidationResult{
+				Accepted:             true,
+				ForcePause:           true,
+				RequiresFinalization: true,
+				DataLimit:            defaultCurrentInterval,
+			},
+		},
+		"when money owed with no payment, sends response and does not change data limit": {
+			status:                rm.DealStatusFundsNeeded,
+			fundReceived:          defaultUnsealPrice,
+			lastVoucher:           &rm.DealPayment{},
+			queued:                defaultCurrentInterval,
+			dtStatus:              datatransfer.ResponderPaused,
+			expectedFinalStatus:   rm.DealStatusFundsNeeded,
+			expectedFundsReceived: defaultUnsealPrice,
+			expectedReceivedValidation: datatransfer.ValidationResult{
+				Accepted: true,
+				VoucherResult: &rm.DealResponse{
+					ID:          dealID,
+					Status:      rm.DealStatusFundsNeeded,
+					PaymentOwed: defaultPaymentPerInterval,
+				},
+				RequiresFinalization: true,
+				DataLimit:            defaultCurrentInterval,
+			},
+		},
+		"when no payment and money owed for last payment, sends response and does not change finalization status": {
+			status:                rm.DealStatusFundsNeededLastPayment,
+			fundReceived:          big.Add(defaultUnsealPrice, defaultPaymentPerInterval),
+			lastVoucher:           &rm.DealPayment{},
+			queued:                defaultCurrentInterval + defaultCurrentInterval,
+			dtStatus:              datatransfer.Finalizing,
+			expectedFinalStatus:   rm.DealStatusFundsNeededLastPayment,
+			expectedFundsReceived: big.Add(defaultUnsealPrice, defaultPaymentPerInterval),
+			expectedReceivedValidation: datatransfer.ValidationResult{
+				Accepted: true,
+				VoucherResult: &rm.DealResponse{
+					ID:          dealID,
+					Status:      rm.DealStatusFundsNeededLastPayment,
+					PaymentOwed: defaultPaymentPerInterval,
+				},
+				RequiresFinalization: true,
+				DataLimit:            defaultCurrentInterval + defaultCurrentInterval + defaultIntervalIncrease,
+			},
+		},
+		"when surplus payment with nothing owed, updates data limits accordingly": {
+			status:                rm.DealStatusFundsNeeded,
+			fundReceived:          defaultUnsealPrice,
+			lastVoucher:           &rm.DealPayment{},
+			queued:                defaultCurrentInterval,
+			dtStatus:              datatransfer.ResponderPaused,
+			savePaymentAmount:     big.Mul(defaultPricePerByte, big.NewIntUnsigned(defaultCurrentInterval+defaultCurrentInterval+defaultIntervalIncrease)),
+			expectedFinalStatus:   rm.DealStatusOngoing,
+			expectedFundsReceived: big.Add(defaultUnsealPrice, big.Mul(defaultPricePerByte, big.NewIntUnsigned(defaultCurrentInterval+defaultCurrentInterval+defaultIntervalIncrease))),
+			expectedReceivedValidation: datatransfer.ValidationResult{
+				Accepted:             true,
+				RequiresFinalization: true,
+				DataLimit: defaultCurrentInterval +
+					defaultCurrentInterval + defaultIntervalIncrease +
+					defaultCurrentInterval + (2 * defaultIntervalIncrease),
+			},
+		},
+		"when no money owed and no payment, updates data limits and status": {
+			status:                rm.DealStatusFundsNeeded,
+			fundReceived:          big.Add(defaultUnsealPrice, defaultPaymentPerInterval),
+			lastVoucher:           &rm.DealPayment{},
+			queued:                defaultCurrentInterval,
+			dtStatus:              datatransfer.ResponderPaused,
+			expectedFinalStatus:   rm.DealStatusOngoing,
+			expectedFundsReceived: big.Add(defaultUnsealPrice, defaultPaymentPerInterval),
+			expectedReceivedValidation: datatransfer.ValidationResult{
+				Accepted:             true,
+				RequiresFinalization: true,
+				DataLimit:            defaultCurrentInterval + defaultCurrentInterval + defaultIntervalIncrease,
+			},
+		},
+		"when no money owed and no payment on last payment, sends response, sets finalization false, updates status": {
+			status:                rm.DealStatusFundsNeededLastPayment,
+			fundReceived:          big.Add(defaultUnsealPrice, big.Add(defaultPaymentPerInterval, defaultPaymentPerInterval)),
+			lastVoucher:           &rm.DealPayment{},
+			queued:                defaultCurrentInterval + defaultCurrentInterval,
+			dtStatus:              datatransfer.Finalizing,
+			expectedFinalStatus:   rm.DealStatusFinalizing,
+			expectedFundsReceived: big.Add(defaultUnsealPrice, big.Add(defaultPaymentPerInterval, defaultPaymentPerInterval)),
+			expectedReceivedValidation: datatransfer.ValidationResult{
+				Accepted: true,
+				VoucherResult: &rm.DealResponse{
+					ID:     dealID,
+					Status: rm.DealStatusCompleted,
+				},
+				RequiresFinalization: false,
+				DataLimit:            defaultCurrentInterval + defaultCurrentInterval + defaultIntervalIncrease,
+			},
+		},
+		"get chain head error": {
+			status:              rm.DealStatusFundsNeededUnseal,
+			lastVoucher:         &rm.DealPayment{},
+			chainHeadErr:        errors.New("something went wrong"),
+			expectedFinalStatus: rm.DealStatusFailing,
+			expectedMessage:     "something went wrong",
+			expectedReceivedValidation: datatransfer.ValidationResult{
+				Accepted: false,
+				VoucherResult: &rm.DealResponse{
+					ID:      dealID,
+					Message: "something went wrong",
+					Status:  rm.DealStatusErrored,
+				},
+			},
+		},
+		"save payment voucher error": {
+			status:              rm.DealStatusFundsNeededUnseal,
+			lastVoucher:         &rm.DealPayment{},
+			savePaymentErr:      errors.New("something went wrong"),
+			expectedFinalStatus: rm.DealStatusFailing,
+			expectedMessage:     "something went wrong",
+			expectedReceivedValidation: datatransfer.ValidationResult{
+				Accepted: false,
+				VoucherResult: &rm.DealResponse{
+					ID:      dealID,
+					Message: "something went wrong",
+					Status:  rm.DealStatusErrored,
+				},
+			},
+		},
+		"update validation status error": {
+			status:                    rm.DealStatusFundsNeeded,
+			fundReceived:              big.Add(defaultUnsealPrice, defaultPaymentPerInterval),
+			lastVoucher:               &rm.DealPayment{},
+			queued:                    defaultCurrentInterval,
+			dtStatus:                  datatransfer.ResponderPaused,
+			updateValidationStatusErr: errors.New("something went wrong"),
+			expectedFinalStatus:       rm.DealStatusErrored,
+			expectedFundsReceived:     big.Add(defaultUnsealPrice, defaultPaymentPerInterval),
+			expectedReceivedValidation: datatransfer.ValidationResult{
+				Accepted:             true,
+				RequiresFinalization: true,
+				DataLimit:            defaultCurrentInterval + defaultCurrentInterval + defaultIntervalIncrease,
+			},
+			expectedMessage: "something went wrong",
+		},
+	}
+	for testCase, data := range testCases {
+		t.Run(testCase, func(t *testing.T) {
+			if data.fundReceived.Nil() {
+				data.fundReceived = big.Zero()
+			}
+			if data.expectedFundsReceived.Nil() {
+				data.expectedFundsReceived = big.Zero()
+			}
+			params, err := rm.NewParamsV1(
+				defaultPricePerByte,
+				defaultCurrentInterval,
+				defaultIntervalIncrease,
+				selectorparse.CommonSelector_ExploreAllRecursively,
+				nil,
+				defaultUnsealPrice,
+			)
+			require.NoError(t, err)
+			dealState := &rm.ProviderDealState{
+				Status:        data.status,
+				FundsReceived: data.fundReceived,
+				DealProposal: rm.DealProposal{
+					ID:     dealID,
+					Params: params,
+				},
+			}
+			if !data.emptyChannelID {
+				dealState.ChannelID = &datatransfer.ChannelID{
+					Initiator: "initiator",
+					Responder: dealState.Receiver,
+					ID:        1,
+				}
+			}
+			chst := testnet.NewTestChannel(testnet.TestChannelParams{
+				Vouchers: []datatransfer.Voucher{
+					data.lastVoucher,
+				},
+				Status: data.dtStatus,
+				Queued: data.queued,
+			})
+			node := &simpleProviderNode{
+				chainHeadErr:   data.chainHeadErr,
+				receivedAmount: data.savePaymentAmount,
+				receivedErr:    data.savePaymentErr,
+			}
+			environment := rmtesting.NewTestProviderDealEnvironment(node)
+			environment.ChannelStateError = data.channelStateErr
+			environment.ReturnedChannelState = chst
+			environment.UpdateValidationStatusError = data.updateValidationStatusErr
+			fsmCtx := fsmtest.NewTestContext(ctx, eventMachine)
+			err = providerstates.UpdateFunding(fsmCtx, environment, *dealState)
+			require.NoError(t, err)
+			fsmCtx.ReplayEvents(t, dealState)
+			require.Equal(t, data.expectedFinalStatus, dealState.Status)
+			require.True(t, data.expectedFundsReceived.Equals(dealState.FundsReceived))
+			require.Equal(t, data.expectedMessage, dealState.Message)
+			require.Equal(t, data.expectedReceivedValidation, environment.NewValidationStatus)
+		})
+	}
+}
+
+type simpleProviderNode struct {
+	chainHeadErr   error
+	receivedAmount abi.TokenAmount
+	receivedErr    error
+}
+
+func (s *simpleProviderNode) GetChainHead(ctx context.Context) (shared.TipSetToken, abi.ChainEpoch, error) {
+	return shared.TipSetToken{}, 0, s.chainHeadErr
+}
+
+func (s *simpleProviderNode) SavePaymentVoucher(ctx context.Context, paymentChannel address.Address, voucher *paych.SignedVoucher, proof []byte, expectedAmount abi.TokenAmount, tok shared.TipSetToken) (abi.TokenAmount, error) {
+	return s.receivedAmount, s.receivedErr
+}
+
+func (s *simpleProviderNode) GetMinerWorkerAddress(ctx context.Context, miner address.Address, tok shared.TipSetToken) (address.Address, error) {
+	panic("not implemented")
+}
+func (s *simpleProviderNode) GetRetrievalPricingInput(ctx context.Context, pieceCID cid.Cid, storageDeals []abi.DealID) (retrievalmarket.PricingInput, error) {
+	panic("not implemented")
 }
 
 func TestCancelDeal(t *testing.T) {
@@ -179,15 +557,6 @@ func TestCancelDeal(t *testing.T) {
 		runCancelDeal(t, setupEnv, dealState)
 		require.Equal(t, dealState.Status, rm.DealStatusErrored)
 		require.Equal(t, dealState.Message, "Existing error")
-	})
-	t.Run("error untracking channel", func(t *testing.T) {
-		dealState := makeDealState(rm.DealStatusFailing)
-		setupEnv := func(fe *rmtesting.TestProviderDealEnvironment) {
-			fe.UntrackTransferError = errors.New("something went wrong untracking")
-		}
-		runCancelDeal(t, setupEnv, dealState)
-		require.Equal(t, dealState.Status, rm.DealStatusErrored)
-		require.Equal(t, dealState.Message, "something went wrong untracking")
 	})
 	t.Run("error deleting store", func(t *testing.T) {
 		dealState := makeDealState(rm.DealStatusFailing)
@@ -232,15 +601,6 @@ func TestCleanupDeal(t *testing.T) {
 		runCleanupDeal(t, setupEnv, dealState)
 		require.Equal(t, dealState.Status, rm.DealStatusCompleted)
 	})
-	t.Run("error untracking channel", func(t *testing.T) {
-		dealState := makeDealState(rm.DealStatusCompleting)
-		setupEnv := func(fe *rmtesting.TestProviderDealEnvironment) {
-			fe.UntrackTransferError = errors.New("something went wrong untracking")
-		}
-		runCleanupDeal(t, setupEnv, dealState)
-		require.Equal(t, dealState.Status, rm.DealStatusErrored)
-		require.Equal(t, dealState.Message, "something went wrong untracking")
-	})
 	t.Run("error deleting store", func(t *testing.T) {
 		dealState := makeDealState(rm.DealStatusCompleting)
 		setupEnv := func(fe *rmtesting.TestProviderDealEnvironment) {
@@ -260,13 +620,12 @@ var defaultPricePerByte = abi.NewTokenAmount(500)
 var defaultPaymentPerInterval = big.Mul(defaultPricePerByte, abi.NewTokenAmount(int64(defaultCurrentInterval)))
 var defaultTotalSent = uint64(5000)
 var defaultFundsReceived = abi.NewTokenAmount(2500000)
+var defaultUnsealPrice = defaultPaymentPerInterval
 
 func makeDealState(status rm.DealStatus) *rm.ProviderDealState {
 	return &rm.ProviderDealState{
-		Status:          status,
-		TotalSent:       defaultTotalSent,
-		CurrentInterval: defaultCurrentInterval,
-		FundsReceived:   defaultFundsReceived,
+		Status:        status,
+		FundsReceived: defaultFundsReceived,
 		DealProposal: rm.DealProposal{
 			ID:     dealID,
 			Params: rm.NewParamsV0(defaultPricePerByte, defaultCurrentInterval, defaultIntervalIncrease),

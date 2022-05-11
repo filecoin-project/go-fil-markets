@@ -24,26 +24,13 @@ import (
 
 func TestProviderDataTransferSubscriber(t *testing.T) {
 	dealProposal := shared_testutil.MakeTestDealProposal()
-	legacyProposal := migrations.DealProposal0{
-		PayloadCID: dealProposal.PayloadCID,
-		ID:         dealProposal.ID,
-		Params0: migrations.Params0{
-			Selector:                dealProposal.Selector,
-			PieceCID:                dealProposal.PieceCID,
-			PricePerByte:            dealProposal.PricePerByte,
-			PaymentInterval:         dealProposal.PaymentInterval,
-			PaymentIntervalIncrease: dealProposal.PaymentIntervalIncrease,
-			UnsealPrice:             dealProposal.UnsealPrice,
-		},
-	}
 	testPeers := shared_testutil.GeneratePeers(2)
 	transferID := datatransfer.TransferID(rand.Uint64())
 	tests := map[string]struct {
 		code          datatransfer.EventCode
 		message       string
-		state         shared_testutil.TestChannelParams
+		status        datatransfer.Status
 		ignored       bool
-		expectedID    interface{}
 		expectedEvent fsm.EventName
 		expectedArgs  []interface{}
 	}{
@@ -51,95 +38,69 @@ func TestProviderDataTransferSubscriber(t *testing.T) {
 			ignored: true,
 		},
 		"accept": {
-			code: datatransfer.Accept,
-			state: shared_testutil.TestChannelParams{
-				IsPull:     true,
-				TransferID: transferID,
-				Sender:     testPeers[0],
-				Recipient:  testPeers[1],
-				Vouchers:   []datatransfer.Voucher{&dealProposal},
-				Status:     datatransfer.Ongoing},
-			expectedID:    rm.ProviderDealIdentifier{DealID: dealProposal.ID, Receiver: testPeers[1]},
-			expectedEvent: rm.ProviderEventDealAccepted,
-			expectedArgs:  []interface{}{datatransfer.ChannelID{ID: transferID, Initiator: testPeers[1], Responder: testPeers[0]}},
-		},
-		"accept, legacy": {
-			code: datatransfer.Accept,
-			state: shared_testutil.TestChannelParams{
-				IsPull:     true,
-				TransferID: transferID,
-				Sender:     testPeers[0],
-				Recipient:  testPeers[1],
-				Vouchers:   []datatransfer.Voucher{&legacyProposal},
-				Status:     datatransfer.Ongoing},
-			expectedID:    rm.ProviderDealIdentifier{DealID: dealProposal.ID, Receiver: testPeers[1]},
+			code:          datatransfer.Accept,
+			status:        datatransfer.Ongoing,
 			expectedEvent: rm.ProviderEventDealAccepted,
 			expectedArgs:  []interface{}{datatransfer.ChannelID{ID: transferID, Initiator: testPeers[1], Responder: testPeers[0]}},
 		},
 		"error": {
-			code:    datatransfer.Error,
-			message: "something went wrong",
-			state: shared_testutil.TestChannelParams{
-				IsPull:     true,
-				TransferID: transferID,
-				Sender:     testPeers[0],
-				Recipient:  testPeers[1],
-				Vouchers:   []datatransfer.Voucher{&dealProposal},
-				Status:     datatransfer.Ongoing},
-			expectedID:    rm.ProviderDealIdentifier{DealID: dealProposal.ID, Receiver: testPeers[1]},
+			code:          datatransfer.Error,
+			message:       "something went wrong",
+			status:        datatransfer.Ongoing,
 			expectedEvent: rm.ProviderEventDataTransferError,
 			expectedArgs:  []interface{}{errors.New("deal data transfer failed: something went wrong")},
 		},
 		"disconnected": {
-			code:    datatransfer.Disconnected,
-			message: "something went wrong",
-			state: shared_testutil.TestChannelParams{
-				IsPull:     true,
-				TransferID: transferID,
-				Sender:     testPeers[0],
-				Recipient:  testPeers[1],
-				Vouchers:   []datatransfer.Voucher{&dealProposal},
-				Status:     datatransfer.Ongoing},
-			expectedID:    rm.ProviderDealIdentifier{DealID: dealProposal.ID, Receiver: testPeers[1]},
+			code:          datatransfer.Disconnected,
+			message:       "something went wrong",
+			status:        datatransfer.Ongoing,
 			expectedEvent: rm.ProviderEventDataTransferError,
 			expectedArgs:  []interface{}{errors.New("deal data transfer stalled (peer hungup)")},
 		},
 		"completed": {
-			code: datatransfer.ResumeResponder,
-			state: shared_testutil.TestChannelParams{
-				IsPull:     true,
-				TransferID: transferID,
-				Sender:     testPeers[0],
-				Recipient:  testPeers[1],
-				Vouchers:   []datatransfer.Voucher{&dealProposal},
-				Status:     datatransfer.Completed},
-			expectedID:    rm.ProviderDealIdentifier{DealID: dealProposal.ID, Receiver: testPeers[1]},
+			code:          datatransfer.ResumeResponder,
+			status:        datatransfer.Completed,
 			expectedEvent: rm.ProviderEventComplete,
 		},
 		"cancel": {
-			code: datatransfer.Cancel,
-			state: shared_testutil.TestChannelParams{
-				IsPull:     true,
-				TransferID: transferID,
-				Sender:     testPeers[0],
-				Recipient:  testPeers[1],
-				Vouchers:   []datatransfer.Voucher{&dealProposal},
-				Status:     datatransfer.Completed},
-			expectedID:    rm.ProviderDealIdentifier{DealID: dealProposal.ID, Receiver: testPeers[1]},
+			code:          datatransfer.Cancel,
+			status:        datatransfer.Cancelling,
 			expectedEvent: rm.ProviderEventClientCancelled,
+		},
+		"data limit exceeded": {
+			code:          datatransfer.DataLimitExceeded,
+			status:        datatransfer.Ongoing,
+			expectedEvent: rm.ProviderEventPaymentRequested,
+		},
+		"begin finalizing": {
+			code:          datatransfer.BeginFinalizing,
+			status:        datatransfer.Finalizing,
+			expectedEvent: rm.ProviderEventLastPaymentRequested,
+		},
+		"new voucher": {
+			code:          datatransfer.NewVoucher,
+			status:        datatransfer.Ongoing,
+			expectedEvent: rm.ProviderEventProcessPayment,
 		},
 	}
 	for test, data := range tests {
 		t.Run(test, func(t *testing.T) {
 			fdg := &fakeDealGroup{}
 			subscriber := dtutils.ProviderDataTransferSubscriber(fdg)
-			subscriber(datatransfer.Event{Code: data.code, Message: data.message}, shared_testutil.NewTestChannel(data.state))
 			if !data.ignored {
+				subscriber(datatransfer.Event{Code: data.code, Message: data.message}, shared_testutil.NewTestChannel(shared_testutil.TestChannelParams{
+					IsPull:     true,
+					TransferID: transferID,
+					Sender:     testPeers[0],
+					Recipient:  testPeers[1],
+					Vouchers:   []datatransfer.Voucher{&dealProposal},
+					Status:     data.status}))
 				require.True(t, fdg.called)
-				require.Equal(t, fdg.lastID, data.expectedID)
+				require.Equal(t, fdg.lastID, rm.ProviderDealIdentifier{DealID: dealProposal.ID, Receiver: testPeers[1]})
 				require.Equal(t, fdg.lastEvent, data.expectedEvent)
 				require.Equal(t, fdg.lastArgs, data.expectedArgs)
 			} else {
+				subscriber(datatransfer.Event{Code: data.code, Message: data.message}, shared_testutil.NewTestChannel(shared_testutil.TestChannelParams{}))
 				require.False(t, fdg.called)
 			}
 		})

@@ -29,6 +29,10 @@ type EventReceiver interface {
 const noProviderEvent = rm.ProviderEvent(math.MaxUint64)
 
 func providerEvent(event datatransfer.Event, channelState datatransfer.ChannelState) (rm.ProviderEvent, []interface{}) {
+	// complete event is triggered by the actual status of completed rather than a data transfer event
+	if channelState.Status() == datatransfer.Completed {
+		return rm.ProviderEventComplete, nil
+	}
 	switch event.Code {
 	case datatransfer.Accept:
 		return rm.ProviderEventDealAccepted, []interface{}{channelState.ChannelID()}
@@ -36,6 +40,12 @@ func providerEvent(event datatransfer.Event, channelState datatransfer.ChannelSt
 		return rm.ProviderEventDataTransferError, []interface{}{fmt.Errorf("deal data transfer stalled (peer hungup)")}
 	case datatransfer.Error:
 		return rm.ProviderEventDataTransferError, []interface{}{fmt.Errorf("deal data transfer failed: %s", event.Message)}
+	case datatransfer.DataLimitExceeded:
+		return rm.ProviderEventPaymentRequested, nil
+	case datatransfer.BeginFinalizing:
+		return rm.ProviderEventLastPaymentRequested, nil
+	case datatransfer.NewVoucher:
+		return rm.ProviderEventProcessPayment, nil
 	case datatransfer.Cancel:
 		return rm.ProviderEventClientCancelled, nil
 	default:
@@ -55,21 +65,14 @@ func ProviderDataTransferSubscriber(deals EventReceiver) datatransfer.Subscriber
 		if !ok {
 			return
 		}
-
-		if channelState.Status() == datatransfer.Completed {
-			err := deals.Send(rm.ProviderDealIdentifier{DealID: dealProposal.ID, Receiver: channelState.Recipient()}, rm.ProviderEventComplete)
-			if err != nil {
-				log.Errorf("processing dt event: %s", err)
-			}
-		}
-
+		dealID := rm.ProviderDealIdentifier{DealID: dealProposal.ID, Receiver: channelState.Recipient()}
 		retrievalEvent, params := providerEvent(event, channelState)
 		if retrievalEvent == noProviderEvent {
 			return
 		}
 		log.Debugw("processing retrieval provider dt event", "event", datatransfer.Events[event.Code], "dealID", dealProposal.ID, "peer", channelState.OtherPeer(), "retrievalEvent", rm.ProviderEvents[retrievalEvent])
 
-		err := deals.Send(rm.ProviderDealIdentifier{DealID: dealProposal.ID, Receiver: channelState.Recipient()}, retrievalEvent, params...)
+		err := deals.Send(dealID, retrievalEvent, params...)
 		if err != nil {
 			log.Errorf("processing dt event: %s", err)
 		}

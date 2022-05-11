@@ -88,30 +88,33 @@ func TestParamsIntervalBounds(t *testing.T) {
 		currentInterval:  10,
 		paymentInterval:  10,
 		intervalIncrease: 5,
-		expLowerBound:    0,
+		expLowerBound:    10,
 		expNextInterval:  25, // 10 + (10 + 5)
 	}, {
 		currentInterval:  25,
 		paymentInterval:  10,
 		intervalIncrease: 5,
-		expLowerBound:    10,
+		expLowerBound:    25,
 		expNextInterval:  45, // 10 + (10 + 5) + (10 + 5 + 5)
 	}, {
 		currentInterval:  45,
 		paymentInterval:  10,
 		intervalIncrease: 5,
-		expLowerBound:    25,
+		expLowerBound:    45,
 		expNextInterval:  70, // 10 + (10 + 5) + (10 + 5 + 5) + (10 + 5 + 5 + 5)
 	}}
 
 	for _, tc := range testCases {
 		t.Run("", func(t *testing.T) {
+			pricePerByte := abi.NewTokenAmount(1)
 			params := retrievalmarket.Params{
+				PricePerByte:            pricePerByte,
 				PaymentInterval:         tc.paymentInterval,
 				PaymentIntervalIncrease: tc.intervalIncrease,
 			}
+			currentIntervalFundPrice := big.Mul(pricePerByte, big.NewIntUnsigned(tc.currentInterval))
 			lowerBound := params.IntervalLowerBound(tc.currentInterval)
-			nextInterval := params.NextInterval(tc.currentInterval)
+			nextInterval := params.NextInterval(currentIntervalFundPrice)
 
 			require.Equal(t, tc.expLowerBound, lowerBound)
 			require.Equal(t, tc.expNextInterval, nextInterval)

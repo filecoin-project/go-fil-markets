@@ -111,7 +111,7 @@ func TestBounceConnectionDealTransferOngoing(t *testing.T) {
 
 			// do a storage deal
 			storageClientSeenDeal := doStorage(t, bgCtx, sh)
-			ctxTimeout, canc := context.WithTimeout(bgCtx, 5*time.Second)
+			ctxTimeout, canc := context.WithCancel(bgCtx)
 			defer canc()
 
 			// create a retrieval test harness
@@ -241,7 +241,7 @@ func TestBounceConnectionDealTransferUnsealing(t *testing.T) {
 
 			// do a storage deal
 			storageClientSeenDeal := doStorage(t, bgCtx, sh)
-			ctxTimeout, canc := context.WithTimeout(bgCtx, 5*time.Second)
+			ctxTimeout, canc := context.WithCancel(bgCtx)
 			defer canc()
 
 			// create a retrieval test harness

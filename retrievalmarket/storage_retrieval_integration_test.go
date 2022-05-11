@@ -281,13 +281,10 @@ func checkRetrieve(t *testing.T, bgCtx context.Context, rh *retrievalHarness, sh
 			Provider:
 			Event:           %s
 			Status:          %s
-			TotalSent:       %d
 			FundsReceived:   %s
 			Message:		 %s
-			CurrentInterval: %d
-			`
-			t.Logf(msg, retrievalmarket.ProviderEvents[event], retrievalmarket.DealStatuses[state.Status], state.TotalSent, state.FundsReceived.String(), state.Message,
-				state.CurrentInterval)
+=			`
+			t.Logf(msg, retrievalmarket.ProviderEvents[event], retrievalmarket.DealStatuses[state.Status], state.FundsReceived.String(), state.Message)
 		}
 	})
 
@@ -506,12 +503,16 @@ func newRetrievalHarnessWithDeps(
 
 type fakeDTValidator struct{}
 
-func (v *fakeDTValidator) ValidatePush(isRestart bool, _ datatransfer.ChannelID, sender peer.ID, voucher datatransfer.Voucher, baseCid cid.Cid, selector ipld.Node) (datatransfer.VoucherResult, error) {
-	return nil, nil
+func (v *fakeDTValidator) ValidatePush(_ datatransfer.ChannelID, sender peer.ID, voucher datatransfer.Voucher, baseCid cid.Cid, selector ipld.Node) (datatransfer.ValidationResult, error) {
+	return datatransfer.ValidationResult{Accepted: true}, nil
 }
 
-func (v *fakeDTValidator) ValidatePull(isRestart bool, _ datatransfer.ChannelID, receiver peer.ID, voucher datatransfer.Voucher, baseCid cid.Cid, selector ipld.Node) (datatransfer.VoucherResult, error) {
-	return nil, nil
+func (v *fakeDTValidator) ValidatePull(_ datatransfer.ChannelID, receiver peer.ID, voucher datatransfer.Voucher, baseCid cid.Cid, selector ipld.Node) (datatransfer.ValidationResult, error) {
+	return datatransfer.ValidationResult{Accepted: true}, nil
+}
+
+func (v *fakeDTValidator) ValidateRestart(_ datatransfer.ChannelID, channelState datatransfer.ChannelState) (datatransfer.ValidationResult, error) {
+	return datatransfer.ValidationResult{Accepted: true}, nil
 }
 
 func doStorage(t *testing.T, ctx context.Context, sh *testharness.StorageHarness) storagemarket.ClientDeal {

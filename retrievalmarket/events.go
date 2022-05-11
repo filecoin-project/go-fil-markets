@@ -256,6 +256,13 @@ const (
 
 	// ProviderEventClientCancelled happens when the provider gets a cancel message from the client's data transfer
 	ProviderEventClientCancelled
+
+	// ProviderEventLastPaymentRequested is emitted when the transfer goes into finalization
+	ProviderEventLastPaymentRequested
+
+	// ProviderEventProcessPayment occurs when the provider has received a voucher from the client that it needs
+	// to process as a payment
+	ProviderEventProcessPayment
 )
 
 // ProviderEvents is a human readable map of provider event name -> event description
@@ -278,4 +285,6 @@ var ProviderEvents = map[ProviderEvent]string{
 	ProviderEventCleanupComplete:        "ProviderEventCleanupComplete",
 	ProviderEventMultiStoreError:        "ProviderEventMultiStoreError",
 	ProviderEventClientCancelled:        "ProviderEventClientCancelled",
+	ProviderEventLastPaymentRequested:   "ProviderEventLastPaymentRequested",
+	ProviderEventProcessPayment:         "ProviderEventProcessPayment",
 }

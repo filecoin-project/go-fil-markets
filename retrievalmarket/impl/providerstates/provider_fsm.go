@@ -21,9 +21,7 @@ var ProviderEvents = fsm.Events{
 		From(rm.DealStatusNew).ToNoChange().
 		Action(
 			func(deal *rm.ProviderDealState) error {
-				deal.TotalSent = 0
 				deal.FundsReceived = abi.NewTokenAmount(0)
-				deal.CurrentInterval = deal.PaymentInterval
 				return nil
 			},
 		),
@@ -47,35 +45,31 @@ var ProviderEvents = fsm.Events{
 	// receiving blocks
 	fsm.Event(rm.ProviderEventBlockSent).
 		FromMany(rm.DealStatusOngoing).ToNoChange().
-		From(rm.DealStatusUnsealed).To(rm.DealStatusOngoing).
-		Action(func(deal *rm.ProviderDealState, totalSent uint64) error {
-			deal.TotalSent = totalSent
-			return nil
-		}),
-	fsm.Event(rm.ProviderEventBlocksCompleted).
-		FromMany(rm.DealStatusOngoing).To(rm.DealStatusBlocksComplete),
+		From(rm.DealStatusUnsealed).To(rm.DealStatusOngoing),
 
 	// request payment
 	fsm.Event(rm.ProviderEventPaymentRequested).
 		FromMany(rm.DealStatusOngoing, rm.DealStatusUnsealed).To(rm.DealStatusFundsNeeded).
 		From(rm.DealStatusFundsNeeded).ToJustRecord().
-		From(rm.DealStatusBlocksComplete).To(rm.DealStatusFundsNeededLastPayment).
-		From(rm.DealStatusNew).To(rm.DealStatusFundsNeededUnseal).
-		Action(func(deal *rm.ProviderDealState, totalSent uint64) error {
-			deal.TotalSent = totalSent
-			return nil
-		}),
+		From(rm.DealStatusNew).To(rm.DealStatusFundsNeededUnseal),
+
+	fsm.Event(rm.ProviderEventLastPaymentRequested).
+		FromMany(rm.DealStatusOngoing, rm.DealStatusUnsealed).To(rm.DealStatusFundsNeededLastPayment),
 
 	// receive and process payment
 	fsm.Event(rm.ProviderEventSaveVoucherFailed).
-		FromMany(rm.DealStatusFundsNeeded, rm.DealStatusFundsNeededLastPayment).To(rm.DealStatusFailing).
+		FromMany(rm.DealStatusFundsNeededUnseal, rm.DealStatusFundsNeeded, rm.DealStatusFundsNeededLastPayment).To(rm.DealStatusFailing).
 		Action(recordError),
+
 	fsm.Event(rm.ProviderEventPartialPaymentReceived).
-		FromMany(rm.DealStatusFundsNeeded, rm.DealStatusFundsNeededLastPayment).ToNoChange().
+		FromMany(rm.DealStatusFundsNeededUnseal,
+			rm.DealStatusFundsNeeded,
+			rm.DealStatusFundsNeededLastPayment).ToNoChange().
 		Action(func(deal *rm.ProviderDealState, fundsReceived abi.TokenAmount) error {
 			deal.FundsReceived = big.Add(deal.FundsReceived, fundsReceived)
 			return nil
 		}),
+
 	fsm.Event(rm.ProviderEventPaymentReceived).
 		From(rm.DealStatusFundsNeeded).To(rm.DealStatusOngoing).
 		From(rm.DealStatusFundsNeededLastPayment).To(rm.DealStatusFinalizing).
@@ -83,16 +77,14 @@ var ProviderEvents = fsm.Events{
 		FromMany(rm.DealStatusBlocksComplete, rm.DealStatusOngoing, rm.DealStatusFinalizing).ToJustRecord().
 		Action(func(deal *rm.ProviderDealState, fundsReceived abi.TokenAmount) error {
 			deal.FundsReceived = big.Add(deal.FundsReceived, fundsReceived)
-
-			// only update interval if the payment is for bytes and not for unsealing.
-			if deal.Status != rm.DealStatusFundsNeededUnseal {
-				deal.CurrentInterval = deal.NextInterval()
-			}
 			return nil
 		}),
 
+	// processing incoming payment
+	fsm.Event(rm.ProviderEventProcessPayment).FromAny().ToNoChange(),
+
 	// completing
-	fsm.Event(rm.ProviderEventComplete).FromMany(rm.DealStatusBlocksComplete, rm.DealStatusFinalizing).To(rm.DealStatusCompleting),
+	fsm.Event(rm.ProviderEventComplete).FromAny().To(rm.DealStatusCompleting),
 	fsm.Event(rm.ProviderEventCleanupComplete).From(rm.DealStatusCompleting).To(rm.DealStatusCompleted),
 
 	// Cancellation / Error cleanup
@@ -125,12 +117,14 @@ var ProviderEvents = fsm.Events{
 
 // ProviderStateEntryFuncs are the handlers for different states in a retrieval provider
 var ProviderStateEntryFuncs = fsm.StateEntryFuncs{
-	rm.DealStatusFundsNeededUnseal: TrackTransfer,
-	rm.DealStatusUnsealing:         UnsealData,
-	rm.DealStatusUnsealed:          UnpauseDeal,
-	rm.DealStatusFailing:           CancelDeal,
-	rm.DealStatusCancelling:        CancelDeal,
-	rm.DealStatusCompleting:        CleanupDeal,
+	rm.DealStatusUnsealing:              UnsealData,
+	rm.DealStatusUnsealed:               UnpauseDeal,
+	rm.DealStatusFundsNeeded:            UpdateFunding,
+	rm.DealStatusFundsNeededUnseal:      UpdateFunding,
+	rm.DealStatusFundsNeededLastPayment: UpdateFunding,
+	rm.DealStatusFailing:                CancelDeal,
+	rm.DealStatusCancelling:             CancelDeal,
+	rm.DealStatusCompleting:             CleanupDeal,
 }
 
 // ProviderFinalityStates are the terminal states for a retrieval provider
