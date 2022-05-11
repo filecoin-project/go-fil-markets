@@ -44,7 +44,7 @@ require (
 	github.com/ipfs/go-log/v2 v2.5.0
 	github.com/ipfs/go-merkledag v0.5.1
 	github.com/ipfs/go-unixfs v0.3.1
-	github.com/ipld/go-car v0.3.3-0.20211210032800-e6f244225a16
+	github.com/ipld/go-car v0.3.3
 	github.com/ipld/go-car/v2 v2.1.1
 	github.com/ipld/go-ipld-prime v0.16.0
 	github.com/jbenet/go-random v0.0.0-20190219211222-123a90aedc0c
