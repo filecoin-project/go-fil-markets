@@ -9,10 +9,10 @@ import (
 	logger "github.com/ipfs/go-log/v2"
 	"github.com/stretchr/testify/require"
 
-	datatransfer "github.com/filecoin-project/go-data-transfer"
-	"github.com/filecoin-project/go-data-transfer/channelmonitor"
-	dtimpl "github.com/filecoin-project/go-data-transfer/impl"
-	dtnet "github.com/filecoin-project/go-data-transfer/network"
+	datatransfer "github.com/filecoin-project/go-data-transfer/v2"
+	"github.com/filecoin-project/go-data-transfer/v2/channelmonitor"
+	dtimpl "github.com/filecoin-project/go-data-transfer/v2/impl"
+	dtnet "github.com/filecoin-project/go-data-transfer/v2/network"
 	"github.com/filecoin-project/go-state-types/abi"
 	"github.com/filecoin-project/go-state-types/big"
 

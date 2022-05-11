@@ -12,7 +12,7 @@ import (
 	"github.com/ipld/go-ipld-prime"
 	peer "github.com/libp2p/go-libp2p-core/peer"
 
-	datatransfer "github.com/filecoin-project/go-data-transfer"
+	datatransfer "github.com/filecoin-project/go-data-transfer/v2"
 	"github.com/filecoin-project/go-statemachine/fsm"
 
 	rm "github.com/filecoin-project/go-fil-markets/retrievalmarket"

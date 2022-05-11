@@ -25,8 +25,8 @@ import (
 	"golang.org/x/xerrors"
 
 	"github.com/filecoin-project/go-address"
-	dtimpl "github.com/filecoin-project/go-data-transfer/impl"
-	dtgstransport "github.com/filecoin-project/go-data-transfer/transport/graphsync"
+	dtimpl "github.com/filecoin-project/go-data-transfer/v2/impl"
+	dtgstransport "github.com/filecoin-project/go-data-transfer/v2/transport/graphsync"
 	"github.com/filecoin-project/go-state-types/abi"
 	"github.com/filecoin-project/go-state-types/big"
 	"github.com/filecoin-project/specs-actors/actors/builtin/paych"

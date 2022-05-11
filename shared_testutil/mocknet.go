@@ -23,7 +23,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"golang.org/x/net/context"
 
-	dtnet "github.com/filecoin-project/go-data-transfer/network"
+	dtnet "github.com/filecoin-project/go-data-transfer/v2/network"
 
 	"github.com/filecoin-project/go-fil-markets/shared_testutil/unixfs"
 )

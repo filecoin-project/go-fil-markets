@@ -5,7 +5,7 @@ import (
 
 	"github.com/ipfs/go-cid"
 
-	datatransfer "github.com/filecoin-project/go-data-transfer"
+	datatransfer "github.com/filecoin-project/go-data-transfer/v2"
 
 	"github.com/filecoin-project/go-fil-markets/storagemarket"
 )

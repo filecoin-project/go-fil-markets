@@ -8,7 +8,7 @@ import (
 	"math"
 	"sort"
 
-	datatransfer "github.com/filecoin-project/go-data-transfer"
+	datatransfer "github.com/filecoin-project/go-data-transfer/v2"
 	piecestore "github.com/filecoin-project/go-fil-markets/piecestore"
 	paych "github.com/filecoin-project/specs-actors/actors/builtin/paych"
 	cid "github.com/ipfs/go-cid"

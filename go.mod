@@ -10,7 +10,7 @@ require (
 	github.com/filecoin-project/go-cbor-util v0.0.1
 	github.com/filecoin-project/go-commp-utils v0.1.3
 	github.com/filecoin-project/go-crypto v0.0.1 // indirect
-	github.com/filecoin-project/go-data-transfer v1.15.2-0.20220503202907-8d028dc26188
+	github.com/filecoin-project/go-data-transfer/v2 v2.0.0-20220511223325-5253bfe075cd
 	github.com/filecoin-project/go-ds-versioning v0.1.1
 	github.com/filecoin-project/go-fil-commcid v0.1.0
 	github.com/filecoin-project/go-fil-commp-hashhash v0.1.0

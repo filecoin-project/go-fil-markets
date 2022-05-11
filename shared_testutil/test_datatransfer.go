@@ -7,7 +7,7 @@ import (
 	"github.com/ipld/go-ipld-prime"
 	"github.com/libp2p/go-libp2p-core/peer"
 
-	datatransfer "github.com/filecoin-project/go-data-transfer"
+	datatransfer "github.com/filecoin-project/go-data-transfer/v2"
 )
 
 // RegisteredVoucherType records a voucher typed that was registered

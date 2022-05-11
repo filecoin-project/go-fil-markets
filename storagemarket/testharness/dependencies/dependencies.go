@@ -16,10 +16,10 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/filecoin-project/go-address"
-	datatransfer "github.com/filecoin-project/go-data-transfer"
-	dtimpl "github.com/filecoin-project/go-data-transfer/impl"
-	network2 "github.com/filecoin-project/go-data-transfer/network"
-	dtgstransport "github.com/filecoin-project/go-data-transfer/transport/graphsync"
+	datatransfer "github.com/filecoin-project/go-data-transfer/v2"
+	dtimpl "github.com/filecoin-project/go-data-transfer/v2/impl"
+	network2 "github.com/filecoin-project/go-data-transfer/v2/network"
+	dtgstransport "github.com/filecoin-project/go-data-transfer/v2/transport/graphsync"
 	"github.com/filecoin-project/go-state-types/abi"
 	"github.com/filecoin-project/specs-actors/v7/actors/builtin/market"
 
