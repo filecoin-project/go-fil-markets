@@ -16,7 +16,7 @@ require (
 	github.com/filecoin-project/go-fil-commp-hashhash v0.1.0
 	github.com/filecoin-project/go-padreader v0.0.1
 	github.com/filecoin-project/go-state-types v0.1.3
-	github.com/filecoin-project/go-statemachine v1.0.3-0.20220503191431-4b76c4109ae3
+	github.com/filecoin-project/go-statemachine v1.0.3-0.20220512010507-f86db3074f9e
 	github.com/filecoin-project/go-statestore v0.2.0
 	github.com/filecoin-project/index-provider v0.6.1
 	github.com/filecoin-project/specs-actors v0.9.13
