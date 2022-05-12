@@ -7,6 +7,7 @@ import (
 	"golang.org/x/net/context"
 
 	datatransfer "github.com/filecoin-project/go-data-transfer/v2"
+
 	"github.com/filecoin-project/go-fil-markets/shared"
 )
 
