@@ -41,10 +41,16 @@ func providerEvent(event datatransfer.Event, channelState datatransfer.ChannelSt
 	case datatransfer.Error:
 		return rm.ProviderEventDataTransferError, []interface{}{fmt.Errorf("deal data transfer failed: %s", event.Message)}
 	case datatransfer.DataLimitExceeded:
+		// DataLimitExceeded indicates it's time to wait for a payment
 		return rm.ProviderEventPaymentRequested, nil
 	case datatransfer.BeginFinalizing:
+		// BeginFinalizing indicates it's time to wait for a final payment
+		// Because the legacy client expects a final voucher, we dispatch this event event when
+		// the deal is free -- so that we have a chance to send this final voucher before completion
+		// TODO: do not send the legacy voucher when the client no longer expects it
 		return rm.ProviderEventLastPaymentRequested, nil
 	case datatransfer.NewVoucher:
+		// NewVoucher indicates a potential new payment we should attempt to process
 		return rm.ProviderEventProcessPayment, nil
 	case datatransfer.Cancel:
 		return rm.ProviderEventClientCancelled, nil

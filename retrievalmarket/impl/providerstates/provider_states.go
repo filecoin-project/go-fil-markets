@@ -58,14 +58,18 @@ func UnpauseDeal(ctx fsm.Context, environment ProviderDealEnvironment, deal rm.P
 // UpdateFunding saves payments as needed until a transfer can resume
 func UpdateFunding(ctx fsm.Context, environment ProviderDealEnvironment, deal rm.ProviderDealState) error {
 	log.Debugf("handling new event while in ongoing state of transfer %d", deal.ID)
+	// if we have no channel ID yet, there's no need to attempt to process payment based on channel state
 	if deal.ChannelID == nil {
 		return nil
 	}
+	// read the channel state based on the channel id
 	channelState, err := environment.ChannelState(ctx.Context(), *deal.ChannelID)
 	if err != nil {
 		return ctx.Trigger(rm.ProviderEventDataTransferError, err)
 	}
+	// process funding and produce the new validation status
 	result := updateFunding(ctx, environment, deal, channelState)
+	// update the validation status on the channel
 	err = environment.UpdateValidationStatus(ctx.Context(), *deal.ChannelID, result)
 	if err != nil {
 		return ctx.Trigger(rm.ProviderEventDataTransferError, err)
@@ -77,6 +81,7 @@ func updateFunding(ctx fsm.Context,
 	environment ProviderDealEnvironment,
 	deal rm.ProviderDealState,
 	channelState datatransfer.ChannelState) datatransfer.ValidationResult {
+	// process payment, determining how many more funds we have then the current deal.FundsReceived
 	received, err := processLastVoucher(ctx, environment, channelState)
 	if err != nil {
 		return errorDealResponse(deal.Identifier(), err)
@@ -86,19 +91,24 @@ func updateFunding(ctx fsm.Context,
 		received = big.Zero()
 	}
 
+	// calculate the current amount paid
 	totalPaid := big.Add(deal.FundsReceived, received)
 
-	// check if all payments are received to continue the deal, or send updated required payment
+	// check whether money is owed based on deal parameters, total amount paid, and current state of the transfer
 	owed := deal.Params.OutstandingBalance(totalPaid, channelState.Queued(), channelState.Status().InFinalization())
-	log.Debugf("provider: owed %d, total received %d = received so far %d + newly received %d, unseal price %d, price per byte %d",
-		owed, totalPaid, deal.FundsReceived, received, deal.UnsealPrice, deal.PricePerByte)
+	log.Debugf("provider: owed %d, total received %d = received so far %d + newly received %d, unseal price %d, price per byte %d, bytes sent: %d, in finalization: %v",
+		owed, totalPaid, deal.FundsReceived, received, deal.UnsealPrice, deal.PricePerByte, channelState.Queued(), channelState.Status().InFinalization())
 
 	var voucherResult datatransfer.VoucherResult
 	if owed.GreaterThan(big.Zero()) {
+		// if payment is still owed but we received funds, send a partial payment received event
 		if received.GreaterThan(big.Zero()) {
 			log.Debugf("provider: owed %d: sending partial payment request", owed)
 			_ = ctx.Trigger(rm.ProviderEventPartialPaymentReceived, received)
 		}
+		// sending this response voucher is primarily to cover for current client logic --
+		// our client expects a voucher requesting payment before it sends anything
+		// TODO: remove this when the client no longer expects a voucher
 		if received.GreaterThan(big.Zero()) || deal.Status != rm.DealStatusFundsNeededUnseal {
 			voucherResult = &rm.DealResponse{
 				ID:          deal.ID,
@@ -107,9 +117,13 @@ func updateFunding(ctx fsm.Context,
 			}
 		}
 	} else {
+		// send an event to record payment received
 		_ = ctx.Trigger(rm.ProviderEventPaymentReceived, received)
 		if deal.Status == rm.DealStatusFundsNeededLastPayment {
 			log.Debugf("provider: funds needed: last payment")
+			// sending this response voucher is primarily to cover for current client logic --
+			// our client expects a voucher announcing completion from the provider before it finishes
+			// TODO: remove this when the current no longer expects a voucher
 			voucherResult = &rm.DealResponse{
 				ID:     deal.ID,
 				Status: rm.DealStatusCompleted,

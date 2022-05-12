@@ -183,22 +183,28 @@ func (rv *ProviderRequestValidator) ValidateRestart(channelID datatransfer.Chann
 
 	dealID := rm.ProviderDealIdentifier{DealID: proposal.ID, Receiver: channelState.OtherPeer()}
 
+	// read the deal state
 	deal, err := rv.env.Get(dealID)
 	if err != nil {
 		return errorDealResponse(dealID, err), nil
 	}
 
-	// check if all payments are received to continue the deal, or send updated required payment
-	owed := deal.Params.OutstandingBalance(deal.FundsReceived, channelState.Queued(), channelState.Status().InFinalization())
-	log.Debugf("provider: owed %d: total received %d, total sent %d, unseal price %d, price per byte %d",
-		owed, deal.FundsReceived, channelState.Sent(), deal.UnsealPrice, deal.PricePerByte)
-
+	// produce validation based on current deal state and channel state
 	return datatransfer.ValidationResult{
 		Accepted:             true,
 		ForcePause:           deal.Status == rm.DealStatusUnsealing || deal.Status == rm.DealStatusFundsNeededUnseal,
-		RequiresFinalization: owed.GreaterThan(big.Zero()) || (deal.Status != rm.DealStatusFundsNeededLastPayment && deal.Status != rm.DealStatusFinalizing),
+		RequiresFinalization: requiresFinalization(deal, channelState),
 		DataLimit:            deal.Params.NextInterval(deal.FundsReceived),
 	}, nil
+}
+
+// requiresFinalization is true unless the deal is in finalization and no further funds are owed
+func requiresFinalization(deal rm.ProviderDealState, channelState datatransfer.ChannelState) bool {
+	if deal.Status != rm.DealStatusFundsNeededLastPayment && deal.Status != rm.DealStatusFinalizing {
+		return true
+	}
+	owed := deal.Params.OutstandingBalance(deal.FundsReceived, channelState.Queued(), channelState.Status().InFinalization())
+	return owed.GreaterThan(big.Zero())
 }
 
 func errorDealResponse(dealID rm.ProviderDealIdentifier, err error) datatransfer.ValidationResult {
