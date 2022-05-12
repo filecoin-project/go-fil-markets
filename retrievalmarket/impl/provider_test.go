@@ -26,12 +26,11 @@ import (
 	spect "github.com/filecoin-project/specs-actors/v8/support/testing"
 
 	"github.com/filecoin-project/go-fil-markets/piecestore"
-	piecemigrations "github.com/filecoin-project/go-fil-markets/piecestore/migrations"
 	"github.com/filecoin-project/go-fil-markets/retrievalmarket"
 	retrievalimpl "github.com/filecoin-project/go-fil-markets/retrievalmarket/impl"
 	"github.com/filecoin-project/go-fil-markets/retrievalmarket/impl/requestvalidation"
 	"github.com/filecoin-project/go-fil-markets/retrievalmarket/impl/testnodes"
-	"github.com/filecoin-project/go-fil-markets/retrievalmarket/migrations"
+	"github.com/filecoin-project/go-fil-markets/retrievalmarket/migrations/maptypes"
 	"github.com/filecoin-project/go-fil-markets/retrievalmarket/network"
 	tut "github.com/filecoin-project/go-fil-markets/shared_testutil"
 )
@@ -1113,11 +1112,11 @@ func TestProviderMigrations(t *testing.T) {
 		sectorIDs[i] = abi.SectorNumber(rand.Uint64())
 		offsets[i] = abi.PaddedPieceSize(rand.Uint64())
 		lengths[i] = abi.PaddedPieceSize(rand.Uint64())
-		deal := migrations.ProviderDealState0{
-			DealProposal0: migrations.DealProposal0{
+		deal := maptypes.ProviderDealState1{
+			DealProposal: retrievalmarket.DealProposal{
 				PayloadCID: payloadCIDs[i],
 				ID:         iDs[i],
-				Params0: migrations.Params0{
+				Params: retrievalmarket.Params{
 					Selector: &cbg.Deferred{
 						Raw: allSelectorBytes,
 					},
@@ -1130,9 +1129,9 @@ func TestProviderMigrations(t *testing.T) {
 			},
 			StoreID:   storeIDs[i],
 			ChannelID: channelIDs[i],
-			PieceInfo: &piecemigrations.PieceInfo0{
+			PieceInfo: &piecestore.PieceInfo{
 				PieceCID: pieceCID,
-				Deals: []piecemigrations.DealInfo0{
+				Deals: []piecestore.DealInfo{
 					{
 						DealID:   dealIDs[i],
 						SectorID: sectorIDs[i],
@@ -1152,17 +1151,6 @@ func TestProviderMigrations(t *testing.T) {
 		err = providerDs.Put(ctx, datastore.NewKey(fmt.Sprint(deal.ID)), buf.Bytes())
 		require.NoError(t, err)
 	}
-	oldAsk := &migrations.Ask0{
-		PricePerByte:            abi.NewTokenAmount(rand.Int63()),
-		UnsealPrice:             abi.NewTokenAmount(rand.Int63()),
-		PaymentInterval:         rand.Uint64(),
-		PaymentIntervalIncrease: rand.Uint64(),
-	}
-	askBuf := new(bytes.Buffer)
-	err = oldAsk.MarshalCBOR(askBuf)
-	require.NoError(t, err)
-	err = providerDs.Put(ctx, datastore.NewKey("retrieval-ask"), askBuf.Bytes())
-	require.NoError(t, err)
 
 	priceFunc := func(ctx context.Context, dealPricingParams retrievalmarket.PricingInput) (retrievalmarket.Ask, error) {
 		ask := retrievalmarket.Ask{}

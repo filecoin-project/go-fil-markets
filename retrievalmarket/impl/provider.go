@@ -14,7 +14,6 @@ import (
 
 	"github.com/filecoin-project/go-address"
 	datatransfer "github.com/filecoin-project/go-data-transfer/v2"
-	versioning "github.com/filecoin-project/go-ds-versioning/pkg"
 	versionedfsm "github.com/filecoin-project/go-ds-versioning/pkg/fsm"
 	"github.com/filecoin-project/go-state-types/abi"
 	"github.com/filecoin-project/go-state-types/big"
@@ -143,7 +142,7 @@ func NewProvider(minerAddress address.Address,
 		Options: fsm.Options{
 			ConsumeAllEventsBeforeEntryFuncs: true,
 		},
-	}, retrievalMigrations, versioning.VersionKey("1"))
+	}, retrievalMigrations, "2")
 	if err != nil {
 		return nil, err
 	}

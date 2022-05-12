@@ -28,9 +28,6 @@ import (
 // deal parameters
 const QueryProtocolID = protocol.ID("/fil/retrieval/qry/1.0.0")
 
-// OldQueryProtocolID is the old query protocol for tuple structs
-const OldQueryProtocolID = protocol.ID("/fil/retrieval/qry/0.0.1")
-
 // Unsubscribe is a function that unsubscribes a subscriber for either the
 // client or the provider
 type Unsubscribe func()

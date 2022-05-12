@@ -12,15 +12,17 @@ import (
 
 	datatransfer "github.com/filecoin-project/go-data-transfer/v2"
 	versionedfsm "github.com/filecoin-project/go-ds-versioning/pkg/fsm"
+	"github.com/filecoin-project/go-ds-versioning/pkg/versioned"
 	"github.com/filecoin-project/go-state-types/abi"
 	"github.com/filecoin-project/go-state-types/big"
 	"github.com/filecoin-project/go-statemachine/fsm"
 	tutils "github.com/filecoin-project/specs-actors/v8/support/testing"
 
-	"github.com/filecoin-project/go-fil-markets/piecestore/migrations"
+	"github.com/filecoin-project/go-fil-markets/piecestore"
 	"github.com/filecoin-project/go-fil-markets/retrievalmarket"
 	"github.com/filecoin-project/go-fil-markets/retrievalmarket/impl/clientstates"
 	"github.com/filecoin-project/go-fil-markets/retrievalmarket/impl/providerstates"
+	"github.com/filecoin-project/go-fil-markets/retrievalmarket/migrations/maptypes"
 )
 
 func TestClientStateMigration(t *testing.T) {
@@ -32,11 +34,11 @@ func TestClientStateMigration(t *testing.T) {
 	storeID := uint64(1)
 	dummyCid, err := cid.Parse("bafkqaaa")
 	require.NoError(t, err)
-	dealState := ClientDealState0{
-		DealProposal0: DealProposal0{
+	dealState := maptypes.ClientDealState1{
+		DealProposal: retrievalmarket.DealProposal{
 			PayloadCID: dummyCid,
 			ID:         dealID,
-			Params0: Params0{
+			Params: retrievalmarket.Params{
 				PieceCID:     &dummyCid,
 				PricePerByte: abi.NewTokenAmount(0),
 				UnsealPrice:  abi.NewTokenAmount(0),
@@ -65,41 +67,45 @@ func TestClientStateMigration(t *testing.T) {
 
 	testCases := []struct {
 		name         string
-		dealState0   *ClientDealState0
+		dealState1   *maptypes.ClientDealState1
 		expChannelID *datatransfer.ChannelID
 	}{{
 		name:         "from v0 - v2 with channel ID",
-		dealState0:   &dealState,
+		dealState1:   &dealState,
 		expChannelID: nil,
 	}, {
 		name:         "from v0 - v2 with no channel ID",
-		dealState0:   &dealStateWithChannelID,
+		dealState1:   &dealStateWithChannelID,
 		expChannelID: &chid,
 	}}
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			ds := dss.MutexWrap(datastore.NewMapDatastore())
-
-			// Store the v0 client deal state to the datastore
-			stateMachines0, err := fsm.New(ds, fsm.Parameters{
+			emptyList, err := versioned.BuilderList{}.Build()
+			require.NoError(t, err)
+			stateMachines, migrateStateMachines, err := versionedfsm.NewVersionedFSM(ds, fsm.Parameters{
 				Environment:     &mockClientEnv{},
-				StateType:       ClientDealState0{},
+				StateType:       maptypes.ClientDealState1{},
 				StateKeyField:   "Status",
 				Events:          fsm.Events{},
 				StateEntryFuncs: fsm.StateEntryFuncs{},
 				FinalityStates:  []fsm.StateKey{},
-			})
+			}, emptyList, "1")
 			require.NoError(t, err)
 
-			err = stateMachines0.Begin(dealID, tc.dealState0)
+			// Run migration to v1 datastore
+			err = migrateStateMachines(ctx)
+			require.NoError(t, err)
+
+			err = stateMachines.Begin(dealID, tc.dealState1)
 			require.NoError(t, err)
 
 			// Prepare to run migration to v2 datastore
 			retrievalMigrations, err := ClientMigrations.Build()
 			require.NoError(t, err)
 
-			stateMachines, migrateStateMachines, err := versionedfsm.NewVersionedFSM(ds, fsm.Parameters{
+			stateMachines, migrateStateMachines, err = versionedfsm.NewVersionedFSM(ds, fsm.Parameters{
 				Environment:     &mockClientEnv{},
 				StateType:       retrievalmarket.ClientDealState{},
 				StateKeyField:   "Status",
@@ -138,18 +144,18 @@ func TestProviderStateMigration(t *testing.T) {
 	storeID := uint64(1)
 	dummyCid, err := cid.Parse("bafkqaaa")
 	require.NoError(t, err)
-	dealState := ProviderDealState0{
-		DealProposal0: DealProposal0{
+	dealState := maptypes.ProviderDealState1{
+		DealProposal: retrievalmarket.DealProposal{
 			PayloadCID: dummyCid,
 			ID:         dealID,
-			Params0: Params0{
+			Params: retrievalmarket.Params{
 				PieceCID:     &dummyCid,
 				PricePerByte: abi.NewTokenAmount(0),
 				UnsealPrice:  abi.NewTokenAmount(0),
 			},
 		},
 		StoreID: storeID,
-		PieceInfo: &migrations.PieceInfo0{
+		PieceInfo: &piecestore.PieceInfo{
 			PieceCID: dummyCid,
 			Deals:    nil,
 		},
@@ -170,7 +176,7 @@ func TestProviderStateMigration(t *testing.T) {
 
 	testCases := []struct {
 		name         string
-		dealState0   *ProviderDealState0
+		dealState0   *maptypes.ProviderDealState1
 		expChannelID *datatransfer.ChannelID
 	}{{
 		name:         "from v0 - v2 with channel ID",
@@ -185,26 +191,30 @@ func TestProviderStateMigration(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			ds := dss.MutexWrap(datastore.NewMapDatastore())
-
-			// Store the v0 provider deal state to the datastore
-			stateMachines0, err := fsm.New(ds, fsm.Parameters{
+			emptyList, err := versioned.BuilderList{}.Build()
+			require.NoError(t, err)
+			stateMachines, migrateStateMachines, err := versionedfsm.NewVersionedFSM(ds, fsm.Parameters{
 				Environment:     &mockProviderEnv{},
-				StateType:       ProviderDealState0{},
+				StateType:       maptypes.ProviderDealState1{},
 				StateKeyField:   "Status",
 				Events:          fsm.Events{},
 				StateEntryFuncs: fsm.StateEntryFuncs{},
 				FinalityStates:  []fsm.StateKey{},
-			})
+			}, emptyList, "1")
 			require.NoError(t, err)
 
-			err = stateMachines0.Begin(dealID, tc.dealState0)
+			// Run migration to v1 datastore
+			err = migrateStateMachines(ctx)
+			require.NoError(t, err)
+
+			err = stateMachines.Begin(dealID, tc.dealState0)
 			require.NoError(t, err)
 
 			// Prepare to run migration to v2 datastore
 			retrievalMigrations, err := ProviderMigrations.Build()
 			require.NoError(t, err)
 
-			stateMachines, migrateStateMachines, err := versionedfsm.NewVersionedFSM(ds, fsm.Parameters{
+			stateMachines, migrateStateMachines, err = versionedfsm.NewVersionedFSM(ds, fsm.Parameters{
 				Environment:     &mockProviderEnv{},
 				StateType:       retrievalmarket.ProviderDealState{},
 				StateKeyField:   "Status",
@@ -241,11 +251,11 @@ func (e *mockClientEnv) Node() retrievalmarket.RetrievalClientNode {
 	return nil
 }
 
-func (e *mockClientEnv) OpenDataTransfer(ctx context.Context, to peer.ID, proposal *retrievalmarket.DealProposal, legacy bool) (datatransfer.ChannelID, error) {
+func (e *mockClientEnv) OpenDataTransfer(ctx context.Context, to peer.ID, proposal *retrievalmarket.DealProposal) (datatransfer.ChannelID, error) {
 	return datatransfer.ChannelID{}, nil
 }
 
-func (e *mockClientEnv) SendDataTransferVoucher(_ context.Context, _ datatransfer.ChannelID, _ *retrievalmarket.DealPayment, _ bool) error {
+func (e *mockClientEnv) SendDataTransferVoucher(_ context.Context, _ datatransfer.ChannelID, _ *retrievalmarket.DealPayment) error {
 	return nil
 }
 
