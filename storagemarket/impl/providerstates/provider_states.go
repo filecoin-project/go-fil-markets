@@ -15,10 +15,10 @@ import (
 	"github.com/filecoin-project/go-address"
 	"github.com/filecoin-project/go-state-types/abi"
 	"github.com/filecoin-project/go-state-types/big"
+	"github.com/filecoin-project/go-state-types/builtin/v8/market"
+	minertypes "github.com/filecoin-project/go-state-types/builtin/v8/miner"
 	"github.com/filecoin-project/go-state-types/exitcode"
 	"github.com/filecoin-project/go-statemachine/fsm"
-	"github.com/filecoin-project/specs-actors/v8/actors/builtin/market"
-	"github.com/filecoin-project/specs-actors/v8/actors/builtin/miner"
 
 	"github.com/filecoin-project/go-fil-markets/filestore"
 	"github.com/filecoin-project/go-fil-markets/piecestore"
@@ -113,9 +113,9 @@ func ValidateDealProposal(ctx fsm.Context, environment ProviderDealEnvironment, 
 	}
 
 	// Check that the proposed end epoch isn't too far beyond the current epoch
-	maxEndEpoch := curEpoch + miner.MaxSectorExpirationExtension
+	maxEndEpoch := curEpoch + minertypes.MaxSectorExpirationExtension
 	if proposal.EndEpoch > maxEndEpoch {
-		return ctx.Trigger(storagemarket.ProviderEventDealRejected, xerrors.Errorf("invalid deal end epoch %d: cannot be more than %d past current epoch %d", proposal.EndEpoch, miner.MaxSectorExpirationExtension, curEpoch))
+		return ctx.Trigger(storagemarket.ProviderEventDealRejected, xerrors.Errorf("invalid deal end epoch %d: cannot be more than %d past current epoch %d", proposal.EndEpoch, minertypes.MaxSectorExpirationExtension, curEpoch))
 	}
 
 	pcMin, pcMax, err := environment.Node().DealProviderCollateralBounds(ctx.Context(), proposal.PieceSize, proposal.VerifiedDeal)
