@@ -23,7 +23,6 @@ import (
 	datatransfer "github.com/filecoin-project/go-data-transfer"
 	"github.com/filecoin-project/go-state-types/abi"
 	"github.com/filecoin-project/go-state-types/big"
-	spect "github.com/filecoin-project/specs-actors/v8/support/testing"
 
 	"github.com/filecoin-project/go-fil-markets/piecestore"
 	piecemigrations "github.com/filecoin-project/go-fil-markets/piecestore/migrations"
@@ -946,7 +945,7 @@ func TestProvider_Construct(t *testing.T) {
 	}
 
 	_, err := retrievalimpl.NewProvider(
-		spect.NewIDAddr(t, 2344),
+		tut.NewIDAddr(t, 2344),
 		node,
 		sa,
 		tut.NewTestRetrievalMarketNetwork(tut.TestNetworkParams{}),
@@ -1002,7 +1001,7 @@ func TestProviderConfigOpts(t *testing.T) {
 	}
 
 	p, err := retrievalimpl.NewProvider(
-		spect.NewIDAddr(t, 2344),
+		tut.NewIDAddr(t, 2344),
 		node,
 		sa,
 		tut.NewTestRetrievalMarketNetwork(tut.TestNetworkParams{}),
@@ -1023,7 +1022,7 @@ func TestProviderConfigOpts(t *testing.T) {
 		})
 
 	p, err = retrievalimpl.NewProvider(
-		spect.NewIDAddr(t, 2344),
+		tut.NewIDAddr(t, 2344),
 		testnodes.NewTestRetrievalProviderNode(),
 		testnodes.NewTestSectorAccessor(),
 		tut.NewTestRetrievalMarketNetwork(tut.TestNetworkParams{}),
@@ -1184,7 +1183,7 @@ func TestProviderMigrations(t *testing.T) {
 	}
 
 	retrievalProvider, err := retrievalimpl.NewProvider(
-		spect.NewIDAddr(t, 2344),
+		tut.NewIDAddr(t, 2344),
 		node,
 		sa,
 		tut.NewTestRetrievalMarketNetwork(tut.TestNetworkParams{}),

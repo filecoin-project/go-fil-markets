@@ -19,9 +19,9 @@ import (
 	versionedfsm "github.com/filecoin-project/go-ds-versioning/pkg/fsm"
 	"github.com/filecoin-project/go-state-types/abi"
 	"github.com/filecoin-project/go-state-types/big"
+	"github.com/filecoin-project/go-state-types/builtin/v8/market"
 	"github.com/filecoin-project/go-state-types/exitcode"
 	"github.com/filecoin-project/go-statemachine/fsm"
-	"github.com/filecoin-project/specs-actors/v8/actors/builtin/market"
 
 	discoveryimpl "github.com/filecoin-project/go-fil-markets/discovery/impl"
 	"github.com/filecoin-project/go-fil-markets/retrievalmarket"

@@ -22,7 +22,7 @@ import (
 	"github.com/filecoin-project/go-data-transfer/testutil"
 	dtgstransport "github.com/filecoin-project/go-data-transfer/transport/graphsync"
 	"github.com/filecoin-project/go-state-types/abi"
-	"github.com/filecoin-project/specs-actors/v7/actors/builtin/market"
+	"github.com/filecoin-project/go-state-types/builtin/v8/market"
 
 	discoveryimpl "github.com/filecoin-project/go-fil-markets/discovery/impl"
 	"github.com/filecoin-project/go-fil-markets/filestore"
