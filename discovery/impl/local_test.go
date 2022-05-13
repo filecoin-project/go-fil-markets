@@ -13,7 +13,6 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/filecoin-project/go-address"
-	specst "github.com/filecoin-project/specs-actors/v8/support/testing"
 
 	discoveryimpl "github.com/filecoin-project/go-fil-markets/discovery/impl"
 	"github.com/filecoin-project/go-fil-markets/discovery/migrations"
@@ -25,13 +24,13 @@ import (
 func TestLocal_AddPeer(t *testing.T) {
 	ctx := context.Background()
 	peer1 := retrievalmarket.RetrievalPeer{
-		Address:  specst.NewIDAddr(t, 1),
+		Address:  shared_testutil.NewIDAddr(t, 1),
 		ID:       peer.NewPeerRecord().PeerID,
 		PieceCID: nil,
 	}
 	pieceCid := shared_testutil.GenerateCids(1)[0]
 	peer2 := retrievalmarket.RetrievalPeer{
-		Address:  specst.NewIDAddr(t, 2),
+		Address:  shared_testutil.NewIDAddr(t, 2),
 		ID:       peer.NewPeerRecord().PeerID,
 		PieceCID: &pieceCid,
 	}

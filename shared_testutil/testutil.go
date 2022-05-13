@@ -16,9 +16,10 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/filecoin-project/go-address"
 	cborutil "github.com/filecoin-project/go-cbor-util"
 	versioning "github.com/filecoin-project/go-ds-versioning/pkg"
-	"github.com/filecoin-project/specs-actors/actors/builtin/paych"
+	"github.com/filecoin-project/go-state-types/builtin/v8/paych"
 
 	"github.com/filecoin-project/go-fil-markets/retrievalmarket"
 	"github.com/filecoin-project/go-fil-markets/storagemarket"
@@ -132,4 +133,10 @@ func DatastoreAtVersion(t *testing.T, ds datastore.Batching, version versioning.
 	err := ds.Put(context.TODO(), datastore.NewKey("/versions/current"), []byte(version))
 	require.NoError(t, err)
 	return namespace.Wrap(ds, datastore.NewKey(fmt.Sprintf("/%s", version)))
+}
+
+func NewIDAddr(t testing.TB, id uint64) address.Address {
+	ret, err := address.NewIDAddress(id)
+	require.NoError(t, err)
+	return ret
 }
