@@ -15,9 +15,9 @@ import (
 	datatransfer "github.com/filecoin-project/go-data-transfer"
 	"github.com/filecoin-project/go-state-types/abi"
 	"github.com/filecoin-project/go-state-types/big"
+	"github.com/filecoin-project/go-state-types/builtin/v8/market"
+	"github.com/filecoin-project/go-state-types/builtin/v8/paych"
 	"github.com/filecoin-project/go-state-types/crypto"
-	"github.com/filecoin-project/specs-actors/actors/builtin/paych"
-	"github.com/filecoin-project/specs-actors/v8/actors/builtin/market"
 
 	"github.com/filecoin-project/go-fil-markets/retrievalmarket"
 	"github.com/filecoin-project/go-fil-markets/storagemarket"
@@ -27,16 +27,16 @@ import (
 // MakeTestSignedVoucher generates a random SignedVoucher that has all non-zero fields
 func MakeTestSignedVoucher() *paych.SignedVoucher {
 	return &paych.SignedVoucher{
-		ChannelAddr:    address.TestAddress,
-		TimeLockMin:    abi.ChainEpoch(rand.Int63()),
-		TimeLockMax:    0,
-		SecretPreimage: []byte("secret-preimage"),
-		Extra:          MakeTestModVerifyParams(),
-		Lane:           rand.Uint64(),
-		Nonce:          rand.Uint64(),
-		Amount:         MakeTestTokenAmount(),
-		Merges:         []paych.Merge{MakeTestMerge()},
-		Signature:      MakeTestSignature(),
+		ChannelAddr: address.TestAddress,
+		TimeLockMin: abi.ChainEpoch(rand.Int63()),
+		TimeLockMax: 0,
+		SecretHash:  []byte("secret-preimage"),
+		Extra:       MakeTestModVerifyParams(),
+		Lane:        rand.Uint64(),
+		Nonce:       rand.Uint64(),
+		Amount:      MakeTestTokenAmount(),
+		Merges:      []paych.Merge{MakeTestMerge()},
+		Signature:   MakeTestSignature(),
 	}
 }
 

@@ -10,18 +10,24 @@ import (
 	"github.com/libp2p/go-libp2p-core/peer"
 	"github.com/stretchr/testify/require"
 
+	"github.com/filecoin-project/go-address"
 	datatransfer "github.com/filecoin-project/go-data-transfer"
 	versionedfsm "github.com/filecoin-project/go-ds-versioning/pkg/fsm"
 	"github.com/filecoin-project/go-state-types/abi"
 	"github.com/filecoin-project/go-state-types/big"
 	"github.com/filecoin-project/go-statemachine/fsm"
-	tutils "github.com/filecoin-project/specs-actors/v8/support/testing"
 
 	"github.com/filecoin-project/go-fil-markets/piecestore/migrations"
 	"github.com/filecoin-project/go-fil-markets/retrievalmarket"
 	"github.com/filecoin-project/go-fil-markets/retrievalmarket/impl/clientstates"
 	"github.com/filecoin-project/go-fil-markets/retrievalmarket/impl/providerstates"
 )
+
+func NewActorAddr(t testing.TB, data string) address.Address {
+	ret, err := address.NewActorAddress([]byte(data))
+	require.NoError(t, err)
+	return ret
+}
 
 func TestClientStateMigration(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
@@ -43,8 +49,8 @@ func TestClientStateMigration(t *testing.T) {
 			},
 		},
 		TotalFunds:       abi.NewTokenAmount(0),
-		ClientWallet:     tutils.NewActorAddr(t, "client"),
-		MinerWallet:      tutils.NewActorAddr(t, "miner"),
+		ClientWallet:     NewActorAddr(t, "client"),
+		MinerWallet:      NewActorAddr(t, "miner"),
 		TotalReceived:    0,
 		CurrentInterval:  10,
 		BytesPaidFor:     0,
