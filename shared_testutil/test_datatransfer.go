@@ -4,7 +4,7 @@ import (
 	"context"
 
 	"github.com/ipfs/go-cid"
-	"github.com/ipld/go-ipld-prime"
+	"github.com/ipld/go-ipld-prime/datamodel"
 	"github.com/libp2p/go-libp2p-core/peer"
 
 	datatransfer "github.com/filecoin-project/go-data-transfer/v2"
@@ -12,13 +12,13 @@ import (
 
 // RegisteredVoucherType records a voucher typed that was registered
 type RegisteredVoucherType struct {
-	VoucherType datatransfer.Voucher
+	VoucherType datatransfer.TypeIdentifier
 	Validator   datatransfer.RequestValidator
 }
 
 // RegisteredTransportConfigurer records transport configurer registered for a voucher type
 type RegisteredTransportConfigurer struct {
-	VoucherType datatransfer.Voucher
+	VoucherType datatransfer.TypeIdentifier
 	Configurer  datatransfer.TransportConfigurer
 }
 
@@ -26,7 +26,6 @@ type RegisteredTransportConfigurer struct {
 // Most of its functions have no effect
 type TestDataTransfer struct {
 	RegisteredVoucherTypes         []RegisteredVoucherType
-	RegisteredVoucherResultTypes   []datatransfer.VoucherResult
 	RegisteredTransportConfigurers []RegisteredTransportConfigurer
 	Subscribers                    []datatransfer.Subscriber
 }
@@ -47,25 +46,19 @@ func (tdt *TestDataTransfer) Stop(context.Context) error {
 }
 
 // RegisterVoucherType records the registred voucher type
-func (tdt *TestDataTransfer) RegisterVoucherType(voucherType datatransfer.Voucher, validator datatransfer.RequestValidator) error {
+func (tdt *TestDataTransfer) RegisterVoucherType(voucherType datatransfer.TypeIdentifier, validator datatransfer.RequestValidator) error {
 	tdt.RegisteredVoucherTypes = append(tdt.RegisteredVoucherTypes, RegisteredVoucherType{voucherType, validator})
 	return nil
 }
 
-// RegisterVoucherResultType records the registered result type
-func (tdt *TestDataTransfer) RegisterVoucherResultType(resultType datatransfer.VoucherResult) error {
-	tdt.RegisteredVoucherResultTypes = append(tdt.RegisteredVoucherResultTypes, resultType)
-	return nil
-}
-
 // RegisterTransportConfigurer records the registered transport configurer
-func (tdt *TestDataTransfer) RegisterTransportConfigurer(voucherType datatransfer.Voucher, configurer datatransfer.TransportConfigurer) error {
+func (tdt *TestDataTransfer) RegisterTransportConfigurer(voucherType datatransfer.TypeIdentifier, configurer datatransfer.TransportConfigurer) error {
 	tdt.RegisteredTransportConfigurers = append(tdt.RegisteredTransportConfigurers, RegisteredTransportConfigurer{voucherType, configurer})
 	return nil
 }
 
 // OpenPushDataChannel does nothing
-func (tdt *TestDataTransfer) OpenPushDataChannel(ctx context.Context, to peer.ID, voucher datatransfer.Voucher, baseCid cid.Cid, selector ipld.Node) (datatransfer.ChannelID, error) {
+func (tdt *TestDataTransfer) OpenPushDataChannel(ctx context.Context, to peer.ID, voucher datatransfer.TypedVoucher, baseCid cid.Cid, selector datamodel.Node) (datatransfer.ChannelID, error) {
 	return datatransfer.ChannelID{}, nil
 }
 
@@ -74,17 +67,17 @@ func (tdt *TestDataTransfer) RestartDataTransferChannel(ctx context.Context, chI
 }
 
 // OpenPullDataChannel does nothing
-func (tdt *TestDataTransfer) OpenPullDataChannel(ctx context.Context, to peer.ID, voucher datatransfer.Voucher, baseCid cid.Cid, selector ipld.Node) (datatransfer.ChannelID, error) {
+func (tdt *TestDataTransfer) OpenPullDataChannel(ctx context.Context, to peer.ID, voucher datatransfer.TypedVoucher, baseCid cid.Cid, selector datamodel.Node) (datatransfer.ChannelID, error) {
 	return datatransfer.ChannelID{}, nil
 }
 
 // SendVoucher does nothing
-func (tdt *TestDataTransfer) SendVoucher(ctx context.Context, chid datatransfer.ChannelID, voucher datatransfer.Voucher) error {
+func (tdt *TestDataTransfer) SendVoucher(ctx context.Context, chid datatransfer.ChannelID, voucher datatransfer.TypedVoucher) error {
 	return nil
 }
 
 // SendVoucherResult does nothing
-func (tdt *TestDataTransfer) SendVoucherResult(ctx context.Context, chid datatransfer.ChannelID, voucherResult datatransfer.VoucherResult) error {
+func (tdt *TestDataTransfer) SendVoucherResult(ctx context.Context, chid datatransfer.ChannelID, voucherResult datatransfer.TypedVoucher) error {
 	return nil
 }
 

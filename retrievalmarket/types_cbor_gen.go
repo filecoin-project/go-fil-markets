@@ -783,7 +783,7 @@ func (t *Params) MarshalCBOR(w io.Writer) error {
 
 	scratch := make([]byte, 9)
 
-	// t.Selector (typegen.Deferred) (struct)
+	// t.Selector (shared.CborGenCompatibleNode) (struct)
 	if len("Selector") > cbg.MaxLength {
 		return xerrors.Errorf("Value in field \"Selector\" was too long")
 	}
@@ -920,16 +920,15 @@ func (t *Params) UnmarshalCBOR(r io.Reader) error {
 		}
 
 		switch name {
-		// t.Selector (typegen.Deferred) (struct)
+		// t.Selector (shared.CborGenCompatibleNode) (struct)
 		case "Selector":
 
 			{
 
-				t.Selector = new(cbg.Deferred)
-
 				if err := t.Selector.UnmarshalCBOR(br); err != nil {
-					return xerrors.Errorf("failed to read deferred field: %w", err)
+					return xerrors.Errorf("unmarshaling t.Selector: %w", err)
 				}
+
 			}
 			// t.PieceCID (cid.Cid) (struct)
 		case "PieceCID":

@@ -2,12 +2,11 @@ package requestvalidation
 
 import (
 	"github.com/ipfs/go-cid"
-	"github.com/ipld/go-ipld-prime"
+	"github.com/ipld/go-ipld-prime/datamodel"
 	"github.com/libp2p/go-libp2p-core/peer"
 	"golang.org/x/xerrors"
 
-	datatransfer "github.com/filecoin-project/go-data-transfer/v2"
-
+	"github.com/filecoin-project/go-fil-markets/shared"
 	"github.com/filecoin-project/go-fil-markets/storagemarket"
 )
 
@@ -20,15 +19,16 @@ import (
 func ValidatePush(
 	deals PushDeals,
 	sender peer.ID,
-	voucher datatransfer.Voucher,
+	voucher datamodel.Node,
 	baseCid cid.Cid,
-	Selector ipld.Node) error {
-	dealVoucher, ok := voucher.(*StorageDataTransferVoucher)
-	if !ok {
-		return xerrors.Errorf("voucher type %s: %w", voucher.Type(), ErrWrongVoucherType)
-	}
+	Selector datamodel.Node) error {
 
-	var deal storagemarket.MinerDeal
+	dealVoucherIface, err := shared.TypeFromNode(voucher, &StorageDataTransferVoucher{})
+	if err != nil {
+		return xerrors.Errorf("could not decode StorageDataTransferVoucher: %w", err)
+	}
+	dealVoucher, _ := dealVoucherIface.(*StorageDataTransferVoucher) // safe to assume type
+
 	deal, err := deals.Get(dealVoucher.Proposal)
 	if err != nil {
 		return xerrors.Errorf("Proposal CID %s: %w", dealVoucher.Proposal.String(), ErrNoDeal)
@@ -54,13 +54,15 @@ func ValidatePush(
 func ValidatePull(
 	deals PullDeals,
 	receiver peer.ID,
-	voucher datatransfer.Voucher,
+	voucher datamodel.Node,
 	baseCid cid.Cid,
-	Selector ipld.Node) error {
-	dealVoucher, ok := voucher.(*StorageDataTransferVoucher)
-	if !ok {
-		return xerrors.Errorf("voucher type %s: %w", voucher.Type(), ErrWrongVoucherType)
+	Selector datamodel.Node) error {
+
+	dealVoucherIface, err := shared.TypeFromNode(voucher, &StorageDataTransferVoucher{})
+	if err != nil {
+		return xerrors.Errorf("could not decode StorageDataTransferVoucher: %w", err)
 	}
+	dealVoucher, _ := dealVoucherIface.(*StorageDataTransferVoucher) // safe to assume type
 	deal, err := deals.Get(dealVoucher.Proposal)
 	if err != nil {
 		return xerrors.Errorf("Proposal CID %s: %w", dealVoucher.Proposal.String(), ErrNoDeal)

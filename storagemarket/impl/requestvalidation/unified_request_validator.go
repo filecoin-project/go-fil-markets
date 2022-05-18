@@ -2,7 +2,7 @@ package requestvalidation
 
 import (
 	"github.com/ipfs/go-cid"
-	"github.com/ipld/go-ipld-prime"
+	"github.com/ipld/go-ipld-prime/datamodel"
 	"github.com/libp2p/go-libp2p-core/peer"
 
 	datatransfer "github.com/filecoin-project/go-data-transfer/v2"
@@ -50,7 +50,7 @@ func (v *UnifiedRequestValidator) SetPullDeals(pullDeals PullDeals) {
 // ValidatePush implements the ValidatePush method of a data transfer request validator.
 // If no pushStore exists, it rejects the request
 // Otherwise, it calls the ValidatePush function to validate the deal
-func (v *UnifiedRequestValidator) ValidatePush(_ datatransfer.ChannelID, sender peer.ID, voucher datatransfer.Voucher, baseCid cid.Cid, selector ipld.Node) (datatransfer.ValidationResult, error) {
+func (v *UnifiedRequestValidator) ValidatePush(_ datatransfer.ChannelID, sender peer.ID, voucher datamodel.Node, baseCid cid.Cid, selector datamodel.Node) (datatransfer.ValidationResult, error) {
 	if v.pushDeals == nil {
 		return datatransfer.ValidationResult{}, ErrNoPushAccepted
 	}
@@ -65,7 +65,7 @@ func (v *UnifiedRequestValidator) ValidatePush(_ datatransfer.ChannelID, sender 
 // ValidatePull implements the ValidatePull method of a data transfer request validator.
 // If no pullStore exists, it rejects the request
 // Otherwise, it calls the ValidatePull function to validate the deal
-func (v *UnifiedRequestValidator) ValidatePull(_ datatransfer.ChannelID, receiver peer.ID, voucher datatransfer.Voucher, baseCid cid.Cid, selector ipld.Node) (datatransfer.ValidationResult, error) {
+func (v *UnifiedRequestValidator) ValidatePull(_ datatransfer.ChannelID, receiver peer.ID, voucher datamodel.Node, baseCid cid.Cid, selector datamodel.Node) (datatransfer.ValidationResult, error) {
 	if v.pullDeals == nil {
 		return datatransfer.ValidationResult{}, ErrNoPullAccepted
 	}
@@ -79,9 +79,17 @@ func (v *UnifiedRequestValidator) ValidatePull(_ datatransfer.ChannelID, receive
 
 func (v *UnifiedRequestValidator) ValidateRestart(chid datatransfer.ChannelID, channelState datatransfer.ChannelState) (datatransfer.ValidationResult, error) {
 	if channelState.IsPull() {
-		return v.ValidatePull(chid, channelState.Recipient(), channelState.Voucher(), channelState.BaseCID(), channelState.Selector())
+		voucher, err := channelState.Voucher()
+		if err != nil {
+			return datatransfer.ValidationResult{}, err
+		}
+		return v.ValidatePull(chid, channelState.Recipient(), voucher.Voucher, channelState.BaseCID(), channelState.Selector())
 	} else {
-		return v.ValidatePush(chid, channelState.Sender(), channelState.Voucher(), channelState.BaseCID(), channelState.Selector())
+		voucher, err := channelState.Voucher()
+		if err != nil {
+			return datatransfer.ValidationResult{}, err
+		}
+		return v.ValidatePush(chid, channelState.Sender(), voucher.Voucher, channelState.BaseCID(), channelState.Selector())
 	}
 }
 

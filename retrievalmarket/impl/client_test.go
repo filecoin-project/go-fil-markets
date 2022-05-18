@@ -13,12 +13,10 @@ import (
 	"github.com/ipfs/go-datastore"
 	"github.com/ipfs/go-datastore/namespace"
 	dss "github.com/ipfs/go-datastore/sync"
-	"github.com/ipld/go-ipld-prime/codec/dagcbor"
 	selectorparse "github.com/ipld/go-ipld-prime/traversal/selector/parse"
 	"github.com/libp2p/go-libp2p-core/peer"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	cbg "github.com/whyrusleeping/cbor-gen"
 
 	"github.com/filecoin-project/go-address"
 	datatransfer "github.com/filecoin-project/go-data-transfer/v2"
@@ -33,6 +31,7 @@ import (
 	"github.com/filecoin-project/go-fil-markets/retrievalmarket/migrations/maptypes"
 	"github.com/filecoin-project/go-fil-markets/retrievalmarket/network"
 	rmnet "github.com/filecoin-project/go-fil-markets/retrievalmarket/network"
+	"github.com/filecoin-project/go-fil-markets/shared"
 	"github.com/filecoin-project/go-fil-markets/shared_testutil"
 	tut "github.com/filecoin-project/go-fil-markets/shared_testutil"
 )
@@ -47,17 +46,11 @@ func TestClient_Construction(t *testing.T) {
 	require.NoError(t, err)
 
 	require.Len(t, dt.Subscribers, 1)
-	require.Len(t, dt.RegisteredVoucherResultTypes, 1)
-	_, ok := dt.RegisteredVoucherResultTypes[0].(*retrievalmarket.DealResponse)
-	require.True(t, ok)
 	require.Len(t, dt.RegisteredVoucherTypes, 2)
-	_, ok = dt.RegisteredVoucherTypes[0].VoucherType.(*retrievalmarket.DealProposal)
-	require.True(t, ok)
-	_, ok = dt.RegisteredVoucherTypes[1].VoucherType.(*retrievalmarket.DealPayment)
-	require.True(t, ok)
+	require.Equal(t, dt.RegisteredVoucherTypes[0].VoucherType, (*retrievalmarket.DealProposal)(nil).Type())
+	require.Equal(t, dt.RegisteredVoucherTypes[1].VoucherType, (*retrievalmarket.DealPayment)(nil).Type())
 	require.Len(t, dt.RegisteredTransportConfigurers, 1)
-	_, ok = dt.RegisteredTransportConfigurers[0].VoucherType.(*retrievalmarket.DealProposal)
-	require.True(t, ok)
+	require.Equal(t, dt.RegisteredTransportConfigurers[0].VoucherType, (*retrievalmarket.DealProposal)(nil).Type())
 }
 
 func TestClient_Query(t *testing.T) {
@@ -304,7 +297,7 @@ func TestClient_DuplicateRetrieve(t *testing.T) {
 
 			// Retrieve first payload CID from first peer
 			params := retrievalmarket.Params{
-				Selector:                nil,
+				Selector:                shared.CborGenCompatibleNode{},
 				PieceCID:                &tut.GenerateCids(1)[0],
 				PricePerByte:            abi.NewTokenAmount(1),
 				PaymentInterval:         1,
@@ -382,10 +375,6 @@ func TestMigrations(t *testing.T) {
 	voucherShortfalls := make([]abi.TokenAmount, numDeals)
 	selfPeer := tut.GeneratePeers(1)[0]
 
-	allSelectorBuf := new(bytes.Buffer)
-	err := dagcbor.Encode(selectorparse.CommonSelector_ExploreAllRecursively, allSelectorBuf)
-	require.NoError(t, err)
-	allSelectorBytes := allSelectorBuf.Bytes()
 	emptyList, err := versioned.BuilderList{}.Build()
 	require.NoError(t, err)
 	oldDs, migrate := versionedds.NewVersionedDatastore(retrievalDs, emptyList, "1")
@@ -425,8 +414,8 @@ func TestMigrations(t *testing.T) {
 				PayloadCID: payloadCIDs[i],
 				ID:         iDs[i],
 				Params: retrievalmarket.Params{
-					Selector: &cbg.Deferred{
-						Raw: allSelectorBytes,
+					Selector: shared.CborGenCompatibleNode{
+						Node: selectorparse.CommonSelector_ExploreAllRecursively,
 					},
 					PieceCID:                pieceCIDs[i],
 					PricePerByte:            pricePerBytes[i],
@@ -477,8 +466,8 @@ func TestMigrations(t *testing.T) {
 				PayloadCID: payloadCIDs[i],
 				ID:         iDs[i],
 				Params: retrievalmarket.Params{
-					Selector: &cbg.Deferred{
-						Raw: allSelectorBytes,
+					Selector: shared.CborGenCompatibleNode{
+						Node: selectorparse.CommonSelector_ExploreAllRecursively,
 					},
 					PieceCID:                pieceCIDs[i],
 					PricePerByte:            pricePerBytes[i],

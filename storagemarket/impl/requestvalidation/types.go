@@ -53,3 +53,12 @@ type StorageDataTransferVoucher struct {
 func (dv *StorageDataTransferVoucher) Type() datatransfer.TypeIdentifier {
 	return "StorageDataTransferVoucher"
 }
+
+// BindnodeSchema returns the IPLD Schema for a serialized StorageDataTransferVoucher
+func (dv *StorageDataTransferVoucher) BindnodeSchema() string {
+	return `
+		type StorageDataTransferVoucher struct {
+			Proposal &Any
+		} representation tuple
+	`
+}

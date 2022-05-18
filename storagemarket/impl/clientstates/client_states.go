@@ -6,7 +6,7 @@ import (
 
 	"github.com/ipfs/go-cid"
 	logging "github.com/ipfs/go-log/v2"
-	"github.com/ipld/go-ipld-prime"
+	"github.com/ipld/go-ipld-prime/datamodel"
 	selectorparse "github.com/ipld/go-ipld-prime/traversal/selector/parse"
 	"github.com/libp2p/go-libp2p-core/peer"
 	"golang.org/x/xerrors"
@@ -16,6 +16,7 @@ import (
 	"github.com/filecoin-project/go-state-types/exitcode"
 	"github.com/filecoin-project/go-statemachine/fsm"
 
+	"github.com/filecoin-project/go-fil-markets/shared"
 	"github.com/filecoin-project/go-fil-markets/storagemarket"
 	"github.com/filecoin-project/go-fil-markets/storagemarket/impl/requestvalidation"
 	"github.com/filecoin-project/go-fil-markets/storagemarket/network"
@@ -35,7 +36,7 @@ type ClientDealEnvironment interface {
 	CleanBlockstore(rootCid cid.Cid) error
 	Node() storagemarket.StorageClientNode
 	NewDealStream(ctx context.Context, p peer.ID) (network.StorageDealStream, error)
-	StartDataTransfer(ctx context.Context, to peer.ID, voucher datatransfer.Voucher, baseCid cid.Cid, selector ipld.Node) (datatransfer.ChannelID, error)
+	StartDataTransfer(ctx context.Context, to peer.ID, voucher datatransfer.TypedVoucher, baseCid cid.Cid, selector datamodel.Node) (datatransfer.ChannelID, error)
 	RestartDataTransfer(ctx context.Context, chid datatransfer.ChannelID) error
 	GetProviderDealState(ctx context.Context, proposalCid cid.Cid) (*storagemarket.ProviderDealState, error)
 	PollingInterval() time.Duration
@@ -159,11 +160,17 @@ func InitiateDataTransfer(ctx fsm.Context, environment ClientDealEnvironment, de
 
 	log.Infof("sending data for a deal %s", deal.ProposalCid)
 
+	voucher := requestvalidation.StorageDataTransferVoucher{Proposal: deal.ProposalCid}
+	node, err := shared.TypeToNode(&voucher)
+	if err != nil {
+		return err
+	}
+
 	// initiate a push data transfer. This will complete asynchronously and the
 	// completion of the data transfer will trigger a change in deal state
-	_, err := environment.StartDataTransfer(ctx.Context(),
+	_, err = environment.StartDataTransfer(ctx.Context(),
 		deal.Miner,
-		&requestvalidation.StorageDataTransferVoucher{Proposal: deal.ProposalCid},
+		datatransfer.TypedVoucher{Voucher: node, Type: voucher.Type()},
 		deal.DataRef.Root,
 		selectorparse.CommonSelector_ExploreAllRecursively,
 	)

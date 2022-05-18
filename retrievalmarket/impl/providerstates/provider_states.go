@@ -14,6 +14,7 @@ import (
 	"github.com/filecoin-project/go-statemachine/fsm"
 
 	rm "github.com/filecoin-project/go-fil-markets/retrievalmarket"
+	"github.com/filecoin-project/go-fil-markets/shared"
 )
 
 var log = logging.Logger("retrieval-fsm")
@@ -99,7 +100,7 @@ func updateFunding(ctx fsm.Context,
 	log.Debugf("provider: owed %d, total received %d = received so far %d + newly received %d, unseal price %d, price per byte %d, bytes sent: %d, in finalization: %v",
 		owed, totalPaid, deal.FundsReceived, received, deal.UnsealPrice, deal.PricePerByte, channelState.Queued(), channelState.Status().InFinalization())
 
-	var voucherResult datatransfer.VoucherResult
+	var voucherResult *rm.DealResponse
 	if owed.GreaterThan(big.Zero()) {
 		// if payment is still owed but we received funds, send a partial payment received event
 		if received.GreaterThan(big.Zero()) {
@@ -130,13 +131,20 @@ func updateFunding(ctx fsm.Context,
 			}
 		}
 	}
-	return datatransfer.ValidationResult{
+	vr := datatransfer.ValidationResult{
 		Accepted:             true,
-		VoucherResult:        voucherResult,
 		ForcePause:           deal.Status == rm.DealStatusUnsealing || deal.Status == rm.DealStatusFundsNeededUnseal,
 		RequiresFinalization: owed.GreaterThan(big.Zero()) || deal.Status != rm.DealStatusFundsNeededLastPayment,
 		DataLimit:            deal.Params.NextInterval(totalPaid),
 	}
+	if voucherResult != nil {
+		node, err := shared.TypeToNode(voucherResult)
+		if err != nil {
+			log.Errorf("failed to convert DealResponse to Node: %s", err.Error())
+		}
+		vr.VoucherResult = &datatransfer.TypedVoucher{Voucher: node, Type: voucherResult.Type()}
+	}
+	return vr
 }
 
 func savePayment(ctx fsm.Context, env ProviderDealEnvironment, payment *rm.DealPayment) (abi.TokenAmount, error) {
@@ -155,26 +163,37 @@ func savePayment(ctx fsm.Context, env ProviderDealEnvironment, payment *rm.DealP
 }
 
 func processLastVoucher(ctx fsm.Context, env ProviderDealEnvironment, channelState datatransfer.ChannelState) (abi.TokenAmount, error) {
-	voucher := channelState.LastVoucher()
+	voucher, err := channelState.LastVoucher()
+	if err != nil {
+		return abi.TokenAmount{}, err
+	}
+
 	// read payment and return response if present
-	if payment, isPayment := voucher.(*rm.DealPayment); isPayment {
+	if payment, err := rm.DealPaymentFromNode(voucher.Voucher); err == nil {
 		return savePayment(ctx, env, payment)
 	}
 
-	if _, isProposal := voucher.(*rm.DealProposal); isProposal {
+	if _, err := rm.DealProposalFromNode(voucher.Voucher); err == nil {
 		return big.Zero(), nil
 	}
+
 	return big.Zero(), errors.New("wrong voucher type")
 }
 
-func errorDealResponse(dealID rm.ProviderDealIdentifier, err error) datatransfer.ValidationResult {
+func errorDealResponse(dealID rm.ProviderDealIdentifier, errMsg error) datatransfer.ValidationResult {
+	dr := rm.DealResponse{
+		ID:      dealID.DealID,
+		Message: errMsg.Error(),
+		Status:  rm.DealStatusErrored,
+	}
+	node, err := shared.TypeToNode(&dr)
+	if err != nil {
+		log.Errorf("failed to convert DealResponse to Node: %s", err.Error())
+		return datatransfer.ValidationResult{Accepted: false}
+	}
 	return datatransfer.ValidationResult{
-		Accepted: false,
-		VoucherResult: &rm.DealResponse{
-			ID:      dealID.DealID,
-			Message: err.Error(),
-			Status:  rm.DealStatusErrored,
-		},
+		Accepted:      false,
+		VoucherResult: &datatransfer.TypedVoucher{Voucher: node, Type: dr.Type()},
 	}
 }
 

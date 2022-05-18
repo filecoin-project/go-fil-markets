@@ -9,17 +9,29 @@ import (
 	ds "github.com/ipfs/go-datastore"
 	bs "github.com/ipfs/go-ipfs-blockstore"
 	"github.com/ipld/go-ipld-prime"
+	"github.com/ipld/go-ipld-prime/datamodel"
+	"github.com/ipld/go-ipld-prime/node/basicnode"
 	peer "github.com/libp2p/go-libp2p-core/peer"
 	"github.com/stretchr/testify/require"
 
 	datatransfer "github.com/filecoin-project/go-data-transfer/v2"
 	"github.com/filecoin-project/go-statemachine/fsm"
 
+	"github.com/filecoin-project/go-fil-markets/shared"
 	"github.com/filecoin-project/go-fil-markets/shared_testutil"
 	"github.com/filecoin-project/go-fil-markets/storagemarket"
 	"github.com/filecoin-project/go-fil-markets/storagemarket/impl/dtutils"
 	"github.com/filecoin-project/go-fil-markets/storagemarket/impl/requestvalidation"
 )
+
+func storageDataTransferVoucher(t *testing.T, proposalCid cid.Cid) datatransfer.TypedVoucher {
+	sdtv := requestvalidation.StorageDataTransferVoucher{
+		Proposal: proposalCid,
+	}
+	node, err := shared.TypeToNode(&sdtv)
+	require.NoError(t, err)
+	return datatransfer.TypedVoucher{Voucher: node, Type: sdtv.Type()}
+}
 
 func TestProviderDataTransferSubscriber(t *testing.T) {
 	ps := shared_testutil.GeneratePeers(2)
@@ -32,85 +44,71 @@ func TestProviderDataTransferSubscriber(t *testing.T) {
 		message       string
 		status        datatransfer.Status
 		called        bool
-		voucher       datatransfer.Voucher
+		voucher       datatransfer.TypedVoucher
 		expectedID    interface{}
 		expectedEvent fsm.EventName
 		expectedArgs  []interface{}
 	}{
 		"not a storage voucher": {
 			called:  false,
-			voucher: nil,
+			voucher: datatransfer.TypedVoucher{Voucher: basicnode.NewString("Nope"), Type: datatransfer.TypeIdentifier("Nope")},
 		},
 		"open event": {
-			code:   datatransfer.Open,
-			status: datatransfer.Requested,
-			called: true,
-			voucher: &requestvalidation.StorageDataTransferVoucher{
-				Proposal: expectedProposalCID,
-			},
+			code:          datatransfer.Open,
+			status:        datatransfer.Requested,
+			called:        true,
+			voucher:       storageDataTransferVoucher(t, expectedProposalCID),
 			expectedID:    expectedProposalCID,
 			expectedEvent: storagemarket.ProviderEventDataTransferInitiated,
 			expectedArgs:  []interface{}{datatransfer.ChannelID{Initiator: init, Responder: resp, ID: tid}},
 		},
 		"restart event": {
-			code:   datatransfer.Restart,
-			status: datatransfer.Ongoing,
-			called: true,
-			voucher: &requestvalidation.StorageDataTransferVoucher{
-				Proposal: expectedProposalCID,
-			},
+			code:          datatransfer.Restart,
+			status:        datatransfer.Ongoing,
+			called:        true,
+			voucher:       storageDataTransferVoucher(t, expectedProposalCID),
 			expectedID:    expectedProposalCID,
 			expectedEvent: storagemarket.ProviderEventDataTransferRestarted,
 			expectedArgs:  []interface{}{datatransfer.ChannelID{Initiator: init, Responder: resp, ID: tid}},
 		},
 		"disconnected event": {
-			code:   datatransfer.Disconnected,
-			status: datatransfer.Ongoing,
-			called: true,
-			voucher: &requestvalidation.StorageDataTransferVoucher{
-				Proposal: expectedProposalCID,
-			},
+			code:          datatransfer.Disconnected,
+			status:        datatransfer.Ongoing,
+			called:        true,
+			voucher:       storageDataTransferVoucher(t, expectedProposalCID),
 			expectedID:    expectedProposalCID,
 			expectedEvent: storagemarket.ProviderEventDataTransferStalled,
 		},
 		"completion status": {
-			code:   datatransfer.Complete,
-			status: datatransfer.Completed,
-			called: true,
-			voucher: &requestvalidation.StorageDataTransferVoucher{
-				Proposal: expectedProposalCID,
-			},
+			code:          datatransfer.Complete,
+			status:        datatransfer.Completed,
+			called:        true,
+			voucher:       storageDataTransferVoucher(t, expectedProposalCID),
 			expectedID:    expectedProposalCID,
 			expectedEvent: storagemarket.ProviderEventDataTransferCompleted,
 		},
 		"data received": {
-			code:   datatransfer.DataReceived,
-			status: datatransfer.Ongoing,
-			called: false,
-			voucher: &requestvalidation.StorageDataTransferVoucher{
-				Proposal: expectedProposalCID,
-			},
+			code:       datatransfer.DataReceived,
+			status:     datatransfer.Ongoing,
+			called:     false,
+			voucher:    storageDataTransferVoucher(t, expectedProposalCID),
 			expectedID: expectedProposalCID,
 		},
 		"error event": {
-			code:    datatransfer.Error,
-			message: "something went wrong",
-			status:  datatransfer.Failed,
-			called:  true,
-			voucher: &requestvalidation.StorageDataTransferVoucher{
-				Proposal: expectedProposalCID,
-			},
+			code:          datatransfer.Error,
+			message:       "something went wrong",
+			status:        datatransfer.Failed,
+			called:        true,
+			voucher:       storageDataTransferVoucher(t, expectedProposalCID),
 			expectedID:    expectedProposalCID,
 			expectedEvent: storagemarket.ProviderEventDataTransferFailed,
 			expectedArgs:  []interface{}{errors.New("deal data transfer failed: something went wrong")},
 		},
 		"other event": {
-			code:   datatransfer.DataSent,
-			status: datatransfer.Ongoing,
-			called: false,
-			voucher: &requestvalidation.StorageDataTransferVoucher{
-				Proposal: expectedProposalCID,
-			},
+			code:    datatransfer.DataSent,
+			status:  datatransfer.Ongoing,
+			called:  false,
+			voucher: storageDataTransferVoucher(t, expectedProposalCID),
 		},
 	}
 	for test, data := range tests {
@@ -118,7 +116,7 @@ func TestProviderDataTransferSubscriber(t *testing.T) {
 			fdg := &fakeDealGroup{}
 			subscriber := dtutils.ProviderDataTransferSubscriber(fdg)
 			subscriber(datatransfer.Event{Code: data.code, Message: data.message}, shared_testutil.NewTestChannel(
-				shared_testutil.TestChannelParams{Vouchers: []datatransfer.Voucher{data.voucher}, Status: data.status,
+				shared_testutil.TestChannelParams{Vouchers: []datatransfer.TypedVoucher{data.voucher}, Status: data.status,
 					Sender: init, Recipient: resp, TransferID: tid, IsPull: false},
 			))
 			if data.called {
@@ -145,76 +143,64 @@ func TestClientDataTransferSubscriber(t *testing.T) {
 		message       string
 		status        datatransfer.Status
 		called        bool
-		voucher       datatransfer.Voucher
+		voucher       datatransfer.TypedVoucher
 		expectedID    interface{}
 		expectedEvent fsm.EventName
 		expectedArgs  []interface{}
 	}{
 		"not a storage voucher": {
 			called:  false,
-			voucher: nil,
+			voucher: datatransfer.TypedVoucher{Voucher: basicnode.NewString("Nope"), Type: datatransfer.TypeIdentifier("Nope")},
 		},
 		"completion event": {
-			code:   datatransfer.Complete,
-			status: datatransfer.Completed,
-			called: true,
-			voucher: &requestvalidation.StorageDataTransferVoucher{
-				Proposal: expectedProposalCID,
-			},
+			code:          datatransfer.Complete,
+			status:        datatransfer.Completed,
+			called:        true,
+			voucher:       storageDataTransferVoucher(t, expectedProposalCID),
 			expectedID:    expectedProposalCID,
 			expectedEvent: storagemarket.ClientEventDataTransferComplete,
 		},
 		"restart event": {
-			code:   datatransfer.Restart,
-			status: datatransfer.Ongoing,
-			called: true,
-			voucher: &requestvalidation.StorageDataTransferVoucher{
-				Proposal: expectedProposalCID,
-			},
+			code:          datatransfer.Restart,
+			status:        datatransfer.Ongoing,
+			called:        true,
+			voucher:       storageDataTransferVoucher(t, expectedProposalCID),
 			expectedID:    expectedProposalCID,
 			expectedEvent: storagemarket.ClientEventDataTransferRestarted,
 			expectedArgs:  []interface{}{datatransfer.ChannelID{Initiator: init, Responder: resp, ID: tid}},
 		},
 		"disconnected event": {
-			code:   datatransfer.Disconnected,
-			status: datatransfer.Ongoing,
-			called: true,
-			voucher: &requestvalidation.StorageDataTransferVoucher{
-				Proposal: expectedProposalCID,
-			},
+			code:          datatransfer.Disconnected,
+			status:        datatransfer.Ongoing,
+			called:        true,
+			voucher:       storageDataTransferVoucher(t, expectedProposalCID),
 			expectedID:    expectedProposalCID,
 			expectedEvent: storagemarket.ClientEventDataTransferStalled,
 		},
 		"accept event": {
-			code:   datatransfer.Accept,
-			status: datatransfer.Requested,
-			called: true,
-			voucher: &requestvalidation.StorageDataTransferVoucher{
-				Proposal: expectedProposalCID,
-			},
+			code:          datatransfer.Accept,
+			status:        datatransfer.Requested,
+			called:        true,
+			voucher:       storageDataTransferVoucher(t, expectedProposalCID),
 			expectedID:    expectedProposalCID,
 			expectedEvent: storagemarket.ClientEventDataTransferInitiated,
 			expectedArgs:  []interface{}{datatransfer.ChannelID{Initiator: init, Responder: resp, ID: tid}},
 		},
 		"error event": {
-			code:    datatransfer.Error,
-			message: "something went wrong",
-			status:  datatransfer.Failed,
-			called:  true,
-			voucher: &requestvalidation.StorageDataTransferVoucher{
-				Proposal: expectedProposalCID,
-			},
+			code:          datatransfer.Error,
+			message:       "something went wrong",
+			status:        datatransfer.Failed,
+			called:        true,
+			voucher:       storageDataTransferVoucher(t, expectedProposalCID),
 			expectedID:    expectedProposalCID,
 			expectedEvent: storagemarket.ClientEventDataTransferFailed,
 			expectedArgs:  []interface{}{errors.New("deal data transfer failed: something went wrong")},
 		},
 		"other event": {
-			code:   datatransfer.DataReceived,
-			status: datatransfer.Ongoing,
-			called: false,
-			voucher: &requestvalidation.StorageDataTransferVoucher{
-				Proposal: expectedProposalCID,
-			},
+			code:    datatransfer.DataReceived,
+			status:  datatransfer.Ongoing,
+			called:  false,
+			voucher: storageDataTransferVoucher(t, expectedProposalCID),
 		},
 	}
 
@@ -223,7 +209,7 @@ func TestClientDataTransferSubscriber(t *testing.T) {
 			fdg := &fakeDealGroup{}
 			subscriber := dtutils.ClientDataTransferSubscriber(fdg)
 			subscriber(datatransfer.Event{Code: data.code, Message: data.message}, shared_testutil.NewTestChannel(
-				shared_testutil.TestChannelParams{Vouchers: []datatransfer.Voucher{data.voucher}, Status: data.status,
+				shared_testutil.TestChannelParams{Vouchers: []datatransfer.TypedVoucher{data.voucher}, Status: data.status,
 					Sender: init, Recipient: resp, TransferID: tid, IsPull: false},
 			))
 			if data.called {
@@ -243,7 +229,7 @@ func TestTransportConfigurer(t *testing.T) {
 	expectedChannelID := shared_testutil.MakeTestChannelID()
 
 	testCases := map[string]struct {
-		voucher          datatransfer.Voucher
+		voucher          datatransfer.TypedVoucher
 		transport        datatransfer.Transport
 		returnedStore    bs.Blockstore
 		returnedStoreErr error
@@ -251,20 +237,16 @@ func TestTransportConfigurer(t *testing.T) {
 		useStoreCalled   bool
 	}{
 		"non-storage voucher": {
-			voucher:      nil,
+			voucher:      datatransfer.TypedVoucher{Voucher: basicnode.NewString("Nope"), Type: datatransfer.TypeIdentifier("Nope")},
 			getterCalled: false,
 		},
 		"non-configurable transport": {
-			voucher: &requestvalidation.StorageDataTransferVoucher{
-				Proposal: expectedProposalCID,
-			},
+			voucher:      storageDataTransferVoucher(t, expectedProposalCID),
 			transport:    &fakeTransport{},
 			getterCalled: false,
 		},
 		"store getter errors": {
-			voucher: &requestvalidation.StorageDataTransferVoucher{
-				Proposal: expectedProposalCID,
-			},
+			voucher:          storageDataTransferVoucher(t, expectedProposalCID),
 			transport:        &fakeGsTransport{Transport: &fakeTransport{}},
 			getterCalled:     true,
 			useStoreCalled:   false,
@@ -272,9 +254,7 @@ func TestTransportConfigurer(t *testing.T) {
 			returnedStoreErr: errors.New("something went wrong"),
 		},
 		"store getter succeeds": {
-			voucher: &requestvalidation.StorageDataTransferVoucher{
-				Proposal: expectedProposalCID,
-			},
+			voucher:          storageDataTransferVoucher(t, expectedProposalCID),
 			transport:        &fakeGsTransport{Transport: &fakeTransport{}},
 			getterCalled:     true,
 			useStoreCalled:   true,
@@ -336,7 +316,7 @@ func (fsg *fakeStoreGetter) Get(proposalCid cid.Cid) (bs.Blockstore, error) {
 
 type fakeTransport struct{}
 
-func (ft *fakeTransport) OpenChannel(ctx context.Context, dataSender peer.ID, channelID datatransfer.ChannelID, root ipld.Link, stor ipld.Node, channel datatransfer.ChannelState, msg datatransfer.Message) error {
+func (ft *fakeTransport) OpenChannel(ctx context.Context, dataSender peer.ID, channelID datatransfer.ChannelID, root datamodel.Link, stor datamodel.Node, channel datatransfer.ChannelState, msg datatransfer.Message) error {
 	return nil
 }
 

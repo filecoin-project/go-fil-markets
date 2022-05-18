@@ -14,6 +14,7 @@ import (
 	datatransfer "github.com/filecoin-project/go-data-transfer/v2"
 	"github.com/filecoin-project/go-statemachine/fsm"
 
+	"github.com/filecoin-project/go-fil-markets/shared"
 	"github.com/filecoin-project/go-fil-markets/storagemarket"
 	"github.com/filecoin-project/go-fil-markets/storagemarket/impl/requestvalidation"
 )
@@ -32,13 +33,25 @@ type EventReceiver interface {
 // event or moving to error if a data transfer error occurs
 func ProviderDataTransferSubscriber(deals EventReceiver) datatransfer.Subscriber {
 	return func(event datatransfer.Event, channelState datatransfer.ChannelState) {
-		voucher, ok := channelState.Voucher().(*requestvalidation.StorageDataTransferVoucher)
-		// if this event is for a transfer not related to storage, ignore
-		if !ok {
+		node, err := channelState.Voucher()
+		if err != nil {
+			log.Errorf("ignoring data-transfer event as the voucher is invalid, event=%s, channelID=%s: %s", datatransfer.Events[event.Code], "channelID",
+				channelState.ChannelID().String(), err.Error())
+			return
+		}
+		if node.Voucher == nil {
 			log.Debugw("ignoring data-transfer event as it's not storage related", "event", datatransfer.Events[event.Code], "channelID",
 				channelState.ChannelID())
 			return
 		}
+		voucherIface, err := shared.TypeFromNode(node.Voucher, &requestvalidation.StorageDataTransferVoucher{})
+		// if this event is for a transfer not related to storage, ignore
+		if err != nil {
+			log.Debugw("ignoring data-transfer event as it's not storage related", "event", datatransfer.Events[event.Code], "channelID",
+				channelState.ChannelID())
+			return
+		}
+		voucher, _ := voucherIface.(*requestvalidation.StorageDataTransferVoucher) // safe to assume type
 
 		log.Debugw("processing storage provider dt event", "event", datatransfer.Events[event.Code], "proposalCid", voucher.Proposal, "channelID",
 			channelState.ChannelID(), "channelState", datatransfer.Statuses[channelState.Status()])
@@ -47,12 +60,13 @@ func ProviderDataTransferSubscriber(deals EventReceiver) datatransfer.Subscriber
 			err := deals.Send(voucher.Proposal, storagemarket.ProviderEventDataTransferCompleted)
 			if err != nil {
 				log.Errorf("processing dt event: %s", err)
+				return
 			}
 		}
 
 		// Translate from data transfer events to provider FSM events
 		// Note: We ignore data transfer progress events (they do not affect deal state)
-		err := func() error {
+		err = func() error {
 			switch event.Code {
 			case datatransfer.Cancel:
 				return deals.Send(voucher.Proposal, storagemarket.ProviderEventDataTransferCancelled)
@@ -81,11 +95,26 @@ func ProviderDataTransferSubscriber(deals EventReceiver) datatransfer.Subscriber
 // an event to the appropriate state machine
 func ClientDataTransferSubscriber(deals EventReceiver) datatransfer.Subscriber {
 	return func(event datatransfer.Event, channelState datatransfer.ChannelState) {
-		voucher, ok := channelState.Voucher().(*requestvalidation.StorageDataTransferVoucher)
-		// if this event is for a transfer not related to storage, ignore
-		if !ok {
+		// TODO: are these log messages valid for Client?
+		node, err := channelState.Voucher()
+		if err != nil {
+			log.Errorf("ignoring data-transfer event as the voucher is invalid, event=%s, channelID=%s: %s", datatransfer.Events[event.Code], "channelID",
+				channelState.ChannelID().String(), err.Error())
 			return
 		}
+		if node.Voucher == nil {
+			log.Debugw("ignoring data-transfer event as it's not storage related", "event", datatransfer.Events[event.Code], "channelID",
+				channelState.ChannelID())
+			return
+		}
+		voucherIface, err := shared.TypeFromNode(node.Voucher, &requestvalidation.StorageDataTransferVoucher{})
+		// if this event is for a transfer not related to storage, ignore
+		if err != nil {
+			log.Debugw("ignoring data-transfer event as it's not storage related", "event", datatransfer.Events[event.Code], "channelID",
+				channelState.ChannelID())
+			return
+		}
+		voucher, _ := voucherIface.(*requestvalidation.StorageDataTransferVoucher) // safe to assume type
 
 		// Note: We ignore data transfer progress events (they do not affect deal state)
 		log.Debugw("processing storage client dt event", "event", datatransfer.Events[event.Code], "proposalCid", voucher.Proposal, "channelID",
@@ -95,10 +124,11 @@ func ClientDataTransferSubscriber(deals EventReceiver) datatransfer.Subscriber {
 			err := deals.Send(voucher.Proposal, storagemarket.ClientEventDataTransferComplete)
 			if err != nil {
 				log.Errorf("processing dt event: %s", err)
+				return
 			}
 		}
 
-		err := func() error {
+		err = func() error {
 			switch event.Code {
 			case datatransfer.Cancel:
 				return deals.Send(voucher.Proposal, storagemarket.ClientEventDataTransferCancelled)
@@ -136,11 +166,18 @@ type StoreConfigurableTransport interface {
 
 // TransportConfigurer configurers the graphsync transport to use a custom blockstore per deal
 func TransportConfigurer(storeGetter StoreGetter) datatransfer.TransportConfigurer {
-	return func(channelID datatransfer.ChannelID, voucher datatransfer.Voucher, transport datatransfer.Transport) {
-		storageVoucher, ok := voucher.(*requestvalidation.StorageDataTransferVoucher)
-		if !ok {
+	return func(channelID datatransfer.ChannelID, voucher datatransfer.TypedVoucher, transport datatransfer.Transport) {
+		if voucher.Voucher == nil {
+			log.Errorf("attempting to configure data store, empty voucher")
 			return
 		}
+		voucherIface, err := shared.TypeFromNode(voucher.Voucher, &requestvalidation.StorageDataTransferVoucher{})
+		// if this event is for a transfer not related to storage, ignore
+		if err != nil {
+			log.Errorf("attempting to configure data store, bad voucher: %s", err)
+			return
+		}
+		storageVoucher, _ := voucherIface.(*requestvalidation.StorageDataTransferVoucher) // safe to assume type
 		gsTransport, ok := transport.(StoreConfigurableTransport)
 		if !ok {
 			return
