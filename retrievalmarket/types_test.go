@@ -5,8 +5,6 @@ import (
 	"encoding/json"
 	"testing"
 
-	"github.com/ipld/go-ipld-prime/codec/dagcbor"
-	basicnode "github.com/ipld/go-ipld-prime/node/basic"
 	selectorparse "github.com/ipld/go-ipld-prime/traversal/selector/parse"
 	"github.com/libp2p/go-libp2p/core/test"
 	"github.com/stretchr/testify/assert"
@@ -36,11 +34,7 @@ func TestParamsMarshalUnmarshal(t *testing.T) {
 
 	assert.Equal(t, params, *unmarshalled)
 
-	nb := basicnode.Prototype.Any.NewBuilder()
-	err = dagcbor.Decode(nb, bytes.NewBuffer(unmarshalled.Selector.Raw))
-	assert.NoError(t, err)
-	sel := nb.Build()
-	assert.Equal(t, sel, allSelector)
+	assert.Equal(t, unmarshalled.Selector.Node, allSelector)
 }
 
 func TestPricingInputMarshalUnmarshalJSON(t *testing.T) {
@@ -88,30 +82,33 @@ func TestParamsIntervalBounds(t *testing.T) {
 		currentInterval:  10,
 		paymentInterval:  10,
 		intervalIncrease: 5,
-		expLowerBound:    0,
+		expLowerBound:    10,
 		expNextInterval:  25, // 10 + (10 + 5)
 	}, {
 		currentInterval:  25,
 		paymentInterval:  10,
 		intervalIncrease: 5,
-		expLowerBound:    10,
+		expLowerBound:    25,
 		expNextInterval:  45, // 10 + (10 + 5) + (10 + 5 + 5)
 	}, {
 		currentInterval:  45,
 		paymentInterval:  10,
 		intervalIncrease: 5,
-		expLowerBound:    25,
+		expLowerBound:    45,
 		expNextInterval:  70, // 10 + (10 + 5) + (10 + 5 + 5) + (10 + 5 + 5 + 5)
 	}}
 
 	for _, tc := range testCases {
 		t.Run("", func(t *testing.T) {
+			pricePerByte := abi.NewTokenAmount(1)
 			params := retrievalmarket.Params{
+				PricePerByte:            pricePerByte,
 				PaymentInterval:         tc.paymentInterval,
 				PaymentIntervalIncrease: tc.intervalIncrease,
 			}
+			currentIntervalFundPrice := big.Mul(pricePerByte, big.NewIntUnsigned(tc.currentInterval))
 			lowerBound := params.IntervalLowerBound(tc.currentInterval)
-			nextInterval := params.NextInterval(tc.currentInterval)
+			nextInterval := params.NextInterval(currentIntervalFundPrice)
 
 			require.Equal(t, tc.expLowerBound, lowerBound)
 			require.Equal(t, tc.expNextInterval, nextInterval)

@@ -5,10 +5,10 @@ import (
 
 	"github.com/ipfs/go-cid"
 	logging "github.com/ipfs/go-log/v2"
-	"github.com/libp2p/go-libp2p/core/peer"
+	peer "github.com/libp2p/go-libp2p/core/peer"
 
 	"github.com/filecoin-project/go-address"
-	datatransfer "github.com/filecoin-project/go-data-transfer"
+	datatransfer "github.com/filecoin-project/go-data-transfer/v2"
 	"github.com/filecoin-project/go-state-types/abi"
 	"github.com/filecoin-project/go-state-types/big"
 	"github.com/filecoin-project/go-statemachine/fsm"
@@ -23,16 +23,15 @@ var log = logging.Logger("markets-rtvl")
 type ClientDealEnvironment interface {
 	// Node returns the node interface for this deal
 	Node() rm.RetrievalClientNode
-	OpenDataTransfer(ctx context.Context, to peer.ID, proposal *rm.DealProposal, legacy bool) (datatransfer.ChannelID, error)
-	SendDataTransferVoucher(context.Context, datatransfer.ChannelID, *rm.DealPayment, bool) error
+	OpenDataTransfer(ctx context.Context, to peer.ID, proposal *rm.DealProposal) (datatransfer.ChannelID, error)
+	SendDataTransferVoucher(context.Context, datatransfer.ChannelID, *rm.DealPayment) error
 	CloseDataTransfer(context.Context, datatransfer.ChannelID) error
 	FinalizeBlockstore(context.Context, rm.DealID) error
 }
 
 // ProposeDeal sends the proposal to the other party
 func ProposeDeal(ctx fsm.Context, environment ClientDealEnvironment, deal rm.ClientDealState) error {
-	legacy := deal.Status == rm.DealStatusRetryLegacy
-	channelID, err := environment.OpenDataTransfer(ctx.Context(), deal.Sender, &deal.DealProposal, legacy)
+	channelID, err := environment.OpenDataTransfer(ctx.Context(), deal.Sender, &deal.DealProposal)
 	if err != nil {
 		return ctx.Trigger(rm.ClientEventWriteDealProposalErrored, err)
 	}
@@ -190,7 +189,7 @@ func SendFunds(ctx fsm.Context, environment ClientDealEnvironment, deal rm.Clien
 		ID:             deal.DealProposal.ID,
 		PaymentChannel: deal.PaymentInfo.PayCh,
 		PaymentVoucher: voucher,
-	}, deal.LegacyProtocol)
+	})
 	if err != nil {
 		return ctx.Trigger(rm.ClientEventWriteDealPaymentErrored, err)
 	}

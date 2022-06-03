@@ -1,20 +1,21 @@
 package retrievalmarket
 
 import (
-	"bytes"
+	_ "embed"
 	"errors"
 	"fmt"
 
 	"github.com/ipfs/go-cid"
 	"github.com/ipld/go-ipld-prime"
-	"github.com/ipld/go-ipld-prime/codec/dagcbor"
+	"github.com/ipld/go-ipld-prime/datamodel"
+	"github.com/ipld/go-ipld-prime/node/bindnode"
+	bindnoderegistry "github.com/ipld/go-ipld-prime/node/bindnode/registry"
 	"github.com/libp2p/go-libp2p/core/peer"
 	"github.com/libp2p/go-libp2p/core/protocol"
-	cbg "github.com/whyrusleeping/cbor-gen"
 	"golang.org/x/xerrors"
 
 	"github.com/filecoin-project/go-address"
-	datatransfer "github.com/filecoin-project/go-data-transfer"
+	datatransfer "github.com/filecoin-project/go-data-transfer/v2"
 	"github.com/filecoin-project/go-state-types/abi"
 	"github.com/filecoin-project/go-state-types/big"
 	paychtypes "github.com/filecoin-project/go-state-types/builtin/v8/paych"
@@ -24,12 +25,12 @@ import (
 
 //go:generate cbor-gen-for --map-encoding Query QueryResponse DealProposal DealResponse Params QueryParams DealPayment ClientDealState ProviderDealState PaymentInfo RetrievalPeer Ask
 
+//go:embed types.ipldsch
+var embedSchema []byte
+
 // QueryProtocolID is the protocol for querying information about retrieval
 // deal parameters
 const QueryProtocolID = protocol.ID("/fil/retrieval/qry/1.0.0")
-
-// OldQueryProtocolID is the old query protocol for tuple structs
-const OldQueryProtocolID = protocol.ID("/fil/retrieval/qry/0.0.1")
 
 // Unsubscribe is a function that unsubscribes a subscriber for either the
 // client or the provider
@@ -69,7 +70,7 @@ type ClientDealState struct {
 }
 
 func (deal *ClientDealState) NextInterval() uint64 {
-	return deal.Params.NextInterval(deal.CurrentInterval)
+	return deal.Params.nextInterval(deal.CurrentInterval)
 }
 
 type ProviderQueryEvent struct {
@@ -93,23 +94,12 @@ type ProviderDealState struct {
 	DealProposal
 	StoreID uint64
 
-	ChannelID       *datatransfer.ChannelID
-	PieceInfo       *piecestore.PieceInfo
-	Status          DealStatus
-	Receiver        peer.ID
-	TotalSent       uint64
-	FundsReceived   abi.TokenAmount
-	Message         string
-	CurrentInterval uint64
-	LegacyProtocol  bool
-}
-
-func (deal *ProviderDealState) IntervalLowerBound() uint64 {
-	return deal.Params.IntervalLowerBound(deal.CurrentInterval)
-}
-
-func (deal *ProviderDealState) NextInterval() uint64 {
-	return deal.Params.NextInterval(deal.CurrentInterval)
+	ChannelID     *datatransfer.ChannelID
+	PieceInfo     *piecestore.PieceInfo
+	Status        DealStatus
+	Receiver      peer.ID
+	FundsReceived abi.TokenAmount
+	Message       string
 }
 
 // Identifier provides a unique id for this provider deal
@@ -175,10 +165,10 @@ const (
 // for the retrieval deal
 type QueryParams struct {
 	PieceCID *cid.Cid // optional, query if miner has this cid in this piece. some miners may not be able to respond.
-	// Selector                   ipld.Node // optional, query if miner has this cid in this piece. some miners may not be able to respond.
-	// MaxPricePerByte            abi.TokenAmount    // optional, tell miner uninterested if more expensive than this
-	// MinPaymentInterval         uint64    // optional, tell miner uninterested unless payment interval is greater than this
-	// MinPaymentIntervalIncrease uint64    // optional, tell miner uninterested unless payment interval increase is greater than this
+	//Selector                   ipld.Node // optional, query if miner has this cid in this piece. some miners may not be able to respond.
+	//MaxPricePerByte            abi.TokenAmount    // optional, tell miner uninterested if more expensive than this
+	//MinPaymentInterval         uint64    // optional, tell miner uninterested unless payment interval is greater than this
+	//MinPaymentIntervalIncrease uint64    // optional, tell miner uninterested unless payment interval increase is greater than this
 }
 
 // Query is a query to a given provider to determine information about a piece
@@ -259,7 +249,7 @@ func IsTerminalStatus(status DealStatus) bool {
 
 // Params are the parameters requested for a retrieval deal proposal
 type Params struct {
-	Selector                *cbg.Deferred // V1
+	Selector                CborGenCompatibleNode // V1
 	PieceCID                *cid.Cid
 	PricePerByte            abi.TokenAmount
 	PaymentInterval         uint64 // when to request payment
@@ -267,15 +257,22 @@ type Params struct {
 	UnsealPrice             abi.TokenAmount
 }
 
+// paramsBindnodeOptions is the bindnode options required to convert custom
+// types used by the Param type
+var paramsBindnodeOptions = []bindnode.Option{
+	CborGenCompatibleNodeBindnodeOption,
+	TokenAmountBindnodeOption,
+}
+
 func (p Params) SelectorSpecified() bool {
-	return p.Selector != nil && !bytes.Equal(p.Selector.Raw, cbg.CborNull)
+	return !p.Selector.IsNull()
 }
 
 func (p Params) IntervalLowerBound(currentInterval uint64) uint64 {
 	intervalSize := p.PaymentInterval
 	var lowerBound uint64
 	var target uint64
-	for target < currentInterval {
+	for target <= currentInterval {
 		lowerBound = target
 		target += intervalSize
 		intervalSize += p.PaymentIntervalIncrease
@@ -283,7 +280,61 @@ func (p Params) IntervalLowerBound(currentInterval uint64) uint64 {
 	return lowerBound
 }
 
-func (p Params) NextInterval(currentInterval uint64) uint64 {
+// OutstandingBalance produces the amount owed based on the deal params
+// for the given transfer state and funds received
+func (p Params) OutstandingBalance(fundsReceived abi.TokenAmount, sent uint64, inFinalization bool) big.Int {
+	// Check if the payment covers unsealing
+	if fundsReceived.LessThan(p.UnsealPrice) {
+		return big.Sub(p.UnsealPrice, fundsReceived)
+	}
+
+	// if unsealing funds are received and the retrieval is free, proceed
+	if p.PricePerByte.IsZero() {
+		return big.Zero()
+	}
+
+	// Calculate how much payment has been made for transferred data
+	transferPayment := big.Sub(fundsReceived, p.UnsealPrice)
+
+	// The provider sends data and the client sends payment for the data.
+	// The provider will send a limited amount of extra data before receiving
+	// payment. Given the current limit, check if the client has paid enough
+	// to unlock the next interval.
+	minimumBytesToPay := sent // for last payment, we need to get past zero
+	if !inFinalization {
+		minimumBytesToPay = p.IntervalLowerBound(sent)
+	}
+
+	// Calculate the minimum required payment
+	totalPaymentRequired := big.Mul(big.NewInt(int64(minimumBytesToPay)), p.PricePerByte)
+
+	// Calculate payment owed
+	owed := big.Sub(totalPaymentRequired, transferPayment)
+	if owed.LessThan(big.Zero()) {
+		return big.Zero()
+	}
+	return owed
+}
+
+// NextInterval produces the maximum data that can be transferred before more
+// payment is request
+func (p Params) NextInterval(fundsReceived abi.TokenAmount) uint64 {
+	if p.PricePerByte.NilOrZero() {
+		return 0
+	}
+	currentInterval := uint64(0)
+	bytesPaid := fundsReceived
+	if !p.UnsealPrice.NilOrZero() {
+		bytesPaid = big.Sub(bytesPaid, p.UnsealPrice)
+	}
+	bytesPaid = big.Div(bytesPaid, p.PricePerByte)
+	if bytesPaid.GreaterThan(big.Zero()) {
+		currentInterval = bytesPaid.Uint64()
+	}
+	return p.nextInterval(currentInterval)
+}
+
+func (p Params) nextInterval(currentInterval uint64) uint64 {
 	intervalSize := p.PaymentInterval
 	var nextInterval uint64
 	for nextInterval <= currentInterval {
@@ -304,20 +355,13 @@ func NewParamsV0(pricePerByte abi.TokenAmount, paymentInterval uint64, paymentIn
 }
 
 // NewParamsV1 generates parameters for a retrieval deal, including a selector
-func NewParamsV1(pricePerByte abi.TokenAmount, paymentInterval uint64, paymentIntervalIncrease uint64, sel ipld.Node, pieceCid *cid.Cid, unsealPrice abi.TokenAmount) (Params, error) {
-	var buffer bytes.Buffer
-
+func NewParamsV1(pricePerByte abi.TokenAmount, paymentInterval uint64, paymentIntervalIncrease uint64, sel datamodel.Node, pieceCid *cid.Cid, unsealPrice abi.TokenAmount) (Params, error) {
 	if sel == nil {
 		return Params{}, xerrors.New("selector required for NewParamsV1")
 	}
 
-	err := dagcbor.Encode(sel, &buffer)
-	if err != nil {
-		return Params{}, xerrors.Errorf("error encoding selector: %w", err)
-	}
-
 	return Params{
-		Selector:                &cbg.Deferred{Raw: buffer.Bytes()},
+		Selector:                CborGenCompatibleNode{Node: sel},
 		PieceCID:                pieceCid,
 		PricePerByte:            pricePerByte,
 		PaymentInterval:         paymentInterval,
@@ -340,9 +384,24 @@ type DealProposal struct {
 	Params
 }
 
-// Type method makes DealProposal usable as a voucher
-func (dp *DealProposal) Type() datatransfer.TypeIdentifier {
-	return "RetrievalDealProposal/1"
+// DealProposalType is the DealProposal voucher type
+const DealProposalType = datatransfer.TypeIdentifier("RetrievalDealProposal/1")
+
+// dealProposalBindnodeOptions is the bindnode options required to convert
+// custom types used by the DealProposal type; the only custom types involved
+// are for Params so we can reuse those options.
+var dealProposalBindnodeOptions = paramsBindnodeOptions
+
+func DealProposalFromNode(node datamodel.Node) (*DealProposal, error) {
+	if node == nil {
+		return nil, fmt.Errorf("empty voucher")
+	}
+	dpIface, err := BindnodeRegistry.TypeFromNode(node, &DealProposal{})
+	if err != nil {
+		return nil, xerrors.Errorf("invalid DealProposal: %w", err)
+	}
+	dp, _ := dpIface.(*DealProposal) // safe to assume type
+	return dp, nil
 }
 
 // DealProposalUndefined is an undefined deal proposal
@@ -359,13 +418,27 @@ type DealResponse struct {
 	Message string
 }
 
-// Type method makes DealResponse usable as a voucher result
-func (dr *DealResponse) Type() datatransfer.TypeIdentifier {
-	return "RetrievalDealResponse/1"
-}
+// DealResponseType is the DealResponse usable as a voucher type
+const DealResponseType = datatransfer.TypeIdentifier("RetrievalDealResponse/1")
+
+// dealResponseBindnodeOptions is the bindnode options required to convert custom
+// types used by the DealResponse type
+var dealResponseBindnodeOptions = []bindnode.Option{TokenAmountBindnodeOption}
 
 // DealResponseUndefined is an undefined deal response
 var DealResponseUndefined = DealResponse{}
+
+func DealResponseFromNode(node datamodel.Node) (*DealResponse, error) {
+	if node == nil {
+		return nil, fmt.Errorf("empty voucher")
+	}
+	dpIface, err := BindnodeRegistry.TypeFromNode(node, &DealResponse{})
+	if err != nil {
+		return nil, xerrors.Errorf("invalid DealResponse: %w", err)
+	}
+	dp, _ := dpIface.(*DealResponse) // safe to assume type
+	return dp, nil
+}
 
 // DealPayment is a payment for an in progress retrieval deal
 type DealPayment struct {
@@ -374,13 +447,32 @@ type DealPayment struct {
 	PaymentVoucher *paychtypes.SignedVoucher
 }
 
-// Type method makes DealPayment usable as a voucher
-func (dr *DealPayment) Type() datatransfer.TypeIdentifier {
-	return "RetrievalDealPayment/1"
+// DealPaymentType is the DealPayment voucher type
+const DealPaymentType = datatransfer.TypeIdentifier("RetrievalDealPayment/1")
+
+// dealPaymentBindnodeOptions is the bindnode options required to convert custom
+// types used by the DealPayment type
+var dealPaymentBindnodeOptions = []bindnode.Option{
+	SignatureBindnodeOption,
+	AddressBindnodeOption,
+	BigIntBindnodeOption,
+	TokenAmountBindnodeOption,
 }
 
 // DealPaymentUndefined is an undefined deal payment
 var DealPaymentUndefined = DealPayment{}
+
+func DealPaymentFromNode(node datamodel.Node) (*DealPayment, error) {
+	if node == nil {
+		return nil, fmt.Errorf("empty voucher")
+	}
+	dpIface, err := BindnodeRegistry.TypeFromNode(node, &DealPayment{})
+	if err != nil {
+		return nil, xerrors.Errorf("invalid DealPayment: %w", err)
+	}
+	dp, _ := dpIface.(*DealPayment) // safe to assume type
+	return dp, nil
+}
 
 var (
 	// ErrNotFound means a piece was not found during retrieval
@@ -448,4 +540,23 @@ type PricingInput struct {
 	Unsealed bool
 	// CurrentAsk is the current configured ask in the ask-store.
 	CurrentAsk Ask
+}
+
+var BindnodeRegistry = bindnoderegistry.NewRegistry()
+
+func init() {
+	for _, r := range []struct {
+		typ     interface{}
+		typName string
+		opts    []bindnode.Option
+	}{
+		{(*Params)(nil), "Params", paramsBindnodeOptions},
+		{(*DealProposal)(nil), "DealProposal", dealProposalBindnodeOptions},
+		{(*DealResponse)(nil), "DealResponse", dealResponseBindnodeOptions},
+		{(*DealPayment)(nil), "DealPayment", dealPaymentBindnodeOptions},
+	} {
+		if err := BindnodeRegistry.RegisterType(r.typ, string(embedSchema), r.typName, r.opts...); err != nil {
+			panic(err.Error())
+		}
+	}
 }
