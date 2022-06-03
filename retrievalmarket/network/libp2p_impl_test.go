@@ -5,8 +5,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/libp2p/go-libp2p-core/peer"
-	"github.com/libp2p/go-libp2p-core/protocol"
+	"github.com/libp2p/go-libp2p/core/peer"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -30,100 +29,53 @@ func (tr *testReceiver) HandleQueryStream(s network.RetrievalQueryStream) {
 func TestQueryStreamSendReceiveQuery(t *testing.T) {
 	ctx := context.Background()
 
-	testCases := map[string]struct {
-		senderDisabledNew   bool
-		receiverDisabledNew bool
-	}{
-		"both clients current version": {},
-		"sender old supports old queries": {
-			senderDisabledNew: true,
-		},
-		"receiver only supports old queries": {
-			receiverDisabledNew: true,
-		},
-	}
-	for testCase, data := range testCases {
-		t.Run(testCase, func(t *testing.T) {
-			td := shared_testutil.NewLibp2pTestData(ctx, t)
-			var fromNetwork, toNetwork network.RetrievalMarketNetwork
-			if data.senderDisabledNew {
-				fromNetwork = network.NewFromLibp2pHost(td.Host1, network.SupportedProtocols([]protocol.ID{retrievalmarket.OldQueryProtocolID}))
-			} else {
-				fromNetwork = network.NewFromLibp2pHost(td.Host1)
-			}
-			if data.receiverDisabledNew {
-				toNetwork = network.NewFromLibp2pHost(td.Host2, network.SupportedProtocols([]protocol.ID{retrievalmarket.OldQueryProtocolID}))
-			} else {
-				toNetwork = network.NewFromLibp2pHost(td.Host2)
-			}
-			toHost := td.Host2.ID()
+	td := shared_testutil.NewLibp2pTestData(ctx, t)
+	var fromNetwork, toNetwork network.RetrievalMarketNetwork
+	fromNetwork = network.NewFromLibp2pHost(td.Host1)
+	toNetwork = network.NewFromLibp2pHost(td.Host2)
+	toHost := td.Host2.ID()
 
-			// host1 gets no-op receiver
-			tr := &testReceiver{t: t}
-			require.NoError(t, fromNetwork.SetDelegate(tr))
+	// host1 gets no-op receiver
+	tr := &testReceiver{t: t}
+	require.NoError(t, fromNetwork.SetDelegate(tr))
 
-			// host2 gets receiver
-			qchan := make(chan retrievalmarket.Query)
-			tr2 := &testReceiver{t: t, queryStreamHandler: func(s network.RetrievalQueryStream) {
-				readq, err := s.ReadQuery()
-				require.NoError(t, err)
-				qchan <- readq
-			}}
-			require.NoError(t, toNetwork.SetDelegate(tr2))
+	// host2 gets receiver
+	qchan := make(chan retrievalmarket.Query)
+	tr2 := &testReceiver{t: t, queryStreamHandler: func(s network.RetrievalQueryStream) {
+		readq, err := s.ReadQuery()
+		require.NoError(t, err)
+		qchan <- readq
+	}}
+	require.NoError(t, toNetwork.SetDelegate(tr2))
 
-			// setup query stream host1 --> host 2
-			assertQueryReceived(ctx, t, fromNetwork, toHost, qchan)
-		})
-	}
+	// setup query stream host1 --> host 2
+	assertQueryReceived(ctx, t, fromNetwork, toHost, qchan)
 }
 
 func TestQueryStreamSendReceiveQueryResponse(t *testing.T) {
 	ctx := context.Background()
 
-	testCases := map[string]struct {
-		senderDisabledNew   bool
-		receiverDisabledNew bool
-	}{
-		"both clients current version": {},
-		"sender old supports old queries": {
-			senderDisabledNew: true,
-		},
-		"receiver only supports old queries": {
-			receiverDisabledNew: true,
-		},
-	}
-	for testCase, data := range testCases {
-		t.Run(testCase, func(t *testing.T) {
-			td := shared_testutil.NewLibp2pTestData(ctx, t)
-			var fromNetwork, toNetwork network.RetrievalMarketNetwork
-			if data.senderDisabledNew {
-				fromNetwork = network.NewFromLibp2pHost(td.Host1, network.SupportedProtocols([]protocol.ID{retrievalmarket.OldQueryProtocolID}))
-			} else {
-				fromNetwork = network.NewFromLibp2pHost(td.Host1)
-			}
-			if data.receiverDisabledNew {
-				toNetwork = network.NewFromLibp2pHost(td.Host2, network.SupportedProtocols([]protocol.ID{retrievalmarket.OldQueryProtocolID}))
-			} else {
-				toNetwork = network.NewFromLibp2pHost(td.Host2)
-			}
-			toHost := td.Host2.ID()
+	td := shared_testutil.NewLibp2pTestData(ctx, t)
+	var fromNetwork, toNetwork network.RetrievalMarketNetwork
+	fromNetwork = network.NewFromLibp2pHost(td.Host1)
+	toNetwork = network.NewFromLibp2pHost(td.Host2)
+	toHost := td.Host2.ID()
 
-			// host1 gets no-op receiver
-			tr := &testReceiver{t: t}
-			require.NoError(t, fromNetwork.SetDelegate(tr))
+	// host1 gets no-op receiver
+	tr := &testReceiver{t: t}
+	require.NoError(t, fromNetwork.SetDelegate(tr))
 
-			// host2 gets receiver
-			qchan := make(chan retrievalmarket.QueryResponse)
-			tr2 := &testReceiver{t: t, queryStreamHandler: func(s network.RetrievalQueryStream) {
-				q, err := s.ReadQueryResponse()
-				require.NoError(t, err)
-				qchan <- q
-			}}
-			require.NoError(t, toNetwork.SetDelegate(tr2))
+	// host2 gets receiver
+	qchan := make(chan retrievalmarket.QueryResponse)
+	tr2 := &testReceiver{t: t, queryStreamHandler: func(s network.RetrievalQueryStream) {
+		q, err := s.ReadQueryResponse()
+		require.NoError(t, err)
+		qchan <- q
+	}}
+	require.NoError(t, toNetwork.SetDelegate(tr2))
 
-			assertQueryResponseReceived(ctx, t, fromNetwork, toHost, qchan)
-		})
-	}
+	assertQueryResponseReceived(ctx, t, fromNetwork, toHost, qchan)
+
 }
 
 func TestQueryStreamSendReceiveMultipleSuccessful(t *testing.T) {

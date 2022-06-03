@@ -13,22 +13,22 @@ import (
 	"github.com/ipfs/go-datastore"
 	"github.com/ipfs/go-datastore/namespace"
 	dss "github.com/ipfs/go-datastore/sync"
-	"github.com/ipld/go-ipld-prime/codec/dagcbor"
 	selectorparse "github.com/ipld/go-ipld-prime/traversal/selector/parse"
-	"github.com/libp2p/go-libp2p-core/peer"
+	"github.com/libp2p/go-libp2p/core/peer"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	cbg "github.com/whyrusleeping/cbor-gen"
 
 	"github.com/filecoin-project/go-address"
-	datatransfer "github.com/filecoin-project/go-data-transfer"
+	datatransfer "github.com/filecoin-project/go-data-transfer/v2"
+	versionedds "github.com/filecoin-project/go-ds-versioning/pkg/datastore"
+	"github.com/filecoin-project/go-ds-versioning/pkg/versioned"
 	"github.com/filecoin-project/go-state-types/abi"
 	"github.com/filecoin-project/go-state-types/big"
 
 	"github.com/filecoin-project/go-fil-markets/retrievalmarket"
 	retrievalimpl "github.com/filecoin-project/go-fil-markets/retrievalmarket/impl"
 	"github.com/filecoin-project/go-fil-markets/retrievalmarket/impl/testnodes"
-	"github.com/filecoin-project/go-fil-markets/retrievalmarket/migrations"
+	"github.com/filecoin-project/go-fil-markets/retrievalmarket/migrations/maptypes"
 	"github.com/filecoin-project/go-fil-markets/retrievalmarket/network"
 	rmnet "github.com/filecoin-project/go-fil-markets/retrievalmarket/network"
 	"github.com/filecoin-project/go-fil-markets/shared_testutil"
@@ -45,24 +45,11 @@ func TestClient_Construction(t *testing.T) {
 	require.NoError(t, err)
 
 	require.Len(t, dt.Subscribers, 1)
-	require.Len(t, dt.RegisteredVoucherResultTypes, 2)
-	_, ok := dt.RegisteredVoucherResultTypes[0].(*retrievalmarket.DealResponse)
-	require.True(t, ok)
-	_, ok = dt.RegisteredVoucherResultTypes[1].(*migrations.DealResponse0)
-	require.True(t, ok)
-	require.Len(t, dt.RegisteredVoucherTypes, 4)
-	_, ok = dt.RegisteredVoucherTypes[0].VoucherType.(*retrievalmarket.DealProposal)
-	require.True(t, ok)
-	_, ok = dt.RegisteredVoucherTypes[1].VoucherType.(*migrations.DealProposal0)
-	require.True(t, ok)
-	_, ok = dt.RegisteredVoucherTypes[2].VoucherType.(*retrievalmarket.DealPayment)
-	require.True(t, ok)
-	_, ok = dt.RegisteredVoucherTypes[3].VoucherType.(*migrations.DealPayment0)
-	require.True(t, ok)
-	require.Len(t, dt.RegisteredTransportConfigurers, 2)
-	_, ok = dt.RegisteredTransportConfigurers[0].VoucherType.(*retrievalmarket.DealProposal)
-	_, ok = dt.RegisteredTransportConfigurers[1].VoucherType.(*migrations.DealProposal0)
-	require.True(t, ok)
+	require.Len(t, dt.RegisteredVoucherTypes, 2)
+	require.Equal(t, dt.RegisteredVoucherTypes[0].VoucherType, retrievalmarket.DealProposalType)
+	require.Equal(t, dt.RegisteredVoucherTypes[1].VoucherType, retrievalmarket.DealPaymentType)
+	require.Len(t, dt.RegisteredTransportConfigurers, 1)
+	require.Equal(t, dt.RegisteredTransportConfigurers[0].VoucherType, retrievalmarket.DealProposalType)
 }
 
 func TestClient_Query(t *testing.T) {
@@ -309,7 +296,7 @@ func TestClient_DuplicateRetrieve(t *testing.T) {
 
 			// Retrieve first payload CID from first peer
 			params := retrievalmarket.Params{
-				Selector:                nil,
+				Selector:                retrievalmarket.CborGenCompatibleNode{},
 				PieceCID:                &tut.GenerateCids(1)[0],
 				PricePerByte:            abi.NewTokenAmount(1),
 				PaymentInterval:         1,
@@ -387,11 +374,11 @@ func TestMigrations(t *testing.T) {
 	voucherShortfalls := make([]abi.TokenAmount, numDeals)
 	selfPeer := tut.GeneratePeers(1)[0]
 
-	allSelectorBuf := new(bytes.Buffer)
-	err := dagcbor.Encode(selectorparse.CommonSelector_ExploreAllRecursively, allSelectorBuf)
+	emptyList, err := versioned.BuilderList{}.Build()
 	require.NoError(t, err)
-	allSelectorBytes := allSelectorBuf.Bytes()
-
+	oldDs, migrate := versionedds.NewVersionedDatastore(retrievalDs, emptyList, "1")
+	err = migrate(ctx)
+	require.NoError(t, err)
 	for i := 0; i < numDeals; i++ {
 		payloadCIDs[i] = tut.GenerateCids(1)[0]
 		iDs[i] = retrievalmarket.DealID(rand.Uint64())
@@ -421,13 +408,13 @@ func TestMigrations(t *testing.T) {
 		fundsSpents[i] = big.NewInt(rand.Int63())
 		unsealFundsPaids[i] = big.NewInt(rand.Int63())
 		voucherShortfalls[i] = big.NewInt(rand.Int63())
-		deal := migrations.ClientDealState0{
-			DealProposal0: migrations.DealProposal0{
+		deal := maptypes.ClientDealState1{
+			DealProposal: retrievalmarket.DealProposal{
 				PayloadCID: payloadCIDs[i],
 				ID:         iDs[i],
-				Params0: migrations.Params0{
-					Selector: &cbg.Deferred{
-						Raw: allSelectorBytes,
+				Params: retrievalmarket.Params{
+					Selector: retrievalmarket.CborGenCompatibleNode{
+						Node: selectorparse.CommonSelector_ExploreAllRecursively,
 					},
 					PieceCID:                pieceCIDs[i],
 					PricePerByte:            pricePerBytes[i],
@@ -443,7 +430,7 @@ func TestMigrations(t *testing.T) {
 			TotalFunds:           totalFundss[i],
 			ClientWallet:         address.TestAddress,
 			MinerWallet:          address.TestAddress2,
-			PaymentInfo: &migrations.PaymentInfo0{
+			PaymentInfo: &retrievalmarket.PaymentInfo{
 				PayCh: address.TestAddress,
 				Lane:  lanes[i],
 			},
@@ -462,7 +449,7 @@ func TestMigrations(t *testing.T) {
 		buf := new(bytes.Buffer)
 		err := deal.MarshalCBOR(buf)
 		require.NoError(t, err)
-		err = retrievalDs.Put(ctx, datastore.NewKey(fmt.Sprint(deal.ID)), buf.Bytes())
+		err = oldDs.Put(ctx, datastore.NewKey(fmt.Sprint(deal.ID)), buf.Bytes())
 		require.NoError(t, err)
 	}
 	retrievalClient, err := retrievalimpl.NewClient(net, dt, testnodes.NewTestRetrievalClientNode(testnodes.TestRetrievalClientNodeParams{}), &tut.TestPeerResolver{}, retrievalDs, ba)
@@ -478,8 +465,8 @@ func TestMigrations(t *testing.T) {
 				PayloadCID: payloadCIDs[i],
 				ID:         iDs[i],
 				Params: retrievalmarket.Params{
-					Selector: &cbg.Deferred{
-						Raw: allSelectorBytes,
+					Selector: retrievalmarket.CborGenCompatibleNode{
+						Node: selectorparse.CommonSelector_ExploreAllRecursively,
 					},
 					PieceCID:                pieceCIDs[i],
 					PricePerByte:            pricePerBytes[i],

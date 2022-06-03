@@ -11,11 +11,11 @@ import (
 	bstore "github.com/ipfs/go-ipfs-blockstore"
 	logging "github.com/ipfs/go-log/v2"
 	selectorparse "github.com/ipld/go-ipld-prime/traversal/selector/parse"
-	"github.com/libp2p/go-libp2p-core/peer"
-	"golang.org/x/xerrors"
+	"github.com/libp2p/go-libp2p/core/peer"
 
 	"github.com/filecoin-project/go-address"
-	datatransfer "github.com/filecoin-project/go-data-transfer"
+	datatransfer "github.com/filecoin-project/go-data-transfer/v2"
+	versioning "github.com/filecoin-project/go-ds-versioning/pkg"
 	versionedfsm "github.com/filecoin-project/go-ds-versioning/pkg/fsm"
 	"github.com/filecoin-project/go-state-types/abi"
 	"github.com/filecoin-project/go-state-types/big"
@@ -102,41 +102,21 @@ func NewClient(
 		StateEntryFuncs: clientstates.ClientStateEntryFuncs,
 		FinalityStates:  clientstates.ClientFinalityStates,
 		Notifier:        c.notifySubscribers,
-	}, retrievalMigrations, "2")
+	}, retrievalMigrations, versioning.VersionKey("2"))
 	if err != nil {
 		return nil, err
 	}
-	err = dataTransfer.RegisterVoucherResultType(&retrievalmarket.DealResponse{})
+	err = dataTransfer.RegisterVoucherType(retrievalmarket.DealProposalType, nil)
 	if err != nil {
 		return nil, err
 	}
-	err = dataTransfer.RegisterVoucherResultType(&migrations.DealResponse0{})
-	if err != nil {
-		return nil, err
-	}
-	err = dataTransfer.RegisterVoucherType(&retrievalmarket.DealProposal{}, nil)
-	if err != nil {
-		return nil, err
-	}
-	err = dataTransfer.RegisterVoucherType(&migrations.DealProposal0{}, nil)
-	if err != nil {
-		return nil, err
-	}
-	err = dataTransfer.RegisterVoucherType(&retrievalmarket.DealPayment{}, nil)
-	if err != nil {
-		return nil, err
-	}
-	err = dataTransfer.RegisterVoucherType(&migrations.DealPayment0{}, nil)
+	err = dataTransfer.RegisterVoucherType(retrievalmarket.DealPaymentType, nil)
 	if err != nil {
 		return nil, err
 	}
 	dataTransfer.SubscribeToEvents(dtutils.ClientDataTransferSubscriber(c.stateMachines))
 	transportConfigurer := dtutils.TransportConfigurer(network.ID(), &clientStoreGetter{c})
-	err = dataTransfer.RegisterTransportConfigurer(&retrievalmarket.DealProposal{}, transportConfigurer)
-	if err != nil {
-		return nil, err
-	}
-	err = dataTransfer.RegisterTransportConfigurer(&migrations.DealProposal0{}, transportConfigurer)
+	err = dataTransfer.RegisterTransportConfigurer(retrievalmarket.DealProposalType, transportConfigurer)
 	if err != nil {
 		return nil, err
 	}
@@ -385,44 +365,18 @@ func (c *clientDealEnvironment) Node() retrievalmarket.RetrievalClientNode {
 	return c.c.node
 }
 
-func (c *clientDealEnvironment) OpenDataTransfer(ctx context.Context, to peer.ID, proposal *retrievalmarket.DealProposal, legacy bool) (datatransfer.ChannelID, error) {
+func (c *clientDealEnvironment) OpenDataTransfer(ctx context.Context, to peer.ID, proposal *retrievalmarket.DealProposal) (datatransfer.ChannelID, error) {
 	sel := selectorparse.CommonSelector_ExploreAllRecursively
 	if proposal.SelectorSpecified() {
-		var err error
-		sel, err = retrievalmarket.DecodeNode(proposal.Selector)
-		if err != nil {
-			return datatransfer.ChannelID{}, xerrors.Errorf("selector is invalid: %w", err)
-		}
+		sel = proposal.Selector.Node
 	}
-
-	var vouch datatransfer.Voucher = proposal
-	if legacy {
-		vouch = &migrations.DealProposal0{
-			PayloadCID: proposal.PayloadCID,
-			ID:         proposal.ID,
-			Params0: migrations.Params0{
-				Selector:                proposal.Selector,
-				PieceCID:                proposal.PieceCID,
-				PricePerByte:            proposal.PricePerByte,
-				PaymentInterval:         proposal.PaymentInterval,
-				PaymentIntervalIncrease: proposal.PaymentIntervalIncrease,
-				UnsealPrice:             proposal.UnsealPrice,
-			},
-		}
-	}
-	return c.c.dataTransfer.OpenPullDataChannel(ctx, to, vouch, proposal.PayloadCID, sel)
+	vouch := retrievalmarket.BindnodeRegistry.TypeToNode(proposal)
+	return c.c.dataTransfer.OpenPullDataChannel(ctx, to, datatransfer.TypedVoucher{Voucher: vouch, Type: retrievalmarket.DealProposalType}, proposal.PayloadCID, sel)
 }
 
-func (c *clientDealEnvironment) SendDataTransferVoucher(ctx context.Context, channelID datatransfer.ChannelID, payment *retrievalmarket.DealPayment, legacy bool) error {
-	var vouch datatransfer.Voucher = payment
-	if legacy {
-		vouch = &migrations.DealPayment0{
-			ID:             payment.ID,
-			PaymentChannel: payment.PaymentChannel,
-			PaymentVoucher: payment.PaymentVoucher,
-		}
-	}
-	return c.c.dataTransfer.SendVoucher(ctx, channelID, vouch)
+func (c *clientDealEnvironment) SendDataTransferVoucher(ctx context.Context, channelID datatransfer.ChannelID, payment *retrievalmarket.DealPayment) error {
+	vouch := retrievalmarket.BindnodeRegistry.TypeToNode(payment)
+	return c.c.dataTransfer.SendVoucher(ctx, channelID, datatransfer.TypedVoucher{Voucher: vouch, Type: retrievalmarket.DealPaymentType})
 }
 
 func (c *clientDealEnvironment) CloseDataTransfer(ctx context.Context, channelID datatransfer.ChannelID) error {

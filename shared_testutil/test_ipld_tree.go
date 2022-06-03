@@ -13,6 +13,7 @@ import (
 
 	// to register multicodec
 	_ "github.com/ipld/go-ipld-prime/codec/dagjson"
+	"github.com/ipld/go-ipld-prime/datamodel"
 	"github.com/ipld/go-ipld-prime/fluent"
 	cidlink "github.com/ipld/go-ipld-prime/linking/cid"
 	basicnode "github.com/ipld/go-ipld-prime/node/basic"
@@ -22,28 +23,28 @@ import (
 // TestIPLDTree is a set of IPLD Data that forms a tree spread across some blocks
 // with a serialized in memory representation
 type TestIPLDTree struct {
-	Storage           map[ipld.Link][]byte
-	LeafAlpha         ipld.Node
-	LeafAlphaLnk      ipld.Link
+	Storage           map[datamodel.Link][]byte
+	LeafAlpha         datamodel.Node
+	LeafAlphaLnk      datamodel.Link
 	LeafAlphaBlock    blocks.Block
-	LeafBeta          ipld.Node
-	LeafBetaLnk       ipld.Link
+	LeafBeta          datamodel.Node
+	LeafBetaLnk       datamodel.Link
 	LeafBetaBlock     blocks.Block
-	MiddleMapNode     ipld.Node
-	MiddleMapNodeLnk  ipld.Link
+	MiddleMapNode     datamodel.Node
+	MiddleMapNodeLnk  datamodel.Link
 	MiddleMapBlock    blocks.Block
-	MiddleListNode    ipld.Node
-	MiddleListNodeLnk ipld.Link
+	MiddleListNode    datamodel.Node
+	MiddleListNodeLnk datamodel.Link
 	MiddleListBlock   blocks.Block
-	RootNode          ipld.Node
-	RootNodeLnk       ipld.Link
+	RootNode          datamodel.Node
+	RootNodeLnk       datamodel.Link
 	RootBlock         blocks.Block
 }
 
 // NewTestIPLDTree returns a fake tree of nodes, spread across 5 blocks
 func NewTestIPLDTree() TestIPLDTree {
-	var storage = make(map[ipld.Link][]byte)
-	encode := func(n ipld.Node) (ipld.Node, ipld.Link) {
+	var storage = make(map[datamodel.Link][]byte)
+	encode := func(n datamodel.Node) (datamodel.Node, datamodel.Link) {
 		lb := cidlink.LinkPrototype{Prefix: cid.Prefix{
 			Version:  1,
 			Codec:    0x0129,
@@ -53,7 +54,7 @@ func NewTestIPLDTree() TestIPLDTree {
 		lsys := cidlink.DefaultLinkSystem()
 		lsys.StorageWriteOpener = func(ipld.LinkContext) (io.Writer, ipld.BlockWriteCommitter, error) {
 			buf := bytes.Buffer{}
-			return &buf, func(lnk ipld.Link) error {
+			return &buf, func(lnk datamodel.Link) error {
 				storage[lnk] = buf.Bytes()
 				return nil
 			}, nil

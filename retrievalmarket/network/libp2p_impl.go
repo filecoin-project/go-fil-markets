@@ -6,10 +6,10 @@ import (
 	"time"
 
 	logging "github.com/ipfs/go-log/v2"
-	"github.com/libp2p/go-libp2p-core/host"
-	"github.com/libp2p/go-libp2p-core/network"
-	"github.com/libp2p/go-libp2p-core/peer"
-	"github.com/libp2p/go-libp2p-core/protocol"
+	"github.com/libp2p/go-libp2p/core/host"
+	"github.com/libp2p/go-libp2p/core/network"
+	"github.com/libp2p/go-libp2p/core/peer"
+	"github.com/libp2p/go-libp2p/core/protocol"
 	ma "github.com/multiformats/go-multiaddr"
 
 	"github.com/filecoin-project/go-fil-markets/retrievalmarket"
@@ -44,7 +44,6 @@ func NewFromLibp2pHost(h host.Host, options ...Option) RetrievalMarketNetwork {
 		retryStream: shared.NewRetryStream(h),
 		supportedProtocols: []protocol.ID{
 			retrievalmarket.QueryProtocolID,
-			retrievalmarket.OldQueryProtocolID,
 		},
 	}
 	for _, option := range options {
@@ -64,7 +63,7 @@ type libp2pRetrievalMarketNetwork struct {
 	supportedProtocols []protocol.ID
 }
 
-//  NewQueryStream creates a new RetrievalQueryStream using the provided peer.ID
+// NewQueryStream creates a new RetrievalQueryStream using the provided peer.ID
 func (impl *libp2pRetrievalMarketNetwork) NewQueryStream(id peer.ID) (RetrievalQueryStream, error) {
 	s, err := impl.retryStream.OpenStream(context.Background(), id, impl.supportedProtocols)
 	if err != nil {
@@ -72,9 +71,6 @@ func (impl *libp2pRetrievalMarketNetwork) NewQueryStream(id peer.ID) (RetrievalQ
 		return nil, err
 	}
 	buffered := bufio.NewReaderSize(s, 16)
-	if s.Protocol() == retrievalmarket.OldQueryProtocolID {
-		return &oldQueryStream{p: id, rw: s, buffered: buffered}, nil
-	}
 	return &queryStream{p: id, rw: s, buffered: buffered}, nil
 }
 
@@ -105,12 +101,7 @@ func (impl *libp2pRetrievalMarketNetwork) handleNewQueryStream(s network.Stream)
 	}
 	remotePID := s.Conn().RemotePeer()
 	buffered := bufio.NewReaderSize(s, 16)
-	var qs RetrievalQueryStream
-	if s.Protocol() == retrievalmarket.OldQueryProtocolID {
-		qs = &oldQueryStream{remotePID, s, buffered}
-	} else {
-		qs = &queryStream{remotePID, s, buffered}
-	}
+	qs := &queryStream{remotePID, s, buffered}
 	impl.receiver.HandleQueryStream(qs)
 }
 

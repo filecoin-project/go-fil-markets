@@ -8,13 +8,13 @@ import (
 	"math"
 	"sort"
 
-	datatransfer "github.com/filecoin-project/go-data-transfer"
+	datatransfer "github.com/filecoin-project/go-data-transfer/v2"
 	filestore "github.com/filecoin-project/go-fil-markets/filestore"
 	abi "github.com/filecoin-project/go-state-types/abi"
 	market "github.com/filecoin-project/go-state-types/builtin/v9/market"
 	crypto "github.com/filecoin-project/go-state-types/crypto"
 	cid "github.com/ipfs/go-cid"
-	peer "github.com/libp2p/go-libp2p-core/peer"
+	peer "github.com/libp2p/go-libp2p/core/peer"
 	cbg "github.com/whyrusleeping/cbor-gen"
 	xerrors "golang.org/x/xerrors"
 )
