@@ -1,13 +1,13 @@
 version: 2.1
 orbs:
-  go: gotest/tools@0.0.9
-  codecov: codecov/codecov@1.0.2
-  node: circleci/node@4.5.1
+  go: gotest/tools@0.0.14
+  codecov: codecov/codecov@3.2.2
+  node: circleci/node@5.0.2
 
 executors:
   golang:
     docker:
-      - image: circleci/golang:1.16.4-node
+      - image: cimg/go:1.17-node
     resource_class: large
 
 commands:
