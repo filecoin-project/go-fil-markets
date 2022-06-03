@@ -22,13 +22,15 @@ import (
 
 	"github.com/filecoin-project/go-address"
 	datatransfer "github.com/filecoin-project/go-data-transfer/v2"
+	versionedds "github.com/filecoin-project/go-ds-versioning/pkg/datastore"
+	"github.com/filecoin-project/go-ds-versioning/pkg/versioned"
 	"github.com/filecoin-project/go-state-types/abi"
 	"github.com/filecoin-project/go-state-types/big"
 
 	"github.com/filecoin-project/go-fil-markets/retrievalmarket"
 	retrievalimpl "github.com/filecoin-project/go-fil-markets/retrievalmarket/impl"
 	"github.com/filecoin-project/go-fil-markets/retrievalmarket/impl/testnodes"
-	"github.com/filecoin-project/go-fil-markets/retrievalmarket/migrations"
+	"github.com/filecoin-project/go-fil-markets/retrievalmarket/migrations/maptypes"
 	"github.com/filecoin-project/go-fil-markets/retrievalmarket/network"
 	rmnet "github.com/filecoin-project/go-fil-markets/retrievalmarket/network"
 	"github.com/filecoin-project/go-fil-markets/shared_testutil"
@@ -45,23 +47,16 @@ func TestClient_Construction(t *testing.T) {
 	require.NoError(t, err)
 
 	require.Len(t, dt.Subscribers, 1)
-	require.Len(t, dt.RegisteredVoucherResultTypes, 2)
+	require.Len(t, dt.RegisteredVoucherResultTypes, 1)
 	_, ok := dt.RegisteredVoucherResultTypes[0].(*retrievalmarket.DealResponse)
 	require.True(t, ok)
-	_, ok = dt.RegisteredVoucherResultTypes[1].(*migrations.DealResponse0)
-	require.True(t, ok)
-	require.Len(t, dt.RegisteredVoucherTypes, 4)
+	require.Len(t, dt.RegisteredVoucherTypes, 2)
 	_, ok = dt.RegisteredVoucherTypes[0].VoucherType.(*retrievalmarket.DealProposal)
 	require.True(t, ok)
-	_, ok = dt.RegisteredVoucherTypes[1].VoucherType.(*migrations.DealProposal0)
+	_, ok = dt.RegisteredVoucherTypes[1].VoucherType.(*retrievalmarket.DealPayment)
 	require.True(t, ok)
-	_, ok = dt.RegisteredVoucherTypes[2].VoucherType.(*retrievalmarket.DealPayment)
-	require.True(t, ok)
-	_, ok = dt.RegisteredVoucherTypes[3].VoucherType.(*migrations.DealPayment0)
-	require.True(t, ok)
-	require.Len(t, dt.RegisteredTransportConfigurers, 2)
+	require.Len(t, dt.RegisteredTransportConfigurers, 1)
 	_, ok = dt.RegisteredTransportConfigurers[0].VoucherType.(*retrievalmarket.DealProposal)
-	_, ok = dt.RegisteredTransportConfigurers[1].VoucherType.(*migrations.DealProposal0)
 	require.True(t, ok)
 }
 
@@ -391,7 +386,11 @@ func TestMigrations(t *testing.T) {
 	err := dagcbor.Encode(selectorparse.CommonSelector_ExploreAllRecursively, allSelectorBuf)
 	require.NoError(t, err)
 	allSelectorBytes := allSelectorBuf.Bytes()
-
+	emptyList, err := versioned.BuilderList{}.Build()
+	require.NoError(t, err)
+	oldDs, migrate := versionedds.NewVersionedDatastore(retrievalDs, emptyList, "1")
+	err = migrate(ctx)
+	require.NoError(t, err)
 	for i := 0; i < numDeals; i++ {
 		payloadCIDs[i] = tut.GenerateCids(1)[0]
 		iDs[i] = retrievalmarket.DealID(rand.Uint64())
@@ -421,11 +420,11 @@ func TestMigrations(t *testing.T) {
 		fundsSpents[i] = big.NewInt(rand.Int63())
 		unsealFundsPaids[i] = big.NewInt(rand.Int63())
 		voucherShortfalls[i] = big.NewInt(rand.Int63())
-		deal := migrations.ClientDealState0{
-			DealProposal0: migrations.DealProposal0{
+		deal := maptypes.ClientDealState1{
+			DealProposal: retrievalmarket.DealProposal{
 				PayloadCID: payloadCIDs[i],
 				ID:         iDs[i],
-				Params0: migrations.Params0{
+				Params: retrievalmarket.Params{
 					Selector: &cbg.Deferred{
 						Raw: allSelectorBytes,
 					},
@@ -443,7 +442,7 @@ func TestMigrations(t *testing.T) {
 			TotalFunds:           totalFundss[i],
 			ClientWallet:         address.TestAddress,
 			MinerWallet:          address.TestAddress2,
-			PaymentInfo: &migrations.PaymentInfo0{
+			PaymentInfo: &retrievalmarket.PaymentInfo{
 				PayCh: address.TestAddress,
 				Lane:  lanes[i],
 			},
@@ -462,7 +461,7 @@ func TestMigrations(t *testing.T) {
 		buf := new(bytes.Buffer)
 		err := deal.MarshalCBOR(buf)
 		require.NoError(t, err)
-		err = retrievalDs.Put(ctx, datastore.NewKey(fmt.Sprint(deal.ID)), buf.Bytes())
+		err = oldDs.Put(ctx, datastore.NewKey(fmt.Sprint(deal.ID)), buf.Bytes())
 		require.NoError(t, err)
 	}
 	retrievalClient, err := retrievalimpl.NewClient(net, dt, testnodes.NewTestRetrievalClientNode(testnodes.TestRetrievalClientNodeParams{}), &tut.TestPeerResolver{}, retrievalDs, ba)

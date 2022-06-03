@@ -17,6 +17,7 @@ import (
 
 	"github.com/filecoin-project/go-address"
 	datatransfer "github.com/filecoin-project/go-data-transfer/v2"
+	versioning "github.com/filecoin-project/go-ds-versioning/pkg"
 	versionedfsm "github.com/filecoin-project/go-ds-versioning/pkg/fsm"
 	"github.com/filecoin-project/go-state-types/abi"
 	"github.com/filecoin-project/go-state-types/big"
@@ -103,7 +104,7 @@ func NewClient(
 		StateEntryFuncs: clientstates.ClientStateEntryFuncs,
 		FinalityStates:  clientstates.ClientFinalityStates,
 		Notifier:        c.notifySubscribers,
-	}, retrievalMigrations, "2")
+	}, retrievalMigrations, versioning.VersionKey("2"))
 	if err != nil {
 		return nil, err
 	}
@@ -111,15 +112,7 @@ func NewClient(
 	if err != nil {
 		return nil, err
 	}
-	err = dataTransfer.RegisterVoucherResultType(&migrations.DealResponse0{})
-	if err != nil {
-		return nil, err
-	}
 	err = dataTransfer.RegisterVoucherType(&retrievalmarket.DealProposal{}, nil)
-	if err != nil {
-		return nil, err
-	}
-	err = dataTransfer.RegisterVoucherType(&migrations.DealProposal0{}, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -127,17 +120,9 @@ func NewClient(
 	if err != nil {
 		return nil, err
 	}
-	err = dataTransfer.RegisterVoucherType(&migrations.DealPayment0{}, nil)
-	if err != nil {
-		return nil, err
-	}
 	dataTransfer.SubscribeToEvents(dtutils.ClientDataTransferSubscriber(c.stateMachines))
 	transportConfigurer := dtutils.TransportConfigurer(network.ID(), &clientStoreGetter{c})
 	err = dataTransfer.RegisterTransportConfigurer(&retrievalmarket.DealProposal{}, transportConfigurer)
-	if err != nil {
-		return nil, err
-	}
-	err = dataTransfer.RegisterTransportConfigurer(&migrations.DealProposal0{}, transportConfigurer)
 	if err != nil {
 		return nil, err
 	}
@@ -418,7 +403,7 @@ func (c *clientDealEnvironment) Node() retrievalmarket.RetrievalClientNode {
 	return c.c.node
 }
 
-func (c *clientDealEnvironment) OpenDataTransfer(ctx context.Context, to peer.ID, proposal *retrievalmarket.DealProposal, legacy bool) (datatransfer.ChannelID, error) {
+func (c *clientDealEnvironment) OpenDataTransfer(ctx context.Context, to peer.ID, proposal *retrievalmarket.DealProposal) (datatransfer.ChannelID, error) {
 	sel := selectorparse.CommonSelector_ExploreAllRecursively
 	if proposal.SelectorSpecified() {
 		var err error
@@ -429,32 +414,11 @@ func (c *clientDealEnvironment) OpenDataTransfer(ctx context.Context, to peer.ID
 	}
 
 	var vouch datatransfer.Voucher = proposal
-	if legacy {
-		vouch = &migrations.DealProposal0{
-			PayloadCID: proposal.PayloadCID,
-			ID:         proposal.ID,
-			Params0: migrations.Params0{
-				Selector:                proposal.Selector,
-				PieceCID:                proposal.PieceCID,
-				PricePerByte:            proposal.PricePerByte,
-				PaymentInterval:         proposal.PaymentInterval,
-				PaymentIntervalIncrease: proposal.PaymentIntervalIncrease,
-				UnsealPrice:             proposal.UnsealPrice,
-			},
-		}
-	}
 	return c.c.dataTransfer.OpenPullDataChannel(ctx, to, vouch, proposal.PayloadCID, sel)
 }
 
-func (c *clientDealEnvironment) SendDataTransferVoucher(ctx context.Context, channelID datatransfer.ChannelID, payment *retrievalmarket.DealPayment, legacy bool) error {
+func (c *clientDealEnvironment) SendDataTransferVoucher(ctx context.Context, channelID datatransfer.ChannelID, payment *retrievalmarket.DealPayment) error {
 	var vouch datatransfer.Voucher = payment
-	if legacy {
-		vouch = &migrations.DealPayment0{
-			ID:             payment.ID,
-			PaymentChannel: payment.PaymentChannel,
-			PaymentVoucher: payment.PaymentVoucher,
-		}
-	}
 	return c.c.dataTransfer.SendVoucher(ctx, channelID, vouch)
 }
 

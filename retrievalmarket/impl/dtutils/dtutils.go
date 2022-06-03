@@ -16,7 +16,6 @@ import (
 	"github.com/filecoin-project/go-statemachine/fsm"
 
 	rm "github.com/filecoin-project/go-fil-markets/retrievalmarket"
-	"github.com/filecoin-project/go-fil-markets/retrievalmarket/migrations"
 )
 
 var log = logging.Logger("retrievalmarket_impl")
@@ -212,12 +211,7 @@ func dealProposalFromVoucher(voucher datatransfer.Voucher) (*rm.DealProposal, bo
 		return dealProposal, true
 	}
 
-	legacyProposal, ok := voucher.(*migrations.DealProposal0)
-	if !ok {
-		return nil, false
-	}
-	newProposal := migrations.MigrateDealProposal0To1(*legacyProposal)
-	return &newProposal, true
+	return nil, false
 }
 
 func dealResponseFromVoucherResult(vres datatransfer.VoucherResult) (*rm.DealResponse, bool) {
@@ -226,11 +220,5 @@ func dealResponseFromVoucherResult(vres datatransfer.VoucherResult) (*rm.DealRes
 	if ok {
 		return dealResponse, true
 	}
-
-	legacyResponse, ok := vres.(*migrations.DealResponse0)
-	if !ok {
-		return nil, false
-	}
-	newResponse := migrations.MigrateDealResponse0To1(*legacyResponse)
-	return &newResponse, true
+	return nil, false
 }

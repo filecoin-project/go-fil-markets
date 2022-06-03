@@ -18,7 +18,6 @@ import (
 	"github.com/filecoin-project/go-fil-markets/retrievalmarket"
 	rm "github.com/filecoin-project/go-fil-markets/retrievalmarket"
 	"github.com/filecoin-project/go-fil-markets/retrievalmarket/impl/dtutils"
-	"github.com/filecoin-project/go-fil-markets/retrievalmarket/migrations"
 	"github.com/filecoin-project/go-fil-markets/shared_testutil"
 )
 
@@ -109,18 +108,6 @@ func TestProviderDataTransferSubscriber(t *testing.T) {
 }
 func TestClientDataTransferSubscriber(t *testing.T) {
 	dealProposal := shared_testutil.MakeTestDealProposal()
-	legacyProposal := migrations.DealProposal0{
-		PayloadCID: dealProposal.PayloadCID,
-		ID:         dealProposal.ID,
-		Params0: migrations.Params0{
-			Selector:                dealProposal.Selector,
-			PieceCID:                dealProposal.PieceCID,
-			PricePerByte:            dealProposal.PricePerByte,
-			PaymentInterval:         dealProposal.PaymentInterval,
-			PaymentIntervalIncrease: dealProposal.PaymentIntervalIncrease,
-			UnsealPrice:             dealProposal.UnsealPrice,
-		},
-	}
 	paymentOwed := shared_testutil.MakeTestTokenAmount()
 	tests := map[string]struct {
 		code          datatransfer.EventCode
@@ -193,18 +180,6 @@ func TestClientDataTransferSubscriber(t *testing.T) {
 			state: shared_testutil.TestChannelParams{
 				Vouchers: []datatransfer.Voucher{&dealProposal},
 				VoucherResults: []datatransfer.VoucherResult{&retrievalmarket.DealResponse{
-					Status: retrievalmarket.DealStatusAccepted,
-					ID:     dealProposal.ID,
-				}},
-				Status: datatransfer.Ongoing},
-			expectedID:    dealProposal.ID,
-			expectedEvent: rm.ClientEventDealAccepted,
-		},
-		"new voucher result - accepted, legacy": {
-			code: datatransfer.NewVoucherResult,
-			state: shared_testutil.TestChannelParams{
-				Vouchers: []datatransfer.Voucher{&legacyProposal},
-				VoucherResults: []datatransfer.VoucherResult{&migrations.DealResponse0{
 					Status: retrievalmarket.DealStatusAccepted,
 					ID:     dealProposal.ID,
 				}},
@@ -370,17 +345,6 @@ func TestTransportConfigurer(t *testing.T) {
 		},
 		"store getter succeeds": {
 			voucher: &rm.DealProposal{
-				PayloadCID: payloadCID,
-				ID:         expectedDealID,
-			},
-			transport:        &fakeGsTransport{Transport: &fakeTransport{}},
-			getterCalled:     true,
-			useStoreCalled:   true,
-			returnedStore:    bstore.NewBlockstore(ds.NewMapDatastore()),
-			returnedStoreErr: nil,
-		},
-		"store getter succeeds, legacy": {
-			voucher: &migrations.DealProposal0{
 				PayloadCID: payloadCID,
 				ID:         expectedDealID,
 			},
