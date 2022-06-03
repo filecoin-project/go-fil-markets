@@ -19,7 +19,7 @@ import (
 	"github.com/filecoin-project/go-address"
 	cborutil "github.com/filecoin-project/go-cbor-util"
 	"github.com/filecoin-project/go-commp-utils/ffiwrapper"
-	datatransfer "github.com/filecoin-project/go-data-transfer"
+	datatransfer "github.com/filecoin-project/go-data-transfer/v2"
 	versioning "github.com/filecoin-project/go-ds-versioning/pkg"
 	versionedfsm "github.com/filecoin-project/go-ds-versioning/pkg/fsm"
 	commcid "github.com/filecoin-project/go-fil-commcid"
@@ -184,12 +184,12 @@ func NewProvider(net network.StorageMarketNetwork,
 	h.unsubDataTransfer = dataTransfer.SubscribeToEvents(dtutils.ProviderDataTransferSubscriber(h.deals))
 
 	pph := &providerPushDeals{h}
-	err = dataTransfer.RegisterVoucherType(&requestvalidation.StorageDataTransferVoucher{}, requestvalidation.NewUnifiedRequestValidator(pph, nil))
+	err = dataTransfer.RegisterVoucherType(requestvalidation.StorageDataTransferVoucherType, requestvalidation.NewUnifiedRequestValidator(pph, nil))
 	if err != nil {
 		return nil, err
 	}
 
-	err = dataTransfer.RegisterTransportConfigurer(&requestvalidation.StorageDataTransferVoucher{}, dtutils.TransportConfigurer(&providerStoreGetter{h}))
+	err = dataTransfer.RegisterTransportConfigurer(requestvalidation.StorageDataTransferVoucherType, dtutils.TransportConfigurer(&providerStoreGetter{h}))
 	if err != nil {
 		return nil, err
 	}

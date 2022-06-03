@@ -1,19 +1,19 @@
 module github.com/filecoin-project/go-fil-markets
 
-go 1.17
+go 1.18
 
 require (
 	github.com/filecoin-project/dagstore v0.5.2
 	github.com/filecoin-project/go-address v0.0.6
 	github.com/filecoin-project/go-cbor-util v0.0.1
 	github.com/filecoin-project/go-commp-utils v0.1.3
-	github.com/filecoin-project/go-data-transfer v1.15.2
+	github.com/filecoin-project/go-data-transfer/v2 v2.0.0-20221008000603-c9889dcce66b
 	github.com/filecoin-project/go-ds-versioning v0.1.2
 	github.com/filecoin-project/go-fil-commcid v0.1.0
 	github.com/filecoin-project/go-fil-commp-hashhash v0.1.0
 	github.com/filecoin-project/go-padreader v0.0.1
 	github.com/filecoin-project/go-state-types v0.1.12
-	github.com/filecoin-project/go-statemachine v1.0.2
+	github.com/filecoin-project/go-statemachine v1.0.3
 	github.com/filecoin-project/go-statestore v0.2.0
 	github.com/filecoin-project/index-provider v0.9.1
 	github.com/filecoin-project/specs-actors v0.9.13
@@ -26,7 +26,7 @@ require (
 	github.com/ipfs/go-cidutil v0.1.0
 	github.com/ipfs/go-datastore v0.6.0
 	github.com/ipfs/go-filestore v1.2.0
-	github.com/ipfs/go-graphsync v0.13.2
+	github.com/ipfs/go-graphsync v0.14.0
 	github.com/ipfs/go-ipfs-blockstore v1.2.0
 	github.com/ipfs/go-ipfs-blocksutil v0.0.1
 	github.com/ipfs/go-ipfs-chunker v0.0.5
@@ -132,9 +132,9 @@ require (
 	github.com/twmb/murmur3 v1.1.6 // indirect
 	github.com/urfave/cli/v2 v2.16.3 // indirect
 	github.com/whyrusleeping/chunker v0.0.0-20181014151217-fe64bd25879f // indirect
+	github.com/xorcare/golden v0.6.1-0.20191112154924-b87f686d7542 // indirect
 	github.com/xrash/smetrics v0.0.0-20201216005158-039620a65673 // indirect
 	go.opentelemetry.io/otel v1.10.0 // indirect
-	go.opentelemetry.io/otel/sdk v1.10.0 // indirect
 	go.opentelemetry.io/otel/trace v1.10.0 // indirect
 	go.uber.org/atomic v1.10.0 // indirect
 	go.uber.org/multierr v1.8.0 // indirect

@@ -1,9 +1,6 @@
 package askstore_test
 
 import (
-	"bytes"
-	"context"
-	"math/rand"
 	"testing"
 
 	"github.com/ipfs/go-datastore"
@@ -14,7 +11,6 @@ import (
 
 	"github.com/filecoin-project/go-fil-markets/retrievalmarket"
 	"github.com/filecoin-project/go-fil-markets/retrievalmarket/impl/askstore"
-	"github.com/filecoin-project/go-fil-markets/retrievalmarket/migrations"
 )
 
 func TestAskStoreImpl(t *testing.T) {
@@ -50,27 +46,4 @@ func TestAskStoreImpl(t *testing.T) {
 	require.NoError(t, err)
 	stored = newStore.GetAsk()
 	require.Equal(t, newAsk, stored)
-}
-func TestMigrations(t *testing.T) {
-	ds := dss.MutexWrap(datastore.NewMapDatastore())
-	oldAsk := &migrations.Ask0{
-		PricePerByte:            abi.NewTokenAmount(rand.Int63()),
-		UnsealPrice:             abi.NewTokenAmount(rand.Int63()),
-		PaymentInterval:         rand.Uint64(),
-		PaymentIntervalIncrease: rand.Uint64(),
-	}
-	buf := new(bytes.Buffer)
-	err := oldAsk.MarshalCBOR(buf)
-	require.NoError(t, err)
-	ds.Put(context.TODO(), datastore.NewKey("retrieval-ask"), buf.Bytes())
-	newStore, err := askstore.NewAskStore(ds, datastore.NewKey("retrieval-ask"))
-	require.NoError(t, err)
-	ask := newStore.GetAsk()
-	expectedAsk := &retrievalmarket.Ask{
-		PricePerByte:            oldAsk.PricePerByte,
-		UnsealPrice:             oldAsk.UnsealPrice,
-		PaymentInterval:         oldAsk.PaymentInterval,
-		PaymentIntervalIncrease: oldAsk.PaymentIntervalIncrease,
-	}
-	require.Equal(t, expectedAsk, ask)
 }

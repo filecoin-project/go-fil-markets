@@ -12,26 +12,23 @@ import (
 	"github.com/ipfs/go-datastore"
 	"github.com/ipfs/go-datastore/namespace"
 	dss "github.com/ipfs/go-datastore/sync"
-	"github.com/ipld/go-ipld-prime/codec/dagcbor"
 	selectorparse "github.com/ipld/go-ipld-prime/traversal/selector/parse"
-	"github.com/libp2p/go-libp2p-core/peer"
+	"github.com/libp2p/go-libp2p/core/peer"
 	"github.com/multiformats/go-multicodec"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	cbg "github.com/whyrusleeping/cbor-gen"
 
 	"github.com/filecoin-project/go-address"
-	datatransfer "github.com/filecoin-project/go-data-transfer"
+	datatransfer "github.com/filecoin-project/go-data-transfer/v2"
 	"github.com/filecoin-project/go-state-types/abi"
 	"github.com/filecoin-project/go-state-types/big"
 
 	"github.com/filecoin-project/go-fil-markets/piecestore"
-	piecemigrations "github.com/filecoin-project/go-fil-markets/piecestore/migrations"
 	"github.com/filecoin-project/go-fil-markets/retrievalmarket"
 	retrievalimpl "github.com/filecoin-project/go-fil-markets/retrievalmarket/impl"
 	"github.com/filecoin-project/go-fil-markets/retrievalmarket/impl/requestvalidation"
 	"github.com/filecoin-project/go-fil-markets/retrievalmarket/impl/testnodes"
-	"github.com/filecoin-project/go-fil-markets/retrievalmarket/migrations"
+	"github.com/filecoin-project/go-fil-markets/retrievalmarket/migrations/maptypes"
 	"github.com/filecoin-project/go-fil-markets/retrievalmarket/network"
 	tut "github.com/filecoin-project/go-fil-markets/shared_testutil"
 )
@@ -1078,32 +1075,16 @@ func TestProvider_Construct(t *testing.T) {
 	)
 	require.NoError(t, err)
 	require.Len(t, dt.Subscribers, 1)
-	require.Len(t, dt.RegisteredVoucherResultTypes, 2)
-	_, ok := dt.RegisteredVoucherResultTypes[0].(*retrievalmarket.DealResponse)
-	require.True(t, ok)
-	_, ok = dt.RegisteredVoucherResultTypes[1].(*migrations.DealResponse0)
-	require.True(t, ok)
 	require.Len(t, dt.RegisteredVoucherTypes, 2)
-	_, ok = dt.RegisteredVoucherTypes[0].VoucherType.(*retrievalmarket.DealProposal)
+	require.Equal(t, dt.RegisteredVoucherTypes[0].VoucherType, retrievalmarket.DealProposalType)
+	_, ok := dt.RegisteredVoucherTypes[0].Validator.(*requestvalidation.ProviderRequestValidator)
 	require.True(t, ok)
-	_, ok = dt.RegisteredVoucherTypes[0].Validator.(*requestvalidation.ProviderRequestValidator)
-	require.True(t, ok)
-	_, ok = dt.RegisteredVoucherTypes[1].VoucherType.(*migrations.DealProposal0)
-	require.True(t, ok)
+	require.Equal(t, dt.RegisteredVoucherTypes[1].VoucherType, retrievalmarket.DealPaymentType)
 	_, ok = dt.RegisteredVoucherTypes[1].Validator.(*requestvalidation.ProviderRequestValidator)
 	require.True(t, ok)
-	require.Len(t, dt.RegisteredRevalidators, 2)
-	_, ok = dt.RegisteredRevalidators[0].VoucherType.(*retrievalmarket.DealPayment)
-	require.True(t, ok)
-	_, ok = dt.RegisteredRevalidators[0].Revalidator.(*requestvalidation.ProviderRevalidator)
-	require.True(t, ok)
-	_, ok = dt.RegisteredRevalidators[1].VoucherType.(*migrations.DealPayment0)
-	require.True(t, ok)
-	require.Len(t, dt.RegisteredTransportConfigurers, 2)
-	_, ok = dt.RegisteredTransportConfigurers[0].VoucherType.(*retrievalmarket.DealProposal)
-	_, ok = dt.RegisteredTransportConfigurers[1].VoucherType.(*migrations.DealProposal0)
+	require.Len(t, dt.RegisteredTransportConfigurers, 1)
+	require.Equal(t, dt.RegisteredTransportConfigurers[0].VoucherType, retrievalmarket.DealProposalType)
 
-	require.True(t, ok)
 }
 
 func TestProviderConfigOpts(t *testing.T) {
@@ -1207,19 +1188,13 @@ func TestProviderMigrations(t *testing.T) {
 	storeIDs := make([]uint64, numDeals)
 	channelIDs := make([]datatransfer.ChannelID, numDeals)
 	receivers := make([]peer.ID, numDeals)
-	totalSents := make([]uint64, numDeals)
 	messages := make([]string, numDeals)
-	currentIntervals := make([]uint64, numDeals)
 	fundsReceiveds := make([]abi.TokenAmount, numDeals)
 	selfPeer := tut.GeneratePeers(1)[0]
 	dealIDs := make([]abi.DealID, numDeals)
 	sectorIDs := make([]abi.SectorNumber, numDeals)
 	offsets := make([]abi.PaddedPieceSize, numDeals)
 	lengths := make([]abi.PaddedPieceSize, numDeals)
-	allSelectorBuf := new(bytes.Buffer)
-	err := dagcbor.Encode(selectorparse.CommonSelector_ExploreAllRecursively, allSelectorBuf)
-	require.NoError(t, err)
-	allSelectorBytes := allSelectorBuf.Bytes()
 
 	for i := 0; i < numDeals; i++ {
 		payloadCIDs[i] = tut.GenerateCids(1)[0]
@@ -1237,21 +1212,19 @@ func TestProviderMigrations(t *testing.T) {
 			Initiator: receivers[i],
 			ID:        datatransfer.TransferID(rand.Uint64()),
 		}
-		totalSents[i] = rand.Uint64()
 		messages[i] = string(tut.RandomBytes(20))
-		currentIntervals[i] = rand.Uint64()
 		fundsReceiveds[i] = big.NewInt(rand.Int63())
 		dealIDs[i] = abi.DealID(rand.Uint64())
 		sectorIDs[i] = abi.SectorNumber(rand.Uint64())
 		offsets[i] = abi.PaddedPieceSize(rand.Uint64())
 		lengths[i] = abi.PaddedPieceSize(rand.Uint64())
-		deal := migrations.ProviderDealState0{
-			DealProposal0: migrations.DealProposal0{
+		deal := maptypes.ProviderDealState1{
+			DealProposal: retrievalmarket.DealProposal{
 				PayloadCID: payloadCIDs[i],
 				ID:         iDs[i],
-				Params0: migrations.Params0{
-					Selector: &cbg.Deferred{
-						Raw: allSelectorBytes,
+				Params: retrievalmarket.Params{
+					Selector: retrievalmarket.CborGenCompatibleNode{
+						Node: selectorparse.CommonSelector_ExploreAllRecursively,
 					},
 					PieceCID:                pieceCIDs[i],
 					PricePerByte:            pricePerBytes[i],
@@ -1262,9 +1235,9 @@ func TestProviderMigrations(t *testing.T) {
 			},
 			StoreID:   storeIDs[i],
 			ChannelID: channelIDs[i],
-			PieceInfo: &piecemigrations.PieceInfo0{
+			PieceInfo: &piecestore.PieceInfo{
 				PieceCID: pieceCID,
-				Deals: []piecemigrations.DealInfo0{
+				Deals: []piecestore.DealInfo{
 					{
 						DealID:   dealIDs[i],
 						SectorID: sectorIDs[i],
@@ -1273,12 +1246,10 @@ func TestProviderMigrations(t *testing.T) {
 					},
 				},
 			},
-			Status:          retrievalmarket.DealStatusCompleted,
-			Receiver:        receivers[i],
-			TotalSent:       totalSents[i],
-			Message:         messages[i],
-			CurrentInterval: currentIntervals[i],
-			FundsReceived:   fundsReceiveds[i],
+			Status:        retrievalmarket.DealStatusCompleted,
+			Receiver:      receivers[i],
+			Message:       messages[i],
+			FundsReceived: fundsReceiveds[i],
 		}
 		buf := new(bytes.Buffer)
 		err := deal.MarshalCBOR(buf)
@@ -1286,17 +1257,6 @@ func TestProviderMigrations(t *testing.T) {
 		err = providerDs.Put(ctx, datastore.NewKey(fmt.Sprint(deal.ID)), buf.Bytes())
 		require.NoError(t, err)
 	}
-	oldAsk := &migrations.Ask0{
-		PricePerByte:            abi.NewTokenAmount(rand.Int63()),
-		UnsealPrice:             abi.NewTokenAmount(rand.Int63()),
-		PaymentInterval:         rand.Uint64(),
-		PaymentIntervalIncrease: rand.Uint64(),
-	}
-	askBuf := new(bytes.Buffer)
-	err = oldAsk.MarshalCBOR(askBuf)
-	require.NoError(t, err)
-	err = providerDs.Put(ctx, datastore.NewKey("retrieval-ask"), askBuf.Bytes())
-	require.NoError(t, err)
 
 	priceFunc := func(ctx context.Context, dealPricingParams retrievalmarket.PricingInput) (retrievalmarket.Ask, error) {
 		ask := retrievalmarket.Ask{}
@@ -1326,8 +1286,8 @@ func TestProviderMigrations(t *testing.T) {
 				PayloadCID: payloadCIDs[i],
 				ID:         iDs[i],
 				Params: retrievalmarket.Params{
-					Selector: &cbg.Deferred{
-						Raw: allSelectorBytes,
+					Selector: retrievalmarket.CborGenCompatibleNode{
+						Node: selectorparse.CommonSelector_ExploreAllRecursively,
 					},
 					PieceCID:                pieceCIDs[i],
 					PricePerByte:            pricePerBytes[i],
@@ -1349,13 +1309,10 @@ func TestProviderMigrations(t *testing.T) {
 					},
 				},
 			},
-			Status:          retrievalmarket.DealStatusCompleted,
-			Receiver:        receivers[i],
-			TotalSent:       totalSents[i],
-			Message:         messages[i],
-			CurrentInterval: currentIntervals[i],
-			FundsReceived:   fundsReceiveds[i],
-			LegacyProtocol:  true,
+			Status:        retrievalmarket.DealStatusCompleted,
+			Receiver:      receivers[i],
+			Message:       messages[i],
+			FundsReceived: fundsReceiveds[i],
 		}
 		require.Equal(t, expectedDeal, deal)
 	}

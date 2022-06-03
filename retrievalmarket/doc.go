@@ -56,14 +56,15 @@ Deal Flow
 
 The primary mechanism for initiating storage deals is the `Retrieve` method on the RetrievalClient.
 
-When `Retrieve` is called, it allocates a new DealID from its stored counter, constructs a DealProposal, sends
-the deal proposal to the provider, initiates tracking of deal state and hands the deal to the Client FSM,
-and returns the DealID which constitutes the identifier for that deal.
-
-The Retrieval provider receives the deal in `HandleDealStream`. `HandleDealStream` initiates tracking of deal state
-on the Provider side and hands the deal to the Provider FSM, which handles the rest of deal flow.
+When `Retrieve` is called, it allocates a new DealID from its stored counter, constructs a DealProposal,
+initiates tracking of deal state and hands the deal to the Client FSM, and returns the DealID which constitutes
+the identifier for that deal.
 
 From this point forward, deal negotiation is completely asynchronous and runs in the FSMs.
+
+The FSM opens a data transfer to the provider containing the deal proposal. The provider receives the deal proposal in
+its request validator. The request validator initiates tracking of deal state on the Provider side and hands the deal to
+the Provider FSM, which handles the rest of deal flow.
 
 A user of the modules can monitor deal progress through `SubscribeToEvents` methods on RetrievalClient and RetrievalProvider,
 or by simply calling `ListDeals` to get all deal statuses.

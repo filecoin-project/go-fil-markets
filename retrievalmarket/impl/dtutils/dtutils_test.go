@@ -9,41 +9,30 @@ import (
 	ds "github.com/ipfs/go-datastore"
 	bstore "github.com/ipfs/go-ipfs-blockstore"
 	"github.com/ipld/go-ipld-prime"
-	peer "github.com/libp2p/go-libp2p-core/peer"
+	"github.com/ipld/go-ipld-prime/datamodel"
+	peer "github.com/libp2p/go-libp2p/core/peer"
 	"github.com/stretchr/testify/require"
 
-	datatransfer "github.com/filecoin-project/go-data-transfer"
+	datatransfer "github.com/filecoin-project/go-data-transfer/v2"
 	"github.com/filecoin-project/go-statemachine/fsm"
 
 	"github.com/filecoin-project/go-fil-markets/retrievalmarket"
 	rm "github.com/filecoin-project/go-fil-markets/retrievalmarket"
 	"github.com/filecoin-project/go-fil-markets/retrievalmarket/impl/dtutils"
-	"github.com/filecoin-project/go-fil-markets/retrievalmarket/migrations"
 	"github.com/filecoin-project/go-fil-markets/shared_testutil"
 )
 
 func TestProviderDataTransferSubscriber(t *testing.T) {
 	dealProposal := shared_testutil.MakeTestDealProposal()
-	legacyProposal := migrations.DealProposal0{
-		PayloadCID: dealProposal.PayloadCID,
-		ID:         dealProposal.ID,
-		Params0: migrations.Params0{
-			Selector:                dealProposal.Selector,
-			PieceCID:                dealProposal.PieceCID,
-			PricePerByte:            dealProposal.PricePerByte,
-			PaymentInterval:         dealProposal.PaymentInterval,
-			PaymentIntervalIncrease: dealProposal.PaymentIntervalIncrease,
-			UnsealPrice:             dealProposal.UnsealPrice,
-		},
-	}
+	node := rm.BindnodeRegistry.TypeToNode(dealProposal)
+	dealProposalVoucher := datatransfer.TypedVoucher{Voucher: node, Type: rm.DealProposalType}
 	testPeers := shared_testutil.GeneratePeers(2)
 	transferID := datatransfer.TransferID(rand.Uint64())
 	tests := map[string]struct {
 		code          datatransfer.EventCode
 		message       string
-		state         shared_testutil.TestChannelParams
+		status        datatransfer.Status
 		ignored       bool
-		expectedID    interface{}
 		expectedEvent fsm.EventName
 		expectedArgs  []interface{}
 	}{
@@ -51,95 +40,69 @@ func TestProviderDataTransferSubscriber(t *testing.T) {
 			ignored: true,
 		},
 		"accept": {
-			code: datatransfer.Accept,
-			state: shared_testutil.TestChannelParams{
-				IsPull:     true,
-				TransferID: transferID,
-				Sender:     testPeers[0],
-				Recipient:  testPeers[1],
-				Vouchers:   []datatransfer.Voucher{&dealProposal},
-				Status:     datatransfer.Ongoing},
-			expectedID:    rm.ProviderDealIdentifier{DealID: dealProposal.ID, Receiver: testPeers[1]},
-			expectedEvent: rm.ProviderEventDealAccepted,
-			expectedArgs:  []interface{}{datatransfer.ChannelID{ID: transferID, Initiator: testPeers[1], Responder: testPeers[0]}},
-		},
-		"accept, legacy": {
-			code: datatransfer.Accept,
-			state: shared_testutil.TestChannelParams{
-				IsPull:     true,
-				TransferID: transferID,
-				Sender:     testPeers[0],
-				Recipient:  testPeers[1],
-				Vouchers:   []datatransfer.Voucher{&legacyProposal},
-				Status:     datatransfer.Ongoing},
-			expectedID:    rm.ProviderDealIdentifier{DealID: dealProposal.ID, Receiver: testPeers[1]},
+			code:          datatransfer.Accept,
+			status:        datatransfer.Ongoing,
 			expectedEvent: rm.ProviderEventDealAccepted,
 			expectedArgs:  []interface{}{datatransfer.ChannelID{ID: transferID, Initiator: testPeers[1], Responder: testPeers[0]}},
 		},
 		"error": {
-			code:    datatransfer.Error,
-			message: "something went wrong",
-			state: shared_testutil.TestChannelParams{
-				IsPull:     true,
-				TransferID: transferID,
-				Sender:     testPeers[0],
-				Recipient:  testPeers[1],
-				Vouchers:   []datatransfer.Voucher{&dealProposal},
-				Status:     datatransfer.Ongoing},
-			expectedID:    rm.ProviderDealIdentifier{DealID: dealProposal.ID, Receiver: testPeers[1]},
+			code:          datatransfer.Error,
+			message:       "something went wrong",
+			status:        datatransfer.Ongoing,
 			expectedEvent: rm.ProviderEventDataTransferError,
 			expectedArgs:  []interface{}{errors.New("deal data transfer failed: something went wrong")},
 		},
 		"disconnected": {
-			code:    datatransfer.Disconnected,
-			message: "something went wrong",
-			state: shared_testutil.TestChannelParams{
-				IsPull:     true,
-				TransferID: transferID,
-				Sender:     testPeers[0],
-				Recipient:  testPeers[1],
-				Vouchers:   []datatransfer.Voucher{&dealProposal},
-				Status:     datatransfer.Ongoing},
-			expectedID:    rm.ProviderDealIdentifier{DealID: dealProposal.ID, Receiver: testPeers[1]},
+			code:          datatransfer.Disconnected,
+			message:       "something went wrong",
+			status:        datatransfer.Ongoing,
 			expectedEvent: rm.ProviderEventDataTransferError,
 			expectedArgs:  []interface{}{errors.New("deal data transfer stalled (peer hungup)")},
 		},
 		"completed": {
-			code: datatransfer.ResumeResponder,
-			state: shared_testutil.TestChannelParams{
-				IsPull:     true,
-				TransferID: transferID,
-				Sender:     testPeers[0],
-				Recipient:  testPeers[1],
-				Vouchers:   []datatransfer.Voucher{&dealProposal},
-				Status:     datatransfer.Completed},
-			expectedID:    rm.ProviderDealIdentifier{DealID: dealProposal.ID, Receiver: testPeers[1]},
+			code:          datatransfer.ResumeResponder,
+			status:        datatransfer.Completed,
 			expectedEvent: rm.ProviderEventComplete,
 		},
 		"cancel": {
-			code: datatransfer.Cancel,
-			state: shared_testutil.TestChannelParams{
-				IsPull:     true,
-				TransferID: transferID,
-				Sender:     testPeers[0],
-				Recipient:  testPeers[1],
-				Vouchers:   []datatransfer.Voucher{&dealProposal},
-				Status:     datatransfer.Completed},
-			expectedID:    rm.ProviderDealIdentifier{DealID: dealProposal.ID, Receiver: testPeers[1]},
+			code:          datatransfer.Cancel,
+			status:        datatransfer.Cancelling,
 			expectedEvent: rm.ProviderEventClientCancelled,
+		},
+		"data limit exceeded": {
+			code:          datatransfer.DataLimitExceeded,
+			status:        datatransfer.Ongoing,
+			expectedEvent: rm.ProviderEventPaymentRequested,
+		},
+		"begin finalizing": {
+			code:          datatransfer.BeginFinalizing,
+			status:        datatransfer.Finalizing,
+			expectedEvent: rm.ProviderEventLastPaymentRequested,
+		},
+		"new voucher": {
+			code:          datatransfer.NewVoucher,
+			status:        datatransfer.Ongoing,
+			expectedEvent: rm.ProviderEventProcessPayment,
 		},
 	}
 	for test, data := range tests {
 		t.Run(test, func(t *testing.T) {
 			fdg := &fakeDealGroup{}
 			subscriber := dtutils.ProviderDataTransferSubscriber(fdg)
-			subscriber(datatransfer.Event{Code: data.code, Message: data.message}, shared_testutil.NewTestChannel(data.state))
 			if !data.ignored {
+				subscriber(datatransfer.Event{Code: data.code, Message: data.message}, shared_testutil.NewTestChannel(shared_testutil.TestChannelParams{
+					IsPull:     true,
+					TransferID: transferID,
+					Sender:     testPeers[0],
+					Recipient:  testPeers[1],
+					Vouchers:   []datatransfer.TypedVoucher{dealProposalVoucher},
+					Status:     data.status}))
 				require.True(t, fdg.called)
-				require.Equal(t, fdg.lastID, data.expectedID)
+				require.Equal(t, fdg.lastID, rm.ProviderDealIdentifier{DealID: dealProposal.ID, Receiver: testPeers[1]})
 				require.Equal(t, fdg.lastEvent, data.expectedEvent)
 				require.Equal(t, fdg.lastArgs, data.expectedArgs)
 			} else {
+				subscriber(datatransfer.Event{Code: data.code, Message: data.message}, shared_testutil.NewTestChannel(shared_testutil.TestChannelParams{}))
 				require.False(t, fdg.called)
 			}
 		})
@@ -148,17 +111,11 @@ func TestProviderDataTransferSubscriber(t *testing.T) {
 }
 func TestClientDataTransferSubscriber(t *testing.T) {
 	dealProposal := shared_testutil.MakeTestDealProposal()
-	legacyProposal := migrations.DealProposal0{
-		PayloadCID: dealProposal.PayloadCID,
-		ID:         dealProposal.ID,
-		Params0: migrations.Params0{
-			Selector:                dealProposal.Selector,
-			PieceCID:                dealProposal.PieceCID,
-			PricePerByte:            dealProposal.PricePerByte,
-			PaymentInterval:         dealProposal.PaymentInterval,
-			PaymentIntervalIncrease: dealProposal.PaymentIntervalIncrease,
-			UnsealPrice:             dealProposal.UnsealPrice,
-		},
+	node := rm.BindnodeRegistry.TypeToNode(dealProposal)
+	dealProposalVoucher := datatransfer.TypedVoucher{Voucher: node, Type: retrievalmarket.DealProposalType}
+	dealResponseVoucher := func(dealResponse retrievalmarket.DealResponse) datatransfer.TypedVoucher {
+		node := rm.BindnodeRegistry.TypeToNode(&dealResponse)
+		return datatransfer.TypedVoucher{Voucher: node, Type: retrievalmarket.DealResponseType}
 	}
 	paymentOwed := shared_testutil.MakeTestTokenAmount()
 	tests := map[string]struct {
@@ -176,7 +133,7 @@ func TestClientDataTransferSubscriber(t *testing.T) {
 		"progress": {
 			code: datatransfer.DataReceivedProgress,
 			state: shared_testutil.TestChannelParams{
-				Vouchers: []datatransfer.Voucher{&dealProposal},
+				Vouchers: []datatransfer.TypedVoucher{dealProposalVoucher},
 				Status:   datatransfer.Ongoing,
 				Received: 1000},
 			expectedID:    dealProposal.ID,
@@ -186,7 +143,7 @@ func TestClientDataTransferSubscriber(t *testing.T) {
 		"finish transfer": {
 			code: datatransfer.FinishTransfer,
 			state: shared_testutil.TestChannelParams{
-				Vouchers: []datatransfer.Voucher{&dealProposal},
+				Vouchers: []datatransfer.TypedVoucher{dealProposalVoucher},
 				Status:   datatransfer.TransferFinished},
 			expectedID:    dealProposal.ID,
 			expectedEvent: rm.ClientEventAllBlocksReceived,
@@ -194,7 +151,7 @@ func TestClientDataTransferSubscriber(t *testing.T) {
 		"cancel": {
 			code: datatransfer.Cancel,
 			state: shared_testutil.TestChannelParams{
-				Vouchers: []datatransfer.Voucher{&dealProposal},
+				Vouchers: []datatransfer.TypedVoucher{dealProposalVoucher},
 				Status:   datatransfer.Ongoing},
 			expectedID:    dealProposal.ID,
 			expectedEvent: rm.ClientEventProviderCancelled,
@@ -202,12 +159,12 @@ func TestClientDataTransferSubscriber(t *testing.T) {
 		"new voucher result - rejected": {
 			code: datatransfer.NewVoucherResult,
 			state: shared_testutil.TestChannelParams{
-				Vouchers: []datatransfer.Voucher{&dealProposal},
-				VoucherResults: []datatransfer.VoucherResult{&retrievalmarket.DealResponse{
+				Vouchers: []datatransfer.TypedVoucher{dealProposalVoucher},
+				VoucherResults: []datatransfer.TypedVoucher{dealResponseVoucher(retrievalmarket.DealResponse{
 					Status:  retrievalmarket.DealStatusRejected,
 					ID:      dealProposal.ID,
 					Message: "something went wrong",
-				}},
+				})},
 				Status: datatransfer.Ongoing},
 			expectedID:    dealProposal.ID,
 			expectedEvent: rm.ClientEventDealRejected,
@@ -216,12 +173,12 @@ func TestClientDataTransferSubscriber(t *testing.T) {
 		"new voucher result - not found": {
 			code: datatransfer.NewVoucherResult,
 			state: shared_testutil.TestChannelParams{
-				Vouchers: []datatransfer.Voucher{&dealProposal},
-				VoucherResults: []datatransfer.VoucherResult{&retrievalmarket.DealResponse{
+				Vouchers: []datatransfer.TypedVoucher{dealProposalVoucher},
+				VoucherResults: []datatransfer.TypedVoucher{dealResponseVoucher(retrievalmarket.DealResponse{
 					Status:  retrievalmarket.DealStatusDealNotFound,
 					ID:      dealProposal.ID,
 					Message: "something went wrong",
-				}},
+				})},
 				Status: datatransfer.Ongoing},
 			expectedID:    dealProposal.ID,
 			expectedEvent: rm.ClientEventDealNotFound,
@@ -230,23 +187,11 @@ func TestClientDataTransferSubscriber(t *testing.T) {
 		"new voucher result - accepted": {
 			code: datatransfer.NewVoucherResult,
 			state: shared_testutil.TestChannelParams{
-				Vouchers: []datatransfer.Voucher{&dealProposal},
-				VoucherResults: []datatransfer.VoucherResult{&retrievalmarket.DealResponse{
+				Vouchers: []datatransfer.TypedVoucher{dealProposalVoucher},
+				VoucherResults: []datatransfer.TypedVoucher{dealResponseVoucher(retrievalmarket.DealResponse{
 					Status: retrievalmarket.DealStatusAccepted,
 					ID:     dealProposal.ID,
-				}},
-				Status: datatransfer.Ongoing},
-			expectedID:    dealProposal.ID,
-			expectedEvent: rm.ClientEventDealAccepted,
-		},
-		"new voucher result - accepted, legacy": {
-			code: datatransfer.NewVoucherResult,
-			state: shared_testutil.TestChannelParams{
-				Vouchers: []datatransfer.Voucher{&legacyProposal},
-				VoucherResults: []datatransfer.VoucherResult{&migrations.DealResponse0{
-					Status: retrievalmarket.DealStatusAccepted,
-					ID:     dealProposal.ID,
-				}},
+				})},
 				Status: datatransfer.Ongoing},
 			expectedID:    dealProposal.ID,
 			expectedEvent: rm.ClientEventDealAccepted,
@@ -254,12 +199,12 @@ func TestClientDataTransferSubscriber(t *testing.T) {
 		"new voucher result - funds needed last payment": {
 			code: datatransfer.NewVoucherResult,
 			state: shared_testutil.TestChannelParams{
-				Vouchers: []datatransfer.Voucher{&dealProposal},
-				VoucherResults: []datatransfer.VoucherResult{&retrievalmarket.DealResponse{
+				Vouchers: []datatransfer.TypedVoucher{dealProposalVoucher},
+				VoucherResults: []datatransfer.TypedVoucher{dealResponseVoucher(retrievalmarket.DealResponse{
 					Status:      retrievalmarket.DealStatusFundsNeededLastPayment,
 					ID:          dealProposal.ID,
 					PaymentOwed: paymentOwed,
-				}},
+				})},
 				Status: datatransfer.Ongoing},
 			expectedID:    dealProposal.ID,
 			expectedEvent: rm.ClientEventLastPaymentRequested,
@@ -268,11 +213,11 @@ func TestClientDataTransferSubscriber(t *testing.T) {
 		"new voucher result - completed": {
 			code: datatransfer.NewVoucherResult,
 			state: shared_testutil.TestChannelParams{
-				Vouchers: []datatransfer.Voucher{&dealProposal},
-				VoucherResults: []datatransfer.VoucherResult{&retrievalmarket.DealResponse{
+				Vouchers: []datatransfer.TypedVoucher{dealProposalVoucher},
+				VoucherResults: []datatransfer.TypedVoucher{dealResponseVoucher(retrievalmarket.DealResponse{
 					Status: retrievalmarket.DealStatusCompleted,
 					ID:     dealProposal.ID,
-				}},
+				})},
 				Status: datatransfer.ResponderCompleted},
 			expectedID:    dealProposal.ID,
 			expectedEvent: rm.ClientEventComplete,
@@ -280,12 +225,12 @@ func TestClientDataTransferSubscriber(t *testing.T) {
 		"new voucher result - funds needed": {
 			code: datatransfer.NewVoucherResult,
 			state: shared_testutil.TestChannelParams{
-				Vouchers: []datatransfer.Voucher{&dealProposal},
-				VoucherResults: []datatransfer.VoucherResult{&retrievalmarket.DealResponse{
+				Vouchers: []datatransfer.TypedVoucher{dealProposalVoucher},
+				VoucherResults: []datatransfer.TypedVoucher{dealResponseVoucher(retrievalmarket.DealResponse{
 					Status:      retrievalmarket.DealStatusFundsNeeded,
 					ID:          dealProposal.ID,
 					PaymentOwed: paymentOwed,
-				}},
+				})},
 				Status: datatransfer.Ongoing},
 			expectedID:    dealProposal.ID,
 			expectedEvent: rm.ClientEventPaymentRequested,
@@ -294,11 +239,11 @@ func TestClientDataTransferSubscriber(t *testing.T) {
 		"new voucher result - unexpected response": {
 			code: datatransfer.NewVoucherResult,
 			state: shared_testutil.TestChannelParams{
-				Vouchers: []datatransfer.Voucher{&dealProposal},
-				VoucherResults: []datatransfer.VoucherResult{&retrievalmarket.DealResponse{
+				Vouchers: []datatransfer.TypedVoucher{dealProposalVoucher},
+				VoucherResults: []datatransfer.TypedVoucher{dealResponseVoucher(retrievalmarket.DealResponse{
 					Status: retrievalmarket.DealStatusPaymentChannelAddingFunds,
 					ID:     dealProposal.ID,
-				}},
+				})},
 				Status: datatransfer.Ongoing},
 			expectedID:    dealProposal.ID,
 			expectedEvent: rm.ClientEventUnknownResponseReceived,
@@ -308,7 +253,7 @@ func TestClientDataTransferSubscriber(t *testing.T) {
 			code:    datatransfer.Error,
 			message: "something went wrong",
 			state: shared_testutil.TestChannelParams{
-				Vouchers: []datatransfer.Voucher{&dealProposal},
+				Vouchers: []datatransfer.TypedVoucher{dealProposalVoucher},
 				Status:   datatransfer.Ongoing},
 			expectedID:    dealProposal.ID,
 			expectedEvent: rm.ClientEventDataTransferError,
@@ -318,7 +263,7 @@ func TestClientDataTransferSubscriber(t *testing.T) {
 			code:    datatransfer.Disconnected,
 			message: "something went wrong",
 			state: shared_testutil.TestChannelParams{
-				Vouchers: []datatransfer.Voucher{&dealProposal},
+				Vouchers: []datatransfer.TypedVoucher{dealProposalVoucher},
 				Status:   datatransfer.Ongoing},
 			expectedID:    dealProposal.ID,
 			expectedEvent: rm.ClientEventDataTransferError,
@@ -328,7 +273,7 @@ func TestClientDataTransferSubscriber(t *testing.T) {
 			code:    datatransfer.Error,
 			message: datatransfer.ErrRejected.Error(),
 			state: shared_testutil.TestChannelParams{
-				Vouchers: []datatransfer.Voucher{&dealProposal},
+				Vouchers: []datatransfer.TypedVoucher{dealProposalVoucher},
 				Status:   datatransfer.Ongoing,
 				Message:  datatransfer.ErrRejected.Error()},
 			expectedID:    dealProposal.ID,
@@ -375,9 +320,13 @@ func TestTransportConfigurer(t *testing.T) {
 	expectedDealID := rm.DealID(rand.Uint64())
 	thisPeer := expectedChannelID.Initiator
 	expectedPeer := expectedChannelID.Responder
+	dealProposalVoucher := func(proposal rm.DealProposal) datatransfer.TypedVoucher {
+		node := rm.BindnodeRegistry.TypeToNode(&proposal)
+		return datatransfer.TypedVoucher{Voucher: node, Type: rm.DealProposalType}
+	}
 
 	testCases := map[string]struct {
-		voucher          datatransfer.Voucher
+		voucher          datatransfer.TypedVoucher
 		transport        datatransfer.Transport
 		returnedStore    bstore.Blockstore
 		returnedStoreErr error
@@ -385,22 +334,22 @@ func TestTransportConfigurer(t *testing.T) {
 		useStoreCalled   bool
 	}{
 		"non-storage voucher": {
-			voucher:      nil,
+			voucher:      datatransfer.TypedVoucher{},
 			getterCalled: false,
 		},
 		"non-configurable transport": {
-			voucher: &rm.DealProposal{
+			voucher: dealProposalVoucher(rm.DealProposal{
 				PayloadCID: payloadCID,
 				ID:         expectedDealID,
-			},
+			}),
 			transport:    &fakeTransport{},
 			getterCalled: false,
 		},
 		"store getter errors": {
-			voucher: &rm.DealProposal{
+			voucher: dealProposalVoucher(rm.DealProposal{
 				PayloadCID: payloadCID,
 				ID:         expectedDealID,
-			},
+			}),
 			transport:        &fakeGsTransport{Transport: &fakeTransport{}},
 			getterCalled:     true,
 			useStoreCalled:   false,
@@ -408,21 +357,10 @@ func TestTransportConfigurer(t *testing.T) {
 			returnedStoreErr: errors.New("something went wrong"),
 		},
 		"store getter succeeds": {
-			voucher: &rm.DealProposal{
+			voucher: dealProposalVoucher(rm.DealProposal{
 				PayloadCID: payloadCID,
 				ID:         expectedDealID,
-			},
-			transport:        &fakeGsTransport{Transport: &fakeTransport{}},
-			getterCalled:     true,
-			useStoreCalled:   true,
-			returnedStore:    bstore.NewBlockstore(ds.NewMapDatastore()),
-			returnedStoreErr: nil,
-		},
-		"store getter succeeds, legacy": {
-			voucher: &migrations.DealProposal0{
-				PayloadCID: payloadCID,
-				ID:         expectedDealID,
-			},
+			}),
 			transport:        &fakeGsTransport{Transport: &fakeTransport{}},
 			getterCalled:     true,
 			useStoreCalled:   true,
@@ -473,7 +411,7 @@ type fakeTransport struct{}
 
 var _ datatransfer.Transport = (*fakeTransport)(nil)
 
-func (ft *fakeTransport) OpenChannel(ctx context.Context, dataSender peer.ID, channelID datatransfer.ChannelID, root ipld.Link, stor ipld.Node, channel datatransfer.ChannelState, msg datatransfer.Message) error {
+func (ft *fakeTransport) OpenChannel(ctx context.Context, dataSender peer.ID, channelID datatransfer.ChannelID, root datamodel.Link, stor datamodel.Node, channel datatransfer.ChannelState, msg datatransfer.Message) error {
 	return nil
 }
 

@@ -7,14 +7,14 @@ import (
 	"time"
 
 	"github.com/ipfs/go-cid"
-	"github.com/ipld/go-ipld-prime"
-	"github.com/libp2p/go-libp2p-core/peer"
+	"github.com/ipld/go-ipld-prime/datamodel"
+	"github.com/libp2p/go-libp2p/core/peer"
 	"github.com/stretchr/testify/assert"
 	"golang.org/x/xerrors"
 
 	"github.com/filecoin-project/go-address"
 	cborutil "github.com/filecoin-project/go-cbor-util"
-	datatransfer "github.com/filecoin-project/go-data-transfer"
+	datatransfer "github.com/filecoin-project/go-data-transfer/v2"
 	"github.com/filecoin-project/go-state-types/abi"
 	"github.com/filecoin-project/go-state-types/builtin/v9/market"
 	"github.com/filecoin-project/go-state-types/exitcode"
@@ -729,16 +729,16 @@ type fakeEnvironment struct {
 
 type dataTransferParams struct {
 	to       peer.ID
-	voucher  datatransfer.Voucher
+	voucher  datatransfer.TypedVoucher
 	baseCid  cid.Cid
-	selector ipld.Node
+	selector datamodel.Node
 }
 
 type restartDataTransferParams struct {
 	channelId datatransfer.ChannelID
 }
 
-func (fe *fakeEnvironment) StartDataTransfer(_ context.Context, to peer.ID, voucher datatransfer.Voucher, baseCid cid.Cid, selector ipld.Node) (datatransfer.ChannelID, error) {
+func (fe *fakeEnvironment) StartDataTransfer(_ context.Context, to peer.ID, voucher datatransfer.TypedVoucher, baseCid cid.Cid, selector datamodel.Node) (datatransfer.ChannelID, error) {
 	fe.startDataTransferCalls = append(fe.startDataTransferCalls, dataTransferParams{
 		to:       to,
 		voucher:  voucher,
