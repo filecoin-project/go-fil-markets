@@ -13,7 +13,7 @@ import (
 	"golang.org/x/xerrors"
 
 	"github.com/filecoin-project/go-address"
-	datatransfer "github.com/filecoin-project/go-data-transfer"
+	datatransfer "github.com/filecoin-project/go-data-transfer/v2"
 	versioning "github.com/filecoin-project/go-ds-versioning/pkg"
 	versionedfsm "github.com/filecoin-project/go-ds-versioning/pkg/fsm"
 	"github.com/filecoin-project/go-state-types/abi"
@@ -49,7 +49,6 @@ type Provider struct {
 	sa                   retrievalmarket.SectorAccessor
 	network              rmnet.RetrievalMarketNetwork
 	requestValidator     *requestvalidation.ProviderRequestValidator
-	revalidator          *requestvalidation.ProviderRevalidator
 	minerAddress         address.Address
 	pieceStore           piecestore.PieceStore
 	readySub             *pubsub.PubSub
@@ -92,13 +91,6 @@ func DealDeciderOpt(dd DealDecider) RetrievalProviderOption {
 	}
 }
 
-// DisableNewDeals disables setup for v1 deal protocols
-func DisableNewDeals() RetrievalProviderOption {
-	return func(provider *Provider) {
-		provider.disableNewDeals = true
-	}
-}
-
 // NewProvider returns a new retrieval Provider
 func NewProvider(minerAddress address.Address,
 	node retrievalmarket.RetrievalProviderNode,
@@ -130,11 +122,6 @@ func NewProvider(minerAddress address.Address,
 		stores:               stores.NewReadOnlyBlockstores(),
 	}
 
-	err := shared.MoveKey(ds, "retrieval-ask", "retrieval-ask/latest")
-	if err != nil {
-		return nil, err
-	}
-
 	askStore, err := askstore.NewAskStore(namespace.Wrap(ds, datastore.NewKey("retrieval-ask")), datastore.NewKey("latest"))
 	if err != nil {
 		return nil, err
@@ -153,6 +140,9 @@ func NewProvider(minerAddress address.Address,
 		StateEntryFuncs: providerstates.ProviderStateEntryFuncs,
 		FinalityStates:  providerstates.ProviderFinalityStates,
 		Notifier:        p.notifySubscribers,
+		Options: fsm.Options{
+			ConsumeAllEventsBeforeEntryFuncs: true,
+		},
 	}, retrievalMigrations, versioning.VersionKey("1"))
 	if err != nil {
 		return nil, err
@@ -160,54 +150,26 @@ func NewProvider(minerAddress address.Address,
 	p.Configure(opts...)
 	p.requestValidator = requestvalidation.NewProviderRequestValidator(&providerValidationEnvironment{p})
 	transportConfigurer := dtutils.TransportConfigurer(network.ID(), &providerStoreGetter{p})
-	p.revalidator = requestvalidation.NewProviderRevalidator(&providerRevalidatorEnvironment{p})
 
-	if p.disableNewDeals {
-		err = p.dataTransfer.RegisterVoucherType(&migrations.DealProposal0{}, p.requestValidator)
-		if err != nil {
-			return nil, err
-		}
-		err = p.dataTransfer.RegisterRevalidator(&migrations.DealPayment0{}, p.revalidator)
-		if err != nil {
-			return nil, err
-		}
-	} else {
-		err = p.dataTransfer.RegisterVoucherType(&retrievalmarket.DealProposal{}, p.requestValidator)
-		if err != nil {
-			return nil, err
-		}
-		err = p.dataTransfer.RegisterVoucherType(&migrations.DealProposal0{}, p.requestValidator)
-		if err != nil {
-			return nil, err
-		}
-
-		err = p.dataTransfer.RegisterRevalidator(&retrievalmarket.DealPayment{}, p.revalidator)
-		if err != nil {
-			return nil, err
-		}
-		err = p.dataTransfer.RegisterRevalidator(&migrations.DealPayment0{}, requestvalidation.NewLegacyRevalidator(p.revalidator))
-		if err != nil {
-			return nil, err
-		}
-
-		err = p.dataTransfer.RegisterVoucherResultType(&retrievalmarket.DealResponse{})
-		if err != nil {
-			return nil, err
-		}
-
-		err = p.dataTransfer.RegisterTransportConfigurer(&retrievalmarket.DealProposal{}, transportConfigurer)
-		if err != nil {
-			return nil, err
-		}
-	}
-	err = p.dataTransfer.RegisterVoucherResultType(&migrations.DealResponse0{})
+	err = p.dataTransfer.RegisterVoucherType(&retrievalmarket.DealProposal{}, p.requestValidator)
 	if err != nil {
 		return nil, err
 	}
-	err = p.dataTransfer.RegisterTransportConfigurer(&migrations.DealProposal0{}, transportConfigurer)
+
+	err = p.dataTransfer.RegisterVoucherType(&retrievalmarket.DealPayment{}, p.requestValidator)
 	if err != nil {
 		return nil, err
 	}
+	err = p.dataTransfer.RegisterVoucherResultType(&retrievalmarket.DealResponse{})
+	if err != nil {
+		return nil, err
+	}
+
+	err = p.dataTransfer.RegisterTransportConfigurer(&retrievalmarket.DealProposal{}, transportConfigurer)
+	if err != nil {
+		return nil, err
+	}
+
 	dataTransfer.SubscribeToEvents(dtutils.ProviderDataTransferSubscriber(p.stateMachines))
 	return p, nil
 }
@@ -563,6 +525,9 @@ var ProviderFSMParameterSpec = fsm.Parameters{
 	StateKeyField:   "Status",
 	Events:          providerstates.ProviderEvents,
 	StateEntryFuncs: providerstates.ProviderStateEntryFuncs,
+	Options: fsm.Options{
+		ConsumeAllEventsBeforeEntryFuncs: true,
+	},
 }
 
 // DefaultPricingFunc is the default pricing policy that will be used to price retrieval deals.

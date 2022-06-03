@@ -25,9 +25,8 @@ import (
 	"golang.org/x/xerrors"
 
 	"github.com/filecoin-project/go-address"
-	dtimpl "github.com/filecoin-project/go-data-transfer/impl"
-	"github.com/filecoin-project/go-data-transfer/testutil"
-	dtgstransport "github.com/filecoin-project/go-data-transfer/transport/graphsync"
+	dtimpl "github.com/filecoin-project/go-data-transfer/v2/impl"
+	dtgstransport "github.com/filecoin-project/go-data-transfer/v2/transport/graphsync"
 	"github.com/filecoin-project/go-state-types/abi"
 	"github.com/filecoin-project/go-state-types/big"
 	"github.com/filecoin-project/specs-actors/actors/builtin/paych"
@@ -122,7 +121,7 @@ func requireSetupTestClientAndProvider(ctx context.Context, t *testing.T, payChA
 	dtTransport1 := dtgstransport.NewTransport(testData.Host1.ID(), gs1)
 	dt1, err := dtimpl.NewDataTransfer(testData.DTStore1, testData.DTNet1, dtTransport1)
 	require.NoError(t, err)
-	testutil.StartAndWaitForReady(ctx, t, dt1)
+	tut.StartAndWaitForReadyDT(ctx, t, dt1)
 	require.NoError(t, err)
 	clientDs := namespace.Wrap(testData.Ds1, datastore.NewKey("/retrievals/client"))
 	ba := tut.NewTestRetrievalBlockstoreAccessor()
@@ -166,7 +165,7 @@ func requireSetupTestClientAndProvider(ctx context.Context, t *testing.T, payChA
 	dtTransport2 := dtgstransport.NewTransport(testData.Host2.ID(), gs2)
 	dt2, err := dtimpl.NewDataTransfer(testData.DTStore2, testData.DTNet2, dtTransport2)
 	require.NoError(t, err)
-	testutil.StartAndWaitForReady(ctx, t, dt2)
+	tut.StartAndWaitForReadyDT(ctx, t, dt2)
 	require.NoError(t, err)
 	providerDs := namespace.Wrap(testData.Ds2, datastore.NewKey("/retrievals/provider"))
 
@@ -226,7 +225,6 @@ func TestClientCanMakeDealWithProvider(t *testing.T) {
 		channelAvailableFunds   retrievalmarket.ChannelAvailableFunds
 		fundsReplenish          abi.TokenAmount
 		cancelled               bool
-		disableNewDeals         bool
 	}{
 		{name: "1 block file retrieval succeeds",
 			filename:    "lorem_under_1_block.txt",
@@ -238,7 +236,7 @@ func TestClientCanMakeDealWithProvider(t *testing.T) {
 			filename:    "lorem_under_1_block.txt",
 			filesize:    410,
 			unsealPrice: abi.NewTokenAmount(100),
-			voucherAmts: []abi.TokenAmount{abi.NewTokenAmount(100), abi.NewTokenAmount(410100)},
+			voucherAmts: []abi.TokenAmount{abi.NewTokenAmount(100), abi.NewTokenAmount(100), abi.NewTokenAmount(410100)},
 			selector:    selectorparse.CommonSelector_ExploreAllRecursively,
 			paramsV1:    true,
 		},
@@ -348,13 +346,6 @@ func TestClientCanMakeDealWithProvider(t *testing.T) {
 			paymentInterval:         9000,
 			paymentIntervalIncrease: 1920,
 		},
-
-		{name: "multi-block file retrieval succeeds, with provider only accepting legacy deals",
-			filename:        "lorem.txt",
-			filesize:        19000,
-			disableNewDeals: true,
-			voucherAmts:     []abi.TokenAmount{abi.NewTokenAmount(10174000), abi.NewTokenAmount(19958000)},
-		},
 	}
 
 	for i, testCase := range testCases {
@@ -456,7 +447,7 @@ func TestClientCanMakeDealWithProvider(t *testing.T) {
 			defer cancel()
 
 			provider := setupProvider(bgCtx, t, testData, payloadCID, pieceInfo, carFile.Name(), expectedQR,
-				providerPaymentAddr, providerNode, sectorAccessor, decider, testCase.disableNewDeals)
+				providerPaymentAddr, providerNode, sectorAccessor, decider)
 			tut.StartAndWaitForReady(ctx, t, provider)
 
 			retrievalPeer := retrievalmarket.RetrievalPeer{Address: providerPaymentAddr, ID: testData.Host2.ID()}
@@ -523,13 +514,10 @@ Message:         %s
 Provider:
 Event:           %s
 Status:          %s
-TotalSent:       %d
 FundsReceived:   %s
 Message:		 %s
-CurrentInterval: %d
 `
-				t.Logf(msg, retrievalmarket.ProviderEvents[event], retrievalmarket.DealStatuses[state.Status], state.TotalSent, state.FundsReceived.String(), state.Message,
-					state.CurrentInterval)
+				t.Logf(msg, retrievalmarket.ProviderEvents[event], retrievalmarket.DealStatuses[state.Status], state.FundsReceived.String(), state.Message)
 
 			})
 			// **** Send the query for the Piece
@@ -658,7 +646,7 @@ func setupClient(
 	dtTransport1 := dtgstransport.NewTransport(testData.Host1.ID(), gs1)
 	dt1, err := dtimpl.NewDataTransfer(testData.DTStore1, testData.DTNet1, dtTransport1)
 	require.NoError(t, err)
-	testutil.StartAndWaitForReady(ctx, t, dt1)
+	tut.StartAndWaitForReadyDT(ctx, t, dt1)
 	require.NoError(t, err)
 	clientDs := namespace.Wrap(testData.Ds1, datastore.NewKey("/retrievals/client"))
 	ba := tut.NewTestRetrievalBlockstoreAccessor()
@@ -679,7 +667,6 @@ func setupProvider(
 	providerNode retrievalmarket.RetrievalProviderNode,
 	sectorAccessor retrievalmarket.SectorAccessor,
 	decider retrievalimpl.DealDecider,
-	disableNewDeals bool,
 ) retrievalmarket.RetrievalProvider {
 	nw2 := rmnet.NewFromLibp2pHost(testData.Host2, rmnet.RetryParameters(0, 0, 0, 0))
 	pieceStore := tut.NewTestPieceStore()
@@ -698,14 +685,11 @@ func setupProvider(
 	dtTransport2 := dtgstransport.NewTransport(testData.Host2.ID(), gs2)
 	dt2, err := dtimpl.NewDataTransfer(testData.DTStore2, testData.DTNet2, dtTransport2)
 	require.NoError(t, err)
-	testutil.StartAndWaitForReady(ctx, t, dt2)
+	tut.StartAndWaitForReadyDT(ctx, t, dt2)
 	require.NoError(t, err)
 	providerDs := namespace.Wrap(testData.Ds2, datastore.NewKey("/retrievals/provider"))
 
 	opts := []retrievalimpl.RetrievalProviderOption{retrievalimpl.DealDeciderOpt(decider)}
-	if disableNewDeals {
-		opts = append(opts, retrievalimpl.DisableNewDeals())
-	}
 
 	priceFunc := func(ctx context.Context, dealPricingParams retrievalmarket.PricingInput) (retrievalmarket.Ask, error) {
 		ask := retrievalmarket.Ask{}

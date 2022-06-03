@@ -14,7 +14,7 @@ import (
 	"golang.org/x/xerrors"
 
 	"github.com/filecoin-project/go-address"
-	datatransfer "github.com/filecoin-project/go-data-transfer"
+	datatransfer "github.com/filecoin-project/go-data-transfer/v2"
 	"github.com/filecoin-project/go-state-types/abi"
 	"github.com/filecoin-project/go-state-types/big"
 	"github.com/filecoin-project/specs-actors/actors/builtin/paych"
@@ -69,7 +69,7 @@ type ClientDealState struct {
 }
 
 func (deal *ClientDealState) NextInterval() uint64 {
-	return deal.Params.NextInterval(deal.CurrentInterval)
+	return deal.Params.nextInterval(deal.CurrentInterval)
 }
 
 // ProviderDealState is the current state of a deal from the point of view
@@ -78,23 +78,12 @@ type ProviderDealState struct {
 	DealProposal
 	StoreID uint64
 
-	ChannelID       *datatransfer.ChannelID
-	PieceInfo       *piecestore.PieceInfo
-	Status          DealStatus
-	Receiver        peer.ID
-	TotalSent       uint64
-	FundsReceived   abi.TokenAmount
-	Message         string
-	CurrentInterval uint64
-	LegacyProtocol  bool
-}
-
-func (deal *ProviderDealState) IntervalLowerBound() uint64 {
-	return deal.Params.IntervalLowerBound(deal.CurrentInterval)
-}
-
-func (deal *ProviderDealState) NextInterval() uint64 {
-	return deal.Params.NextInterval(deal.CurrentInterval)
+	ChannelID     *datatransfer.ChannelID
+	PieceInfo     *piecestore.PieceInfo
+	Status        DealStatus
+	Receiver      peer.ID
+	FundsReceived abi.TokenAmount
+	Message       string
 }
 
 // Identifier provides a unique id for this provider deal
@@ -260,7 +249,7 @@ func (p Params) IntervalLowerBound(currentInterval uint64) uint64 {
 	intervalSize := p.PaymentInterval
 	var lowerBound uint64
 	var target uint64
-	for target < currentInterval {
+	for target <= currentInterval {
 		lowerBound = target
 		target += intervalSize
 		intervalSize += p.PaymentIntervalIncrease
@@ -268,7 +257,62 @@ func (p Params) IntervalLowerBound(currentInterval uint64) uint64 {
 	return lowerBound
 }
 
-func (p Params) NextInterval(currentInterval uint64) uint64 {
+// OutstandingBalance produces the amount owed based on the deal params
+// for the given transfer state and funds received
+func (p Params) OutstandingBalance(fundsReceived abi.TokenAmount, sent uint64, inFinalization bool) big.Int {
+	// Check if the payment covers unsealing
+	if fundsReceived.LessThan(p.UnsealPrice) {
+		return big.Sub(p.UnsealPrice, fundsReceived)
+	}
+
+	// if unsealing funds are received and the retrieval is free, proceed
+	if p.PricePerByte.IsZero() {
+		return big.Zero()
+	}
+
+	// Calculate how much payment has been made for transferred data
+	transferPayment := big.Sub(fundsReceived, p.UnsealPrice)
+
+	// The provider sends data and the client sends payment for the data.
+	// The provider will send a limited amount of extra data before receiving
+	// payment. Given the current limit, check if the client has paid enough
+	// to unlock the next interval.
+	minimumBytesToPay := p.IntervalLowerBound(sent)
+	if inFinalization {
+		// for last payment, we need to get past zero
+		minimumBytesToPay = sent
+	}
+
+	// Calculate the minimum required payment
+	totalPaymentRequired := big.Mul(big.NewInt(int64(minimumBytesToPay)), p.PricePerByte)
+
+	// Calculate payment owed
+	owed := big.Sub(totalPaymentRequired, transferPayment)
+	if owed.LessThan(big.Zero()) {
+		return big.Zero()
+	}
+	return owed
+}
+
+// NextInterval produces the maximum data that can be transferred before more
+// payment is request
+func (p Params) NextInterval(fundsReceived abi.TokenAmount) uint64 {
+	if p.PricePerByte.NilOrZero() {
+		return 0
+	}
+	currentInterval := uint64(0)
+	bytesPaid := fundsReceived
+	if !p.UnsealPrice.NilOrZero() {
+		bytesPaid = big.Sub(bytesPaid, p.UnsealPrice)
+	}
+	bytesPaid = big.Div(bytesPaid, p.PricePerByte)
+	if bytesPaid.GreaterThan(big.Zero()) {
+		currentInterval = bytesPaid.Uint64()
+	}
+	return p.nextInterval(currentInterval)
+}
+
+func (p Params) nextInterval(currentInterval uint64) uint64 {
 	intervalSize := p.PaymentInterval
 	var nextInterval uint64
 	for nextInterval <= currentInterval {

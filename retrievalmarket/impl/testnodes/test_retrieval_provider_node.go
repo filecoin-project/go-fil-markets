@@ -50,7 +50,7 @@ type TestRetrievalProviderNode struct {
 	receivedPricingPieceCID cid.Cid
 
 	isVerified       bool
-	receivedVouchers []abi.TokenAmount
+	receivedVouchers map[expectedVoucherKey]abi.TokenAmount
 	unsealPaused     chan struct{}
 }
 
@@ -60,6 +60,7 @@ var _ retrievalmarket.RetrievalProviderNode = &TestRetrievalProviderNode{}
 func NewTestRetrievalProviderNode() *TestRetrievalProviderNode {
 	return &TestRetrievalProviderNode{
 		expectedVouchers: make(map[expectedVoucherKey]voucherResult),
+		receivedVouchers: make(map[expectedVoucherKey]abi.TokenAmount),
 	}
 }
 
@@ -110,7 +111,7 @@ func (trpn *TestRetrievalProviderNode) SavePaymentVoucher(
 	for _, amt := range trpn.receivedVouchers {
 		max = big.Max(max, amt)
 	}
-	trpn.receivedVouchers = append(trpn.receivedVouchers, voucher.Amount)
+	trpn.receivedVouchers[key] = voucher.Amount
 	rcvd := big.Sub(voucher.Amount, max)
 	if rcvd.LessThan(big.Zero()) {
 		rcvd = big.Zero()
@@ -181,10 +182,6 @@ func (trpn *TestRetrievalProviderNode) ExpectVoucher(
 	}
 	trpn.expectedVouchers[key] = voucherResult{actualAmount, expectedErr}
 	return nil
-}
-
-func (trpn *TestRetrievalProviderNode) AddReceivedVoucher(amt abi.TokenAmount) {
-	trpn.receivedVouchers = append(trpn.receivedVouchers, amt)
 }
 
 func (trpn *TestRetrievalProviderNode) MaxReceivedVoucher() abi.TokenAmount {

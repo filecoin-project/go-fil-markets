@@ -14,7 +14,7 @@ import (
 
 	"github.com/filecoin-project/go-address"
 	cborutil "github.com/filecoin-project/go-cbor-util"
-	datatransfer "github.com/filecoin-project/go-data-transfer"
+	datatransfer "github.com/filecoin-project/go-data-transfer/v2"
 	versioning "github.com/filecoin-project/go-ds-versioning/pkg"
 	versionedfsm "github.com/filecoin-project/go-ds-versioning/pkg/fsm"
 	"github.com/filecoin-project/go-state-types/abi"
@@ -221,7 +221,7 @@ func (c *Client) GetAsk(ctx context.Context, info storagemarket.StorageProviderI
 	if err != nil {
 		return nil, xerrors.Errorf("failed to open stream to miner: %w", err)
 	}
-	defer s.Close()  //nolint
+	defer s.Close() //nolint
 
 	request := network.AskRequest{Miner: info.Address}
 	if err := s.WriteAskRequest(request); err != nil {
@@ -270,7 +270,7 @@ func (c *Client) GetProviderDealState(ctx context.Context, proposalCid cid.Cid) 
 	if err != nil {
 		return nil, xerrors.Errorf("failed to open stream to miner: %w", err)
 	}
-	defer s.Close()  //nolint
+	defer s.Close() //nolint
 
 	buf, err := cborutil.Dump(&deal.ProposalCid)
 	if err != nil {

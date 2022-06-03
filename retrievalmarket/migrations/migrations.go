@@ -6,7 +6,7 @@ import (
 	cbg "github.com/whyrusleeping/cbor-gen"
 
 	"github.com/filecoin-project/go-address"
-	datatransfer "github.com/filecoin-project/go-data-transfer"
+	datatransfer "github.com/filecoin-project/go-data-transfer/v2"
 	versioning "github.com/filecoin-project/go-ds-versioning/pkg"
 	"github.com/filecoin-project/go-ds-versioning/pkg/versioned"
 	"github.com/filecoin-project/go-state-types/abi"
@@ -343,17 +343,14 @@ func MigrateProviderDealState1To2(oldDs *maptypes.ProviderDealState1) (*retrieva
 		chid = &oldDs.ChannelID
 	}
 	return &retrievalmarket.ProviderDealState{
-		DealProposal:    oldDs.DealProposal,
-		StoreID:         oldDs.StoreID,
-		ChannelID:       chid,
-		PieceInfo:       oldDs.PieceInfo,
-		Status:          oldDs.Status,
-		Receiver:        oldDs.Receiver,
-		TotalSent:       oldDs.TotalSent,
-		FundsReceived:   oldDs.FundsReceived,
-		Message:         oldDs.Message,
-		CurrentInterval: oldDs.CurrentInterval,
-		LegacyProtocol:  oldDs.LegacyProtocol,
+		DealProposal:  oldDs.DealProposal,
+		StoreID:       oldDs.StoreID,
+		ChannelID:     chid,
+		PieceInfo:     oldDs.PieceInfo,
+		Status:        oldDs.Status,
+		Receiver:      oldDs.Receiver,
+		FundsReceived: oldDs.FundsReceived,
+		Message:       oldDs.Message,
 	}, nil
 }
 

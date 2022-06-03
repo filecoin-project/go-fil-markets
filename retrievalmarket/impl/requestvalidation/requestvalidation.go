@@ -7,19 +7,21 @@ import (
 	"time"
 
 	"github.com/ipfs/go-cid"
+	logging "github.com/ipfs/go-log/v2"
 	"github.com/ipld/go-ipld-prime"
 	"github.com/ipld/go-ipld-prime/codec/dagcbor"
 	selectorparse "github.com/ipld/go-ipld-prime/traversal/selector/parse"
 	peer "github.com/libp2p/go-libp2p-core/peer"
 
-	datatransfer "github.com/filecoin-project/go-data-transfer"
+	datatransfer "github.com/filecoin-project/go-data-transfer/v2"
 	"github.com/filecoin-project/go-state-types/abi"
 	"github.com/filecoin-project/go-state-types/big"
 
 	"github.com/filecoin-project/go-fil-markets/piecestore"
-	"github.com/filecoin-project/go-fil-markets/retrievalmarket"
-	"github.com/filecoin-project/go-fil-markets/retrievalmarket/migrations"
+	rm "github.com/filecoin-project/go-fil-markets/retrievalmarket"
 )
+
+var log = logging.Logger("markets-rtvl-reval")
 
 var allSelectorBytes []byte
 
@@ -33,15 +35,16 @@ func init() {
 
 // ValidationEnvironment contains the dependencies needed to validate deals
 type ValidationEnvironment interface {
-	GetAsk(ctx context.Context, payloadCid cid.Cid, pieceCid *cid.Cid, piece piecestore.PieceInfo, isUnsealed bool, client peer.ID) (retrievalmarket.Ask, error)
+	GetAsk(ctx context.Context, payloadCid cid.Cid, pieceCid *cid.Cid, piece piecestore.PieceInfo, isUnsealed bool, client peer.ID) (rm.Ask, error)
 
 	GetPiece(c cid.Cid, pieceCID *cid.Cid) (piecestore.PieceInfo, bool, error)
 	// CheckDealParams verifies the given deal params are acceptable
-	CheckDealParams(ask retrievalmarket.Ask, pricePerByte abi.TokenAmount, paymentInterval uint64, paymentIntervalIncrease uint64, unsealPrice abi.TokenAmount) error
+	CheckDealParams(ask rm.Ask, pricePerByte abi.TokenAmount, paymentInterval uint64, paymentIntervalIncrease uint64, unsealPrice abi.TokenAmount) error
 	// RunDealDecisioningLogic runs custom deal decision logic to decide if a deal is accepted, if present
-	RunDealDecisioningLogic(ctx context.Context, state retrievalmarket.ProviderDealState) (bool, string, error)
+	RunDealDecisioningLogic(ctx context.Context, state rm.ProviderDealState) (bool, string, error)
 	// StateMachines returns the FSM Group to begin tracking with
-	BeginTracking(pds retrievalmarket.ProviderDealState) error
+	BeginTracking(pds rm.ProviderDealState) error
+	Get(dealID rm.ProviderDealIdentifier) (rm.ProviderDealState, error)
 }
 
 // ProviderRequestValidator validates incoming requests for the Retrieval Provider
@@ -55,37 +58,30 @@ func NewProviderRequestValidator(env ValidationEnvironment) *ProviderRequestVali
 }
 
 // ValidatePush validates a push request received from the peer that will send data
-func (rv *ProviderRequestValidator) ValidatePush(isRestart bool, _ datatransfer.ChannelID, sender peer.ID, voucher datatransfer.Voucher, baseCid cid.Cid, selector ipld.Node) (datatransfer.VoucherResult, error) {
-	return nil, errors.New("No pushes accepted")
+func (rv *ProviderRequestValidator) ValidatePush(_ datatransfer.ChannelID, sender peer.ID, voucher datatransfer.Voucher, baseCid cid.Cid, selector ipld.Node) (datatransfer.ValidationResult, error) {
+	return datatransfer.ValidationResult{}, errors.New("No pushes accepted")
 }
 
 // ValidatePull validates a pull request received from the peer that will receive data
-func (rv *ProviderRequestValidator) ValidatePull(isRestart bool, _ datatransfer.ChannelID, receiver peer.ID, voucher datatransfer.Voucher, baseCid cid.Cid, selector ipld.Node) (datatransfer.VoucherResult, error) {
-	proposal, ok := voucher.(*retrievalmarket.DealProposal)
-	var legacyProtocol bool
+func (rv *ProviderRequestValidator) ValidatePull(_ datatransfer.ChannelID, receiver peer.ID, voucher datatransfer.Voucher, baseCid cid.Cid, selector ipld.Node) (datatransfer.ValidationResult, error) {
+	proposal, ok := voucher.(*rm.DealProposal)
 	if !ok {
-		legacyProposal, ok := voucher.(*migrations.DealProposal0)
-		if !ok {
-			return nil, errors.New("wrong voucher type")
-		}
-		newProposal := migrations.MigrateDealProposal0To1(*legacyProposal)
-		proposal = &newProposal
-		legacyProtocol = true
+		return datatransfer.ValidationResult{}, errors.New("wrong voucher type")
 	}
-	response, err := rv.validatePull(isRestart, receiver, proposal, legacyProtocol, baseCid, selector)
-	if response == nil {
-		return nil, err
-	}
-	if legacyProtocol {
-		downgradedResponse := migrations.DealResponse0{
-			Status:      response.Status,
-			ID:          response.ID,
-			Message:     response.Message,
-			PaymentOwed: response.PaymentOwed,
-		}
-		return &downgradedResponse, err
-	}
+
+	response, err := rv.validatePull(receiver, proposal, baseCid, selector)
 	return response, err
+}
+
+func rejectProposal(proposal *rm.DealProposal, status rm.DealStatus, reason string) datatransfer.ValidationResult {
+	return datatransfer.ValidationResult{
+		Accepted: false,
+		VoucherResult: &rm.DealResponse{
+			ID:      proposal.ID,
+			Status:  status,
+			Message: reason,
+		},
+	}
 }
 
 // validatePull is called by the data provider when a new graphsync pull
@@ -94,74 +90,38 @@ func (rv *ProviderRequestValidator) ValidatePull(isRestart bool, _ datatransfer.
 // By default the graphsync request starts immediately sending data, unless
 // validatePull returns ErrPause or the data-transfer has not yet started
 // (because the provider is still unsealing the data).
-func (rv *ProviderRequestValidator) validatePull(isRestart bool, receiver peer.ID, proposal *retrievalmarket.DealProposal, legacyProtocol bool, baseCid cid.Cid, selector ipld.Node) (*retrievalmarket.DealResponse, error) {
+func (rv *ProviderRequestValidator) validatePull(receiver peer.ID, proposal *rm.DealProposal, baseCid cid.Cid, selector ipld.Node) (datatransfer.ValidationResult, error) {
 	// Check the proposal CID matches
 	if proposal.PayloadCID != baseCid {
-		return nil, errors.New("incorrect CID for this proposal")
+		return rejectProposal(proposal, rm.DealStatusRejected, "incorrect CID for this proposal"), nil
 	}
 
 	// Check the proposal selector matches
 	buf := new(bytes.Buffer)
 	err := dagcbor.Encode(selector, buf)
 	if err != nil {
-		return nil, err
+		return rejectProposal(proposal, rm.DealStatusRejected, err.Error()), nil
 	}
 	bytesCompare := allSelectorBytes
 	if proposal.SelectorSpecified() {
 		bytesCompare = proposal.Selector.Raw
 	}
 	if !bytes.Equal(buf.Bytes(), bytesCompare) {
-		return nil, errors.New("incorrect selector for this proposal")
-	}
-
-	// If the validation is for a restart request, return nil, which means
-	// the data-transfer should not be explicitly paused or resumed
-	if isRestart {
-		return nil, nil
+		return rejectProposal(proposal, rm.DealStatusRejected, "incorrect selector specified for this proposal"), nil
 	}
 
 	// This is a new graphsync request (not a restart)
-	pds := retrievalmarket.ProviderDealState{
-		DealProposal:    *proposal,
-		Receiver:        receiver,
-		LegacyProtocol:  legacyProtocol,
-		CurrentInterval: proposal.PaymentInterval,
+	deal := rm.ProviderDealState{
+		DealProposal: *proposal,
+		Receiver:     receiver,
 	}
 
-	// Decide whether to accept the deal
-	status, err := rv.acceptDeal(&pds)
-
-	response := retrievalmarket.DealResponse{
-		ID:     proposal.ID,
-		Status: status,
-	}
-
-	if status == retrievalmarket.DealStatusFundsNeededUnseal {
-		response.PaymentOwed = pds.UnsealPrice
-	}
-
-	if err != nil {
-		response.Message = err.Error()
-		return &response, err
-	}
-
-	err = rv.env.BeginTracking(pds)
-	if err != nil {
-		return nil, err
-	}
-
-	// Pause the data transfer while unsealing the data.
-	// The state machine will unpause the transfer when unsealing completes.
-	return &response, datatransfer.ErrPause
-}
-
-func (rv *ProviderRequestValidator) acceptDeal(deal *retrievalmarket.ProviderDealState) (retrievalmarket.DealStatus, error) {
 	pieceInfo, isUnsealed, err := rv.env.GetPiece(deal.PayloadCID, deal.PieceCID)
 	if err != nil {
-		if err == retrievalmarket.ErrNotFound {
-			return retrievalmarket.DealStatusDealNotFound, err
+		if err == rm.ErrNotFound {
+			return rejectProposal(proposal, rm.DealStatusDealNotFound, err.Error()), nil
 		}
-		return retrievalmarket.DealStatusErrored, err
+		return rejectProposal(proposal, rm.DealStatusErrored, err.Error()), nil
 	}
 
 	ctx, cancel := context.WithTimeout(context.TODO(), askTimeout)
@@ -169,29 +129,91 @@ func (rv *ProviderRequestValidator) acceptDeal(deal *retrievalmarket.ProviderDea
 
 	ask, err := rv.env.GetAsk(ctx, deal.PayloadCID, deal.PieceCID, pieceInfo, isUnsealed, deal.Receiver)
 	if err != nil {
-		return retrievalmarket.DealStatusErrored, err
+		return rejectProposal(proposal, rm.DealStatusErrored, err.Error()), nil
 	}
 
 	// check that the deal parameters match our required parameters or
 	// reject outright
 	err = rv.env.CheckDealParams(ask, deal.PricePerByte, deal.PaymentInterval, deal.PaymentIntervalIncrease, deal.UnsealPrice)
 	if err != nil {
-		return retrievalmarket.DealStatusRejected, err
+		return rejectProposal(proposal, rm.DealStatusRejected, err.Error()), nil
 	}
 
-	accepted, reason, err := rv.env.RunDealDecisioningLogic(context.TODO(), *deal)
+	accepted, reason, err := rv.env.RunDealDecisioningLogic(context.TODO(), deal)
 	if err != nil {
-		return retrievalmarket.DealStatusErrored, err
+		return rejectProposal(proposal, rm.DealStatusErrored, err.Error()), nil
 	}
 	if !accepted {
-		return retrievalmarket.DealStatusRejected, errors.New(reason)
+		return rejectProposal(proposal, rm.DealStatusRejected, reason), nil
 	}
 
 	deal.PieceInfo = &pieceInfo
 
-	if deal.UnsealPrice.GreaterThan(big.Zero()) {
-		return retrievalmarket.DealStatusFundsNeededUnseal, nil
+	err = rv.env.BeginTracking(deal)
+	if err != nil {
+		return datatransfer.ValidationResult{}, err
 	}
 
-	return retrievalmarket.DealStatusAccepted, nil
+	status := rm.DealStatusAccepted
+	if deal.UnsealPrice.GreaterThan(big.Zero()) {
+		status = rm.DealStatusFundsNeededUnseal
+	}
+	// Pause the data transfer while unsealing the data.
+	// The state machine will unpause the transfer when unsealing completes.
+	result := datatransfer.ValidationResult{
+		Accepted: true,
+		VoucherResult: &rm.DealResponse{
+			ID:          proposal.ID,
+			Status:      status,
+			PaymentOwed: deal.Params.OutstandingBalance(big.Zero(), 0, false),
+		},
+		ForcePause:           true,
+		DataLimit:            deal.Params.NextInterval(big.Zero()),
+		RequiresFinalization: true,
+	}
+	return result, nil
+}
+
+// ValidateRestart validates a request on restart, based on its current state
+func (rv *ProviderRequestValidator) ValidateRestart(channelID datatransfer.ChannelID, channelState datatransfer.ChannelState) (datatransfer.ValidationResult, error) {
+	proposal, ok := channelState.Voucher().(*rm.DealProposal)
+	if !ok {
+		return datatransfer.ValidationResult{}, errors.New("wrong voucher type")
+	}
+
+	dealID := rm.ProviderDealIdentifier{DealID: proposal.ID, Receiver: channelState.OtherPeer()}
+
+	// read the deal state
+	deal, err := rv.env.Get(dealID)
+	if err != nil {
+		return errorDealResponse(dealID, err), nil
+	}
+
+	// produce validation based on current deal state and channel state
+	return datatransfer.ValidationResult{
+		Accepted:             true,
+		ForcePause:           deal.Status == rm.DealStatusUnsealing || deal.Status == rm.DealStatusFundsNeededUnseal,
+		RequiresFinalization: requiresFinalization(deal, channelState),
+		DataLimit:            deal.Params.NextInterval(deal.FundsReceived),
+	}, nil
+}
+
+// requiresFinalization is true unless the deal is in finalization and no further funds are owed
+func requiresFinalization(deal rm.ProviderDealState, channelState datatransfer.ChannelState) bool {
+	if deal.Status != rm.DealStatusFundsNeededLastPayment && deal.Status != rm.DealStatusFinalizing {
+		return true
+	}
+	owed := deal.Params.OutstandingBalance(deal.FundsReceived, channelState.Queued(), channelState.Status().InFinalization())
+	return owed.GreaterThan(big.Zero())
+}
+
+func errorDealResponse(dealID rm.ProviderDealIdentifier, err error) datatransfer.ValidationResult {
+	return datatransfer.ValidationResult{
+		Accepted: false,
+		VoucherResult: &rm.DealResponse{
+			ID:      dealID.DealID,
+			Message: err.Error(),
+			Status:  rm.DealStatusErrored,
+		},
+	}
 }

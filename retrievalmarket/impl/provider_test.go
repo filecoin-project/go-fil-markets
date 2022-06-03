@@ -20,7 +20,7 @@ import (
 	cbg "github.com/whyrusleeping/cbor-gen"
 
 	"github.com/filecoin-project/go-address"
-	datatransfer "github.com/filecoin-project/go-data-transfer"
+	datatransfer "github.com/filecoin-project/go-data-transfer/v2"
 	"github.com/filecoin-project/go-state-types/abi"
 	"github.com/filecoin-project/go-state-types/big"
 	spect "github.com/filecoin-project/specs-actors/v8/support/testing"
@@ -960,30 +960,20 @@ func TestProvider_Construct(t *testing.T) {
 	)
 	require.NoError(t, err)
 	require.Len(t, dt.Subscribers, 1)
-	require.Len(t, dt.RegisteredVoucherResultTypes, 2)
+	require.Len(t, dt.RegisteredVoucherResultTypes, 1)
 	_, ok := dt.RegisteredVoucherResultTypes[0].(*retrievalmarket.DealResponse)
-	require.True(t, ok)
-	_, ok = dt.RegisteredVoucherResultTypes[1].(*migrations.DealResponse0)
 	require.True(t, ok)
 	require.Len(t, dt.RegisteredVoucherTypes, 2)
 	_, ok = dt.RegisteredVoucherTypes[0].VoucherType.(*retrievalmarket.DealProposal)
 	require.True(t, ok)
 	_, ok = dt.RegisteredVoucherTypes[0].Validator.(*requestvalidation.ProviderRequestValidator)
 	require.True(t, ok)
-	_, ok = dt.RegisteredVoucherTypes[1].VoucherType.(*migrations.DealProposal0)
+	_, ok = dt.RegisteredVoucherTypes[1].VoucherType.(*retrievalmarket.DealPayment)
 	require.True(t, ok)
 	_, ok = dt.RegisteredVoucherTypes[1].Validator.(*requestvalidation.ProviderRequestValidator)
 	require.True(t, ok)
-	require.Len(t, dt.RegisteredRevalidators, 2)
-	_, ok = dt.RegisteredRevalidators[0].VoucherType.(*retrievalmarket.DealPayment)
-	require.True(t, ok)
-	_, ok = dt.RegisteredRevalidators[0].Revalidator.(*requestvalidation.ProviderRevalidator)
-	require.True(t, ok)
-	_, ok = dt.RegisteredRevalidators[1].VoucherType.(*migrations.DealPayment0)
-	require.True(t, ok)
-	require.Len(t, dt.RegisteredTransportConfigurers, 2)
+	require.Len(t, dt.RegisteredTransportConfigurers, 1)
 	_, ok = dt.RegisteredTransportConfigurers[0].VoucherType.(*retrievalmarket.DealProposal)
-	_, ok = dt.RegisteredTransportConfigurers[1].VoucherType.(*migrations.DealProposal0)
 
 	require.True(t, ok)
 }
@@ -1089,9 +1079,7 @@ func TestProviderMigrations(t *testing.T) {
 	storeIDs := make([]uint64, numDeals)
 	channelIDs := make([]datatransfer.ChannelID, numDeals)
 	receivers := make([]peer.ID, numDeals)
-	totalSents := make([]uint64, numDeals)
 	messages := make([]string, numDeals)
-	currentIntervals := make([]uint64, numDeals)
 	fundsReceiveds := make([]abi.TokenAmount, numDeals)
 	selfPeer := tut.GeneratePeers(1)[0]
 	dealIDs := make([]abi.DealID, numDeals)
@@ -1119,9 +1107,7 @@ func TestProviderMigrations(t *testing.T) {
 			Initiator: receivers[i],
 			ID:        datatransfer.TransferID(rand.Uint64()),
 		}
-		totalSents[i] = rand.Uint64()
 		messages[i] = string(tut.RandomBytes(20))
-		currentIntervals[i] = rand.Uint64()
 		fundsReceiveds[i] = big.NewInt(rand.Int63())
 		dealIDs[i] = abi.DealID(rand.Uint64())
 		sectorIDs[i] = abi.SectorNumber(rand.Uint64())
@@ -1155,12 +1141,10 @@ func TestProviderMigrations(t *testing.T) {
 					},
 				},
 			},
-			Status:          retrievalmarket.DealStatusCompleted,
-			Receiver:        receivers[i],
-			TotalSent:       totalSents[i],
-			Message:         messages[i],
-			CurrentInterval: currentIntervals[i],
-			FundsReceived:   fundsReceiveds[i],
+			Status:        retrievalmarket.DealStatusCompleted,
+			Receiver:      receivers[i],
+			Message:       messages[i],
+			FundsReceived: fundsReceiveds[i],
 		}
 		buf := new(bytes.Buffer)
 		err := deal.MarshalCBOR(buf)
@@ -1231,13 +1215,10 @@ func TestProviderMigrations(t *testing.T) {
 					},
 				},
 			},
-			Status:          retrievalmarket.DealStatusCompleted,
-			Receiver:        receivers[i],
-			TotalSent:       totalSents[i],
-			Message:         messages[i],
-			CurrentInterval: currentIntervals[i],
-			FundsReceived:   fundsReceiveds[i],
-			LegacyProtocol:  true,
+			Status:        retrievalmarket.DealStatusCompleted,
+			Receiver:      receivers[i],
+			Message:       messages[i],
+			FundsReceived: fundsReceiveds[i],
 		}
 		require.Equal(t, expectedDeal, deal)
 	}

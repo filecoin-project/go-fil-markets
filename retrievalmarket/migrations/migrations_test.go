@@ -10,7 +10,7 @@ import (
 	"github.com/libp2p/go-libp2p-core/peer"
 	"github.com/stretchr/testify/require"
 
-	datatransfer "github.com/filecoin-project/go-data-transfer"
+	datatransfer "github.com/filecoin-project/go-data-transfer/v2"
 	versionedfsm "github.com/filecoin-project/go-ds-versioning/pkg/fsm"
 	"github.com/filecoin-project/go-state-types/abi"
 	"github.com/filecoin-project/go-state-types/big"
@@ -273,20 +273,19 @@ func (te *mockProviderEnv) Node() retrievalmarket.RetrievalProviderNode {
 func (te *mockProviderEnv) DeleteStore(dealID retrievalmarket.DealID) error {
 	return nil
 }
-
-func (te *mockProviderEnv) TrackTransfer(deal retrievalmarket.ProviderDealState) error {
-	return nil
-}
-
-func (te *mockProviderEnv) UntrackTransfer(deal retrievalmarket.ProviderDealState) error {
-	return nil
-}
-
 func (te *mockProviderEnv) ResumeDataTransfer(_ context.Context, _ datatransfer.ChannelID) error {
 	return nil
 }
 
 func (te *mockProviderEnv) CloseDataTransfer(_ context.Context, _ datatransfer.ChannelID) error {
+	return nil
+}
+
+func (te *mockProviderEnv) ChannelState(_ context.Context, _ datatransfer.ChannelID) (datatransfer.ChannelState, error) {
+	return nil, nil
+}
+
+func (te *mockProviderEnv) UpdateValidationStatus(_ context.Context, _ datatransfer.ChannelID, _ datatransfer.ValidationResult) error {
 	return nil
 }
 

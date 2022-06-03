@@ -10,7 +10,7 @@ import (
 	"golang.org/x/xerrors"
 
 	"github.com/filecoin-project/dagstore"
-	datatransfer "github.com/filecoin-project/go-data-transfer"
+	datatransfer "github.com/filecoin-project/go-data-transfer/v2"
 	"github.com/filecoin-project/go-state-types/abi"
 	"github.com/filecoin-project/go-state-types/big"
 
@@ -90,27 +90,15 @@ func (pve *providerValidationEnvironment) BeginTracking(pds retrievalmarket.Prov
 	}
 
 	if pds.UnsealPrice.GreaterThan(big.Zero()) {
-		return pve.p.stateMachines.Send(pds.Identifier(), retrievalmarket.ProviderEventPaymentRequested, uint64(0))
+		return pve.p.stateMachines.Send(pds.Identifier(), retrievalmarket.ProviderEventPaymentRequested)
 	}
 
 	return pve.p.stateMachines.Send(pds.Identifier(), retrievalmarket.ProviderEventOpen)
 }
 
-type providerRevalidatorEnvironment struct {
-	p *Provider
-}
-
-func (pre *providerRevalidatorEnvironment) Node() retrievalmarket.RetrievalProviderNode {
-	return pre.p.node
-}
-
-func (pre *providerRevalidatorEnvironment) SendEvent(dealID retrievalmarket.ProviderDealIdentifier, evt retrievalmarket.ProviderEvent, args ...interface{}) error {
-	return pre.p.stateMachines.Send(dealID, evt, args...)
-}
-
-func (pre *providerRevalidatorEnvironment) Get(dealID retrievalmarket.ProviderDealIdentifier) (retrievalmarket.ProviderDealState, error) {
+func (pve *providerValidationEnvironment) Get(dealID retrievalmarket.ProviderDealIdentifier) (retrievalmarket.ProviderDealState, error) {
 	var deal retrievalmarket.ProviderDealState
-	err := pre.p.stateMachines.GetSync(context.TODO(), dealID, &deal)
+	err := pve.p.stateMachines.GetSync(context.TODO(), dealID, &deal)
 	return deal, err
 }
 
@@ -140,14 +128,12 @@ func (pde *providerDealEnvironment) PrepareBlockstore(ctx context.Context, dealI
 	return err
 }
 
-func (pde *providerDealEnvironment) TrackTransfer(deal retrievalmarket.ProviderDealState) error {
-	pde.p.revalidator.TrackChannel(deal)
-	return nil
+func (pde *providerDealEnvironment) ChannelState(ctx context.Context, chid datatransfer.ChannelID) (datatransfer.ChannelState, error) {
+	return pde.p.dataTransfer.ChannelState(ctx, chid)
 }
 
-func (pde *providerDealEnvironment) UntrackTransfer(deal retrievalmarket.ProviderDealState) error {
-	pde.p.revalidator.UntrackChannel(deal)
-	return nil
+func (pde *providerDealEnvironment) UpdateValidationStatus(ctx context.Context, chid datatransfer.ChannelID, result datatransfer.ValidationResult) error {
+	return pde.p.dataTransfer.UpdateValidationStatus(ctx, chid, result)
 }
 
 func (pde *providerDealEnvironment) ResumeDataTransfer(ctx context.Context, chid datatransfer.ChannelID) error {

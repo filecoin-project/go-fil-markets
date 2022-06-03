@@ -7,14 +7,8 @@ import (
 	"github.com/ipld/go-ipld-prime"
 	"github.com/libp2p/go-libp2p-core/peer"
 
-	datatransfer "github.com/filecoin-project/go-data-transfer"
+	datatransfer "github.com/filecoin-project/go-data-transfer/v2"
 )
-
-// RegisteredRevalidator records a voucher type that was registered for revalidations
-type RegisteredRevalidator struct {
-	VoucherType datatransfer.Voucher
-	Revalidator datatransfer.Revalidator
-}
 
 // RegisteredVoucherType records a voucher typed that was registered
 type RegisteredVoucherType struct {
@@ -31,7 +25,6 @@ type RegisteredTransportConfigurer struct {
 // TestDataTransfer is a mock implementation of the data transfer libary
 // Most of its functions have no effect
 type TestDataTransfer struct {
-	RegisteredRevalidators         []RegisteredRevalidator
 	RegisteredVoucherTypes         []RegisteredVoucherType
 	RegisteredVoucherResultTypes   []datatransfer.VoucherResult
 	RegisteredTransportConfigurers []RegisteredTransportConfigurer
@@ -56,12 +49,6 @@ func (tdt *TestDataTransfer) Stop(context.Context) error {
 // RegisterVoucherType records the registred voucher type
 func (tdt *TestDataTransfer) RegisterVoucherType(voucherType datatransfer.Voucher, validator datatransfer.RequestValidator) error {
 	tdt.RegisteredVoucherTypes = append(tdt.RegisteredVoucherTypes, RegisteredVoucherType{voucherType, validator})
-	return nil
-}
-
-// RegisterRevalidator records the registred revalidator type
-func (tdt *TestDataTransfer) RegisterRevalidator(voucherType datatransfer.Voucher, revalidator datatransfer.Revalidator) error {
-	tdt.RegisteredRevalidators = append(tdt.RegisteredRevalidators, RegisteredRevalidator{voucherType, revalidator})
 	return nil
 }
 
@@ -93,6 +80,16 @@ func (tdt *TestDataTransfer) OpenPullDataChannel(ctx context.Context, to peer.ID
 
 // SendVoucher does nothing
 func (tdt *TestDataTransfer) SendVoucher(ctx context.Context, chid datatransfer.ChannelID, voucher datatransfer.Voucher) error {
+	return nil
+}
+
+// SendVoucherResult does nothing
+func (tdt *TestDataTransfer) SendVoucherResult(ctx context.Context, chid datatransfer.ChannelID, voucherResult datatransfer.VoucherResult) error {
+	return nil
+}
+
+// UpdateValidationStatus does nothing
+func (tdt *TestDataTransfer) UpdateValidationStatus(ctx context.Context, chid datatransfer.ChannelID, result datatransfer.ValidationResult) error {
 	return nil
 }
 

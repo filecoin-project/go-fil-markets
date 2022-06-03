@@ -12,7 +12,7 @@ import (
 	"github.com/ipld/go-ipld-prime"
 	peer "github.com/libp2p/go-libp2p-core/peer"
 
-	datatransfer "github.com/filecoin-project/go-data-transfer"
+	datatransfer "github.com/filecoin-project/go-data-transfer/v2"
 	"github.com/filecoin-project/go-statemachine/fsm"
 
 	rm "github.com/filecoin-project/go-fil-markets/retrievalmarket"
@@ -29,6 +29,10 @@ type EventReceiver interface {
 const noProviderEvent = rm.ProviderEvent(math.MaxUint64)
 
 func providerEvent(event datatransfer.Event, channelState datatransfer.ChannelState) (rm.ProviderEvent, []interface{}) {
+	// complete event is triggered by the actual status of completed rather than a data transfer event
+	if channelState.Status() == datatransfer.Completed {
+		return rm.ProviderEventComplete, nil
+	}
 	switch event.Code {
 	case datatransfer.Accept:
 		return rm.ProviderEventDealAccepted, []interface{}{channelState.ChannelID()}
@@ -36,6 +40,18 @@ func providerEvent(event datatransfer.Event, channelState datatransfer.ChannelSt
 		return rm.ProviderEventDataTransferError, []interface{}{fmt.Errorf("deal data transfer stalled (peer hungup)")}
 	case datatransfer.Error:
 		return rm.ProviderEventDataTransferError, []interface{}{fmt.Errorf("deal data transfer failed: %s", event.Message)}
+	case datatransfer.DataLimitExceeded:
+		// DataLimitExceeded indicates it's time to wait for a payment
+		return rm.ProviderEventPaymentRequested, nil
+	case datatransfer.BeginFinalizing:
+		// BeginFinalizing indicates it's time to wait for a final payment
+		// Because the legacy client expects a final voucher, we dispatch this event event when
+		// the deal is free -- so that we have a chance to send this final voucher before completion
+		// TODO: do not send the legacy voucher when the client no longer expects it
+		return rm.ProviderEventLastPaymentRequested, nil
+	case datatransfer.NewVoucher:
+		// NewVoucher indicates a potential new payment we should attempt to process
+		return rm.ProviderEventProcessPayment, nil
 	case datatransfer.Cancel:
 		return rm.ProviderEventClientCancelled, nil
 	default:
@@ -55,21 +71,14 @@ func ProviderDataTransferSubscriber(deals EventReceiver) datatransfer.Subscriber
 		if !ok {
 			return
 		}
-
-		if channelState.Status() == datatransfer.Completed {
-			err := deals.Send(rm.ProviderDealIdentifier{DealID: dealProposal.ID, Receiver: channelState.Recipient()}, rm.ProviderEventComplete)
-			if err != nil {
-				log.Errorf("processing dt event: %s", err)
-			}
-		}
-
+		dealID := rm.ProviderDealIdentifier{DealID: dealProposal.ID, Receiver: channelState.Recipient()}
 		retrievalEvent, params := providerEvent(event, channelState)
 		if retrievalEvent == noProviderEvent {
 			return
 		}
 		log.Debugw("processing retrieval provider dt event", "event", datatransfer.Events[event.Code], "dealID", dealProposal.ID, "peer", channelState.OtherPeer(), "retrievalEvent", rm.ProviderEvents[retrievalEvent])
 
-		err := deals.Send(rm.ProviderDealIdentifier{DealID: dealProposal.ID, Receiver: channelState.Recipient()}, retrievalEvent, params...)
+		err := deals.Send(dealID, retrievalEvent, params...)
 		if err != nil {
 			log.Errorf("processing dt event: %s", err)
 		}

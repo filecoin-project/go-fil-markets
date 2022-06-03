@@ -7,7 +7,7 @@ import (
 	"github.com/libp2p/go-libp2p-core/peer"
 	"golang.org/x/exp/rand"
 
-	datatransfer "github.com/filecoin-project/go-data-transfer"
+	datatransfer "github.com/filecoin-project/go-data-transfer/v2"
 )
 
 // TestChannelParams are params for a new test data transfer channel
@@ -70,9 +70,9 @@ func NewTestChannel(params TestChannelParams) datatransfer.ChannelState {
 		totalSize:      rand.Uint64(),
 		isPull:         params.IsPull,
 		status:         params.Status,
-		sent:           rand.Uint64(),
-		received:       rand.Uint64(),
-		queued:         rand.Uint64(),
+		sent:           params.Sent,
+		received:       params.Received,
+		queued:         params.Queued,
 		vouchers:       []datatransfer.Voucher{FakeDTType{}},
 		voucherResults: []datatransfer.VoucherResult{FakeDTType{}},
 	}
@@ -109,15 +109,6 @@ func NewTestChannel(params TestChannelParams) datatransfer.ChannelState {
 	}
 	if params.VoucherResults != nil {
 		tc.voucherResults = params.VoucherResults
-	}
-	if params.Sent != 0 {
-		tc.sent = params.Sent
-	}
-	if params.Received != 0 {
-		tc.received = params.Received
-	}
-	if params.Queued != 0 {
-		tc.queued = params.Queued
 	}
 	return tc
 }
@@ -266,4 +257,12 @@ func (tc *TestChannel) LastVoucherResult() datatransfer.VoucherResult {
 
 func (tc *TestChannel) Stages() *datatransfer.ChannelStages {
 	return nil
+}
+
+func (tc *TestChannel) DataLimit() uint64 {
+	return 0
+}
+
+func (tc *TestChannel) RequiresFinalization() bool {
+	return false
 }
