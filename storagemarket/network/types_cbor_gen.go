@@ -9,8 +9,8 @@ import (
 	"sort"
 
 	storagemarket "github.com/filecoin-project/go-fil-markets/storagemarket"
+	market "github.com/filecoin-project/go-state-types/builtin/v8/market"
 	crypto "github.com/filecoin-project/go-state-types/crypto"
-	market "github.com/filecoin-project/specs-actors/v8/actors/builtin/market"
 	cid "github.com/ipfs/go-cid"
 	cbg "github.com/whyrusleeping/cbor-gen"
 	xerrors "golang.org/x/xerrors"
