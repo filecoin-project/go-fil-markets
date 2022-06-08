@@ -1,5 +1,22 @@
 # go-fil-markets changelog
 
+# go-fil-markets v1.21.0
+
+- github.com/filecoin-project/go-fil-markets:
+  - Use new go-state-types state accessors (#711) (#719) ([filecoin-project/go-fil-markets#719](https://github.com/filecoin-project/go-fil-markets/pull/719))
+  - chore: update go-car dependency (#709) ([filecoin-project/go-fil-markets#709](https://github.com/filecoin-project/go-fil-markets/pull/709))
+  - fix:close ask/dealstatus stream (#710) ([filecoin-project/go-fil-markets#710](https://github.com/filecoin-project/go-fil-markets/pull/710))
+  - fix: fire storage deal provider ready event after startup completes (#708) ([filecoin-project/go-fil-markets#708](https://github.com/filecoin-project/go-fil-markets/pull/708))
+  - release: v1.20.3 (#703) ([filecoin-project/go-fil-markets#703](https://github.com/filecoin-project/go-fil-markets/pull/703))
+
+Contributors
+
+| Contributor | Commits | Lines ± | Files Changed |
+|-------------|---------|---------|---------------|
+| dirkmc | 3 | +113/-121 | 39 |
+| Rod Vagg | 1 | +3/-3 | 2 |
+| Mike | 1 | +2/-0 | 1 |
+
 # go-fil-markets v1.20.3
 - github.com/filecoin-project/go-fil-markets:
   - validate deal proposal (#702) ([filecoin-project/go-fil-markets#702](https://github.com/filecoin-project/go-fil-markets/pull/702))
