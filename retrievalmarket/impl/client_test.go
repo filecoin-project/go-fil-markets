@@ -31,7 +31,6 @@ import (
 	"github.com/filecoin-project/go-fil-markets/retrievalmarket/migrations/maptypes"
 	"github.com/filecoin-project/go-fil-markets/retrievalmarket/network"
 	rmnet "github.com/filecoin-project/go-fil-markets/retrievalmarket/network"
-	"github.com/filecoin-project/go-fil-markets/shared"
 	"github.com/filecoin-project/go-fil-markets/shared_testutil"
 	tut "github.com/filecoin-project/go-fil-markets/shared_testutil"
 )
@@ -47,10 +46,10 @@ func TestClient_Construction(t *testing.T) {
 
 	require.Len(t, dt.Subscribers, 1)
 	require.Len(t, dt.RegisteredVoucherTypes, 2)
-	require.Equal(t, dt.RegisteredVoucherTypes[0].VoucherType, (*retrievalmarket.DealProposal)(nil).Type())
-	require.Equal(t, dt.RegisteredVoucherTypes[1].VoucherType, (*retrievalmarket.DealPayment)(nil).Type())
+	require.Equal(t, dt.RegisteredVoucherTypes[0].VoucherType, retrievalmarket.DealProposalType)
+	require.Equal(t, dt.RegisteredVoucherTypes[1].VoucherType, retrievalmarket.DealPaymentType)
 	require.Len(t, dt.RegisteredTransportConfigurers, 1)
-	require.Equal(t, dt.RegisteredTransportConfigurers[0].VoucherType, (*retrievalmarket.DealProposal)(nil).Type())
+	require.Equal(t, dt.RegisteredTransportConfigurers[0].VoucherType, retrievalmarket.DealProposalType)
 }
 
 func TestClient_Query(t *testing.T) {
@@ -297,7 +296,7 @@ func TestClient_DuplicateRetrieve(t *testing.T) {
 
 			// Retrieve first payload CID from first peer
 			params := retrievalmarket.Params{
-				Selector:                shared.CborGenCompatibleNode{},
+				Selector:                retrievalmarket.CborGenCompatibleNode{},
 				PieceCID:                &tut.GenerateCids(1)[0],
 				PricePerByte:            abi.NewTokenAmount(1),
 				PaymentInterval:         1,
@@ -414,7 +413,7 @@ func TestMigrations(t *testing.T) {
 				PayloadCID: payloadCIDs[i],
 				ID:         iDs[i],
 				Params: retrievalmarket.Params{
-					Selector: shared.CborGenCompatibleNode{
+					Selector: retrievalmarket.CborGenCompatibleNode{
 						Node: selectorparse.CommonSelector_ExploreAllRecursively,
 					},
 					PieceCID:                pieceCIDs[i],
@@ -466,7 +465,7 @@ func TestMigrations(t *testing.T) {
 				PayloadCID: payloadCIDs[i],
 				ID:         iDs[i],
 				Params: retrievalmarket.Params{
-					Selector: shared.CborGenCompatibleNode{
+					Selector: retrievalmarket.CborGenCompatibleNode{
 						Node: selectorparse.CommonSelector_ExploreAllRecursively,
 					},
 					PieceCID:                pieceCIDs[i],

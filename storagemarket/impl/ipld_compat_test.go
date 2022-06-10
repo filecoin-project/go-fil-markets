@@ -14,7 +14,7 @@ import (
 	"github.com/ipld/go-ipld-prime/schema"
 	"github.com/stretchr/testify/assert"
 
-	"github.com/filecoin-project/go-fil-markets/shared"
+	"github.com/filecoin-project/go-fil-markets/bindnodeutils"
 	"github.com/filecoin-project/go-fil-markets/storagemarket/impl/requestvalidation"
 )
 
@@ -36,7 +36,7 @@ func TestIpldCompat_StorageDataTransferVoucher(t *testing.T) {
 			nb := basicnode.Prototype.Any.NewBuilder()
 			dagcbor.Decode(nb, &originalBuf)
 			node := nb.Build()
-			sdtvBindnodeIface, err := shared.TypeFromNode(node, &requestvalidation.StorageDataTransferVoucher{})
+			sdtvBindnodeIface, err := bindnodeutils.TypeFromNode(node, &requestvalidation.StorageDataTransferVoucher{})
 			assert.Nil(t, err)
 			sdtvBindnode, ok := sdtvBindnodeIface.(*requestvalidation.StorageDataTransferVoucher)
 			assert.True(t, ok)
@@ -45,8 +45,7 @@ func TestIpldCompat_StorageDataTransferVoucher(t *testing.T) {
 			assert.Equal(t, sdtv.Proposal, sdtvBindnode.Proposal)
 
 			// encode the new StorageDataTransferVoucher with bindnode to bytes
-			node, err = shared.TypeToNode(sdtvBindnode)
-			assert.Nil(t, err)
+			node = bindnodeutils.TypeToNode(sdtvBindnode)
 			var bindnodeBuf bytes.Buffer
 			dagcbor.Encode(node.(schema.TypedNode).Representation(), &bindnodeBuf)
 			bindnodeBytes := bindnodeBuf.Bytes()

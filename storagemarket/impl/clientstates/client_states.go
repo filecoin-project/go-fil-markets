@@ -16,7 +16,7 @@ import (
 	"github.com/filecoin-project/go-state-types/exitcode"
 	"github.com/filecoin-project/go-statemachine/fsm"
 
-	"github.com/filecoin-project/go-fil-markets/shared"
+	"github.com/filecoin-project/go-fil-markets/bindnodeutils"
 	"github.com/filecoin-project/go-fil-markets/storagemarket"
 	"github.com/filecoin-project/go-fil-markets/storagemarket/impl/requestvalidation"
 	"github.com/filecoin-project/go-fil-markets/storagemarket/network"
@@ -161,16 +161,13 @@ func InitiateDataTransfer(ctx fsm.Context, environment ClientDealEnvironment, de
 	log.Infof("sending data for a deal %s", deal.ProposalCid)
 
 	voucher := requestvalidation.StorageDataTransferVoucher{Proposal: deal.ProposalCid}
-	node, err := shared.TypeToNode(&voucher)
-	if err != nil {
-		return err
-	}
+	node := bindnodeutils.TypeToNode(&voucher)
 
 	// initiate a push data transfer. This will complete asynchronously and the
 	// completion of the data transfer will trigger a change in deal state
-	_, err = environment.StartDataTransfer(ctx.Context(),
+	_, err := environment.StartDataTransfer(ctx.Context(),
 		deal.Miner,
-		datatransfer.TypedVoucher{Voucher: node, Type: voucher.Type()},
+		datatransfer.TypedVoucher{Voucher: node, Type: requestvalidation.StorageDataTransferVoucherType},
 		deal.DataRef.Root,
 		selectorparse.CommonSelector_ExploreAllRecursively,
 	)

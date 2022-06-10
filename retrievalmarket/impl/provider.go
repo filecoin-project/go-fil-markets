@@ -150,17 +150,17 @@ func NewProvider(minerAddress address.Address,
 	p.requestValidator = requestvalidation.NewProviderRequestValidator(&providerValidationEnvironment{p})
 	transportConfigurer := dtutils.TransportConfigurer(network.ID(), &providerStoreGetter{p})
 
-	err = p.dataTransfer.RegisterVoucherType((*retrievalmarket.DealProposal)(nil).Type(), p.requestValidator)
+	err = p.dataTransfer.RegisterVoucherType(retrievalmarket.DealProposalType, p.requestValidator)
 	if err != nil {
 		return nil, err
 	}
 
-	err = p.dataTransfer.RegisterVoucherType((*retrievalmarket.DealPayment)(nil).Type(), p.requestValidator)
+	err = p.dataTransfer.RegisterVoucherType(retrievalmarket.DealPaymentType, p.requestValidator)
 	if err != nil {
 		return nil, err
 	}
 
-	err = p.dataTransfer.RegisterTransportConfigurer((*retrievalmarket.DealProposal)(nil).Type(), transportConfigurer)
+	err = p.dataTransfer.RegisterTransportConfigurer(retrievalmarket.DealProposalType, transportConfigurer)
 	if err != nil {
 		return nil, err
 	}

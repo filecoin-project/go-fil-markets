@@ -6,7 +6,7 @@ import (
 	"github.com/libp2p/go-libp2p-core/peer"
 	"golang.org/x/xerrors"
 
-	"github.com/filecoin-project/go-fil-markets/shared"
+	"github.com/filecoin-project/go-fil-markets/bindnodeutils"
 	"github.com/filecoin-project/go-fil-markets/storagemarket"
 )
 
@@ -23,7 +23,7 @@ func ValidatePush(
 	baseCid cid.Cid,
 	Selector datamodel.Node) error {
 
-	dealVoucherIface, err := shared.TypeFromNode(voucher, &StorageDataTransferVoucher{})
+	dealVoucherIface, err := bindnodeutils.TypeFromNode(voucher, &StorageDataTransferVoucher{})
 	if err != nil {
 		return xerrors.Errorf("could not decode StorageDataTransferVoucher: %w", err)
 	}
@@ -58,7 +58,7 @@ func ValidatePull(
 	baseCid cid.Cid,
 	Selector datamodel.Node) error {
 
-	dealVoucherIface, err := shared.TypeFromNode(voucher, &StorageDataTransferVoucher{})
+	dealVoucherIface, err := bindnodeutils.TypeFromNode(voucher, &StorageDataTransferVoucher{})
 	if err != nil {
 		return xerrors.Errorf("could not decode StorageDataTransferVoucher: %w", err)
 	}

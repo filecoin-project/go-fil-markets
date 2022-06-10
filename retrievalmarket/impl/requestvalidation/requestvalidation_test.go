@@ -17,10 +17,10 @@ import (
 	"github.com/filecoin-project/go-state-types/abi"
 	"github.com/filecoin-project/go-state-types/big"
 
+	"github.com/filecoin-project/go-fil-markets/bindnodeutils"
 	"github.com/filecoin-project/go-fil-markets/piecestore"
 	rm "github.com/filecoin-project/go-fil-markets/retrievalmarket"
 	"github.com/filecoin-project/go-fil-markets/retrievalmarket/impl/requestvalidation"
-	"github.com/filecoin-project/go-fil-markets/shared"
 	"github.com/filecoin-project/go-fil-markets/shared_testutil"
 )
 
@@ -28,8 +28,7 @@ func TestValidatePush(t *testing.T) {
 	fve := &fakeValidationEnvironment{}
 	sender := shared_testutil.GeneratePeers(1)[0]
 	testDp := shared_testutil.MakeTestDealProposal()
-	voucher, err := shared.TypeToNode(testDp)
-	require.NoError(t, err)
+	voucher := bindnodeutils.TypeToNode(testDp)
 	requestValidator := requestvalidation.NewProviderRequestValidator(fve)
 	validationResult, err := requestValidator.ValidatePush(datatransfer.ChannelID{}, sender, voucher, testDp.PayloadCID, selectorparse.CommonSelector_ExploreAllRecursively)
 	require.Nil(t, validationResult.VoucherResult)
@@ -45,16 +44,14 @@ func dealResponseToVoucher(t *testing.T, status rm.DealStatus, id rm.DealID, mes
 	if owed != nil {
 		dr.PaymentOwed = *owed
 	}
-	node, err := shared.TypeToNode(&dr)
-	require.NoError(t, err)
-	return &datatransfer.TypedVoucher{Voucher: node, Type: dr.Type()}
+	node := bindnodeutils.TypeToNode(&dr)
+	return &datatransfer.TypedVoucher{Voucher: node, Type: rm.DealResponseType}
 }
 
 func TestValidatePull(t *testing.T) {
 	proposal := shared_testutil.MakeTestDealProposal()
-	node, err := shared.TypeToNode(proposal)
-	require.NoError(t, err)
-	proposalVoucher := datatransfer.TypedVoucher{Voucher: node, Type: proposal.Type()}
+	node := bindnodeutils.TypeToNode(proposal)
+	proposalVoucher := datatransfer.TypedVoucher{Voucher: node, Type: rm.DealProposalType}
 	zero := big.Zero()
 
 	testCases := map[string]struct {
@@ -199,9 +196,8 @@ func TestValidateRestart(t *testing.T) {
 		ID:     dealID,
 		Params: params,
 	}
-	node, err := shared.TypeToNode(&proposal)
-	require.NoError(t, err)
-	proposalVoucher := datatransfer.TypedVoucher{Voucher: node, Type: proposal.Type()}
+	node := bindnodeutils.TypeToNode(&proposal)
+	proposalVoucher := datatransfer.TypedVoucher{Voucher: node, Type: rm.DealProposalType}
 
 	testCases := map[string]struct {
 		status                rm.DealStatus

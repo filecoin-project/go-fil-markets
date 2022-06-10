@@ -7,6 +7,7 @@ import (
 
 	datatransfer "github.com/filecoin-project/go-data-transfer/v2"
 
+	"github.com/filecoin-project/go-fil-markets/bindnodeutils"
 	"github.com/filecoin-project/go-fil-markets/storagemarket"
 )
 
@@ -49,16 +50,16 @@ type StorageDataTransferVoucher struct {
 	Proposal cid.Cid
 }
 
-// Type is the unique string identifier for a StorageDataTransferVoucher
-func (dv *StorageDataTransferVoucher) Type() datatransfer.TypeIdentifier {
-	return "StorageDataTransferVoucher"
-}
+// StorageDataTransferVoucherType is the unique string identifier for a StorageDataTransferVoucher
+const StorageDataTransferVoucherType = datatransfer.TypeIdentifier("StorageDataTransferVoucher")
 
-// BindnodeSchema returns the IPLD Schema for a serialized StorageDataTransferVoucher
-func (dv *StorageDataTransferVoucher) BindnodeSchema() string {
-	return `
-		type StorageDataTransferVoucher struct {
-			Proposal &Any
-		} representation tuple
-	`
+// StorageDataTransferVoucherSchema is the IPLD Schema for a serialized StorageDataTransferVoucher
+const StorageDataTransferVoucherSchema = `
+	type StorageDataTransferVoucher struct {
+		Proposal &Any
+	} representation tuple
+`
+
+func init() {
+	bindnodeutils.RegisterType((*StorageDataTransferVoucher)(nil), StorageDataTransferVoucherSchema, "StorageDataTransferVoucher")
 }

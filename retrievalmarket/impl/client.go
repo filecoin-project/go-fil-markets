@@ -23,6 +23,7 @@ import (
 	"github.com/filecoin-project/go-state-types/big"
 	"github.com/filecoin-project/go-statemachine/fsm"
 
+	"github.com/filecoin-project/go-fil-markets/bindnodeutils"
 	"github.com/filecoin-project/go-fil-markets/discovery"
 	"github.com/filecoin-project/go-fil-markets/retrievalmarket"
 	"github.com/filecoin-project/go-fil-markets/retrievalmarket/impl/clientstates"
@@ -108,17 +109,17 @@ func NewClient(
 	if err != nil {
 		return nil, err
 	}
-	err = dataTransfer.RegisterVoucherType((*retrievalmarket.DealProposal)(nil).Type(), nil)
+	err = dataTransfer.RegisterVoucherType(retrievalmarket.DealProposalType, nil)
 	if err != nil {
 		return nil, err
 	}
-	err = dataTransfer.RegisterVoucherType((*retrievalmarket.DealPayment)(nil).Type(), nil)
+	err = dataTransfer.RegisterVoucherType(retrievalmarket.DealPaymentType, nil)
 	if err != nil {
 		return nil, err
 	}
 	dataTransfer.SubscribeToEvents(dtutils.ClientDataTransferSubscriber(c.stateMachines))
 	transportConfigurer := dtutils.TransportConfigurer(network.ID(), &clientStoreGetter{c})
-	err = dataTransfer.RegisterTransportConfigurer((*retrievalmarket.DealProposal)(nil).Type(), transportConfigurer)
+	err = dataTransfer.RegisterTransportConfigurer(retrievalmarket.DealProposalType, transportConfigurer)
 	if err != nil {
 		return nil, err
 	}
@@ -404,19 +405,13 @@ func (c *clientDealEnvironment) OpenDataTransfer(ctx context.Context, to peer.ID
 	if proposal.SelectorSpecified() {
 		sel = proposal.Selector.Node
 	}
-	vouch, err := shared.TypeToNode(proposal)
-	if err != nil {
-		return datatransfer.ChannelID{}, err
-	}
-	return c.c.dataTransfer.OpenPullDataChannel(ctx, to, datatransfer.TypedVoucher{Voucher: vouch, Type: proposal.Type()}, proposal.PayloadCID, sel)
+	vouch := bindnodeutils.TypeToNode(proposal)
+	return c.c.dataTransfer.OpenPullDataChannel(ctx, to, datatransfer.TypedVoucher{Voucher: vouch, Type: retrievalmarket.DealProposalType}, proposal.PayloadCID, sel)
 }
 
 func (c *clientDealEnvironment) SendDataTransferVoucher(ctx context.Context, channelID datatransfer.ChannelID, payment *retrievalmarket.DealPayment) error {
-	vouch, err := shared.TypeToNode(payment)
-	if err != nil {
-		return err
-	}
-	return c.c.dataTransfer.SendVoucher(ctx, channelID, datatransfer.TypedVoucher{Voucher: vouch, Type: payment.Type()})
+	vouch := bindnodeutils.TypeToNode(payment)
+	return c.c.dataTransfer.SendVoucher(ctx, channelID, datatransfer.TypedVoucher{Voucher: vouch, Type: retrievalmarket.DealPaymentType})
 }
 
 func (c *clientDealEnvironment) CloseDataTransfer(ctx context.Context, channelID datatransfer.ChannelID) error {

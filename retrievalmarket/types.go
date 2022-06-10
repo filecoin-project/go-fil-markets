@@ -7,6 +7,7 @@ import (
 
 	"github.com/ipfs/go-cid"
 	"github.com/ipld/go-ipld-prime/datamodel"
+	"github.com/ipld/go-ipld-prime/node/bindnode"
 	"github.com/libp2p/go-libp2p-core/peer"
 	"github.com/libp2p/go-libp2p-core/protocol"
 	"golang.org/x/xerrors"
@@ -17,8 +18,8 @@ import (
 	"github.com/filecoin-project/go-state-types/big"
 	"github.com/filecoin-project/specs-actors/actors/builtin/paych"
 
+	"github.com/filecoin-project/go-fil-markets/bindnodeutils"
 	"github.com/filecoin-project/go-fil-markets/piecestore"
-	"github.com/filecoin-project/go-fil-markets/shared"
 )
 
 //go:generate cbor-gen-for --map-encoding Query QueryResponse DealProposal DealResponse Params QueryParams DealPayment ClientDealState ProviderDealState PaymentInfo RetrievalPeer Ask
@@ -229,7 +230,7 @@ func IsTerminalStatus(status DealStatus) bool {
 
 // Params are the parameters requested for a retrieval deal proposal
 type Params struct {
-	Selector                shared.CborGenCompatibleNode // V1
+	Selector                CborGenCompatibleNode // V1
 	PieceCID                *cid.Cid
 	PricePerByte            abi.TokenAmount
 	PaymentInterval         uint64 // when to request payment
@@ -237,18 +238,23 @@ type Params struct {
 	UnsealPrice             abi.TokenAmount
 }
 
-// BindnodeSchema returns the IPLD Schema for a serialized Params
-func (p *Params) BindnodeSchema() string {
-	return `
-		type Params struct {
-			Selector nullable Any # can be nullable, but shared.SerializedNode takes care of that
-			PieceCID nullable &Any
-			PricePerByte Bytes # abi.TokenAmount
-			PaymentInterval Int
-			PaymentIntervalIncrease Int
-			UnsealPrice Bytes # abi.TokenAmount
-		}
-	`
+// paramsSchema is the IPLD Schema for a serialized Params
+const paramsSchema = `
+	type Params struct {
+		Selector nullable Any # can be nullable, but bindnodeutils.SerializedNode takes care of that
+		PieceCID nullable &Any
+		PricePerByte Bytes # abi.TokenAmount
+		PaymentInterval Int
+		PaymentIntervalIncrease Int
+		UnsealPrice Bytes # abi.TokenAmount
+	}
+`
+
+// paramsBindnodeOptions is the bindnode options required to convert custom
+// types used by the Param type
+var paramsBindnodeOptions = []bindnode.Option{
+	CborGenCompatibleNodeBindnodeOption,
+	TokenAmountBindnodeOption,
 }
 
 func (p Params) SelectorSpecified() bool {
@@ -349,7 +355,7 @@ func NewParamsV1(pricePerByte abi.TokenAmount, paymentInterval uint64, paymentIn
 	}
 
 	return Params{
-		Selector:                shared.CborGenCompatibleNode{Node: sel},
+		Selector:                CborGenCompatibleNode{Node: sel},
 		PieceCID:                pieceCid,
 		PricePerByte:            pricePerByte,
 		PaymentInterval:         paymentInterval,
@@ -372,28 +378,29 @@ type DealProposal struct {
 	Params
 }
 
-// Type method makes DealProposal usable as a voucher
-func (dp *DealProposal) Type() datatransfer.TypeIdentifier {
-	return "RetrievalDealProposal/1"
-}
+// DealProposalType is the DealProposal voucher type
+const DealProposalType = datatransfer.TypeIdentifier("RetrievalDealProposal/1")
 
-// BindnodeSchema returns the IPLD Schema for a serialized DealProposal
-func (dp *DealProposal) BindnodeSchema() string {
-	return strings.Join([]string{
-		`type DealProposal struct {
-			PayloadCID &Any
-			ID Int # DealID
-			Params Params
-		}`,
-		(*Params)(nil).BindnodeSchema(),
-	}, "\n")
-}
+// dealProposalSchema is the IPLD Schema for a serialized DealProposal
+var dealProposalSchema = strings.Join([]string{
+	`type DealProposal struct {
+		PayloadCID &Any
+		ID Int # DealID
+		Params Params
+	}`,
+	paramsSchema,
+}, "\n")
+
+// dealProposalBindnodeOptions is the bindnode options required to convert
+// custom types used by the DealProposal type; the only custom types involved
+// are for Params so we can reuse those options.
+var dealProposalBindnodeOptions = paramsBindnodeOptions
 
 func DealProposalFromNode(node datamodel.Node) (*DealProposal, error) {
 	if node == nil {
 		return nil, fmt.Errorf("empty voucher")
 	}
-	dpIface, err := shared.TypeFromNode(node, &DealProposal{})
+	dpIface, err := bindnodeutils.TypeFromNode(node, &DealProposal{})
 	if err != nil {
 		return nil, xerrors.Errorf("invalid DealProposal: %w", err)
 	}
@@ -415,22 +422,22 @@ type DealResponse struct {
 	Message string
 }
 
-// Type method makes DealResponse usable as a voucher result
-func (dr *DealResponse) Type() datatransfer.TypeIdentifier {
-	return "RetrievalDealResponse/1"
-}
+// DealResponseType is the DealResponse usable as a voucher type
+const DealResponseType = datatransfer.TypeIdentifier("RetrievalDealResponse/1")
 
-// BindnodeSchema returns the IPLD Schema for a serialized StorageDataTransferVoucher
-func (dr *DealResponse) BindnodeSchema() string {
-	return `
-		type DealResponse struct {
-			Status Int
-			ID Int
-			PaymentOwed Bytes
-			Message String
-		}
-	`
-}
+// dealResponseSchema is the IPLD Schema for a serialized DealResponse
+const dealResponseSchema = `
+	type DealResponse struct {
+		Status Int
+		ID Int
+		PaymentOwed Bytes
+		Message String
+	}
+`
+
+// dealResponseBindnodeOptions is the bindnode options required to convert custom
+// types used by the DealResponse type
+var dealResponseBindnodeOptions = []bindnode.Option{TokenAmountBindnodeOption}
 
 // DealResponseUndefined is an undefined deal response
 var DealResponseUndefined = DealResponse{}
@@ -439,7 +446,7 @@ func DealResponseFromNode(node datamodel.Node) (*DealResponse, error) {
 	if node == nil {
 		return nil, fmt.Errorf("empty voucher")
 	}
-	dpIface, err := shared.TypeFromNode(node, &DealResponse{})
+	dpIface, err := bindnodeutils.TypeFromNode(node, &DealResponse{})
 	if err != nil {
 		return nil, xerrors.Errorf("invalid DealResponse: %w", err)
 	}
@@ -454,45 +461,50 @@ type DealPayment struct {
 	PaymentVoucher *paych.SignedVoucher
 }
 
-// BindnodeSchema returns the IPLD Schema for a serialized DealPayment
-func (p *DealPayment) BindnodeSchema() string {
-	return `
-		type DealPayment struct {
-			ID Int # DealID
-			PaymentChannel Bytes # address.Address
-			PaymentVoucher nullable SignedVoucher
-		}
+// DealPaymentType is the DealPayment voucher type
+const DealPaymentType = datatransfer.TypeIdentifier("RetrievalDealPayment/1")
 
-		type SignedVoucher struct {
-			ChannelAddr Bytes # addr.Address
-			TimeLockMin Int # abi.ChainEpoch
-			TimeLockMax Int # abi.ChainEpoch
-			SecretPreimage Bytes
-			Extra nullable ModVerifyParams
-			Lane Int
-			Nonce Int
-			Amount Bytes # big.Int
-			MinSettleHeight Int # abi.ChainEpoch
-			Merges [Merge]
-			Signature nullable Bytes # crypto.Signature
-		} representation tuple
+// dealPaymentSchema is the the IPLD Schema for a serialized DealPayment
+const dealPaymentSchema = `
+	type DealPayment struct {
+		ID Int # DealID
+		PaymentChannel Bytes # address.Address
+		PaymentVoucher nullable SignedVoucher
+	}
 
-		type ModVerifyParams struct {
-			Actor Bytes # addr.Address
-			Method Int # abi.MethodNum
-			Data Bytes
-		} representation tuple
+	type SignedVoucher struct {
+		ChannelAddr Bytes # addr.Address
+		TimeLockMin Int # abi.ChainEpoch
+		TimeLockMax Int # abi.ChainEpoch
+		SecretPreimage Bytes
+		Extra nullable ModVerifyParams
+		Lane Int
+		Nonce Int
+		Amount Bytes # big.Int
+		MinSettleHeight Int # abi.ChainEpoch
+		Merges [Merge]
+		Signature nullable Bytes # crypto.Signature
+	} representation tuple
 
-		type Merge struct {
-			Lane Int
-			Nonce Int
-		} representation tuple
-	`
-}
+	type ModVerifyParams struct {
+		Actor Bytes # addr.Address
+		Method Int # abi.MethodNum
+		Data Bytes
+	} representation tuple
 
-// Type method makes DealPayment usable as a voucher
-func (dr *DealPayment) Type() datatransfer.TypeIdentifier {
-	return "RetrievalDealPayment/1"
+	type Merge struct {
+		Lane Int
+		Nonce Int
+	} representation tuple
+`
+
+// dealPaymentBindnodeOptions is the bindnode options required to convert custom
+// types used by the DealPayment type
+var dealPaymentBindnodeOptions = []bindnode.Option{
+	SignatureBindnodeOption,
+	AddressBindnodeOption,
+	BigIntBindnodeOption,
+	TokenAmountBindnodeOption,
 }
 
 // DealPaymentUndefined is an undefined deal payment
@@ -502,7 +514,7 @@ func DealPaymentFromNode(node datamodel.Node) (*DealPayment, error) {
 	if node == nil {
 		return nil, fmt.Errorf("empty voucher")
 	}
-	dpIface, err := shared.TypeFromNode(node, &DealPayment{})
+	dpIface, err := bindnodeutils.TypeFromNode(node, &DealPayment{})
 	if err != nil {
 		return nil, xerrors.Errorf("invalid DealPayment: %w", err)
 	}
@@ -576,4 +588,11 @@ type PricingInput struct {
 	Unsealed bool
 	// CurrentAsk is the current configured ask in the ask-store.
 	CurrentAsk Ask
+}
+
+func init() {
+	bindnodeutils.RegisterType((*Params)(nil), paramsSchema, "Params", paramsBindnodeOptions...)
+	bindnodeutils.RegisterType((*DealProposal)(nil), dealProposalSchema, "DealProposal", dealProposalBindnodeOptions...)
+	bindnodeutils.RegisterType((*DealResponse)(nil), dealResponseSchema, "DealResponse", dealResponseBindnodeOptions...)
+	bindnodeutils.RegisterType((*DealPayment)(nil), dealPaymentSchema, "DealPayment", dealPaymentBindnodeOptions...)
 }

@@ -15,9 +15,9 @@ import (
 	"github.com/filecoin-project/go-state-types/abi"
 	"github.com/filecoin-project/go-state-types/big"
 
+	"github.com/filecoin-project/go-fil-markets/bindnodeutils"
 	"github.com/filecoin-project/go-fil-markets/piecestore"
 	rm "github.com/filecoin-project/go-fil-markets/retrievalmarket"
-	"github.com/filecoin-project/go-fil-markets/shared"
 )
 
 var allSelector = selectorparse.CommonSelector_ExploreAllRecursively
@@ -70,13 +70,10 @@ func rejectProposal(proposal *rm.DealProposal, status rm.DealStatus, reason stri
 		Status:  status,
 		Message: reason,
 	}
-	node, err := shared.TypeToNode(&dr)
-	if err != nil {
-		return datatransfer.ValidationResult{}, err
-	}
+	node := bindnodeutils.TypeToNode(&dr)
 	return datatransfer.ValidationResult{
 		Accepted:      false,
-		VoucherResult: &datatransfer.TypedVoucher{Voucher: node, Type: dr.Type()},
+		VoucherResult: &datatransfer.TypedVoucher{Voucher: node, Type: rm.DealResponseType},
 	}, nil
 }
 
@@ -156,13 +153,10 @@ func (rv *ProviderRequestValidator) validatePull(receiver peer.ID, proposal *rm.
 		Status:      status,
 		PaymentOwed: deal.Params.OutstandingBalance(big.Zero(), 0, false),
 	}
-	node, err := shared.TypeToNode(&dr)
-	if err != nil {
-		return datatransfer.ValidationResult{}, nil
-	}
+	node := bindnodeutils.TypeToNode(&dr)
 	result := datatransfer.ValidationResult{
 		Accepted:             true,
-		VoucherResult:        &datatransfer.TypedVoucher{Voucher: node, Type: dr.Type()},
+		VoucherResult:        &datatransfer.TypedVoucher{Voucher: node, Type: rm.DealResponseType},
 		ForcePause:           true,
 		DataLimit:            deal.Params.NextInterval(big.Zero()),
 		RequiresFinalization: true,
@@ -213,12 +207,9 @@ func errorDealResponse(dealID rm.ProviderDealIdentifier, err error) (datatransfe
 		Message: err.Error(),
 		Status:  rm.DealStatusErrored,
 	}
-	node, err := shared.TypeToNode(&dr)
-	if err != nil {
-		return datatransfer.ValidationResult{}, err
-	}
+	node := bindnodeutils.TypeToNode(&dr)
 	return datatransfer.ValidationResult{
 		Accepted:      false,
-		VoucherResult: &datatransfer.TypedVoucher{Voucher: node, Type: dr.Type()},
+		VoucherResult: &datatransfer.TypedVoucher{Voucher: node, Type: rm.DealResponseType},
 	}, nil
 }

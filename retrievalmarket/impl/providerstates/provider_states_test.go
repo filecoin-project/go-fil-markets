@@ -19,6 +19,7 @@ import (
 	fsmtest "github.com/filecoin-project/go-statemachine/fsm/testutil"
 	"github.com/filecoin-project/specs-actors/actors/builtin/paych"
 
+	"github.com/filecoin-project/go-fil-markets/bindnodeutils"
 	"github.com/filecoin-project/go-fil-markets/piecestore"
 	"github.com/filecoin-project/go-fil-markets/retrievalmarket"
 	rm "github.com/filecoin-project/go-fil-markets/retrievalmarket"
@@ -150,17 +151,14 @@ func TestUnpauseDeal(t *testing.T) {
 func TestUpdateFunding(t *testing.T) {
 	ctx := context.Background()
 	emptyDealPayment := rm.DealPayment{}
-	emptyDealPaymentNode, err := shared.TypeToNode(&emptyDealPayment)
-	require.NoError(t, err)
-	emptyDealPaymentVoucher := datatransfer.TypedVoucher{Voucher: emptyDealPaymentNode, Type: emptyDealPayment.Type()}
+	emptyDealPaymentNode := bindnodeutils.TypeToNode(&emptyDealPayment)
+	emptyDealPaymentVoucher := datatransfer.TypedVoucher{Voucher: emptyDealPaymentNode, Type: rm.DealPaymentType}
 	emptyDealProposal := rm.DealProposal{}
-	emptyDealProposalNode, err := shared.TypeToNode(&emptyDealProposal)
-	require.NoError(t, err)
-	emptyDealProposalVoucher := datatransfer.TypedVoucher{Voucher: emptyDealProposalNode, Type: emptyDealProposal.Type()}
+	emptyDealProposalNode := bindnodeutils.TypeToNode(&emptyDealProposal)
+	emptyDealProposalVoucher := datatransfer.TypedVoucher{Voucher: emptyDealProposalNode, Type: rm.DealProposalType}
 	dealResponseVoucher := func(resp rm.DealResponse) *datatransfer.TypedVoucher {
-		node, err := shared.TypeToNode(&resp)
-		require.NoError(t, err)
-		return &datatransfer.TypedVoucher{Voucher: node, Type: resp.Type()}
+		node := bindnodeutils.TypeToNode(&resp)
+		return &datatransfer.TypedVoucher{Voucher: node, Type: rm.DealResponseType}
 	}
 	eventMachine, err := fsm.NewEventProcessor(rm.ProviderDealState{}, "Status", providerstates.ProviderEvents)
 	require.NoError(t, err)

@@ -13,8 +13,8 @@ import (
 	"github.com/filecoin-project/go-statemachine"
 	"github.com/filecoin-project/go-statemachine/fsm"
 
+	"github.com/filecoin-project/go-fil-markets/bindnodeutils"
 	rm "github.com/filecoin-project/go-fil-markets/retrievalmarket"
-	"github.com/filecoin-project/go-fil-markets/shared"
 )
 
 var log = logging.Logger("retrieval-fsm")
@@ -138,11 +138,8 @@ func updateFunding(ctx fsm.Context,
 		DataLimit:            deal.Params.NextInterval(totalPaid),
 	}
 	if voucherResult != nil {
-		node, err := shared.TypeToNode(voucherResult)
-		if err != nil {
-			log.Errorf("failed to convert DealResponse to Node: %s", err.Error())
-		}
-		vr.VoucherResult = &datatransfer.TypedVoucher{Voucher: node, Type: voucherResult.Type()}
+		node := bindnodeutils.TypeToNode(voucherResult)
+		vr.VoucherResult = &datatransfer.TypedVoucher{Voucher: node, Type: rm.DealResponseType}
 	}
 	return vr
 }
@@ -186,14 +183,10 @@ func errorDealResponse(dealID rm.ProviderDealIdentifier, errMsg error) datatrans
 		Message: errMsg.Error(),
 		Status:  rm.DealStatusErrored,
 	}
-	node, err := shared.TypeToNode(&dr)
-	if err != nil {
-		log.Errorf("failed to convert DealResponse to Node: %s", err.Error())
-		return datatransfer.ValidationResult{Accepted: false}
-	}
+	node := bindnodeutils.TypeToNode(&dr)
 	return datatransfer.ValidationResult{
 		Accepted:      false,
-		VoucherResult: &datatransfer.TypedVoucher{Voucher: node, Type: dr.Type()},
+		VoucherResult: &datatransfer.TypedVoucher{Voucher: node, Type: rm.DealResponseType},
 	}
 }
 

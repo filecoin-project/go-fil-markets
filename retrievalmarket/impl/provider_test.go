@@ -30,7 +30,6 @@ import (
 	"github.com/filecoin-project/go-fil-markets/retrievalmarket/impl/testnodes"
 	"github.com/filecoin-project/go-fil-markets/retrievalmarket/migrations/maptypes"
 	"github.com/filecoin-project/go-fil-markets/retrievalmarket/network"
-	"github.com/filecoin-project/go-fil-markets/shared"
 	tut "github.com/filecoin-project/go-fil-markets/shared_testutil"
 )
 
@@ -959,14 +958,14 @@ func TestProvider_Construct(t *testing.T) {
 	require.NoError(t, err)
 	require.Len(t, dt.Subscribers, 1)
 	require.Len(t, dt.RegisteredVoucherTypes, 2)
-	require.Equal(t, dt.RegisteredVoucherTypes[0].VoucherType, (*retrievalmarket.DealProposal)(nil).Type())
+	require.Equal(t, dt.RegisteredVoucherTypes[0].VoucherType, retrievalmarket.DealProposalType)
 	_, ok := dt.RegisteredVoucherTypes[0].Validator.(*requestvalidation.ProviderRequestValidator)
 	require.True(t, ok)
-	require.Equal(t, dt.RegisteredVoucherTypes[1].VoucherType, (*retrievalmarket.DealPayment)(nil).Type())
+	require.Equal(t, dt.RegisteredVoucherTypes[1].VoucherType, retrievalmarket.DealPaymentType)
 	_, ok = dt.RegisteredVoucherTypes[1].Validator.(*requestvalidation.ProviderRequestValidator)
 	require.True(t, ok)
 	require.Len(t, dt.RegisteredTransportConfigurers, 1)
-	require.Equal(t, dt.RegisteredTransportConfigurers[0].VoucherType, (*retrievalmarket.DealProposal)(nil).Type())
+	require.Equal(t, dt.RegisteredTransportConfigurers[0].VoucherType, retrievalmarket.DealProposalType)
 
 }
 
@@ -1106,7 +1105,7 @@ func TestProviderMigrations(t *testing.T) {
 				PayloadCID: payloadCIDs[i],
 				ID:         iDs[i],
 				Params: retrievalmarket.Params{
-					Selector: shared.CborGenCompatibleNode{
+					Selector: retrievalmarket.CborGenCompatibleNode{
 						Node: selectorparse.CommonSelector_ExploreAllRecursively,
 					},
 					PieceCID:                pieceCIDs[i],
@@ -1169,7 +1168,7 @@ func TestProviderMigrations(t *testing.T) {
 				PayloadCID: payloadCIDs[i],
 				ID:         iDs[i],
 				Params: retrievalmarket.Params{
-					Selector: shared.CborGenCompatibleNode{
+					Selector: retrievalmarket.CborGenCompatibleNode{
 						Node: selectorparse.CommonSelector_ExploreAllRecursively,
 					},
 					PieceCID:                pieceCIDs[i],

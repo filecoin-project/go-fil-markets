@@ -16,18 +16,17 @@ import (
 	datatransfer "github.com/filecoin-project/go-data-transfer/v2"
 	"github.com/filecoin-project/go-statemachine/fsm"
 
+	"github.com/filecoin-project/go-fil-markets/bindnodeutils"
 	"github.com/filecoin-project/go-fil-markets/retrievalmarket"
 	rm "github.com/filecoin-project/go-fil-markets/retrievalmarket"
 	"github.com/filecoin-project/go-fil-markets/retrievalmarket/impl/dtutils"
-	"github.com/filecoin-project/go-fil-markets/shared"
 	"github.com/filecoin-project/go-fil-markets/shared_testutil"
 )
 
 func TestProviderDataTransferSubscriber(t *testing.T) {
 	dealProposal := shared_testutil.MakeTestDealProposal()
-	node, err := shared.TypeToNode(dealProposal)
-	require.NoError(t, err)
-	dealProposalVoucher := datatransfer.TypedVoucher{Voucher: node, Type: dealProposal.Type()}
+	node := bindnodeutils.TypeToNode(dealProposal)
+	dealProposalVoucher := datatransfer.TypedVoucher{Voucher: node, Type: rm.DealProposalType}
 	testPeers := shared_testutil.GeneratePeers(2)
 	transferID := datatransfer.TransferID(rand.Uint64())
 	tests := map[string]struct {
@@ -113,15 +112,12 @@ func TestProviderDataTransferSubscriber(t *testing.T) {
 }
 func TestClientDataTransferSubscriber(t *testing.T) {
 	dealProposal := shared_testutil.MakeTestDealProposal()
-	node, err := shared.TypeToNode(dealProposal)
-	require.NoError(t, err)
-	dealProposalVoucher := datatransfer.TypedVoucher{Voucher: node, Type: dealProposal.Type()}
+	node := bindnodeutils.TypeToNode(dealProposal)
+	dealProposalVoucher := datatransfer.TypedVoucher{Voucher: node, Type: retrievalmarket.DealProposalType}
 	dealResponseVoucher := func(dealResponse retrievalmarket.DealResponse) datatransfer.TypedVoucher {
-		node, err := shared.TypeToNode(&dealResponse)
-		require.NoError(t, err)
-		return datatransfer.TypedVoucher{Voucher: node, Type: dealResponse.Type()}
+		node := bindnodeutils.TypeToNode(&dealResponse)
+		return datatransfer.TypedVoucher{Voucher: node, Type: retrievalmarket.DealResponseType}
 	}
-	require.NoError(t, err)
 	paymentOwed := shared_testutil.MakeTestTokenAmount()
 	tests := map[string]struct {
 		code          datatransfer.EventCode
@@ -326,9 +322,8 @@ func TestTransportConfigurer(t *testing.T) {
 	thisPeer := expectedChannelID.Initiator
 	expectedPeer := expectedChannelID.Responder
 	dealProposalVoucher := func(proposal rm.DealProposal) datatransfer.TypedVoucher {
-		node, err := shared.TypeToNode(&proposal)
-		require.NoError(t, err)
-		return datatransfer.TypedVoucher{Voucher: node, Type: proposal.Type()}
+		node := bindnodeutils.TypeToNode(&proposal)
+		return datatransfer.TypedVoucher{Voucher: node, Type: rm.DealProposalType}
 	}
 
 	testCases := map[string]struct {
