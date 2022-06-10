@@ -13,7 +13,6 @@ import (
 	"github.com/filecoin-project/go-statemachine"
 	"github.com/filecoin-project/go-statemachine/fsm"
 
-	"github.com/filecoin-project/go-fil-markets/bindnodeutils"
 	rm "github.com/filecoin-project/go-fil-markets/retrievalmarket"
 )
 
@@ -138,7 +137,7 @@ func updateFunding(ctx fsm.Context,
 		DataLimit:            deal.Params.NextInterval(totalPaid),
 	}
 	if voucherResult != nil {
-		node := bindnodeutils.TypeToNode(voucherResult)
+		node := rm.BindnodeRegistry.TypeToNode(voucherResult)
 		vr.VoucherResult = &datatransfer.TypedVoucher{Voucher: node, Type: rm.DealResponseType}
 	}
 	return vr
@@ -183,7 +182,7 @@ func errorDealResponse(dealID rm.ProviderDealIdentifier, errMsg error) datatrans
 		Message: errMsg.Error(),
 		Status:  rm.DealStatusErrored,
 	}
-	node := bindnodeutils.TypeToNode(&dr)
+	node := rm.BindnodeRegistry.TypeToNode(&dr)
 	return datatransfer.ValidationResult{
 		Accepted:      false,
 		VoucherResult: &datatransfer.TypedVoucher{Voucher: node, Type: rm.DealResponseType},

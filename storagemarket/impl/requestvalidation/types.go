@@ -1,17 +1,21 @@
 package requestvalidation
 
 import (
+	_ "embed"
 	"errors"
 
 	"github.com/ipfs/go-cid"
+	bindnoderegistry "github.com/ipld/go-ipld-prime/node/bindnode/registry"
 
 	datatransfer "github.com/filecoin-project/go-data-transfer/v2"
 
-	"github.com/filecoin-project/go-fil-markets/bindnodeutils"
 	"github.com/filecoin-project/go-fil-markets/storagemarket"
 )
 
 //go:generate cbor-gen-for StorageDataTransferVoucher
+
+//go:embed types.ipldsch
+var embedSchema []byte
 
 var (
 	// ErrWrongVoucherType means the voucher was not the correct type can validate against
@@ -53,13 +57,10 @@ type StorageDataTransferVoucher struct {
 // StorageDataTransferVoucherType is the unique string identifier for a StorageDataTransferVoucher
 const StorageDataTransferVoucherType = datatransfer.TypeIdentifier("StorageDataTransferVoucher")
 
-// StorageDataTransferVoucherSchema is the IPLD Schema for a serialized StorageDataTransferVoucher
-const StorageDataTransferVoucherSchema = `
-	type StorageDataTransferVoucher struct {
-		Proposal &Any
-	} representation tuple
-`
+var BindnodeRegistry = bindnoderegistry.NewRegistry()
 
 func init() {
-	bindnodeutils.RegisterType((*StorageDataTransferVoucher)(nil), StorageDataTransferVoucherSchema, "StorageDataTransferVoucher")
+	if err := BindnodeRegistry.RegisterType((*StorageDataTransferVoucher)(nil), string(embedSchema), "StorageDataTransferVoucher"); err != nil {
+		panic(err.Error())
+	}
 }

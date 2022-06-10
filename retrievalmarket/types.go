@@ -1,13 +1,14 @@
 package retrievalmarket
 
 import (
+	_ "embed"
 	"errors"
 	"fmt"
-	"strings"
 
 	"github.com/ipfs/go-cid"
 	"github.com/ipld/go-ipld-prime/datamodel"
 	"github.com/ipld/go-ipld-prime/node/bindnode"
+	bindnoderegistry "github.com/ipld/go-ipld-prime/node/bindnode/registry"
 	"github.com/libp2p/go-libp2p-core/peer"
 	"github.com/libp2p/go-libp2p-core/protocol"
 	"golang.org/x/xerrors"
@@ -18,11 +19,13 @@ import (
 	"github.com/filecoin-project/go-state-types/big"
 	"github.com/filecoin-project/specs-actors/actors/builtin/paych"
 
-	"github.com/filecoin-project/go-fil-markets/bindnodeutils"
 	"github.com/filecoin-project/go-fil-markets/piecestore"
 )
 
 //go:generate cbor-gen-for --map-encoding Query QueryResponse DealProposal DealResponse Params QueryParams DealPayment ClientDealState ProviderDealState PaymentInfo RetrievalPeer Ask
+
+//go:embed types.ipldsch
+var embedSchema []byte
 
 // QueryProtocolID is the protocol for querying information about retrieval
 // deal parameters
@@ -238,18 +241,6 @@ type Params struct {
 	UnsealPrice             abi.TokenAmount
 }
 
-// paramsSchema is the IPLD Schema for a serialized Params
-const paramsSchema = `
-	type Params struct {
-		Selector nullable Any # can be nullable, but bindnodeutils.SerializedNode takes care of that
-		PieceCID nullable &Any
-		PricePerByte Bytes # abi.TokenAmount
-		PaymentInterval Int
-		PaymentIntervalIncrease Int
-		UnsealPrice Bytes # abi.TokenAmount
-	}
-`
-
 // paramsBindnodeOptions is the bindnode options required to convert custom
 // types used by the Param type
 var paramsBindnodeOptions = []bindnode.Option{
@@ -381,16 +372,6 @@ type DealProposal struct {
 // DealProposalType is the DealProposal voucher type
 const DealProposalType = datatransfer.TypeIdentifier("RetrievalDealProposal/1")
 
-// dealProposalSchema is the IPLD Schema for a serialized DealProposal
-var dealProposalSchema = strings.Join([]string{
-	`type DealProposal struct {
-		PayloadCID &Any
-		ID Int # DealID
-		Params Params
-	}`,
-	paramsSchema,
-}, "\n")
-
 // dealProposalBindnodeOptions is the bindnode options required to convert
 // custom types used by the DealProposal type; the only custom types involved
 // are for Params so we can reuse those options.
@@ -400,7 +381,7 @@ func DealProposalFromNode(node datamodel.Node) (*DealProposal, error) {
 	if node == nil {
 		return nil, fmt.Errorf("empty voucher")
 	}
-	dpIface, err := bindnodeutils.TypeFromNode(node, &DealProposal{})
+	dpIface, err := BindnodeRegistry.TypeFromNode(node, &DealProposal{})
 	if err != nil {
 		return nil, xerrors.Errorf("invalid DealProposal: %w", err)
 	}
@@ -425,16 +406,6 @@ type DealResponse struct {
 // DealResponseType is the DealResponse usable as a voucher type
 const DealResponseType = datatransfer.TypeIdentifier("RetrievalDealResponse/1")
 
-// dealResponseSchema is the IPLD Schema for a serialized DealResponse
-const dealResponseSchema = `
-	type DealResponse struct {
-		Status Int
-		ID Int
-		PaymentOwed Bytes
-		Message String
-	}
-`
-
 // dealResponseBindnodeOptions is the bindnode options required to convert custom
 // types used by the DealResponse type
 var dealResponseBindnodeOptions = []bindnode.Option{TokenAmountBindnodeOption}
@@ -446,7 +417,7 @@ func DealResponseFromNode(node datamodel.Node) (*DealResponse, error) {
 	if node == nil {
 		return nil, fmt.Errorf("empty voucher")
 	}
-	dpIface, err := bindnodeutils.TypeFromNode(node, &DealResponse{})
+	dpIface, err := BindnodeRegistry.TypeFromNode(node, &DealResponse{})
 	if err != nil {
 		return nil, xerrors.Errorf("invalid DealResponse: %w", err)
 	}
@@ -464,40 +435,6 @@ type DealPayment struct {
 // DealPaymentType is the DealPayment voucher type
 const DealPaymentType = datatransfer.TypeIdentifier("RetrievalDealPayment/1")
 
-// dealPaymentSchema is the the IPLD Schema for a serialized DealPayment
-const dealPaymentSchema = `
-	type DealPayment struct {
-		ID Int # DealID
-		PaymentChannel Bytes # address.Address
-		PaymentVoucher nullable SignedVoucher
-	}
-
-	type SignedVoucher struct {
-		ChannelAddr Bytes # addr.Address
-		TimeLockMin Int # abi.ChainEpoch
-		TimeLockMax Int # abi.ChainEpoch
-		SecretPreimage Bytes
-		Extra nullable ModVerifyParams
-		Lane Int
-		Nonce Int
-		Amount Bytes # big.Int
-		MinSettleHeight Int # abi.ChainEpoch
-		Merges [Merge]
-		Signature nullable Bytes # crypto.Signature
-	} representation tuple
-
-	type ModVerifyParams struct {
-		Actor Bytes # addr.Address
-		Method Int # abi.MethodNum
-		Data Bytes
-	} representation tuple
-
-	type Merge struct {
-		Lane Int
-		Nonce Int
-	} representation tuple
-`
-
 // dealPaymentBindnodeOptions is the bindnode options required to convert custom
 // types used by the DealPayment type
 var dealPaymentBindnodeOptions = []bindnode.Option{
@@ -514,7 +451,7 @@ func DealPaymentFromNode(node datamodel.Node) (*DealPayment, error) {
 	if node == nil {
 		return nil, fmt.Errorf("empty voucher")
 	}
-	dpIface, err := bindnodeutils.TypeFromNode(node, &DealPayment{})
+	dpIface, err := BindnodeRegistry.TypeFromNode(node, &DealPayment{})
 	if err != nil {
 		return nil, xerrors.Errorf("invalid DealPayment: %w", err)
 	}
@@ -590,9 +527,21 @@ type PricingInput struct {
 	CurrentAsk Ask
 }
 
+var BindnodeRegistry = bindnoderegistry.NewRegistry()
+
 func init() {
-	bindnodeutils.RegisterType((*Params)(nil), paramsSchema, "Params", paramsBindnodeOptions...)
-	bindnodeutils.RegisterType((*DealProposal)(nil), dealProposalSchema, "DealProposal", dealProposalBindnodeOptions...)
-	bindnodeutils.RegisterType((*DealResponse)(nil), dealResponseSchema, "DealResponse", dealResponseBindnodeOptions...)
-	bindnodeutils.RegisterType((*DealPayment)(nil), dealPaymentSchema, "DealPayment", dealPaymentBindnodeOptions...)
+	for _, r := range []struct {
+		typ     interface{}
+		typName string
+		opts    []bindnode.Option
+	}{
+		{(*Params)(nil), "Params", paramsBindnodeOptions},
+		{(*DealProposal)(nil), "DealProposal", dealProposalBindnodeOptions},
+		{(*DealResponse)(nil), "DealResponse", dealResponseBindnodeOptions},
+		{(*DealPayment)(nil), "DealPayment", dealPaymentBindnodeOptions},
+	} {
+		if err := BindnodeRegistry.RegisterType(r.typ, string(embedSchema), r.typName, r.opts...); err != nil {
+			panic(err.Error())
+		}
+	}
 }

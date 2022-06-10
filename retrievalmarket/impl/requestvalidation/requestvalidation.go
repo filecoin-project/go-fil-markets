@@ -15,7 +15,6 @@ import (
 	"github.com/filecoin-project/go-state-types/abi"
 	"github.com/filecoin-project/go-state-types/big"
 
-	"github.com/filecoin-project/go-fil-markets/bindnodeutils"
 	"github.com/filecoin-project/go-fil-markets/piecestore"
 	rm "github.com/filecoin-project/go-fil-markets/retrievalmarket"
 )
@@ -70,7 +69,7 @@ func rejectProposal(proposal *rm.DealProposal, status rm.DealStatus, reason stri
 		Status:  status,
 		Message: reason,
 	}
-	node := bindnodeutils.TypeToNode(&dr)
+	node := rm.BindnodeRegistry.TypeToNode(&dr)
 	return datatransfer.ValidationResult{
 		Accepted:      false,
 		VoucherResult: &datatransfer.TypedVoucher{Voucher: node, Type: rm.DealResponseType},
@@ -153,7 +152,7 @@ func (rv *ProviderRequestValidator) validatePull(receiver peer.ID, proposal *rm.
 		Status:      status,
 		PaymentOwed: deal.Params.OutstandingBalance(big.Zero(), 0, false),
 	}
-	node := bindnodeutils.TypeToNode(&dr)
+	node := rm.BindnodeRegistry.TypeToNode(&dr)
 	result := datatransfer.ValidationResult{
 		Accepted:             true,
 		VoucherResult:        &datatransfer.TypedVoucher{Voucher: node, Type: rm.DealResponseType},
@@ -207,7 +206,7 @@ func errorDealResponse(dealID rm.ProviderDealIdentifier, err error) (datatransfe
 		Message: err.Error(),
 		Status:  rm.DealStatusErrored,
 	}
-	node := bindnodeutils.TypeToNode(&dr)
+	node := rm.BindnodeRegistry.TypeToNode(&dr)
 	return datatransfer.ValidationResult{
 		Accepted:      false,
 		VoucherResult: &datatransfer.TypedVoucher{Voucher: node, Type: rm.DealResponseType},

@@ -1,6 +1,6 @@
 module github.com/filecoin-project/go-fil-markets
 
-go 1.13
+go 1.16
 
 require (
 	github.com/filecoin-project/dagstore v0.5.2
@@ -45,15 +45,14 @@ require (
 	github.com/ipfs/go-unixfs v0.3.1
 	github.com/ipld/go-car v0.3.3
 	github.com/ipld/go-car/v2 v2.1.1
-	github.com/ipld/go-ipld-prime v0.16.1-0.20220524010812-a2c7491b1229
+	github.com/ipld/go-ipld-prime v0.17.1-0.20220624062450-534ccf82237d
 	github.com/jbenet/go-random v0.0.0-20190219211222-123a90aedc0c
 	github.com/jpillora/backoff v1.0.0
-	github.com/libp2p/go-libp2p v0.20.0
-	github.com/libp2p/go-libp2p-core v0.16.1
-	github.com/libp2p/go-libp2p-mplex v0.6.0 // indirect
+	github.com/libp2p/go-libp2p v0.19.4
+	github.com/libp2p/go-libp2p-core v0.15.1
 	github.com/multiformats/go-multiaddr v0.5.0
 	github.com/multiformats/go-multibase v0.0.3
-	github.com/multiformats/go-multicodec v0.4.1
+	github.com/multiformats/go-multicodec v0.5.0
 	github.com/multiformats/go-multihash v0.1.0
 	github.com/multiformats/go-varint v0.0.6
 	github.com/petar/GoLLRB v0.0.0-20210522233825-ae3b015fd3e9
@@ -62,9 +61,8 @@ require (
 	github.com/whyrusleeping/cbor-gen v0.0.0-20220302191723-37c43cae8e14
 	github.com/xorcare/golden v0.6.1-0.20191112154924-b87f686d7542 // indirect
 	golang.org/x/exp v0.0.0-20210715201039-d37aa40e8013
-	golang.org/x/net v0.0.0-20211112202133-69e39bad7dc2
-	golang.org/x/xerrors v0.0.0-20200804184101-5ec99f83aff1
-	lukechampine.com/blake3 v1.1.7 // indirect
+	golang.org/x/net v0.0.0-20220418201149-a630d4f3e7a2
+	golang.org/x/xerrors v0.0.0-20220411194840-2f41105eb62f
 )
 
 replace github.com/filecoin-project/filecoin-ffi => ./extern/filecoin-ffi

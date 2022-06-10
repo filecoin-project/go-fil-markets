@@ -22,7 +22,6 @@ import (
 	"github.com/filecoin-project/go-state-types/crypto"
 	"github.com/filecoin-project/specs-actors/actors/builtin/paych"
 
-	"github.com/filecoin-project/go-fil-markets/bindnodeutils"
 	"github.com/filecoin-project/go-fil-markets/retrievalmarket"
 )
 
@@ -62,7 +61,7 @@ func TestIpldCompat_DealResponse(t *testing.T) {
 			nb := basicnode.Prototype.Any.NewBuilder()
 			assert.Nil(t, dagcbor.Decode(nb, &originalBuf))
 			node := nb.Build()
-			drBindnodeIface, err := bindnodeutils.TypeFromNode(node, &retrievalmarket.DealResponse{})
+			drBindnodeIface, err := retrievalmarket.BindnodeRegistry.TypeFromNode(node, &retrievalmarket.DealResponse{})
 			assert.Nil(t, err)
 			drBindnode, ok := drBindnodeIface.(*retrievalmarket.DealResponse)
 			assert.True(t, ok)
@@ -71,7 +70,7 @@ func TestIpldCompat_DealResponse(t *testing.T) {
 			compareDealResponse(t, testCase.dr, *drBindnode)
 
 			// encode the new DealResponse with bindnode to bytes
-			node = bindnodeutils.TypeToNode(drBindnode)
+			node = retrievalmarket.BindnodeRegistry.TypeToNode(drBindnode)
 			var bindnodeBuf bytes.Buffer
 			dagcbor.Encode(node.(schema.TypedNode).Representation(), &bindnodeBuf)
 			bindnodeBytes := bindnodeBuf.Bytes()
@@ -153,7 +152,7 @@ func TestIpldCompat_DealProposal(t *testing.T) {
 			nb := basicnode.Prototype.Any.NewBuilder()
 			assert.Nil(t, dagcbor.Decode(nb, &originalBuf))
 			node := nb.Build()
-			dpBindnodeIface, err := bindnodeutils.TypeFromNode(node, &retrievalmarket.DealProposal{})
+			dpBindnodeIface, err := retrievalmarket.BindnodeRegistry.TypeFromNode(node, &retrievalmarket.DealProposal{})
 			assert.Nil(t, err)
 			dpBindnode, ok := dpBindnodeIface.(*retrievalmarket.DealProposal)
 			assert.True(t, ok)
@@ -162,7 +161,7 @@ func TestIpldCompat_DealProposal(t *testing.T) {
 			compareDealProposal(t, testCase.dp, *dpBindnode)
 
 			// encode the new DealProposal with bindnode to bytes
-			node = bindnodeutils.TypeToNode(dpBindnode)
+			node = retrievalmarket.BindnodeRegistry.TypeToNode(dpBindnode)
 			var bindnodeBuf bytes.Buffer
 			dagcbor.Encode(node.(schema.TypedNode).Representation(), &bindnodeBuf)
 			bindnodeBytes := bindnodeBuf.Bytes()
@@ -273,7 +272,7 @@ func TestIpldCompat_DealPayment(t *testing.T) {
 			nb := basicnode.Prototype.Any.NewBuilder()
 			assert.Nil(t, dagcbor.Decode(nb, &originalBuf))
 			node := nb.Build()
-			dpBindnodeIface, err := bindnodeutils.TypeFromNode(node, &retrievalmarket.DealPayment{})
+			dpBindnodeIface, err := retrievalmarket.BindnodeRegistry.TypeFromNode(node, &retrievalmarket.DealPayment{})
 			assert.Nil(t, err)
 			dpBindnode, ok := dpBindnodeIface.(*retrievalmarket.DealPayment)
 			assert.True(t, ok)
@@ -282,7 +281,7 @@ func TestIpldCompat_DealPayment(t *testing.T) {
 			compareDealPayment(t, testCase.dp, *dpBindnode)
 
 			// encode the new DealPayment with bindnode to bytes
-			node = bindnodeutils.TypeToNode(dpBindnode)
+			node = retrievalmarket.BindnodeRegistry.TypeToNode(dpBindnode)
 			var bindnodeBuf bytes.Buffer
 			dagcbor.Encode(node.(schema.TypedNode).Representation(), &bindnodeBuf)
 			bindnodeBytes := bindnodeBuf.Bytes()

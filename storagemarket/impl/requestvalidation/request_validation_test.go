@@ -21,9 +21,9 @@ import (
 	"github.com/filecoin-project/go-statestore"
 	"github.com/filecoin-project/specs-actors/v8/actors/builtin/market"
 
-	"github.com/filecoin-project/go-fil-markets/bindnodeutils"
 	tut "github.com/filecoin-project/go-fil-markets/shared_testutil"
 	"github.com/filecoin-project/go-fil-markets/storagemarket"
+	"github.com/filecoin-project/go-fil-markets/storagemarket/impl/requestvalidation"
 	rv "github.com/filecoin-project/go-fil-markets/storagemarket/impl/requestvalidation"
 )
 
@@ -168,7 +168,7 @@ func AssertPushValidator(t *testing.T, validator datatransfer.RequestValidator, 
 			t.Fatal("error serializing proposal")
 		}
 		sdtv := rv.StorageDataTransferVoucher{proposalNd.Cid()}
-		voucher := bindnodeutils.TypeToNode(&sdtv)
+		voucher := requestvalidation.BindnodeRegistry.TypeToNode(&sdtv)
 		checkValidateAndRevalidatePush(t, validator, datatransfer.ChannelID{}, sender, datatransfer.TypedVoucher{Voucher: voucher, Type: rv.StorageDataTransferVoucherType}, proposal.Proposal.PieceCID, nil,
 			func(t *testing.T, result datatransfer.ValidationResult, err error) {
 				if err != nil {
@@ -188,7 +188,7 @@ func AssertPushValidator(t *testing.T, validator datatransfer.RequestValidator, 
 			t.Fatal("deal tracking failed")
 		}
 		sdtv := rv.StorageDataTransferVoucher{minerDeal.ProposalCid}
-		voucher := bindnodeutils.TypeToNode(&sdtv)
+		voucher := requestvalidation.BindnodeRegistry.TypeToNode(&sdtv)
 		checkValidateAndRevalidatePush(t, validator, datatransfer.ChannelID{}, sender, datatransfer.TypedVoucher{Voucher: voucher, Type: rv.StorageDataTransferVoucherType}, blockGenerator.Next().Cid(), nil,
 			func(t *testing.T, result datatransfer.ValidationResult, err error) {
 				if err != nil {
@@ -209,7 +209,7 @@ func AssertPushValidator(t *testing.T, validator datatransfer.RequestValidator, 
 		}
 		ref := minerDeal.Ref
 		sdtv := rv.StorageDataTransferVoucher{minerDeal.ProposalCid}
-		voucher := bindnodeutils.TypeToNode(&sdtv)
+		voucher := requestvalidation.BindnodeRegistry.TypeToNode(&sdtv)
 		checkValidateAndRevalidatePush(t, validator, datatransfer.ChannelID{}, sender, datatransfer.TypedVoucher{Voucher: voucher, Type: rv.StorageDataTransferVoucherType}, ref.Root, nil,
 			func(t *testing.T, result datatransfer.ValidationResult, err error) {
 				if err != nil {
@@ -230,7 +230,7 @@ func AssertPushValidator(t *testing.T, validator datatransfer.RequestValidator, 
 		}
 		ref := minerDeal.Ref
 		sdtv := rv.StorageDataTransferVoucher{minerDeal.ProposalCid}
-		voucher := bindnodeutils.TypeToNode(&sdtv)
+		voucher := requestvalidation.BindnodeRegistry.TypeToNode(&sdtv)
 		checkValidateAndRevalidatePush(t, validator, datatransfer.ChannelID{}, sender, datatransfer.TypedVoucher{Voucher: voucher, Type: rv.StorageDataTransferVoucherType}, ref.Root, nil,
 			func(t *testing.T, result datatransfer.ValidationResult, err error) {
 				if err != nil {
@@ -254,7 +254,7 @@ func AssertValidatesPulls(t *testing.T, validator datatransfer.RequestValidator,
 			t.Fatal("error serializing proposal")
 		}
 		sdtv := rv.StorageDataTransferVoucher{proposalNd.Cid()}
-		voucher := bindnodeutils.TypeToNode(&sdtv)
+		voucher := requestvalidation.BindnodeRegistry.TypeToNode(&sdtv)
 		checkValidateAndRevalidatePull(t, validator, datatransfer.ChannelID{}, receiver, datatransfer.TypedVoucher{Voucher: voucher, Type: rv.StorageDataTransferVoucherType}, proposal.Proposal.PieceCID, nil,
 			func(t *testing.T, result datatransfer.ValidationResult, err error) {
 				if err != nil {
@@ -274,7 +274,7 @@ func AssertValidatesPulls(t *testing.T, validator datatransfer.RequestValidator,
 			t.Fatal("deal tracking failed")
 		}
 		sdtv := rv.StorageDataTransferVoucher{clientDeal.ProposalCid}
-		voucher := bindnodeutils.TypeToNode(&sdtv)
+		voucher := requestvalidation.BindnodeRegistry.TypeToNode(&sdtv)
 		checkValidateAndRevalidatePull(t, validator, datatransfer.ChannelID{}, receiver, datatransfer.TypedVoucher{Voucher: voucher, Type: rv.StorageDataTransferVoucherType}, blockGenerator.Next().Cid(), nil,
 			func(t *testing.T, result datatransfer.ValidationResult, err error) {
 				if err != nil {
@@ -295,7 +295,7 @@ func AssertValidatesPulls(t *testing.T, validator datatransfer.RequestValidator,
 		}
 		payloadCid := clientDeal.DataRef.Root
 		sdtv := rv.StorageDataTransferVoucher{clientDeal.ProposalCid}
-		voucher := bindnodeutils.TypeToNode(&sdtv)
+		voucher := requestvalidation.BindnodeRegistry.TypeToNode(&sdtv)
 		checkValidateAndRevalidatePull(t, validator, datatransfer.ChannelID{}, receiver, datatransfer.TypedVoucher{Voucher: voucher, Type: rv.StorageDataTransferVoucherType}, payloadCid, nil,
 			func(t *testing.T, result datatransfer.ValidationResult, err error) {
 				if err != nil {
@@ -316,7 +316,7 @@ func AssertValidatesPulls(t *testing.T, validator datatransfer.RequestValidator,
 		}
 		payloadCid := clientDeal.DataRef.Root
 		sdtv := rv.StorageDataTransferVoucher{clientDeal.ProposalCid}
-		voucher := bindnodeutils.TypeToNode(&sdtv)
+		voucher := requestvalidation.BindnodeRegistry.TypeToNode(&sdtv)
 		checkValidateAndRevalidatePull(t, validator, datatransfer.ChannelID{}, receiver, datatransfer.TypedVoucher{Voucher: voucher, Type: rv.StorageDataTransferVoucherType}, payloadCid, nil,
 			func(t *testing.T, result datatransfer.ValidationResult, err error) {
 				if err != nil {

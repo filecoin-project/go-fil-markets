@@ -23,7 +23,6 @@ import (
 	"github.com/filecoin-project/go-state-types/big"
 	"github.com/filecoin-project/go-statemachine/fsm"
 
-	"github.com/filecoin-project/go-fil-markets/bindnodeutils"
 	"github.com/filecoin-project/go-fil-markets/discovery"
 	"github.com/filecoin-project/go-fil-markets/retrievalmarket"
 	"github.com/filecoin-project/go-fil-markets/retrievalmarket/impl/clientstates"
@@ -405,12 +404,12 @@ func (c *clientDealEnvironment) OpenDataTransfer(ctx context.Context, to peer.ID
 	if proposal.SelectorSpecified() {
 		sel = proposal.Selector.Node
 	}
-	vouch := bindnodeutils.TypeToNode(proposal)
+	vouch := retrievalmarket.BindnodeRegistry.TypeToNode(proposal)
 	return c.c.dataTransfer.OpenPullDataChannel(ctx, to, datatransfer.TypedVoucher{Voucher: vouch, Type: retrievalmarket.DealProposalType}, proposal.PayloadCID, sel)
 }
 
 func (c *clientDealEnvironment) SendDataTransferVoucher(ctx context.Context, channelID datatransfer.ChannelID, payment *retrievalmarket.DealPayment) error {
-	vouch := bindnodeutils.TypeToNode(payment)
+	vouch := retrievalmarket.BindnodeRegistry.TypeToNode(payment)
 	return c.c.dataTransfer.SendVoucher(ctx, channelID, datatransfer.TypedVoucher{Voucher: vouch, Type: retrievalmarket.DealPaymentType})
 }
 

@@ -14,7 +14,6 @@ import (
 	datatransfer "github.com/filecoin-project/go-data-transfer/v2"
 	"github.com/filecoin-project/go-statemachine/fsm"
 
-	"github.com/filecoin-project/go-fil-markets/bindnodeutils"
 	"github.com/filecoin-project/go-fil-markets/storagemarket"
 	"github.com/filecoin-project/go-fil-markets/storagemarket/impl/requestvalidation"
 )
@@ -44,7 +43,7 @@ func ProviderDataTransferSubscriber(deals EventReceiver) datatransfer.Subscriber
 				channelState.ChannelID())
 			return
 		}
-		voucherIface, err := bindnodeutils.TypeFromNode(node.Voucher, &requestvalidation.StorageDataTransferVoucher{})
+		voucherIface, err := requestvalidation.BindnodeRegistry.TypeFromNode(node.Voucher, &requestvalidation.StorageDataTransferVoucher{})
 		// if this event is for a transfer not related to storage, ignore
 		if err != nil {
 			log.Debugw("ignoring data-transfer event as it's not storage related", "event", datatransfer.Events[event.Code], "channelID",
@@ -107,7 +106,7 @@ func ClientDataTransferSubscriber(deals EventReceiver) datatransfer.Subscriber {
 				channelState.ChannelID())
 			return
 		}
-		voucherIface, err := bindnodeutils.TypeFromNode(node.Voucher, &requestvalidation.StorageDataTransferVoucher{})
+		voucherIface, err := requestvalidation.BindnodeRegistry.TypeFromNode(node.Voucher, &requestvalidation.StorageDataTransferVoucher{})
 		// if this event is for a transfer not related to storage, ignore
 		if err != nil {
 			log.Debugw("ignoring data-transfer event as it's not storage related", "event", datatransfer.Events[event.Code], "channelID",
@@ -171,7 +170,7 @@ func TransportConfigurer(storeGetter StoreGetter) datatransfer.TransportConfigur
 			log.Errorf("attempting to configure data store, empty voucher")
 			return
 		}
-		voucherIface, err := bindnodeutils.TypeFromNode(voucher.Voucher, &requestvalidation.StorageDataTransferVoucher{})
+		voucherIface, err := requestvalidation.BindnodeRegistry.TypeFromNode(voucher.Voucher, &requestvalidation.StorageDataTransferVoucher{})
 		// if this event is for a transfer not related to storage, ignore
 		if err != nil {
 			log.Errorf("attempting to configure data store, bad voucher: %s", err)

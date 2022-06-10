@@ -19,7 +19,6 @@ import (
 	fsmtest "github.com/filecoin-project/go-statemachine/fsm/testutil"
 	"github.com/filecoin-project/specs-actors/actors/builtin/paych"
 
-	"github.com/filecoin-project/go-fil-markets/bindnodeutils"
 	"github.com/filecoin-project/go-fil-markets/piecestore"
 	"github.com/filecoin-project/go-fil-markets/retrievalmarket"
 	rm "github.com/filecoin-project/go-fil-markets/retrievalmarket"
@@ -151,13 +150,13 @@ func TestUnpauseDeal(t *testing.T) {
 func TestUpdateFunding(t *testing.T) {
 	ctx := context.Background()
 	emptyDealPayment := rm.DealPayment{}
-	emptyDealPaymentNode := bindnodeutils.TypeToNode(&emptyDealPayment)
+	emptyDealPaymentNode := rm.BindnodeRegistry.TypeToNode(&emptyDealPayment)
 	emptyDealPaymentVoucher := datatransfer.TypedVoucher{Voucher: emptyDealPaymentNode, Type: rm.DealPaymentType}
 	emptyDealProposal := rm.DealProposal{}
-	emptyDealProposalNode := bindnodeutils.TypeToNode(&emptyDealProposal)
+	emptyDealProposalNode := rm.BindnodeRegistry.TypeToNode(&emptyDealProposal)
 	emptyDealProposalVoucher := datatransfer.TypedVoucher{Voucher: emptyDealProposalNode, Type: rm.DealProposalType}
 	dealResponseVoucher := func(resp rm.DealResponse) *datatransfer.TypedVoucher {
-		node := bindnodeutils.TypeToNode(&resp)
+		node := rm.BindnodeRegistry.TypeToNode(&resp)
 		return &datatransfer.TypedVoucher{Voucher: node, Type: rm.DealResponseType}
 	}
 	eventMachine, err := fsm.NewEventProcessor(rm.ProviderDealState{}, "Status", providerstates.ProviderEvents)

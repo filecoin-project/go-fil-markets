@@ -16,7 +16,6 @@ import (
 	datatransfer "github.com/filecoin-project/go-data-transfer/v2"
 	"github.com/filecoin-project/go-statemachine/fsm"
 
-	"github.com/filecoin-project/go-fil-markets/bindnodeutils"
 	"github.com/filecoin-project/go-fil-markets/retrievalmarket"
 	rm "github.com/filecoin-project/go-fil-markets/retrievalmarket"
 	"github.com/filecoin-project/go-fil-markets/retrievalmarket/impl/dtutils"
@@ -25,7 +24,7 @@ import (
 
 func TestProviderDataTransferSubscriber(t *testing.T) {
 	dealProposal := shared_testutil.MakeTestDealProposal()
-	node := bindnodeutils.TypeToNode(dealProposal)
+	node := rm.BindnodeRegistry.TypeToNode(dealProposal)
 	dealProposalVoucher := datatransfer.TypedVoucher{Voucher: node, Type: rm.DealProposalType}
 	testPeers := shared_testutil.GeneratePeers(2)
 	transferID := datatransfer.TransferID(rand.Uint64())
@@ -112,10 +111,10 @@ func TestProviderDataTransferSubscriber(t *testing.T) {
 }
 func TestClientDataTransferSubscriber(t *testing.T) {
 	dealProposal := shared_testutil.MakeTestDealProposal()
-	node := bindnodeutils.TypeToNode(dealProposal)
+	node := rm.BindnodeRegistry.TypeToNode(dealProposal)
 	dealProposalVoucher := datatransfer.TypedVoucher{Voucher: node, Type: retrievalmarket.DealProposalType}
 	dealResponseVoucher := func(dealResponse retrievalmarket.DealResponse) datatransfer.TypedVoucher {
-		node := bindnodeutils.TypeToNode(&dealResponse)
+		node := rm.BindnodeRegistry.TypeToNode(&dealResponse)
 		return datatransfer.TypedVoucher{Voucher: node, Type: retrievalmarket.DealResponseType}
 	}
 	paymentOwed := shared_testutil.MakeTestTokenAmount()
@@ -322,7 +321,7 @@ func TestTransportConfigurer(t *testing.T) {
 	thisPeer := expectedChannelID.Initiator
 	expectedPeer := expectedChannelID.Responder
 	dealProposalVoucher := func(proposal rm.DealProposal) datatransfer.TypedVoucher {
-		node := bindnodeutils.TypeToNode(&proposal)
+		node := rm.BindnodeRegistry.TypeToNode(&proposal)
 		return datatransfer.TypedVoucher{Voucher: node, Type: rm.DealProposalType}
 	}
 

@@ -17,7 +17,6 @@ import (
 	datatransfer "github.com/filecoin-project/go-data-transfer/v2"
 	"github.com/filecoin-project/go-statemachine/fsm"
 
-	"github.com/filecoin-project/go-fil-markets/bindnodeutils"
 	"github.com/filecoin-project/go-fil-markets/shared_testutil"
 	"github.com/filecoin-project/go-fil-markets/storagemarket"
 	"github.com/filecoin-project/go-fil-markets/storagemarket/impl/dtutils"
@@ -28,7 +27,7 @@ func storageDataTransferVoucher(t *testing.T, proposalCid cid.Cid) datatransfer.
 	sdtv := requestvalidation.StorageDataTransferVoucher{
 		Proposal: proposalCid,
 	}
-	node := bindnodeutils.TypeToNode(&sdtv)
+	node := requestvalidation.BindnodeRegistry.TypeToNode(&sdtv)
 	return datatransfer.TypedVoucher{Voucher: node, Type: requestvalidation.StorageDataTransferVoucherType}
 }
 

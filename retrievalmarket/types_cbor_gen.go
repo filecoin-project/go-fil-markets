@@ -783,7 +783,7 @@ func (t *Params) MarshalCBOR(w io.Writer) error {
 
 	scratch := make([]byte, 9)
 
-	// t.Selector (shared.CborGenCompatibleNode) (struct)
+	// t.Selector (retrievalmarket.CborGenCompatibleNode) (struct)
 	if len("Selector") > cbg.MaxLength {
 		return xerrors.Errorf("Value in field \"Selector\" was too long")
 	}
@@ -920,7 +920,7 @@ func (t *Params) UnmarshalCBOR(r io.Reader) error {
 		}
 
 		switch name {
-		// t.Selector (shared.CborGenCompatibleNode) (struct)
+		// t.Selector (retrievalmarket.CborGenCompatibleNode) (struct)
 		case "Selector":
 
 			{
