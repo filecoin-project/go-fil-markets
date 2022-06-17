@@ -152,7 +152,7 @@ func NewProvider(net network.StorageMarketNetwork,
 		&providerDealEnvironment{h},
 		h.dispatch,
 		storageMigrations,
-		versioning.VersionKey("1"),
+		versioning.VersionKey("2"),
 	)
 	if err != nil {
 		return nil, err
