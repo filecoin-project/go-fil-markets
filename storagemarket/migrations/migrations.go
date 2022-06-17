@@ -2,23 +2,27 @@ package migrations
 
 import (
 	"context"
+	"fmt"
+	"unicode/utf8"
 
 	"github.com/ipfs/go-cid"
 	"github.com/libp2p/go-libp2p-core/peer"
 	cbg "github.com/whyrusleeping/cbor-gen"
 
 	"github.com/filecoin-project/go-address"
+	datatransfer "github.com/filecoin-project/go-data-transfer"
 	versioning "github.com/filecoin-project/go-ds-versioning/pkg"
 	"github.com/filecoin-project/go-ds-versioning/pkg/versioned"
 	"github.com/filecoin-project/go-state-types/abi"
 	"github.com/filecoin-project/go-state-types/builtin/v8/market"
 	"github.com/filecoin-project/go-state-types/crypto"
+	marketOld "github.com/filecoin-project/specs-actors/actors/builtin/market"
 
 	"github.com/filecoin-project/go-fil-markets/filestore"
 	"github.com/filecoin-project/go-fil-markets/storagemarket"
 )
 
-//go:generate cbor-gen-for ClientDeal0 MinerDeal0 Balance0 SignedStorageAsk0 StorageAsk0 DataRef0 ProviderDealState0 AskRequest0 AskResponse0 Proposal0 Response0 SignedResponse0 DealStatusRequest0 DealStatusResponse0
+//go:generate cbor-gen-for ClientDeal0 MinerDeal0 MinerDeal1 Balance0 SignedStorageAsk0 StorageAsk0 DataRef0 ProviderDealState0 AskRequest0 AskResponse0 Proposal0 Response0 SignedResponse0 DealStatusRequest0 DealStatusResponse0
 
 // Balance0 is version 0 of Balance
 type Balance0 struct {
@@ -47,7 +51,7 @@ type SignedStorageAsk0 struct {
 
 // MinerDeal0 is version 0 of MinerDeal
 type MinerDeal0 struct {
-	market.ClientDealProposal
+	marketOld.ClientDealProposal
 	ProposalCid           cid.Cid
 	AddFundsCid           *cid.Cid
 	PublishCid            *cid.Cid
@@ -66,6 +70,33 @@ type MinerDeal0 struct {
 
 	DealID       abi.DealID
 	CreationTime cbg.CborTime
+}
+
+// MinerDeal1 is version 1 of MinerDeal
+type MinerDeal1 struct {
+	marketOld.ClientDealProposal
+	ProposalCid           cid.Cid
+	AddFundsCid           *cid.Cid
+	PublishCid            *cid.Cid
+	Miner                 peer.ID
+	Client                peer.ID
+	State                 storagemarket.StorageDealStatus
+	PiecePath             filestore.Path
+	MetadataPath          filestore.Path
+	SlashEpoch            abi.ChainEpoch
+	FastRetrieval         bool
+	Message               string
+	FundsReserved         abi.TokenAmount
+	Ref                   *storagemarket.DataRef
+	AvailableForRetrieval bool
+
+	DealID       abi.DealID
+	CreationTime cbg.CborTime
+
+	TransferChannelId *datatransfer.ChannelID
+	SectorNumber      abi.SectorNumber
+
+	InboundCAR string
 }
 
 // ClientDeal0 is version 0 of ClientDeal
@@ -192,8 +223,8 @@ func MigrateClientDeal0To1(oldCd *ClientDeal0) (*storagemarket.ClientDeal, error
 }
 
 // MigrateMinerDeal0To1 migrates a tuple encoded miner deal to a map encoded miner deal
-func MigrateMinerDeal0To1(oldCd *MinerDeal0) (*storagemarket.MinerDeal, error) {
-	return &storagemarket.MinerDeal{
+func MigrateMinerDeal0To1(oldCd *MinerDeal0) (*MinerDeal1, error) {
+	return &MinerDeal1{
 		ClientDealProposal:    oldCd.ClientDealProposal,
 		ProposalCid:           oldCd.ProposalCid,
 		AddFundsCid:           oldCd.AddFundsCid,
@@ -208,6 +239,63 @@ func MigrateMinerDeal0To1(oldCd *MinerDeal0) (*storagemarket.MinerDeal, error) {
 		Message:               oldCd.Message,
 		FundsReserved:         oldCd.FundsReserved,
 		Ref:                   MigrateDataRef0To1(oldCd.Ref),
+		AvailableForRetrieval: oldCd.AvailableForRetrieval,
+		DealID:                oldCd.DealID,
+		CreationTime:          oldCd.CreationTime,
+	}, nil
+}
+
+// MigrateMinerDeal1To2 migrates a miner deal label to the new format
+func MigrateMinerDeal1To2(oldCd *MinerDeal1) (*storagemarket.MinerDeal, error) {
+	oldLabel := oldCd.Proposal.Label
+
+	var err error
+	var newLabel market.DealLabel
+	if utf8.ValidString(oldLabel) {
+		newLabel, err = market.NewLabelFromString(oldLabel)
+		if err != nil {
+			return nil, fmt.Errorf("migrating deal label to DealLabel (string) for deal with proposal cid %s: %w", oldCd.ProposalCid, err)
+		}
+	} else {
+		newLabel, err = market.NewLabelFromBytes([]byte(oldLabel))
+		if err != nil {
+			return nil, fmt.Errorf("migrating deal label to DealLabel (byte) for deal with proposal cid %s: %w", oldCd.ProposalCid, err)
+		}
+	}
+
+	return &storagemarket.MinerDeal{
+		ClientDealProposal: storagemarket.ClientDealProposal{
+			ClientSignature: crypto.Signature{
+				Type: crypto.SigType(oldCd.ClientDealProposal.ClientSignature.Type),
+				Data: oldCd.ClientDealProposal.ClientSignature.Data,
+			},
+			Proposal: market.DealProposal{
+				PieceCID:             oldCd.ClientDealProposal.Proposal.PieceCID,
+				PieceSize:            oldCd.ClientDealProposal.Proposal.PieceSize,
+				VerifiedDeal:         oldCd.ClientDealProposal.Proposal.VerifiedDeal,
+				Client:               oldCd.ClientDealProposal.Proposal.Client,
+				Provider:             oldCd.ClientDealProposal.Proposal.Provider,
+				Label:                newLabel,
+				StartEpoch:           oldCd.ClientDealProposal.Proposal.StartEpoch,
+				EndEpoch:             oldCd.ClientDealProposal.Proposal.EndEpoch,
+				StoragePricePerEpoch: oldCd.ClientDealProposal.Proposal.StoragePricePerEpoch,
+				ProviderCollateral:   oldCd.ClientDealProposal.Proposal.ProviderCollateral,
+				ClientCollateral:     oldCd.ClientDealProposal.Proposal.ClientCollateral,
+			},
+		},
+		ProposalCid:           oldCd.ProposalCid,
+		AddFundsCid:           oldCd.AddFundsCid,
+		PublishCid:            oldCd.PublishCid,
+		Miner:                 oldCd.Miner,
+		Client:                oldCd.Client,
+		State:                 oldCd.State,
+		PiecePath:             oldCd.PiecePath,
+		MetadataPath:          oldCd.MetadataPath,
+		SlashEpoch:            oldCd.SlashEpoch,
+		FastRetrieval:         oldCd.FastRetrieval,
+		Message:               oldCd.Message,
+		FundsReserved:         oldCd.FundsReserved,
+		Ref:                   oldCd.Ref,
 		AvailableForRetrieval: oldCd.AvailableForRetrieval,
 		DealID:                oldCd.DealID,
 		CreationTime:          oldCd.CreationTime,
@@ -254,4 +342,6 @@ var ClientMigrations = versioned.BuilderList{
 var ProviderMigrations = versioned.BuilderList{
 	versioned.NewVersionedBuilder(MigrateMinerDeal0To1, versioning.VersionKey("1")).FilterKeys([]string{
 		"/latest-ask", "/storage-ask/latest", "/storage-ask/1/latest", "/storage-ask/versions/current"}),
+	versioned.NewVersionedBuilder(MigrateMinerDeal1To2, versioning.VersionKey("2")).FilterKeys([]string{
+		"/latest-ask", "/storage-ask/latest", "/storage-ask/1/latest", "/storage-ask/versions/current"}).OldVersion("1"),
 }
