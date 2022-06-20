@@ -10,7 +10,6 @@ import (
 	cbg "github.com/whyrusleeping/cbor-gen"
 
 	"github.com/filecoin-project/go-address"
-	datatransfer "github.com/filecoin-project/go-data-transfer"
 	versioning "github.com/filecoin-project/go-ds-versioning/pkg"
 	"github.com/filecoin-project/go-ds-versioning/pkg/versioned"
 	"github.com/filecoin-project/go-state-types/abi"
@@ -22,7 +21,7 @@ import (
 	"github.com/filecoin-project/go-fil-markets/storagemarket"
 )
 
-//go:generate cbor-gen-for ClientDeal0 MinerDeal0 MinerDeal1 Balance0 SignedStorageAsk0 StorageAsk0 DataRef0 ProviderDealState0 AskRequest0 AskResponse0 Proposal0 Response0 SignedResponse0 DealStatusRequest0 DealStatusResponse0
+//go:generate cbor-gen-for ClientDeal0 MinerDeal0 Balance0 SignedStorageAsk0 StorageAsk0 DataRef0 ProviderDealState0 AskRequest0 AskResponse0 Proposal0 Response0 SignedResponse0 DealStatusRequest0 DealStatusResponse0
 
 // Balance0 is version 0 of Balance
 type Balance0 struct {
@@ -70,33 +69,6 @@ type MinerDeal0 struct {
 
 	DealID       abi.DealID
 	CreationTime cbg.CborTime
-}
-
-// MinerDeal1 is version 1 of MinerDeal
-type MinerDeal1 struct {
-	marketOld.ClientDealProposal
-	ProposalCid           cid.Cid
-	AddFundsCid           *cid.Cid
-	PublishCid            *cid.Cid
-	Miner                 peer.ID
-	Client                peer.ID
-	State                 storagemarket.StorageDealStatus
-	PiecePath             filestore.Path
-	MetadataPath          filestore.Path
-	SlashEpoch            abi.ChainEpoch
-	FastRetrieval         bool
-	Message               string
-	FundsReserved         abi.TokenAmount
-	Ref                   *storagemarket.DataRef
-	AvailableForRetrieval bool
-
-	DealID       abi.DealID
-	CreationTime cbg.CborTime
-
-	TransferChannelId *datatransfer.ChannelID
-	SectorNumber      abi.SectorNumber
-
-	InboundCAR string
 }
 
 // ClientDeal0 is version 0 of ClientDeal
