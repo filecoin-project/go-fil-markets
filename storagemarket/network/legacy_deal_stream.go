@@ -3,7 +3,9 @@ package network
 import (
 	"bufio"
 	"context"
+	"fmt"
 
+	"github.com/ipfs/go-cid"
 	"github.com/libp2p/go-libp2p-core/host"
 	"github.com/libp2p/go-libp2p-core/mux"
 	"github.com/libp2p/go-libp2p-core/peer"
@@ -13,30 +15,38 @@ import (
 	"github.com/filecoin-project/go-fil-markets/storagemarket/migrations"
 )
 
-type legacyDealStream struct {
+type dealStreamv101 struct {
 	p        peer.ID
 	host     host.Host
 	rw       mux.MuxedStream
 	buffered *bufio.Reader
 }
 
-var _ StorageDealStream = (*legacyDealStream)(nil)
+var _ StorageDealStream = (*dealStreamv101)(nil)
 
-func (d *legacyDealStream) ReadDealProposal() (Proposal, error) {
+func (d *dealStreamv101) ReadDealProposal() (Proposal, cid.Cid, error) {
 	var ds migrations.Proposal0
 
 	if err := ds.UnmarshalCBOR(d.buffered); err != nil {
 		log.Warn(err)
-		return ProposalUndefined, err
+		return ProposalUndefined, cid.Undef, err
 	}
+
+	proposalNd, err := cborutil.AsIpld(ds.DealProposal)
+	if err != nil {
+		err = fmt.Errorf("getting v101 deal proposal as IPLD: %w", err)
+		log.Warnf(err.Error())
+		return ProposalUndefined, cid.Undef, err
+	}
+
 	return Proposal{
 		DealProposal:  ds.DealProposal,
 		Piece:         migrations.MigrateDataRef0To1(ds.Piece),
 		FastRetrieval: ds.FastRetrieval,
-	}, nil
+	}, proposalNd.Cid(), nil
 }
 
-func (d *legacyDealStream) WriteDealProposal(dp Proposal) error {
+func (d *dealStreamv101) WriteDealProposal(dp Proposal) error {
 	var piece *migrations.DataRef0
 	if dp.Piece != nil {
 		piece = &migrations.DataRef0{
@@ -53,7 +63,7 @@ func (d *legacyDealStream) WriteDealProposal(dp Proposal) error {
 	})
 }
 
-func (d *legacyDealStream) ReadDealResponse() (SignedResponse, []byte, error) {
+func (d *dealStreamv101) ReadDealResponse() (SignedResponse, []byte, error) {
 	var dr migrations.SignedResponse0
 
 	if err := dr.UnmarshalCBOR(d.buffered); err != nil {
@@ -74,7 +84,7 @@ func (d *legacyDealStream) ReadDealResponse() (SignedResponse, []byte, error) {
 	}, origBytes, nil
 }
 
-func (d *legacyDealStream) WriteDealResponse(dr SignedResponse, resign ResigningFunc) error {
+func (d *dealStreamv101) WriteDealResponse(dr SignedResponse, resign ResigningFunc) error {
 	oldResponse := migrations.Response0{
 		State:          dr.Response.State,
 		Message:        dr.Response.Message,
@@ -91,10 +101,10 @@ func (d *legacyDealStream) WriteDealResponse(dr SignedResponse, resign Resigning
 	})
 }
 
-func (d *legacyDealStream) Close() error {
+func (d *dealStreamv101) Close() error {
 	return d.rw.Close()
 }
 
-func (d *legacyDealStream) RemotePeer() peer.ID {
+func (d *dealStreamv101) RemotePeer() peer.ID {
 	return d.p
 }

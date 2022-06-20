@@ -247,12 +247,12 @@ func TestDealStreamSendReceiveDealProposal(t *testing.T) {
 			td := shared_testutil.NewLibp2pTestData(ctx, t)
 			var fromNetwork, toNetwork network.StorageMarketNetwork
 			if data.senderDisabledNew {
-				fromNetwork = network.NewFromLibp2pHost(td.Host1, network.SupportedDealProtocols([]protocol.ID{storagemarket.OldDealProtocolID}))
+				fromNetwork = network.NewFromLibp2pHost(td.Host1, network.SupportedDealProtocols([]protocol.ID{storagemarket.DealProtocolID110}))
 			} else {
 				fromNetwork = network.NewFromLibp2pHost(td.Host1)
 			}
 			if data.receiverDisabledNew {
-				toNetwork = network.NewFromLibp2pHost(td.Host2, network.SupportedDealProtocols([]protocol.ID{storagemarket.OldDealProtocolID}))
+				toNetwork = network.NewFromLibp2pHost(td.Host2, network.SupportedDealProtocols([]protocol.ID{storagemarket.DealProtocolID110}))
 			} else {
 				toNetwork = network.NewFromLibp2pHost(td.Host2)
 			}
@@ -265,7 +265,7 @@ func TestDealStreamSendReceiveDealProposal(t *testing.T) {
 			tr2 := &testReceiver{
 				t: t,
 				dealStreamHandler: func(s network.StorageDealStream) {
-					readD, err := s.ReadDealProposal()
+					readD, _, err := s.ReadDealProposal()
 					require.NoError(t, err)
 					dchan <- readD
 				},
@@ -297,12 +297,12 @@ func TestDealStreamSendReceiveDealResponse(t *testing.T) {
 			td := shared_testutil.NewLibp2pTestData(ctx, t)
 			var fromNetwork, toNetwork network.StorageMarketNetwork
 			if data.senderDisabledNew {
-				fromNetwork = network.NewFromLibp2pHost(td.Host1, network.SupportedDealProtocols([]protocol.ID{storagemarket.OldDealProtocolID}))
+				fromNetwork = network.NewFromLibp2pHost(td.Host1, network.SupportedDealProtocols([]protocol.ID{storagemarket.DealProtocolID110}))
 			} else {
 				fromNetwork = network.NewFromLibp2pHost(td.Host1)
 			}
 			if data.receiverDisabledNew {
-				toNetwork = network.NewFromLibp2pHost(td.Host2, network.SupportedDealProtocols([]protocol.ID{storagemarket.OldDealProtocolID}))
+				toNetwork = network.NewFromLibp2pHost(td.Host2, network.SupportedDealProtocols([]protocol.ID{storagemarket.DealProtocolID110}))
 			} else {
 				toNetwork = network.NewFromLibp2pHost(td.Host2)
 			}
@@ -343,7 +343,7 @@ func TestDealStreamSendReceiveMultipleSuccessful(t *testing.T) {
 		return nil, nil
 	}
 	tr2 := &testReceiver{t: t, dealStreamHandler: func(s network.StorageDealStream) {
-		_, err := s.ReadDealProposal()
+		_, _, err := s.ReadDealProposal()
 		require.NoError(t, err)
 
 		require.NoError(t, s.WriteDealResponse(dr, resigningFunc))

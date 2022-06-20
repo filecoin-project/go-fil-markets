@@ -398,7 +398,7 @@ func StubbedDealPaymentReader(payment rm.DealPayment) DealPaymentReader {
 }
 
 // StorageDealProposalReader is a function to mock reading deal proposals.
-type StorageDealProposalReader func() (smnet.Proposal, error)
+type StorageDealProposalReader func() (smnet.Proposal, cid.Cid, error)
 
 // StorageDealResponseReader is a function to mock reading deal responses.
 type StorageDealResponseReader func() (smnet.SignedResponse, []byte, error)
@@ -460,7 +460,7 @@ func NewTestStorageDealStream(params TestStorageDealStreamParams) *TestStorageDe
 }
 
 // ReadDealProposal calls the mocked deal proposal reader function.
-func (tsds *TestStorageDealStream) ReadDealProposal() (smnet.Proposal, error) {
+func (tsds *TestStorageDealStream) ReadDealProposal() (smnet.Proposal, cid.Cid, error) {
 	return tsds.proposalReader()
 }
 
@@ -489,8 +489,8 @@ func (tsds *TestStorageDealStream) Close() error {
 }
 
 // TrivialStorageDealProposalReader succeeds trivially, returning an empty proposal.
-func TrivialStorageDealProposalReader() (smnet.Proposal, error) {
-	return smnet.Proposal{}, nil
+func TrivialStorageDealProposalReader() (smnet.Proposal, cid.Cid, error) {
+	return smnet.Proposal{}, cid.Undef, nil
 }
 
 // TrivialStorageDealResponseReader succeeds trivially, returning an empty deal response.
@@ -510,8 +510,8 @@ func TrivialStorageDealResponseWriter(smnet.SignedResponse, smnet.ResigningFunc)
 
 // StubbedStorageProposalReader returns the given proposal when called
 func StubbedStorageProposalReader(proposal smnet.Proposal) StorageDealProposalReader {
-	return func() (smnet.Proposal, error) {
-		return proposal, nil
+	return func() (smnet.Proposal, cid.Cid, error) {
+		return proposal, cid.Undef, nil
 	}
 }
 

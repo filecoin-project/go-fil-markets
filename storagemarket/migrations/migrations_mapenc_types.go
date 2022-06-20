@@ -18,7 +18,14 @@ import (
 // generate directive in a separate file. So we define CBOR map-encoded types
 // in this file
 
-//go:generate cbor-gen-for --map-encoding MinerDeal1
+//go:generate cbor-gen-for --map-encoding Proposal1 MinerDeal1
+
+// Proposal1 is version 1 of Proposal (used by deal proposal protocol v1.1.0)
+type Proposal1 struct {
+	DealProposal  *marketOld.ClientDealProposal
+	Piece         *storagemarket.DataRef
+	FastRetrieval bool
+}
 
 // MinerDeal1 is version 1 of MinerDeal
 type MinerDeal1 struct {
