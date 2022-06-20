@@ -3,6 +3,7 @@ package network
 import (
 	"context"
 
+	"github.com/ipfs/go-cid"
 	"github.com/libp2p/go-libp2p-core/peer"
 	ma "github.com/multiformats/go-multiaddr"
 
@@ -28,7 +29,7 @@ type StorageAskStream interface {
 // StorageDealStream is a stream for reading and writing requests
 // and responses on the storage deal protocol
 type StorageDealStream interface {
-	ReadDealProposal() (Proposal, error)
+	ReadDealProposal() (Proposal, cid.Cid, error)
 	WriteDealProposal(Proposal) error
 	ReadDealResponse() (SignedResponse, []byte, error)
 	WriteDealResponse(SignedResponse, ResigningFunc) error

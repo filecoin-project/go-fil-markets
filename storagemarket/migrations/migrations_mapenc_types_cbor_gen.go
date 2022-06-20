@@ -12,6 +12,7 @@ import (
 	filestore "github.com/filecoin-project/go-fil-markets/filestore"
 	storagemarket "github.com/filecoin-project/go-fil-markets/storagemarket"
 	abi "github.com/filecoin-project/go-state-types/abi"
+	market "github.com/filecoin-project/specs-actors/actors/builtin/market"
 	cid "github.com/ipfs/go-cid"
 	peer "github.com/libp2p/go-libp2p-core/peer"
 	cbg "github.com/whyrusleeping/cbor-gen"
@@ -23,6 +24,167 @@ var _ = cid.Undef
 var _ = math.E
 var _ = sort.Sort
 
+func (t *Proposal1) MarshalCBOR(w io.Writer) error {
+	if t == nil {
+		_, err := w.Write(cbg.CborNull)
+		return err
+	}
+	if _, err := w.Write([]byte{163}); err != nil {
+		return err
+	}
+
+	scratch := make([]byte, 9)
+
+	// t.DealProposal (market.ClientDealProposal) (struct)
+	if len("DealProposal") > cbg.MaxLength {
+		return xerrors.Errorf("Value in field \"DealProposal\" was too long")
+	}
+
+	if err := cbg.WriteMajorTypeHeaderBuf(scratch, w, cbg.MajTextString, uint64(len("DealProposal"))); err != nil {
+		return err
+	}
+	if _, err := io.WriteString(w, string("DealProposal")); err != nil {
+		return err
+	}
+
+	if err := t.DealProposal.MarshalCBOR(w); err != nil {
+		return err
+	}
+
+	// t.Piece (storagemarket.DataRef) (struct)
+	if len("Piece") > cbg.MaxLength {
+		return xerrors.Errorf("Value in field \"Piece\" was too long")
+	}
+
+	if err := cbg.WriteMajorTypeHeaderBuf(scratch, w, cbg.MajTextString, uint64(len("Piece"))); err != nil {
+		return err
+	}
+	if _, err := io.WriteString(w, string("Piece")); err != nil {
+		return err
+	}
+
+	if err := t.Piece.MarshalCBOR(w); err != nil {
+		return err
+	}
+
+	// t.FastRetrieval (bool) (bool)
+	if len("FastRetrieval") > cbg.MaxLength {
+		return xerrors.Errorf("Value in field \"FastRetrieval\" was too long")
+	}
+
+	if err := cbg.WriteMajorTypeHeaderBuf(scratch, w, cbg.MajTextString, uint64(len("FastRetrieval"))); err != nil {
+		return err
+	}
+	if _, err := io.WriteString(w, string("FastRetrieval")); err != nil {
+		return err
+	}
+
+	if err := cbg.WriteBool(w, t.FastRetrieval); err != nil {
+		return err
+	}
+	return nil
+}
+
+func (t *Proposal1) UnmarshalCBOR(r io.Reader) error {
+	*t = Proposal1{}
+
+	br := cbg.GetPeeker(r)
+	scratch := make([]byte, 8)
+
+	maj, extra, err := cbg.CborReadHeaderBuf(br, scratch)
+	if err != nil {
+		return err
+	}
+	if maj != cbg.MajMap {
+		return fmt.Errorf("cbor input should be of type map")
+	}
+
+	if extra > cbg.MaxLength {
+		return fmt.Errorf("Proposal1: map struct too large (%d)", extra)
+	}
+
+	var name string
+	n := extra
+
+	for i := uint64(0); i < n; i++ {
+
+		{
+			sval, err := cbg.ReadStringBuf(br, scratch)
+			if err != nil {
+				return err
+			}
+
+			name = string(sval)
+		}
+
+		switch name {
+		// t.DealProposal (market.ClientDealProposal) (struct)
+		case "DealProposal":
+
+			{
+
+				b, err := br.ReadByte()
+				if err != nil {
+					return err
+				}
+				if b != cbg.CborNull[0] {
+					if err := br.UnreadByte(); err != nil {
+						return err
+					}
+					t.DealProposal = new(market.ClientDealProposal)
+					if err := t.DealProposal.UnmarshalCBOR(br); err != nil {
+						return xerrors.Errorf("unmarshaling t.DealProposal pointer: %w", err)
+					}
+				}
+
+			}
+			// t.Piece (storagemarket.DataRef) (struct)
+		case "Piece":
+
+			{
+
+				b, err := br.ReadByte()
+				if err != nil {
+					return err
+				}
+				if b != cbg.CborNull[0] {
+					if err := br.UnreadByte(); err != nil {
+						return err
+					}
+					t.Piece = new(storagemarket.DataRef)
+					if err := t.Piece.UnmarshalCBOR(br); err != nil {
+						return xerrors.Errorf("unmarshaling t.Piece pointer: %w", err)
+					}
+				}
+
+			}
+			// t.FastRetrieval (bool) (bool)
+		case "FastRetrieval":
+
+			maj, extra, err = cbg.CborReadHeaderBuf(br, scratch)
+			if err != nil {
+				return err
+			}
+			if maj != cbg.MajOther {
+				return fmt.Errorf("booleans must be major type 7")
+			}
+			switch extra {
+			case 20:
+				t.FastRetrieval = false
+			case 21:
+				t.FastRetrieval = true
+			default:
+				return fmt.Errorf("booleans are either major type 7, value 20 or 21 (got %d)", extra)
+			}
+
+		default:
+			// Field doesn't exist on this type, so ignore it
+			cbg.ScanForLinks(r, func(cid.Cid) {})
+		}
+	}
+
+	return nil
+}
 func (t *MinerDeal1) MarshalCBOR(w io.Writer) error {
 	if t == nil {
 		_, err := w.Write(cbg.CborNull)

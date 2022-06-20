@@ -258,12 +258,17 @@ func TestHandleDealStream(t *testing.T) {
 
 		var responseWriteCount int
 		s := shared_testutil.NewTestStorageDealStream(shared_testutil.TestStorageDealStreamParams{
-			ProposalReader: func() (network.Proposal, error) {
+			ProposalReader: func() (network.Proposal, cid.Cid, error) {
+				propNd, err := cborutil.AsIpld(proposal)
+				if err != nil {
+					return network.Proposal{}, cid.Undef, err
+				}
+
 				return network.Proposal{
 					DealProposal:  proposal,
 					Piece:         dataRef,
 					FastRetrieval: false,
-				}, nil
+				}, propNd.Cid(), nil
 			},
 			ResponseWriter: func(response network.SignedResponse, resigningFunc network.ResigningFunc) error {
 				responseWriteCount += 1

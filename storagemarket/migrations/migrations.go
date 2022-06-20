@@ -219,42 +219,13 @@ func MigrateMinerDeal0To1(oldCd *MinerDeal0) (*MinerDeal1, error) {
 
 // MigrateMinerDeal1To2 migrates a miner deal label to the new format
 func MigrateMinerDeal1To2(oldCd *MinerDeal1) (*storagemarket.MinerDeal, error) {
-	oldLabel := oldCd.Proposal.Label
-
-	var err error
-	var newLabel market.DealLabel
-	if utf8.ValidString(oldLabel) {
-		newLabel, err = market.NewLabelFromString(oldLabel)
-		if err != nil {
-			return nil, fmt.Errorf("migrating deal label to DealLabel (string) for deal with proposal cid %s: %w", oldCd.ProposalCid, err)
-		}
-	} else {
-		newLabel, err = market.NewLabelFromBytes([]byte(oldLabel))
-		if err != nil {
-			return nil, fmt.Errorf("migrating deal label to DealLabel (byte) for deal with proposal cid %s: %w", oldCd.ProposalCid, err)
-		}
+	clientDealProp, err := MigrateClientDealProposal0To1(oldCd.ClientDealProposal)
+	if err != nil {
+		return nil, fmt.Errorf("migrating deal with proposal cid %s: %w", oldCd.ProposalCid, err)
 	}
 
 	return &storagemarket.MinerDeal{
-		ClientDealProposal: storagemarket.ClientDealProposal{
-			ClientSignature: crypto.Signature{
-				Type: crypto.SigType(oldCd.ClientDealProposal.ClientSignature.Type),
-				Data: oldCd.ClientDealProposal.ClientSignature.Data,
-			},
-			Proposal: market.DealProposal{
-				PieceCID:             oldCd.ClientDealProposal.Proposal.PieceCID,
-				PieceSize:            oldCd.ClientDealProposal.Proposal.PieceSize,
-				VerifiedDeal:         oldCd.ClientDealProposal.Proposal.VerifiedDeal,
-				Client:               oldCd.ClientDealProposal.Proposal.Client,
-				Provider:             oldCd.ClientDealProposal.Proposal.Provider,
-				Label:                newLabel,
-				StartEpoch:           oldCd.ClientDealProposal.Proposal.StartEpoch,
-				EndEpoch:             oldCd.ClientDealProposal.Proposal.EndEpoch,
-				StoragePricePerEpoch: oldCd.ClientDealProposal.Proposal.StoragePricePerEpoch,
-				ProviderCollateral:   oldCd.ClientDealProposal.Proposal.ProviderCollateral,
-				ClientCollateral:     oldCd.ClientDealProposal.Proposal.ClientCollateral,
-			},
-		},
+		ClientDealProposal:    *clientDealProp,
 		ProposalCid:           oldCd.ProposalCid,
 		AddFundsCid:           oldCd.AddFundsCid,
 		PublishCid:            oldCd.PublishCid,
@@ -271,6 +242,41 @@ func MigrateMinerDeal1To2(oldCd *MinerDeal1) (*storagemarket.MinerDeal, error) {
 		AvailableForRetrieval: oldCd.AvailableForRetrieval,
 		DealID:                oldCd.DealID,
 		CreationTime:          oldCd.CreationTime,
+	}, nil
+}
+
+func MigrateClientDealProposal0To1(prop marketOld.ClientDealProposal) (*storagemarket.ClientDealProposal, error) {
+	oldLabel := prop.Proposal.Label
+
+	var err error
+	var newLabel market.DealLabel
+	if utf8.ValidString(oldLabel) {
+		newLabel, err = market.NewLabelFromString(oldLabel)
+		if err != nil {
+			return nil, fmt.Errorf("migrating deal label to DealLabel (string): %w", err)
+		}
+	} else {
+		newLabel, err = market.NewLabelFromBytes([]byte(oldLabel))
+		if err != nil {
+			return nil, fmt.Errorf("migrating deal label to DealLabel (byte): %w", err)
+		}
+	}
+
+	return &storagemarket.ClientDealProposal{
+		ClientSignature: prop.ClientSignature,
+		Proposal: market.DealProposal{
+			PieceCID:             prop.Proposal.PieceCID,
+			PieceSize:            prop.Proposal.PieceSize,
+			VerifiedDeal:         prop.Proposal.VerifiedDeal,
+			Client:               prop.Proposal.Client,
+			Provider:             prop.Proposal.Provider,
+			Label:                newLabel,
+			StartEpoch:           prop.Proposal.StartEpoch,
+			EndEpoch:             prop.Proposal.EndEpoch,
+			StoragePricePerEpoch: prop.Proposal.StoragePricePerEpoch,
+			ProviderCollateral:   prop.Proposal.ProviderCollateral,
+			ClientCollateral:     prop.Proposal.ClientCollateral,
+		},
 	}, nil
 }
 

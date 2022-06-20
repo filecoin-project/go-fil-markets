@@ -255,19 +255,18 @@ func (p *Provider) HandleDealStream(s network.StorageDealStream) {
 }
 
 func (p *Provider) receiveDeal(s network.StorageDealStream) error {
-	proposal, err := s.ReadDealProposal()
+	proposal, propCid, err := s.ReadDealProposal()
 	if err != nil {
 		return xerrors.Errorf("failed to read proposal message: %w", err)
 	}
 
-	proposalNd, err := cborutil.AsIpld(proposal.DealProposal)
-	if err != nil {
-		return err
+	if proposal.DealProposal == nil {
+		return xerrors.Errorf("failed to get deal proposal from proposal message")
 	}
 
 	// Check if we are already tracking this deal
 	var md storagemarket.MinerDeal
-	if err := p.deals.Get(proposalNd.Cid()).Get(&md); err == nil {
+	if err := p.deals.Get(propCid).Get(&md); err == nil {
 		// We are already tracking this deal, for some reason it was re-proposed, perhaps because of a client restart
 		// this is ok, just send a response back.
 		return p.resendProposalResponse(s, &md)
@@ -291,7 +290,7 @@ func (p *Provider) receiveDeal(s network.StorageDealStream) error {
 		Client:             s.RemotePeer(),
 		Miner:              p.net.ID(),
 		ClientDealProposal: *proposal.DealProposal,
-		ProposalCid:        proposalNd.Cid(),
+		ProposalCid:        propCid,
 		State:              storagemarket.StorageDealUnknown,
 		Ref:                proposal.Piece,
 		FastRetrieval:      proposal.FastRetrieval,
@@ -299,15 +298,15 @@ func (p *Provider) receiveDeal(s network.StorageDealStream) error {
 		InboundCAR:         path,
 	}
 
-	err = p.deals.Begin(proposalNd.Cid(), deal)
+	err = p.deals.Begin(propCid, deal)
 	if err != nil {
 		return err
 	}
-	err = p.conns.AddStream(proposalNd.Cid(), s)
+	err = p.conns.AddStream(propCid, s)
 	if err != nil {
 		return err
 	}
-	return p.deals.Send(proposalNd.Cid(), storagemarket.ProviderEventOpen)
+	return p.deals.Send(propCid, storagemarket.ProviderEventOpen)
 }
 
 // Stop terminates processing of deals on a StorageProvider
