@@ -25,43 +25,49 @@ func (t *PieceBlockMetadata) MarshalCBOR(w io.Writer) error {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	if _, err := w.Write(lengthBufPieceBlockMetadata); err != nil {
+
+	cw := cbg.NewCborWriter(w)
+
+	if _, err := cw.Write(lengthBufPieceBlockMetadata); err != nil {
 		return err
 	}
 
-	scratch := make([]byte, 9)
-
 	// t.CID (cid.Cid) (struct)
 
-	if err := cbg.WriteCidBuf(scratch, w, t.CID); err != nil {
+	if err := cbg.WriteCid(cw, t.CID); err != nil {
 		return xerrors.Errorf("failed to write cid field t.CID: %w", err)
 	}
 
 	// t.Offset (uint64) (uint64)
 
-	if err := cbg.WriteMajorTypeHeaderBuf(scratch, w, cbg.MajUnsignedInt, uint64(t.Offset)); err != nil {
+	if err := cw.WriteMajorTypeHeader(cbg.MajUnsignedInt, uint64(t.Offset)); err != nil {
 		return err
 	}
 
 	// t.Size (uint64) (uint64)
 
-	if err := cbg.WriteMajorTypeHeaderBuf(scratch, w, cbg.MajUnsignedInt, uint64(t.Size)); err != nil {
+	if err := cw.WriteMajorTypeHeader(cbg.MajUnsignedInt, uint64(t.Size)); err != nil {
 		return err
 	}
 
 	return nil
 }
 
-func (t *PieceBlockMetadata) UnmarshalCBOR(r io.Reader) error {
+func (t *PieceBlockMetadata) UnmarshalCBOR(r io.Reader) (err error) {
 	*t = PieceBlockMetadata{}
 
-	br := cbg.GetPeeker(r)
-	scratch := make([]byte, 8)
+	cr := cbg.NewCborReader(r)
 
-	maj, extra, err := cbg.CborReadHeaderBuf(br, scratch)
+	maj, extra, err := cr.ReadHeader()
 	if err != nil {
 		return err
 	}
+	defer func() {
+		if err == io.EOF {
+			err = io.ErrUnexpectedEOF
+		}
+	}()
+
 	if maj != cbg.MajArray {
 		return fmt.Errorf("cbor input should be of type array")
 	}
@@ -74,7 +80,7 @@ func (t *PieceBlockMetadata) UnmarshalCBOR(r io.Reader) error {
 
 	{
 
-		c, err := cbg.ReadCid(br)
+		c, err := cbg.ReadCid(cr)
 		if err != nil {
 			return xerrors.Errorf("failed to read cid field t.CID: %w", err)
 		}
@@ -86,7 +92,7 @@ func (t *PieceBlockMetadata) UnmarshalCBOR(r io.Reader) error {
 
 	{
 
-		maj, extra, err = cbg.CborReadHeaderBuf(br, scratch)
+		maj, extra, err = cr.ReadHeader()
 		if err != nil {
 			return err
 		}
@@ -100,7 +106,7 @@ func (t *PieceBlockMetadata) UnmarshalCBOR(r io.Reader) error {
 
 	{
 
-		maj, extra, err = cbg.CborReadHeaderBuf(br, scratch)
+		maj, extra, err = cr.ReadHeader()
 		if err != nil {
 			return err
 		}

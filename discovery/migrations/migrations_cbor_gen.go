@@ -26,38 +26,44 @@ func (t *RetrievalPeers0) MarshalCBOR(w io.Writer) error {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	if _, err := w.Write(lengthBufRetrievalPeers0); err != nil {
+
+	cw := cbg.NewCborWriter(w)
+
+	if _, err := cw.Write(lengthBufRetrievalPeers0); err != nil {
 		return err
 	}
-
-	scratch := make([]byte, 9)
 
 	// t.Peers ([]migrations.RetrievalPeer0) (slice)
 	if len(t.Peers) > cbg.MaxLength {
 		return xerrors.Errorf("Slice value in field t.Peers was too long")
 	}
 
-	if err := cbg.WriteMajorTypeHeaderBuf(scratch, w, cbg.MajArray, uint64(len(t.Peers))); err != nil {
+	if err := cw.WriteMajorTypeHeader(cbg.MajArray, uint64(len(t.Peers))); err != nil {
 		return err
 	}
 	for _, v := range t.Peers {
-		if err := v.MarshalCBOR(w); err != nil {
+		if err := v.MarshalCBOR(cw); err != nil {
 			return err
 		}
 	}
 	return nil
 }
 
-func (t *RetrievalPeers0) UnmarshalCBOR(r io.Reader) error {
+func (t *RetrievalPeers0) UnmarshalCBOR(r io.Reader) (err error) {
 	*t = RetrievalPeers0{}
 
-	br := cbg.GetPeeker(r)
-	scratch := make([]byte, 8)
+	cr := cbg.NewCborReader(r)
 
-	maj, extra, err := cbg.CborReadHeaderBuf(br, scratch)
+	maj, extra, err := cr.ReadHeader()
 	if err != nil {
 		return err
 	}
+	defer func() {
+		if err == io.EOF {
+			err = io.ErrUnexpectedEOF
+		}
+	}()
+
 	if maj != cbg.MajArray {
 		return fmt.Errorf("cbor input should be of type array")
 	}
@@ -68,7 +74,7 @@ func (t *RetrievalPeers0) UnmarshalCBOR(r io.Reader) error {
 
 	// t.Peers ([]migrations.RetrievalPeer0) (slice)
 
-	maj, extra, err = cbg.CborReadHeaderBuf(br, scratch)
+	maj, extra, err = cr.ReadHeader()
 	if err != nil {
 		return err
 	}
@@ -88,7 +94,7 @@ func (t *RetrievalPeers0) UnmarshalCBOR(r io.Reader) error {
 	for i := 0; i < int(extra); i++ {
 
 		var v migrations.RetrievalPeer0
-		if err := v.UnmarshalCBOR(br); err != nil {
+		if err := v.UnmarshalCBOR(cr); err != nil {
 			return err
 		}
 
