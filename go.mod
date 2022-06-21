@@ -14,10 +14,11 @@ require (
 	github.com/filecoin-project/go-fil-commcid v0.1.0
 	github.com/filecoin-project/go-fil-commp-hashhash v0.1.0
 	github.com/filecoin-project/go-padreader v0.0.1
-	github.com/filecoin-project/go-state-types v0.1.6
+	github.com/filecoin-project/go-state-types v0.1.10
 	github.com/filecoin-project/go-statemachine v1.0.2-0.20220322104818-27f8fbb86dfd
 	github.com/filecoin-project/go-statestore v0.2.0
 	github.com/filecoin-project/index-provider v0.5.0
+	github.com/filecoin-project/specs-actors v0.9.13
 	github.com/filecoin-project/storetheindex v0.3.5
 	github.com/hannahhoward/cbor-gen-for v0.0.0-20200817222906-ea96cece81f1
 	github.com/hannahhoward/go-pubsub v0.0.0-20200423002714-8d62886cc36e
@@ -53,6 +54,7 @@ require (
 	github.com/multiformats/go-multihash v0.1.0
 	github.com/multiformats/go-varint v0.0.6
 	github.com/petar/GoLLRB v0.0.0-20210522233825-ae3b015fd3e9
+	github.com/polydawn/refmt v0.0.0-20201211092308-30ac6d18308e
 	github.com/stretchr/testify v1.7.0
 	github.com/whyrusleeping/cbor v0.0.0-20171005072247-63513f603b11
 	github.com/whyrusleeping/cbor-gen v0.0.0-20220302191723-37c43cae8e14

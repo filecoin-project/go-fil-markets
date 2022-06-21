@@ -18,6 +18,7 @@ import (
 	"github.com/filecoin-project/go-state-types/abi"
 	"github.com/filecoin-project/go-state-types/big"
 	"github.com/filecoin-project/go-state-types/builtin/v8/market"
+	marketOld "github.com/filecoin-project/specs-actors/actors/builtin/market"
 
 	"github.com/filecoin-project/go-fil-markets/filestore"
 	"github.com/filecoin-project/go-fil-markets/shared_testutil"
@@ -85,8 +86,10 @@ func TestProvider_Migrations(t *testing.T) {
 		require.NoError(t, err)
 		err = cborutil.ReadCborRPC(timeBuf, &creationTimes[i])
 		require.NoError(t, err)
+		prop, err := oldDealProposal(dealProposals[i])
+		require.NoError(t, err)
 		deal := migrations.MinerDeal0{
-			ClientDealProposal: *dealProposals[i],
+			ClientDealProposal: *prop,
 			ProposalCid:        proposalCids[i],
 			AddFundsCid:        addFundsCids[i],
 			PublishCid:         publishCids[i],
@@ -170,6 +173,29 @@ func TestProvider_Migrations(t *testing.T) {
 	}
 }
 
+func oldDealProposal(p *market.ClientDealProposal) (*marketOld.ClientDealProposal, error) {
+	label, err := p.Proposal.Label.ToString()
+	if err != nil {
+		return nil, err
+	}
+	return &marketOld.ClientDealProposal{
+		Proposal: marketOld.DealProposal{
+			PieceCID:             p.Proposal.PieceCID,
+			PieceSize:            p.Proposal.PieceSize,
+			VerifiedDeal:         p.Proposal.VerifiedDeal,
+			Client:               p.Proposal.Client,
+			Provider:             p.Proposal.Provider,
+			Label:                label,
+			StartEpoch:           p.Proposal.StartEpoch,
+			EndEpoch:             p.Proposal.EndEpoch,
+			StoragePricePerEpoch: p.Proposal.StoragePricePerEpoch,
+			ProviderCollateral:   p.Proposal.ProviderCollateral,
+			ClientCollateral:     p.Proposal.ClientCollateral,
+		},
+		ClientSignature: p.ClientSignature,
+	}, nil
+}
+
 func TestHandleDealStream(t *testing.T) {
 	t.Run("handles cases where the proposal is already being tracked", func(t *testing.T) {
 
@@ -178,7 +204,7 @@ func TestHandleDealStream(t *testing.T) {
 		deps := dependencies.NewDependenciesWithTestData(t, ctx, shared_testutil.NewLibp2pTestData(ctx, t), testnodes.NewStorageMarketState(), "",
 			noOpDelay, noOpDelay)
 		var providerDs datastore.Batching = namespace.Wrap(deps.TestData.Ds1, datastore.NewKey("/deals/provider"))
-		namespaced := shared_testutil.DatastoreAtVersion(t, providerDs, "1")
+		namespaced := shared_testutil.DatastoreAtVersion(t, providerDs, "2")
 
 		proposal := shared_testutil.MakeTestClientDealProposal()
 		proposalNd, err := cborutil.AsIpld(proposal)

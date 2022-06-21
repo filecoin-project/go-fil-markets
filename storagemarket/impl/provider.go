@@ -152,7 +152,7 @@ func NewProvider(net network.StorageMarketNetwork,
 		&providerDealEnvironment{h},
 		h.dispatch,
 		storageMigrations,
-		versioning.VersionKey("1"),
+		versioning.VersionKey("2"),
 	)
 	if err != nil {
 		return nil, err
@@ -260,9 +260,13 @@ func (p *Provider) receiveDeal(s network.StorageDealStream) error {
 		return xerrors.Errorf("failed to read proposal message: %w", err)
 	}
 
+	if proposal.DealProposal == nil {
+		return xerrors.Errorf("failed to get deal proposal from proposal message")
+	}
+
 	proposalNd, err := cborutil.AsIpld(proposal.DealProposal)
 	if err != nil {
-		return err
+		return fmt.Errorf("getting deal proposal as IPLD: %w", err)
 	}
 
 	// Check if we are already tracking this deal

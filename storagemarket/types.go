@@ -23,9 +23,10 @@ var log = logging.Logger("storagemrkt")
 
 //go:generate cbor-gen-for --map-encoding ClientDeal MinerDeal Balance SignedStorageAsk StorageAsk DataRef ProviderDealState DealStages DealStage Log
 
-// DealProtocolID is the ID for the libp2p protocol for proposing storage deals.
-const OldDealProtocolID = "/fil/storage/mk/1.0.1"
-const DealProtocolID = "/fil/storage/mk/1.1.0"
+// The ID for the libp2p protocol for proposing storage deals.
+const DealProtocolID101 = "/fil/storage/mk/1.0.1"
+const DealProtocolID110 = "/fil/storage/mk/1.1.0"
+const DealProtocolID111 = "/fil/storage/mk/1.1.1"
 
 // AskProtocolID is the ID for the libp2p protocol for querying miners for their current StorageAsk.
 const OldAskProtocolID = "/fil/storage/ask/1.0.1"
