@@ -3,9 +3,7 @@ package network
 import (
 	"bufio"
 	"context"
-	"fmt"
 
-	"github.com/ipfs/go-cid"
 	"github.com/libp2p/go-libp2p-core/host"
 	"github.com/libp2p/go-libp2p-core/mux"
 	"github.com/libp2p/go-libp2p-core/peer"
@@ -24,26 +22,19 @@ type dealStreamv101 struct {
 
 var _ StorageDealStream = (*dealStreamv101)(nil)
 
-func (d *dealStreamv101) ReadDealProposal() (Proposal, cid.Cid, error) {
+func (d *dealStreamv101) ReadDealProposal() (Proposal, error) {
 	var ds migrations.Proposal0
 
 	if err := ds.UnmarshalCBOR(d.buffered); err != nil {
 		log.Warn(err)
-		return ProposalUndefined, cid.Undef, err
-	}
-
-	proposalNd, err := cborutil.AsIpld(ds.DealProposal)
-	if err != nil {
-		err = fmt.Errorf("getting v101 deal proposal as IPLD: %w", err)
-		log.Warnf(err.Error())
-		return ProposalUndefined, cid.Undef, err
+		return ProposalUndefined, err
 	}
 
 	return Proposal{
 		DealProposal:  ds.DealProposal,
 		Piece:         migrations.MigrateDataRef0To1(ds.Piece),
 		FastRetrieval: ds.FastRetrieval,
-	}, proposalNd.Cid(), nil
+	}, nil
 }
 
 func (d *dealStreamv101) WriteDealProposal(dp Proposal) error {
