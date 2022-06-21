@@ -2,9 +2,10 @@ package network
 
 import (
 	"bufio"
+	"encoding/hex"
 	"fmt"
+	"unicode/utf8"
 
-	"github.com/ipfs/go-cid"
 	"github.com/libp2p/go-libp2p-core/host"
 	"github.com/libp2p/go-libp2p-core/mux"
 	"github.com/libp2p/go-libp2p-core/peer"
@@ -23,33 +24,44 @@ type dealStreamv110 struct {
 
 var _ StorageDealStream = (*dealStreamv110)(nil)
 
-func (d *dealStreamv110) ReadDealProposal() (Proposal, cid.Cid, error) {
+func (d *dealStreamv110) ReadDealProposal() (Proposal, error) {
 	var ds migrations.Proposal1
 
 	if err := ds.UnmarshalCBOR(d.buffered); err != nil {
 		err = fmt.Errorf("unmarshalling v110 deal proposal: %w", err)
 		log.Warnf(err.Error())
-		return ProposalUndefined, cid.Undef, err
+		return ProposalUndefined, err
 	}
 
-	proposalNd, err := cborutil.AsIpld(ds.DealProposal)
-	if err != nil {
-		err = fmt.Errorf("getting v110 deal proposal as IPLD: %w", err)
-		log.Warnf(err.Error())
-		return ProposalUndefined, cid.Undef, err
+	// The signature over the deal proposal will be different between a v1.1.0
+	// deal proposal and higher versions if the deal label cannot be parsed as
+	// a utf8 string.
+	// The signature is checked when submitting the Publish Storage Deals
+	// message, so we reject the deal proposal here to avoid that scenario.
+	if err := checkDealLabel(ds.DealProposal.Proposal.Label); err != nil {
+		return ProposalUndefined, err
 	}
 
+	// Migrate the deal proposal to the new format
 	prop, err := migrations.MigrateClientDealProposal0To1(*ds.DealProposal)
 	if err != nil {
 		err = fmt.Errorf("migrating v110 deal proposal to current version: %w", err)
 		log.Warnf(err.Error())
-		return ProposalUndefined, cid.Undef, err
+		return ProposalUndefined, err
 	}
 	return Proposal{
 		DealProposal:  prop,
 		Piece:         ds.Piece,
 		FastRetrieval: ds.FastRetrieval,
-	}, proposalNd.Cid(), nil
+	}, nil
+}
+
+func checkDealLabel(label string) error {
+	labelBytes := []byte(label)
+	if !utf8.Valid(labelBytes) {
+		return fmt.Errorf("cannot parse deal label 0x%s as string", hex.EncodeToString(labelBytes))
+	}
+	return nil
 }
 
 func (d *dealStreamv110) WriteDealProposal(dp Proposal) error {

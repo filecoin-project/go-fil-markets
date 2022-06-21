@@ -265,7 +265,7 @@ func TestDealStreamSendReceiveDealProposal(t *testing.T) {
 			tr2 := &testReceiver{
 				t: t,
 				dealStreamHandler: func(s network.StorageDealStream) {
-					readD, _, err := s.ReadDealProposal()
+					readD, err := s.ReadDealProposal()
 					require.NoError(t, err)
 					dchan <- readD
 				},
@@ -343,7 +343,7 @@ func TestDealStreamSendReceiveMultipleSuccessful(t *testing.T) {
 		return nil, nil
 	}
 	tr2 := &testReceiver{t: t, dealStreamHandler: func(s network.StorageDealStream) {
-		_, _, err := s.ReadDealProposal()
+		_, err := s.ReadDealProposal()
 		require.NoError(t, err)
 
 		require.NoError(t, s.WriteDealResponse(dr, resigningFunc))
