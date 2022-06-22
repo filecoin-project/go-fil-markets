@@ -24,18 +24,19 @@ func (t *RetrievalPeers) MarshalCBOR(w io.Writer) error {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	if _, err := w.Write([]byte{161}); err != nil {
+
+	cw := cbg.NewCborWriter(w)
+
+	if _, err := cw.Write([]byte{161}); err != nil {
 		return err
 	}
-
-	scratch := make([]byte, 9)
 
 	// t.Peers ([]retrievalmarket.RetrievalPeer) (slice)
 	if len("Peers") > cbg.MaxLength {
 		return xerrors.Errorf("Value in field \"Peers\" was too long")
 	}
 
-	if err := cbg.WriteMajorTypeHeaderBuf(scratch, w, cbg.MajTextString, uint64(len("Peers"))); err != nil {
+	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("Peers"))); err != nil {
 		return err
 	}
 	if _, err := io.WriteString(w, string("Peers")); err != nil {
@@ -46,27 +47,32 @@ func (t *RetrievalPeers) MarshalCBOR(w io.Writer) error {
 		return xerrors.Errorf("Slice value in field t.Peers was too long")
 	}
 
-	if err := cbg.WriteMajorTypeHeaderBuf(scratch, w, cbg.MajArray, uint64(len(t.Peers))); err != nil {
+	if err := cw.WriteMajorTypeHeader(cbg.MajArray, uint64(len(t.Peers))); err != nil {
 		return err
 	}
 	for _, v := range t.Peers {
-		if err := v.MarshalCBOR(w); err != nil {
+		if err := v.MarshalCBOR(cw); err != nil {
 			return err
 		}
 	}
 	return nil
 }
 
-func (t *RetrievalPeers) UnmarshalCBOR(r io.Reader) error {
+func (t *RetrievalPeers) UnmarshalCBOR(r io.Reader) (err error) {
 	*t = RetrievalPeers{}
 
-	br := cbg.GetPeeker(r)
-	scratch := make([]byte, 8)
+	cr := cbg.NewCborReader(r)
 
-	maj, extra, err := cbg.CborReadHeaderBuf(br, scratch)
+	maj, extra, err := cr.ReadHeader()
 	if err != nil {
 		return err
 	}
+	defer func() {
+		if err == io.EOF {
+			err = io.ErrUnexpectedEOF
+		}
+	}()
+
 	if maj != cbg.MajMap {
 		return fmt.Errorf("cbor input should be of type map")
 	}
@@ -81,7 +87,7 @@ func (t *RetrievalPeers) UnmarshalCBOR(r io.Reader) error {
 	for i := uint64(0); i < n; i++ {
 
 		{
-			sval, err := cbg.ReadStringBuf(br, scratch)
+			sval, err := cbg.ReadString(cr)
 			if err != nil {
 				return err
 			}
@@ -93,7 +99,7 @@ func (t *RetrievalPeers) UnmarshalCBOR(r io.Reader) error {
 		// t.Peers ([]retrievalmarket.RetrievalPeer) (slice)
 		case "Peers":
 
-			maj, extra, err = cbg.CborReadHeaderBuf(br, scratch)
+			maj, extra, err = cr.ReadHeader()
 			if err != nil {
 				return err
 			}
@@ -113,7 +119,7 @@ func (t *RetrievalPeers) UnmarshalCBOR(r io.Reader) error {
 			for i := 0; i < int(extra); i++ {
 
 				var v retrievalmarket.RetrievalPeer
-				if err := v.UnmarshalCBOR(br); err != nil {
+				if err := v.UnmarshalCBOR(cr); err != nil {
 					return err
 				}
 
