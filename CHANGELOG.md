@@ -1,5 +1,16 @@
 # go-fil-markets changelog
 
+# go-fil-markets v1.22.0
+
+- github.com/filecoin-project/go-fil-markets:
+  - migrate provider deal proposal label to the new format (#721) ([filecoin-project/go-fil-markets#721](https://github.com/filecoin-project/go-fil-markets/pull/721))
+
+Contributors
+
+| Contributor | Commits | Lines ± | Files Changed |
+|-------------|---------|---------|---------------|
+| dirkmc | 2 | +1517/-58 | 17 |
+
 # go-fil-markets v1.21.0
 
 - github.com/filecoin-project/go-fil-markets:
