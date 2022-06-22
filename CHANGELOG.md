@@ -1,5 +1,16 @@
 # go-fil-markets changelog
 
+# go-fil-markets v1.22.1
+
+- github.com/filecoin-project/go-fil-markets:
+  - Upgrade index-provider and related dependencies (#722) ([filecoin-project/go-fil-markets#722](https://github.com/filecoin-project/go-fil-markets/pull/722))
+
+Contributors
+
+| Contributor | Commits | Lines ± | Files Changed |
+|-------------|---------|---------|---------------|
+| Masih H. Derkani | 1 | +2378/-1841 | 15 |
+
 # go-fil-markets v1.22.0
 
 - github.com/filecoin-project/go-fil-markets:
