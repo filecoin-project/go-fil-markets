@@ -59,8 +59,9 @@ func NewFromLibp2pHost(h host.Host, options ...Option) StorageMarketNetwork {
 			storagemarket.OldAskProtocolID,
 		},
 		supportedDealProtocols: []protocol.ID{
-			storagemarket.DealProtocolID,
-			storagemarket.OldDealProtocolID,
+			storagemarket.DealProtocolID111,
+			storagemarket.DealProtocolID110,
+			storagemarket.DealProtocolID101,
 		},
 		supportedDealStatusProtocols: []protocol.ID{
 			storagemarket.DealStatusProtocolID,
@@ -104,10 +105,14 @@ func (impl *libp2pStorageMarketNetwork) NewDealStream(ctx context.Context, id pe
 		return nil, err
 	}
 	buffered := bufio.NewReaderSize(s, 16)
-	if s.Protocol() == storagemarket.OldDealProtocolID {
-		return &legacyDealStream{p: id, rw: s, buffered: buffered, host: impl.host}, nil
+	switch s.Protocol() {
+	case storagemarket.DealProtocolID101:
+		return &dealStreamv101{p: id, rw: s, buffered: buffered, host: impl.host}, nil
+	case storagemarket.DealProtocolID110:
+		return &dealStreamv110{p: id, rw: s, buffered: buffered, host: impl.host}, nil
+	default:
+		return &dealStreamv111{p: id, rw: s, buffered: buffered, host: impl.host}, nil
 	}
-	return &dealStream{p: id, rw: s, buffered: buffered, host: impl.host}, nil
 }
 
 func (impl *libp2pStorageMarketNetwork) NewDealStatusStream(ctx context.Context, id peer.ID) (DealStatusStream, error) {
@@ -168,10 +173,13 @@ func (impl *libp2pStorageMarketNetwork) handleNewDealStream(s network.Stream) {
 	reader := impl.getReaderOrReset(s)
 	if reader != nil {
 		var ds StorageDealStream
-		if s.Protocol() == storagemarket.OldDealProtocolID {
-			ds = &legacyDealStream{s.Conn().RemotePeer(), impl.host, s, reader}
-		} else {
-			ds = &dealStream{s.Conn().RemotePeer(), impl.host, s, reader}
+		switch s.Protocol() {
+		case storagemarket.DealProtocolID101:
+			ds = &dealStreamv101{s.Conn().RemotePeer(), impl.host, s, reader}
+		case storagemarket.DealProtocolID110:
+			ds = &dealStreamv110{s.Conn().RemotePeer(), impl.host, s, reader}
+		default:
+			ds = &dealStreamv111{s.Conn().RemotePeer(), impl.host, s, reader}
 		}
 		impl.receiver.HandleDealStream(ds)
 	}

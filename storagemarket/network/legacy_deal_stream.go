@@ -13,22 +13,23 @@ import (
 	"github.com/filecoin-project/go-fil-markets/storagemarket/migrations"
 )
 
-type legacyDealStream struct {
+type dealStreamv101 struct {
 	p        peer.ID
 	host     host.Host
 	rw       mux.MuxedStream
 	buffered *bufio.Reader
 }
 
-var _ StorageDealStream = (*legacyDealStream)(nil)
+var _ StorageDealStream = (*dealStreamv101)(nil)
 
-func (d *legacyDealStream) ReadDealProposal() (Proposal, error) {
+func (d *dealStreamv101) ReadDealProposal() (Proposal, error) {
 	var ds migrations.Proposal0
 
 	if err := ds.UnmarshalCBOR(d.buffered); err != nil {
 		log.Warn(err)
 		return ProposalUndefined, err
 	}
+
 	return Proposal{
 		DealProposal:  ds.DealProposal,
 		Piece:         migrations.MigrateDataRef0To1(ds.Piece),
@@ -36,7 +37,7 @@ func (d *legacyDealStream) ReadDealProposal() (Proposal, error) {
 	}, nil
 }
 
-func (d *legacyDealStream) WriteDealProposal(dp Proposal) error {
+func (d *dealStreamv101) WriteDealProposal(dp Proposal) error {
 	var piece *migrations.DataRef0
 	if dp.Piece != nil {
 		piece = &migrations.DataRef0{
@@ -53,7 +54,7 @@ func (d *legacyDealStream) WriteDealProposal(dp Proposal) error {
 	})
 }
 
-func (d *legacyDealStream) ReadDealResponse() (SignedResponse, []byte, error) {
+func (d *dealStreamv101) ReadDealResponse() (SignedResponse, []byte, error) {
 	var dr migrations.SignedResponse0
 
 	if err := dr.UnmarshalCBOR(d.buffered); err != nil {
@@ -74,7 +75,7 @@ func (d *legacyDealStream) ReadDealResponse() (SignedResponse, []byte, error) {
 	}, origBytes, nil
 }
 
-func (d *legacyDealStream) WriteDealResponse(dr SignedResponse, resign ResigningFunc) error {
+func (d *dealStreamv101) WriteDealResponse(dr SignedResponse, resign ResigningFunc) error {
 	oldResponse := migrations.Response0{
 		State:          dr.Response.State,
 		Message:        dr.Response.Message,
@@ -91,10 +92,10 @@ func (d *legacyDealStream) WriteDealResponse(dr SignedResponse, resign Resigning
 	})
 }
 
-func (d *legacyDealStream) Close() error {
+func (d *dealStreamv101) Close() error {
 	return d.rw.Close()
 }
 
-func (d *legacyDealStream) RemotePeer() peer.ID {
+func (d *dealStreamv101) RemotePeer() peer.ID {
 	return d.p
 }

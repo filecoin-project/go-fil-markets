@@ -153,7 +153,7 @@ func NewProvider(net network.StorageMarketNetwork,
 		&providerDealEnvironment{h},
 		h.dispatch,
 		storageMigrations,
-		versioning.VersionKey("1"),
+		versioning.VersionKey("2"),
 	)
 	if err != nil {
 		return nil, err
@@ -267,7 +267,7 @@ func (p *Provider) receiveDeal(s network.StorageDealStream) error {
 
 	proposalNd, err := cborutil.AsIpld(proposal.DealProposal)
 	if err != nil {
-		return err
+		return fmt.Errorf("getting deal proposal as IPLD: %w", err)
 	}
 
 	// Check if we are already tracking this deal

@@ -106,7 +106,7 @@ func NewHarnessWithTestData(t *testing.T, td *shared_testutil.Libp2pTestData, de
 	if disableNewDeals {
 		networkOptions = append(networkOptions,
 			network.SupportedAskProtocols([]protocol.ID{storagemarket.OldAskProtocolID}),
-			network.SupportedDealProtocols([]protocol.ID{storagemarket.OldDealProtocolID}),
+			network.SupportedDealProtocols([]protocol.ID{storagemarket.DealProtocolID110}),
 			network.SupportedDealStatusProtocols([]protocol.ID{storagemarket.OldDealStatusProtocolID}),
 		)
 	}
