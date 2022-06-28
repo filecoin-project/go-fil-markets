@@ -1,5 +1,16 @@
 # go-fil-markets changelog
 
+# go-fil-markets v1.22.2
+
+- github.com/filecoin-project/go-fil-markets:
+  - Upgrade to go-ipfs-blockstore `v1.2.0` (#728) ([filecoin-project/go-fil-markets#728](https://github.com/filecoin-project/go-fil-markets/pull/728))
+
+Contributors
+
+| Contributor | Commits | Lines ± | Files Changed |
+|-------------|---------|---------|---------------|
+| Masih H. Derkani | 1 | +28/-19 | 3 |
+
 # go-fil-markets v1.22.1
 
 - github.com/filecoin-project/go-fil-markets:
