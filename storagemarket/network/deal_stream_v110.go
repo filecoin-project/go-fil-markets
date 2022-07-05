@@ -7,7 +7,7 @@ import (
 	"unicode/utf8"
 
 	"github.com/libp2p/go-libp2p-core/host"
-	"github.com/libp2p/go-libp2p-core/mux"
+	"github.com/libp2p/go-libp2p-core/network"
 	"github.com/libp2p/go-libp2p-core/peer"
 
 	cborutil "github.com/filecoin-project/go-cbor-util"
@@ -18,7 +18,7 @@ import (
 type dealStreamv110 struct {
 	p        peer.ID
 	host     host.Host
-	rw       mux.MuxedStream
+	rw       network.MuxedStream
 	buffered *bufio.Reader
 }
 
