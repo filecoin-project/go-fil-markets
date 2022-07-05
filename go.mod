@@ -43,8 +43,8 @@ require (
 	github.com/ipld/go-ipld-prime v0.17.0
 	github.com/jbenet/go-random v0.0.0-20190219211222-123a90aedc0c
 	github.com/jpillora/backoff v1.0.0
-	github.com/libp2p/go-libp2p v0.21.0-rc
-	github.com/libp2p/go-libp2p-core v0.19.0
+	github.com/libp2p/go-libp2p v0.21.0-rc.0.20220705195358-7e9cfb579c0c
+	github.com/libp2p/go-libp2p-core v0.19.1-0.20220705184706-49b5bc4fa9ca
 	github.com/multiformats/go-multiaddr v0.6.0
 	github.com/multiformats/go-multibase v0.1.1
 	github.com/multiformats/go-multicodec v0.5.0
@@ -65,9 +65,7 @@ require (
 	github.com/alecthomas/units v0.0.0-20210927113745-59d0afb8317a // indirect
 	github.com/benbjohnson/clock v1.3.0 // indirect
 	github.com/bep/debounce v1.2.0 // indirect
-	github.com/btcsuite/btcd v0.23.1 // indirect
 	github.com/btcsuite/btcd/btcec/v2 v2.2.0 // indirect
-	github.com/btcsuite/btcd/chaincfg/chainhash v1.0.1 // indirect
 	github.com/cpuguy83/go-md2man/v2 v2.0.1 // indirect
 	github.com/crackcomm/go-gitignore v0.0.0-20170627025303-887ab5e44cc3 // indirect
 	github.com/davecgh/go-spew v1.1.1 // indirect
@@ -132,6 +130,7 @@ require (
 	github.com/spacemonkeygo/spacelog v0.0.0-20180420211403-2296661a0572 // indirect
 	github.com/spaolacci/murmur3 v1.1.0 // indirect
 	github.com/stretchr/objx v0.4.0 // indirect
+	github.com/syndtr/goleveldb v1.0.1-0.20210819022825-2ae1ddf74ef7 // indirect
 	github.com/tj/go-spin v1.1.0 // indirect
 	github.com/urfave/cli/v2 v2.8.1 // indirect
 	github.com/whyrusleeping/chunker v0.0.0-20181014151217-fe64bd25879f // indirect
