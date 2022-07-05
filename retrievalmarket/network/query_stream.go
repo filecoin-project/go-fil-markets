@@ -3,7 +3,7 @@ package network
 import (
 	"bufio"
 
-	"github.com/libp2p/go-libp2p-core/mux"
+	"github.com/libp2p/go-libp2p-core/network"
 	"github.com/libp2p/go-libp2p-core/peer"
 
 	cborutil "github.com/filecoin-project/go-cbor-util"
@@ -13,7 +13,7 @@ import (
 
 type queryStream struct {
 	p        peer.ID
-	rw       mux.MuxedStream
+	rw       network.MuxedStream
 	buffered *bufio.Reader
 }
 
