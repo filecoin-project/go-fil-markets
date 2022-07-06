@@ -690,15 +690,30 @@ func NewReadOnly(backing io.ReaderAt, idx index.Index, opts ...carv2.Option) (*R
 		}
 		if idx == nil {
 			if v2r.Header.HasIndex() {
-				idx, err = index.ReadFrom(v2r.IndexReader())
+				r, err := v2r.IndexReader()
 				if err != nil {
 					return nil, err
 				}
-			} else if idx, err = generateIndex(v2r.DataReader(), opts...); err != nil {
-				return nil, err
+				idx, err = index.ReadFrom(r)
+				if err != nil {
+					return nil, err
+				}
+			} else {
+				r, err := v2r.DataReader()
+				if err != nil {
+					return nil, err
+				}
+				idx, err = generateIndex(r, opts...)
+				if err != nil {
+					return nil, err
+				}
 			}
 		}
-		b.backing = v2r.DataReader()
+		drBacking, err := v2r.DataReader()
+		if err != nil {
+			return nil, err
+		}
+		b.backing = drBacking
 		b.idx = idx
 		return b, nil
 	default:

@@ -134,7 +134,12 @@ func (p *providerDealEnvironment) GeneratePieceCommitment(proposalCid cid.Cid, c
 		}
 	}()
 
-	pieceCID, err := commp.GenerateCommp(rd.DataReader(), rd.Header.DataSize, uint64(dealSize))
+	r, err := rd.DataReader()
+	if err != nil {
+		return cid.Undef, "", fmt.Errorf("failed to get data reader over CAR file, proposalCid=%s, carPath=%s: %w", proposalCid, carPath, err)
+	}
+
+	pieceCID, err := commp.GenerateCommp(r, rd.Header.DataSize, uint64(dealSize))
 	return pieceCID, "", err
 }
 

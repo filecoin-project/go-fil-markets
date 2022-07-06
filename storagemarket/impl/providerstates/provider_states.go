@@ -366,7 +366,12 @@ func HandoffDeal(ctx fsm.Context, environment ProviderDealEnvironment, deal stor
 		// Hand the deal off to the process that adds it to a sector
 		var packingErr error
 		log.Infow("handing off deal to sealing subsystem", "pieceCid", deal.Proposal.PieceCID, "proposalCid", deal.ProposalCid)
-		packingInfo, packingErr = handoffDeal(ctx.Context(), environment, deal, v2r.DataReader(), v2r.Header.DataSize)
+		r, err := v2r.DataReader()
+		if err != nil {
+			return ctx.Trigger(storagemarket.ProviderEventDealHandoffFailed, fmt.Errorf("failed to get reader over file data, proposalCid=%s: %w",
+				deal.ProposalCid, err))
+		}
+		packingInfo, packingErr = handoffDeal(ctx.Context(), environment, deal, r, v2r.Header.DataSize)
 		// Close the reader as we're done reading from it.
 		if err := v2r.Close(); err != nil {
 			return ctx.Trigger(storagemarket.ProviderEventDealHandoffFailed, xerrors.Errorf("failed to close CARv2 reader: %w", err))
