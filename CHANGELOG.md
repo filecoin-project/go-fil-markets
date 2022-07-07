@@ -1,5 +1,16 @@
 # go-fil-markets changelog
 
+# go-fil-markets v1.23.1
+
+- github.com/filecoin-project/go-fil-markets:
+  - Upgrade to `go-car` `2.4.1` (#733) ([filecoin-project/go-fil-markets#733](https://github.com/filecoin-project/go-fil-markets/pull/733))
+
+Contributors
+
+| Contributor | Commits | Lines ± | Files Changed |
+|-------------|---------|---------|---------------|
+| Masih H. Derkani | 1 | +3/-3 | 2 |
+
 # go-fil-markets v1.23.0
 
 - github.com/filecoin-project/go-fil-markets:
