@@ -62,6 +62,14 @@ func (m *MockDagStoreWrapper) RegisterShard(ctx context.Context, pieceCid cid.Ci
 	return nil
 }
 
+func (m *MockDagStoreWrapper) DestroyShard(ctx context.Context, pieceCid cid.Cid, resch chan dagstore.ShardResult) error {
+	m.lk.Lock()
+	defer m.lk.Unlock()
+	delete(m.registrations, pieceCid)
+	resch <- dagstore.ShardResult{}
+	return nil
+}
+
 func (m *MockDagStoreWrapper) GetIterableIndexForPiece(c cid.Cid) (carindex.IterableIndex, error) {
 	return nil, nil
 }
