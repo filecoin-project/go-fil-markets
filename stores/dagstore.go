@@ -40,6 +40,13 @@ type DAGStoreWrapper interface {
 
 	GetIterableIndexForPiece(pieceCid cid.Cid) (carindex.IterableIndex, error)
 
+	// DestroyShard initiates the registration of a new shard.
+	//
+	// This method returns an error synchronously if preliminary validation fails.
+	// Otherwise, it queues the shard for destruction. The caller should monitor
+	// supplied channel for a result.
+	DestroyShard(ctx context.Context, pieceCid cid.Cid, resch chan dagstore.ShardResult) error
+
 	// Close closes the dag store wrapper.
 	Close() error
 }
@@ -54,6 +61,23 @@ func RegisterShardSync(ctx context.Context, ds DAGStoreWrapper, pieceCid cid.Cid
 	}
 
 	// TODO: Can I rely on RegisterShard to return an error if the context times out?
+	select {
+	case <-ctx.Done():
+		return ctx.Err()
+	case res := <-resch:
+		return res.Error
+	}
+}
+
+// DestroyShardSync calls the DAGStore DestroyShard method and waits
+// synchronously in a dedicated channel until the shard has been destroyed completely.
+func DestroyShardSync(ctx context.Context, ds DAGStoreWrapper, pieceCid cid.Cid) error {
+	resch := make(chan dagstore.ShardResult, 1)
+
+	if err := ds.DestroyShard(ctx, pieceCid, resch); err != nil {
+		return err
+	}
+
 	select {
 	case <-ctx.Done():
 		return ctx.Err()
