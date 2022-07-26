@@ -164,6 +164,8 @@ func (rv *ProviderRequestValidator) acceptDeal(deal *retrievalmarket.ProviderDea
 		return retrievalmarket.DealStatusErrored, err
 	}
 
+	deal.PieceInfo = &pieceInfo
+
 	ctx, cancel := context.WithTimeout(context.TODO(), askTimeout)
 	defer cancel()
 
@@ -186,8 +188,6 @@ func (rv *ProviderRequestValidator) acceptDeal(deal *retrievalmarket.ProviderDea
 	if !accepted {
 		return retrievalmarket.DealStatusRejected, errors.New(reason)
 	}
-
-	deal.PieceInfo = &pieceInfo
 
 	if deal.UnsealPrice.GreaterThan(big.Zero()) {
 		return retrievalmarket.DealStatusFundsNeededUnseal, nil

@@ -208,7 +208,7 @@ func TestClientCanMakeDealWithProvider(t *testing.T) {
 	}).Node()
 
 	var customDeciderRan bool
-
+	var customDeciderPiece cid.Cid
 	testCases := []struct {
 		name                    string
 		decider                 retrievalimpl.DealDecider
@@ -311,6 +311,9 @@ func TestClientCanMakeDealWithProvider(t *testing.T) {
 		{name: "succeeds when using a custom decider function",
 			decider: func(ctx context.Context, state retrievalmarket.ProviderDealState) (bool, string, error) {
 				customDeciderRan = true
+				if state.PieceInfo != nil {
+					customDeciderPiece = state.PieceInfo.PieceCID
+				}
 				return true, "", nil
 			},
 			filename:    "lorem_under_1_block.txt",
@@ -596,6 +599,7 @@ CurrentInterval: %d
 			// https://github.com/filecoin-project/go-fil-markets/issues/65
 			if testCase.decider != nil {
 				assert.True(t, customDeciderRan)
+				assert.Equal(t, pieceInfo.PieceCID, customDeciderPiece)
 			}
 			// verify that the nodes we interacted with behaved as expected
 			clientNode.VerifyExpectations(t)
