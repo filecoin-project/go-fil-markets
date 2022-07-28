@@ -15,7 +15,7 @@ import (
 	graphsyncimpl "github.com/ipfs/go-graphsync/impl"
 	"github.com/ipfs/go-graphsync/network"
 	"github.com/ipld/go-car"
-	"github.com/ipld/go-ipld-prime"
+	"github.com/ipld/go-ipld-prime/datamodel"
 	cidlink "github.com/ipld/go-ipld-prime/linking/cid"
 	basicnode "github.com/ipld/go-ipld-prime/node/basic"
 	"github.com/ipld/go-ipld-prime/traversal/selector/builder"
@@ -214,7 +214,7 @@ func TestClientCanMakeDealWithProvider(t *testing.T) {
 		filename                string
 		filesize                uint64
 		voucherAmts             []abi.TokenAmount
-		selector                ipld.Node
+		selector                datamodel.Node
 		unsealPrice             abi.TokenAmount
 		zeroPricePerByte        bool
 		paramsV1, addFunds      bool

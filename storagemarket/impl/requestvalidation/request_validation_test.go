@@ -9,7 +9,8 @@ import (
 	"github.com/ipfs/go-datastore/namespace"
 	dss "github.com/ipfs/go-datastore/sync"
 	blocksutil "github.com/ipfs/go-ipfs-blocksutil"
-	"github.com/ipld/go-ipld-prime"
+	"github.com/ipld/go-ipld-prime/datamodel"
+	"github.com/ipld/go-ipld-prime/node/basicnode"
 	"github.com/libp2p/go-libp2p-core/peer"
 	xerrors "golang.org/x/xerrors"
 
@@ -22,17 +23,11 @@ import (
 
 	tut "github.com/filecoin-project/go-fil-markets/shared_testutil"
 	"github.com/filecoin-project/go-fil-markets/storagemarket"
+	"github.com/filecoin-project/go-fil-markets/storagemarket/impl/requestvalidation"
 	rv "github.com/filecoin-project/go-fil-markets/storagemarket/impl/requestvalidation"
 )
 
 var blockGenerator = blocksutil.NewBlockGenerator()
-
-type wrongDTType struct {
-}
-
-func (wrongDTType) Type() datatransfer.TypeIdentifier {
-	return "WrongDTTYPE"
-}
 
 func uniqueStorageDealProposal() (market.ClientDealProposal, error) {
 	clientAddr, err := address.NewIDAddress(uint64(rand.Int()))
@@ -133,7 +128,7 @@ func TestUnifiedRequestValidator(t *testing.T) {
 		urv := rv.NewUnifiedRequestValidator(nil, &pullDeals{state})
 
 		t.Run("ValidatePush fails", func(t *testing.T) {
-			_, err := urv.ValidatePush(datatransfer.ChannelID{}, minerID, wrongDTType{}, block.Cid(), nil)
+			_, err := urv.ValidatePush(datatransfer.ChannelID{}, minerID, basicnode.NewString("wrong DT type"), block.Cid(), nil)
 			if !xerrors.Is(err, rv.ErrNoPushAccepted) {
 				t.Fatal("Push should fail for the client request validator for storage deals")
 			}
@@ -145,7 +140,7 @@ func TestUnifiedRequestValidator(t *testing.T) {
 		urv := rv.NewUnifiedRequestValidator(&pushDeals{state}, nil)
 
 		t.Run("ValidatePull fails", func(t *testing.T) {
-			_, err := urv.ValidatePull(datatransfer.ChannelID{}, clientID, wrongDTType{}, block.Cid(), nil)
+			_, err := urv.ValidatePull(datatransfer.ChannelID{}, clientID, basicnode.NewString("wrong DT type"), block.Cid(), nil)
 			if !xerrors.Is(err, rv.ErrNoPullAccepted) {
 				t.Fatal("Pull should fail for the provider request validator for storage deals")
 			}
@@ -172,7 +167,9 @@ func AssertPushValidator(t *testing.T, validator datatransfer.RequestValidator, 
 		if err != nil {
 			t.Fatal("error serializing proposal")
 		}
-		checkValidateAndRevalidatePush(t, validator, datatransfer.ChannelID{}, sender, &rv.StorageDataTransferVoucher{proposalNd.Cid()}, proposal.Proposal.PieceCID, nil,
+		sdtv := rv.StorageDataTransferVoucher{proposalNd.Cid()}
+		voucher := requestvalidation.BindnodeRegistry.TypeToNode(&sdtv)
+		checkValidateAndRevalidatePush(t, validator, datatransfer.ChannelID{}, sender, datatransfer.TypedVoucher{Voucher: voucher, Type: rv.StorageDataTransferVoucherType}, proposal.Proposal.PieceCID, nil,
 			func(t *testing.T, result datatransfer.ValidationResult, err error) {
 				if err != nil {
 					t.Fatal("unexpected error validating")
@@ -190,7 +187,9 @@ func AssertPushValidator(t *testing.T, validator datatransfer.RequestValidator, 
 		if err := state.Begin(minerDeal.ProposalCid, &minerDeal); err != nil {
 			t.Fatal("deal tracking failed")
 		}
-		checkValidateAndRevalidatePush(t, validator, datatransfer.ChannelID{}, sender, &rv.StorageDataTransferVoucher{minerDeal.ProposalCid}, blockGenerator.Next().Cid(), nil,
+		sdtv := rv.StorageDataTransferVoucher{minerDeal.ProposalCid}
+		voucher := requestvalidation.BindnodeRegistry.TypeToNode(&sdtv)
+		checkValidateAndRevalidatePush(t, validator, datatransfer.ChannelID{}, sender, datatransfer.TypedVoucher{Voucher: voucher, Type: rv.StorageDataTransferVoucherType}, blockGenerator.Next().Cid(), nil,
 			func(t *testing.T, result datatransfer.ValidationResult, err error) {
 				if err != nil {
 					t.Fatal("unexpected error validating")
@@ -209,7 +208,9 @@ func AssertPushValidator(t *testing.T, validator datatransfer.RequestValidator, 
 			t.Fatal("deal tracking failed")
 		}
 		ref := minerDeal.Ref
-		checkValidateAndRevalidatePush(t, validator, datatransfer.ChannelID{}, sender, &rv.StorageDataTransferVoucher{minerDeal.ProposalCid}, ref.Root, nil,
+		sdtv := rv.StorageDataTransferVoucher{minerDeal.ProposalCid}
+		voucher := requestvalidation.BindnodeRegistry.TypeToNode(&sdtv)
+		checkValidateAndRevalidatePush(t, validator, datatransfer.ChannelID{}, sender, datatransfer.TypedVoucher{Voucher: voucher, Type: rv.StorageDataTransferVoucherType}, ref.Root, nil,
 			func(t *testing.T, result datatransfer.ValidationResult, err error) {
 				if err != nil {
 					t.Fatal("unexpected error validating")
@@ -228,7 +229,9 @@ func AssertPushValidator(t *testing.T, validator datatransfer.RequestValidator, 
 			t.Fatal("deal tracking failed")
 		}
 		ref := minerDeal.Ref
-		checkValidateAndRevalidatePush(t, validator, datatransfer.ChannelID{}, sender, &rv.StorageDataTransferVoucher{minerDeal.ProposalCid}, ref.Root, nil,
+		sdtv := rv.StorageDataTransferVoucher{minerDeal.ProposalCid}
+		voucher := requestvalidation.BindnodeRegistry.TypeToNode(&sdtv)
+		checkValidateAndRevalidatePush(t, validator, datatransfer.ChannelID{}, sender, datatransfer.TypedVoucher{Voucher: voucher, Type: rv.StorageDataTransferVoucherType}, ref.Root, nil,
 			func(t *testing.T, result datatransfer.ValidationResult, err error) {
 				if err != nil {
 					t.Fatal("unexpected error validating")
@@ -250,7 +253,9 @@ func AssertValidatesPulls(t *testing.T, validator datatransfer.RequestValidator,
 		if err != nil {
 			t.Fatal("error serializing proposal")
 		}
-		checkValidateAndRevalidatePull(t, validator, datatransfer.ChannelID{}, receiver, &rv.StorageDataTransferVoucher{proposalNd.Cid()}, proposal.Proposal.PieceCID, nil,
+		sdtv := rv.StorageDataTransferVoucher{proposalNd.Cid()}
+		voucher := requestvalidation.BindnodeRegistry.TypeToNode(&sdtv)
+		checkValidateAndRevalidatePull(t, validator, datatransfer.ChannelID{}, receiver, datatransfer.TypedVoucher{Voucher: voucher, Type: rv.StorageDataTransferVoucherType}, proposal.Proposal.PieceCID, nil,
 			func(t *testing.T, result datatransfer.ValidationResult, err error) {
 				if err != nil {
 					t.Fatal("unexpected error validating")
@@ -268,7 +273,9 @@ func AssertValidatesPulls(t *testing.T, validator datatransfer.RequestValidator,
 		if err := state.Begin(clientDeal.ProposalCid, &clientDeal); err != nil {
 			t.Fatal("deal tracking failed")
 		}
-		checkValidateAndRevalidatePull(t, validator, datatransfer.ChannelID{}, receiver, &rv.StorageDataTransferVoucher{clientDeal.ProposalCid}, blockGenerator.Next().Cid(), nil,
+		sdtv := rv.StorageDataTransferVoucher{clientDeal.ProposalCid}
+		voucher := requestvalidation.BindnodeRegistry.TypeToNode(&sdtv)
+		checkValidateAndRevalidatePull(t, validator, datatransfer.ChannelID{}, receiver, datatransfer.TypedVoucher{Voucher: voucher, Type: rv.StorageDataTransferVoucherType}, blockGenerator.Next().Cid(), nil,
 			func(t *testing.T, result datatransfer.ValidationResult, err error) {
 				if err != nil {
 					t.Fatal("unexpected error validating")
@@ -287,7 +294,9 @@ func AssertValidatesPulls(t *testing.T, validator datatransfer.RequestValidator,
 			t.Fatal("deal tracking failed")
 		}
 		payloadCid := clientDeal.DataRef.Root
-		checkValidateAndRevalidatePull(t, validator, datatransfer.ChannelID{}, receiver, &rv.StorageDataTransferVoucher{clientDeal.ProposalCid}, payloadCid, nil,
+		sdtv := rv.StorageDataTransferVoucher{clientDeal.ProposalCid}
+		voucher := requestvalidation.BindnodeRegistry.TypeToNode(&sdtv)
+		checkValidateAndRevalidatePull(t, validator, datatransfer.ChannelID{}, receiver, datatransfer.TypedVoucher{Voucher: voucher, Type: rv.StorageDataTransferVoucherType}, payloadCid, nil,
 			func(t *testing.T, result datatransfer.ValidationResult, err error) {
 				if err != nil {
 					t.Fatal("unexpected error validating")
@@ -306,7 +315,9 @@ func AssertValidatesPulls(t *testing.T, validator datatransfer.RequestValidator,
 			t.Fatal("deal tracking failed")
 		}
 		payloadCid := clientDeal.DataRef.Root
-		checkValidateAndRevalidatePull(t, validator, datatransfer.ChannelID{}, receiver, &rv.StorageDataTransferVoucher{clientDeal.ProposalCid}, payloadCid, nil,
+		sdtv := rv.StorageDataTransferVoucher{clientDeal.ProposalCid}
+		voucher := requestvalidation.BindnodeRegistry.TypeToNode(&sdtv)
+		checkValidateAndRevalidatePull(t, validator, datatransfer.ChannelID{}, receiver, datatransfer.TypedVoucher{Voucher: voucher, Type: rv.StorageDataTransferVoucherType}, payloadCid, nil,
 			func(t *testing.T, result datatransfer.ValidationResult, err error) {
 				if err != nil {
 					t.Fatal("unexpected error validating")
@@ -318,14 +329,14 @@ func AssertValidatesPulls(t *testing.T, validator datatransfer.RequestValidator,
 	})
 }
 
-func checkValidateAndRevalidatePush(t *testing.T, validator datatransfer.RequestValidator, chid datatransfer.ChannelID, sender peer.ID, voucher datatransfer.Voucher, baseCid cid.Cid, selector ipld.Node,
+func checkValidateAndRevalidatePush(t *testing.T, validator datatransfer.RequestValidator, chid datatransfer.ChannelID, sender peer.ID, voucher datatransfer.TypedVoucher, baseCid cid.Cid, selector datamodel.Node,
 	test func(t *testing.T, result datatransfer.ValidationResult, err error)) {
-	result, err := validator.ValidatePush(chid, sender, voucher, baseCid, selector)
+	result, err := validator.ValidatePush(chid, sender, voucher.Voucher, baseCid, selector)
 	test(t, result, err)
 	channel := tut.NewTestChannel(tut.TestChannelParams{
 		IsPull:   false,
 		Sender:   sender,
-		Vouchers: []datatransfer.Voucher{voucher},
+		Vouchers: []datatransfer.TypedVoucher{voucher},
 		BaseCID:  baseCid,
 		Selector: selector,
 	})
@@ -333,14 +344,14 @@ func checkValidateAndRevalidatePush(t *testing.T, validator datatransfer.Request
 	test(t, result, err)
 }
 
-func checkValidateAndRevalidatePull(t *testing.T, validator datatransfer.RequestValidator, chid datatransfer.ChannelID, receiver peer.ID, voucher datatransfer.Voucher, baseCid cid.Cid, selector ipld.Node,
+func checkValidateAndRevalidatePull(t *testing.T, validator datatransfer.RequestValidator, chid datatransfer.ChannelID, receiver peer.ID, voucher datatransfer.TypedVoucher, baseCid cid.Cid, selector datamodel.Node,
 	test func(t *testing.T, result datatransfer.ValidationResult, err error)) {
-	result, err := validator.ValidatePull(chid, receiver, voucher, baseCid, selector)
+	result, err := validator.ValidatePull(chid, receiver, voucher.Voucher, baseCid, selector)
 	test(t, result, err)
 	channel := tut.NewTestChannel(tut.TestChannelParams{
 		IsPull:    true,
 		Recipient: receiver,
-		Vouchers:  []datatransfer.Voucher{voucher},
+		Vouchers:  []datatransfer.TypedVoucher{voucher},
 		BaseCID:   baseCid,
 		Selector:  selector,
 	})

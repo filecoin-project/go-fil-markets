@@ -2,7 +2,8 @@ package shared_testutil
 
 import (
 	"github.com/ipfs/go-cid"
-	"github.com/ipld/go-ipld-prime"
+	"github.com/ipld/go-ipld-prime/datamodel"
+	"github.com/ipld/go-ipld-prime/node/basicnode"
 	selectorparse "github.com/ipld/go-ipld-prime/traversal/selector/parse"
 	"github.com/libp2p/go-libp2p-core/peer"
 	"golang.org/x/exp/rand"
@@ -14,7 +15,7 @@ import (
 type TestChannelParams struct {
 	TransferID     datatransfer.TransferID
 	BaseCID        cid.Cid
-	Selector       ipld.Node
+	Selector       datamodel.Node
 	SelfPeer       peer.ID
 	Sender         peer.ID
 	Recipient      peer.ID
@@ -25,8 +26,8 @@ type TestChannelParams struct {
 	Received       uint64
 	Queued         uint64
 	Status         datatransfer.Status
-	Vouchers       []datatransfer.Voucher
-	VoucherResults []datatransfer.VoucherResult
+	Vouchers       []datatransfer.TypedVoucher
+	VoucherResults []datatransfer.TypedVoucher
 	ReceivedCids   []cid.Cid
 }
 
@@ -35,7 +36,7 @@ type TestChannel struct {
 	selfPeer       peer.ID
 	transferID     datatransfer.TransferID
 	baseCID        cid.Cid
-	selector       ipld.Node
+	selector       datamodel.Node
 	sender         peer.ID
 	recipient      peer.ID
 	totalSize      uint64
@@ -45,36 +46,34 @@ type TestChannel struct {
 	received       uint64
 	queued         uint64
 	status         datatransfer.Status
-	vouchers       []datatransfer.Voucher
-	voucherResults []datatransfer.VoucherResult
+	vouchers       []datatransfer.TypedVoucher
+	voucherResults []datatransfer.TypedVoucher
 	receivedCids   []cid.Cid
 }
-
-// FakeDTType is a fake voucher type
-type FakeDTType struct{}
-
-// Type returns an identifier
-func (f FakeDTType) Type() datatransfer.TypeIdentifier { return "Fake" }
 
 // NewTestChannel makes a test channel with default params plus non-zero
 // values for TestChannelParams
 func NewTestChannel(params TestChannelParams) datatransfer.ChannelState {
 	peers := GeneratePeers(2)
 	tc := &TestChannel{
-		selfPeer:       peers[0],
-		transferID:     datatransfer.TransferID(rand.Uint64()),
-		baseCID:        GenerateCids(1)[0],
-		selector:       selectorparse.CommonSelector_ExploreAllRecursively,
-		sender:         peers[0],
-		recipient:      peers[1],
-		totalSize:      rand.Uint64(),
-		isPull:         params.IsPull,
-		status:         params.Status,
-		sent:           params.Sent,
-		received:       params.Received,
-		queued:         params.Queued,
-		vouchers:       []datatransfer.Voucher{FakeDTType{}},
-		voucherResults: []datatransfer.VoucherResult{FakeDTType{}},
+		selfPeer:   peers[0],
+		transferID: datatransfer.TransferID(rand.Uint64()),
+		baseCID:    GenerateCids(1)[0],
+		selector:   selectorparse.CommonSelector_ExploreAllRecursively,
+		sender:     peers[0],
+		recipient:  peers[1],
+		totalSize:  rand.Uint64(),
+		isPull:     params.IsPull,
+		status:     params.Status,
+		sent:       params.Sent,
+		received:   params.Received,
+		queued:     params.Queued,
+		vouchers: []datatransfer.TypedVoucher{
+			{Voucher: basicnode.NewString("Fake DT Voucher"), Type: datatransfer.TypeIdentifier("Fake")},
+		},
+		voucherResults: []datatransfer.TypedVoucher{
+			{Voucher: basicnode.NewString("Fake DT Voucher"), Type: datatransfer.TypeIdentifier("Fake")},
+		},
 	}
 
 	tc.receivedCids = params.ReceivedCids
@@ -133,7 +132,7 @@ func (tc *TestChannel) BaseCID() cid.Cid {
 
 // Selector returns the IPLD selector for this data transfer (represented as
 // an IPLD node)
-func (tc *TestChannel) Selector() ipld.Node {
+func (tc *TestChannel) Selector() datamodel.Node {
 	return tc.selector
 }
 
@@ -156,8 +155,8 @@ func (tc *TestChannel) SentCidsTotal() int64 {
 }
 
 // Voucher returns the voucher for this data transfer
-func (tc *TestChannel) Voucher() datatransfer.Voucher {
-	return tc.vouchers[0]
+func (tc *TestChannel) Voucher() (datatransfer.TypedVoucher, error) {
+	return tc.vouchers[0], nil
 }
 
 // Sender returns the peer id for the node that is sending data
@@ -236,23 +235,23 @@ func (tc *TestChannel) Message() string {
 }
 
 // Vouchers returns all vouchers sent on this channel
-func (tc *TestChannel) Vouchers() []datatransfer.Voucher {
-	return tc.vouchers
+func (tc *TestChannel) Vouchers() ([]datatransfer.TypedVoucher, error) {
+	return tc.vouchers, nil
 }
 
 // VoucherResults are results of vouchers sent on the channel
-func (tc *TestChannel) VoucherResults() []datatransfer.VoucherResult {
-	return tc.voucherResults
+func (tc *TestChannel) VoucherResults() ([]datatransfer.TypedVoucher, error) {
+	return tc.voucherResults, nil
 }
 
 // LastVoucher returns the last voucher sent on the channel
-func (tc *TestChannel) LastVoucher() datatransfer.Voucher {
-	return tc.vouchers[len(tc.vouchers)-1]
+func (tc *TestChannel) LastVoucher() (datatransfer.TypedVoucher, error) {
+	return tc.vouchers[len(tc.vouchers)-1], nil
 }
 
 // LastVoucherResult returns the last voucher result sent on the channel
-func (tc *TestChannel) LastVoucherResult() datatransfer.VoucherResult {
-	return tc.voucherResults[len(tc.voucherResults)-1]
+func (tc *TestChannel) LastVoucherResult() (datatransfer.TypedVoucher, error) {
+	return tc.voucherResults[len(tc.voucherResults)-1], nil
 }
 
 func (tc *TestChannel) Stages() *datatransfer.ChannelStages {

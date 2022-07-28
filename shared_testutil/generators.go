@@ -5,7 +5,7 @@ import (
 	"testing"
 
 	"github.com/ipfs/go-cid"
-	"github.com/ipld/go-ipld-prime"
+	"github.com/ipld/go-ipld-prime/datamodel"
 	"github.com/libp2p/go-libp2p-core/peer"
 	"github.com/libp2p/go-libp2p-core/test"
 	"github.com/stretchr/testify/require"
@@ -84,9 +84,9 @@ func MakeTestQueryResponse() retrievalmarket.QueryResponse {
 }
 
 // MakeTestDealProposal generates a valid, random DealProposal
-func MakeTestDealProposal() retrievalmarket.DealProposal {
+func MakeTestDealProposal() *retrievalmarket.DealProposal {
 	cid := GenerateCids(1)[0]
-	return retrievalmarket.DealProposal{
+	return &retrievalmarket.DealProposal{
 		PayloadCID: cid,
 		ID:         retrievalmarket.DealID(rand.Uint64()),
 		Params:     retrievalmarket.NewParamsV0(MakeTestTokenAmount(), rand.Uint64(), rand.Uint64()),
@@ -293,11 +293,11 @@ func RequireGenerateRetrievalPeers(t *testing.T, numPeers int) []retrievalmarket
 
 type FakeDTValidator struct{}
 
-func (v *FakeDTValidator) ValidatePush(_ datatransfer.ChannelID, sender peer.ID, voucher datatransfer.Voucher, baseCid cid.Cid, selector ipld.Node) (datatransfer.ValidationResult, error) {
+func (v *FakeDTValidator) ValidatePush(_ datatransfer.ChannelID, sender peer.ID, voucher datamodel.Node, baseCid cid.Cid, selector datamodel.Node) (datatransfer.ValidationResult, error) {
 	return datatransfer.ValidationResult{Accepted: true}, nil
 }
 
-func (v *FakeDTValidator) ValidatePull(_ datatransfer.ChannelID, receiver peer.ID, voucher datatransfer.Voucher, baseCid cid.Cid, selector ipld.Node) (datatransfer.ValidationResult, error) {
+func (v *FakeDTValidator) ValidatePull(_ datatransfer.ChannelID, receiver peer.ID, voucher datamodel.Node, baseCid cid.Cid, selector datamodel.Node) (datatransfer.ValidationResult, error) {
 	return datatransfer.ValidationResult{Accepted: true}, nil
 }
 

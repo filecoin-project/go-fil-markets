@@ -12,12 +12,10 @@ import (
 	"github.com/ipfs/go-datastore"
 	"github.com/ipfs/go-datastore/namespace"
 	dss "github.com/ipfs/go-datastore/sync"
-	"github.com/ipld/go-ipld-prime/codec/dagcbor"
 	selectorparse "github.com/ipld/go-ipld-prime/traversal/selector/parse"
 	"github.com/libp2p/go-libp2p-core/peer"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	cbg "github.com/whyrusleeping/cbor-gen"
 
 	"github.com/filecoin-project/go-address"
 	datatransfer "github.com/filecoin-project/go-data-transfer/v2"
@@ -959,22 +957,16 @@ func TestProvider_Construct(t *testing.T) {
 	)
 	require.NoError(t, err)
 	require.Len(t, dt.Subscribers, 1)
-	require.Len(t, dt.RegisteredVoucherResultTypes, 1)
-	_, ok := dt.RegisteredVoucherResultTypes[0].(*retrievalmarket.DealResponse)
-	require.True(t, ok)
 	require.Len(t, dt.RegisteredVoucherTypes, 2)
-	_, ok = dt.RegisteredVoucherTypes[0].VoucherType.(*retrievalmarket.DealProposal)
+	require.Equal(t, dt.RegisteredVoucherTypes[0].VoucherType, retrievalmarket.DealProposalType)
+	_, ok := dt.RegisteredVoucherTypes[0].Validator.(*requestvalidation.ProviderRequestValidator)
 	require.True(t, ok)
-	_, ok = dt.RegisteredVoucherTypes[0].Validator.(*requestvalidation.ProviderRequestValidator)
-	require.True(t, ok)
-	_, ok = dt.RegisteredVoucherTypes[1].VoucherType.(*retrievalmarket.DealPayment)
-	require.True(t, ok)
+	require.Equal(t, dt.RegisteredVoucherTypes[1].VoucherType, retrievalmarket.DealPaymentType)
 	_, ok = dt.RegisteredVoucherTypes[1].Validator.(*requestvalidation.ProviderRequestValidator)
 	require.True(t, ok)
 	require.Len(t, dt.RegisteredTransportConfigurers, 1)
-	_, ok = dt.RegisteredTransportConfigurers[0].VoucherType.(*retrievalmarket.DealProposal)
+	require.Equal(t, dt.RegisteredTransportConfigurers[0].VoucherType, retrievalmarket.DealProposalType)
 
-	require.True(t, ok)
 }
 
 func TestProviderConfigOpts(t *testing.T) {
@@ -1085,10 +1077,6 @@ func TestProviderMigrations(t *testing.T) {
 	sectorIDs := make([]abi.SectorNumber, numDeals)
 	offsets := make([]abi.PaddedPieceSize, numDeals)
 	lengths := make([]abi.PaddedPieceSize, numDeals)
-	allSelectorBuf := new(bytes.Buffer)
-	err := dagcbor.Encode(selectorparse.CommonSelector_ExploreAllRecursively, allSelectorBuf)
-	require.NoError(t, err)
-	allSelectorBytes := allSelectorBuf.Bytes()
 
 	for i := 0; i < numDeals; i++ {
 		payloadCIDs[i] = tut.GenerateCids(1)[0]
@@ -1117,8 +1105,8 @@ func TestProviderMigrations(t *testing.T) {
 				PayloadCID: payloadCIDs[i],
 				ID:         iDs[i],
 				Params: retrievalmarket.Params{
-					Selector: &cbg.Deferred{
-						Raw: allSelectorBytes,
+					Selector: retrievalmarket.CborGenCompatibleNode{
+						Node: selectorparse.CommonSelector_ExploreAllRecursively,
 					},
 					PieceCID:                pieceCIDs[i],
 					PricePerByte:            pricePerBytes[i],
@@ -1180,8 +1168,8 @@ func TestProviderMigrations(t *testing.T) {
 				PayloadCID: payloadCIDs[i],
 				ID:         iDs[i],
 				Params: retrievalmarket.Params{
-					Selector: &cbg.Deferred{
-						Raw: allSelectorBytes,
+					Selector: retrievalmarket.CborGenCompatibleNode{
+						Node: selectorparse.CommonSelector_ExploreAllRecursively,
 					},
 					PieceCID:                pieceCIDs[i],
 					PricePerByte:            pricePerBytes[i],

@@ -6,7 +6,7 @@ import (
 	"testing"
 
 	"github.com/ipfs/go-cid"
-	"github.com/ipld/go-ipld-prime"
+	"github.com/ipld/go-ipld-prime/datamodel"
 	basicnode "github.com/ipld/go-ipld-prime/node/basic"
 	"github.com/ipld/go-ipld-prime/traversal/selector/builder"
 	selectorparse "github.com/ipld/go-ipld-prime/traversal/selector/parse"
@@ -26,23 +26,40 @@ import (
 func TestValidatePush(t *testing.T) {
 	fve := &fakeValidationEnvironment{}
 	sender := shared_testutil.GeneratePeers(1)[0]
-	voucher := shared_testutil.MakeTestDealProposal()
+	testDp := shared_testutil.MakeTestDealProposal()
+	voucher := rm.BindnodeRegistry.TypeToNode(testDp)
 	requestValidator := requestvalidation.NewProviderRequestValidator(fve)
-	validationResult, err := requestValidator.ValidatePush(datatransfer.ChannelID{}, sender, &voucher, voucher.PayloadCID, selectorparse.CommonSelector_ExploreAllRecursively)
-	require.Equal(t, nil, validationResult.VoucherResult)
+	validationResult, err := requestValidator.ValidatePush(datatransfer.ChannelID{}, sender, voucher, testDp.PayloadCID, selectorparse.CommonSelector_ExploreAllRecursively)
+	require.Nil(t, validationResult.VoucherResult)
 	require.Error(t, err)
+}
+
+func dealResponseToVoucher(t *testing.T, status rm.DealStatus, id rm.DealID, message string, owed *abi.TokenAmount) *datatransfer.TypedVoucher {
+	dr := rm.DealResponse{
+		Status:  status,
+		ID:      id,
+		Message: message,
+	}
+	if owed != nil {
+		dr.PaymentOwed = *owed
+	}
+	node := rm.BindnodeRegistry.TypeToNode(&dr)
+	return &datatransfer.TypedVoucher{Voucher: node, Type: rm.DealResponseType}
 }
 
 func TestValidatePull(t *testing.T) {
 	proposal := shared_testutil.MakeTestDealProposal()
+	node := rm.BindnodeRegistry.TypeToNode(proposal)
+	proposalVoucher := datatransfer.TypedVoucher{Voucher: node, Type: rm.DealProposalType}
+	zero := big.Zero()
 
 	testCases := map[string]struct {
 		fve                        fakeValidationEnvironment
 		sender                     peer.ID
-		voucher                    datatransfer.Voucher
+		voucher                    datatransfer.TypedVoucher
 		baseCid                    cid.Cid
-		selector                   ipld.Node
-		expectedVoucherResult      datatransfer.VoucherResult
+		selector                   datamodel.Node
+		expectedVoucherResult      *datatransfer.TypedVoucher
 		expectedError              error
 		expectAccepted             bool
 		expectForcePause           bool
@@ -50,93 +67,65 @@ func TestValidatePull(t *testing.T) {
 		expectRequiresFinalization bool
 	}{
 		"not a retrieval voucher": {
-			expectedError: errors.New("wrong voucher type"),
+			expectedError: errors.New("empty voucher"),
 		},
 		"proposal and base cid do not match": {
-			baseCid: shared_testutil.GenerateCids(1)[0],
-			voucher: &proposal,
-			expectedVoucherResult: &rm.DealResponse{
-				Status:  rm.DealStatusRejected,
-				ID:      proposal.ID,
-				Message: "incorrect CID for this proposal",
-			},
+			baseCid:               shared_testutil.GenerateCids(1)[0],
+			voucher:               proposalVoucher,
+			expectedVoucherResult: dealResponseToVoucher(t, rm.DealStatusRejected, proposal.ID, "incorrect CID for this proposal", nil),
 		},
 		"proposal and selector do not match": {
-			baseCid:  proposal.PayloadCID,
-			selector: builder.NewSelectorSpecBuilder(basicnode.Prototype.Any).Matcher().Node(),
-			voucher:  &proposal,
-			expectedVoucherResult: &rm.DealResponse{
-				Status:  rm.DealStatusRejected,
-				ID:      proposal.ID,
-				Message: "incorrect selector specified for this proposal",
-			},
+			baseCid:               proposal.PayloadCID,
+			selector:              builder.NewSelectorSpecBuilder(basicnode.Prototype.Any).Matcher().Node(),
+			voucher:               proposalVoucher,
+			expectedVoucherResult: dealResponseToVoucher(t, rm.DealStatusRejected, proposal.ID, "incorrect selector specified for this proposal", nil),
 		},
 		"get piece other err": {
 			fve: fakeValidationEnvironment{
 				RunDealDecisioningLogicAccepted: true,
 				GetPieceErr:                     errors.New("something went wrong"),
 			},
-			baseCid:  proposal.PayloadCID,
-			selector: selectorparse.CommonSelector_ExploreAllRecursively,
-			voucher:  &proposal,
-			expectedVoucherResult: &rm.DealResponse{
-				Status:  rm.DealStatusErrored,
-				ID:      proposal.ID,
-				Message: "something went wrong",
-			},
+			baseCid:               proposal.PayloadCID,
+			selector:              selectorparse.CommonSelector_ExploreAllRecursively,
+			voucher:               proposalVoucher,
+			expectedVoucherResult: dealResponseToVoucher(t, rm.DealStatusErrored, proposal.ID, "something went wrong", nil),
 		},
 		"get piece not found err": {
 			fve: fakeValidationEnvironment{
 				RunDealDecisioningLogicAccepted: true,
 				GetPieceErr:                     rm.ErrNotFound,
 			},
-			baseCid:  proposal.PayloadCID,
-			selector: selectorparse.CommonSelector_ExploreAllRecursively,
-			voucher:  &proposal,
-			expectedVoucherResult: &rm.DealResponse{
-				Status:  rm.DealStatusDealNotFound,
-				ID:      proposal.ID,
-				Message: rm.ErrNotFound.Error(),
-			},
+			baseCid:               proposal.PayloadCID,
+			selector:              selectorparse.CommonSelector_ExploreAllRecursively,
+			voucher:               proposalVoucher,
+			expectedVoucherResult: dealResponseToVoucher(t, rm.DealStatusDealNotFound, proposal.ID, rm.ErrNotFound.Error(), nil),
 		},
 		"check deal params err": {
 			fve: fakeValidationEnvironment{
 				CheckDealParamsError: errors.New("something went wrong"),
 			},
-			baseCid:  proposal.PayloadCID,
-			selector: selectorparse.CommonSelector_ExploreAllRecursively,
-			voucher:  &proposal,
-			expectedVoucherResult: &rm.DealResponse{
-				Status:  rm.DealStatusRejected,
-				ID:      proposal.ID,
-				Message: "something went wrong",
-			},
+			baseCid:               proposal.PayloadCID,
+			selector:              selectorparse.CommonSelector_ExploreAllRecursively,
+			voucher:               proposalVoucher,
+			expectedVoucherResult: dealResponseToVoucher(t, rm.DealStatusRejected, proposal.ID, "something went wrong", nil),
 		},
 		"run deal decioning error": {
 			fve: fakeValidationEnvironment{
 				RunDealDecisioningLogicError: errors.New("something went wrong"),
 			},
-			baseCid:  proposal.PayloadCID,
-			selector: selectorparse.CommonSelector_ExploreAllRecursively,
-			voucher:  &proposal,
-			expectedVoucherResult: &rm.DealResponse{
-				Status:  rm.DealStatusErrored,
-				ID:      proposal.ID,
-				Message: "something went wrong",
-			},
+			baseCid:               proposal.PayloadCID,
+			selector:              selectorparse.CommonSelector_ExploreAllRecursively,
+			voucher:               proposalVoucher,
+			expectedVoucherResult: dealResponseToVoucher(t, rm.DealStatusErrored, proposal.ID, "something went wrong", nil),
 		},
 		"run deal decioning rejected": {
 			fve: fakeValidationEnvironment{
 				RunDealDecisioningLogicFailReason: "something went wrong",
 			},
-			baseCid:  proposal.PayloadCID,
-			selector: selectorparse.CommonSelector_ExploreAllRecursively,
-			voucher:  &proposal,
-			expectedVoucherResult: &rm.DealResponse{
-				Status:  rm.DealStatusRejected,
-				ID:      proposal.ID,
-				Message: "something went wrong",
-			},
+			baseCid:               proposal.PayloadCID,
+			selector:              selectorparse.CommonSelector_ExploreAllRecursively,
+			voucher:               proposalVoucher,
+			expectedVoucherResult: dealResponseToVoucher(t, rm.DealStatusRejected, proposal.ID, "something went wrong", nil),
 		},
 		"begin tracking error": {
 			fve: fakeValidationEnvironment{
@@ -145,21 +134,17 @@ func TestValidatePull(t *testing.T) {
 			},
 			baseCid:       proposal.PayloadCID,
 			selector:      selectorparse.CommonSelector_ExploreAllRecursively,
-			voucher:       &proposal,
+			voucher:       proposalVoucher,
 			expectedError: errors.New("everything is awful"),
 		},
 		"success": {
 			fve: fakeValidationEnvironment{
 				RunDealDecisioningLogicAccepted: true,
 			},
-			baseCid:  proposal.PayloadCID,
-			selector: selectorparse.CommonSelector_ExploreAllRecursively,
-			voucher:  &proposal,
-			expectedVoucherResult: &rm.DealResponse{
-				Status:      rm.DealStatusAccepted,
-				ID:          proposal.ID,
-				PaymentOwed: big.Zero(),
-			},
+			baseCid:                    proposal.PayloadCID,
+			selector:                   selectorparse.CommonSelector_ExploreAllRecursively,
+			voucher:                    proposalVoucher,
+			expectedVoucherResult:      dealResponseToVoucher(t, rm.DealStatusAccepted, proposal.ID, "", &zero),
 			expectAccepted:             true,
 			expectForcePause:           true,
 			expectDataLimit:            proposal.PaymentInterval,
@@ -169,8 +154,12 @@ func TestValidatePull(t *testing.T) {
 	for testCase, data := range testCases {
 		t.Run(testCase, func(t *testing.T) {
 			requestValidator := requestvalidation.NewProviderRequestValidator(&data.fve)
-			validationResult, err := requestValidator.ValidatePull(datatransfer.ChannelID{}, data.sender, data.voucher, data.baseCid, data.selector)
-			require.Equal(t, data.expectedVoucherResult, validationResult.VoucherResult)
+			validationResult, err := requestValidator.ValidatePull(datatransfer.ChannelID{}, data.sender, data.voucher.Voucher, data.baseCid, data.selector)
+			if data.expectedVoucherResult == nil {
+				require.Nil(t, validationResult.VoucherResult)
+			} else {
+				require.True(t, data.expectedVoucherResult.Equals(*validationResult.VoucherResult))
+			}
 			require.Equal(t, data.expectAccepted, validationResult.Accepted)
 			require.Equal(t, data.expectForcePause, validationResult.ForcePause)
 			require.Equal(t, data.expectDataLimit, validationResult.DataLimit)
@@ -206,11 +195,13 @@ func TestValidateRestart(t *testing.T) {
 		ID:     dealID,
 		Params: params,
 	}
+	node := rm.BindnodeRegistry.TypeToNode(&proposal)
+	proposalVoucher := datatransfer.TypedVoucher{Voucher: node, Type: rm.DealProposalType}
 
 	testCases := map[string]struct {
 		status                rm.DealStatus
 		fundReceived          abi.TokenAmount
-		voucher               datatransfer.Voucher
+		voucher               datatransfer.TypedVoucher
 		queued                uint64
 		dtStatus              datatransfer.Status
 		dealErr               error
@@ -220,7 +211,7 @@ func TestValidateRestart(t *testing.T) {
 		"normal operation": {
 			status:       rm.DealStatusOngoing,
 			fundReceived: big.Add(defaultUnsealPrice, defaultPaymentPerInterval),
-			voucher:      &proposal,
+			voucher:      proposalVoucher,
 			queued:       defaultCurrentInterval,
 			dtStatus:     datatransfer.Ongoing,
 			expectedValidation: datatransfer.ValidationResult{
@@ -232,7 +223,7 @@ func TestValidateRestart(t *testing.T) {
 		"unsealing": {
 			status:       rm.DealStatusUnsealing,
 			fundReceived: defaultUnsealPrice,
-			voucher:      &proposal,
+			voucher:      proposalVoucher,
 			queued:       0,
 			dtStatus:     datatransfer.ResponderPaused,
 			expectedValidation: datatransfer.ValidationResult{
@@ -245,7 +236,7 @@ func TestValidateRestart(t *testing.T) {
 		"last payment, no money owed": {
 			status:       rm.DealStatusFinalizing,
 			fundReceived: big.Add(defaultUnsealPrice, big.Add(defaultPaymentPerInterval, defaultPaymentPerInterval)),
-			voucher:      &proposal,
+			voucher:      proposalVoucher,
 			queued:       defaultCurrentInterval + defaultCurrentInterval,
 			dtStatus:     datatransfer.Finalizing,
 			expectedValidation: datatransfer.ValidationResult{
@@ -257,7 +248,7 @@ func TestValidateRestart(t *testing.T) {
 		"last payment, money owed": {
 			status:       rm.DealStatusFundsNeededLastPayment,
 			fundReceived: big.Add(defaultUnsealPrice, defaultPaymentPerInterval),
-			voucher:      &proposal,
+			voucher:      proposalVoucher,
 			queued:       defaultCurrentInterval + defaultCurrentInterval,
 			dtStatus:     datatransfer.Finalizing,
 			expectedValidation: datatransfer.ValidationResult{
@@ -267,19 +258,15 @@ func TestValidateRestart(t *testing.T) {
 			},
 		},
 		"get deal error": {
-			voucher: &proposal,
+			voucher: proposalVoucher,
 			dealErr: errors.New("something went wrong"),
 			expectedValidation: datatransfer.ValidationResult{
-				Accepted: false,
-				VoucherResult: &rm.DealResponse{
-					ID:      dealID,
-					Message: "something went wrong",
-					Status:  rm.DealStatusErrored,
-				},
+				Accepted:      false,
+				VoucherResult: dealResponseToVoucher(t, rm.DealStatusErrored, dealID, "something went wrong", nil),
 			},
 		},
 		"wrong voucher type": {
-			voucher:               &shared_testutil.FakeDTType{},
+			voucher:               datatransfer.TypedVoucher{Voucher: basicnode.NewString("bad voucher"), Type: datatransfer.TypeIdentifier("bad")},
 			expectedValidationErr: errors.New("wrong voucher type"),
 		},
 	}
@@ -296,14 +283,14 @@ func TestValidateRestart(t *testing.T) {
 			fve := &fakeValidationEnvironment{GetDeal: *dealState, GetError: data.dealErr}
 			requestValidator := requestvalidation.NewProviderRequestValidator(fve)
 			chst := shared_testutil.NewTestChannel(shared_testutil.TestChannelParams{
-				Vouchers: []datatransfer.Voucher{
+				Vouchers: []datatransfer.TypedVoucher{
 					data.voucher,
 				},
 				Status: data.dtStatus,
 				Queued: data.queued,
 			})
 			validationResult, err := requestValidator.ValidateRestart(datatransfer.ChannelID{}, chst)
-			require.Equal(t, data.expectedValidation, validationResult)
+			require.True(t, data.expectedValidation.Equals(validationResult))
 			if data.expectedValidationErr == nil {
 				require.NoError(t, err)
 			} else {

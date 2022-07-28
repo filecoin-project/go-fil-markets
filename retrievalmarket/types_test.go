@@ -5,8 +5,6 @@ import (
 	"encoding/json"
 	"testing"
 
-	"github.com/ipld/go-ipld-prime/codec/dagcbor"
-	basicnode "github.com/ipld/go-ipld-prime/node/basic"
 	selectorparse "github.com/ipld/go-ipld-prime/traversal/selector/parse"
 	"github.com/libp2p/go-libp2p-core/test"
 	"github.com/stretchr/testify/assert"
@@ -36,11 +34,7 @@ func TestParamsMarshalUnmarshal(t *testing.T) {
 
 	assert.Equal(t, params, *unmarshalled)
 
-	nb := basicnode.Prototype.Any.NewBuilder()
-	err = dagcbor.Decode(nb, bytes.NewBuffer(unmarshalled.Selector.Raw))
-	assert.NoError(t, err)
-	sel := nb.Build()
-	assert.Equal(t, sel, allSelector)
+	assert.Equal(t, unmarshalled.Selector.Node, allSelector)
 }
 
 func TestPricingInputMarshalUnmarshalJSON(t *testing.T) {

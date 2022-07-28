@@ -65,9 +65,18 @@ func providerEvent(event datatransfer.Event, channelState datatransfer.ChannelSt
 // event or moving to error if a data transfer error occurs
 func ProviderDataTransferSubscriber(deals EventReceiver) datatransfer.Subscriber {
 	return func(event datatransfer.Event, channelState datatransfer.ChannelState) {
-		dealProposal, ok := dealProposalFromVoucher(channelState.Voucher())
+		voucher, err := channelState.Voucher()
+		if err != nil {
+			log.Errorf("received bad voucher: %s", err.Error())
+			return
+		}
+		if voucher.Voucher == nil {
+			log.Errorf("received empty voucher")
+			return
+		}
+		dealProposal, err := rm.DealProposalFromNode(voucher.Voucher)
 		// if this event is for a transfer not related to storage, ignore
-		if !ok {
+		if err != nil {
 			return
 		}
 		dealID := rm.ProviderDealIdentifier{DealID: dealProposal.ID, Receiver: channelState.Recipient()}
@@ -77,7 +86,7 @@ func ProviderDataTransferSubscriber(deals EventReceiver) datatransfer.Subscriber
 		}
 		log.Debugw("processing retrieval provider dt event", "event", datatransfer.Events[event.Code], "dealID", dealProposal.ID, "peer", channelState.OtherPeer(), "retrievalEvent", rm.ProviderEvents[retrievalEvent])
 
-		err := deals.Send(dealID, retrievalEvent, params...)
+		err = deals.Send(dealID, retrievalEvent, params...)
 		if err != nil {
 			log.Errorf("processing dt event: %s", err)
 		}
@@ -117,9 +126,14 @@ func clientEvent(event datatransfer.Event, channelState datatransfer.ChannelStat
 	case datatransfer.Cancel:
 		return rm.ClientEventProviderCancelled, nil
 	case datatransfer.NewVoucherResult:
-		response, ok := dealResponseFromVoucherResult(channelState.LastVoucherResult())
-		if !ok {
-			log.Errorf("unexpected voucher result received: %s", channelState.LastVoucher().Type())
+		voucher, err := channelState.LastVoucherResult()
+		if err != nil {
+			log.Errorf("received bad voucher result: %s", err.Error())
+			return noEvent, nil
+		}
+		response, err := rm.DealResponseFromNode(voucher.Voucher)
+		if err != nil {
+			log.Errorf("unexpected voucher result received: %s", err.Error())
 			return noEvent, nil
 		}
 
@@ -143,10 +157,14 @@ func clientEvent(event datatransfer.Event, channelState datatransfer.ChannelStat
 // an event to the appropriate state machine
 func ClientDataTransferSubscriber(deals EventReceiver) datatransfer.Subscriber {
 	return func(event datatransfer.Event, channelState datatransfer.ChannelState) {
-		dealProposal, ok := dealProposalFromVoucher(channelState.Voucher())
-
+		voucher, err := channelState.Voucher()
+		if err != nil {
+			log.Errorf("received bad voucher: %s", err.Error())
+			return
+		}
+		dealProposal, err := rm.DealProposalFromNode(voucher.Voucher)
 		// if this event is for a transfer not related to retrieval, ignore
-		if !ok {
+		if err != nil {
 			return
 		}
 
@@ -158,7 +176,7 @@ func ClientDataTransferSubscriber(deals EventReceiver) datatransfer.Subscriber {
 		log.Debugw("processing retrieval client dt event", "event", datatransfer.Events[event.Code], "dealID", dealProposal.ID, "peer", channelState.OtherPeer(), "retrievalEvent", rm.ClientEvents[retrievalEvent])
 
 		// data transfer events for progress do not affect deal state
-		err := deals.Send(dealProposal.ID, retrievalEvent, params...)
+		err = deals.Send(dealProposal.ID, retrievalEvent, params...)
 		if err != nil {
 			log.Errorf("processing dt event %s for state %s: %s",
 				datatransfer.Events[event.Code], datatransfer.Statuses[channelState.Status()], err)
@@ -179,9 +197,10 @@ type StoreConfigurableTransport interface {
 
 // TransportConfigurer configurers the graphsync transport to use a custom blockstore per deal
 func TransportConfigurer(thisPeer peer.ID, storeGetter StoreGetter) datatransfer.TransportConfigurer {
-	return func(channelID datatransfer.ChannelID, voucher datatransfer.Voucher, transport datatransfer.Transport) {
-		dealProposal, ok := dealProposalFromVoucher(voucher)
-		if !ok {
+	return func(channelID datatransfer.ChannelID, voucher datatransfer.TypedVoucher, transport datatransfer.Transport) {
+		dealProposal, err := rm.DealProposalFromNode(voucher.Voucher)
+		if err != nil {
+			log.Debugf("not a deal proposal voucher: %s", err.Error())
 			return
 		}
 		gsTransport, ok := transport.(StoreConfigurableTransport)
@@ -202,23 +221,4 @@ func TransportConfigurer(thisPeer peer.ID, storeGetter StoreGetter) datatransfer
 			log.Errorf("attempting to configure data store: %s", err)
 		}
 	}
-}
-
-func dealProposalFromVoucher(voucher datatransfer.Voucher) (*rm.DealProposal, bool) {
-	dealProposal, ok := voucher.(*rm.DealProposal)
-	// if this event is for a transfer not related to storage, ignore
-	if ok {
-		return dealProposal, true
-	}
-
-	return nil, false
-}
-
-func dealResponseFromVoucherResult(vres datatransfer.VoucherResult) (*rm.DealResponse, bool) {
-	dealResponse, ok := vres.(*rm.DealResponse)
-	// if this event is for a transfer not related to storage, ignore
-	if ok {
-		return dealResponse, true
-	}
-	return nil, false
 }

@@ -125,12 +125,12 @@ func NewClient(
 	// register a data transfer event handler -- this will send events to the state machines based on DT events
 	c.unsubDataTransfer = dataTransfer.SubscribeToEvents(dtutils.ClientDataTransferSubscriber(c.statemachines))
 
-	err = dataTransfer.RegisterVoucherType(&requestvalidation.StorageDataTransferVoucher{}, requestvalidation.NewUnifiedRequestValidator(nil, &clientPullDeals{c}))
+	err = dataTransfer.RegisterVoucherType(requestvalidation.StorageDataTransferVoucherType, requestvalidation.NewUnifiedRequestValidator(nil, &clientPullDeals{c}))
 	if err != nil {
 		return nil, err
 	}
 
-	err = dataTransfer.RegisterTransportConfigurer(&requestvalidation.StorageDataTransferVoucher{}, dtutils.TransportConfigurer(&clientStoreGetter{c}))
+	err = dataTransfer.RegisterTransportConfigurer(requestvalidation.StorageDataTransferVoucherType, dtutils.TransportConfigurer(&clientStoreGetter{c}))
 	if err != nil {
 		return nil, err
 	}

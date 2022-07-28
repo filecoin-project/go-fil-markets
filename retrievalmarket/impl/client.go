@@ -108,21 +108,17 @@ func NewClient(
 	if err != nil {
 		return nil, err
 	}
-	err = dataTransfer.RegisterVoucherResultType(&retrievalmarket.DealResponse{})
+	err = dataTransfer.RegisterVoucherType(retrievalmarket.DealProposalType, nil)
 	if err != nil {
 		return nil, err
 	}
-	err = dataTransfer.RegisterVoucherType(&retrievalmarket.DealProposal{}, nil)
-	if err != nil {
-		return nil, err
-	}
-	err = dataTransfer.RegisterVoucherType(&retrievalmarket.DealPayment{}, nil)
+	err = dataTransfer.RegisterVoucherType(retrievalmarket.DealPaymentType, nil)
 	if err != nil {
 		return nil, err
 	}
 	dataTransfer.SubscribeToEvents(dtutils.ClientDataTransferSubscriber(c.stateMachines))
 	transportConfigurer := dtutils.TransportConfigurer(network.ID(), &clientStoreGetter{c})
-	err = dataTransfer.RegisterTransportConfigurer(&retrievalmarket.DealProposal{}, transportConfigurer)
+	err = dataTransfer.RegisterTransportConfigurer(retrievalmarket.DealProposalType, transportConfigurer)
 	if err != nil {
 		return nil, err
 	}
@@ -406,20 +402,15 @@ func (c *clientDealEnvironment) Node() retrievalmarket.RetrievalClientNode {
 func (c *clientDealEnvironment) OpenDataTransfer(ctx context.Context, to peer.ID, proposal *retrievalmarket.DealProposal) (datatransfer.ChannelID, error) {
 	sel := selectorparse.CommonSelector_ExploreAllRecursively
 	if proposal.SelectorSpecified() {
-		var err error
-		sel, err = retrievalmarket.DecodeNode(proposal.Selector)
-		if err != nil {
-			return datatransfer.ChannelID{}, xerrors.Errorf("selector is invalid: %w", err)
-		}
+		sel = proposal.Selector.Node
 	}
-
-	var vouch datatransfer.Voucher = proposal
-	return c.c.dataTransfer.OpenPullDataChannel(ctx, to, vouch, proposal.PayloadCID, sel)
+	vouch := retrievalmarket.BindnodeRegistry.TypeToNode(proposal)
+	return c.c.dataTransfer.OpenPullDataChannel(ctx, to, datatransfer.TypedVoucher{Voucher: vouch, Type: retrievalmarket.DealProposalType}, proposal.PayloadCID, sel)
 }
 
 func (c *clientDealEnvironment) SendDataTransferVoucher(ctx context.Context, channelID datatransfer.ChannelID, payment *retrievalmarket.DealPayment) error {
-	var vouch datatransfer.Voucher = payment
-	return c.c.dataTransfer.SendVoucher(ctx, channelID, vouch)
+	vouch := retrievalmarket.BindnodeRegistry.TypeToNode(payment)
+	return c.c.dataTransfer.SendVoucher(ctx, channelID, datatransfer.TypedVoucher{Voucher: vouch, Type: retrievalmarket.DealPaymentType})
 }
 
 func (c *clientDealEnvironment) CloseDataTransfer(ctx context.Context, channelID datatransfer.ChannelID) error {

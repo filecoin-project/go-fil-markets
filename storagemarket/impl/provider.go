@@ -164,12 +164,12 @@ func NewProvider(net network.StorageMarketNetwork,
 	h.unsubDataTransfer = dataTransfer.SubscribeToEvents(dtutils.ProviderDataTransferSubscriber(h.deals))
 
 	pph := &providerPushDeals{h}
-	err = dataTransfer.RegisterVoucherType(&requestvalidation.StorageDataTransferVoucher{}, requestvalidation.NewUnifiedRequestValidator(pph, nil))
+	err = dataTransfer.RegisterVoucherType(requestvalidation.StorageDataTransferVoucherType, requestvalidation.NewUnifiedRequestValidator(pph, nil))
 	if err != nil {
 		return nil, err
 	}
 
-	err = dataTransfer.RegisterTransportConfigurer(&requestvalidation.StorageDataTransferVoucher{}, dtutils.TransportConfigurer(&providerStoreGetter{h}))
+	err = dataTransfer.RegisterTransportConfigurer(requestvalidation.StorageDataTransferVoucherType, dtutils.TransportConfigurer(&providerStoreGetter{h}))
 	if err != nil {
 		return nil, err
 	}
