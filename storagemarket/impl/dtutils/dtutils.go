@@ -32,12 +32,7 @@ type EventReceiver interface {
 // event or moving to error if a data transfer error occurs
 func ProviderDataTransferSubscriber(deals EventReceiver) datatransfer.Subscriber {
 	return func(event datatransfer.Event, channelState datatransfer.ChannelState) {
-		node, err := channelState.Voucher()
-		if err != nil {
-			log.Errorf("ignoring data-transfer event as the voucher is invalid, event=%s, channelID=%s: %s", datatransfer.Events[event.Code], "channelID",
-				channelState.ChannelID().String(), err.Error())
-			return
-		}
+		node := channelState.Voucher()
 		if node.Voucher == nil {
 			log.Debugw("ignoring data-transfer event as it's not storage related", "event", datatransfer.Events[event.Code], "channelID",
 				channelState.ChannelID())
@@ -95,12 +90,7 @@ func ProviderDataTransferSubscriber(deals EventReceiver) datatransfer.Subscriber
 func ClientDataTransferSubscriber(deals EventReceiver) datatransfer.Subscriber {
 	return func(event datatransfer.Event, channelState datatransfer.ChannelState) {
 		// TODO: are these log messages valid for Client?
-		node, err := channelState.Voucher()
-		if err != nil {
-			log.Errorf("ignoring data-transfer event as the voucher is invalid, event=%s, channelID=%s: %s", datatransfer.Events[event.Code], "channelID",
-				channelState.ChannelID().String(), err.Error())
-			return
-		}
+		node := channelState.Voucher()
 		if node.Voucher == nil {
 			log.Debugw("ignoring data-transfer event as it's not storage related", "event", datatransfer.Events[event.Code], "channelID",
 				channelState.ChannelID())
@@ -135,9 +125,9 @@ func ClientDataTransferSubscriber(deals EventReceiver) datatransfer.Subscriber {
 				return deals.Send(voucher.Proposal, storagemarket.ClientEventDataTransferRestarted, channelState.ChannelID())
 			case datatransfer.Disconnected:
 				return deals.Send(voucher.Proposal, storagemarket.ClientEventDataTransferStalled)
-			case datatransfer.TransferRequestQueued:
-				return deals.Send(voucher.Proposal, storagemarket.ClientEventDataTransferQueued, channelState.ChannelID())
 			case datatransfer.Accept:
+				return deals.Send(voucher.Proposal, storagemarket.ClientEventDataTransferQueued, channelState.ChannelID())
+			case datatransfer.TransferInitiated:
 				return deals.Send(voucher.Proposal, storagemarket.ClientEventDataTransferInitiated, channelState.ChannelID())
 			case datatransfer.Error:
 				return deals.Send(voucher.Proposal, storagemarket.ClientEventDataTransferFailed, fmt.Errorf("deal data transfer failed: %s", event.Message))

@@ -79,16 +79,10 @@ func (v *UnifiedRequestValidator) ValidatePull(_ datatransfer.ChannelID, receive
 
 func (v *UnifiedRequestValidator) ValidateRestart(chid datatransfer.ChannelID, channelState datatransfer.ChannelState) (datatransfer.ValidationResult, error) {
 	if channelState.IsPull() {
-		voucher, err := channelState.Voucher()
-		if err != nil {
-			return datatransfer.ValidationResult{}, err
-		}
+		voucher := channelState.Voucher()
 		return v.ValidatePull(chid, channelState.Recipient(), voucher.Voucher, channelState.BaseCID(), channelState.Selector())
 	} else {
-		voucher, err := channelState.Voucher()
-		if err != nil {
-			return datatransfer.ValidationResult{}, err
-		}
+		voucher := channelState.Voucher()
 		return v.ValidatePush(chid, channelState.Sender(), voucher.Voucher, channelState.BaseCID(), channelState.Selector())
 	}
 }

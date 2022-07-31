@@ -159,10 +159,7 @@ func savePayment(ctx fsm.Context, env ProviderDealEnvironment, payment *rm.DealP
 }
 
 func processLastVoucher(ctx fsm.Context, env ProviderDealEnvironment, channelState datatransfer.ChannelState) (abi.TokenAmount, error) {
-	voucher, err := channelState.LastVoucher()
-	if err != nil {
-		return abi.TokenAmount{}, err
-	}
+	voucher := channelState.LastVoucher()
 
 	// read payment and return response if present
 	if payment, err := rm.DealPaymentFromNode(voucher.Voucher); err == nil {

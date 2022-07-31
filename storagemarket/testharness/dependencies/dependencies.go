@@ -12,13 +12,13 @@ import (
 	"github.com/ipfs/go-datastore/namespace"
 	graphsyncimpl "github.com/ipfs/go-graphsync/impl"
 	"github.com/ipfs/go-graphsync/network"
+	peer "github.com/libp2p/go-libp2p-core/peer"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	"github.com/filecoin-project/go-address"
 	datatransfer "github.com/filecoin-project/go-data-transfer/v2"
 	dtimpl "github.com/filecoin-project/go-data-transfer/v2/impl"
-	network2 "github.com/filecoin-project/go-data-transfer/v2/network"
 	dtgstransport "github.com/filecoin-project/go-data-transfer/v2/transport/graphsync"
 	"github.com/filecoin-project/go-state-types/abi"
 	"github.com/filecoin-project/specs-actors/v7/actors/builtin/market"
@@ -68,10 +68,10 @@ func NewDependenciesWithTestData(t *testing.T,
 	return NewDepGenerator().New(t, ctx, td, smState, tempPath, cd, pd)
 }
 
-type NewDataTransfer func(ds datastore.Batching, cidListsDir string, dataTransferNetwork network2.DataTransferNetwork, transport datatransfer.Transport) (datatransfer.Manager, error)
+type NewDataTransfer func(ds datastore.Batching, peerID peer.ID, transport datatransfer.Transport) (datatransfer.Manager, error)
 
-func defaultNewDataTransfer(ds datastore.Batching, dir string, transferNetwork network2.DataTransferNetwork, transport datatransfer.Transport) (datatransfer.Manager, error) {
-	return dtimpl.NewDataTransfer(ds, transferNetwork, transport)
+func defaultNewDataTransfer(ds datastore.Batching, peerID peer.ID, transport datatransfer.Transport) (datatransfer.Manager, error) {
+	return dtimpl.NewDataTransfer(ds, peerID, transport)
 }
 
 type DepGenerator struct {
@@ -147,8 +147,8 @@ func (gen *DepGenerator) New(
 	// create provider and client
 
 	gs1 := graphsyncimpl.New(ctx, network.NewFromLibp2pHost(td.Host1), td.LinkSystem1)
-	dtTransport1 := dtgstransport.NewTransport(td.Host1.ID(), gs1)
-	dt1, err := gen.ClientNewDataTransfer(td.DTStore1, td.DTTmpDir1, td.DTNet1, dtTransport1)
+	dtTransport1 := dtgstransport.NewTransport(gs1, td.DTNet1)
+	dt1, err := gen.ClientNewDataTransfer(td.DTStore1, td.Host1.ID(), dtTransport1)
 	require.NoError(t, err)
 	shared_testutil.StartAndWaitForReadyDT(ctx, t, dt1)
 
@@ -157,8 +157,8 @@ func (gen *DepGenerator) New(
 	shared_testutil.StartAndWaitForReady(ctx, t, discovery)
 
 	gs2 := graphsyncimpl.New(ctx, network.NewFromLibp2pHost(td.Host2), td.LinkSystem2)
-	dtTransport2 := dtgstransport.NewTransport(td.Host2.ID(), gs2)
-	dt2, err := gen.ProviderNewDataTransfer(td.DTStore2, td.DTTmpDir2, td.DTNet2, dtTransport2)
+	dtTransport2 := dtgstransport.NewTransport(gs2, td.DTNet2)
+	dt2, err := gen.ProviderNewDataTransfer(td.DTStore2, td.Host2.ID(), dtTransport2)
 	require.NoError(t, err)
 	shared_testutil.StartAndWaitForReadyDT(ctx, t, dt2)
 

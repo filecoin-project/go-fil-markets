@@ -9,7 +9,6 @@ import (
 	ds "github.com/ipfs/go-datastore"
 	bstore "github.com/ipfs/go-ipfs-blockstore"
 	"github.com/ipld/go-ipld-prime"
-	"github.com/ipld/go-ipld-prime/datamodel"
 	peer "github.com/libp2p/go-libp2p-core/peer"
 	"github.com/stretchr/testify/require"
 
@@ -411,10 +410,31 @@ type fakeTransport struct{}
 
 var _ datatransfer.Transport = (*fakeTransport)(nil)
 
-func (ft *fakeTransport) OpenChannel(ctx context.Context, dataSender peer.ID, channelID datatransfer.ChannelID, root datamodel.Link, stor datamodel.Node, channel datatransfer.ChannelState, msg datatransfer.Message) error {
+func (ft *fakeTransport) Capabilities() datatransfer.TransportCapabilities {
+	return datatransfer.TransportCapabilities{}
+}
+
+func (ft *fakeTransport) ID() datatransfer.TransportID {
+	return ""
+}
+
+func (ft *fakeTransport) Versions() []datatransfer.Version {
 	return nil
 }
 
+func (ft *fakeTransport) SendMessage(ctx context.Context, chid datatransfer.ChannelID, msg datatransfer.Message) error {
+	return nil
+}
+
+func (ft *fakeTransport) ChannelUpdated(ctx context.Context, chid datatransfer.ChannelID, message datatransfer.Message) error {
+	return nil
+}
+func (ft *fakeTransport) OpenChannel(context.Context, datatransfer.Channel, datatransfer.Request) error {
+	return nil
+}
+func (ft *fakeTransport) RestartChannel(ctx context.Context, channel datatransfer.ChannelState, req datatransfer.Request) error {
+	return nil
+}
 func (ft *fakeTransport) CloseChannel(ctx context.Context, chid datatransfer.ChannelID) error {
 	return nil
 }

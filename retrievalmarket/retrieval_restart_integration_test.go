@@ -7,12 +7,13 @@ import (
 
 	"github.com/ipfs/go-datastore"
 	logger "github.com/ipfs/go-log/v2"
+	"github.com/libp2p/go-libp2p-core/peer"
 	"github.com/stretchr/testify/require"
 
 	datatransfer "github.com/filecoin-project/go-data-transfer/v2"
 	"github.com/filecoin-project/go-data-transfer/v2/channelmonitor"
 	dtimpl "github.com/filecoin-project/go-data-transfer/v2/impl"
-	dtnet "github.com/filecoin-project/go-data-transfer/v2/network"
+	dtnet "github.com/filecoin-project/go-data-transfer/v2/transport/helpers/network"
 	"github.com/filecoin-project/go-state-types/abi"
 	"github.com/filecoin-project/go-state-types/big"
 
@@ -97,8 +98,8 @@ func TestBounceConnectionDealTransferOngoing(t *testing.T) {
 			td := shared_testutil.NewLibp2pTestData(bgCtx, t)
 			td.DTNet1 = dtnet.NewFromLibp2pHost(td.Host1, dtClientNetRetry)
 			depGen := dependencies.NewDepGenerator()
-			depGen.ClientNewDataTransfer = func(ds datastore.Batching, dir string, transferNetwork dtnet.DataTransferNetwork, transport datatransfer.Transport) (datatransfer.Manager, error) {
-				return dtimpl.NewDataTransfer(ds, transferNetwork, transport, restartConf)
+			depGen.ClientNewDataTransfer = func(ds datastore.Batching, peerID peer.ID, transport datatransfer.Transport) (datatransfer.Manager, error) {
+				return dtimpl.NewDataTransfer(ds, peerID, transport, restartConf)
 			}
 			deps := depGen.New(t, bgCtx, td, testnodes.NewStorageMarketState(), "", noOpDelay, noOpDelay)
 			providerNode := testnodes2.NewTestRetrievalProviderNode()
@@ -227,8 +228,8 @@ func TestBounceConnectionDealTransferUnsealing(t *testing.T) {
 			td := shared_testutil.NewLibp2pTestData(bgCtx, t)
 			td.DTNet1 = dtnet.NewFromLibp2pHost(td.Host1, dtClientNetRetry)
 			depGen := dependencies.NewDepGenerator()
-			depGen.ClientNewDataTransfer = func(ds datastore.Batching, dir string, transferNetwork dtnet.DataTransferNetwork, transport datatransfer.Transport) (datatransfer.Manager, error) {
-				return dtimpl.NewDataTransfer(ds, transferNetwork, transport, restartConf)
+			depGen.ClientNewDataTransfer = func(ds datastore.Batching, peerID peer.ID, transport datatransfer.Transport) (datatransfer.Manager, error) {
+				return dtimpl.NewDataTransfer(ds, peerID, transport, restartConf)
 			}
 			deps := depGen.New(t, bgCtx, td, testnodes.NewStorageMarketState(), "", noOpDelay, noOpDelay)
 			providerNode := testnodes2.NewTestRetrievalProviderNode()

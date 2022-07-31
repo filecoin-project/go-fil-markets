@@ -65,11 +65,7 @@ func providerEvent(event datatransfer.Event, channelState datatransfer.ChannelSt
 // event or moving to error if a data transfer error occurs
 func ProviderDataTransferSubscriber(deals EventReceiver) datatransfer.Subscriber {
 	return func(event datatransfer.Event, channelState datatransfer.ChannelState) {
-		voucher, err := channelState.Voucher()
-		if err != nil {
-			log.Errorf("received bad voucher: %s", err.Error())
-			return
-		}
+		voucher := channelState.Voucher()
 		if voucher.Voucher == nil {
 			log.Errorf("received empty voucher")
 			return
@@ -126,11 +122,7 @@ func clientEvent(event datatransfer.Event, channelState datatransfer.ChannelStat
 	case datatransfer.Cancel:
 		return rm.ClientEventProviderCancelled, nil
 	case datatransfer.NewVoucherResult:
-		voucher, err := channelState.LastVoucherResult()
-		if err != nil {
-			log.Errorf("received bad voucher result: %s", err.Error())
-			return noEvent, nil
-		}
+		voucher := channelState.LastVoucherResult()
 		response, err := rm.DealResponseFromNode(voucher.Voucher)
 		if err != nil {
 			log.Errorf("unexpected voucher result received: %s", err.Error())
@@ -157,11 +149,8 @@ func clientEvent(event datatransfer.Event, channelState datatransfer.ChannelStat
 // an event to the appropriate state machine
 func ClientDataTransferSubscriber(deals EventReceiver) datatransfer.Subscriber {
 	return func(event datatransfer.Event, channelState datatransfer.ChannelState) {
-		voucher, err := channelState.Voucher()
-		if err != nil {
-			log.Errorf("received bad voucher: %s", err.Error())
-			return
-		}
+		voucher := channelState.Voucher()
+
 		dealProposal, err := rm.DealProposalFromNode(voucher.Voucher)
 		// if this event is for a transfer not related to retrieval, ignore
 		if err != nil {

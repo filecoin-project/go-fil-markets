@@ -13,13 +13,14 @@ import (
 	"github.com/ipfs/go-datastore"
 	"github.com/ipld/go-car"
 	selectorparse "github.com/ipld/go-ipld-prime/traversal/selector/parse"
+	"github.com/libp2p/go-libp2p-core/peer"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	datatransfer "github.com/filecoin-project/go-data-transfer/v2"
 	"github.com/filecoin-project/go-data-transfer/v2/channelmonitor"
 	dtimpl "github.com/filecoin-project/go-data-transfer/v2/impl"
-	dtnet "github.com/filecoin-project/go-data-transfer/v2/network"
+	dtnet "github.com/filecoin-project/go-data-transfer/v2/transport/helpers/network"
 	"github.com/filecoin-project/go-state-types/big"
 
 	"github.com/filecoin-project/go-fil-markets/shared_testutil"
@@ -361,8 +362,8 @@ func TestRestartOnlyProviderDataTransfer(t *testing.T) {
 	})
 	smState := testnodes.NewStorageMarketState()
 	depGen := dependencies.NewDepGenerator()
-	depGen.ClientNewDataTransfer = func(ds datastore.Batching, dir string, transferNetwork dtnet.DataTransferNetwork, transport datatransfer.Transport) (datatransfer.Manager, error) {
-		return dtimpl.NewDataTransfer(ds, transferNetwork, transport, restartConf)
+	depGen.ClientNewDataTransfer = func(ds datastore.Batching, peerID peer.ID, transport datatransfer.Transport) (datatransfer.Manager, error) {
+		return dtimpl.NewDataTransfer(ds, peerID, transport, restartConf)
 	}
 	deps := depGen.New(t, ctx, td, smState, "", noOpDelay, noOpDelay)
 	h := testharness.NewHarnessWithTestData(t, td, deps, true, false)
@@ -399,7 +400,7 @@ func TestRestartOnlyProviderDataTransfer(t *testing.T) {
 	var providerState []storagemarket.MinerDeal
 	h.DTClient.SubscribeToEvents(func(event datatransfer.Event, channelState datatransfer.ChannelState) {
 		if event.Code == datatransfer.Accept {
-			t.Log("client has accepted data-transfer query, shutting down provider")
+			t.Log("client has accepted data-transfer query and transfer started, shutting down provider")
 
 			require.NoError(t, h.TestData.MockNet.UnlinkPeers(host1.ID(), host2.ID()))
 			require.NoError(t, h.TestData.MockNet.DisconnectPeers(host1.ID(), host2.ID()))
@@ -424,7 +425,7 @@ func TestRestartOnlyProviderDataTransfer(t *testing.T) {
 	cd, err := client.GetLocalDeal(ctx, proposalCid)
 	require.NoError(t, err)
 	t.Logf("client state after stopping is %s", storagemarket.DealStates[cd.State])
-	require.True(t, cd.State == storagemarket.StorageDealStartDataTransfer || cd.State == storagemarket.StorageDealTransferring)
+	require.True(t, cd.State == storagemarket.StorageDealStartDataTransfer || cd.State == storagemarket.StorageDealTransferQueued || cd.State == storagemarket.StorageDealTransferring)
 
 	// Create new provider (but don't restart yet)
 	newProvider := h.CreateNewProvider(t, ctx, h.TestData)
@@ -800,8 +801,8 @@ func TestBounceConnectionDataTransfer(t *testing.T) {
 	})
 	smState := testnodes.NewStorageMarketState()
 	depGen := dependencies.NewDepGenerator()
-	depGen.ClientNewDataTransfer = func(ds datastore.Batching, dir string, transferNetwork dtnet.DataTransferNetwork, transport datatransfer.Transport) (datatransfer.Manager, error) {
-		return dtimpl.NewDataTransfer(ds, transferNetwork, transport, restartConf)
+	depGen.ClientNewDataTransfer = func(ds datastore.Batching, peerID peer.ID, transport datatransfer.Transport) (datatransfer.Manager, error) {
+		return dtimpl.NewDataTransfer(ds, peerID, transport, restartConf)
 	}
 	deps := depGen.New(t, ctx, td, smState, "", noOpDelay, noOpDelay)
 	h := testharness.NewHarnessWithTestData(t, td, deps, true, false)
