@@ -52,7 +52,7 @@ type Provider struct {
 	revalidator          *requestvalidation.ProviderRevalidator
 	minerAddress         address.Address
 	pieceStore           piecestore.PieceStore
-	readySub             *pubsub.PubSub
+	readyMgr             *shared.ReadyManager
 	subscribers          *pubsub.PubSub
 	stateMachines        fsm.Group
 	migrateStateMachines func(context.Context) error
@@ -124,7 +124,7 @@ func NewProvider(minerAddress address.Address,
 		minerAddress:         minerAddress,
 		pieceStore:           pieceStore,
 		subscribers:          pubsub.New(providerDispatcher),
-		readySub:             pubsub.New(shared.ReadyDispatcher),
+		readyMgr:             shared.NewReadyManager(),
 		retrievalPricingFunc: retrievalPricingFunc,
 		dagStore:             dagStore,
 		stores:               stores.NewReadOnlyBlockstores(),
@@ -225,7 +225,7 @@ func (p *Provider) Start(ctx context.Context) error {
 		if err != nil {
 			log.Errorf("Migrating retrieval provider state machines: %s", err.Error())
 		}
-		err = p.readySub.Publish(err)
+		err = p.readyMgr.FireReady(err)
 		if err != nil {
 			log.Warnf("Publish retrieval provider ready event: %s", err.Error())
 		}
@@ -235,7 +235,7 @@ func (p *Provider) Start(ctx context.Context) error {
 
 // OnReady registers a listener for when the provider has finished starting up
 func (p *Provider) OnReady(ready shared.ReadyFunc) {
-	p.readySub.Subscribe(ready)
+	p.readyMgr.OnReady(ready)
 }
 
 func (p *Provider) notifySubscribers(eventName fsm.EventName, state fsm.StateType) {
