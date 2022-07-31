@@ -165,10 +165,8 @@ func (rv *ProviderRequestValidator) validatePull(receiver peer.ID, proposal *rm.
 
 // ValidateRestart validates a request on restart, based on its current state
 func (rv *ProviderRequestValidator) ValidateRestart(channelID datatransfer.ChannelID, channelState datatransfer.ChannelState) (datatransfer.ValidationResult, error) {
-	voucher, err := channelState.Voucher()
-	if err != nil {
-		return datatransfer.ValidationResult{}, err
-	}
+	voucher := channelState.Voucher()
+
 	proposal, err := rm.DealProposalFromNode(voucher.Voucher)
 	if err != nil {
 		return datatransfer.ValidationResult{}, errors.New("wrong voucher type")

@@ -112,12 +112,8 @@ func NewTestChannel(params TestChannelParams) datatransfer.ChannelState {
 	return tc
 }
 
-func (tc *TestChannel) ReceivedCidsLen() int {
-	return len(tc.receivedCids)
-}
-
-func (tc *TestChannel) ReceivedCidsTotal() int64 {
-	return int64(len(tc.receivedCids))
+func (tc *TestChannel) ReceivedIndex() datamodel.Node {
+	return basicnode.NewInt(int64(len(tc.receivedCids)))
 }
 
 // TransferID returns the transfer id for this channel
@@ -136,27 +132,22 @@ func (tc *TestChannel) Selector() datamodel.Node {
 	return tc.selector
 }
 
-// ReceivedCids returns the cids received so far
-func (tc *TestChannel) ReceivedCids() []cid.Cid {
-	return tc.receivedCids
-}
-
 // TODO actual implementation of those
 func (tc *TestChannel) MissingCids() []cid.Cid {
 	return nil
 }
 
-func (tc *TestChannel) QueuedCidsTotal() int64 {
-	return 0
+func (tc *TestChannel) QueuedIndex() datamodel.Node {
+	return basicnode.NewInt(0)
 }
 
-func (tc *TestChannel) SentCidsTotal() int64 {
-	return 0
+func (tc *TestChannel) SentIndex() datamodel.Node {
+	return basicnode.NewInt(0)
 }
 
 // Voucher returns the voucher for this data transfer
-func (tc *TestChannel) Voucher() (datatransfer.TypedVoucher, error) {
-	return tc.vouchers[0], nil
+func (tc *TestChannel) Voucher() datatransfer.TypedVoucher {
+	return tc.vouchers[0]
 }
 
 // Sender returns the peer id for the node that is sending data
@@ -209,6 +200,11 @@ func (tc *TestChannel) OtherParty(thisParty peer.ID) peer.ID {
 	return tc.sender
 }
 
+func (tc *TestChannel) BothPaused() bool      { return false }
+func (tc *TestChannel) ResponderPaused() bool { return false }
+func (tc *TestChannel) InitiatorPaused() bool { return false }
+func (tc *TestChannel) SelfPaused() bool      { return false }
+
 // Status is the current status of this channel
 func (tc *TestChannel) Status() datatransfer.Status {
 	return tc.status
@@ -235,23 +231,23 @@ func (tc *TestChannel) Message() string {
 }
 
 // Vouchers returns all vouchers sent on this channel
-func (tc *TestChannel) Vouchers() ([]datatransfer.TypedVoucher, error) {
-	return tc.vouchers, nil
+func (tc *TestChannel) Vouchers() []datatransfer.TypedVoucher {
+	return tc.vouchers
 }
 
 // VoucherResults are results of vouchers sent on the channel
-func (tc *TestChannel) VoucherResults() ([]datatransfer.TypedVoucher, error) {
-	return tc.voucherResults, nil
+func (tc *TestChannel) VoucherResults() []datatransfer.TypedVoucher {
+	return tc.voucherResults
 }
 
 // LastVoucher returns the last voucher sent on the channel
-func (tc *TestChannel) LastVoucher() (datatransfer.TypedVoucher, error) {
-	return tc.vouchers[len(tc.vouchers)-1], nil
+func (tc *TestChannel) LastVoucher() datatransfer.TypedVoucher {
+	return tc.vouchers[len(tc.vouchers)-1]
 }
 
 // LastVoucherResult returns the last voucher result sent on the channel
-func (tc *TestChannel) LastVoucherResult() (datatransfer.TypedVoucher, error) {
-	return tc.voucherResults[len(tc.voucherResults)-1], nil
+func (tc *TestChannel) LastVoucherResult() datatransfer.TypedVoucher {
+	return tc.voucherResults[len(tc.voucherResults)-1]
 }
 
 func (tc *TestChannel) Stages() *datatransfer.ChannelStages {

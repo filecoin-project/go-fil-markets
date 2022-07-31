@@ -118,8 +118,8 @@ func requireSetupTestClientAndProvider(ctx context.Context, t *testing.T, payChA
 	})
 
 	gs1 := graphsyncimpl.New(ctx, network.NewFromLibp2pHost(testData.Host1), testData.LinkSystem1)
-	dtTransport1 := dtgstransport.NewTransport(testData.Host1.ID(), gs1)
-	dt1, err := dtimpl.NewDataTransfer(testData.DTStore1, testData.DTNet1, dtTransport1)
+	dtTransport1 := dtgstransport.NewTransport(gs1, testData.DTNet1)
+	dt1, err := dtimpl.NewDataTransfer(testData.DTStore1, testData.Host1.ID(), dtTransport1)
 	require.NoError(t, err)
 	tut.StartAndWaitForReadyDT(ctx, t, dt1)
 	require.NoError(t, err)
@@ -162,8 +162,8 @@ func requireSetupTestClientAndProvider(ctx context.Context, t *testing.T, payChA
 	paymentAddress := address.TestAddress2
 
 	gs2 := graphsyncimpl.New(ctx, network.NewFromLibp2pHost(testData.Host2), testData.LinkSystem2)
-	dtTransport2 := dtgstransport.NewTransport(testData.Host2.ID(), gs2)
-	dt2, err := dtimpl.NewDataTransfer(testData.DTStore2, testData.DTNet2, dtTransport2)
+	dtTransport2 := dtgstransport.NewTransport(gs2, testData.DTNet2)
+	dt2, err := dtimpl.NewDataTransfer(testData.DTStore2, testData.Host2.ID(), dtTransport2)
 	require.NoError(t, err)
 	tut.StartAndWaitForReadyDT(ctx, t, dt2)
 	require.NoError(t, err)
@@ -643,8 +643,8 @@ func setupClient(
 	})
 
 	gs1 := graphsyncimpl.New(ctx, network.NewFromLibp2pHost(testData.Host1), testData.LinkSystem1)
-	dtTransport1 := dtgstransport.NewTransport(testData.Host1.ID(), gs1)
-	dt1, err := dtimpl.NewDataTransfer(testData.DTStore1, testData.DTNet1, dtTransport1)
+	dtTransport1 := dtgstransport.NewTransport(gs1, testData.DTNet1)
+	dt1, err := dtimpl.NewDataTransfer(testData.DTStore1, testData.Host1.ID(), dtTransport1)
 	require.NoError(t, err)
 	tut.StartAndWaitForReadyDT(ctx, t, dt1)
 	require.NoError(t, err)
@@ -682,8 +682,8 @@ func setupProvider(
 	pieceStore.ExpectPiece(expectedPiece, pieceInfo)
 
 	gs2 := graphsyncimpl.New(ctx, network.NewFromLibp2pHost(testData.Host2), testData.LinkSystem2)
-	dtTransport2 := dtgstransport.NewTransport(testData.Host2.ID(), gs2)
-	dt2, err := dtimpl.NewDataTransfer(testData.DTStore2, testData.DTNet2, dtTransport2)
+	dtTransport2 := dtgstransport.NewTransport(gs2, testData.DTNet2)
+	dt2, err := dtimpl.NewDataTransfer(testData.DTStore2, testData.Host2.ID(), dtTransport2)
 	require.NoError(t, err)
 	tut.StartAndWaitForReadyDT(ctx, t, dt2)
 	require.NoError(t, err)
