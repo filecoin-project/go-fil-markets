@@ -1,5 +1,16 @@
 # go-fil-markets changelog
 
+# go-fil-markets v1.23.2
+
+- github.com/filecoin-project/go-fil-markets:
+  - feat: dagstore_wrapper: DestroyShardSync (#736) ([filecoin-project/go-fil-markets#736](https://github.com/filecoin-project/go-fil-markets/pull/736))
+
+Contributors
+
+| Contributor | Commits | Lines ± | Files Changed |
+|-------------|---------|---------|---------------|
+| LexLuthr | 1 | +35/-1 | 3 |
+
 # go-fil-markets v1.23.1
 
 - github.com/filecoin-project/go-fil-markets:
