@@ -1,5 +1,18 @@
 # go-fil-markets changelog
 
+# go-fil-markets v1.24.0
+
+- github.com/filecoin-project/go-fil-markets:
+  - Update go libp2p v0.21 (#744) ([filecoin-project/go-fil-markets#744](https://github.com/filecoin-project/go-fil-markets/pull/744))
+  - feat(retrievalmarket): use ready manager (#739) ([filecoin-project/go-fil-markets#739](https://github.com/filecoin-project/go-fil-markets/pull/739))
+
+Contributors
+
+| Contributor | Commits | Lines ± | Files Changed |
+|-------------|---------|---------|---------------|
+| Marco Munizaga | 1 | +133/-90 | 11 |
+| Hannah Howard | 1 | +4/-4 | 1 |
+
 # go-fil-markets v1.23.2
 
 - github.com/filecoin-project/go-fil-markets:
