@@ -36,6 +36,14 @@ import (
 	"github.com/filecoin-project/go-fil-markets/stores"
 )
 
+// MaxIdentityCIDBytes is the largest identity CID as a PayloadCID that we are
+// willing to decode
+const MaxIdentityCIDBytes = 2 << 10
+
+// MaxIdentityCIDLinks is the maximum number of links contained within an
+// identity CID that we are willing to check for matching pieces
+const MaxIdentityCIDLinks = 32
+
 // RetrievalProviderOption is a function that configures a retrieval provider
 type RetrievalProviderOption func(p *Provider)
 
@@ -527,6 +535,10 @@ func linksFromIdentityCid(identityCid cid.Cid) ([]cid.Cid, error) {
 		return []cid.Cid{}, nil
 	}
 
+	if len(identityCid.Hash()) > MaxIdentityCIDBytes {
+		return nil, fmt.Errorf("refusing to decode too-long identity CID (%d bytes)", len(identityCid.Hash()))
+	}
+
 	// decode the identity multihash, if possible (i.e. it's valid and we have the right codec loaded)
 	decoder, err := cidlink.DefaultLinkSystem().DecoderChooser(cidlink.Link{Cid: identityCid})
 	if err != nil {
@@ -545,9 +557,23 @@ func linksFromIdentityCid(identityCid cid.Cid) ([]cid.Cid, error) {
 		return nil, fmt.Errorf("collecting links from identity CID %s: %w", identityCid, err)
 	}
 
+	if len(links) > MaxIdentityCIDLinks {
+		return nil, fmt.Errorf("refusing to process identity CID with too many links (%d)", len(links))
+	}
+
+	// dedupe and convert from Link to Cid
 	cids := make([]cid.Cid, 0)
 	for _, link_ := range links {
-		cids = append(cids, link_.(cidlink.Link).Cid)
+		cid := link_.(cidlink.Link).Cid
+		var found bool
+		for _, c := range cids {
+			if c.Equals(cid) {
+				found = true
+			}
+		}
+		if !found {
+			cids = append(cids, cid)
+		}
 	}
 	return cids, err
 }

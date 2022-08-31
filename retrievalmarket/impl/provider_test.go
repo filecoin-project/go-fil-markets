@@ -645,10 +645,13 @@ func TestDynamicPricing(t *testing.T) {
 	}
 }
 
-func makeIdentityCidWith(cids []cid.Cid) (cid.Cid, error) {
-	node, err := qp.BuildList(basicnode.Prototype.List, int64(len(cids)), func(la datamodel.ListAssembler) {
+func makeIdentityCidWith(cids []cid.Cid, padding ...[]byte) (cid.Cid, error) {
+	node, err := qp.BuildList(basicnode.Prototype.List, int64(len(cids)+len(padding)), func(la datamodel.ListAssembler) {
 		for _, cid := range cids {
 			qp.ListEntry(la, qp.Link(cidlink.Link{Cid: cid}))
+		}
+		for _, pad := range padding {
+			qp.ListEntry(la, qp.Bytes(pad))
 		}
 	})
 	if err != nil {
@@ -676,9 +679,13 @@ func TestHandleQueryStream(t *testing.T) {
 
 	identityCidWith1, err := makeIdentityCidWith([]cid.Cid{payloadCID})
 	require.NoError(t, err)
-	identityCidWithBoth, err := makeIdentityCidWith([]cid.Cid{payloadCID, payloadCID2})
+	identityCidWithBoth, err := makeIdentityCidWith([]cid.Cid{payloadCID, payloadCID2}, []byte("and some padding"))
 	require.NoError(t, err)
 	identityCidWithBogus, err := makeIdentityCidWith([]cid.Cid{payloadCID, tut.GenerateCids(1)[0]})
+	require.NoError(t, err)
+	identityCidTooBig, err := makeIdentityCidWith([]cid.Cid{payloadCID}, tut.RandomBytes(2048))
+	require.NoError(t, err)
+	identityCidTooManyLinks, err := makeIdentityCidWith(tut.GenerateCids(33))
 	require.NoError(t, err)
 
 	expectedPieceCID := tut.GenerateCids(1)[0]
@@ -923,7 +930,36 @@ func TestHandleQueryStream(t *testing.T) {
 			expectedPaymentInterval:         0,
 			expectedPaymentIntervalIncrease: 0,
 			expectedUnsealPrice:             big.Zero(),
-		}}
+		},
+
+		{name: "When PieceCID is not provided and PayloadCID is an identity CID that is too large",
+			expFunc: func(t *testing.T, pieceStore *tut.TestPieceStore, dagStore *tut.MockDagStoreWrapper) {},
+			query:   retrievalmarket.Query{PayloadCID: identityCidTooBig},
+			expResp: retrievalmarket.QueryResponse{
+				Status:        retrievalmarket.QueryResponseError,
+				PieceCIDFound: retrievalmarket.QueryItemUnavailable,
+				Message:       "failed to fetch piece to retrieve from: refusing to decode too-long identity CID (2094 bytes)",
+			},
+			expectedPricePerByte:            big.Zero(),
+			expectedPaymentInterval:         0,
+			expectedPaymentIntervalIncrease: 0,
+			expectedUnsealPrice:             big.Zero(),
+		},
+
+		{name: "When PieceCID is not provided and PayloadCID is an identity CID with too many links",
+			expFunc: func(t *testing.T, pieceStore *tut.TestPieceStore, dagStore *tut.MockDagStoreWrapper) {},
+			query:   retrievalmarket.Query{PayloadCID: identityCidTooManyLinks},
+			expResp: retrievalmarket.QueryResponse{
+				Status:        retrievalmarket.QueryResponseError,
+				PieceCIDFound: retrievalmarket.QueryItemUnavailable,
+				Message:       "failed to fetch piece to retrieve from: refusing to process identity CID with too many links (33)",
+			},
+			expectedPricePerByte:            big.Zero(),
+			expectedPaymentInterval:         0,
+			expectedPaymentIntervalIncrease: 0,
+			expectedUnsealPrice:             big.Zero(),
+		},
+	}
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			node := testnodes.NewTestRetrievalProviderNode()
