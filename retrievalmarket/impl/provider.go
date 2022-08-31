@@ -342,16 +342,23 @@ func (p *Provider) HandleQueryStream(stream rmnet.RetrievalQueryStream) {
 	if query.PieceCID != nil {
 		pieceCID = *query.PieceCID
 	}
-	pieceInfo, isUnsealed, err := p.getPieceInfoFromCid(ctx, query.PayloadCID, pieceCID)
-	if err != nil {
-		log.Errorf("Retrieval query: getPieceInfoFromCid: %s", err)
-		if !errors.Is(err, retrievalmarket.ErrNotFound) {
-			answer.Status = retrievalmarket.QueryResponseError
-			answer.Message = fmt.Sprintf("failed to fetch piece to retrieve from: %s", err)
-		} else {
+
+	pieces, piecesErr := p.getAllPieceInfoForPayload(query.PayloadCID)
+	// err may be non-nil, but we may have successfuly found >0 pieces, so defer error handling till
+	// we have no other option.
+
+	pieceInfo, isUnsealed := p.getBestPieceInfoMatch(ctx, pieces, pieceCID)
+	if !pieceInfo.Defined() {
+		if piecesErr != nil {
+			log.Errorf("Retrieval query: getPieceInfoFromCid: %s", piecesErr)
+			if !errors.Is(piecesErr, retrievalmarket.ErrNotFound) {
+				answer.Status = retrievalmarket.QueryResponseError
+				answer.Message = fmt.Sprintf("failed to fetch piece to retrieve from: %s", piecesErr)
+			}
+		}
+		if answer.Message == "" {
 			answer.Message = "piece info for cid not found (deal has not been added to a piece yet)"
 		}
-
 		sendResp(answer)
 		return
 	}
@@ -360,11 +367,16 @@ func (p *Provider) HandleQueryStream(stream rmnet.RetrievalQueryStream) {
 	answer.Size = uint64(pieceInfo.Deals[0].Length.Unpadded()) // TODO: verify on intermediate
 	answer.PieceCIDFound = retrievalmarket.QueryItemAvailable
 
-	storageDeals, err := p.storageDealsForPiece(query.PieceCID != nil, query.PayloadCID, pieceInfo)
-	if err != nil {
+	storageDeals := p.storageDealsForPiece(query.PieceCID != nil, pieces, pieceInfo)
+
+	if len(storageDeals) == 0 {
 		log.Errorf("Retrieval query: storageDealsForPiece: %s", err)
 		answer.Status = retrievalmarket.QueryResponseError
-		answer.Message = fmt.Sprintf("failed to fetch storage deals containing payload: %s", err)
+		if piecesErr != nil {
+			answer.Message = fmt.Sprintf("failed to fetch storage deals containing payload [%s]: %s", query.PayloadCID.String(), piecesErr.Error())
+		} else {
+			answer.Message = fmt.Sprintf("failed to fetch storage deals containing payload [%s]", query.PayloadCID.String())
+		}
 		sendResp(answer)
 		return
 	}
@@ -394,27 +406,68 @@ func (p *Provider) HandleQueryStream(stream rmnet.RetrievalQueryStream) {
 	sendResp(answer)
 }
 
-// Given the CID of a block, find a piece that contains that block.
-// If the client has specified which piece they want, return that piece.
-// Otherwise prefer pieces that are already unsealed.
-func (p *Provider) getPieceInfoFromCid(ctx context.Context, payloadCID, clientPieceCID cid.Cid) (piecestore.PieceInfo, bool, error) {
+// getBestPieceInfoMatch will take a list of pieces, and an optional PieceCID from a client, and
+// will find the best piece to use for a retrieval. If a specific PieceCID is provided and that
+// piece is included in the list of pieces, that is used. Otherwise the first unsealed piece is used
+// and if there are no unsealed pieces, the first sealed piece is used.
+// Failure to find a matching piece will result in a piecestore.PieceInfoUndefined being returned.
+func (p *Provider) getBestPieceInfoMatch(ctx context.Context, pieces []piecestore.PieceInfo, clientPieceCID cid.Cid) (piecestore.PieceInfo, bool) {
+	sealedPieceInfo := -1
+	// For each piece that contains the target block
+	for ii, pieceInfo := range pieces {
+		if clientPieceCID.Defined() {
+			// If client wants to retrieve the payload from a specific piece, just return that piece.
+			if pieceInfo.PieceCID.Equals(clientPieceCID) {
+				return pieceInfo, p.pieceInUnsealedSector(ctx, pieceInfo)
+			}
+		} else {
+			// If client doesn't have a preference for a particular piece, prefer the first piece for
+			// which an unsealed sector exists.
+			if p.pieceInUnsealedSector(ctx, pieceInfo) {
+				// The piece is in an unsealed sector, so just return it
+				return pieceInfo, true
+			}
+
+			if sealedPieceInfo == -1 {
+				// The piece is not in an unsealed sector, so save it but keep checking other pieces to see
+				// if there is one that is in an unsealed sector, otherwise use the first found sealed piece
+				sealedPieceInfo = ii
+			}
+		}
+	}
+
+	// Found a piece containing the target block, piece is in a sealed sector
+	if sealedPieceInfo > -1 {
+		return pieces[sealedPieceInfo], false
+	}
+
+	return piecestore.PieceInfoUndefined, false
+}
+
+// getAllPieceInfoForPayload returns all of the pieces containing the requested Payload CID.
+// If the Payload CID is an identity CID, then we use getCommonPiecesFromIdentityCidLinks to find
+// pieces containing all of the links within that identity CID.
+// Note that it is possible to receive a non-nil error as well as a non-zero length PieceInfo slice
+// as a return from this function. In that case, there was at least one error encountered querying
+// the piece store.
+func (p *Provider) getAllPieceInfoForPayload(payloadCID cid.Cid) ([]piecestore.PieceInfo, error) {
 	// Get all pieces that contain the target block
 	piecesWithTargetBlock, err := p.dagStore.GetPiecesContainingBlock(payloadCID)
 	if err != nil {
 		// this payloadCID may be an identity CID that's in the root of a CAR but
 		// not recorded in the index
-		piecesWithTargetBlock, err := p.getCommonPiecesFromIdentityCidLinks(ctx, payloadCID)
-		if err != nil {
-			return piecestore.PieceInfoUndefined, false, err
+		var idErr error
+		piecesWithTargetBlock, idErr = p.getCommonPiecesFromIdentityCidLinks(payloadCID)
+		if idErr != nil {
+			return []piecestore.PieceInfo{}, idErr
 		}
 		if len(piecesWithTargetBlock) == 0 {
-			return piecestore.PieceInfoUndefined, false, fmt.Errorf("getting pieces for cid %s: %w", payloadCID, err)
+			return []piecestore.PieceInfo{}, fmt.Errorf("getting pieces for cid %s: %w", payloadCID, err)
 		}
 	}
 
-	// For each piece that contains the target block
+	pieces := make([]piecestore.PieceInfo, 0)
 	var lastErr error
-	var sealedPieceInfo *piecestore.PieceInfo
 	for _, pieceWithTargetBlock := range piecesWithTargetBlock {
 		// Get the deals for the piece
 		pieceInfo, err := p.pieceStore.GetPieceInfo(pieceWithTargetBlock)
@@ -422,73 +475,23 @@ func (p *Provider) getPieceInfoFromCid(ctx context.Context, payloadCID, clientPi
 			lastErr = err
 			continue
 		}
-
-		// if client wants to retrieve the payload from a specific piece, just return that piece.
-		if clientPieceCID.Defined() && pieceInfo.PieceCID.Equals(clientPieceCID) {
-			return pieceInfo, p.pieceInUnsealedSector(ctx, pieceInfo), nil
-		}
-
-		// if client doesn't have a preference for a particular piece, prefer a piece
-		// for which an unsealed sector exists.
-		if clientPieceCID.Equals(cid.Undef) {
-			if p.pieceInUnsealedSector(ctx, pieceInfo) {
-				// The piece is in an unsealed sector, so just return it
-				return pieceInfo, true, nil
-			}
-
-			if sealedPieceInfo == nil {
-				// The piece is not in an unsealed sector, so save it but keep
-				// checking other pieces to see if there is one that is in an
-				// unsealed sector
-				sealedPieceInfo = &pieceInfo
-			}
-		}
-
+		pieces = append(pieces, pieceInfo)
 	}
 
-	// Found a piece containing the target block, piece is in a sealed sector
-	if sealedPieceInfo != nil {
-		return *sealedPieceInfo, false, nil
-	}
-
-	// Couldn't find a piece containing the target block
-	if lastErr == nil {
-		lastErr = xerrors.Errorf("unknown pieceCID %s", clientPieceCID.String())
-	}
-
-	// Error finding a piece containing the target block
-	return piecestore.PieceInfoUndefined, false, xerrors.Errorf("could not locate piece: %w", lastErr)
+	return pieces, lastErr
 }
 
 // getCommonPiecesFromIdentityCidLinks will inspect a payloadCID and if it has an identity multihash,
 // will determine which pieces contain all of the links within the decoded identity multihash block
-func (p *Provider) getCommonPiecesFromIdentityCidLinks(ctx context.Context, payloadCID cid.Cid) ([]cid.Cid, error) {
-	if payloadCID.Prefix().MhType != multihash.IDENTITY {
-		return nil, nil
-	}
-
-	// decode the identity multihash, if possible (i.e. it's valid and we have the right codec loaded)
-	decoder, err := cidlink.DefaultLinkSystem().DecoderChooser(cidlink.Link{Cid: payloadCID})
-	if err != nil {
-		return nil, fmt.Errorf("choosing decoder for identity CID %s: %w", payloadCID, err)
-	}
-	mh, err := multihash.Decode(payloadCID.Hash())
-	if err != nil {
-		return nil, fmt.Errorf("decoding identity CID multihash %s: %w", payloadCID, err)
-	}
-	node, err := ipld.Decode(mh.Digest, decoder)
-	if err != nil {
-		return nil, fmt.Errorf("decoding identity CID %s: %w", payloadCID, err)
-	}
-	links, err := traversal.SelectLinks(node)
-	if err != nil {
-		return nil, fmt.Errorf("collecting links from identity CID %s: %w", payloadCID, err)
+func (p *Provider) getCommonPiecesFromIdentityCidLinks(payloadCID cid.Cid) ([]cid.Cid, error) {
+	links, err := linksFromIdentityCid(payloadCID)
+	if err != nil || len(links) == 0 {
+		return links, err
 	}
 
 	pieces := make([]cid.Cid, 0)
 	// for each link, query the dagstore for pieces that contain it
-	for i, link_ := range links {
-		link := link_.(cidlink.Link).Cid
+	for i, link := range links {
 		piecesWithThisCid, err := p.dagStore.GetPiecesContainingBlock(link)
 		if len(piecesWithThisCid) == 0 {
 			return nil, fmt.Errorf("getting pieces for identity CID sub-link %s: %w", link, err)
@@ -512,8 +515,43 @@ func (p *Provider) getCommonPiecesFromIdentityCidLinks(ctx context.Context, payl
 			break
 		}
 	}
+
 	return pieces, nil
 }
+
+// linksFromIdentityCid will extract zero or more CIDs contained within a valid identity CID.
+// If the CID is not an identity CID, an empty list is returned. If the CID is an identity CID and
+// cannot be decoded, an error is returned.
+func linksFromIdentityCid(identityCid cid.Cid) ([]cid.Cid, error) {
+	if identityCid.Prefix().MhType != multihash.IDENTITY {
+		return []cid.Cid{}, nil
+	}
+
+	// decode the identity multihash, if possible (i.e. it's valid and we have the right codec loaded)
+	decoder, err := cidlink.DefaultLinkSystem().DecoderChooser(cidlink.Link{Cid: identityCid})
+	if err != nil {
+		return nil, fmt.Errorf("choosing decoder for identity CID %s: %w", identityCid, err)
+	}
+	mh, err := multihash.Decode(identityCid.Hash())
+	if err != nil {
+		return nil, fmt.Errorf("decoding identity CID multihash %s: %w", identityCid, err)
+	}
+	node, err := ipld.Decode(mh.Digest, decoder)
+	if err != nil {
+		return nil, fmt.Errorf("decoding identity CID %s: %w", identityCid, err)
+	}
+	links, err := traversal.SelectLinks(node)
+	if err != nil {
+		return nil, fmt.Errorf("collecting links from identity CID %s: %w", identityCid, err)
+	}
+
+	cids := make([]cid.Cid, 0)
+	for _, link_ := range links {
+		cids = append(cids, link_.(cidlink.Link).Cid)
+	}
+	return cids, err
+}
+
 func (p *Provider) pieceInUnsealedSector(ctx context.Context, pieceInfo piecestore.PieceInfo) bool {
 	for _, di := range pieceInfo.Deals {
 		isUnsealed, err := p.sa.IsUnsealed(ctx, di.SectorID, di.Offset.Unpadded(), di.Length.Unpadded())
@@ -529,9 +567,8 @@ func (p *Provider) pieceInUnsealedSector(ctx context.Context, pieceInfo piecesto
 	return false
 }
 
-func (p *Provider) storageDealsForPiece(clientSpecificPiece bool, payloadCID cid.Cid, pieceInfo piecestore.PieceInfo) ([]abi.DealID, error) {
+func (p *Provider) storageDealsForPiece(clientSpecificPiece bool, pieces []piecestore.PieceInfo, pieceInfo piecestore.PieceInfo) []abi.DealID {
 	var storageDeals []abi.DealID
-	var err error
 	if clientSpecificPiece {
 		// If the user wants to retrieve the payload from a specific piece,
 		// we only need to inspect storage deals made for that piece to quote a price.
@@ -541,51 +578,20 @@ func (p *Provider) storageDealsForPiece(clientSpecificPiece bool, payloadCID cid
 	} else {
 		// If the user does NOT want to retrieve from a specific piece, we'll have to inspect all storage deals
 		// made for that piece to quote a price.
-		storageDeals, err = p.getAllDealsContainingPayload(payloadCID)
-		if err != nil {
-			return nil, xerrors.Errorf("failed to fetch deals for payload: %w", err)
-		}
+		storageDeals = dealsFromPieces(pieces)
 	}
 
-	if len(storageDeals) == 0 {
-		return nil, xerrors.New("no storage deals found")
-	}
-
-	return storageDeals, nil
+	return storageDeals
 }
 
-func (p *Provider) getAllDealsContainingPayload(payloadCID cid.Cid) ([]abi.DealID, error) {
-	// Get all pieces that contain the target block
-	piecesWithTargetBlock, err := p.dagStore.GetPiecesContainingBlock(payloadCID)
-	if err != nil {
-		return nil, xerrors.Errorf("getting pieces for cid %s: %w", payloadCID, err)
-	}
-
-	// For each piece that contains the target block
-	var lastErr error
+func dealsFromPieces(pieces []piecestore.PieceInfo) []abi.DealID {
 	var dealsIds []abi.DealID
-	for _, pieceWithTargetBlock := range piecesWithTargetBlock {
-		// Get the deals for the piece
-		pieceInfo, err := p.pieceStore.GetPieceInfo(pieceWithTargetBlock)
-		if err != nil {
-			lastErr = err
-			continue
-		}
-
+	for _, pieceInfo := range pieces {
 		for _, d := range pieceInfo.Deals {
 			dealsIds = append(dealsIds, d.DealID)
 		}
 	}
-
-	if lastErr == nil && len(dealsIds) == 0 {
-		return nil, xerrors.New("no deals found")
-	}
-
-	if lastErr != nil && len(dealsIds) == 0 {
-		return nil, xerrors.Errorf("failed to fetch deals containing payload %s: %w", payloadCID, lastErr)
-	}
-
-	return dealsIds, nil
+	return dealsIds
 }
 
 // GetDynamicAsk quotes a dynamic price for the retrieval deal by calling the user configured

@@ -3,6 +3,7 @@ package retrievalimpl
 import (
 	"context"
 	"errors"
+	"fmt"
 
 	"github.com/ipfs/go-cid"
 	bstore "github.com/ipfs/go-ipfs-blockstore"
@@ -31,9 +32,15 @@ type providerValidationEnvironment struct {
 func (pve *providerValidationEnvironment) GetAsk(ctx context.Context, payloadCid cid.Cid, pieceCid *cid.Cid,
 	piece piecestore.PieceInfo, isUnsealed bool, client peer.ID) (retrievalmarket.Ask, error) {
 
-	storageDeals, err := pve.p.storageDealsForPiece(pieceCid != nil, payloadCid, piece)
-	if err != nil {
-		return retrievalmarket.Ask{}, xerrors.Errorf("failed to fetch deals for payload: %w", err)
+	pieces, piecesErr := pve.p.getAllPieceInfoForPayload(payloadCid)
+	// err may be non-nil, but we may have successfuly found >0 pieces, so defer error handling till
+	// we have no other option.
+	storageDeals := pve.p.storageDealsForPiece(pieceCid != nil, pieces, piece)
+	if len(storageDeals) == 0 {
+		if piecesErr != nil {
+			return retrievalmarket.Ask{}, fmt.Errorf("failed to fetch deals for payload [%s]: %w", payloadCid.String(), piecesErr)
+		}
+		return retrievalmarket.Ask{}, fmt.Errorf("no storage deals found for payload [%s]", payloadCid.String())
 	}
 
 	input := retrievalmarket.PricingInput{
@@ -54,7 +61,17 @@ func (pve *providerValidationEnvironment) GetPiece(c cid.Cid, pieceCID *cid.Cid)
 		inPieceCid = *pieceCID
 	}
 
-	return pve.p.getPieceInfoFromCid(context.TODO(), c, inPieceCid)
+	pieces, piecesErr := pve.p.getAllPieceInfoForPayload(c)
+	// err may be non-nil, but we may have successfuly found >0 pieces, so defer error handling till
+	// we have no other option.
+	pieceInfo, isUnsealed := pve.p.getBestPieceInfoMatch(context.TODO(), pieces, inPieceCid)
+	if pieceInfo.Defined() {
+		return pieceInfo, isUnsealed, nil
+	}
+	if piecesErr != nil {
+		return piecestore.PieceInfoUndefined, false, piecesErr
+	}
+	return piecestore.PieceInfoUndefined, false, fmt.Errorf("unknown pieceCID %s", pieceCID.String())
 }
 
 // CheckDealParams verifies the given deal params are acceptable

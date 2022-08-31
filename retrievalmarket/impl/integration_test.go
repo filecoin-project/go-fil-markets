@@ -3,6 +3,7 @@ package retrievalimpl_test
 import (
 	"bytes"
 	"context"
+	"fmt"
 	"io"
 	"os"
 	"path/filepath"
@@ -22,7 +23,6 @@ import (
 	selectorparse "github.com/ipld/go-ipld-prime/traversal/selector/parse"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"golang.org/x/xerrors"
 
 	"github.com/filecoin-project/go-address"
 	dtimpl "github.com/filecoin-project/go-data-transfer/impl"
@@ -71,11 +71,11 @@ func TestClientCanMakeQueryToProvider(t *testing.T) {
 	})
 
 	t.Run("when there is some other error, returns error", func(t *testing.T) {
-		pieceStore.ReturnErrorFromGetPieceInfo(xerrors.Errorf("someerr"))
+		pieceStore.ReturnErrorFromGetPieceInfo(fmt.Errorf("someerr"))
 		expectedQR.Status = retrievalmarket.QueryResponseError
 		expectedQR.PieceCIDFound = retrievalmarket.QueryItemUnavailable
 		expectedQR.Size = 0
-		expectedQR.Message = "failed to fetch piece to retrieve from: could not locate piece: someerr"
+		expectedQR.Message = "failed to fetch piece to retrieve from: someerr"
 		actualQR, err := client.Query(bgCtx, retrievalPeer, expectedCIDs[0], retrievalmarket.QueryParams{})
 		assert.NoError(t, err)
 		actualQR.MaxPaymentInterval = expectedQR.MaxPaymentInterval

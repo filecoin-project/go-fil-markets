@@ -12,7 +12,12 @@ import (
 	"github.com/ipfs/go-datastore"
 	"github.com/ipfs/go-datastore/namespace"
 	dss "github.com/ipfs/go-datastore/sync"
+	"github.com/ipld/go-ipld-prime"
 	"github.com/ipld/go-ipld-prime/codec/dagcbor"
+	"github.com/ipld/go-ipld-prime/datamodel"
+	"github.com/ipld/go-ipld-prime/fluent/qp"
+	cidlink "github.com/ipld/go-ipld-prime/linking/cid"
+	basicnode "github.com/ipld/go-ipld-prime/node/basic"
 	selectorparse "github.com/ipld/go-ipld-prime/traversal/selector/parse"
 	"github.com/libp2p/go-libp2p-core/peer"
 	"github.com/stretchr/testify/assert"
@@ -440,6 +445,7 @@ func TestDynamicPricing(t *testing.T) {
 		},
 
 		"specific sealed piece Cid, second piece Cid matches: quote correct price for sealed, unverified, peer1": {
+			// TODO: FIX
 			query: retrievalmarket.Query{
 				PayloadCID:  payloadCID,
 				QueryParams: retrievalmarket.QueryParams{PieceCID: &expectedPieceCID2},
@@ -457,6 +463,8 @@ func TestDynamicPricing(t *testing.T) {
 			expFunc: func(t *testing.T, pieceStore *tut.TestPieceStore, dagStore *tut.MockDagStoreWrapper) {
 				pieceStore.ExpectPiece(expectedPieceCID1, piece1)
 				pieceStore.ExpectPiece(expectedPieceCID1, piece2)
+				// even though we won't need this, all matching pieces for the payloadCID will be queried
+				pieceStore.ExpectPiece(expectedPieceCID2, piece2)
 				dagStore.AddBlockToPieceIndex(payloadCID, expectedPieceCID1)
 				dagStore.AddBlockToPieceIndex(payloadCID, expectedPieceCID2)
 			},
@@ -637,16 +645,41 @@ func TestDynamicPricing(t *testing.T) {
 	}
 }
 
+func makeIdentityCidWith(cids []cid.Cid) (cid.Cid, error) {
+	node, err := qp.BuildList(basicnode.Prototype.List, int64(len(cids)), func(la datamodel.ListAssembler) {
+		for _, cid := range cids {
+			qp.ListEntry(la, qp.Link(cidlink.Link{Cid: cid}))
+		}
+	})
+	if err != nil {
+		return cid.Undef, err
+	}
+	encoded, err := ipld.Encode(node, dagcbor.Encode)
+	if err != nil {
+		return cid.Undef, err
+	}
+	lp := cidlink.LinkPrototype{Prefix: cid.Prefix{Version: 1, Codec: 0x71, MhType: 0x0}}
+	return lp.BuildLink(encoded).(cidlink.Link).Cid, nil
+}
+
 func TestHandleQueryStream(t *testing.T) {
 	ctx := context.Background()
 
 	payloadCID := tut.GenerateCids(1)[0]
+	payloadCID2 := tut.GenerateCids(1)[0]
 	expectedPeer := peer.ID("somepeer")
 	paddedSize := uint64(1234)
 	expectedSize := uint64(abi.PaddedPieceSize(paddedSize).Unpadded())
 
 	paddedSize2 := uint64(2234)
 	expectedSize2 := uint64(abi.PaddedPieceSize(paddedSize2).Unpadded())
+
+	identityCidWith1, err := makeIdentityCidWith([]cid.Cid{payloadCID})
+	require.NoError(t, err)
+	identityCidWithBoth, err := makeIdentityCidWith([]cid.Cid{payloadCID, payloadCID2})
+	require.NoError(t, err)
+	identityCidWithBogus, err := makeIdentityCidWith([]cid.Cid{payloadCID, tut.GenerateCids(1)[0]})
+	require.NoError(t, err)
 
 	expectedPieceCID := tut.GenerateCids(1)[0]
 	expectedPieceCID2 := tut.GenerateCids(1)[0]
@@ -799,6 +832,7 @@ func TestHandleQueryStream(t *testing.T) {
 			expectedPaymentIntervalIncrease: expectedPaymentIntervalIncrease,
 			expectedUnsealPrice:             expectedUnsealPrice,
 		},
+
 		{name: "When QueryParams has PieceCID and is missing",
 			expFunc: func(t *testing.T, ps *tut.TestPieceStore, dagStore *tut.MockDagStoreWrapper) {
 				loadPieceCIDS(t, ps, payloadCID, cid.Undef)
@@ -821,6 +855,7 @@ func TestHandleQueryStream(t *testing.T) {
 			expectedPaymentIntervalIncrease: 0,
 			expectedUnsealPrice:             big.Zero(),
 		},
+
 		{name: "When payload CID not found",
 			expFunc: func(t *testing.T, ps *tut.TestPieceStore, dagStore *tut.MockDagStoreWrapper) {},
 			query: retrievalmarket.Query{
@@ -837,7 +872,58 @@ func TestHandleQueryStream(t *testing.T) {
 			expectedPaymentIntervalIncrease: 0,
 			expectedUnsealPrice:             big.Zero(),
 		},
-	}
+
+		{name: "When PieceCID is not provided and PayloadCID is an identity CID with one link that is found",
+			expFunc: func(t *testing.T, pieceStore *tut.TestPieceStore, dagStore *tut.MockDagStoreWrapper) {
+				pieceStore.ExpectPiece(expectedPieceCID, expectedPiece)
+				pieceStore.ExpectPiece(expectedPieceCID2, expectedPiece2)
+				dagStore.AddBlockToPieceIndex(payloadCID, expectedPieceCID)
+				dagStore.AddBlockToPieceIndex(payloadCID, expectedPieceCID2)
+			},
+			query: retrievalmarket.Query{PayloadCID: identityCidWith1},
+			expResp: retrievalmarket.QueryResponse{
+				Status:        retrievalmarket.QueryResponseAvailable,
+				PieceCIDFound: retrievalmarket.QueryItemAvailable,
+				Size:          expectedSize,
+			},
+			expectedPricePerByte:            expectedPricePerByte,
+			expectedPaymentInterval:         expectedPaymentInterval,
+			expectedPaymentIntervalIncrease: expectedPaymentIntervalIncrease,
+			expectedUnsealPrice:             expectedUnsealPrice,
+		},
+
+		{name: "When PieceCID is not provided and PayloadCID is an identity CID with two links that are found",
+			expFunc: func(t *testing.T, pieceStore *tut.TestPieceStore, dagStore *tut.MockDagStoreWrapper) {
+				pieceStore.ExpectPiece(expectedPieceCID, expectedPiece) // both only appear in this piece, expect just this call
+				dagStore.AddBlockToPieceIndex(payloadCID, expectedPieceCID)
+				dagStore.AddBlockToPieceIndex(payloadCID, expectedPieceCID2)
+				dagStore.AddBlockToPieceIndex(payloadCID2, expectedPieceCID)
+			},
+			query: retrievalmarket.Query{PayloadCID: identityCidWithBoth},
+			expResp: retrievalmarket.QueryResponse{
+				Status:        retrievalmarket.QueryResponseAvailable,
+				PieceCIDFound: retrievalmarket.QueryItemAvailable,
+				Size:          expectedSize,
+			},
+			expectedPricePerByte:            expectedPricePerByte,
+			expectedPaymentInterval:         expectedPaymentInterval,
+			expectedPaymentIntervalIncrease: expectedPaymentIntervalIncrease,
+			expectedUnsealPrice:             expectedUnsealPrice,
+		},
+
+		{name: "When PieceCID is not provided and PayloadCID is an identity CID with a link that is not found",
+			expFunc: func(t *testing.T, pieceStore *tut.TestPieceStore, dagStore *tut.MockDagStoreWrapper) {},
+			query:   retrievalmarket.Query{PayloadCID: identityCidWithBogus},
+			expResp: retrievalmarket.QueryResponse{
+				Status:        retrievalmarket.QueryResponseUnavailable,
+				PieceCIDFound: retrievalmarket.QueryItemUnavailable,
+				Message:       "piece info for cid not found (deal has not been added to a piece yet)",
+			},
+			expectedPricePerByte:            big.Zero(),
+			expectedPaymentInterval:         0,
+			expectedPaymentIntervalIncrease: 0,
+			expectedUnsealPrice:             big.Zero(),
+		}}
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			node := testnodes.NewTestRetrievalProviderNode()
