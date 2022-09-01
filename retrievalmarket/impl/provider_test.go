@@ -12,14 +12,10 @@ import (
 	"github.com/ipfs/go-datastore"
 	"github.com/ipfs/go-datastore/namespace"
 	dss "github.com/ipfs/go-datastore/sync"
-	"github.com/ipld/go-ipld-prime"
 	"github.com/ipld/go-ipld-prime/codec/dagcbor"
-	"github.com/ipld/go-ipld-prime/datamodel"
-	"github.com/ipld/go-ipld-prime/fluent/qp"
-	cidlink "github.com/ipld/go-ipld-prime/linking/cid"
-	basicnode "github.com/ipld/go-ipld-prime/node/basic"
 	selectorparse "github.com/ipld/go-ipld-prime/traversal/selector/parse"
 	"github.com/libp2p/go-libp2p-core/peer"
+	"github.com/multiformats/go-multicodec"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	cbg "github.com/whyrusleeping/cbor-gen"
@@ -645,26 +641,6 @@ func TestDynamicPricing(t *testing.T) {
 	}
 }
 
-func makeIdentityCidWith(cids []cid.Cid, padding ...[]byte) (cid.Cid, error) {
-	node, err := qp.BuildList(basicnode.Prototype.List, int64(len(cids)+len(padding)), func(la datamodel.ListAssembler) {
-		for _, cid := range cids {
-			qp.ListEntry(la, qp.Link(cidlink.Link{Cid: cid}))
-		}
-		for _, pad := range padding {
-			qp.ListEntry(la, qp.Bytes(pad))
-		}
-	})
-	if err != nil {
-		return cid.Undef, err
-	}
-	encoded, err := ipld.Encode(node, dagcbor.Encode)
-	if err != nil {
-		return cid.Undef, err
-	}
-	lp := cidlink.LinkPrototype{Prefix: cid.Prefix{Version: 1, Codec: 0x71, MhType: 0x0}}
-	return lp.BuildLink(encoded).(cidlink.Link).Cid, nil
-}
-
 func TestHandleQueryStream(t *testing.T) {
 	ctx := context.Background()
 
@@ -677,17 +653,17 @@ func TestHandleQueryStream(t *testing.T) {
 	paddedSize2 := uint64(2234)
 	expectedSize2 := uint64(abi.PaddedPieceSize(paddedSize2).Unpadded())
 
-	identityCidWith1, err := makeIdentityCidWith([]cid.Cid{payloadCID})
+	identityCidWith1, err := tut.MakeIdentityCidWith([]cid.Cid{payloadCID}, multicodec.DagPb)
 	require.NoError(t, err)
-	identityCidWithBoth, err := makeIdentityCidWith([]cid.Cid{payloadCID, payloadCID2}, []byte("and some padding"))
+	identityCidWithBoth, err := tut.MakeIdentityCidWith([]cid.Cid{payloadCID, payloadCID2}, multicodec.DagCbor, []byte("and some padding"))
 	require.NoError(t, err)
-	identityCidWithBothNested, err := makeIdentityCidWith([]cid.Cid{identityCidWith1, payloadCID2})
+	identityCidWithBothNested, err := tut.MakeIdentityCidWith([]cid.Cid{identityCidWith1, payloadCID2}, multicodec.DagPb)
 	require.NoError(t, err)
-	identityCidWithBogus, err := makeIdentityCidWith([]cid.Cid{payloadCID, tut.GenerateCids(1)[0]})
+	identityCidWithBogus, err := tut.MakeIdentityCidWith([]cid.Cid{payloadCID, tut.GenerateCids(1)[0]}, multicodec.DagPb)
 	require.NoError(t, err)
-	identityCidTooBig, err := makeIdentityCidWith([]cid.Cid{payloadCID}, tut.RandomBytes(2048))
+	identityCidTooBig, err := tut.MakeIdentityCidWith([]cid.Cid{payloadCID}, multicodec.DagCbor, tut.RandomBytes(2048))
 	require.NoError(t, err)
-	identityCidTooManyLinks, err := makeIdentityCidWith(tut.GenerateCids(33))
+	identityCidTooManyLinks, err := tut.MakeIdentityCidWith(tut.GenerateCids(33), multicodec.DagPb)
 	require.NoError(t, err)
 
 	expectedPieceCID := tut.GenerateCids(1)[0]
