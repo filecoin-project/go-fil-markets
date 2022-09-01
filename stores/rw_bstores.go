@@ -4,6 +4,7 @@ import (
 	"sync"
 
 	"github.com/ipfs/go-cid"
+	carv2 "github.com/ipld/go-car/v2"
 	"github.com/ipld/go-car/v2/blockstore"
 	"golang.org/x/xerrors"
 )
@@ -38,7 +39,7 @@ func (r *ReadWriteBlockstores) GetOrOpen(key string, path string, rootCid cid.Ci
 		return bs, nil
 	}
 
-	bs, err := blockstore.OpenReadWrite(path, []cid.Cid{rootCid}, blockstore.UseWholeCIDs(true))
+	bs, err := blockstore.OpenReadWrite(path, []cid.Cid{rootCid}, blockstore.UseWholeCIDs(true), carv2.StoreIdentityCIDs(true))
 	if err != nil {
 		return nil, xerrors.Errorf("failed to create read-write blockstore: %w", err)
 	}

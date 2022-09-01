@@ -39,7 +39,7 @@ require (
 	github.com/ipfs/go-merkledag v0.6.0
 	github.com/ipfs/go-unixfs v0.3.1
 	github.com/ipld/go-car v0.4.0
-	github.com/ipld/go-car/v2 v2.4.1
+	github.com/ipld/go-car/v2 v2.4.2-0.20220902111941-7b1af9af7fe8
 	github.com/ipld/go-codec-dagpb v1.3.1
 	github.com/ipld/go-ipld-prime v0.17.0
 	github.com/jbenet/go-random v0.0.0-20190219211222-123a90aedc0c

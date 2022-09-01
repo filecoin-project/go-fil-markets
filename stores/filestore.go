@@ -43,6 +43,7 @@ func ReadOnlyFilestore(path string) (ClosableBlockstore, error) {
 func ReadWriteFilestore(path string, roots ...cid.Cid) (ClosableBlockstore, error) {
 	rw, err := OpenReadWrite(path, roots,
 		carv2.ZeroLengthSectionAsEOF(true),
+		carv2.StoreIdentityCIDs(true),
 		blockstore.UseWholeCIDs(true),
 	)
 	if err != nil {
