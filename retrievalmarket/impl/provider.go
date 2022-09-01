@@ -557,25 +557,37 @@ func linksFromIdentityCid(identityCid cid.Cid) ([]cid.Cid, error) {
 		return nil, fmt.Errorf("collecting links from identity CID %s: %w", identityCid, err)
 	}
 
-	if len(links) > MaxIdentityCIDLinks {
-		return nil, fmt.Errorf("refusing to process identity CID with too many links (%d)", len(links))
-	}
-
-	// dedupe and convert from Link to Cid
-	cids := make([]cid.Cid, 0)
+	// convert from Link to Cid, handle nested identity CIDs, and dedupe
+	resultCids := make([]cid.Cid, 0)
 	for _, link_ := range links {
-		cid := link_.(cidlink.Link).Cid
-		var found bool
-		for _, c := range cids {
-			if c.Equals(cid) {
-				found = true
+		cids := []cid.Cid{link_.(cidlink.Link).Cid}
+		if cids[0].Prefix().MhType == multihash.IDENTITY {
+			// nested, recurse
+			// (just because you can, it doesn't mean you should, nested identity CIDs are an extra layer of silly)
+			cids, err = linksFromIdentityCid(cids[0])
+			if err != nil {
+				return nil, err
 			}
 		}
-		if !found {
-			cids = append(cids, cid)
+		for _, c := range cids {
+			// dedupe
+			var found bool
+			for _, rc := range resultCids {
+				if rc.Equals(c) {
+					found = true
+				}
+			}
+			if !found {
+				resultCids = append(resultCids, c)
+			}
 		}
 	}
-	return cids, err
+
+	if len(resultCids) > MaxIdentityCIDLinks {
+		return nil, fmt.Errorf("refusing to process identity CID with too many links (%d)", len(resultCids))
+	}
+
+	return resultCids, err
 }
 
 func (p *Provider) pieceInUnsealedSector(ctx context.Context, pieceInfo piecestore.PieceInfo) bool {

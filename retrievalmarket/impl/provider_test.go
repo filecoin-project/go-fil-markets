@@ -681,6 +681,8 @@ func TestHandleQueryStream(t *testing.T) {
 	require.NoError(t, err)
 	identityCidWithBoth, err := makeIdentityCidWith([]cid.Cid{payloadCID, payloadCID2}, []byte("and some padding"))
 	require.NoError(t, err)
+	identityCidWithBothNested, err := makeIdentityCidWith([]cid.Cid{identityCidWith1, payloadCID2})
+	require.NoError(t, err)
 	identityCidWithBogus, err := makeIdentityCidWith([]cid.Cid{payloadCID, tut.GenerateCids(1)[0]})
 	require.NoError(t, err)
 	identityCidTooBig, err := makeIdentityCidWith([]cid.Cid{payloadCID}, tut.RandomBytes(2048))
@@ -907,6 +909,25 @@ func TestHandleQueryStream(t *testing.T) {
 				dagStore.AddBlockToPieceIndex(payloadCID2, expectedPieceCID)
 			},
 			query: retrievalmarket.Query{PayloadCID: identityCidWithBoth},
+			expResp: retrievalmarket.QueryResponse{
+				Status:        retrievalmarket.QueryResponseAvailable,
+				PieceCIDFound: retrievalmarket.QueryItemAvailable,
+				Size:          expectedSize,
+			},
+			expectedPricePerByte:            expectedPricePerByte,
+			expectedPaymentInterval:         expectedPaymentInterval,
+			expectedPaymentIntervalIncrease: expectedPaymentIntervalIncrease,
+			expectedUnsealPrice:             expectedUnsealPrice,
+		},
+
+		{name: "When PieceCID is not provided and PayloadCID is an identity CID with two links (one nested) that are found",
+			expFunc: func(t *testing.T, pieceStore *tut.TestPieceStore, dagStore *tut.MockDagStoreWrapper) {
+				pieceStore.ExpectPiece(expectedPieceCID, expectedPiece) // both only appear in this piece, expect just this call
+				dagStore.AddBlockToPieceIndex(payloadCID, expectedPieceCID)
+				dagStore.AddBlockToPieceIndex(payloadCID, expectedPieceCID2)
+				dagStore.AddBlockToPieceIndex(payloadCID2, expectedPieceCID)
+			},
+			query: retrievalmarket.Query{PayloadCID: identityCidWithBothNested},
 			expResp: retrievalmarket.QueryResponse{
 				Status:        retrievalmarket.QueryResponseAvailable,
 				PieceCIDFound: retrievalmarket.QueryItemAvailable,
