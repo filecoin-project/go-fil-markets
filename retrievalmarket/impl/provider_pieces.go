@@ -64,8 +64,11 @@ func (p *Provider) getCommonPiecesFromIdentityCidLinks(payloadCID cid.Cid) ([]ci
 	// for each link, query the dagstore for pieces that contain it
 	for i, link := range links {
 		piecesWithThisCid, err := p.dagStore.GetPiecesContainingBlock(link)
-		if len(piecesWithThisCid) == 0 {
+		if err != nil {
 			return nil, fmt.Errorf("getting pieces for identity CID sub-link %s: %w", link, err)
+		}
+		if len(piecesWithThisCid) == 0 {
+			return nil, fmt.Errorf("no pieces for identity CID sub-link %s", link)
 		}
 		if i == 0 {
 			pieces = append(pieces, piecesWithThisCid...)
