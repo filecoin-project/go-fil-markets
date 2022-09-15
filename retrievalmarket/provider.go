@@ -3,6 +3,8 @@ package retrievalmarket
 import (
 	"context"
 
+	"github.com/ipfs/go-cid"
+
 	"github.com/filecoin-project/go-fil-markets/shared"
 )
 
@@ -31,6 +33,8 @@ type RetrievalProvider interface {
 	SubscribeToEvents(subscriber ProviderSubscriber) Unsubscribe
 
 	ListDeals() map[ProviderDealIdentifier]ProviderDealState
+
+	IsFreeAndUnsealed(ctx context.Context, c cid.Cid, pieceCid cid.Cid) (bool, error)
 }
 
 // AskStore is an interface which provides access to a persisted retrieval Ask
