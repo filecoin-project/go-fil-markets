@@ -53,6 +53,10 @@ type PieceInfo struct {
 // PieceInfoUndefined is piece info with no information
 var PieceInfoUndefined = PieceInfo{}
 
+func (pi PieceInfo) Defined() bool {
+	return pi.PieceCID.Defined() || len(pi.Deals) > 0
+}
+
 // PieceStore is a saved database of piece info that can be modified and queried
 type PieceStore interface {
 	Start(ctx context.Context) error
