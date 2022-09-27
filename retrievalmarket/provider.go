@@ -3,6 +3,8 @@ package retrievalmarket
 import (
 	"context"
 
+	"github.com/filecoin-project/go-state-types/abi"
+
 	"github.com/filecoin-project/go-fil-markets/shared"
 )
 
@@ -26,6 +28,10 @@ type RetrievalProvider interface {
 
 	// GetAsk returns the retrieval providers pricing information
 	GetAsk() *Ask
+
+	// GetDynamicAsk quotes a dynamic price for the retrieval deal by calling the user configured
+	// dynamic pricing function. It passes the static price parameters set in the Ask Store to the pricing function.
+	GetDynamicAsk(ctx context.Context, input PricingInput, storageDeals []abi.DealID) (Ask, error)
 
 	// SubscribeToEvents listens for events that happen related to client retrievals
 	SubscribeToEvents(subscriber ProviderSubscriber) Unsubscribe
