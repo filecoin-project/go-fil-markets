@@ -277,7 +277,6 @@ var ProviderFinalityStates = []fsm.StateKey{
 // StatesKnownBySealingSubsystem are the states on the happy path after hand-off to
 // the sealing subsystem
 var StatesKnownBySealingSubsystem = []fsm.StateKey{
-	storagemarket.StorageDealStaged,
 	storagemarket.StorageDealAwaitingPreCommit,
 	storagemarket.StorageDealSealing,
 	storagemarket.StorageDealFinalizing,
