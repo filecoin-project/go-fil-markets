@@ -10,7 +10,7 @@ import (
 
 	filestore "github.com/filecoin-project/go-fil-markets/filestore"
 	abi "github.com/filecoin-project/go-state-types/abi"
-	market "github.com/filecoin-project/go-state-types/builtin/v9/market"
+	market "github.com/filecoin-project/go-state-types/builtin/v8/market"
 	crypto "github.com/filecoin-project/go-state-types/crypto"
 	cid "github.com/ipfs/go-cid"
 	peer "github.com/libp2p/go-libp2p-core/peer"
