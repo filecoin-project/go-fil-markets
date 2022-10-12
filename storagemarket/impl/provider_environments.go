@@ -14,7 +14,6 @@ import (
 
 	"github.com/filecoin-project/go-address"
 	"github.com/filecoin-project/go-state-types/abi"
-	"github.com/filecoin-project/index-provider/metadata"
 
 	"github.com/filecoin-project/go-fil-markets/commp"
 	"github.com/filecoin-project/go-fil-markets/filestore"
@@ -40,11 +39,7 @@ func (p *providerDealEnvironment) RegisterShard(ctx context.Context, pieceCid ci
 // AnnounceIndex informs indexer nodes that a new deal was received,
 // so they can download its index
 func (p *providerDealEnvironment) AnnounceIndex(ctx context.Context, deal storagemarket.MinerDeal) (advertCid cid.Cid, err error) {
-	mt := metadata.New(&metadata.GraphsyncFilecoinV1{
-		PieceCID:      deal.Proposal.PieceCID,
-		FastRetrieval: deal.FastRetrieval,
-		VerifiedDeal:  deal.Proposal.VerifiedDeal,
-	})
+	mt := p.p.metadataForDeal(deal)
 
 	// ensure we have a connection with the full node host so that the index provider gossip sub announcements make their
 	// way to the filecoin bootstrapper network
