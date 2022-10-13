@@ -2,6 +2,7 @@ package storageimpl
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -59,6 +60,16 @@ type MeshCreator interface {
 	Connect(context.Context) error
 }
 
+type MetadataFunc func(storagemarket.MinerDeal) metadata.Metadata
+
+func defaultMetadataFunc(deal storagemarket.MinerDeal) metadata.Metadata {
+	return metadata.New(&metadata.GraphsyncFilecoinV1{
+		PieceCID:      deal.Proposal.PieceCID,
+		FastRetrieval: deal.FastRetrieval,
+		VerifiedDeal:  deal.Proposal.VerifiedDeal,
+	})
+}
+
 // Provider is the production implementation of the StorageProvider interface
 type Provider struct {
 	net                         network.StorageMarketNetwork
@@ -80,9 +91,10 @@ type Provider struct {
 
 	unsubDataTransfer datatransfer.Unsubscribe
 
-	dagStore      stores.DAGStoreWrapper
-	indexProvider provider.Interface
-	stores        *stores.ReadWriteBlockstores
+	dagStore        stores.DAGStoreWrapper
+	indexProvider   provider.Interface
+	metadataForDeal MetadataFunc
+	stores          *stores.ReadWriteBlockstores
 }
 
 // StorageProviderOption allows custom configuration of a storage provider
@@ -110,6 +122,12 @@ func CustomDealDecisionLogic(decider DealDeciderFunc) StorageProviderOption {
 func AwaitTransferRestartTimeout(waitTime time.Duration) StorageProviderOption {
 	return func(p *Provider) {
 		p.awaitTransferRestartTimeout = waitTime
+	}
+}
+
+func CustomMetadataGenerator(metadataFunc MetadataFunc) StorageProviderOption {
+	return func(p *Provider) {
+		p.metadataForDeal = metadataFunc
 	}
 }
 
@@ -143,6 +161,7 @@ func NewProvider(net network.StorageMarketNetwork,
 		stores:                      stores.NewReadWriteBlockstores(),
 		awaitTransferRestartTimeout: defaultAwaitRestartTimeout,
 		indexProvider:               indexer,
+		metadataForDeal:             defaultMetadataFunc,
 	}
 	storageMigrations, err := migrations.ProviderMigrations.Build()
 	if err != nil {
@@ -541,17 +560,11 @@ func (p *Provider) AnnounceDealToIndexer(ctx context.Context, proposalCid cid.Ci
 		return xerrors.Errorf("failed getting deal %s: %w", proposalCid, err)
 	}
 
-	mt := metadata.New(&metadata.GraphsyncFilecoinV1{
-		PieceCID:      deal.Proposal.PieceCID,
-		FastRetrieval: deal.FastRetrieval,
-		VerifiedDeal:  deal.Proposal.VerifiedDeal,
-	})
-
 	if err := p.meshCreator.Connect(ctx); err != nil {
 		return fmt.Errorf("cannot publish index record as indexer host failed to connect to the full node: %w", err)
 	}
 
-	annCid, err := p.indexProvider.NotifyPut(ctx, deal.ProposalCid.Bytes(), mt)
+	annCid, err := p.indexProvider.NotifyPut(ctx, deal.ProposalCid.Bytes(), p.metadataForDeal(deal))
 	if err == nil {
 		log.Infow("deal announcement sent to index provider", "advertisementCid", annCid, "shard-key", deal.Proposal.PieceCID,
 			"proposalCid", deal.ProposalCid)
@@ -591,8 +604,11 @@ func (p *Provider) AnnounceAllDealsToIndexer(ctx context.Context) error {
 		}
 
 		if err := p.AnnounceDealToIndexer(ctx, d.ProposalCid); err != nil {
-			merr = multierror.Append(merr, err)
-			log.Errorw("failed to announce deal to Index provider", "proposalCid", d.ProposalCid, "err", err)
+			// don't log already advertised errors as errors - just skip them
+			if !errors.Is(err, provider.ErrAlreadyAdvertised) {
+				merr = multierror.Append(merr, err)
+				log.Errorw("failed to announce deal to Index provider", "proposalCid", d.ProposalCid, "err", err)
+			}
 			continue
 		}
 		shards[d.Proposal.PieceCID.String()] = struct{}{}
