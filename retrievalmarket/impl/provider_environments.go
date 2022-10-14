@@ -35,7 +35,7 @@ func (pve *providerValidationEnvironment) GetAsk(ctx context.Context, payloadCid
 	pieces, piecesErr := pve.p.getAllPieceInfoForPayload(payloadCid)
 	// err may be non-nil, but we may have successfuly found >0 pieces, so defer error handling till
 	// we have no other option.
-	storageDeals := pve.p.storageDealsForPiece(pieceCid != nil, pieces, piece)
+	storageDeals := pve.p.getStorageDealsForPiece(pieceCid != nil, pieces, piece)
 	if len(storageDeals) == 0 {
 		if piecesErr != nil {
 			return retrievalmarket.Ask{}, fmt.Errorf("failed to fetch deals for payload [%s]: %w", payloadCid.String(), piecesErr)
