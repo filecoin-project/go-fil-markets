@@ -300,10 +300,9 @@ func (p Params) OutstandingBalance(fundsReceived abi.TokenAmount, sent uint64, i
 	// The provider will send a limited amount of extra data before receiving
 	// payment. Given the current limit, check if the client has paid enough
 	// to unlock the next interval.
-	minimumBytesToPay := p.IntervalLowerBound(sent)
-	if inFinalization {
-		// for last payment, we need to get past zero
-		minimumBytesToPay = sent
+	minimumBytesToPay := sent // for last payment, we need to get past zero
+	if !inFinalization {
+		minimumBytesToPay = p.IntervalLowerBound(sent)
 	}
 
 	// Calculate the minimum required payment
