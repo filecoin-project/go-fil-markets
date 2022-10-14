@@ -27,16 +27,16 @@ import (
 // MakeTestSignedVoucher generates a random SignedVoucher that has all non-zero fields
 func MakeTestSignedVoucher() *paych.SignedVoucher {
 	return &paych.SignedVoucher{
-		ChannelAddr:    address.TestAddress,
-		TimeLockMin:    abi.ChainEpoch(rand.Int63()),
-		TimeLockMax:    0,
+		ChannelAddr: address.TestAddress,
+		TimeLockMin: abi.ChainEpoch(rand.Int63()),
+		TimeLockMax: 0,
 		SecretHash:  []byte("secret-preimage"),
-		Extra:          MakeTestModVerifyParams(),
-		Lane:           uint64(rand.Uint32()),
-		Nonce:          uint64(rand.Uint32()),
-		Amount:         MakeTestTokenAmount(),
-		Merges:         []paych.Merge{MakeTestMerge()},
-		Signature:      MakeTestSignature(),
+		Extra:       MakeTestModVerifyParams(),
+		Lane:        uint64(rand.Uint32()),
+		Nonce:       uint64(rand.Uint32()),
+		Amount:      MakeTestTokenAmount(),
+		Merges:      []paych.Merge{MakeTestMerge()},
+		Signature:   MakeTestSignature(),
 	}
 }
 
