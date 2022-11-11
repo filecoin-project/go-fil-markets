@@ -3,7 +3,6 @@ package retrievalimpl
 import (
 	"context"
 	"errors"
-	"fmt"
 	"sync"
 
 	"github.com/hannahhoward/go-pubsub"
@@ -256,14 +255,7 @@ func (c *Client) Retrieve(
 	c.retrieveLk.Lock()
 	defer c.retrieveLk.Unlock()
 
-	// Check if there's already an active retrieval deal with the same peer
-	// for the same payload CID
-	err := c.checkForActiveDeal(payloadCID, p.ID)
-	if err != nil {
-		return 0, err
-	}
-
-	err = c.addMultiaddrs(ctx, p)
+	err := c.addMultiaddrs(ctx, p)
 	if err != nil {
 		return 0, err
 	}
@@ -305,31 +297,6 @@ func (c *Client) Retrieve(
 	}
 
 	return id, nil
-}
-
-// Check if there's already an active retrieval deal with the same peer
-// for the same payload CID
-func (c *Client) checkForActiveDeal(payloadCID cid.Cid, pid peer.ID) error {
-	var deals []retrievalmarket.ClientDealState
-	err := c.stateMachines.List(&deals)
-	if err != nil {
-		return err
-	}
-
-	for _, deal := range deals {
-		match := deal.Sender == pid && deal.PayloadCID == payloadCID
-		active := !clientstates.IsFinalityState(deal.Status)
-		if match && active {
-			msg := fmt.Sprintf("there is an active retrieval deal with peer %s ", pid)
-			msg += fmt.Sprintf("for payload CID %s ", payloadCID)
-			msg += fmt.Sprintf("(retrieval deal ID %d, state %s) - ",
-				deal.ID, retrievalmarket.DealStatuses[deal.Status])
-			msg += "existing deal must be cancelled before starting a new retrieval deal"
-			err := xerrors.Errorf(msg)
-			return err
-		}
-	}
-	return nil
 }
 
 func (c *Client) notifySubscribers(eventName fsm.EventName, state fsm.StateType) {
