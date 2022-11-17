@@ -6,6 +6,7 @@ import (
 	"errors"
 	"time"
 
+	"github.com/hannahhoward/go-pubsub"
 	"github.com/ipfs/go-cid"
 	"github.com/ipld/go-ipld-prime"
 	"github.com/ipld/go-ipld-prime/codec/dagcbor"
@@ -46,12 +47,16 @@ type ValidationEnvironment interface {
 
 // ProviderRequestValidator validates incoming requests for the Retrieval Provider
 type ProviderRequestValidator struct {
-	env ValidationEnvironment
+	env  ValidationEnvironment
+	psub *pubsub.PubSub
 }
 
 // NewProviderRequestValidator returns a new instance of the ProviderRequestValidator
 func NewProviderRequestValidator(env ValidationEnvironment) *ProviderRequestValidator {
-	return &ProviderRequestValidator{env}
+	return &ProviderRequestValidator{
+		env:  env,
+		psub: pubsub.New(queryValidationDispatcher),
+	}
 }
 
 // ValidatePush validates a push request received from the peer that will send data
@@ -73,6 +78,15 @@ func (rv *ProviderRequestValidator) ValidatePull(isRestart bool, _ datatransfer.
 		legacyProtocol = true
 	}
 	response, err := rv.validatePull(isRestart, receiver, proposal, legacyProtocol, baseCid, selector)
+	rv.psub.Publish(retrievalmarket.ProviderValidationEvent{
+		IsRestart: isRestart,
+		Receiver:  receiver,
+		Proposal:  proposal,
+		BaseCid:   baseCid,
+		Selector:  selector,
+		Response:  response,
+		Error:     err,
+	})
 	if response == nil {
 		return nil, err
 	}
@@ -194,4 +208,21 @@ func (rv *ProviderRequestValidator) acceptDeal(deal *retrievalmarket.ProviderDea
 	}
 
 	return retrievalmarket.DealStatusAccepted, nil
+}
+
+func (rv *ProviderRequestValidator) Subscribe(subscriber retrievalmarket.ProviderValidationSubscriber) retrievalmarket.Unsubscribe {
+	return retrievalmarket.Unsubscribe(rv.psub.Subscribe(subscriber))
+}
+
+func queryValidationDispatcher(evt pubsub.Event, subscriberFn pubsub.SubscriberFn) error {
+	e, ok := evt.(retrievalmarket.ProviderValidationEvent)
+	if !ok {
+		return errors.New("wrong type of event")
+	}
+	cb, ok := subscriberFn.(retrievalmarket.ProviderValidationSubscriber)
+	if !ok {
+		return errors.New("wrong type of callback")
+	}
+	cb(e)
+	return nil
 }

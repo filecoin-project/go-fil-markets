@@ -11,6 +11,12 @@ import (
 // ProviderSubscriber is a callback that is registered to listen for retrieval events on a provider
 type ProviderSubscriber func(event ProviderEvent, state ProviderDealState)
 
+// ProviderQueryEventSubscriber is a callback that is registered to listen for query message events
+type ProviderQueryEventSubscriber func(evt ProviderQueryEvent)
+
+// ProviderValidationSubscriber is a callback that is registered to listen for validation events
+type ProviderValidationSubscriber func(evt ProviderValidationEvent)
+
 // RetrievalProvider is an interface by which a provider configures their
 // retrieval operations and monitors deals received and process
 type RetrievalProvider interface {
@@ -35,6 +41,14 @@ type RetrievalProvider interface {
 
 	// SubscribeToEvents listens for events that happen related to client retrievals
 	SubscribeToEvents(subscriber ProviderSubscriber) Unsubscribe
+
+	// SubscribeToQueryEvents subscribes to an event that is fired when a message
+	// is received on the query protocol
+	SubscribeToQueryEvents(subscriber ProviderQueryEventSubscriber) Unsubscribe
+
+	// SubscribeToValidationEvents subscribes to an event that is fired when the
+	// provider validates a request for data
+	SubscribeToValidationEvents(subscriber ProviderValidationSubscriber) Unsubscribe
 
 	ListDeals() map[ProviderDealIdentifier]ProviderDealState
 }

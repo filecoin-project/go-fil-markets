@@ -72,6 +72,21 @@ func (deal *ClientDealState) NextInterval() uint64 {
 	return deal.Params.NextInterval(deal.CurrentInterval)
 }
 
+type ProviderQueryEvent struct {
+	Response QueryResponse
+	Error    error
+}
+
+type ProviderValidationEvent struct {
+	IsRestart bool
+	Receiver  peer.ID
+	Proposal  *DealProposal
+	BaseCid   cid.Cid
+	Selector  ipld.Node
+	Response  *DealResponse
+	Error     error
+}
+
 // ProviderDealState is the current state of a deal from the point of view
 // of a retrieval provider
 type ProviderDealState struct {
