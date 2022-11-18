@@ -62,6 +62,7 @@ type Provider struct {
 	pieceStore           piecestore.PieceStore
 	readyMgr             *shared.ReadyManager
 	subscribers          *pubsub.PubSub
+	subQueryEvt          *pubsub.PubSub
 	stateMachines        fsm.Group
 	migrateStateMachines func(context.Context) error
 	dealDecider          DealDecider
@@ -132,6 +133,7 @@ func NewProvider(minerAddress address.Address,
 		minerAddress:         minerAddress,
 		pieceStore:           pieceStore,
 		subscribers:          pubsub.New(providerDispatcher),
+		subQueryEvt:          pubsub.New(queryEvtDispatcher),
 		readyMgr:             shared.NewReadyManager(),
 		retrievalPricingFunc: retrievalPricingFunc,
 		dagStore:             dagStore,
@@ -257,6 +259,12 @@ func (p *Provider) SubscribeToEvents(subscriber retrievalmarket.ProviderSubscrib
 	return retrievalmarket.Unsubscribe(p.subscribers.Subscribe(subscriber))
 }
 
+// SubscribeToValidationEvents subscribes to an event that is fired when the
+// provider validates a request for data
+func (p *Provider) SubscribeToValidationEvents(subscriber retrievalmarket.ProviderValidationSubscriber) retrievalmarket.Unsubscribe {
+	return p.requestValidator.Subscribe(subscriber)
+}
+
 // GetAsk returns the current deal parameters this provider accepts
 func (p *Provider) GetAsk() *retrievalmarket.Ask {
 	return p.askStore.GetAsk()
@@ -281,6 +289,25 @@ func (p *Provider) ListDeals() map[retrievalmarket.ProviderDealIdentifier]retrie
 		dealMap[retrievalmarket.ProviderDealIdentifier{Receiver: deal.Receiver, DealID: deal.ID}] = deal
 	}
 	return dealMap
+}
+
+// SubscribeToQueryEvents subscribes to an event that is fired when a message
+// is received on the query protocol
+func (p *Provider) SubscribeToQueryEvents(subscriber retrievalmarket.ProviderQueryEventSubscriber) retrievalmarket.Unsubscribe {
+	return retrievalmarket.Unsubscribe(p.subQueryEvt.Subscribe(subscriber))
+}
+
+func queryEvtDispatcher(evt pubsub.Event, subscriberFn pubsub.SubscriberFn) error {
+	e, ok := evt.(retrievalmarket.ProviderQueryEvent)
+	if !ok {
+		return errors.New("wrong type of event")
+	}
+	cb, ok := subscriberFn.(retrievalmarket.ProviderQueryEventSubscriber)
+	if !ok {
+		return errors.New("wrong type of callback")
+	}
+	cb(e)
+	return nil
 }
 
 /*
@@ -309,9 +336,15 @@ func (p *Provider) HandleQueryStream(stream rmnet.RetrievalQueryStream) {
 	}
 
 	sendResp := func(resp retrievalmarket.QueryResponse) {
-		if err := stream.WriteQueryResponse(resp); err != nil {
-			log.Errorf("Retrieval query: writing query response: %s", err)
+		msgEvt := retrievalmarket.ProviderQueryEvent{
+			Response: resp,
 		}
+		if err := stream.WriteQueryResponse(resp); err != nil {
+			err = fmt.Errorf("Retrieval query: writing query response: %w", err)
+			log.Error(err)
+			msgEvt.Error = err
+		}
+		p.subQueryEvt.Publish(msgEvt)
 	}
 
 	answer := retrievalmarket.QueryResponse{
@@ -324,7 +357,9 @@ func (p *Provider) HandleQueryStream(stream rmnet.RetrievalQueryStream) {
 	// get chain head to query actor states.
 	tok, _, err := p.node.GetChainHead(ctx)
 	if err != nil {
-		log.Errorf("Retrieval query: GetChainHead: %s", err)
+		err = fmt.Errorf("Retrieval query: GetChainHead: %w", err)
+		log.Error(err)
+		p.subQueryEvt.Publish(retrievalmarket.ProviderQueryEvent{Error: err})
 		return
 	}
 
