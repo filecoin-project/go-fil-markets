@@ -27,6 +27,7 @@ func TestStorePieceInfo(t *testing.T) {
 	ctx := context.Background()
 	pieceCid := shared_testutil.GenerateCids(1)[0]
 	pieceCid2 := shared_testutil.GenerateCids(1)[0]
+	payloadCid := shared_testutil.GenerateCids(1)[0]
 	initializePieceStore := func(t *testing.T, ctx context.Context) piecestore.PieceStore {
 		ps, err := piecestoreimpl.NewPieceStore(datastore.NewMapDatastore())
 		require.NoError(t, err)
@@ -47,7 +48,7 @@ func TestStorePieceInfo(t *testing.T) {
 			Offset:   abi.PaddedPieceSize(rand.Uint64()),
 			Length:   abi.PaddedPieceSize(rand.Uint64()),
 		}
-		err := ps.AddDealForPiece(pieceCid, dealInfo)
+		err := ps.AddDealForPiece(pieceCid, payloadCid, dealInfo)
 		assert.NoError(t, err)
 
 		pi, err := ps.GetPieceInfo(pieceCid)
@@ -71,7 +72,7 @@ func TestStorePieceInfo(t *testing.T) {
 			Offset:   abi.PaddedPieceSize(rand.Uint64()),
 			Length:   abi.PaddedPieceSize(rand.Uint64()),
 		}
-		err := ps.AddDealForPiece(pieceCid, dealInfo)
+		err := ps.AddDealForPiece(pieceCid, payloadCid, dealInfo)
 		assert.NoError(t, err)
 
 		pi, err := ps.GetPieceInfo(pieceCid)
@@ -79,7 +80,7 @@ func TestStorePieceInfo(t *testing.T) {
 		assert.Len(t, pi.Deals, 1)
 		assert.Equal(t, pi.Deals[0], dealInfo)
 
-		err = ps.AddDealForPiece(pieceCid, dealInfo)
+		err = ps.AddDealForPiece(pieceCid, payloadCid, dealInfo)
 		assert.NoError(t, err)
 
 		pi, err = ps.GetPieceInfo(pieceCid)
