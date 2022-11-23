@@ -1,5 +1,16 @@
 # go-fil-markets changelog
 
+# go-fil-markets v1.25.1
+
+- github.com/filecoin-project/go-fil-markets:
+  - feat: add API methods to subscribe to retrieval query and validation events (#765) ([filecoin-project/go-fil-markets#765](https://github.com/filecoin-project/go-fil-markets/pull/765))
+
+Contributors
+
+| Contributor | Commits | Lines ± | Files Changed |
+|-------------|---------|---------|---------------|
+| dirkmc | 1 | +99/-4 | 4 |
+
 # go-fil-markets v1.24.3
 
 Merge back in v9 actor changes, also includes additional identity cid fixes
