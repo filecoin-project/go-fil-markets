@@ -1,5 +1,16 @@
 # go-fil-markets changelog
 
+# go-fil-markets v1.25.2
+
+- github.com/filecoin-project/go-fil-markets:
+  - chore(deps): upgrade to index provider v0.9.1 (#766) ([filecoin-project/go-fil-markets#766](https://github.com/filecoin-project/go-fil-markets/pull/766))
+
+Contributors
+
+| Contributor | Commits | Lines ± | Files Changed |
+|-------------|---------|---------|---------------|
+| Hannah Howard | 1 | +505/-213 | 12 |
+
 # go-fil-markets v1.25.1
 
 - github.com/filecoin-project/go-fil-markets:
