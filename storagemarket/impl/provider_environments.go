@@ -47,11 +47,11 @@ func (p *providerDealEnvironment) AnnounceIndex(ctx context.Context, deal storag
 		return cid.Undef, fmt.Errorf("cannot publish index record as indexer host failed to connect to the full node: %w", err)
 	}
 
-	return p.p.indexProvider.NotifyPut(ctx, deal.ProposalCid.Bytes(), mt)
+	return p.p.indexProvider.NotifyPut(ctx, nil, deal.ProposalCid.Bytes(), mt)
 }
 
 func (p *providerDealEnvironment) RemoveIndex(ctx context.Context, proposalCid cid.Cid) error {
-	_, err := p.p.indexProvider.NotifyRemove(ctx, proposalCid.Bytes())
+	_, err := p.p.indexProvider.NotifyRemove(ctx, peer.ID(""), proposalCid.Bytes())
 	return err
 }
 

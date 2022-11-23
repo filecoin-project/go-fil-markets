@@ -5,6 +5,7 @@ import (
 	"sync"
 
 	"github.com/ipfs/go-cid"
+	"github.com/libp2p/go-libp2p-core/peer"
 
 	provider "github.com/filecoin-project/index-provider"
 	"github.com/filecoin-project/index-provider/metadata"
@@ -32,7 +33,7 @@ func (m *MockIndexProvider) RegisterMultihashLister(cb provider.MultihashLister)
 	m.callback = cb
 }
 
-func (m *MockIndexProvider) NotifyPut(ctx context.Context, contextID []byte, metadata metadata.Metadata) (cid.Cid, error) {
+func (m *MockIndexProvider) NotifyPut(ctx context.Context, addr *peer.AddrInfo, contextID []byte, metadata metadata.Metadata) (cid.Cid, error) {
 	m.lk.Lock()
 	defer m.lk.Unlock()
 
@@ -41,7 +42,7 @@ func (m *MockIndexProvider) NotifyPut(ctx context.Context, contextID []byte, met
 	return cid.Undef, nil
 }
 
-func (m *MockIndexProvider) NotifyRemove(ctx context.Context, contextID []byte) (cid.Cid, error) {
+func (m *MockIndexProvider) NotifyRemove(ctx context.Context, p peer.ID, contextID []byte) (cid.Cid, error) {
 	m.lk.Lock()
 	defer m.lk.Unlock()
 

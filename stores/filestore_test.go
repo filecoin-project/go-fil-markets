@@ -6,6 +6,8 @@ import (
 	"io/ioutil"
 	"math/rand"
 	"os"
+	"path/filepath"
+	"strconv"
 	"testing"
 
 	"github.com/ipfs/go-blockservice"
@@ -89,10 +91,7 @@ func TestReadOnlyFilestoreWithDenseCARFile(t *testing.T) {
 }
 
 func dagToNormalFile(t *testing.T, ctx context.Context, root cid.Cid, bs bstore.Blockstore) ([]byte, error) {
-	outputF, err := os.CreateTemp(t.TempDir(), "rand")
-	if err != nil {
-		return nil, err
-	}
+	outputName := filepath.Join(t.TempDir(), "rand"+strconv.Itoa(int(rand.Uint32())))
 
 	bsvc := blockservice.New(bs, offline.Exchange(bs))
 	dag := merkledag.NewDAGService(bsvc)
@@ -105,13 +104,15 @@ func dagToNormalFile(t *testing.T, ctx context.Context, root cid.Cid, bs bstore.
 	if err != nil {
 		return nil, err
 	}
-	if err := files.WriteTo(file, outputF.Name()); err != nil {
+	if err := files.WriteTo(file, outputName); err != nil {
 		return nil, err
 	}
 
-	if _, err = outputF.Seek(0, io.SeekStart); err != nil {
+	outputF, err := os.Open(outputName)
+	if err != nil {
 		return nil, err
 	}
+
 	finalBytes, err := ioutil.ReadAll(outputF)
 	if err != nil {
 		return nil, err

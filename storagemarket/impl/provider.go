@@ -13,6 +13,7 @@ import (
 	"github.com/hashicorp/go-multierror"
 	"github.com/ipfs/go-cid"
 	"github.com/ipfs/go-datastore"
+	"github.com/libp2p/go-libp2p-core/peer"
 	"golang.org/x/xerrors"
 
 	"github.com/filecoin-project/go-address"
@@ -63,7 +64,7 @@ type MeshCreator interface {
 type MetadataFunc func(storagemarket.MinerDeal) metadata.Metadata
 
 func defaultMetadataFunc(deal storagemarket.MinerDeal) metadata.Metadata {
-	return metadata.New(&metadata.GraphsyncFilecoinV1{
+	return metadata.Default.New(&metadata.GraphsyncFilecoinV1{
 		PieceCID:      deal.Proposal.PieceCID,
 		FastRetrieval: deal.FastRetrieval,
 		VerifiedDeal:  deal.Proposal.VerifiedDeal,
@@ -564,7 +565,7 @@ func (p *Provider) AnnounceDealToIndexer(ctx context.Context, proposalCid cid.Ci
 		return fmt.Errorf("cannot publish index record as indexer host failed to connect to the full node: %w", err)
 	}
 
-	annCid, err := p.indexProvider.NotifyPut(ctx, deal.ProposalCid.Bytes(), p.metadataForDeal(deal))
+	annCid, err := p.indexProvider.NotifyPut(ctx, nil, deal.ProposalCid.Bytes(), p.metadataForDeal(deal))
 	if err == nil {
 		log.Infow("deal announcement sent to index provider", "advertisementCid", annCid, "shard-key", deal.Proposal.PieceCID,
 			"proposalCid", deal.ProposalCid)
@@ -803,7 +804,7 @@ func (p *Provider) start(ctx context.Context) (err error) {
 	}
 
 	// register indexer provider callback now that everything has booted up.
-	p.indexProvider.RegisterMultihashLister(func(ctx context.Context, contextID []byte) (provider.MultihashIterator, error) {
+	p.indexProvider.RegisterMultihashLister(func(ctx context.Context, pid peer.ID, contextID []byte) (provider.MultihashIterator, error) {
 		proposalCid, err := cid.Cast(contextID)
 		if err != nil {
 			return nil, fmt.Errorf("failed to cast context ID to a cid")
