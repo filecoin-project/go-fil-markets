@@ -9,8 +9,8 @@ import (
 	"github.com/ipfs/go-datastore/namespace"
 	dss "github.com/ipfs/go-datastore/sync"
 	blocksutil "github.com/ipfs/go-ipfs-blocksutil"
-	"github.com/libp2p/go-libp2p-core/peer"
-	xerrors "golang.org/x/xerrors"
+	"github.com/libp2p/go-libp2p/core/peer"
+	"golang.org/x/xerrors"
 
 	"github.com/filecoin-project/go-address"
 	cborutil "github.com/filecoin-project/go-cbor-util"
