@@ -6,7 +6,7 @@ import (
 
 	"github.com/ipfs/go-cid"
 	logging "github.com/ipfs/go-log/v2"
-	"github.com/libp2p/go-libp2p-core/peer"
+	"github.com/libp2p/go-libp2p/core/peer"
 	ma "github.com/multiformats/go-multiaddr"
 	cbg "github.com/whyrusleeping/cbor-gen"
 
@@ -170,7 +170,9 @@ type Log struct {
 //
 // TODO: the input should be a strongly-typed enum instead of a free-form string.
 // TODO: drop Get from GetStage to make this code more idiomatic. Return a
-//  second ok boolean to make it even more idiomatic.
+//
+//	second ok boolean to make it even more idiomatic.
+//
 // EXPERIMENTAL; subject to change.
 func (ds *DealStages) GetStage(stage string) *DealStage {
 	if ds == nil {
