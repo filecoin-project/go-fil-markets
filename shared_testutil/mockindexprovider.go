@@ -5,10 +5,9 @@ import (
 	"sync"
 
 	"github.com/ipfs/go-cid"
+	provider "github.com/ipni/index-provider"
+	"github.com/ipni/index-provider/metadata"
 	"github.com/libp2p/go-libp2p-core/peer"
-
-	provider "github.com/filecoin-project/index-provider"
-	"github.com/filecoin-project/index-provider/metadata"
 )
 
 type MockIndexProvider struct {
