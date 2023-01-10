@@ -455,7 +455,7 @@ func recordPiece(environment ProviderDealEnvironment, deal storagemarket.MinerDe
 		return xerrors.Errorf("failed to add piece block locations: %s", err)
 	}
 
-	err := environment.PieceStore().AddDealForPiece(deal.Proposal.PieceCID, piecestore.DealInfo{
+	err := environment.PieceStore().AddDealForPiece(deal.Proposal.PieceCID, deal.ProposalCid, piecestore.DealInfo{
 		DealID:   deal.DealID,
 		SectorID: sectorID,
 		Offset:   offset,

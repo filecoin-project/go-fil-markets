@@ -83,7 +83,7 @@ func (ps *pieceStore) OnReady(ready shared.ReadyFunc) {
 }
 
 // Store `dealInfo` in the PieceStore with key `pieceCID`.
-func (ps *pieceStore) AddDealForPiece(pieceCID cid.Cid, dealInfo piecestore.DealInfo) error {
+func (ps *pieceStore) AddDealForPiece(pieceCID cid.Cid, _ cid.Cid, dealInfo piecestore.DealInfo) error {
 	return ps.mutatePieceInfo(pieceCID, func(pi *piecestore.PieceInfo) error {
 		for _, di := range pi.Deals {
 			if di == dealInfo {

@@ -96,7 +96,7 @@ func (tps *TestPieceStore) VerifyExpectations(t *testing.T) {
 }
 
 // AddDealForPiece returns a preprogrammed error
-func (tps *TestPieceStore) AddDealForPiece(pieceCID cid.Cid, dealInfo piecestore.DealInfo) error {
+func (tps *TestPieceStore) AddDealForPiece(pieceCID cid.Cid, _ cid.Cid, dealInfo piecestore.DealInfo) error {
 	return tps.addDealForPieceError
 }
 

@@ -61,7 +61,7 @@ func (pi PieceInfo) Defined() bool {
 type PieceStore interface {
 	Start(ctx context.Context) error
 	OnReady(ready shared.ReadyFunc)
-	AddDealForPiece(pieceCID cid.Cid, dealInfo DealInfo) error
+	AddDealForPiece(pieceCID cid.Cid, payloadCid cid.Cid, dealInfo DealInfo) error
 	AddPieceBlockLocations(pieceCID cid.Cid, blockLocations map[cid.Cid]BlockLocation) error
 	GetPieceInfo(pieceCID cid.Cid) (PieceInfo, error)
 	GetCIDInfo(payloadCID cid.Cid) (CIDInfo, error)
