@@ -64,8 +64,9 @@ type ProviderStateEntryFunc func(ctx fsm.Context, environment ProviderDealEnviro
 
 // ValidateDealProposal validates a proposed deal against the provider criteria
 func ValidateDealProposal(ctx fsm.Context, environment ProviderDealEnvironment, deal storagemarket.MinerDeal) error {
-	environment.TagPeer(deal.Client, deal.ProposalCid.String())
+	//environment.TagPeer(deal.Client, deal.ProposalCid.String())
 
+	fmt.Println(" !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!VALIDATE DEAL PROPOSAL !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
 	tok, curEpoch, err := environment.Node().GetChainHead(ctx.Context())
 	if err != nil {
 		return ctx.Trigger(storagemarket.ProviderEventDealRejected, xerrors.Errorf("node error getting most recent state id: %w", err))
@@ -179,7 +180,7 @@ func ValidateDealProposal(ctx fsm.Context, environment ProviderDealEnvironment, 
 		}
 	}
 
-	return ctx.Trigger(storagemarket.ProviderEventDealDeciding)
+	return ctx.Trigger(storagemarket.ProviderEventDataTransferCompleted)
 }
 
 // DecideOnProposal allows custom decision logic to run before accepting a deal, such as allowing a manual
@@ -195,18 +196,18 @@ func DecideOnProposal(ctx fsm.Context, environment ProviderDealEnvironment, deal
 	}
 
 	// Send intent to accept
-	err = environment.SendSignedResponse(ctx.Context(), &network.Response{
-		State:    storagemarket.StorageDealWaitingForData,
-		Proposal: deal.ProposalCid,
-	})
-
-	if err != nil {
-		return ctx.Trigger(storagemarket.ProviderEventSendResponseFailed, err)
-	}
-
-	if err := environment.Disconnect(deal.ProposalCid); err != nil {
-		log.Warnf("closing client connection: %+v", err)
-	}
+	//err = environment.SendSignedResponse(ctx.Context(), &network.Response{
+	//	State:    storagemarket.StorageDealWaitingForData,
+	//	Proposal: deal.ProposalCid,
+	//})
+	//
+	//if err != nil {
+	//	return ctx.Trigger(storagemarket.ProviderEventSendResponseFailed, err)
+	//}
+	//
+	//if err := environment.Disconnect(deal.ProposalCid); err != nil {
+	//	log.Warnf("closing client connection: %+v", err)
+	//}
 
 	return ctx.Trigger(storagemarket.ProviderEventDataRequested)
 }
@@ -234,12 +235,16 @@ func VerifyData(ctx fsm.Context, environment ProviderDealEnvironment, deal stora
 		return ctx.Trigger(storagemarket.ProviderEventDataVerificationFailed, xerrors.Errorf("failed to finalize read/write blockstore: %w", err), filestore.Path(""), filestore.Path(""))
 	}
 
+	fmt.Println("deal.InboundCAR: ", deal.InboundCAR, " ", deal.Proposal.PieceSize)
+
 	pieceCid, metadataPath, err := environment.GeneratePieceCommitment(deal.ProposalCid, deal.InboundCAR, deal.Proposal.PieceSize)
 	if err != nil {
 		return ctx.Trigger(storagemarket.ProviderEventDataVerificationFailed, xerrors.Errorf("error generating CommP: %w", err), filestore.Path(""), filestore.Path(""))
 	}
 
 	// Verify CommP matches
+	fmt.Println("generated pieceCid: ", pieceCid, " deal pieceCid: ", deal.Proposal.PieceCID)
+
 	if pieceCid != deal.Proposal.PieceCID {
 		return ctx.Trigger(storagemarket.ProviderEventDataVerificationFailed, xerrors.Errorf("proposal CommP doesn't match calculated CommP"), filestore.Path(""), metadataPath)
 	}
@@ -540,7 +545,7 @@ func VerifyDealActivated(ctx fsm.Context, environment ProviderDealEnvironment, d
 // WaitForDealCompletion waits for the deal to be slashed or to expire
 func WaitForDealCompletion(ctx fsm.Context, environment ProviderDealEnvironment, deal storagemarket.MinerDeal) error {
 	// At this point we have all the data so we can unprotect the connection
-	environment.UntagPeer(deal.Client, deal.ProposalCid.String())
+	//environment.UntagPeer(deal.Client, deal.ProposalCid.String())
 
 	node := environment.Node()
 
@@ -598,7 +603,7 @@ func RejectDeal(ctx fsm.Context, environment ProviderDealEnvironment, deal stora
 func FailDeal(ctx fsm.Context, environment ProviderDealEnvironment, deal storagemarket.MinerDeal) error {
 	log.Warnf("deal %s failed: %s", deal.ProposalCid, deal.Message)
 
-	environment.UntagPeer(deal.Client, deal.ProposalCid.String())
+	//environment.UntagPeer(deal.Client, deal.ProposalCid.String())
 
 	if deal.PiecePath != filestore.Path("") {
 		err := environment.FileStore().Delete(deal.PiecePath)

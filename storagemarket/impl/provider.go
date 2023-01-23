@@ -4,21 +4,25 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/filecoin-project/go-address"
+	"github.com/filecoin-project/go-padreader"
+	"github.com/filecoin-project/go-state-types/big"
+	"github.com/filecoin-project/go-state-types/builtin/v9/market"
+	"github.com/hannahhoward/go-pubsub"
+	"github.com/hashicorp/go-multierror"
+	"github.com/ipfs/go-cid"
+	"github.com/ipfs/go-datastore"
+	carv2 "github.com/ipld/go-car/v2"
 	"io"
 	"os"
 	"sort"
 	"time"
 
-	"github.com/hannahhoward/go-pubsub"
-	"github.com/hashicorp/go-multierror"
-	"github.com/ipfs/go-cid"
-	"github.com/ipfs/go-datastore"
 	provider "github.com/ipni/index-provider"
 	"github.com/ipni/index-provider/metadata"
 	"github.com/libp2p/go-libp2p-core/peer"
 	"golang.org/x/xerrors"
 
-	"github.com/filecoin-project/go-address"
 	cborutil "github.com/filecoin-project/go-cbor-util"
 	"github.com/filecoin-project/go-commp-utils/ffiwrapper"
 	datatransfer "github.com/filecoin-project/go-data-transfer"
@@ -26,7 +30,6 @@ import (
 	versionedfsm "github.com/filecoin-project/go-ds-versioning/pkg/fsm"
 	commcid "github.com/filecoin-project/go-fil-commcid"
 	commp "github.com/filecoin-project/go-fil-commp-hashhash"
-	"github.com/filecoin-project/go-padreader"
 	"github.com/filecoin-project/go-state-types/abi"
 	"github.com/filecoin-project/go-state-types/crypto"
 	"github.com/filecoin-project/go-state-types/exitcode"
@@ -337,6 +340,144 @@ func (p *Provider) receiveDeal(s network.StorageDealStream) error {
 		return err
 	}
 	return p.deals.Send(proposalNd.Cid(), storagemarket.ProviderEventOpen)
+}
+
+func (p *Provider) InitiateDealWithClient(ctx context.Context, commP cid.Cid, commPSize uint64, rootCid cid.Cid, clientAddr address.Address, startEpoch abi.ChainEpoch, duration uint64, carPath string) error {
+
+	fmt.Println("InitiateDealWithClient start")
+
+	// create data ref
+	dataRef := storagemarket.DataRef{
+		TransferType: storagemarket.TTManual,
+		Root:         rootCid,
+		PieceCid:     &commP,
+		PieceSize:    abi.UnpaddedPieceSize(commPSize),
+		RawBlockSize: 0,
+	}
+
+	// create deal proposal
+	var proposal network.Proposal
+	//var dealP market.ClientDealProposal
+
+	fmt.Println("Start epoch: ", startEpoch)
+	fmt.Println("duration: ", duration)
+	fmt.Println("padded size : ", abi.UnpaddedPieceSize(commPSize).Padded())
+
+	dealProposal := market.ClientDealProposal{
+		Proposal: market.DealProposal{
+			PieceCID:             commP,
+			PieceSize:            abi.UnpaddedPieceSize(commPSize).Padded(),
+			VerifiedDeal:         false,
+			Client:               clientAddr,
+			Provider:             p.actor,
+			Label:                market.DealLabel{},
+			StartEpoch:           startEpoch,
+			EndEpoch:             startEpoch + abi.ChainEpoch(duration),
+			StoragePricePerEpoch: big.Zero(),
+			ProviderCollateral:   big.Zero(),
+			ClientCollateral:     big.Zero(),
+		},
+		ClientSignature: crypto.Signature{
+			Type: crypto.SigTypeBLS,
+			Data: []byte{0xde, 0xad},
+		},
+	}
+
+	fmt.Println(dealProposal.Proposal)
+
+	proposal.DealProposal = &dealProposal
+	proposal.Piece = &dataRef
+	proposal.FastRetrieval = false
+
+	proposalNd, err := cborutil.AsIpld(proposal.DealProposal)
+	if err != nil {
+		return fmt.Errorf("getting deal proposal as IPLD: %w", err)
+	}
+
+	deal := storagemarket.MinerDeal{
+		//Client:
+		Miner:              p.net.ID(),
+		ClientDealProposal: *proposal.DealProposal,
+		ProposalCid:        proposalNd.Cid(),
+		State:              storagemarket.StorageDealUnknown,
+		Ref:                proposal.Piece,
+		FastRetrieval:      proposal.FastRetrieval,
+		CreationTime:       curTime(),
+		InboundCAR:         carPath,
+	}
+
+	tok, _, err := p.spn.GetChainHead(ctx)
+	if err != nil {
+		return err
+	}
+
+	err = providerutils.VerifyProposal(ctx, deal.ClientDealProposal, tok, p.spn.VerifySignature)
+	if err != nil {
+		return err
+	}
+
+	fmt.Println("!!!!!!!!!!!!!!!!VERIFY PROPOSAL succeeded!!!!!!!!!!!!!!!!!!!!!!")
+
+	mcid, err := p.spn.PublishDeals(ctx, deal)
+	if err != nil {
+		return err
+	}
+	fmt.Println("publish deals message cid: ", mcid)
+	fmt.Println("!!!!!!!!!!!!!!!!PUBLISH DEALS succeeded!!!!!!!!!!!!!!!!!!!!!!")
+	deal.PublishCid = &mcid
+
+	_, err = p.spn.WaitForPublishDeals(ctx, mcid, deal.Proposal)
+	if err != nil {
+		return err
+	}
+	fmt.Println("!!!!!!!!!!!!!!!!WAIT FOR PUBLISH DEALS succeeded!!!!!!!!!!!!!!!!!!!!!!")
+
+	fmt.Printf("carpath = %s, filestore path=%s\n", carPath, filestore.Path(carPath))
+
+	v2r, err := carv2.OpenReader(carPath)
+	if err != nil {
+		return err
+	}
+	r, err := v2r.DataReader()
+	if err != nil {
+		return err
+	}
+	//p.fs.Store("", File(carPath))
+	//fr, err := p.fs.Open(filestore.Path(carPath))
+	//if err != nil {
+	//	return err
+	//}
+	paddedReader, err := shared.NewInflatorReader(r, v2r.Header.DataSize, deal.Proposal.PieceSize.Unpadded())
+	if err != nil {
+		return err
+	}
+
+	_, err = p.spn.OnDealComplete(
+		ctx,
+		deal,
+		deal.Proposal.PieceSize.Unpadded(),
+		paddedReader,
+	)
+	if err != nil {
+		return err
+	}
+	fmt.Println("!!!!!!!!!!!!!!!!ON DEAL COMPLETE succeeded!!!!!!!!!!!!!!!!!!!!!!")
+
+	return nil
+
+	//fmt.Println("________-________________ BEFORE BEGIN MINER DEAL _____________________________")
+	//
+	//err = p.deals.Begin(proposalNd.Cid(), deal)
+	//if err != nil {
+	//	return err
+	//}
+	//
+	//fmt.Println("________-________________ BEGIN MINER DEAL _____________________________")
+	////err = p.conns.AddStream(proposalNd.Cid(), s)
+	////if err != nil {
+	////	return err
+	////}
+	//return p.deals.Send(proposalNd.Cid(), storagemarket.ProviderEventOpen)
 }
 
 // Stop terminates processing of deals on a StorageProvider
