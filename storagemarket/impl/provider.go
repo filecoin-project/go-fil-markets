@@ -12,7 +12,6 @@ import (
 	"github.com/hashicorp/go-multierror"
 	"github.com/ipfs/go-cid"
 	"github.com/ipfs/go-datastore"
-	carv2 "github.com/ipld/go-car/v2"
 	"io"
 	"os"
 	"sort"
@@ -342,14 +341,11 @@ func (p *Provider) receiveDeal(s network.StorageDealStream) error {
 	return p.deals.Send(proposalNd.Cid(), storagemarket.ProviderEventOpen)
 }
 
-func (p *Provider) InitiateDealWithClient(ctx context.Context, commP cid.Cid, commPSize uint64, rootCid cid.Cid, clientAddr address.Address, startEpoch abi.ChainEpoch, duration uint64, carPath string) error {
-
-	fmt.Println("InitiateDealWithClient start")
+func (p *Provider) InitiateDealWithClient(ctx context.Context, commP cid.Cid, commPSize uint64, clientAddr address.Address, startEpoch abi.ChainEpoch, duration uint64, carPath string) error {
 
 	// create data ref
 	dataRef := storagemarket.DataRef{
 		TransferType: storagemarket.TTManual,
-		Root:         rootCid,
 		PieceCid:     &commP,
 		PieceSize:    abi.UnpaddedPieceSize(commPSize),
 		RawBlockSize: 0,
@@ -357,12 +353,6 @@ func (p *Provider) InitiateDealWithClient(ctx context.Context, commP cid.Cid, co
 
 	// create deal proposal
 	var proposal network.Proposal
-	//var dealP market.ClientDealProposal
-
-	fmt.Println("Start epoch: ", startEpoch)
-	fmt.Println("duration: ", duration)
-	fmt.Println("padded size : ", abi.UnpaddedPieceSize(commPSize).Padded())
-
 	dealProposal := market.ClientDealProposal{
 		Proposal: market.DealProposal{
 			PieceCID:             commP,
@@ -416,38 +406,28 @@ func (p *Provider) InitiateDealWithClient(ctx context.Context, commP cid.Cid, co
 		return err
 	}
 
-	fmt.Println("!!!!!!!!!!!!!!!!VERIFY PROPOSAL succeeded!!!!!!!!!!!!!!!!!!!!!!")
-
 	mcid, err := p.spn.PublishDeals(ctx, deal)
 	if err != nil {
 		return err
 	}
-	fmt.Println("publish deals message cid: ", mcid)
-	fmt.Println("!!!!!!!!!!!!!!!!PUBLISH DEALS succeeded!!!!!!!!!!!!!!!!!!!!!!")
 	deal.PublishCid = &mcid
 
-	_, err = p.spn.WaitForPublishDeals(ctx, mcid, deal.Proposal)
+	res, err := p.spn.WaitForPublishDeals(ctx, mcid, deal.Proposal)
 	if err != nil {
 		return err
 	}
-	fmt.Println("!!!!!!!!!!!!!!!!WAIT FOR PUBLISH DEALS succeeded!!!!!!!!!!!!!!!!!!!!!!")
+	deal.DealID = res.DealID
 
-	fmt.Printf("carpath = %s, filestore path=%s\n", carPath, filestore.Path(carPath))
+	f, err := os.Open(carPath)
+	if err != nil {
+		return err
+	}
 
-	v2r, err := carv2.OpenReader(carPath)
+	fi, err := f.Stat()
 	if err != nil {
 		return err
 	}
-	r, err := v2r.DataReader()
-	if err != nil {
-		return err
-	}
-	//p.fs.Store("", File(carPath))
-	//fr, err := p.fs.Open(filestore.Path(carPath))
-	//if err != nil {
-	//	return err
-	//}
-	paddedReader, err := shared.NewInflatorReader(r, v2r.Header.DataSize, deal.Proposal.PieceSize.Unpadded())
+	paddedReader, err := shared.NewInflatorReader(f, uint64(fi.Size()), deal.Proposal.PieceSize.Unpadded())
 	if err != nil {
 		return err
 	}
@@ -461,23 +441,8 @@ func (p *Provider) InitiateDealWithClient(ctx context.Context, commP cid.Cid, co
 	if err != nil {
 		return err
 	}
-	fmt.Println("!!!!!!!!!!!!!!!!ON DEAL COMPLETE succeeded!!!!!!!!!!!!!!!!!!!!!!")
 
 	return nil
-
-	//fmt.Println("________-________________ BEFORE BEGIN MINER DEAL _____________________________")
-	//
-	//err = p.deals.Begin(proposalNd.Cid(), deal)
-	//if err != nil {
-	//	return err
-	//}
-	//
-	//fmt.Println("________-________________ BEGIN MINER DEAL _____________________________")
-	////err = p.conns.AddStream(proposalNd.Cid(), s)
-	////if err != nil {
-	////	return err
-	////}
-	//return p.deals.Send(proposalNd.Cid(), storagemarket.ProviderEventOpen)
 }
 
 // Stop terminates processing of deals on a StorageProvider

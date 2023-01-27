@@ -69,5 +69,5 @@ type StorageProvider interface {
 
 	AnnounceAllDealsToIndexer(ctx context.Context) error
 
-	InitiateDealWithClient(ctx context.Context, commP cid.Cid, commPSize uint64, rootCid cid.Cid, clientAddr address.Address, startEpoch abi.ChainEpoch, duration uint64, carPath string) error
+	InitiateDealWithClient(ctx context.Context, commP cid.Cid, commPSize uint64, clientAddr address.Address, startEpoch abi.ChainEpoch, duration uint64, carPath string) error
 }
