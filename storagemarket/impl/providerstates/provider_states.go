@@ -540,7 +540,7 @@ func VerifyDealActivated(ctx fsm.Context, environment ProviderDealEnvironment, d
 // WaitForDealCompletion waits for the deal to be slashed or to expire
 func WaitForDealCompletion(ctx fsm.Context, environment ProviderDealEnvironment, deal storagemarket.MinerDeal) error {
 	// At this point we have all the data so we can unprotect the connection
-	//environment.UntagPeer(deal.Client, deal.ProposalCid.String())
+	environment.UntagPeer(deal.Client, deal.ProposalCid.String())
 
 	node := environment.Node()
 
