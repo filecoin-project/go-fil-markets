@@ -83,7 +83,7 @@ var ProviderEvents = fsm.Events{
 		}),
 
 	fsm.Event(storagemarket.ProviderEventDataTransferCompleted).
-		FromMany(storagemarket.StorageDealTransferring, storagemarket.StorageDealProviderTransferAwaitRestart, storagemarket.StorageDealValidating).
+		FromMany(storagemarket.StorageDealTransferring, storagemarket.StorageDealProviderTransferAwaitRestart).
 		To(storagemarket.StorageDealVerifyData),
 
 	fsm.Event(storagemarket.ProviderEventDataVerificationFailed).

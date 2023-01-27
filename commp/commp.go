@@ -1,7 +1,6 @@
 package commp
 
 import (
-	"fmt"
 	"io"
 
 	"github.com/ipfs/go-cid"
@@ -28,9 +27,7 @@ func GenerateCommp(reader io.Reader, payloadSize uint64, targetSize uint64) (cid
 		return cid.Undef, xerrors.Errorf("failed to get CommP: %w", err)
 	}
 
-	fmt.Printf("commp before padding pieceSize=%d, targetSize=%d\n", cidAndSize.PieceSize, targetSize)
 	if uint64(cidAndSize.PieceSize) < targetSize {
-		fmt.Printf("commp gets padded pieceSize=%d, targetSize=%d\n", cidAndSize.PieceSize, targetSize)
 		// need to pad up!
 		rawPaddedCommp, err := commp.PadCommP(
 			// we know how long a pieceCid "hash" is, just blindly extract the trailing 32 bytes

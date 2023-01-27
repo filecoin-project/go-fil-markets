@@ -3,6 +3,7 @@ package storageimpl
 import (
 	"context"
 	"fmt"
+	"os"
 	"time"
 
 	"github.com/ipfs/go-cid"
@@ -83,9 +84,9 @@ func (p *providerDealEnvironment) TerminateBlockstore(proposalCid cid.Cid, path 
 
 	// delete the backing CARv2 file as it was a temporary file we created for
 	// this storage deal; the piece has now been handed off, or the deal has failed.
-	//if err := os.Remove(path); err != nil {
-	//	log.Warnf("failed to delete carv2 file on termination, car_path=%s: %s", path, err)
-	//}
+	if err := os.Remove(path); err != nil {
+		log.Warnf("failed to delete carv2 file on termination, car_path=%s: %s", path, err)
+	}
 
 	return nil
 }
@@ -128,16 +129,10 @@ func (p *providerDealEnvironment) GeneratePieceCommitment(proposalCid cid.Cid, c
 		}
 	}()
 
-	fmt.Println("rd.Header.DataSize: ", rd.Header.DataSize)
-
 	r, err := rd.DataReader()
 	if err != nil {
 		return cid.Undef, "", fmt.Errorf("failed to get data reader over CAR file, proposalCid=%s, carPath=%s: %w", proposalCid, carPath, err)
 	}
-
-	var carFile []byte
-	r.Read(carFile)
-	fmt.Println("carFile dump: ", carFile)
 
 	pieceCID, err := commp.GenerateCommp(r, rd.Header.DataSize, uint64(dealSize))
 	return pieceCID, "", err
