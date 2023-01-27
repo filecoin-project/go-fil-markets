@@ -47,6 +47,9 @@ type StorageCommon interface {
 	// GetBalance returns locked/unlocked for a storage participant.  Used by both providers and clients.
 	GetBalance(ctx context.Context, addr address.Address, tok shared.TipSetToken) (Balance, error)
 
+	// VerifySignatureContract simulates AuthenticateMessage on the client contract address
+	VerifySignatureContract(ctx context.Context, signature crypto.Signature, signer address.Address, plaintext []byte, tok shared.TipSetToken) (bool, error)
+
 	// VerifySignature verifies a given set of data was signed properly by a given address's private key
 	VerifySignature(ctx context.Context, signature crypto.Signature, signer address.Address, plaintext []byte, tok shared.TipSetToken) (bool, error)
 

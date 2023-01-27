@@ -401,7 +401,7 @@ func (p *Provider) InitiateDealWithClient(ctx context.Context, commP cid.Cid, co
 		return err
 	}
 
-	err = providerutils.VerifyProposal(ctx, deal.ClientDealProposal, tok, p.spn.VerifySignature)
+	err = providerutils.VerifyProposal(ctx, deal.ClientDealProposal, tok, p.spn.VerifySignatureContract)
 	if err != nil {
 		return err
 	}
