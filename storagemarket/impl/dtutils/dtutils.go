@@ -9,9 +9,9 @@ import (
 	"github.com/ipfs/go-graphsync/storeutil"
 	bstore "github.com/ipfs/go-ipfs-blockstore"
 	logging "github.com/ipfs/go-log/v2"
-	"github.com/ipld/go-ipld-prime"
 
 	datatransfer "github.com/filecoin-project/go-data-transfer/v2"
+	dtgs "github.com/filecoin-project/go-data-transfer/v2/transport/graphsync"
 	"github.com/filecoin-project/go-statemachine/fsm"
 
 	"github.com/filecoin-project/go-fil-markets/storagemarket"
@@ -147,41 +147,28 @@ type StoreGetter interface {
 	Get(proposalCid cid.Cid) (bstore.Blockstore, error)
 }
 
-// StoreConfigurableTransport defines the methods needed to
-// configure a data transfer transport use a unique store for a given request
-type StoreConfigurableTransport interface {
-	UseStore(datatransfer.ChannelID, ipld.LinkSystem) error
-}
-
 // TransportConfigurer configurers the graphsync transport to use a custom blockstore per deal
 func TransportConfigurer(storeGetter StoreGetter) datatransfer.TransportConfigurer {
-	return func(channelID datatransfer.ChannelID, voucher datatransfer.TypedVoucher, transport datatransfer.Transport) {
+	return func(channelID datatransfer.ChannelID, voucher datatransfer.TypedVoucher) []datatransfer.TransportOption {
 		if voucher.Voucher == nil {
 			log.Errorf("attempting to configure data store, empty voucher")
-			return
+			return nil
 		}
 		voucherIface, err := requestvalidation.BindnodeRegistry.TypeFromNode(voucher.Voucher, &requestvalidation.StorageDataTransferVoucher{})
 		// if this event is for a transfer not related to storage, ignore
 		if err != nil {
 			log.Errorf("attempting to configure data store, bad voucher: %s", err)
-			return
+			return nil
 		}
 		storageVoucher, _ := voucherIface.(*requestvalidation.StorageDataTransferVoucher) // safe to assume type
-		gsTransport, ok := transport.(StoreConfigurableTransport)
-		if !ok {
-			return
-		}
 		store, err := storeGetter.Get(storageVoucher.Proposal)
 		if err != nil {
 			log.Errorf("attempting to configure data store: %s", err)
-			return
+			return nil
 		}
 		if store == nil {
-			return
+			return nil
 		}
-		err = gsTransport.UseStore(channelID, storeutil.LinkSystemForBlockstore(store))
-		if err != nil {
-			log.Errorf("attempting to configure data store: %s", err)
-		}
+		return []datatransfer.TransportOption{dtgs.UseStore(storeutil.LinkSystemForBlockstore(store))}
 	}
 }

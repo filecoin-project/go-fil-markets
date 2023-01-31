@@ -1,17 +1,13 @@
 package dtutils_test
 
 import (
-	"context"
 	"errors"
 	"testing"
 
 	"github.com/ipfs/go-cid"
 	ds "github.com/ipfs/go-datastore"
 	bs "github.com/ipfs/go-ipfs-blockstore"
-	"github.com/ipld/go-ipld-prime"
-	"github.com/ipld/go-ipld-prime/datamodel"
 	"github.com/ipld/go-ipld-prime/node/basicnode"
-	peer "github.com/libp2p/go-libp2p/core/peer"
 	"github.com/stretchr/testify/require"
 
 	datatransfer "github.com/filecoin-project/go-data-transfer/v2"
@@ -247,14 +243,8 @@ func TestTransportConfigurer(t *testing.T) {
 			voucher:      datatransfer.TypedVoucher{Voucher: basicnode.NewString("Nope"), Type: datatransfer.TypeIdentifier("Nope")},
 			getterCalled: false,
 		},
-		"non-configurable transport": {
-			voucher:      storageDataTransferVoucher(t, expectedProposalCID),
-			transport:    &fakeTransport{},
-			getterCalled: false,
-		},
 		"store getter errors": {
 			voucher:          storageDataTransferVoucher(t, expectedProposalCID),
-			transport:        &fakeGsTransport{Transport: &fakeTransport{}},
 			getterCalled:     true,
 			useStoreCalled:   false,
 			returnedStore:    nil,
@@ -262,7 +252,6 @@ func TestTransportConfigurer(t *testing.T) {
 		},
 		"store getter succeeds": {
 			voucher:          storageDataTransferVoucher(t, expectedProposalCID),
-			transport:        &fakeGsTransport{Transport: &fakeTransport{}},
 			getterCalled:     true,
 			useStoreCalled:   true,
 			returnedStore:    bs.NewBlockstore(ds.NewMapDatastore()),
@@ -273,20 +262,18 @@ func TestTransportConfigurer(t *testing.T) {
 		t.Run(testCase, func(t *testing.T) {
 			storeGetter := &fakeStoreGetter{returnedErr: data.returnedStoreErr, returnedStore: data.returnedStore}
 			transportConfigurer := dtutils.TransportConfigurer(storeGetter)
-			transportConfigurer(expectedChannelID, data.voucher, data.transport)
+			options := transportConfigurer(expectedChannelID, data.voucher)
 			if data.getterCalled {
 				require.True(t, storeGetter.called)
 				require.Equal(t, expectedProposalCID, storeGetter.lastProposalCid)
-				fgt, ok := data.transport.(*fakeGsTransport)
-				require.True(t, ok)
 				if data.useStoreCalled {
-					require.True(t, fgt.called)
-					require.Equal(t, expectedChannelID, fgt.lastChannelID)
+					require.Len(t, options, 1)
 				} else {
-					require.False(t, fgt.called)
+					require.Empty(t, options)
 				}
 			} else {
 				require.False(t, storeGetter.called)
+				require.Empty(t, options)
 			}
 		})
 	}
@@ -319,39 +306,4 @@ func (fsg *fakeStoreGetter) Get(proposalCid cid.Cid) (bs.Blockstore, error) {
 	fsg.lastProposalCid = proposalCid
 	fsg.called = true
 	return fsg.returnedStore, fsg.returnedErr
-}
-
-type fakeTransport struct{}
-
-func (ft *fakeTransport) OpenChannel(ctx context.Context, dataSender peer.ID, channelID datatransfer.ChannelID, root datamodel.Link, stor datamodel.Node, channel datatransfer.ChannelState, msg datatransfer.Message) error {
-	return nil
-}
-
-func (ft *fakeTransport) CloseChannel(ctx context.Context, chid datatransfer.ChannelID) error {
-	return nil
-}
-
-func (ft *fakeTransport) SetEventHandler(events datatransfer.EventsHandler) error {
-	return nil
-}
-
-func (ft *fakeTransport) CleanupChannel(chid datatransfer.ChannelID) {
-}
-
-func (ft *fakeTransport) Shutdown(context.Context) error {
-	return nil
-}
-
-type fakeGsTransport struct {
-	datatransfer.Transport
-	lastChannelID  datatransfer.ChannelID
-	lastLinkSystem ipld.LinkSystem
-	called         bool
-}
-
-func (fgt *fakeGsTransport) UseStore(channelID datatransfer.ChannelID, lsys ipld.LinkSystem) error {
-	fgt.lastChannelID = channelID
-	fgt.lastLinkSystem = lsys
-	fgt.called = true
-	return nil
 }

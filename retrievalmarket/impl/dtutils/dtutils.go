@@ -9,10 +9,10 @@ import (
 	"github.com/ipfs/go-graphsync/storeutil"
 	bstore "github.com/ipfs/go-ipfs-blockstore"
 	logging "github.com/ipfs/go-log/v2"
-	"github.com/ipld/go-ipld-prime"
 	peer "github.com/libp2p/go-libp2p/core/peer"
 
 	datatransfer "github.com/filecoin-project/go-data-transfer/v2"
+	dtgs "github.com/filecoin-project/go-data-transfer/v2/transport/graphsync"
 	"github.com/filecoin-project/go-statemachine/fsm"
 
 	rm "github.com/filecoin-project/go-fil-markets/retrievalmarket"
@@ -177,36 +177,23 @@ type StoreGetter interface {
 	Get(otherPeer peer.ID, dealID rm.DealID) (bstore.Blockstore, error)
 }
 
-// StoreConfigurableTransport defines the methods needed to
-// configure a data transfer transport use a unique store for a given request
-type StoreConfigurableTransport interface {
-	UseStore(datatransfer.ChannelID, ipld.LinkSystem) error
-}
-
 // TransportConfigurer configurers the graphsync transport to use a custom blockstore per deal
 func TransportConfigurer(thisPeer peer.ID, storeGetter StoreGetter) datatransfer.TransportConfigurer {
-	return func(channelID datatransfer.ChannelID, voucher datatransfer.TypedVoucher, transport datatransfer.Transport) {
+	return func(channelID datatransfer.ChannelID, voucher datatransfer.TypedVoucher) []datatransfer.TransportOption {
 		dealProposal, err := rm.DealProposalFromNode(voucher.Voucher)
 		if err != nil {
 			log.Debugf("not a deal proposal voucher: %s", err.Error())
-			return
-		}
-		gsTransport, ok := transport.(StoreConfigurableTransport)
-		if !ok {
-			return
+			return nil
 		}
 		otherPeer := channelID.OtherParty(thisPeer)
 		store, err := storeGetter.Get(otherPeer, dealProposal.ID)
 		if err != nil {
 			log.Errorf("attempting to configure data store: %s", err)
-			return
+			return nil
 		}
 		if store == nil {
-			return
+			return nil
 		}
-		err = gsTransport.UseStore(channelID, storeutil.LinkSystemForBlockstore(store))
-		if err != nil {
-			log.Errorf("attempting to configure data store: %s", err)
-		}
+		return []datatransfer.TransportOption{dtgs.UseStore(storeutil.LinkSystemForBlockstore(store))}
 	}
 }

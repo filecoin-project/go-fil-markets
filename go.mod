@@ -7,7 +7,7 @@ require (
 	github.com/filecoin-project/go-address v0.0.6
 	github.com/filecoin-project/go-cbor-util v0.0.1
 	github.com/filecoin-project/go-commp-utils v0.1.3
-	github.com/filecoin-project/go-data-transfer/v2 v2.0.0-rc1
+	github.com/filecoin-project/go-data-transfer/v2 v2.0.0-rc1.0.20230131030609-5f9a1d9b4d60
 	github.com/filecoin-project/go-ds-versioning v0.1.2
 	github.com/filecoin-project/go-fil-commcid v0.1.0
 	github.com/filecoin-project/go-fil-commp-hashhash v0.1.0
@@ -36,7 +36,7 @@ require (
 	github.com/ipfs/go-ipld-cbor v0.0.6
 	github.com/ipfs/go-ipld-format v0.4.0
 	github.com/ipfs/go-log/v2 v2.5.1
-	github.com/ipfs/go-merkledag v0.6.0
+	github.com/ipfs/go-merkledag v0.8.1
 	github.com/ipfs/go-unixfs v0.4.0
 	github.com/ipld/go-car v0.4.0
 	github.com/ipld/go-car/v2 v2.5.0

@@ -58,7 +58,7 @@ func (tdt *TestDataTransfer) RegisterTransportConfigurer(voucherType datatransfe
 }
 
 // OpenPushDataChannel does nothing
-func (tdt *TestDataTransfer) OpenPushDataChannel(ctx context.Context, to peer.ID, voucher datatransfer.TypedVoucher, baseCid cid.Cid, selector datamodel.Node) (datatransfer.ChannelID, error) {
+func (tdt *TestDataTransfer) OpenPushDataChannel(ctx context.Context, to peer.ID, voucher datatransfer.TypedVoucher, baseCid cid.Cid, selector datamodel.Node, options ...datatransfer.TransferOption) (datatransfer.ChannelID, error) {
 	return datatransfer.ChannelID{}, nil
 }
 
@@ -67,7 +67,7 @@ func (tdt *TestDataTransfer) RestartDataTransferChannel(ctx context.Context, chI
 }
 
 // OpenPullDataChannel does nothing
-func (tdt *TestDataTransfer) OpenPullDataChannel(ctx context.Context, to peer.ID, voucher datatransfer.TypedVoucher, baseCid cid.Cid, selector datamodel.Node) (datatransfer.ChannelID, error) {
+func (tdt *TestDataTransfer) OpenPullDataChannel(ctx context.Context, to peer.ID, voucher datatransfer.TypedVoucher, baseCid cid.Cid, selector datamodel.Node, options ...datatransfer.TransferOption) (datatransfer.ChannelID, error) {
 	return datatransfer.ChannelID{}, nil
 }
 
