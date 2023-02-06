@@ -8,7 +8,7 @@ import (
 	logging "github.com/ipfs/go-log/v2"
 	"github.com/ipld/go-ipld-prime"
 	selectorparse "github.com/ipld/go-ipld-prime/traversal/selector/parse"
-	"github.com/libp2p/go-libp2p-core/peer"
+	"github.com/libp2p/go-libp2p/core/peer"
 	"golang.org/x/xerrors"
 
 	datatransfer "github.com/filecoin-project/go-data-transfer"

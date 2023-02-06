@@ -2,7 +2,7 @@ package migrations
 
 import (
 	"github.com/ipfs/go-cid"
-	"github.com/libp2p/go-libp2p-core/peer"
+	"github.com/libp2p/go-libp2p/core/peer"
 	cbg "github.com/whyrusleeping/cbor-gen"
 
 	"github.com/filecoin-project/go-address"
@@ -74,10 +74,10 @@ type RetrievalPeer0 struct {
 // QueryParams0 is version 0 of QueryParams
 type QueryParams0 struct {
 	PieceCID *cid.Cid // optional, query if miner has this cid in this piece. some miners may not be able to respond.
-	//Selector                   ipld.Node // optional, query if miner has this cid in this piece. some miners may not be able to respond.
-	//MaxPricePerByte            abi.TokenAmount    // optional, tell miner uninterested if more expensive than this
-	//MinPaymentInterval         uint64    // optional, tell miner uninterested unless payment interval is greater than this
-	//MinPaymentIntervalIncrease uint64    // optional, tell miner uninterested unless payment interval increase is greater than this
+	// Selector                   ipld.Node // optional, query if miner has this cid in this piece. some miners may not be able to respond.
+	// MaxPricePerByte            abi.TokenAmount    // optional, tell miner uninterested if more expensive than this
+	// MinPaymentInterval         uint64    // optional, tell miner uninterested unless payment interval is greater than this
+	// MinPaymentIntervalIncrease uint64    // optional, tell miner uninterested unless payment interval increase is greater than this
 }
 
 // Query0 is version 0 of Query
@@ -90,10 +90,10 @@ type Query0 struct {
 type QueryResponse0 struct {
 	Status        retrievalmarket.QueryResponseStatus
 	PieceCIDFound retrievalmarket.QueryItemStatus // V1 - if a PieceCID was requested, the result
-	//SelectorFound   QueryItemStatus // V1 - if a Selector was requested, the result
+	// SelectorFound   QueryItemStatus // V1 - if a Selector was requested, the result
 
 	Size uint64 // Total size of piece in bytes
-	//ExpectedPayloadSize uint64 // V1 - optional, if PayloadCID + selector are specified and miner knows, can offer an expected size
+	// ExpectedPayloadSize uint64 // V1 - optional, if PayloadCID + selector are specified and miner knows, can offer an expected size
 
 	PaymentAddress             address.Address // address to send funds to -- may be different than miner addr
 	MinPricePerByte            abi.TokenAmount

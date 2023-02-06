@@ -8,8 +8,8 @@ import (
 	"github.com/ipfs/go-cid"
 	"github.com/ipld/go-ipld-prime"
 	"github.com/ipld/go-ipld-prime/codec/dagcbor"
-	"github.com/libp2p/go-libp2p-core/peer"
-	"github.com/libp2p/go-libp2p-core/protocol"
+	"github.com/libp2p/go-libp2p/core/peer"
+	"github.com/libp2p/go-libp2p/core/protocol"
 	cbg "github.com/whyrusleeping/cbor-gen"
 	"golang.org/x/xerrors"
 
@@ -175,10 +175,10 @@ const (
 // for the retrieval deal
 type QueryParams struct {
 	PieceCID *cid.Cid // optional, query if miner has this cid in this piece. some miners may not be able to respond.
-	//Selector                   ipld.Node // optional, query if miner has this cid in this piece. some miners may not be able to respond.
-	//MaxPricePerByte            abi.TokenAmount    // optional, tell miner uninterested if more expensive than this
-	//MinPaymentInterval         uint64    // optional, tell miner uninterested unless payment interval is greater than this
-	//MinPaymentIntervalIncrease uint64    // optional, tell miner uninterested unless payment interval increase is greater than this
+	// Selector                   ipld.Node // optional, query if miner has this cid in this piece. some miners may not be able to respond.
+	// MaxPricePerByte            abi.TokenAmount    // optional, tell miner uninterested if more expensive than this
+	// MinPaymentInterval         uint64    // optional, tell miner uninterested unless payment interval is greater than this
+	// MinPaymentIntervalIncrease uint64    // optional, tell miner uninterested unless payment interval increase is greater than this
 }
 
 // Query is a query to a given provider to determine information about a piece
@@ -210,10 +210,10 @@ func NewQueryV1(payloadCID cid.Cid, pieceCID *cid.Cid) Query {
 type QueryResponse struct {
 	Status        QueryResponseStatus
 	PieceCIDFound QueryItemStatus // V1 - if a PieceCID was requested, the result
-	//SelectorFound   QueryItemStatus // V1 - if a Selector was requested, the result
+	// SelectorFound   QueryItemStatus // V1 - if a Selector was requested, the result
 
 	Size uint64 // Total size of piece in bytes
-	//ExpectedPayloadSize uint64 // V1 - optional, if PayloadCID + selector are specified and miner knows, can offer an expected size
+	// ExpectedPayloadSize uint64 // V1 - optional, if PayloadCID + selector are specified and miner knows, can offer an expected size
 
 	PaymentAddress             address.Address // address to send funds to -- may be different than miner addr
 	MinPricePerByte            abi.TokenAmount
@@ -233,9 +233,9 @@ func (qr QueryResponse) PieceRetrievalPrice() abi.TokenAmount {
 
 // PayloadRetrievalPrice is the expected price to retrieve just the given payload
 // & selector (V1)
-//func (qr QueryResponse) PayloadRetrievalPrice() abi.TokenAmount {
+// func (qr QueryResponse) PayloadRetrievalPrice() abi.TokenAmount {
 //	return types.BigMul(qr.MinPricePerByte, types.NewInt(qr.ExpectedPayloadSize))
-//}
+// }
 
 // IsTerminalError returns true if this status indicates processing of this deal
 // is complete with an error

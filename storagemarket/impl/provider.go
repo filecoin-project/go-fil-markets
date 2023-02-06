@@ -15,7 +15,7 @@ import (
 	"github.com/ipfs/go-datastore"
 	provider "github.com/ipni/index-provider"
 	"github.com/ipni/index-provider/metadata"
-	"github.com/libp2p/go-libp2p-core/peer"
+	"github.com/libp2p/go-libp2p/core/peer"
 	"golang.org/x/xerrors"
 
 	"github.com/filecoin-project/go-address"

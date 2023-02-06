@@ -14,7 +14,7 @@ import (
 	dss "github.com/ipfs/go-datastore/sync"
 	"github.com/ipld/go-ipld-prime/codec/dagcbor"
 	selectorparse "github.com/ipld/go-ipld-prime/traversal/selector/parse"
-	"github.com/libp2p/go-libp2p-core/peer"
+	"github.com/libp2p/go-libp2p/core/peer"
 	"github.com/multiformats/go-multicodec"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -260,7 +260,7 @@ func TestDynamicPricing(t *testing.T) {
 				sa.MarkUnsealed(context.TODO(), p.SectorID, p.Offset.Unpadded(), p.Length.Unpadded())
 			},
 			expFunc: func(t *testing.T, pieceStore *tut.TestPieceStore, dagStore *tut.MockDagStoreWrapper) {
-				//pieceStore.ExpectCID(payloadCID, expectedCIDInfo)
+				// pieceStore.ExpectCID(payloadCID, expectedCIDInfo)
 				pieceStore.ExpectPiece(expectedPieceCID1, piece1)
 				pieceStore.ExpectPiece(expectedPieceCID2, piece2)
 				dagStore.AddBlockToPieceIndex(payloadCID, expectedPieceCID1)

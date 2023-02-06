@@ -7,7 +7,7 @@ import (
 
 	"github.com/ipfs/go-cid"
 	bstore "github.com/ipfs/go-ipfs-blockstore"
-	"github.com/libp2p/go-libp2p-core/peer"
+	"github.com/libp2p/go-libp2p/core/peer"
 	"golang.org/x/xerrors"
 
 	"github.com/filecoin-project/dagstore"

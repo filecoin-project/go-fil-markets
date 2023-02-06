@@ -7,7 +7,7 @@ import (
 	"testing"
 
 	"github.com/ipfs/go-cid"
-	peer "github.com/libp2p/go-libp2p-core/peer"
+	"github.com/libp2p/go-libp2p/core/peer"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
