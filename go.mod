@@ -1,6 +1,6 @@
 module github.com/filecoin-project/go-fil-markets
 
-go 1.17
+go 1.18
 
 require (
 	github.com/filecoin-project/dagstore v0.5.2
