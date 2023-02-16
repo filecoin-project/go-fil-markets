@@ -40,9 +40,9 @@ func NewPieceStore(ds datastore.Batching) PieceStore
 
 `PieceStore` implements the following functions:
 
-* [`AddDealForPiece`](./piecestore.go)
-* [`AddPieceBlockLocations`](./piecestore.go)
-* [`GetPieceInfo`](./piecestore.go)
-* [`GetCIDInfo`](./piecestore.go)
+* [`AddDealForPiece`](./impl/piecestore.go)
+* [`AddPieceBlockLocations`](./impl/piecestore.go)
+* [`GetPieceInfo`](./impl/piecestore.go)
+* [`GetCIDInfo`](./impl/piecestore.go)
 
 Please the [tests](piecestore_test.go) for more information about expected behavior.
