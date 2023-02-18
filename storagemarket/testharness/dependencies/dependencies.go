@@ -16,11 +16,10 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/filecoin-project/go-address"
-	datatransfer "github.com/filecoin-project/go-data-transfer"
-	dtimpl "github.com/filecoin-project/go-data-transfer/impl"
-	network2 "github.com/filecoin-project/go-data-transfer/network"
-	"github.com/filecoin-project/go-data-transfer/testutil"
-	dtgstransport "github.com/filecoin-project/go-data-transfer/transport/graphsync"
+	datatransfer "github.com/filecoin-project/go-data-transfer/v2"
+	dtimpl "github.com/filecoin-project/go-data-transfer/v2/impl"
+	network2 "github.com/filecoin-project/go-data-transfer/v2/network"
+	dtgstransport "github.com/filecoin-project/go-data-transfer/v2/transport/graphsync"
 	"github.com/filecoin-project/go-state-types/abi"
 	"github.com/filecoin-project/go-state-types/builtin/v9/market"
 
@@ -151,7 +150,7 @@ func (gen *DepGenerator) New(
 	dtTransport1 := dtgstransport.NewTransport(td.Host1.ID(), gs1)
 	dt1, err := gen.ClientNewDataTransfer(td.DTStore1, td.DTTmpDir1, td.DTNet1, dtTransport1)
 	require.NoError(t, err)
-	testutil.StartAndWaitForReady(ctx, t, dt1)
+	shared_testutil.StartAndWaitForReadyDT(ctx, t, dt1)
 
 	discovery, err := discoveryimpl.NewLocal(namespace.Wrap(td.Ds1, datastore.NewKey("/deals/local")))
 	require.NoError(t, err)
@@ -161,7 +160,7 @@ func (gen *DepGenerator) New(
 	dtTransport2 := dtgstransport.NewTransport(td.Host2.ID(), gs2)
 	dt2, err := gen.ProviderNewDataTransfer(td.DTStore2, td.DTTmpDir2, td.DTNet2, dtTransport2)
 	require.NoError(t, err)
-	testutil.StartAndWaitForReady(ctx, t, dt2)
+	shared_testutil.StartAndWaitForReadyDT(ctx, t, dt2)
 
 	storedAskDs := namespace.Wrap(td.Ds2, datastore.NewKey("/storage/ask"))
 	storedAsk, err := storedask.NewStoredAsk(storedAskDs, datastore.NewKey("latest-ask"), providerNode, providerAddr)

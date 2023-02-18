@@ -44,7 +44,6 @@ func NewFromLibp2pHost(h host.Host, options ...Option) RetrievalMarketNetwork {
 		retryStream: shared.NewRetryStream(h),
 		supportedProtocols: []protocol.ID{
 			retrievalmarket.QueryProtocolID,
-			retrievalmarket.OldQueryProtocolID,
 		},
 	}
 	for _, option := range options {
@@ -72,9 +71,6 @@ func (impl *libp2pRetrievalMarketNetwork) NewQueryStream(id peer.ID) (RetrievalQ
 		return nil, err
 	}
 	buffered := bufio.NewReaderSize(s, 16)
-	if s.Protocol() == retrievalmarket.OldQueryProtocolID {
-		return &oldQueryStream{p: id, rw: s, buffered: buffered}, nil
-	}
 	return &queryStream{p: id, rw: s, buffered: buffered}, nil
 }
 
@@ -105,12 +101,7 @@ func (impl *libp2pRetrievalMarketNetwork) handleNewQueryStream(s network.Stream)
 	}
 	remotePID := s.Conn().RemotePeer()
 	buffered := bufio.NewReaderSize(s, 16)
-	var qs RetrievalQueryStream
-	if s.Protocol() == retrievalmarket.OldQueryProtocolID {
-		qs = &oldQueryStream{remotePID, s, buffered}
-	} else {
-		qs = &queryStream{remotePID, s, buffered}
-	}
+	qs := &queryStream{remotePID, s, buffered}
 	impl.receiver.HandleQueryStream(qs)
 }
 

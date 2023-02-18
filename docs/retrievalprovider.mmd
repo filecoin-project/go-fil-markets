@@ -16,14 +16,18 @@ stateDiagram-v2
 	state "DealStatusCancelled" as DealStatusCancelled
 	DealStatusUnsealing : On entry runs UnsealData
 	DealStatusUnsealed : On entry runs UnpauseDeal
-	DealStatusFundsNeededUnseal : On entry runs TrackTransfer
+	DealStatusFundsNeededUnseal : On entry runs UpdateFunding
 	DealStatusFailing : On entry runs CancelDeal
+	DealStatusFundsNeeded : On entry runs UpdateFunding
+	DealStatusFundsNeededLastPayment : On entry runs UpdateFunding
 	DealStatusCompleting : On entry runs CleanupDeal
 	DealStatusCancelling : On entry runs CancelDeal
 	[*] --> DealStatusNew
 	note right of DealStatusNew
 		The following events are not shown cause they can trigger from any state.
 
+		ProviderEventProcessPayment - does not transition state
+		ProviderEventComplete - transitions state to DealStatusCompleting
 		ProviderEventDataTransferError - transitions state to DealStatusErrored
 		ProviderEventMultiStoreError - transitions state to DealStatusErrored
 		ProviderEventClientCancelled - transitions state to DealStatusCancelling
@@ -35,20 +39,20 @@ stateDiagram-v2
 	DealStatusUnsealing --> DealStatusUnsealed : ProviderEventUnsealComplete
 	DealStatusUnsealed --> DealStatusOngoing : ProviderEventBlockSent
 	DealStatusOngoing --> DealStatusOngoing : ProviderEventBlockSent
-	DealStatusOngoing --> DealStatusBlocksComplete : ProviderEventBlocksCompleted
 	DealStatusNew --> DealStatusFundsNeededUnseal : ProviderEventPaymentRequested
 	DealStatusUnsealed --> DealStatusFundsNeeded : ProviderEventPaymentRequested
 	DealStatusOngoing --> DealStatusFundsNeeded : ProviderEventPaymentRequested
-	DealStatusBlocksComplete --> DealStatusFundsNeededLastPayment : ProviderEventPaymentRequested
+	DealStatusUnsealed --> DealStatusFundsNeededLastPayment : ProviderEventLastPaymentRequested
+	DealStatusOngoing --> DealStatusFundsNeededLastPayment : ProviderEventLastPaymentRequested
+	DealStatusFundsNeededUnseal --> DealStatusFailing : ProviderEventSaveVoucherFailed
 	DealStatusFundsNeeded --> DealStatusFailing : ProviderEventSaveVoucherFailed
 	DealStatusFundsNeededLastPayment --> DealStatusFailing : ProviderEventSaveVoucherFailed
+	DealStatusFundsNeededUnseal --> DealStatusFundsNeededUnseal : ProviderEventPartialPaymentReceived
 	DealStatusFundsNeeded --> DealStatusFundsNeeded : ProviderEventPartialPaymentReceived
 	DealStatusFundsNeededLastPayment --> DealStatusFundsNeededLastPayment : ProviderEventPartialPaymentReceived
 	DealStatusFundsNeededUnseal --> DealStatusUnsealing : ProviderEventPaymentReceived
 	DealStatusFundsNeeded --> DealStatusOngoing : ProviderEventPaymentReceived
 	DealStatusFundsNeededLastPayment --> DealStatusFinalizing : ProviderEventPaymentReceived
-	DealStatusBlocksComplete --> DealStatusCompleting : ProviderEventComplete
-	DealStatusFinalizing --> DealStatusCompleting : ProviderEventComplete
 	DealStatusCompleting --> DealStatusCompleted : ProviderEventCleanupComplete
 	DealStatusFailing --> DealStatusErrored : ProviderEventCancelComplete
 	DealStatusCancelling --> DealStatusCancelled : ProviderEventCancelComplete

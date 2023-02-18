@@ -556,8 +556,9 @@ func loadCarSlow(s Store, cr *CarReader) (*CarHeader, error) {
 
 // Matches checks whether two headers match.
 // Two headers are considered matching if:
-//   1. They have the same version number, and
-//   2. They contain the same root CIDs in any order.
+//  1. They have the same version number, and
+//  2. They contain the same root CIDs in any order.
+//
 // Note, this function explicitly ignores the order of roots.
 // If order of roots matter use reflect.DeepEqual instead.
 func (h CarHeader) Matches(other CarHeader) bool {
@@ -1332,12 +1333,12 @@ func AllowDuplicatePuts(allow bool) carv2.Option {
 // successfully. On resumption the roots argument and WithDataPadding option must match the
 // previous instantiation of ReadWrite blockstore that created the file. More explicitly, the file
 // resuming from must:
-//   1. start with a complete CARv2 car.Pragma.
-//   2. contain a complete CARv1 data header with root CIDs matching the CIDs passed to the
-//      constructor, starting at offset optionally padded by WithDataPadding, followed by zero or
-//      more complete data sections. If any corrupt data sections are present the resumption will fail.
-//      Note, if set previously, the blockstore must use the same WithDataPadding option as before,
-//      since this option is used to locate the CARv1 data payload.
+//  1. start with a complete CARv2 car.Pragma.
+//  2. contain a complete CARv1 data header with root CIDs matching the CIDs passed to the
+//     constructor, starting at offset optionally padded by WithDataPadding, followed by zero or
+//     more complete data sections. If any corrupt data sections are present the resumption will fail.
+//     Note, if set previously, the blockstore must use the same WithDataPadding option as before,
+//     since this option is used to locate the CARv1 data payload.
 //
 // Note, resumption should be used with WithCidDeduplication, so that blocks that are successfully
 // written into the file are not re-written. Unless, the user explicitly wants duplicate blocks.

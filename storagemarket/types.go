@@ -11,7 +11,7 @@ import (
 	cbg "github.com/whyrusleeping/cbor-gen"
 
 	"github.com/filecoin-project/go-address"
-	datatransfer "github.com/filecoin-project/go-data-transfer"
+	datatransfer "github.com/filecoin-project/go-data-transfer/v2"
 	"github.com/filecoin-project/go-state-types/abi"
 	"github.com/filecoin-project/go-state-types/builtin/v9/market"
 	"github.com/filecoin-project/go-state-types/crypto"
@@ -170,9 +170,7 @@ type Log struct {
 //
 // TODO: the input should be a strongly-typed enum instead of a free-form string.
 // TODO: drop Get from GetStage to make this code more idiomatic. Return a
-//
-//	second ok boolean to make it even more idiomatic.
-//
+// second ok boolean to make it even more idiomatic.
 // EXPERIMENTAL; subject to change.
 func (ds *DealStages) GetStage(stage string) *DealStage {
 	if ds == nil {

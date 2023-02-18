@@ -8,7 +8,7 @@ import (
 	"math"
 	"sort"
 
-	datatransfer "github.com/filecoin-project/go-data-transfer"
+	datatransfer "github.com/filecoin-project/go-data-transfer/v2"
 	piecestore "github.com/filecoin-project/go-fil-markets/piecestore"
 	paych "github.com/filecoin-project/go-state-types/builtin/v8/paych"
 	cid "github.com/ipfs/go-cid"
@@ -808,7 +808,7 @@ func (t *Params) MarshalCBOR(w io.Writer) error {
 		return err
 	}
 
-	// t.Selector (typegen.Deferred) (struct)
+	// t.Selector (retrievalmarket.CborGenCompatibleNode) (struct)
 	if len("Selector") > cbg.MaxLength {
 		return xerrors.Errorf("Value in field \"Selector\" was too long")
 	}
@@ -950,16 +950,15 @@ func (t *Params) UnmarshalCBOR(r io.Reader) (err error) {
 		}
 
 		switch name {
-		// t.Selector (typegen.Deferred) (struct)
+		// t.Selector (retrievalmarket.CborGenCompatibleNode) (struct)
 		case "Selector":
 
 			{
 
-				t.Selector = new(cbg.Deferred)
-
 				if err := t.Selector.UnmarshalCBOR(cr); err != nil {
-					return xerrors.Errorf("failed to read deferred field: %w", err)
+					return xerrors.Errorf("unmarshaling t.Selector: %w", err)
 				}
+
 			}
 			// t.PieceCID (cid.Cid) (struct)
 		case "PieceCID":
@@ -2039,7 +2038,7 @@ func (t *ProviderDealState) MarshalCBOR(w io.Writer) error {
 
 	cw := cbg.NewCborWriter(w)
 
-	if _, err := cw.Write([]byte{171}); err != nil {
+	if _, err := cw.Write([]byte{168}); err != nil {
 		return err
 	}
 
@@ -2146,22 +2145,6 @@ func (t *ProviderDealState) MarshalCBOR(w io.Writer) error {
 		return err
 	}
 
-	// t.TotalSent (uint64) (uint64)
-	if len("TotalSent") > cbg.MaxLength {
-		return xerrors.Errorf("Value in field \"TotalSent\" was too long")
-	}
-
-	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("TotalSent"))); err != nil {
-		return err
-	}
-	if _, err := io.WriteString(w, string("TotalSent")); err != nil {
-		return err
-	}
-
-	if err := cw.WriteMajorTypeHeader(cbg.MajUnsignedInt, uint64(t.TotalSent)); err != nil {
-		return err
-	}
-
 	// t.FundsReceived (big.Int) (struct)
 	if len("FundsReceived") > cbg.MaxLength {
 		return xerrors.Errorf("Value in field \"FundsReceived\" was too long")
@@ -2198,38 +2181,6 @@ func (t *ProviderDealState) MarshalCBOR(w io.Writer) error {
 		return err
 	}
 	if _, err := io.WriteString(w, string(t.Message)); err != nil {
-		return err
-	}
-
-	// t.CurrentInterval (uint64) (uint64)
-	if len("CurrentInterval") > cbg.MaxLength {
-		return xerrors.Errorf("Value in field \"CurrentInterval\" was too long")
-	}
-
-	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("CurrentInterval"))); err != nil {
-		return err
-	}
-	if _, err := io.WriteString(w, string("CurrentInterval")); err != nil {
-		return err
-	}
-
-	if err := cw.WriteMajorTypeHeader(cbg.MajUnsignedInt, uint64(t.CurrentInterval)); err != nil {
-		return err
-	}
-
-	// t.LegacyProtocol (bool) (bool)
-	if len("LegacyProtocol") > cbg.MaxLength {
-		return xerrors.Errorf("Value in field \"LegacyProtocol\" was too long")
-	}
-
-	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("LegacyProtocol"))); err != nil {
-		return err
-	}
-	if _, err := io.WriteString(w, string("LegacyProtocol")); err != nil {
-		return err
-	}
-
-	if err := cbg.WriteBool(w, t.LegacyProtocol); err != nil {
 		return err
 	}
 	return nil
@@ -2364,21 +2315,6 @@ func (t *ProviderDealState) UnmarshalCBOR(r io.Reader) (err error) {
 
 				t.Receiver = peer.ID(sval)
 			}
-			// t.TotalSent (uint64) (uint64)
-		case "TotalSent":
-
-			{
-
-				maj, extra, err = cr.ReadHeader()
-				if err != nil {
-					return err
-				}
-				if maj != cbg.MajUnsignedInt {
-					return fmt.Errorf("wrong type for uint64 field")
-				}
-				t.TotalSent = uint64(extra)
-
-			}
 			// t.FundsReceived (big.Int) (struct)
 		case "FundsReceived":
 
@@ -2399,39 +2335,6 @@ func (t *ProviderDealState) UnmarshalCBOR(r io.Reader) (err error) {
 				}
 
 				t.Message = string(sval)
-			}
-			// t.CurrentInterval (uint64) (uint64)
-		case "CurrentInterval":
-
-			{
-
-				maj, extra, err = cr.ReadHeader()
-				if err != nil {
-					return err
-				}
-				if maj != cbg.MajUnsignedInt {
-					return fmt.Errorf("wrong type for uint64 field")
-				}
-				t.CurrentInterval = uint64(extra)
-
-			}
-			// t.LegacyProtocol (bool) (bool)
-		case "LegacyProtocol":
-
-			maj, extra, err = cr.ReadHeader()
-			if err != nil {
-				return err
-			}
-			if maj != cbg.MajOther {
-				return fmt.Errorf("booleans must be major type 7")
-			}
-			switch extra {
-			case 20:
-				t.LegacyProtocol = false
-			case 21:
-				t.LegacyProtocol = true
-			default:
-				return fmt.Errorf("booleans are either major type 7, value 20 or 21 (got %d)", extra)
 			}
 
 		default:

@@ -9,14 +9,13 @@ import (
 	"github.com/ipfs/go-graphsync/storeutil"
 	bstore "github.com/ipfs/go-ipfs-blockstore"
 	logging "github.com/ipfs/go-log/v2"
-	"github.com/ipld/go-ipld-prime"
-	"github.com/libp2p/go-libp2p/core/peer"
+	peer "github.com/libp2p/go-libp2p/core/peer"
 
-	datatransfer "github.com/filecoin-project/go-data-transfer"
+	datatransfer "github.com/filecoin-project/go-data-transfer/v2"
+	dtgs "github.com/filecoin-project/go-data-transfer/v2/transport/graphsync"
 	"github.com/filecoin-project/go-statemachine/fsm"
 
 	rm "github.com/filecoin-project/go-fil-markets/retrievalmarket"
-	"github.com/filecoin-project/go-fil-markets/retrievalmarket/migrations"
 )
 
 var log = logging.Logger("retrievalmarket_impl")
@@ -29,6 +28,10 @@ type EventReceiver interface {
 const noProviderEvent = rm.ProviderEvent(math.MaxUint64)
 
 func providerEvent(event datatransfer.Event, channelState datatransfer.ChannelState) (rm.ProviderEvent, []interface{}) {
+	// complete event is triggered by the actual status of completed rather than a data transfer event
+	if channelState.Status() == datatransfer.Completed {
+		return rm.ProviderEventComplete, nil
+	}
 	switch event.Code {
 	case datatransfer.Accept:
 		return rm.ProviderEventDealAccepted, []interface{}{channelState.ChannelID()}
@@ -36,6 +39,18 @@ func providerEvent(event datatransfer.Event, channelState datatransfer.ChannelSt
 		return rm.ProviderEventDataTransferError, []interface{}{fmt.Errorf("deal data transfer stalled (peer hungup)")}
 	case datatransfer.Error:
 		return rm.ProviderEventDataTransferError, []interface{}{fmt.Errorf("deal data transfer failed: %s", event.Message)}
+	case datatransfer.DataLimitExceeded:
+		// DataLimitExceeded indicates it's time to wait for a payment
+		return rm.ProviderEventPaymentRequested, nil
+	case datatransfer.BeginFinalizing:
+		// BeginFinalizing indicates it's time to wait for a final payment
+		// Because the legacy client expects a final voucher, we dispatch this event event when
+		// the deal is free -- so that we have a chance to send this final voucher before completion
+		// TODO: do not send the legacy voucher when the client no longer expects it
+		return rm.ProviderEventLastPaymentRequested, nil
+	case datatransfer.NewVoucher:
+		// NewVoucher indicates a potential new payment we should attempt to process
+		return rm.ProviderEventProcessPayment, nil
 	case datatransfer.Cancel:
 		return rm.ProviderEventClientCancelled, nil
 	default:
@@ -50,26 +65,24 @@ func providerEvent(event datatransfer.Event, channelState datatransfer.ChannelSt
 // event or moving to error if a data transfer error occurs
 func ProviderDataTransferSubscriber(deals EventReceiver) datatransfer.Subscriber {
 	return func(event datatransfer.Event, channelState datatransfer.ChannelState) {
-		dealProposal, ok := dealProposalFromVoucher(channelState.Voucher())
-		// if this event is for a transfer not related to storage, ignore
-		if !ok {
+		voucher := channelState.Voucher()
+		if voucher.Voucher == nil {
+			log.Errorf("received empty voucher")
 			return
 		}
-
-		if channelState.Status() == datatransfer.Completed {
-			err := deals.Send(rm.ProviderDealIdentifier{DealID: dealProposal.ID, Receiver: channelState.Recipient()}, rm.ProviderEventComplete)
-			if err != nil {
-				log.Errorf("processing dt event: %s", err)
-			}
+		dealProposal, err := rm.DealProposalFromNode(voucher.Voucher)
+		// if this event is for a transfer not related to storage, ignore
+		if err != nil {
+			return
 		}
-
+		dealID := rm.ProviderDealIdentifier{DealID: dealProposal.ID, Receiver: channelState.Recipient()}
 		retrievalEvent, params := providerEvent(event, channelState)
 		if retrievalEvent == noProviderEvent {
 			return
 		}
 		log.Debugw("processing retrieval provider dt event", "event", datatransfer.Events[event.Code], "dealID", dealProposal.ID, "peer", channelState.OtherPeer(), "retrievalEvent", rm.ProviderEvents[retrievalEvent])
 
-		err := deals.Send(rm.ProviderDealIdentifier{DealID: dealProposal.ID, Receiver: channelState.Recipient()}, retrievalEvent, params...)
+		err = deals.Send(dealID, retrievalEvent, params...)
 		if err != nil {
 			log.Errorf("processing dt event: %s", err)
 		}
@@ -109,9 +122,10 @@ func clientEvent(event datatransfer.Event, channelState datatransfer.ChannelStat
 	case datatransfer.Cancel:
 		return rm.ClientEventProviderCancelled, nil
 	case datatransfer.NewVoucherResult:
-		response, ok := dealResponseFromVoucherResult(channelState.LastVoucherResult())
-		if !ok {
-			log.Errorf("unexpected voucher result received: %s", channelState.LastVoucher().Type())
+		voucher := channelState.LastVoucherResult()
+		response, err := rm.DealResponseFromNode(voucher.Voucher)
+		if err != nil {
+			log.Errorf("unexpected voucher result received: %s", err.Error())
 			return noEvent, nil
 		}
 
@@ -135,10 +149,10 @@ func clientEvent(event datatransfer.Event, channelState datatransfer.ChannelStat
 // an event to the appropriate state machine
 func ClientDataTransferSubscriber(deals EventReceiver) datatransfer.Subscriber {
 	return func(event datatransfer.Event, channelState datatransfer.ChannelState) {
-		dealProposal, ok := dealProposalFromVoucher(channelState.Voucher())
-
+		voucher := channelState.Voucher()
+		dealProposal, err := rm.DealProposalFromNode(voucher.Voucher)
 		// if this event is for a transfer not related to retrieval, ignore
-		if !ok {
+		if err != nil {
 			return
 		}
 
@@ -150,7 +164,7 @@ func ClientDataTransferSubscriber(deals EventReceiver) datatransfer.Subscriber {
 		log.Debugw("processing retrieval client dt event", "event", datatransfer.Events[event.Code], "dealID", dealProposal.ID, "peer", channelState.OtherPeer(), "retrievalEvent", rm.ClientEvents[retrievalEvent])
 
 		// data transfer events for progress do not affect deal state
-		err := deals.Send(dealProposal.ID, retrievalEvent, params...)
+		err = deals.Send(dealProposal.ID, retrievalEvent, params...)
 		if err != nil {
 			log.Errorf("processing dt event %s for state %s: %s",
 				datatransfer.Events[event.Code], datatransfer.Statuses[channelState.Status()], err)
@@ -163,65 +177,23 @@ type StoreGetter interface {
 	Get(otherPeer peer.ID, dealID rm.DealID) (bstore.Blockstore, error)
 }
 
-// StoreConfigurableTransport defines the methods needed to
-// configure a data transfer transport use a unique store for a given request
-type StoreConfigurableTransport interface {
-	UseStore(datatransfer.ChannelID, ipld.LinkSystem) error
-}
-
 // TransportConfigurer configurers the graphsync transport to use a custom blockstore per deal
 func TransportConfigurer(thisPeer peer.ID, storeGetter StoreGetter) datatransfer.TransportConfigurer {
-	return func(channelID datatransfer.ChannelID, voucher datatransfer.Voucher, transport datatransfer.Transport) {
-		dealProposal, ok := dealProposalFromVoucher(voucher)
-		if !ok {
-			return
-		}
-		gsTransport, ok := transport.(StoreConfigurableTransport)
-		if !ok {
-			return
+	return func(channelID datatransfer.ChannelID, voucher datatransfer.TypedVoucher) []datatransfer.TransportOption {
+		dealProposal, err := rm.DealProposalFromNode(voucher.Voucher)
+		if err != nil {
+			log.Debugf("not a deal proposal voucher: %s", err.Error())
+			return nil
 		}
 		otherPeer := channelID.OtherParty(thisPeer)
 		store, err := storeGetter.Get(otherPeer, dealProposal.ID)
 		if err != nil {
 			log.Errorf("attempting to configure data store: %s", err)
-			return
+			return nil
 		}
 		if store == nil {
-			return
+			return nil
 		}
-		err = gsTransport.UseStore(channelID, storeutil.LinkSystemForBlockstore(store))
-		if err != nil {
-			log.Errorf("attempting to configure data store: %s", err)
-		}
+		return []datatransfer.TransportOption{dtgs.UseStore(storeutil.LinkSystemForBlockstore(store))}
 	}
-}
-
-func dealProposalFromVoucher(voucher datatransfer.Voucher) (*rm.DealProposal, bool) {
-	dealProposal, ok := voucher.(*rm.DealProposal)
-	// if this event is for a transfer not related to storage, ignore
-	if ok {
-		return dealProposal, true
-	}
-
-	legacyProposal, ok := voucher.(*migrations.DealProposal0)
-	if !ok {
-		return nil, false
-	}
-	newProposal := migrations.MigrateDealProposal0To1(*legacyProposal)
-	return &newProposal, true
-}
-
-func dealResponseFromVoucherResult(vres datatransfer.VoucherResult) (*rm.DealResponse, bool) {
-	dealResponse, ok := vres.(*rm.DealResponse)
-	// if this event is for a transfer not related to storage, ignore
-	if ok {
-		return dealResponse, true
-	}
-
-	legacyResponse, ok := vres.(*migrations.DealResponse0)
-	if !ok {
-		return nil, false
-	}
-	newResponse := migrations.MigrateDealResponse0To1(*legacyResponse)
-	return &newResponse, true
 }

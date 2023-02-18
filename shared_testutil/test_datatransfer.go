@@ -4,36 +4,28 @@ import (
 	"context"
 
 	"github.com/ipfs/go-cid"
-	"github.com/ipld/go-ipld-prime"
+	"github.com/ipld/go-ipld-prime/datamodel"
 	"github.com/libp2p/go-libp2p/core/peer"
 
-	datatransfer "github.com/filecoin-project/go-data-transfer"
+	datatransfer "github.com/filecoin-project/go-data-transfer/v2"
 )
-
-// RegisteredRevalidator records a voucher type that was registered for revalidations
-type RegisteredRevalidator struct {
-	VoucherType datatransfer.Voucher
-	Revalidator datatransfer.Revalidator
-}
 
 // RegisteredVoucherType records a voucher typed that was registered
 type RegisteredVoucherType struct {
-	VoucherType datatransfer.Voucher
+	VoucherType datatransfer.TypeIdentifier
 	Validator   datatransfer.RequestValidator
 }
 
 // RegisteredTransportConfigurer records transport configurer registered for a voucher type
 type RegisteredTransportConfigurer struct {
-	VoucherType datatransfer.Voucher
+	VoucherType datatransfer.TypeIdentifier
 	Configurer  datatransfer.TransportConfigurer
 }
 
 // TestDataTransfer is a mock implementation of the data transfer libary
 // Most of its functions have no effect
 type TestDataTransfer struct {
-	RegisteredRevalidators         []RegisteredRevalidator
 	RegisteredVoucherTypes         []RegisteredVoucherType
-	RegisteredVoucherResultTypes   []datatransfer.VoucherResult
 	RegisteredTransportConfigurers []RegisteredTransportConfigurer
 	Subscribers                    []datatransfer.Subscriber
 }
@@ -54,31 +46,19 @@ func (tdt *TestDataTransfer) Stop(context.Context) error {
 }
 
 // RegisterVoucherType records the registred voucher type
-func (tdt *TestDataTransfer) RegisterVoucherType(voucherType datatransfer.Voucher, validator datatransfer.RequestValidator) error {
+func (tdt *TestDataTransfer) RegisterVoucherType(voucherType datatransfer.TypeIdentifier, validator datatransfer.RequestValidator) error {
 	tdt.RegisteredVoucherTypes = append(tdt.RegisteredVoucherTypes, RegisteredVoucherType{voucherType, validator})
 	return nil
 }
 
-// RegisterRevalidator records the registred revalidator type
-func (tdt *TestDataTransfer) RegisterRevalidator(voucherType datatransfer.Voucher, revalidator datatransfer.Revalidator) error {
-	tdt.RegisteredRevalidators = append(tdt.RegisteredRevalidators, RegisteredRevalidator{voucherType, revalidator})
-	return nil
-}
-
-// RegisterVoucherResultType records the registered result type
-func (tdt *TestDataTransfer) RegisterVoucherResultType(resultType datatransfer.VoucherResult) error {
-	tdt.RegisteredVoucherResultTypes = append(tdt.RegisteredVoucherResultTypes, resultType)
-	return nil
-}
-
 // RegisterTransportConfigurer records the registered transport configurer
-func (tdt *TestDataTransfer) RegisterTransportConfigurer(voucherType datatransfer.Voucher, configurer datatransfer.TransportConfigurer) error {
+func (tdt *TestDataTransfer) RegisterTransportConfigurer(voucherType datatransfer.TypeIdentifier, configurer datatransfer.TransportConfigurer) error {
 	tdt.RegisteredTransportConfigurers = append(tdt.RegisteredTransportConfigurers, RegisteredTransportConfigurer{voucherType, configurer})
 	return nil
 }
 
 // OpenPushDataChannel does nothing
-func (tdt *TestDataTransfer) OpenPushDataChannel(ctx context.Context, to peer.ID, voucher datatransfer.Voucher, baseCid cid.Cid, selector ipld.Node) (datatransfer.ChannelID, error) {
+func (tdt *TestDataTransfer) OpenPushDataChannel(ctx context.Context, to peer.ID, voucher datatransfer.TypedVoucher, baseCid cid.Cid, selector datamodel.Node, options ...datatransfer.TransferOption) (datatransfer.ChannelID, error) {
 	return datatransfer.ChannelID{}, nil
 }
 
@@ -87,12 +67,22 @@ func (tdt *TestDataTransfer) RestartDataTransferChannel(ctx context.Context, chI
 }
 
 // OpenPullDataChannel does nothing
-func (tdt *TestDataTransfer) OpenPullDataChannel(ctx context.Context, to peer.ID, voucher datatransfer.Voucher, baseCid cid.Cid, selector ipld.Node) (datatransfer.ChannelID, error) {
+func (tdt *TestDataTransfer) OpenPullDataChannel(ctx context.Context, to peer.ID, voucher datatransfer.TypedVoucher, baseCid cid.Cid, selector datamodel.Node, options ...datatransfer.TransferOption) (datatransfer.ChannelID, error) {
 	return datatransfer.ChannelID{}, nil
 }
 
 // SendVoucher does nothing
-func (tdt *TestDataTransfer) SendVoucher(ctx context.Context, chid datatransfer.ChannelID, voucher datatransfer.Voucher) error {
+func (tdt *TestDataTransfer) SendVoucher(ctx context.Context, chid datatransfer.ChannelID, voucher datatransfer.TypedVoucher) error {
+	return nil
+}
+
+// SendVoucherResult does nothing
+func (tdt *TestDataTransfer) SendVoucherResult(ctx context.Context, chid datatransfer.ChannelID, voucherResult datatransfer.TypedVoucher) error {
+	return nil
+}
+
+// UpdateValidationStatus does nothing
+func (tdt *TestDataTransfer) UpdateValidationStatus(ctx context.Context, chid datatransfer.ChannelID, result datatransfer.ValidationResult) error {
 	return nil
 }
 

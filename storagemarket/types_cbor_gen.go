@@ -8,7 +8,7 @@ import (
 	"math"
 	"sort"
 
-	datatransfer "github.com/filecoin-project/go-data-transfer"
+	datatransfer "github.com/filecoin-project/go-data-transfer/v2"
 	filestore "github.com/filecoin-project/go-fil-markets/filestore"
 	abi "github.com/filecoin-project/go-state-types/abi"
 	market "github.com/filecoin-project/go-state-types/builtin/v9/market"
