@@ -1,5 +1,28 @@
 # go-fil-markets changelog
 
+# go-fil-markets v1.26.1
+
+last updates before go-data-transfer v2 merge
+
+### Changelog
+- github.com/filecoin-project/go-fil-markets:
+  - chore(deps): bump github.com/ipfs/go-unixfs from 0.4.0 to 0.4.3
+  - chore(deps): bump github.com/ipfs/go-merkledag from 0.6.0 to 0.8.1
+  - chore(deps): bump github.com/ipfs/go-bitfield from 1.0.0 to 1.1.0
+  - chore(deps): bump github.com/ipld/go-ipld-prime from 0.19.0 to 0.20.0
+  - chore(deps): bump github.com/ipld/go-ipld-prime from 0.18.0 to 0.19.0
+  - Update README.md (#779) ([filecoin-project/go-fil-markets#779](https://github.com/filecoin-project/go-fil-markets/pull/779))
+  - replace direct go-libp2p-core references with go-libp2p/core (#777) ([filecoin-project/go-fil-markets#777](https://github.com/filecoin-project/go-fil-markets/pull/777))
+
+### Contributors
+
+| Contributor | Commits | Lines ± | Files Changed |
+|-------------|---------|---------|---------------|
+| Neel Virdy | 1 | +109/-107 | 58 |
+| Rod Vagg | 1 | +55/-16 | 3 |
+| dependabot[bot] | 4 | +37/-17 | 8 |
+| Anjor Kanekar | 1 | +5/-5 | 1 |
+
 # go-fil-markets v1.26.0
  
 - github.com/filecoin-project/go-fil-markets:
