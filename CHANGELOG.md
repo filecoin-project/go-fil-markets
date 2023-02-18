@@ -1,5 +1,24 @@
 # go-fil-markets changelog
 
+# go-fil-markets v1.27.0
+
+This release updates go-fil-markets to go-data-transfer v2, and contains a major simplication of the provider code based on the data transfer update
+
+### Changelog
+
+- github.com/filecoin-project/go-fil-markets:
+  - Data Transfer V2 Integration (#757) ([filecoin-project/go-fil-markets#757](https://github.com/filecoin-project/go-fil-markets/pull/757))
+  - Merge branch 'release/v1.26.1'
+- github.com/hannahhoward/cbor-gen-for (v0.0.0-20200817222906-ea96cece81f1 -> v0.0.0-20230214144701-5d17c9d5243c):
+  - Optimized "Mode" does not always work ([hannahhoward/cbor-gen-for#2](https://github.com/hannahhoward/cbor-gen-for/pull/2))
+
+### Contributors
+
+| Contributor | Commits | Lines ± | Files Changed |
+|-------------|---------|---------|---------------|
+| Hannah Howard | 1 | +2717/-5940 | 81 |
+| Peter Rabbitson | 1 | +1/-1 | 1 |
+
 # go-fil-markets v1.26.1
 
 last updates before go-data-transfer v2 merge
