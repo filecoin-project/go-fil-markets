@@ -2,6 +2,7 @@ package storagemarket
 
 import (
 	"context"
+	"github.com/filecoin-project/go-address"
 	"io"
 
 	"github.com/ipfs/go-cid"
@@ -67,4 +68,6 @@ type StorageProvider interface {
 	AnnounceDealToIndexer(ctx context.Context, proposalCid cid.Cid) error
 
 	AnnounceAllDealsToIndexer(ctx context.Context) error
+
+	InitiateDealWithClient(ctx context.Context, commP cid.Cid, commPSize uint64, clientAddr address.Address, startEpoch abi.ChainEpoch, duration uint64, carPath string) error
 }
