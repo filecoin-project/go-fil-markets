@@ -13,22 +13,28 @@ import (
 	"github.com/filecoin-project/go-state-types/abi"
 
 	"github.com/filecoin-project/go-fil-markets/piecestore"
+	"github.com/filecoin-project/go-fil-markets/retrievalmarket"
+	"github.com/filecoin-project/go-fil-markets/stores"
 )
 
-// getAllPieceInfoForPayload returns all of the pieces containing the requested Payload CID.
+func (p *Provider) getAllPieceInfoForPayload(payloadCID cid.Cid) ([]piecestore.PieceInfo, error) {
+	return GetAllPieceInfoForPayload(p.dagStore, p.pieceStore, payloadCID)
+}
+
+// GetAllPieceInfoForPayload returns all of the pieces containing the requested Payload CID.
 // If the Payload CID is an identity CID, then we use getCommonPiecesFromIdentityCidLinks to find
 // pieces containing all of the links within that identity CID.
 // Note that it is possible to receive a non-nil error as well as a non-zero length PieceInfo slice
 // as a return from this function. In that case, there was at least one error encountered querying
 // the piece store.
-func (p *Provider) getAllPieceInfoForPayload(payloadCID cid.Cid) ([]piecestore.PieceInfo, error) {
+func GetAllPieceInfoForPayload(dagStore stores.DAGStoreWrapper, pieceStore piecestore.PieceStore, payloadCID cid.Cid) ([]piecestore.PieceInfo, error) {
 	// Get all pieces that contain the target block
-	piecesWithTargetBlock, err := p.dagStore.GetPiecesContainingBlock(payloadCID)
+	piecesWithTargetBlock, err := dagStore.GetPiecesContainingBlock(payloadCID)
 	if err != nil {
 		// this payloadCID may be an identity CID that's in the root of a CAR but
 		// not recorded in the index
 		var idErr error
-		piecesWithTargetBlock, idErr = p.getCommonPiecesFromIdentityCidLinks(payloadCID)
+		piecesWithTargetBlock, idErr = GetCommonPiecesFromIdentityCidLinks(dagStore, payloadCID)
 		if idErr != nil {
 			return []piecestore.PieceInfo{}, idErr
 		}
@@ -41,7 +47,7 @@ func (p *Provider) getAllPieceInfoForPayload(payloadCID cid.Cid) ([]piecestore.P
 	var lastErr error
 	for _, pieceWithTargetBlock := range piecesWithTargetBlock {
 		// Get the deals for the piece
-		pieceInfo, err := p.pieceStore.GetPieceInfo(pieceWithTargetBlock)
+		pieceInfo, err := pieceStore.GetPieceInfo(pieceWithTargetBlock)
 		if err != nil {
 			lastErr = err
 			continue
@@ -52,9 +58,9 @@ func (p *Provider) getAllPieceInfoForPayload(payloadCID cid.Cid) ([]piecestore.P
 	return pieces, lastErr
 }
 
-// getCommonPiecesFromIdentityCidLinks will inspect a payloadCID and if it has an identity multihash,
+// GetCommonPiecesFromIdentityCidLinks will inspect a payloadCID and if it has an identity multihash,
 // will determine which pieces contain all of the links within the decoded identity multihash block
-func (p *Provider) getCommonPiecesFromIdentityCidLinks(payloadCID cid.Cid) ([]cid.Cid, error) {
+func GetCommonPiecesFromIdentityCidLinks(dagStore stores.DAGStoreWrapper, payloadCID cid.Cid) ([]cid.Cid, error) {
 	links, err := linksFromIdentityCid(payloadCID)
 	if err != nil || len(links) == 0 {
 		return links, err
@@ -63,7 +69,7 @@ func (p *Provider) getCommonPiecesFromIdentityCidLinks(payloadCID cid.Cid) ([]ci
 	pieces := make([]cid.Cid, 0)
 	// for each link, query the dagstore for pieces that contain it
 	for i, link := range links {
-		piecesWithThisCid, err := p.dagStore.GetPiecesContainingBlock(link)
+		piecesWithThisCid, err := dagStore.GetPiecesContainingBlock(link)
 		if err != nil {
 			return nil, fmt.Errorf("getting pieces for identity CID sub-link %s: %w", link, err)
 		}
@@ -156,9 +162,9 @@ func linksFromIdentityCid(identityCid cid.Cid) ([]cid.Cid, error) {
 	return resultCids, err
 }
 
-func (p *Provider) pieceInUnsealedSector(ctx context.Context, pieceInfo piecestore.PieceInfo) bool {
+func PieceInUnsealedSector(ctx context.Context, sa retrievalmarket.SectorAccessor, pieceInfo piecestore.PieceInfo) bool {
 	for _, di := range pieceInfo.Deals {
-		isUnsealed, err := p.sa.IsUnsealed(ctx, di.SectorID, di.Offset.Unpadded(), di.Length.Unpadded())
+		isUnsealed, err := sa.IsUnsealed(ctx, di.SectorID, di.Offset.Unpadded(), di.Length.Unpadded())
 		if err != nil {
 			log.Errorf("failed to find out if sector %d is unsealed, err=%s", di.SectorID, err)
 			continue
@@ -198,24 +204,28 @@ func dealsFromPieces(pieces []piecestore.PieceInfo) []abi.DealID {
 	return dealsIds
 }
 
-// getBestPieceInfoMatch will take a list of pieces, and an optional PieceCID from a client, and
+func (p *Provider) getBestPieceInfoMatch(ctx context.Context, pieces []piecestore.PieceInfo, clientPieceCID cid.Cid) (piecestore.PieceInfo, bool) {
+	return GetBestPieceInfoMatch(ctx, p.sa, pieces, clientPieceCID)
+}
+
+// GetBestPieceInfoMatch will take a list of pieces, and an optional PieceCID from a client, and
 // will find the best piece to use for a retrieval. If a specific PieceCID is provided and that
 // piece is included in the list of pieces, that is used. Otherwise the first unsealed piece is used
 // and if there are no unsealed pieces, the first sealed piece is used.
 // Failure to find a matching piece will result in a piecestore.PieceInfoUndefined being returned.
-func (p *Provider) getBestPieceInfoMatch(ctx context.Context, pieces []piecestore.PieceInfo, clientPieceCID cid.Cid) (piecestore.PieceInfo, bool) {
+func GetBestPieceInfoMatch(ctx context.Context, sa retrievalmarket.SectorAccessor, pieces []piecestore.PieceInfo, clientPieceCID cid.Cid) (piecestore.PieceInfo, bool) {
 	sealedPieceInfo := -1
 	// For each piece that contains the target block
 	for ii, pieceInfo := range pieces {
 		if clientPieceCID.Defined() {
 			// If client wants to retrieve the payload from a specific piece, just return that piece.
 			if pieceInfo.PieceCID.Equals(clientPieceCID) {
-				return pieceInfo, p.pieceInUnsealedSector(ctx, pieceInfo)
+				return pieceInfo, PieceInUnsealedSector(ctx, sa, pieceInfo)
 			}
 		} else {
 			// If client doesn't have a preference for a particular piece, prefer the first piece for
 			// which an unsealed sector exists.
-			if p.pieceInUnsealedSector(ctx, pieceInfo) {
+			if PieceInUnsealedSector(ctx, sa, pieceInfo) {
 				// The piece is in an unsealed sector, so just return it
 				return pieceInfo, true
 			}
