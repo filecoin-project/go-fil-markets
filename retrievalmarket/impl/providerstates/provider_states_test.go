@@ -14,12 +14,12 @@ import (
 	"github.com/filecoin-project/go-statemachine/fsm"
 	fsmtest "github.com/filecoin-project/go-statemachine/fsm/testutil"
 
-	"github.com/filecoin-project/go-fil-markets/piecestore"
-	rm "github.com/filecoin-project/go-fil-markets/retrievalmarket"
-	"github.com/filecoin-project/go-fil-markets/retrievalmarket/impl/providerstates"
-	"github.com/filecoin-project/go-fil-markets/retrievalmarket/impl/testnodes"
-	rmtesting "github.com/filecoin-project/go-fil-markets/retrievalmarket/testing"
-	testnet "github.com/filecoin-project/go-fil-markets/shared_testutil"
+	"github.com/filecoin-project/boost-gfm/piecestore"
+	rm "github.com/filecoin-project/boost-gfm/retrievalmarket"
+	"github.com/filecoin-project/boost-gfm/retrievalmarket/impl/providerstates"
+	"github.com/filecoin-project/boost-gfm/retrievalmarket/impl/testnodes"
+	rmtesting "github.com/filecoin-project/boost-gfm/retrievalmarket/testing"
+	testnet "github.com/filecoin-project/boost-gfm/shared_testutil"
 )
 
 func TestUnsealData(t *testing.T) {

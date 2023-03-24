@@ -3,11 +3,11 @@ package requestvalidation
 import (
 	"github.com/ipfs/go-cid"
 	"github.com/ipld/go-ipld-prime"
-	"github.com/libp2p/go-libp2p-core/peer"
+	"github.com/libp2p/go-libp2p/core/peer"
 
 	datatransfer "github.com/filecoin-project/go-data-transfer"
 
-	"github.com/filecoin-project/go-fil-markets/storagemarket"
+	"github.com/filecoin-project/boost-gfm/storagemarket"
 )
 
 // PushDeals gets deal states for Push validations

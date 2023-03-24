@@ -16,8 +16,8 @@ import (
 	"github.com/ipld/go-car/v2/blockstore"
 	"github.com/stretchr/testify/require"
 
-	"github.com/filecoin-project/go-fil-markets/shared_testutil/unixfs"
-	"github.com/filecoin-project/go-fil-markets/stores"
+	"github.com/filecoin-project/boost-gfm/shared_testutil/unixfs"
+	"github.com/filecoin-project/boost-gfm/stores"
 )
 
 func ThisDir(t *testing.T) string {

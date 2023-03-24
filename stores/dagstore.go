@@ -10,7 +10,7 @@ import (
 
 	"github.com/filecoin-project/dagstore"
 
-	"github.com/filecoin-project/go-fil-markets/storagemarket"
+	"github.com/filecoin-project/boost-gfm/storagemarket"
 )
 
 type ClosableBlockstore interface {

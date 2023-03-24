@@ -12,7 +12,7 @@ import (
 
 	"github.com/filecoin-project/go-state-types/abi"
 
-	"github.com/filecoin-project/go-fil-markets/piecestore"
+	"github.com/filecoin-project/boost-gfm/piecestore"
 )
 
 // getAllPieceInfoForPayload returns all of the pieces containing the requested Payload CID.

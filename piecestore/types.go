@@ -7,7 +7,7 @@ import (
 
 	"github.com/filecoin-project/go-state-types/abi"
 
-	"github.com/filecoin-project/go-fil-markets/shared"
+	"github.com/filecoin-project/boost-gfm/shared"
 )
 
 //go:generate cbor-gen-for --map-encoding PieceInfo DealInfo BlockLocation PieceBlockLocation CIDInfo

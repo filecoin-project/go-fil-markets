@@ -5,16 +5,16 @@ import (
 	"testing"
 
 	"github.com/ipfs/go-cid"
-	"github.com/libp2p/go-libp2p-core/peer"
+	"github.com/libp2p/go-libp2p/core/peer"
 	ma "github.com/multiformats/go-multiaddr"
 	"github.com/stretchr/testify/require"
 
 	cborutil "github.com/filecoin-project/go-cbor-util"
 
-	"github.com/filecoin-project/go-fil-markets/discovery"
-	rm "github.com/filecoin-project/go-fil-markets/retrievalmarket"
-	rmnet "github.com/filecoin-project/go-fil-markets/retrievalmarket/network"
-	smnet "github.com/filecoin-project/go-fil-markets/storagemarket/network"
+	"github.com/filecoin-project/boost-gfm/discovery"
+	rm "github.com/filecoin-project/boost-gfm/retrievalmarket"
+	rmnet "github.com/filecoin-project/boost-gfm/retrievalmarket/network"
+	smnet "github.com/filecoin-project/boost-gfm/storagemarket/network"
 )
 
 // QueryReader is a function to mock reading queries.

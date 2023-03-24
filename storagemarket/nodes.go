@@ -12,7 +12,7 @@ import (
 	"github.com/filecoin-project/go-state-types/crypto"
 	"github.com/filecoin-project/go-state-types/exitcode"
 
-	"github.com/filecoin-project/go-fil-markets/shared"
+	"github.com/filecoin-project/boost-gfm/shared"
 )
 
 // DealSectorPreCommittedCallback is a callback that runs when a sector is pre-committed

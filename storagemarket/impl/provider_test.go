@@ -9,7 +9,7 @@ import (
 	"github.com/ipfs/go-cid"
 	"github.com/ipfs/go-datastore"
 	"github.com/ipfs/go-datastore/namespace"
-	"github.com/libp2p/go-libp2p-core/peer"
+	"github.com/libp2p/go-libp2p/core/peer"
 	"github.com/stretchr/testify/require"
 	cbg "github.com/whyrusleeping/cbor-gen"
 	"golang.org/x/exp/rand"
@@ -20,15 +20,15 @@ import (
 	"github.com/filecoin-project/go-state-types/builtin/v9/market"
 	marketOld "github.com/filecoin-project/specs-actors/actors/builtin/market"
 
-	"github.com/filecoin-project/go-fil-markets/filestore"
-	"github.com/filecoin-project/go-fil-markets/shared_testutil"
-	"github.com/filecoin-project/go-fil-markets/storagemarket"
-	storageimpl "github.com/filecoin-project/go-fil-markets/storagemarket/impl"
-	"github.com/filecoin-project/go-fil-markets/storagemarket/migrations"
-	"github.com/filecoin-project/go-fil-markets/storagemarket/network"
-	"github.com/filecoin-project/go-fil-markets/storagemarket/testharness"
-	"github.com/filecoin-project/go-fil-markets/storagemarket/testharness/dependencies"
-	"github.com/filecoin-project/go-fil-markets/storagemarket/testnodes"
+	"github.com/filecoin-project/boost-gfm/filestore"
+	"github.com/filecoin-project/boost-gfm/shared_testutil"
+	"github.com/filecoin-project/boost-gfm/storagemarket"
+	storageimpl "github.com/filecoin-project/boost-gfm/storagemarket/impl"
+	"github.com/filecoin-project/boost-gfm/storagemarket/migrations"
+	"github.com/filecoin-project/boost-gfm/storagemarket/network"
+	"github.com/filecoin-project/boost-gfm/storagemarket/testharness"
+	"github.com/filecoin-project/boost-gfm/storagemarket/testharness/dependencies"
+	"github.com/filecoin-project/boost-gfm/storagemarket/testnodes"
 )
 
 func TestProvider_Migrations(t *testing.T) {

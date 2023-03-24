@@ -8,7 +8,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/filecoin-project/go-fil-markets/filestore"
+	"github.com/filecoin-project/boost-gfm/filestore"
 )
 
 var TestErrNotFound = errors.New("file not found")

@@ -38,7 +38,7 @@ section of the Filecoin Specification contains the canonical spec.
 
 ## Installation
 ```bash
-go get "github.com/filecoin-project/go-fil-markets/<MODULENAME>"`
+go get "github.com/filecoin-project/boost-gfm/<MODULENAME>"`
 ```
 
 ## Usage

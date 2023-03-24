@@ -15,7 +15,7 @@ import (
 	dss "github.com/ipfs/go-datastore/sync"
 	"github.com/ipld/go-ipld-prime/codec/dagcbor"
 	selectorparse "github.com/ipld/go-ipld-prime/traversal/selector/parse"
-	"github.com/libp2p/go-libp2p-core/peer"
+	"github.com/libp2p/go-libp2p/core/peer"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	cbg "github.com/whyrusleeping/cbor-gen"
@@ -25,14 +25,14 @@ import (
 	"github.com/filecoin-project/go-state-types/abi"
 	"github.com/filecoin-project/go-state-types/big"
 
-	"github.com/filecoin-project/go-fil-markets/retrievalmarket"
-	retrievalimpl "github.com/filecoin-project/go-fil-markets/retrievalmarket/impl"
-	"github.com/filecoin-project/go-fil-markets/retrievalmarket/impl/testnodes"
-	"github.com/filecoin-project/go-fil-markets/retrievalmarket/migrations"
-	"github.com/filecoin-project/go-fil-markets/retrievalmarket/network"
-	rmnet "github.com/filecoin-project/go-fil-markets/retrievalmarket/network"
-	"github.com/filecoin-project/go-fil-markets/shared_testutil"
-	tut "github.com/filecoin-project/go-fil-markets/shared_testutil"
+	"github.com/filecoin-project/boost-gfm/retrievalmarket"
+	retrievalimpl "github.com/filecoin-project/boost-gfm/retrievalmarket/impl"
+	"github.com/filecoin-project/boost-gfm/retrievalmarket/impl/testnodes"
+	"github.com/filecoin-project/boost-gfm/retrievalmarket/migrations"
+	"github.com/filecoin-project/boost-gfm/retrievalmarket/network"
+	rmnet "github.com/filecoin-project/boost-gfm/retrievalmarket/network"
+	"github.com/filecoin-project/boost-gfm/shared_testutil"
+	tut "github.com/filecoin-project/boost-gfm/shared_testutil"
 )
 
 func TestClient_Construction(t *testing.T) {

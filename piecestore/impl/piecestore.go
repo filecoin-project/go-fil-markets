@@ -13,10 +13,10 @@ import (
 	versioning "github.com/filecoin-project/go-ds-versioning/pkg"
 	versioned "github.com/filecoin-project/go-ds-versioning/pkg/statestore"
 
-	"github.com/filecoin-project/go-fil-markets/piecestore"
-	"github.com/filecoin-project/go-fil-markets/piecestore/migrations"
-	"github.com/filecoin-project/go-fil-markets/retrievalmarket"
-	"github.com/filecoin-project/go-fil-markets/shared"
+	"github.com/filecoin-project/boost-gfm/piecestore"
+	"github.com/filecoin-project/boost-gfm/piecestore/migrations"
+	"github.com/filecoin-project/boost-gfm/retrievalmarket"
+	"github.com/filecoin-project/boost-gfm/shared"
 )
 
 var log = logging.Logger("piecestore")

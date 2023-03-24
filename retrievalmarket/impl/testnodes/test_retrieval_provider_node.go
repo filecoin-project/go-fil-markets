@@ -18,8 +18,8 @@ import (
 	"github.com/filecoin-project/go-state-types/big"
 	paychtypes "github.com/filecoin-project/go-state-types/builtin/v8/paych"
 
-	"github.com/filecoin-project/go-fil-markets/retrievalmarket"
-	"github.com/filecoin-project/go-fil-markets/shared"
+	"github.com/filecoin-project/boost-gfm/retrievalmarket"
+	"github.com/filecoin-project/boost-gfm/shared"
 )
 
 var log = logging.Logger("retrieval_provnode_test")
@@ -160,12 +160,13 @@ func (trpn *TestRetrievalProviderNode) toExpectedVoucherKey(paymentChannel addre
 }
 
 // ExpectVoucher sets a voucher to be expected by SavePaymentVoucher
-//     paymentChannel: the address of the payment channel the client creates
-//     voucher: the voucher to match
-//     proof: the proof to use (can be blank)
-// 	   expectedAmount: the expected tokenamount for this voucher
-//     actualAmount: the actual amount to use.  use same as expectedAmount unless you want to trigger an error
-//     expectedErr:  an error message to expect
+//
+//	    paymentChannel: the address of the payment channel the client creates
+//	    voucher: the voucher to match
+//	    proof: the proof to use (can be blank)
+//		   expectedAmount: the expected tokenamount for this voucher
+//	    actualAmount: the actual amount to use.  use same as expectedAmount unless you want to trigger an error
+//	    expectedErr:  an error message to expect
 func (trpn *TestRetrievalProviderNode) ExpectVoucher(
 	paymentChannel address.Address,
 	voucher *paychtypes.SignedVoucher,

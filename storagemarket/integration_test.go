@@ -22,12 +22,12 @@ import (
 	dtnet "github.com/filecoin-project/go-data-transfer/network"
 	"github.com/filecoin-project/go-state-types/big"
 
-	"github.com/filecoin-project/go-fil-markets/shared_testutil"
-	"github.com/filecoin-project/go-fil-markets/storagemarket"
-	"github.com/filecoin-project/go-fil-markets/storagemarket/impl/clientutils"
-	"github.com/filecoin-project/go-fil-markets/storagemarket/testharness"
-	"github.com/filecoin-project/go-fil-markets/storagemarket/testharness/dependencies"
-	"github.com/filecoin-project/go-fil-markets/storagemarket/testnodes"
+	"github.com/filecoin-project/boost-gfm/shared_testutil"
+	"github.com/filecoin-project/boost-gfm/storagemarket"
+	"github.com/filecoin-project/boost-gfm/storagemarket/impl/clientutils"
+	"github.com/filecoin-project/boost-gfm/storagemarket/testharness"
+	"github.com/filecoin-project/boost-gfm/storagemarket/testharness/dependencies"
+	"github.com/filecoin-project/boost-gfm/storagemarket/testnodes"
 )
 
 var noOpDelay = testnodes.DelayFakeCommonNode{}

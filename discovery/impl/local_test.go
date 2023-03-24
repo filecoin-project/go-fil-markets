@@ -8,17 +8,17 @@ import (
 
 	"github.com/ipfs/go-datastore"
 	dshelp "github.com/ipfs/go-ipfs-ds-help"
-	"github.com/libp2p/go-libp2p-core/peer"
+	"github.com/libp2p/go-libp2p/core/peer"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	"github.com/filecoin-project/go-address"
 
-	discoveryimpl "github.com/filecoin-project/go-fil-markets/discovery/impl"
-	"github.com/filecoin-project/go-fil-markets/discovery/migrations"
-	"github.com/filecoin-project/go-fil-markets/retrievalmarket"
-	retrievalmigrations "github.com/filecoin-project/go-fil-markets/retrievalmarket/migrations"
-	"github.com/filecoin-project/go-fil-markets/shared_testutil"
+	discoveryimpl "github.com/filecoin-project/boost-gfm/discovery/impl"
+	"github.com/filecoin-project/boost-gfm/discovery/migrations"
+	"github.com/filecoin-project/boost-gfm/retrievalmarket"
+	retrievalmigrations "github.com/filecoin-project/boost-gfm/retrievalmarket/migrations"
+	"github.com/filecoin-project/boost-gfm/shared_testutil"
 )
 
 func TestLocal_AddPeer(t *testing.T) {
