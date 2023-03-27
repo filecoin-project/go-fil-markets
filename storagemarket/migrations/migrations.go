@@ -6,7 +6,7 @@ import (
 	"unicode/utf8"
 
 	"github.com/ipfs/go-cid"
-	"github.com/libp2p/go-libp2p-core/peer"
+	"github.com/libp2p/go-libp2p/core/peer"
 	cbg "github.com/whyrusleeping/cbor-gen"
 
 	"github.com/filecoin-project/go-address"
@@ -17,8 +17,8 @@ import (
 	"github.com/filecoin-project/go-state-types/crypto"
 	marketOld "github.com/filecoin-project/specs-actors/actors/builtin/market"
 
-	"github.com/filecoin-project/go-fil-markets/filestore"
-	"github.com/filecoin-project/go-fil-markets/storagemarket"
+	"github.com/filecoin-project/boost-gfm/filestore"
+	"github.com/filecoin-project/boost-gfm/storagemarket"
 )
 
 //go:generate cbor-gen-for ClientDeal0 MinerDeal0 Balance0 SignedStorageAsk0 StorageAsk0 DataRef0 ProviderDealState0 AskRequest0 AskResponse0 Proposal0 Response0 SignedResponse0 DealStatusRequest0 DealStatusResponse0

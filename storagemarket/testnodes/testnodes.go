@@ -22,10 +22,10 @@ import (
 	"github.com/filecoin-project/go-state-types/crypto"
 	"github.com/filecoin-project/go-state-types/exitcode"
 
-	"github.com/filecoin-project/go-fil-markets/commp"
-	"github.com/filecoin-project/go-fil-markets/shared"
-	"github.com/filecoin-project/go-fil-markets/shared_testutil"
-	"github.com/filecoin-project/go-fil-markets/storagemarket"
+	"github.com/filecoin-project/boost-gfm/commp"
+	"github.com/filecoin-project/boost-gfm/shared"
+	"github.com/filecoin-project/boost-gfm/shared_testutil"
+	"github.com/filecoin-project/boost-gfm/storagemarket"
 )
 
 // Below fake node implementations

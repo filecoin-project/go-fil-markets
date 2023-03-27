@@ -245,7 +245,7 @@ func NewClient(
     ```
     where `h host.Host` is your node's libp2p Host.
      See 
-     [github.com/libp2p/go-libp2p-core/host](https://github.com/libp2p/go-libp2p-core/host).
+     [github.com/libp2p/go-libp2p/core/host](https://github.com/libp2p/go-libp2p/core/host).
 
 * `bs blockstore.Blockstore` is an IPFS blockstore for storing and retrieving data for deals.
  See

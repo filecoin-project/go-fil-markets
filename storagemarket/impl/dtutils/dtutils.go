@@ -6,16 +6,16 @@ import (
 	"fmt"
 
 	"github.com/ipfs/go-cid"
-	"github.com/ipfs/go-graphsync/storeutil"
 	bstore "github.com/ipfs/go-ipfs-blockstore"
 	logging "github.com/ipfs/go-log/v2"
 	"github.com/ipld/go-ipld-prime"
 
+	"github.com/filecoin-project/boost-graphsync/storeutil"
 	datatransfer "github.com/filecoin-project/go-data-transfer"
 	"github.com/filecoin-project/go-statemachine/fsm"
 
-	"github.com/filecoin-project/go-fil-markets/storagemarket"
-	"github.com/filecoin-project/go-fil-markets/storagemarket/impl/requestvalidation"
+	"github.com/filecoin-project/boost-gfm/storagemarket"
+	"github.com/filecoin-project/boost-gfm/storagemarket/impl/requestvalidation"
 )
 
 var log = logging.Logger("storagemarket_impl")

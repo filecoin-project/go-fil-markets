@@ -7,7 +7,7 @@ import (
 	"testing"
 
 	"github.com/ipfs/go-cid"
-	peer "github.com/libp2p/go-libp2p-core/peer"
+	peer "github.com/libp2p/go-libp2p/core/peer"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -19,11 +19,11 @@ import (
 	"github.com/filecoin-project/go-statemachine/fsm"
 	fsmtest "github.com/filecoin-project/go-statemachine/fsm/testutil"
 
-	"github.com/filecoin-project/go-fil-markets/retrievalmarket"
-	rm "github.com/filecoin-project/go-fil-markets/retrievalmarket"
-	"github.com/filecoin-project/go-fil-markets/retrievalmarket/impl/clientstates"
-	"github.com/filecoin-project/go-fil-markets/retrievalmarket/impl/testnodes"
-	testnet "github.com/filecoin-project/go-fil-markets/shared_testutil"
+	"github.com/filecoin-project/boost-gfm/retrievalmarket"
+	rm "github.com/filecoin-project/boost-gfm/retrievalmarket"
+	"github.com/filecoin-project/boost-gfm/retrievalmarket/impl/clientstates"
+	"github.com/filecoin-project/boost-gfm/retrievalmarket/impl/testnodes"
+	testnet "github.com/filecoin-project/boost-gfm/shared_testutil"
 )
 
 type consumeBlockResponse struct {

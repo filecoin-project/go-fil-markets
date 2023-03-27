@@ -13,8 +13,6 @@ import (
 	"github.com/ipfs/go-cid"
 	"github.com/ipfs/go-datastore"
 	"github.com/ipfs/go-datastore/namespace"
-	graphsyncimpl "github.com/ipfs/go-graphsync/impl"
-	"github.com/ipfs/go-graphsync/network"
 	"github.com/ipld/go-car"
 	"github.com/ipld/go-ipld-prime"
 	cidlink "github.com/ipld/go-ipld-prime/linking/cid"
@@ -24,6 +22,8 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	graphsyncimpl "github.com/filecoin-project/boost-graphsync/impl"
+	"github.com/filecoin-project/boost-graphsync/network"
 	"github.com/filecoin-project/go-address"
 	dtimpl "github.com/filecoin-project/go-data-transfer/impl"
 	"github.com/filecoin-project/go-data-transfer/testutil"
@@ -32,14 +32,14 @@ import (
 	"github.com/filecoin-project/go-state-types/big"
 	"github.com/filecoin-project/go-state-types/builtin/v8/paych"
 
-	"github.com/filecoin-project/go-fil-markets/piecestore"
-	"github.com/filecoin-project/go-fil-markets/retrievalmarket"
-	retrievalimpl "github.com/filecoin-project/go-fil-markets/retrievalmarket/impl"
-	"github.com/filecoin-project/go-fil-markets/retrievalmarket/impl/testnodes"
-	rmnet "github.com/filecoin-project/go-fil-markets/retrievalmarket/network"
-	rmtesting "github.com/filecoin-project/go-fil-markets/retrievalmarket/testing"
-	tut "github.com/filecoin-project/go-fil-markets/shared_testutil"
-	"github.com/filecoin-project/go-fil-markets/stores"
+	"github.com/filecoin-project/boost-gfm/piecestore"
+	"github.com/filecoin-project/boost-gfm/retrievalmarket"
+	retrievalimpl "github.com/filecoin-project/boost-gfm/retrievalmarket/impl"
+	"github.com/filecoin-project/boost-gfm/retrievalmarket/impl/testnodes"
+	rmnet "github.com/filecoin-project/boost-gfm/retrievalmarket/network"
+	rmtesting "github.com/filecoin-project/boost-gfm/retrievalmarket/testing"
+	tut "github.com/filecoin-project/boost-gfm/shared_testutil"
+	"github.com/filecoin-project/boost-gfm/stores"
 )
 
 func TestClientCanMakeQueryToProvider(t *testing.T) {

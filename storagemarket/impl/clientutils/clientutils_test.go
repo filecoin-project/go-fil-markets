@@ -18,10 +18,10 @@ import (
 
 	"github.com/filecoin-project/go-state-types/abi"
 
-	"github.com/filecoin-project/go-fil-markets/shared_testutil"
-	"github.com/filecoin-project/go-fil-markets/storagemarket"
-	"github.com/filecoin-project/go-fil-markets/storagemarket/impl/clientutils"
-	"github.com/filecoin-project/go-fil-markets/stores"
+	"github.com/filecoin-project/boost-gfm/shared_testutil"
+	"github.com/filecoin-project/boost-gfm/storagemarket"
+	"github.com/filecoin-project/boost-gfm/storagemarket/impl/clientutils"
+	"github.com/filecoin-project/boost-gfm/stores"
 )
 
 func TestCommP(t *testing.T) {

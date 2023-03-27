@@ -14,12 +14,12 @@ import (
 	"github.com/filecoin-project/go-state-types/builtin/v9/market"
 	"github.com/filecoin-project/go-state-types/crypto"
 
-	"github.com/filecoin-project/go-fil-markets/filestore"
-	"github.com/filecoin-project/go-fil-markets/shared"
-	"github.com/filecoin-project/go-fil-markets/shared_testutil"
-	"github.com/filecoin-project/go-fil-markets/storagemarket/impl/blockrecorder"
-	"github.com/filecoin-project/go-fil-markets/storagemarket/impl/providerutils"
-	"github.com/filecoin-project/go-fil-markets/storagemarket/network"
+	"github.com/filecoin-project/boost-gfm/filestore"
+	"github.com/filecoin-project/boost-gfm/shared"
+	"github.com/filecoin-project/boost-gfm/shared_testutil"
+	"github.com/filecoin-project/boost-gfm/storagemarket/impl/blockrecorder"
+	"github.com/filecoin-project/boost-gfm/storagemarket/impl/providerutils"
+	"github.com/filecoin-project/boost-gfm/storagemarket/network"
 )
 
 func TestVerifyProposal(t *testing.T) {

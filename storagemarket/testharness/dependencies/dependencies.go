@@ -10,11 +10,11 @@ import (
 
 	"github.com/ipfs/go-datastore"
 	"github.com/ipfs/go-datastore/namespace"
-	graphsyncimpl "github.com/ipfs/go-graphsync/impl"
-	"github.com/ipfs/go-graphsync/network"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	graphsyncimpl "github.com/filecoin-project/boost-graphsync/impl"
+	"github.com/filecoin-project/boost-graphsync/network"
 	"github.com/filecoin-project/go-address"
 	datatransfer "github.com/filecoin-project/go-data-transfer"
 	dtimpl "github.com/filecoin-project/go-data-transfer/impl"
@@ -24,15 +24,15 @@ import (
 	"github.com/filecoin-project/go-state-types/abi"
 	"github.com/filecoin-project/go-state-types/builtin/v9/market"
 
-	discoveryimpl "github.com/filecoin-project/go-fil-markets/discovery/impl"
-	"github.com/filecoin-project/go-fil-markets/filestore"
-	"github.com/filecoin-project/go-fil-markets/piecestore"
-	piecestoreimpl "github.com/filecoin-project/go-fil-markets/piecestore/impl"
-	"github.com/filecoin-project/go-fil-markets/shared_testutil"
-	"github.com/filecoin-project/go-fil-markets/storagemarket"
-	"github.com/filecoin-project/go-fil-markets/storagemarket/impl/storedask"
-	"github.com/filecoin-project/go-fil-markets/storagemarket/testnodes"
-	"github.com/filecoin-project/go-fil-markets/stores"
+	discoveryimpl "github.com/filecoin-project/boost-gfm/discovery/impl"
+	"github.com/filecoin-project/boost-gfm/filestore"
+	"github.com/filecoin-project/boost-gfm/piecestore"
+	piecestoreimpl "github.com/filecoin-project/boost-gfm/piecestore/impl"
+	"github.com/filecoin-project/boost-gfm/shared_testutil"
+	"github.com/filecoin-project/boost-gfm/storagemarket"
+	"github.com/filecoin-project/boost-gfm/storagemarket/impl/storedask"
+	"github.com/filecoin-project/boost-gfm/storagemarket/testnodes"
+	"github.com/filecoin-project/boost-gfm/stores"
 )
 
 // StorageDependencies are the dependencies required to initialize a storage client/provider

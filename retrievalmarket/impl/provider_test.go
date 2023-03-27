@@ -14,7 +14,7 @@ import (
 	dss "github.com/ipfs/go-datastore/sync"
 	"github.com/ipld/go-ipld-prime/codec/dagcbor"
 	selectorparse "github.com/ipld/go-ipld-prime/traversal/selector/parse"
-	"github.com/libp2p/go-libp2p-core/peer"
+	"github.com/libp2p/go-libp2p/core/peer"
 	"github.com/multiformats/go-multicodec"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -25,15 +25,15 @@ import (
 	"github.com/filecoin-project/go-state-types/abi"
 	"github.com/filecoin-project/go-state-types/big"
 
-	"github.com/filecoin-project/go-fil-markets/piecestore"
-	piecemigrations "github.com/filecoin-project/go-fil-markets/piecestore/migrations"
-	"github.com/filecoin-project/go-fil-markets/retrievalmarket"
-	retrievalimpl "github.com/filecoin-project/go-fil-markets/retrievalmarket/impl"
-	"github.com/filecoin-project/go-fil-markets/retrievalmarket/impl/requestvalidation"
-	"github.com/filecoin-project/go-fil-markets/retrievalmarket/impl/testnodes"
-	"github.com/filecoin-project/go-fil-markets/retrievalmarket/migrations"
-	"github.com/filecoin-project/go-fil-markets/retrievalmarket/network"
-	tut "github.com/filecoin-project/go-fil-markets/shared_testutil"
+	"github.com/filecoin-project/boost-gfm/piecestore"
+	piecemigrations "github.com/filecoin-project/boost-gfm/piecestore/migrations"
+	"github.com/filecoin-project/boost-gfm/retrievalmarket"
+	retrievalimpl "github.com/filecoin-project/boost-gfm/retrievalmarket/impl"
+	"github.com/filecoin-project/boost-gfm/retrievalmarket/impl/requestvalidation"
+	"github.com/filecoin-project/boost-gfm/retrievalmarket/impl/testnodes"
+	"github.com/filecoin-project/boost-gfm/retrievalmarket/migrations"
+	"github.com/filecoin-project/boost-gfm/retrievalmarket/network"
+	tut "github.com/filecoin-project/boost-gfm/shared_testutil"
 )
 
 func TestDynamicPricing(t *testing.T) {

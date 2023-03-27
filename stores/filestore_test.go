@@ -22,7 +22,7 @@ import (
 	"github.com/ipld/go-car/v2/blockstore"
 	"github.com/stretchr/testify/require"
 
-	"github.com/filecoin-project/go-fil-markets/shared_testutil/unixfs"
+	"github.com/filecoin-project/boost-gfm/shared_testutil/unixfs"
 )
 
 func TestFilestoreRoundtrip(t *testing.T) {

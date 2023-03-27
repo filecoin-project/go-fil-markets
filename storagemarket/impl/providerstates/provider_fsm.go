@@ -11,8 +11,8 @@ import (
 	"github.com/filecoin-project/go-state-types/big"
 	"github.com/filecoin-project/go-statemachine/fsm"
 
-	"github.com/filecoin-project/go-fil-markets/filestore"
-	"github.com/filecoin-project/go-fil-markets/storagemarket"
+	"github.com/filecoin-project/boost-gfm/filestore"
+	"github.com/filecoin-project/boost-gfm/storagemarket"
 )
 
 // ProviderEvents are the events that can happen in a storage provider

@@ -11,7 +11,7 @@ import (
 	"github.com/filecoin-project/go-state-types/big"
 	"github.com/filecoin-project/go-statemachine/fsm"
 
-	"github.com/filecoin-project/go-fil-markets/storagemarket"
+	"github.com/filecoin-project/boost-gfm/storagemarket"
 )
 
 // ClientEvents are the events that can happen in a storage client

@@ -14,10 +14,10 @@ import (
 	versioning "github.com/filecoin-project/go-ds-versioning/pkg"
 	versionedds "github.com/filecoin-project/go-ds-versioning/pkg/datastore"
 
-	"github.com/filecoin-project/go-fil-markets/discovery"
-	"github.com/filecoin-project/go-fil-markets/discovery/migrations"
-	"github.com/filecoin-project/go-fil-markets/retrievalmarket"
-	"github.com/filecoin-project/go-fil-markets/shared"
+	"github.com/filecoin-project/boost-gfm/discovery"
+	"github.com/filecoin-project/boost-gfm/discovery/migrations"
+	"github.com/filecoin-project/boost-gfm/retrievalmarket"
+	"github.com/filecoin-project/boost-gfm/shared"
 )
 
 var log = logging.Logger("retrieval-discovery")

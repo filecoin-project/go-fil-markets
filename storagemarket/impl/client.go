@@ -23,16 +23,16 @@ import (
 	"github.com/filecoin-project/go-state-types/exitcode"
 	"github.com/filecoin-project/go-statemachine/fsm"
 
-	discoveryimpl "github.com/filecoin-project/go-fil-markets/discovery/impl"
-	"github.com/filecoin-project/go-fil-markets/retrievalmarket"
-	"github.com/filecoin-project/go-fil-markets/shared"
-	"github.com/filecoin-project/go-fil-markets/storagemarket"
-	"github.com/filecoin-project/go-fil-markets/storagemarket/impl/clientstates"
-	"github.com/filecoin-project/go-fil-markets/storagemarket/impl/clientutils"
-	"github.com/filecoin-project/go-fil-markets/storagemarket/impl/dtutils"
-	"github.com/filecoin-project/go-fil-markets/storagemarket/impl/requestvalidation"
-	"github.com/filecoin-project/go-fil-markets/storagemarket/migrations"
-	"github.com/filecoin-project/go-fil-markets/storagemarket/network"
+	discoveryimpl "github.com/filecoin-project/boost-gfm/discovery/impl"
+	"github.com/filecoin-project/boost-gfm/retrievalmarket"
+	"github.com/filecoin-project/boost-gfm/shared"
+	"github.com/filecoin-project/boost-gfm/storagemarket"
+	"github.com/filecoin-project/boost-gfm/storagemarket/impl/clientstates"
+	"github.com/filecoin-project/boost-gfm/storagemarket/impl/clientutils"
+	"github.com/filecoin-project/boost-gfm/storagemarket/impl/dtutils"
+	"github.com/filecoin-project/boost-gfm/storagemarket/impl/requestvalidation"
+	"github.com/filecoin-project/boost-gfm/storagemarket/migrations"
+	"github.com/filecoin-project/boost-gfm/storagemarket/network"
 )
 
 var log = logging.Logger("storagemarket_impl")

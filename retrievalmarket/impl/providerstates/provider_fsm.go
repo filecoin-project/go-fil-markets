@@ -6,7 +6,7 @@ import (
 	"github.com/filecoin-project/go-state-types/big"
 	"github.com/filecoin-project/go-statemachine/fsm"
 
-	rm "github.com/filecoin-project/go-fil-markets/retrievalmarket"
+	rm "github.com/filecoin-project/boost-gfm/retrievalmarket"
 )
 
 func recordError(deal *rm.ProviderDealState, err error) error {

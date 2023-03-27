@@ -9,7 +9,6 @@ import (
 	"github.com/ipfs/go-datastore"
 	"github.com/ipfs/go-datastore/namespace"
 	dss "github.com/ipfs/go-datastore/sync"
-	"github.com/ipfs/go-graphsync/storeutil"
 	bstore "github.com/ipfs/go-ipfs-blockstore"
 	offline "github.com/ipfs/go-ipfs-exchange-offline"
 	files "github.com/ipfs/go-ipfs-files"
@@ -18,14 +17,15 @@ import (
 	unixfile "github.com/ipfs/go-unixfs/file"
 	"github.com/ipld/go-ipld-prime"
 	cidlink "github.com/ipld/go-ipld-prime/linking/cid"
-	"github.com/libp2p/go-libp2p-core/host"
+	"github.com/libp2p/go-libp2p/core/host"
 	mocknet "github.com/libp2p/go-libp2p/p2p/net/mock"
 	"github.com/stretchr/testify/require"
 	"golang.org/x/net/context"
 
+	"github.com/filecoin-project/boost-graphsync/storeutil"
 	dtnet "github.com/filecoin-project/go-data-transfer/network"
 
-	"github.com/filecoin-project/go-fil-markets/shared_testutil/unixfs"
+	"github.com/filecoin-project/boost-gfm/shared_testutil/unixfs"
 )
 
 type Libp2pTestData struct {

@@ -8,7 +8,7 @@ import (
 	"math"
 	"sort"
 
-	migrations "github.com/filecoin-project/go-fil-markets/retrievalmarket/migrations"
+	migrations "github.com/filecoin-project/boost-gfm/retrievalmarket/migrations"
 	cid "github.com/ipfs/go-cid"
 	cbg "github.com/whyrusleeping/cbor-gen"
 	xerrors "golang.org/x/xerrors"

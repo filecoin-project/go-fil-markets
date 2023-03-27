@@ -7,7 +7,7 @@ import (
 
 	datatransfer "github.com/filecoin-project/go-data-transfer"
 
-	"github.com/filecoin-project/go-fil-markets/storagemarket"
+	"github.com/filecoin-project/boost-gfm/storagemarket"
 )
 
 //go:generate cbor-gen-for StorageDataTransferVoucher

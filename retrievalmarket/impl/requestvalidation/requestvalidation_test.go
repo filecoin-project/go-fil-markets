@@ -10,17 +10,17 @@ import (
 	basicnode "github.com/ipld/go-ipld-prime/node/basic"
 	"github.com/ipld/go-ipld-prime/traversal/selector/builder"
 	selectorparse "github.com/ipld/go-ipld-prime/traversal/selector/parse"
-	peer "github.com/libp2p/go-libp2p-core/peer"
+	peer "github.com/libp2p/go-libp2p/core/peer"
 	"github.com/stretchr/testify/require"
 
 	datatransfer "github.com/filecoin-project/go-data-transfer"
 	"github.com/filecoin-project/go-state-types/abi"
 
-	"github.com/filecoin-project/go-fil-markets/piecestore"
-	"github.com/filecoin-project/go-fil-markets/retrievalmarket"
-	"github.com/filecoin-project/go-fil-markets/retrievalmarket/impl/requestvalidation"
-	"github.com/filecoin-project/go-fil-markets/retrievalmarket/migrations"
-	"github.com/filecoin-project/go-fil-markets/shared_testutil"
+	"github.com/filecoin-project/boost-gfm/piecestore"
+	"github.com/filecoin-project/boost-gfm/retrievalmarket"
+	"github.com/filecoin-project/boost-gfm/retrievalmarket/impl/requestvalidation"
+	"github.com/filecoin-project/boost-gfm/retrievalmarket/migrations"
+	"github.com/filecoin-project/boost-gfm/shared_testutil"
 )
 
 func TestValidatePush(t *testing.T) {

@@ -6,14 +6,14 @@ import (
 	"time"
 
 	logging "github.com/ipfs/go-log/v2"
-	"github.com/libp2p/go-libp2p-core/host"
-	"github.com/libp2p/go-libp2p-core/network"
-	"github.com/libp2p/go-libp2p-core/peer"
-	"github.com/libp2p/go-libp2p-core/protocol"
+	"github.com/libp2p/go-libp2p/core/host"
+	"github.com/libp2p/go-libp2p/core/network"
+	"github.com/libp2p/go-libp2p/core/peer"
+	"github.com/libp2p/go-libp2p/core/protocol"
 	ma "github.com/multiformats/go-multiaddr"
 
-	"github.com/filecoin-project/go-fil-markets/retrievalmarket"
-	"github.com/filecoin-project/go-fil-markets/shared"
+	"github.com/filecoin-project/boost-gfm/retrievalmarket"
+	"github.com/filecoin-project/boost-gfm/shared"
 )
 
 var log = logging.Logger("retrieval_network")
@@ -64,7 +64,7 @@ type libp2pRetrievalMarketNetwork struct {
 	supportedProtocols []protocol.ID
 }
 
-//  NewQueryStream creates a new RetrievalQueryStream using the provided peer.ID
+// NewQueryStream creates a new RetrievalQueryStream using the provided peer.ID
 func (impl *libp2pRetrievalMarketNetwork) NewQueryStream(id peer.ID) (RetrievalQueryStream, error) {
 	s, err := impl.retryStream.OpenStream(context.Background(), id, impl.supportedProtocols)
 	if err != nil {

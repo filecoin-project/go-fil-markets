@@ -9,7 +9,7 @@ import (
 	"github.com/ipfs/go-datastore/namespace"
 	dss "github.com/ipfs/go-datastore/sync"
 	blocksutil "github.com/ipfs/go-ipfs-blocksutil"
-	"github.com/libp2p/go-libp2p-core/peer"
+	"github.com/libp2p/go-libp2p/core/peer"
 	xerrors "golang.org/x/xerrors"
 
 	"github.com/filecoin-project/go-address"
@@ -19,8 +19,8 @@ import (
 	"github.com/filecoin-project/go-state-types/crypto"
 	"github.com/filecoin-project/go-statestore"
 
-	"github.com/filecoin-project/go-fil-markets/storagemarket"
-	rv "github.com/filecoin-project/go-fil-markets/storagemarket/impl/requestvalidation"
+	"github.com/filecoin-project/boost-gfm/storagemarket"
+	rv "github.com/filecoin-project/boost-gfm/storagemarket/impl/requestvalidation"
 )
 
 var blockGenerator = blocksutil.NewBlockGenerator()
