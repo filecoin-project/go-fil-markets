@@ -31,22 +31,6 @@ func (t *PieceInfo) MarshalCBOR(w io.Writer) error {
 		return err
 	}
 
-	// t.PieceCID (cid.Cid) (struct)
-	if len("PieceCID") > cbg.MaxLength {
-		return xerrors.Errorf("Value in field \"PieceCID\" was too long")
-	}
-
-	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("PieceCID"))); err != nil {
-		return err
-	}
-	if _, err := io.WriteString(w, string("PieceCID")); err != nil {
-		return err
-	}
-
-	if err := cbg.WriteCid(cw, t.PieceCID); err != nil {
-		return xerrors.Errorf("failed to write cid field t.PieceCID: %w", err)
-	}
-
 	// t.Deals ([]piecestore.DealInfo) (slice)
 	if len("Deals") > cbg.MaxLength {
 		return xerrors.Errorf("Value in field \"Deals\" was too long")
@@ -71,6 +55,23 @@ func (t *PieceInfo) MarshalCBOR(w io.Writer) error {
 			return err
 		}
 	}
+
+	// t.PieceCID (cid.Cid) (struct)
+	if len("PieceCID") > cbg.MaxLength {
+		return xerrors.Errorf("Value in field \"PieceCID\" was too long")
+	}
+
+	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("PieceCID"))); err != nil {
+		return err
+	}
+	if _, err := io.WriteString(w, string("PieceCID")); err != nil {
+		return err
+	}
+
+	if err := cbg.WriteCid(cw, t.PieceCID); err != nil {
+		return xerrors.Errorf("failed to write cid field t.PieceCID: %w", err)
+	}
+
 	return nil
 }
 
@@ -112,20 +113,7 @@ func (t *PieceInfo) UnmarshalCBOR(r io.Reader) (err error) {
 		}
 
 		switch name {
-		// t.PieceCID (cid.Cid) (struct)
-		case "PieceCID":
-
-			{
-
-				c, err := cbg.ReadCid(cr)
-				if err != nil {
-					return xerrors.Errorf("failed to read cid field t.PieceCID: %w", err)
-				}
-
-				t.PieceCID = c
-
-			}
-			// t.Deals ([]piecestore.DealInfo) (slice)
+		// t.Deals ([]piecestore.DealInfo) (slice)
 		case "Deals":
 
 			maj, extra, err = cr.ReadHeader()
@@ -153,6 +141,20 @@ func (t *PieceInfo) UnmarshalCBOR(r io.Reader) (err error) {
 				}
 
 				t.Deals[i] = v
+			}
+
+			// t.PieceCID (cid.Cid) (struct)
+		case "PieceCID":
+
+			{
+
+				c, err := cbg.ReadCid(cr)
+				if err != nil {
+					return xerrors.Errorf("failed to read cid field t.PieceCID: %w", err)
+				}
+
+				t.PieceCID = c
+
 			}
 
 		default:
@@ -191,19 +193,19 @@ func (t *DealInfo) MarshalCBOR(w io.Writer) error {
 		return err
 	}
 
-	// t.SectorID (abi.SectorNumber) (uint64)
-	if len("SectorID") > cbg.MaxLength {
-		return xerrors.Errorf("Value in field \"SectorID\" was too long")
+	// t.Length (abi.PaddedPieceSize) (uint64)
+	if len("Length") > cbg.MaxLength {
+		return xerrors.Errorf("Value in field \"Length\" was too long")
 	}
 
-	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("SectorID"))); err != nil {
+	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("Length"))); err != nil {
 		return err
 	}
-	if _, err := io.WriteString(w, string("SectorID")); err != nil {
+	if _, err := io.WriteString(w, string("Length")); err != nil {
 		return err
 	}
 
-	if err := cw.WriteMajorTypeHeader(cbg.MajUnsignedInt, uint64(t.SectorID)); err != nil {
+	if err := cw.WriteMajorTypeHeader(cbg.MajUnsignedInt, uint64(t.Length)); err != nil {
 		return err
 	}
 
@@ -223,19 +225,19 @@ func (t *DealInfo) MarshalCBOR(w io.Writer) error {
 		return err
 	}
 
-	// t.Length (abi.PaddedPieceSize) (uint64)
-	if len("Length") > cbg.MaxLength {
-		return xerrors.Errorf("Value in field \"Length\" was too long")
+	// t.SectorID (abi.SectorNumber) (uint64)
+	if len("SectorID") > cbg.MaxLength {
+		return xerrors.Errorf("Value in field \"SectorID\" was too long")
 	}
 
-	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("Length"))); err != nil {
+	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("SectorID"))); err != nil {
 		return err
 	}
-	if _, err := io.WriteString(w, string("Length")); err != nil {
+	if _, err := io.WriteString(w, string("SectorID")); err != nil {
 		return err
 	}
 
-	if err := cw.WriteMajorTypeHeader(cbg.MajUnsignedInt, uint64(t.Length)); err != nil {
+	if err := cw.WriteMajorTypeHeader(cbg.MajUnsignedInt, uint64(t.SectorID)); err != nil {
 		return err
 	}
 
@@ -295,8 +297,8 @@ func (t *DealInfo) UnmarshalCBOR(r io.Reader) (err error) {
 				t.DealID = abi.DealID(extra)
 
 			}
-			// t.SectorID (abi.SectorNumber) (uint64)
-		case "SectorID":
+			// t.Length (abi.PaddedPieceSize) (uint64)
+		case "Length":
 
 			{
 
@@ -307,7 +309,7 @@ func (t *DealInfo) UnmarshalCBOR(r io.Reader) (err error) {
 				if maj != cbg.MajUnsignedInt {
 					return fmt.Errorf("wrong type for uint64 field")
 				}
-				t.SectorID = abi.SectorNumber(extra)
+				t.Length = abi.PaddedPieceSize(extra)
 
 			}
 			// t.Offset (abi.PaddedPieceSize) (uint64)
@@ -325,8 +327,8 @@ func (t *DealInfo) UnmarshalCBOR(r io.Reader) (err error) {
 				t.Offset = abi.PaddedPieceSize(extra)
 
 			}
-			// t.Length (abi.PaddedPieceSize) (uint64)
-		case "Length":
+			// t.SectorID (abi.SectorNumber) (uint64)
+		case "SectorID":
 
 			{
 
@@ -337,7 +339,7 @@ func (t *DealInfo) UnmarshalCBOR(r io.Reader) (err error) {
 				if maj != cbg.MajUnsignedInt {
 					return fmt.Errorf("wrong type for uint64 field")
 				}
-				t.Length = abi.PaddedPieceSize(extra)
+				t.SectorID = abi.SectorNumber(extra)
 
 			}
 
@@ -361,22 +363,6 @@ func (t *BlockLocation) MarshalCBOR(w io.Writer) error {
 		return err
 	}
 
-	// t.RelOffset (uint64) (uint64)
-	if len("RelOffset") > cbg.MaxLength {
-		return xerrors.Errorf("Value in field \"RelOffset\" was too long")
-	}
-
-	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("RelOffset"))); err != nil {
-		return err
-	}
-	if _, err := io.WriteString(w, string("RelOffset")); err != nil {
-		return err
-	}
-
-	if err := cw.WriteMajorTypeHeader(cbg.MajUnsignedInt, uint64(t.RelOffset)); err != nil {
-		return err
-	}
-
 	// t.BlockSize (uint64) (uint64)
 	if len("BlockSize") > cbg.MaxLength {
 		return xerrors.Errorf("Value in field \"BlockSize\" was too long")
@@ -390,6 +376,22 @@ func (t *BlockLocation) MarshalCBOR(w io.Writer) error {
 	}
 
 	if err := cw.WriteMajorTypeHeader(cbg.MajUnsignedInt, uint64(t.BlockSize)); err != nil {
+		return err
+	}
+
+	// t.RelOffset (uint64) (uint64)
+	if len("RelOffset") > cbg.MaxLength {
+		return xerrors.Errorf("Value in field \"RelOffset\" was too long")
+	}
+
+	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("RelOffset"))); err != nil {
+		return err
+	}
+	if _, err := io.WriteString(w, string("RelOffset")); err != nil {
+		return err
+	}
+
+	if err := cw.WriteMajorTypeHeader(cbg.MajUnsignedInt, uint64(t.RelOffset)); err != nil {
 		return err
 	}
 
@@ -434,22 +436,7 @@ func (t *BlockLocation) UnmarshalCBOR(r io.Reader) (err error) {
 		}
 
 		switch name {
-		// t.RelOffset (uint64) (uint64)
-		case "RelOffset":
-
-			{
-
-				maj, extra, err = cr.ReadHeader()
-				if err != nil {
-					return err
-				}
-				if maj != cbg.MajUnsignedInt {
-					return fmt.Errorf("wrong type for uint64 field")
-				}
-				t.RelOffset = uint64(extra)
-
-			}
-			// t.BlockSize (uint64) (uint64)
+		// t.BlockSize (uint64) (uint64)
 		case "BlockSize":
 
 			{
@@ -462,6 +449,21 @@ func (t *BlockLocation) UnmarshalCBOR(r io.Reader) (err error) {
 					return fmt.Errorf("wrong type for uint64 field")
 				}
 				t.BlockSize = uint64(extra)
+
+			}
+			// t.RelOffset (uint64) (uint64)
+		case "RelOffset":
+
+			{
+
+				maj, extra, err = cr.ReadHeader()
+				if err != nil {
+					return err
+				}
+				if maj != cbg.MajUnsignedInt {
+					return fmt.Errorf("wrong type for uint64 field")
+				}
+				t.RelOffset = uint64(extra)
 
 			}
 
@@ -485,22 +487,6 @@ func (t *PieceBlockLocation) MarshalCBOR(w io.Writer) error {
 		return err
 	}
 
-	// t.BlockLocation (piecestore.BlockLocation) (struct)
-	if len("BlockLocation") > cbg.MaxLength {
-		return xerrors.Errorf("Value in field \"BlockLocation\" was too long")
-	}
-
-	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("BlockLocation"))); err != nil {
-		return err
-	}
-	if _, err := io.WriteString(w, string("BlockLocation")); err != nil {
-		return err
-	}
-
-	if err := t.BlockLocation.MarshalCBOR(cw); err != nil {
-		return err
-	}
-
 	// t.PieceCID (cid.Cid) (struct)
 	if len("PieceCID") > cbg.MaxLength {
 		return xerrors.Errorf("Value in field \"PieceCID\" was too long")
@@ -517,6 +503,21 @@ func (t *PieceBlockLocation) MarshalCBOR(w io.Writer) error {
 		return xerrors.Errorf("failed to write cid field t.PieceCID: %w", err)
 	}
 
+	// t.BlockLocation (piecestore.BlockLocation) (struct)
+	if len("BlockLocation") > cbg.MaxLength {
+		return xerrors.Errorf("Value in field \"BlockLocation\" was too long")
+	}
+
+	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("BlockLocation"))); err != nil {
+		return err
+	}
+	if _, err := io.WriteString(w, string("BlockLocation")); err != nil {
+		return err
+	}
+
+	if err := t.BlockLocation.MarshalCBOR(cw); err != nil {
+		return err
+	}
 	return nil
 }
 
@@ -558,17 +559,7 @@ func (t *PieceBlockLocation) UnmarshalCBOR(r io.Reader) (err error) {
 		}
 
 		switch name {
-		// t.BlockLocation (piecestore.BlockLocation) (struct)
-		case "BlockLocation":
-
-			{
-
-				if err := t.BlockLocation.UnmarshalCBOR(cr); err != nil {
-					return xerrors.Errorf("unmarshaling t.BlockLocation: %w", err)
-				}
-
-			}
-			// t.PieceCID (cid.Cid) (struct)
+		// t.PieceCID (cid.Cid) (struct)
 		case "PieceCID":
 
 			{
@@ -579,6 +570,16 @@ func (t *PieceBlockLocation) UnmarshalCBOR(r io.Reader) (err error) {
 				}
 
 				t.PieceCID = c
+
+			}
+			// t.BlockLocation (piecestore.BlockLocation) (struct)
+		case "BlockLocation":
+
+			{
+
+				if err := t.BlockLocation.UnmarshalCBOR(cr); err != nil {
+					return xerrors.Errorf("unmarshaling t.BlockLocation: %w", err)
+				}
 
 			}
 
