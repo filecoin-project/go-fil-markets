@@ -191,6 +191,7 @@ github.com/filecoin-project/go-crypto v0.0.0-20191218222705-effae4ea9f03 h1:2pMX
 github.com/filecoin-project/go-crypto v0.0.0-20191218222705-effae4ea9f03/go.mod h1:+viYnvGtUTgJRdy6oaeF4MTFKAfatX071MPDPBL11EQ=
 github.com/filecoin-project/go-data-transfer/v2 v2.0.0-rc5 h1:lqjkVplfTRt5GV7Pxjo+H+Jhnh7tgUIhKFFLxGvjv1Y=
 github.com/filecoin-project/go-data-transfer/v2 v2.0.0-rc5/go.mod h1:YY4onZJ9LoSP19kdJWD7PZ0ZDJSQnbcEXYfjezMLTog=
+github.com/filecoin-project/go-data-transfer/v2 v2.0.0-rc6/go.mod h1:cX1acvFVWC5EXnnmFPWEFXbO7nLUdSZa+nqgi1QpTpw=
 github.com/filecoin-project/go-ds-versioning v0.1.2 h1:to4pTadv3IeV1wvgbCbN6Vqd+fu+7tveXgv/rCEZy6w=
 github.com/filecoin-project/go-ds-versioning v0.1.2/go.mod h1:C9/l9PnB1+mwPa26BBVpCjG/XQCB0yj/q5CK2J8X1I4=
 github.com/filecoin-project/go-fil-commcid v0.0.0-20200716160307-8f644712406f/go.mod h1:Eaox7Hvus1JgPrL5+M3+h7aSPHc0cVqpSxA+TxIEpZQ=
@@ -432,6 +433,7 @@ github.com/ipfs/go-cid v0.1.0/go.mod h1:rH5/Xv83Rfy8Rw6xG+id3DYAMUVmem1MowoKwdXm
 github.com/ipfs/go-cid v0.2.0/go.mod h1:P+HXFDF4CVhaVayiEb4wkAy7zBHxBwsJyt0Y5U6MLro=
 github.com/ipfs/go-cid v0.4.0 h1:a4pdZq0sx6ZSxbCizebnKiMCx/xI/aBBFlB73IgH4rA=
 github.com/ipfs/go-cid v0.4.0/go.mod h1:uQHwDeX4c6CtyrFwdqyhpNcxVewur1M7l7fNU7LKwZk=
+github.com/ipfs/go-cid v0.4.1/go.mod h1:uQHwDeX4c6CtyrFwdqyhpNcxVewur1M7l7fNU7LKwZk=
 github.com/ipfs/go-cidutil v0.1.0 h1:RW5hO7Vcf16dplUU60Hs0AKDkQAVPVplr7lk97CFL+Q=
 github.com/ipfs/go-cidutil v0.1.0/go.mod h1:e7OEVBMIv9JaOxt9zaGEmAoSlXW9jdFZ5lP/0PwcfpA=
 github.com/ipfs/go-datastore v0.0.1/go.mod h1:d4KVXhMt913cLBEI/PXAy6ko+W7e9AhyAKBGh803qeE=
@@ -459,6 +461,7 @@ github.com/ipfs/go-filestore v1.2.0 h1:O2wg7wdibwxkEDcl7xkuQsPvJFRBVgVSsOJ/GP6z3
 github.com/ipfs/go-filestore v1.2.0/go.mod h1:HLJrCxRXquTeEEpde4lTLMaE/MYJZD7WHLkp9z6+FF8=
 github.com/ipfs/go-graphsync v0.14.4 h1:ysazATpwsIjYtYEZH5CdD/HRaonCJd4pASUtnzESewk=
 github.com/ipfs/go-graphsync v0.14.4/go.mod h1:yT0AfjFgicOoWdAlUJ96tQ5AkuGI4r1taIQX/aHbBQo=
+github.com/ipfs/go-graphsync v0.14.5/go.mod h1:yT0AfjFgicOoWdAlUJ96tQ5AkuGI4r1taIQX/aHbBQo=
 github.com/ipfs/go-hamt-ipld v0.1.1/go.mod h1:1EZCr2v0jlCnhpa+aZ0JZYp8Tt2w16+JJOAVz17YcDk=
 github.com/ipfs/go-ipfs-blockstore v0.2.1/go.mod h1:jGesd8EtCM3/zPgx+qr0/feTXGUeRai6adgwC+Q+JvE=
 github.com/ipfs/go-ipfs-blockstore v1.1.2/go.mod h1:w51tNR9y5+QXB0wkNcHt4O2aSZjTdqaEWaQdSxEyUOY=
@@ -564,6 +567,8 @@ github.com/ipld/go-ipld-prime/storage/bsadapter v0.0.0-20211210234204-ce2a1c70cd
 github.com/ipld/go-ipld-prime/storage/bsadapter v0.0.0-20230102063945-1a409dc236dd h1:gMlw/MhNr2Wtp5RwGdsW23cs+yCuj9k2ON7i9MiJlRo=
 github.com/ipni/go-libipni v0.0.4 h1:wWpt59uwpXEaJzjuCtfAYxG8Lsl2Ykjp67TsoL8Dm80=
 github.com/ipni/go-libipni v0.0.4/go.mod h1:SuUNOKOjqPSA1w3dPopNOzDxDCUndwa8jPCDsG8W/yQ=
+github.com/ipni/go-libipni v0.0.6 h1:QOoICGH5vxQp5TzqSOiMCrvOK/u+rSRouaarUPMEgnk=
+github.com/ipni/go-libipni v0.0.6/go.mod h1:LV7nCMYU4vDwjvjpMIxzpT1UK+DPaOWv14p/jSCj8n0=
 github.com/ipni/index-provider v0.12.0 h1:R3F6dxxKNv4XkE4GJZNLOG0bDEbBQ/S5iztXwSD8jhQ=
 github.com/ipni/index-provider v0.12.0/go.mod h1:GhyrADJp7n06fqoc1djzkvL4buZYHzV8SoWrlxEo5F4=
 github.com/ipsn/go-secp256k1 v0.0.0-20180726113642-9d62b9f0bc52 h1:QG4CGBqCeuBo6aZlGAamSkxWdgWfZGeE49eUOWJPA4c=
