@@ -217,22 +217,6 @@ func (t *Proposal) MarshalCBOR(w io.Writer) error {
 		return err
 	}
 
-	// t.DealProposal (market.ClientDealProposal) (struct)
-	if len("DealProposal") > cbg.MaxLength {
-		return xerrors.Errorf("Value in field \"DealProposal\" was too long")
-	}
-
-	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("DealProposal"))); err != nil {
-		return err
-	}
-	if _, err := io.WriteString(w, string("DealProposal")); err != nil {
-		return err
-	}
-
-	if err := t.DealProposal.MarshalCBOR(cw); err != nil {
-		return err
-	}
-
 	// t.Piece (storagemarket.DataRef) (struct)
 	if len("Piece") > cbg.MaxLength {
 		return xerrors.Errorf("Value in field \"Piece\" was too long")
@@ -246,6 +230,22 @@ func (t *Proposal) MarshalCBOR(w io.Writer) error {
 	}
 
 	if err := t.Piece.MarshalCBOR(cw); err != nil {
+		return err
+	}
+
+	// t.DealProposal (market.ClientDealProposal) (struct)
+	if len("DealProposal") > cbg.MaxLength {
+		return xerrors.Errorf("Value in field \"DealProposal\" was too long")
+	}
+
+	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("DealProposal"))); err != nil {
+		return err
+	}
+	if _, err := io.WriteString(w, string("DealProposal")); err != nil {
+		return err
+	}
+
+	if err := t.DealProposal.MarshalCBOR(cw); err != nil {
 		return err
 	}
 
@@ -305,27 +305,7 @@ func (t *Proposal) UnmarshalCBOR(r io.Reader) (err error) {
 		}
 
 		switch name {
-		// t.DealProposal (market.ClientDealProposal) (struct)
-		case "DealProposal":
-
-			{
-
-				b, err := cr.ReadByte()
-				if err != nil {
-					return err
-				}
-				if b != cbg.CborNull[0] {
-					if err := cr.UnreadByte(); err != nil {
-						return err
-					}
-					t.DealProposal = new(market.ClientDealProposal)
-					if err := t.DealProposal.UnmarshalCBOR(cr); err != nil {
-						return xerrors.Errorf("unmarshaling t.DealProposal pointer: %w", err)
-					}
-				}
-
-			}
-			// t.Piece (storagemarket.DataRef) (struct)
+		// t.Piece (storagemarket.DataRef) (struct)
 		case "Piece":
 
 			{
@@ -341,6 +321,26 @@ func (t *Proposal) UnmarshalCBOR(r io.Reader) (err error) {
 					t.Piece = new(storagemarket.DataRef)
 					if err := t.Piece.UnmarshalCBOR(cr); err != nil {
 						return xerrors.Errorf("unmarshaling t.Piece pointer: %w", err)
+					}
+				}
+
+			}
+			// t.DealProposal (market.ClientDealProposal) (struct)
+		case "DealProposal":
+
+			{
+
+				b, err := cr.ReadByte()
+				if err != nil {
+					return err
+				}
+				if b != cbg.CborNull[0] {
+					if err := cr.UnreadByte(); err != nil {
+						return err
+					}
+					t.DealProposal = new(market.ClientDealProposal)
+					if err := t.DealProposal.UnmarshalCBOR(cr); err != nil {
+						return xerrors.Errorf("unmarshaling t.DealProposal pointer: %w", err)
 					}
 				}
 

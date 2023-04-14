@@ -8,7 +8,7 @@ https://filecoin-project.github.io/specs/#systems__filecoin_markets__retrieval_m
 The following architectural components provide a brief overview of the design of
 the retrieval market module:
 
-Public Interfaces And Node Dependencies
+# Public Interfaces And Node Dependencies
 
 While retrieval deals primarily happen off-chain, there are some chain operations
 that must be performed by a Filecoin node implementation. The module is intended to separate
@@ -25,7 +25,7 @@ The top level interfaces this package implements are RetrievalClient & Retrieval
 node is expected to implement are RetrievalClientNode & RetrievalProviderNode. Further documentation of exactly what those
 dependencies should do can be found in the readme.
 
-Finite State Machines
+# Finite State Machines
 
 While retrieval deals in general should be fairly fast, making a retrieval deal is still an asynchronous process.
 As documented in the Filecoin spec, the basic architecture of the Filecoin retrieval protocol is incremental payments.
@@ -42,7 +42,7 @@ Client FSM - https://raw.githubusercontent.com/filecoin-project/go-fil-markets/m
 
 Provider FSM - https://raw.githubusercontent.com/filecoin-project/go-fil-markets/master/docs/retrievalprovider.mmd.svg
 
-Identifying Retrieval Providers
+# Identifying Retrieval Providers
 
 The RetrievalClient provides two functions to locate a provider from which to retrieve data.
 
@@ -52,7 +52,7 @@ an implementation of the PeerResolver interface.
 `Query` queries a specific retrieval provider to find out definitively if they have the requested data and if so, the
 parameters they will accept for a retrieval deal.
 
-Deal Flow
+# Deal Flow
 
 The primary mechanism for initiating storage deals is the `Retrieve` method on the RetrievalClient.
 
@@ -73,7 +73,7 @@ back to the node via the `UnsealSector` method (the node itself likely delegates
 implementation of the Storage Mining subsystem of the Filecoin spec). Sectors are unsealed on an as needed basis using
 the `PieceStore` to locate sectors that contain data related to the deal.
 
-Major Dependencies
+# Major Dependencies
 
 Other libraries in go-fil-markets:
 
@@ -99,10 +99,9 @@ Other Repos:
 https://github.com/libp2p/go-libp2p) the network over which retrieval deal data is exchanged.
 https://github.com/hannahhoward/go-pubsub - for pub/sub notifications external to the statemachine
 
-Root package
+# Root package
 
 This top level package defines top level enumerations and interfaces. The primary implementation
 lives in the `impl` directory
-
 */
 package retrievalmarket
