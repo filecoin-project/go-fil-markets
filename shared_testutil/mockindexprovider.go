@@ -5,8 +5,8 @@ import (
 	"sync"
 
 	"github.com/ipfs/go-cid"
+	"github.com/ipni/go-libipni/metadata"
 	provider "github.com/ipni/index-provider"
-	"github.com/ipni/index-provider/metadata"
 	"github.com/libp2p/go-libp2p/core/peer"
 )
 
