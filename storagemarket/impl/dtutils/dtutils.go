@@ -5,9 +5,9 @@ package dtutils
 import (
 	"fmt"
 
+	bstore "github.com/ipfs/boxo/blockstore"
 	"github.com/ipfs/go-cid"
 	"github.com/ipfs/go-graphsync/storeutil"
-	bstore "github.com/ipfs/go-ipfs-blockstore"
 	logging "github.com/ipfs/go-log/v2"
 
 	datatransfer "github.com/filecoin-project/go-data-transfer/v2"

@@ -5,9 +5,9 @@ import (
 	"context"
 
 	"github.com/hannahhoward/go-pubsub"
+	dshelp "github.com/ipfs/boxo/datastore/dshelp"
 	"github.com/ipfs/go-cid"
 	"github.com/ipfs/go-datastore"
-	dshelp "github.com/ipfs/go-ipfs-ds-help"
 	logging "github.com/ipfs/go-log/v2"
 
 	cborutil "github.com/filecoin-project/go-cbor-util"

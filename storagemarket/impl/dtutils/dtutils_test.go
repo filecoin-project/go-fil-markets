@@ -4,9 +4,9 @@ import (
 	"errors"
 	"testing"
 
+	bs "github.com/ipfs/boxo/blockstore"
 	"github.com/ipfs/go-cid"
 	ds "github.com/ipfs/go-datastore"
-	bs "github.com/ipfs/go-ipfs-blockstore"
 	"github.com/ipld/go-ipld-prime/node/basicnode"
 	"github.com/stretchr/testify/require"
 
