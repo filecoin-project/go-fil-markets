@@ -419,7 +419,6 @@ type TestStorageDealStream struct {
 	responseWriter StorageDealResponseWriter
 
 	CloseCount int
-	CloseError error
 }
 
 // TestStorageDealStreamParams are parameters used to setup a TestStorageDealStream.
@@ -485,7 +484,7 @@ func (tsds TestStorageDealStream) RemotePeer() peer.ID { return tsds.p }
 // Close closes the stream (does nothing for mocked stream)
 func (tsds *TestStorageDealStream) Close() error {
 	tsds.CloseCount += 1
-	return tsds.CloseError
+	return nil
 }
 
 // TrivialStorageDealProposalReader succeeds trivially, returning an empty proposal.
