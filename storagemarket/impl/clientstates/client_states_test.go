@@ -157,17 +157,6 @@ func TestProposeDeal(t *testing.T) {
 			},
 		})
 	})
-	t.Run("closing the stream fails", func(t *testing.T) {
-		ds := tut.NewTestStorageDealStream(tut.TestStorageDealStreamParams{})
-		ds.CloseError = xerrors.Errorf("failed to close stream")
-		runAndInspect(t, storagemarket.StorageDealFundsReserved, clientstates.ProposeDeal, testCase{
-			envParams: envParams{dealStream: ds},
-			inspector: func(deal storagemarket.ClientDeal, env *fakeEnvironment) {
-				tut.AssertDealState(t, storagemarket.StorageDealError, deal.State)
-				assert.Equal(t, "error attempting to close stream: failed to close stream", deal.Message)
-			},
-		})
-	})
 	t.Run("getting chain head fails", func(t *testing.T) {
 		ds := tut.NewTestStorageDealStream(tut.TestStorageDealStreamParams{})
 		runAndInspect(t, storagemarket.StorageDealFundsReserved, clientstates.ProposeDeal, testCase{

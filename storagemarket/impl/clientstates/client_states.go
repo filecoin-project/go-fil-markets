@@ -106,7 +106,8 @@ func ProposeDeal(ctx fsm.Context, environment ClientDealEnvironment, deal storag
 
 	err = s.Close()
 	if err != nil {
-		return ctx.Trigger(storagemarket.ClientEventStreamCloseError, err)
+		// doesn't really matter but log the error
+		log.Debugw("failed to close deal stream", "error", err)
 	}
 
 	tok, _, err := environment.Node().GetChainHead(ctx.Context())
