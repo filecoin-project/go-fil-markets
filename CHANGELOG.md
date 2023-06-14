@@ -1,5 +1,21 @@
 # go-fil-markets changelog
 
+# go-fil-markets v1.28.3
+
+boxo migration
+
+### Changelog
+
+- github.com/filecoin-project/go-fil-markets:
+  - chore: migrate to boxo (#792) ([filecoin-project/go-fil-markets#792](https://github.com/filecoin-project/go-fil-markets/pull/792))
+
+### Contributors
+
+| Contributor | Commits | Lines ± | Files Changed |
+|-------------|---------|---------|---------------|
+| Jorropo | 1 | +90/-102 | 27 |
+
+
 # go-fil-markets v1.28.0
 
 Generating Changelog for github.com/filecoin-project/go-fil-markets v1.26.1..49cb4a6b647a1fa715d7a114e89534212d617c96
