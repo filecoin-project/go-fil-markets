@@ -4,9 +4,9 @@ import (
 	"context"
 	"sync"
 
+	bstore "github.com/ipfs/boxo/blockstore"
 	blocks "github.com/ipfs/go-block-format"
 	"github.com/ipfs/go-cid"
-	bstore "github.com/ipfs/go-ipfs-blockstore"
 
 	"github.com/filecoin-project/dagstore"
 )

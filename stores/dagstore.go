@@ -4,8 +4,8 @@ import (
 	"context"
 	"io"
 
+	bstore "github.com/ipfs/boxo/blockstore"
 	"github.com/ipfs/go-cid"
-	bstore "github.com/ipfs/go-ipfs-blockstore"
 	carindex "github.com/ipld/go-car/v2/index"
 
 	"github.com/filecoin-project/dagstore"
