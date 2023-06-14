@@ -5,8 +5,8 @@ package dtutils
 import (
 	"fmt"
 
+	bstore "github.com/ipfs/boxo/blockstore"
 	"github.com/ipfs/go-cid"
-	bstore "github.com/ipfs/go-ipfs-blockstore"
 	logging "github.com/ipfs/go-log/v2"
 	"github.com/ipld/go-ipld-prime"
 

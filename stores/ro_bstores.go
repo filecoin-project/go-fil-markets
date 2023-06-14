@@ -4,7 +4,7 @@ import (
 	"io"
 	"sync"
 
-	bstore "github.com/ipfs/go-ipfs-blockstore"
+	bstore "github.com/ipfs/boxo/blockstore"
 	"golang.org/x/xerrors"
 )
 

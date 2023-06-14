@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"math"
 
-	bstore "github.com/ipfs/go-ipfs-blockstore"
+	bstore "github.com/ipfs/boxo/blockstore"
 	logging "github.com/ipfs/go-log/v2"
 	"github.com/ipld/go-ipld-prime"
 	peer "github.com/libp2p/go-libp2p/core/peer"

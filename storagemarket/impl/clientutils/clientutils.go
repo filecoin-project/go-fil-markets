@@ -4,8 +4,8 @@ package clientutils
 import (
 	"context"
 
+	bstore "github.com/ipfs/boxo/blockstore"
 	"github.com/ipfs/go-cid"
-	bstore "github.com/ipfs/go-ipfs-blockstore"
 	"github.com/ipld/go-car"
 	selectorparse "github.com/ipld/go-ipld-prime/traversal/selector/parse"
 	"github.com/multiformats/go-multibase"

@@ -1,8 +1,8 @@
 package shared_testutil
 
 import (
+	bstore "github.com/ipfs/boxo/blockstore"
 	"github.com/ipfs/go-datastore"
-	bstore "github.com/ipfs/go-ipfs-blockstore"
 
 	"github.com/filecoin-project/boost-gfm/retrievalmarket"
 	"github.com/filecoin-project/boost-gfm/storagemarket"

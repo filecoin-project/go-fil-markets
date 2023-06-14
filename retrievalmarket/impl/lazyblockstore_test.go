@@ -4,8 +4,8 @@ import (
 	"context"
 	"testing"
 
+	bstore "github.com/ipfs/boxo/blockstore"
 	ds "github.com/ipfs/go-datastore"
-	bstore "github.com/ipfs/go-ipfs-blockstore"
 	"github.com/stretchr/testify/require"
 
 	"github.com/filecoin-project/dagstore"

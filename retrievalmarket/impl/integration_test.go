@@ -97,7 +97,7 @@ func TestProvider_Stop(t *testing.T) {
 	require.NoError(t, provider.Stop())
 	_, err := client.Query(bgCtx, retrievalPeer, expectedCIDs[0], retrievalmarket.QueryParams{})
 
-	assert.EqualError(t, err, "exhausted 5 attempts but failed to open stream, err: protocol not supported")
+	assert.EqualError(t, err, "exhausted 5 attempts but failed to open stream, err: protocols not supported: [/fil/retrieval/qry/1.0.0 /fil/retrieval/qry/0.0.1]")
 }
 
 func requireSetupTestClientAndProvider(ctx context.Context, t *testing.T, payChAddr address.Address) (

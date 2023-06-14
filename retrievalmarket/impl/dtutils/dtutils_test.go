@@ -6,8 +6,8 @@ import (
 	"math/rand"
 	"testing"
 
+	bstore "github.com/ipfs/boxo/blockstore"
 	ds "github.com/ipfs/go-datastore"
-	bstore "github.com/ipfs/go-ipfs-blockstore"
 	"github.com/ipld/go-ipld-prime"
 	peer "github.com/libp2p/go-libp2p/core/peer"
 	"github.com/stretchr/testify/require"
