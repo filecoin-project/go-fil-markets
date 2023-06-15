@@ -359,6 +359,7 @@ func (c *Client) ProposeStorageDeal(ctx context.Context, params storagemarket.Pr
 		if err != nil {
 			return nil, xerrors.Errorf("computing deal provider collateral bound failed: %w", err)
 		}
+		pcMin = big.Div(big.Mul(pcMin, big.NewInt(6)), big.NewInt(5))
 	}
 
 	label, err := clientutils.LabelField(params.Data.Root)
