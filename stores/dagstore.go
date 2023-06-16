@@ -40,7 +40,7 @@ type DAGStoreWrapper interface {
 
 	GetIterableIndexForPiece(pieceCid cid.Cid) (carindex.IterableIndex, error)
 
-	// DestroyShard initiates the registration of a new shard.
+	// DestroyShard initiates the destruction of an existing shard.
 	//
 	// This method returns an error synchronously if preliminary validation fails.
 	// Otherwise, it queues the shard for destruction. The caller should monitor
