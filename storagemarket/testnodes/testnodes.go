@@ -202,7 +202,7 @@ func (n *FakeCommonNode) DealProviderCollateralBounds(ctx context.Context, size 
 }
 
 // OnDealSectorPreCommitted returns immediately, and returns stubbed errors
-func (n *FakeCommonNode) OnDealSectorPreCommitted(ctx context.Context, provider address.Address, dealID abi.DealID, proposal market.DealProposal, publishCid *cid.Cid, cb storagemarket.DealSectorPreCommittedCallback) error {
+func (n *FakeCommonNode) OnDealSectorPreCommitted(ctx context.Context, provider address.Address, proposal market.DealProposal, publishCid cid.Cid, cb storagemarket.DealSectorPreCommittedCallback) error {
 	if n.DelayFakeCommonNode.OnDealSectorPreCommitted {
 		select {
 		case <-ctx.Done():
@@ -217,7 +217,7 @@ func (n *FakeCommonNode) OnDealSectorPreCommitted(ctx context.Context, provider 
 }
 
 // OnDealSectorCommitted returns immediately, and returns stubbed errors
-func (n *FakeCommonNode) OnDealSectorCommitted(ctx context.Context, provider address.Address, dealID abi.DealID, sectorNumber abi.SectorNumber, proposal market.DealProposal, publishCid *cid.Cid, cb storagemarket.DealSectorCommittedCallback) error {
+func (n *FakeCommonNode) OnDealSectorCommitted(ctx context.Context, provider address.Address, sectorNumber abi.SectorNumber, proposal market.DealProposal, publishCid cid.Cid, cb storagemarket.DealSectorCommittedCallback) error {
 	if n.DelayFakeCommonNode.OnDealSectorCommitted {
 		select {
 		case <-ctx.Done():

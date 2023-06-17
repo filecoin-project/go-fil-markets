@@ -599,6 +599,7 @@ func makeExecutor(ctx context.Context,
 		dealState, err := tut.MakeTestClientDeal(initialState, clientDealProposal, envParams.manualTransfer)
 		assert.NoError(t, err)
 		dealState.AddFundsCid = &tut.GenerateCids(1)[0]
+		dealState.PublishMessage = &tut.GenerateCids(1)[0]
 		dealState.FastRetrieval = dealParams.fastRetrieval
 		dealState.TransferChannelID = &datatransfer.ChannelID{}
 

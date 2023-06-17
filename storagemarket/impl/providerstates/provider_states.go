@@ -510,7 +510,7 @@ func VerifyDealPreCommitted(ctx fsm.Context, environment ProviderDealEnvironment
 		}
 	}
 
-	err := environment.Node().OnDealSectorPreCommitted(ctx.Context(), deal.Proposal.Provider, deal.DealID, deal.Proposal, deal.PublishCid, cb)
+	err := environment.Node().OnDealSectorPreCommitted(ctx.Context(), deal.Proposal.Provider, deal.Proposal, *deal.PublishCid, cb)
 
 	if err != nil {
 		return ctx.Trigger(storagemarket.ProviderEventDealPrecommitFailed, err)
@@ -529,7 +529,7 @@ func VerifyDealActivated(ctx fsm.Context, environment ProviderDealEnvironment, d
 		}
 	}
 
-	err := environment.Node().OnDealSectorCommitted(ctx.Context(), deal.Proposal.Provider, deal.DealID, deal.SectorNumber, deal.Proposal, deal.PublishCid, cb)
+	err := environment.Node().OnDealSectorCommitted(ctx.Context(), deal.Proposal.Provider, deal.SectorNumber, deal.Proposal, *deal.PublishCid, cb)
 
 	if err != nil {
 		return ctx.Trigger(storagemarket.ProviderEventDealActivationFailed, err)
