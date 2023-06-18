@@ -393,10 +393,11 @@ func (p *Provider) ImportDataForDeal(ctx context.Context, propCid cid.Cid, data 
 		cleanup()
 		return xerrors.Errorf("failed to determine proof type: %w", err)
 	}
-	log.Debugw("fetched proof type", "propCid", propCid)
+	log.Debugw("fetched proof type", "propCid", propCid, "pt", proofType)
 
 	pieceCid, err := generatePieceCommitment(proofType, tempfi, carSize)
 	if err != nil {
+		log.Errorw("failed to generate piece commitment", "err", err)
 		cleanup()
 		return xerrors.Errorf("failed to generate commP: %w", err)
 	}
