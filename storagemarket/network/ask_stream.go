@@ -2,6 +2,7 @@ package network
 
 import (
 	"bufio"
+	"encoding/hex"
 
 	"github.com/libp2p/go-libp2p/core/network"
 	"github.com/libp2p/go-libp2p/core/peer"
@@ -46,6 +47,28 @@ func (as *askStream) ReadAskResponse() (AskResponse, []byte, error) {
 		log.Warn(err)
 		return AskResponseUndefined, nil, err
 	}
+
+	ask := resp.Ask.Ask
+
+	sigb, err := resp.Ask.Signature.MarshalBinary()
+	if err != nil {
+		log.Warn(err)
+		return AskResponseUndefined, nil, err
+	}
+
+	log.Infof("Ask response receieved on network:\n"+
+		"New storage ask:\nPrice: %s\nVerifiedPrice: %s\nTimestamp: %s\n"+
+		"Expiry: %d\nMiner: %s\nSeqNo: %d\nMinPieceSize: %d\n"+
+		"MaxPieceSize: %d", ask.Price.String(), ask.VerifiedPrice.String(),
+		ask.Timestamp.String(), ask.Expiry, ask.Miner.String(), ask.SeqNo,
+		ask.MinPieceSize, ask.MaxPieceSize)
+
+	log.Infof("Ask response receieved on network\n"+
+		"Crypto Signature: %s", hex.EncodeToString(sigb))
+
+	log.Infof("Ask response receieved on network\n"+
+		"Ask Bytes: %s", hex.EncodeToString(origBytes))
+
 	return resp, origBytes, nil
 }
 
